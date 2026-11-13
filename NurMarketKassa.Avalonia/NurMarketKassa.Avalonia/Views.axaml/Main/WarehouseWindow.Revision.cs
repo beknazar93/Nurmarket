@@ -718,6 +718,25 @@ public partial class WarehouseWindow
         RevisionShowScreen(true);
         PosLogger.Log($"Склад: ревизия {(s.CountedCount > 0 ? "продолжена" : "начата")}: строк {s.Rows.Count}, посчитано {s.CountedCount}.", "STOCK");
         Dispatcher.UIThread.Post(() => RevisionFocusScan());
+        // 2026-11-11 (Д-7): на NBS при ревизии частная память доходила до 2,1 ГБ, в Headless на 15 000 строк (с обёрткой масштаба владельца) — +57 МБ и 16 строк на экране.
+        // Чтобы следующая живая проверка показала причину: память «до / через 8 с» и сколько строк списка создано (должно быть ≈ видимым, а не тысячи).
+        MemoryDiagnostics.LogAround("ревизия начата");
+        var probe = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+        probe.Tick += (_, _) =>
+        {
+            probe.Stop();
+            try
+            {
+                var realized = _revList.GetRealizedContainers().Count();
+                PosLogger.Log($"Склад: ревизия — строк списка создано {realized} из {_revView.Count}, список {_revList.Bounds.Width:0}×{_revList.Bounds.Height:0}.",
+                    realized > 300 ? "WARNING" : "STOCK");
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Склад: ревизия — замер списка не удался: {ex.Message}", "DEBUG");
+            }
+        };
+        probe.Start();
     }
 
     /// <summary>Закрыть рабочий экран (ревизия проведена или брошена) и вернуться на стартовый.</summary>
@@ -736,6 +755,18 @@ public partial class WarehouseWindow
         RevisionDraftStore.ReleaseLock();
         RevisionShowScreen(false);
         RevisionRefreshStart();
+        // 2026-11-11 (Д-7, живая проверка «Склада»: на «Ревизии» частная память владельца до 2,1 ГБ, после «Бросить ревизию» сборщик держал 1,9 ГБ при живых 0,4 ГБ).
+        // Ревизия на 15 тыс. строк закончена/брошена — через 20 с одна уплотняющая сборка (OwnerMemoryTrim: не чаще раза в 2 мин), память возвращается системе.
+        if (AppMode.IsOwner)
+        {
+            var trim = new DispatcherTimer { Interval = OwnerMemoryTrim.SettleDelay };
+            trim.Tick += (_, _) =>
+            {
+                trim.Stop();
+                _ = Task.Run(() => OwnerMemoryTrim.TrimNow(DateTime.MinValue));
+            };
+            trim.Start();
+        }
     }
 
     private void RevisionOnWindowClosed()

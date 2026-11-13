@@ -3,6 +3,8 @@
 # 2026-11-06 (В14): фаза 2 — NurMarketKassa.UiTests (сквозные сценарии и снимки окон в Avalonia.Headless); тот же замок, та же временная папка данных,
 #   тот же хэш-контроль настоящих данных. Выбор: -Phase all|unit|ui; отчёты расхождений снимков: %LOCALAPPDATA%\Temp\nurmarket-tests\ui-actual;
 #   обновить эталоны сознательно: -UpdateSnapshots.
+# 2026-11-11: в фазу ui входит «стабильность раскладки» (LayoutStabilityTests, проба UiTests/Harness/LayoutStabilityProbe.cs — пульсация ширины при прокрутке,
+#   ресайзе, вкладках, масштабе, модалке, сворачивании; касса и разделы владельца); отдельно: -Phase ui -Filter "FullyQualifiedName~LayoutStabilityTests".
 # Что делает:
 #   1) NURMARKET_DATA_ROOT -> уникальная временная папка (все пути данных кассы — AppPaths.Roaming/Local — ведут внутрь неё; тесты
 #      дополнительно создают свою подпапку run-XXXX и удаляют её при выходе); DESKTOP_MARKET_API_URL -> заглушка 127.0.0.1:9
@@ -109,6 +111,8 @@ try {
     foreach ($proj in $projects) {
         $dotnetArgs = @("test", $proj, "-m:1", "-nodeReuse:false", "--nologo")
         if ($Filter) { $dotnetArgs += @("--filter", $Filter) }
+        # 2026-11-13: один зависший тест (незакрытое модальное окно в Headless) держал замок сборки часами (ReceivingPackBarUiTests, 10 часов) — тест, не ответивший 10 минут, прерывается (без дампа памяти), прогон завершается с отчётом
+        $dotnetArgs += @("--blame-hang-timeout", "10m", "--blame-hang-dump-type", "none")
         $ErrorActionPreference = "Continue"
         "=== $proj ===" | Out-File -FilePath $outFile -Encoding utf8 -Append
         & dotnet @dotnetArgs 2>&1 | Out-File -FilePath $outFile -Encoding utf8 -Append

@@ -53,6 +53,9 @@ public static class LicenseKeys
         ["salary"] = "714dd3b9c9878b86e3a7bd35039588d4623531a6b26c02cf4962ab6cf46cea77",
         ["debts"] = "76e282a5a257873cb37d6a86ab6cc00272c7cdbe169588380158d23dfd211bf4",
         ["service"] = "5e0b83bb6e6e7c3ffc0107759382826fa47a765d8f74a484a8f719a554af4dca",
+        // 2026-11-13: «Ремонт и сервис» и «Trade-in / скупка» (Маркетплейс) — ключи только отпечатками, сами ключи — в docs/paid-serial-keys.md.
+        ["repair"] = "6db39b153927d6ae2eb4398edc5df035c80f2782d435d60671c3c0f734e8ece5",
+        ["trade_in"] = "00bb6b6305fbbe725ce54262407eacee71297b3141b1a30cff4ab8483e1c4c4f",
     };
 
     private static string Sha256Hex(string text) =>
@@ -139,6 +142,8 @@ public static class LicenseKeys
         {
             case "loyalty": prefs.LoyaltyEnabled = false; break;
             case "timesheet": prefs.StaffTimesheetUnlocked = false; break;
+            case "repair": prefs.RepairUnlocked = false; break;      // 2026-11-13
+            case "trade_in": prefs.TradeInUnlocked = false; break;   // 2026-11-13
             case "analytics": prefs.WarehouseAnalyticsUnlocked = false; break;
             case "language": prefs.LanguagePackUnlocked = false; break;
             case "pricetag": prefs.PriceTagEditorUnlocked = false; break;

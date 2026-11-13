@@ -129,7 +129,7 @@ public partial class StockTransferDialog : Window
         SummaryText.Text = TransferSummaryText.Build(items.Count, items.Sum(i => i.Quantity), _transfer.Status);
 
         WeightBox.Text = _transfer.TotalWeight > 0
-            ? _transfer.TotalWeight.ToString("0.###", CultureInfo.InvariantCulture)
+            ? MoneyText.Weight(_transfer.TotalWeight) // 2026-11-12 (Д-5): вес с запятой (разбор принимает обе)
             : "";
 
         LogGrid.ItemsSource = StockTransferService.Instance.LoadLog(_transferId)

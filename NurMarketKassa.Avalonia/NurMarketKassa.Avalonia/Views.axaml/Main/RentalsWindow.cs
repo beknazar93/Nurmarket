@@ -198,6 +198,7 @@ public sealed class RentalsWindow : Window, IOwnerSectionRefresh, IOwnerSectionE
 
     /// <summary>2026-11-01 (В2-03): когда раздел последний раз начинал загрузку — для RefreshOnShow.</summary>
     private DateTime _loadedUtc = DateTime.UtcNow;
+    private Exception? _loadException; // 2026-11-12 (Д-2): сбой последней загрузки — для блока состояния
 
     public DateTime? RefreshOnShow()
     {
@@ -216,6 +217,7 @@ public sealed class RentalsWindow : Window, IOwnerSectionRefresh, IOwnerSectionE
         try
         {
             _loadFailed = false;
+            _loadException = null;
             var api = App.GetRequiredService<RentalsApi>();
             var active = await api.ListAsync("active").ConfigureAwait(true);
             var overdueList = await api.ListAsync("overdue").ConfigureAwait(true);
@@ -235,9 +237,13 @@ public sealed class RentalsWindow : Window, IOwnerSectionRefresh, IOwnerSectionE
         catch (Exception ex)
         {
             _loadFailed = true;
-            _status.IsVisible = true;
-            _status.Text = T("Не удалось загрузить прокат: ", "Прокатты жүктөө болбой калды: ", "Could not load rentals: ", "Kiralamalar yüklenemedi: ", "Prokatni yuklab bo'lmadi: ")
-                           + RentalsApi.Describe(ex);
+            _loadException = ex;
+            // 2026-11-12 (оценка UX/UI, Д-2): ошибка — общим блоком в списке (Render), а не сырой строкой «Не удалось загрузить прокат: …» сверху; текст сервера — в журнал.
+            // Прежний список остаётся на экране — одна честная строка, что он не обновился.
+            _status.Text = _active.Count + _returned.Count > 0
+                ? T("Не удалось обновить прокат: ", "Прокатты жаңыртуу мүмкүн болгон жок: ", "Could not refresh rentals: ", "Kiralamalar güncellenemedi: ", "Prokatni yangilab bo'lmadi: ") + ServerOutageMonitor.FriendlyError(ex)
+                : "";
+            _status.IsVisible = _status.Text.Length > 0;
             PosLogger.Log($"Прокат: список не загружен ({RentalsApi.Describe(ex)}).", "WARNING");
         }
         Render();
@@ -286,14 +292,17 @@ public sealed class RentalsWindow : Window, IOwnerSectionRefresh, IOwnerSectionE
         _list.Children.Clear();
         if (rows.Count == 0)
         {
-            var empty = new TextBlock
+            // 2026-11-12 (Д-2): сбой загрузки — блок «Сервер недоступен» / «Не удалось загрузить» с «Повторить»; иначе — общий блок «пусто».
+            if (_loadFailed)
             {
-                // 2026-10-18, этап О4: в программе владельца кнопки «+ Новый прокат» нет — без отсылки к ней.
-                // Доводка О4: пусто — по вкладке и с подсказкой, что делать.
-                Text = _loadFailed
-                    ? ServerOutageMonitor.UnavailableText + ". " + T("Проверьте интернет и нажмите «Обновить».", "Интернетти текшериңиз да «Жаңыртуу» басыңыз.", "Check the internet and press “Refresh”.",
-                        "İnterneti kontrol edip «Yenile»ye basın.", "Internetni tekshirib, «Yangilash»ni bosing.") // 2026-11-01 (В-28): сбой загрузки, а не «ничего нет»
-                    : _tab == "overdue"
+                _list.Children.Add(StateBlock.Failure(this, _loadException,
+                    T("Не удалось загрузить прокат", "Прокатты жүктөө болбой калды", "Could not load rentals", "Kiralamalar yüklenemedi", "Prokatni yuklab bo'lmadi"),
+                    () => _ = LoadAsync()));
+                return;
+            }
+            // 2026-10-18, этап О4: в программе владельца кнопки «+ Новый прокат» нет — без отсылки к ней.
+            // Доводка О4: пусто — по вкладке и с подсказкой, что делать.
+            var emptyText = _tab == "overdue"
                     ? T("Просроченных нет — все вещи возвращают вовремя.", "Мөөнөтү өткөн жок — бардык буюмдар убагында кайтарылууда.", "Nothing overdue — everything comes back on time.",
                         "Gecikmiş yok — her şey zamanında iade ediliyor.", "Muddati o'tganlar yo'q — hammasi o'z vaqtida qaytarilmoqda.")
                     : _tab == "returned"
@@ -306,13 +315,8 @@ public sealed class RentalsWindow : Window, IOwnerSectionRefresh, IOwnerSectionE
                                 "Hozir qo'lda hech narsa yo'q. Buyumni prokatga kassada berish mumkin: menyu → «Prokat».")
                             : T("Здесь пока пусто. Нажмите «+ Новый прокат», чтобы выдать вещь клиенту.", "Азырынча бош. Кардарга буюм берүү үчүн «+ Жаңы прокат» басыңыз.",
                     "Nothing here yet. Press “+ New rental” to give an item to a client.", "Henüz boş. Müşteriye ürün vermek için «+ Yeni kiralama»ya basın.",
-                    "Hozircha bo'sh. Mijozga buyum berish uchun «+ Yangi prokat»ni bosing."),
-                // 2026-10-18, доводка О4: по центру, как пустые таблицы других разделов.
-                FontSize = 14, Margin = new Thickness(24, 56, 24, 0), TextWrapping = TextWrapping.Wrap,
-                TextAlignment = TextAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center, MaxWidth = 520,
-            };
-            Use(empty, TextBlock.ForegroundProperty, "BrushTextSoft");
-            _list.Children.Add(empty);
+                    "Hozircha bo'sh. Mijozga buyum berish uchun «+ Yangi prokat»ni bosing.");
+            _list.Children.Add(StateBlock.Empty(emptyText));
             return;
         }
         foreach (var r in rows)

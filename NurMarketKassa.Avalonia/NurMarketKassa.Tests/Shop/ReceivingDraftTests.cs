@@ -370,6 +370,35 @@ public sealed class ReceivingDraftTests : IDisposable
         session.LastSavedAt.Should().NotBeNull();
     }
 
+    // 2026-11-11 (Д-5, живая проверка «Склада»): «Закрыть склад?» говорил «строки пропадут», хотя черновик пишется. Окно перед вопросом пишет черновик
+    // (SaveNowAndCheck) и по ответу выбирает текст: записан — «сохранится черновиком», не записан — прежнее предупреждение.
+    [Fact]
+    public void Session_SaveNowAndCheck_TrueWhenWritten_FalseWhenNotArmedOrWriteFails()
+    {
+        var probe = new Probe { State = OneMeaningful() };
+        using (var session = Session(probe))
+        {
+            session.SaveNowAndCheck().Should().BeFalse("автосохранение ещё не включено (не ответили «Продолжить / Начать заново»)");
+            session.Arm();
+            session.SaveNowAndCheck().Should().BeTrue("черновик записан сразу, с ожиданием");
+            File.Exists(PathOf()).Should().BeTrue();
+            session.SaveNowAndCheck().Should().BeTrue("без изменений — прежняя запись остаётся, ответ тот же");
+            session.LastWriteFailed.Should().BeFalse();
+        }
+
+        var broken = new ReceivingDraftSession(ReceivingDraftSlots.Purchases, () => throw new IOException("диск"), TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5));
+        try
+        {
+            broken.Arm();
+            broken.SaveNowAndCheck().Should().BeFalse("снимок/запись не удались — набранное НЕ сохранится, нужно прежнее предупреждение");
+            broken.LastWriteFailed.Should().BeTrue();
+        }
+        finally
+        {
+            broken.Dispose();
+        }
+    }
+
     [Fact]
     public void Session_ContinuousTyping_StillWritesWithinMaxWait()
     {

@@ -60,6 +60,10 @@ namespace NurMarketKassa.Services
             // 2026-09-28, продажа №1136: акции товара (promotion_rules) сервер применяет к строке
             // чека сам — касса запоминает их, чтобы считать итог так же (см. PromotionRules).
             PromotionRules.Remember(id, p);
+            // 2026-11-13 (сервер sn1311): track_serials и warranty_months карточки — по id товара в product-serials.json (колонок в базе кассы нет). Старый сервер полей не шлёт — ничего не меняется.
+            ProductSerialRules.Remember(id, p);
+            // 2026-11-13 (ответ Умара 13.11, строймаркет): sale_units — упаковки товара (м² → упаковка 1,44), по id товара в product-sale-units.json.
+            ProductSaleUnits.Remember(id, p);
 
             // ---------- PurchasePrice ----------
             if (JsonProps.TryGet(p, props, "purchase_price", out var ppEl) && TryGetDouble(ppEl, out double ppVal))

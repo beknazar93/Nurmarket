@@ -640,6 +640,17 @@ public partial class ReturnSaleDialog
         return null;
     }
 
+    /// <summary>2026-11-12 (аудит Fable, С-17): единица измерения строки чека (unit / unit_display / measure_unit); пусто — в строке её нет (тогда берётся из каталога).</summary>
+    internal static string LineUnit(JsonElement item)
+    {
+        if (item.ValueKind != JsonValueKind.Object)
+            return "";
+        foreach (var key in new[] { "unit", "unit_display", "measure_unit" })
+            if (item.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.String && v.GetString()?.Trim() is { Length: > 0 and <= 12 } s)
+                return s;
+        return "";
+    }
+
     private void FillLinesFromSale(JsonElement sale)
     {
         Lines.Clear();
@@ -779,6 +790,8 @@ public partial class ReturnSaleDialog
                 // 2026-10-27 (Д-5): весовой/дробный товар — количество к возврату дробное; штучный — целое.
                 AllowFractionalQuantity = tile is { IsWeighted: true } || tile is { MustWeigh: true }
                     || Math.Abs(qty - Math.Round(qty)) > 1e-6 || Math.Abs(originalQty - Math.Round(originalQty)) > 1e-6,
+                // 2026-11-12 (аудит Fable, С-17): единица строки — из чека, иначе из каталога (подпись «Вернуть, кг:» вместо «шт.»)
+                Unit = LineUnit(lineItem) is { Length: > 0 } lineUnit ? lineUnit : (tile?.Unit ?? ""),
                 Title = title,
                 SubLine = subLine,
                 // 2026-10-19, К1: сумма к возврату — «1 234,50 сом» (MoneyText), крупно справа в строке; сама сумма прежняя.

@@ -41,8 +41,9 @@
   </Style>
 
   <Style Selector="Button.ShiftWindowChromeButton">
-    <Setter Property="Width" Value="40"/>
-    <Setter Property="Height" Value="36"/>
+    <!-- 2026-11-12 (Д-4): цель нажатия 44 (была 40×36). -->
+    <Setter Property="Width" Value="44"/>
+    <Setter Property="Height" Value="44"/>
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="BorderThickness" Value="0"/>
     <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>

@@ -231,6 +231,19 @@ public partial class ShtrikhPcSettingsWindow : Window
     private async Task ProbeAsync()
     {
         SaveConnection();
+        // 2026-11-12 (ТЗ «Весы Штрих PC-200 — как всё устроено», п. 1; руководство программиста драйвера РС-200): порт 22222 — закрытый протокол драйвера для 1С,
+        // «запрос типа устройства» в РС-200С3 не поддерживается, а кадр Штрих-ПРИНТ здесь — догадка. Касса работает только файлами; проверка — лишь при NURMARKET_PC200_PROBE=1.
+        if (!string.Equals(Environment.GetEnvironmentVariable("NURMARKET_PC200_PROBE"), "1", StringComparison.Ordinal))
+        {
+            var off = L("Проверка порта 22222 отключена: это закрытый протокол драйвера для 1С, на РС-200 С3 запрос типа устройства не поддерживается. Касса работает с весами только файлами в папке Shared — проверьте её кнопкой «Проверить связь».",
+                "22222 портун текшерүү өчүрүлгөн: бул 1С үчүн драйвердин жабык протоколу, РС-200 С3 түзмөк түрүн суроону колдобойт. Касса тараза менен Shared папкасындагы файлдар аркылуу гана иштейт — аны «Байланышты текшерүү» баскычы менен текшериңиз.",
+                "The port 22222 check is off: it is the closed protocol of the 1C driver, and the RS-200 C3 does not support the device-type request. The till works with the scale only through files in the Shared folder — check it with “Check connection”.",
+                "22222 port kontrolü kapalı: bu 1C sürücüsünün kapalı protokolü, RS-200 C3 cihaz türü sorgusunu desteklemiyor. Kasa tartıyla yalnızca Shared klasöründeki dosyalarla çalışır — «Bağlantıyı kontrol et» ile kontrol edin.",
+                "22222 portni tekshirish o‘chirilgan: bu 1C drayverining yopiq protokoli, RS-200 C3 qurilma turini so‘rashni qo‘llamaydi. Kassa tarozi bilan faqat Shared papkasidagi fayllar orqali ishlaydi — uni «Aloqani tekshirish» tugmasi bilan tekshiring.");
+            _probeText.Text = off;
+            ShowResult(off, false);
+            return;
+        }
         var s = ShtrikhPcSettings.Current;
         var host = ShtrikhPcProtocolProbe.ResolveHost(s);
         if (host is null)

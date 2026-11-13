@@ -81,6 +81,7 @@ public partial class ReturnSaleDialog
             if (_filterHost is not null)
                 _filterHost.IsVisible = !_filterHost.IsVisible;
             UpdateFiltersToggle();
+            FitFilterHeight();
         };
         var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 0, 0, 6) };
         row.Children.Add(_productBox);
@@ -105,7 +106,15 @@ public partial class ReturnSaleDialog
             if (_productBox is not null && !string.IsNullOrEmpty(_productBox.Text))
                 _productBox.Text = "";
         };
-        _filterHost = new Border { Child = _filterBar, IsVisible = false, Margin = new Thickness(0, 0, 0, 2) };
+        // 2026-11-12 (аудит Fable, В-6): панель фильтров — в прокрутке с подгоняемой высотой (FitFilterHeight): на 1024×600 она занимала 4 ряда, и от списка чеков оставалась шапка.
+        _filterScroll = new ScrollViewer
+        {
+            Content = _filterBar,
+            HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+            VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+            MaxHeight = 4 * FilterRowHeight,
+        };
+        _filterHost = new Border { Child = _filterScroll, IsVisible = false, Margin = new Thickness(0, 0, 0, 2) };
         DockPanel.SetDock(_filterHost, Dock.Top);
 
         _countText = new TextBlock { FontSize = 12.5, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(2, 0, 0, 6), IsVisible = false };
@@ -119,6 +128,10 @@ public partial class ReturnSaleDialog
         salesBlock.Children.Insert(at, _filterHost);
         salesBlock.Children.Insert(at, row);
         UpdateFiltersToggle();
+        // 2026-11-12 (В-6, С-16): высота панели фильтров подгоняется под окно; значок «ⓘ» получает имя для диктора
+        NameLayoutControls();
+        salesBlock.SizeChanged += (_, _) => FitFilterHeight();
+        _countText.SizeChanged += (_, _) => FitFilterHeight();
     }
 
     /// <summary>Начальные значения (карточка клиента, «Продажи») — до первой загрузки списка.</summary>

@@ -20,8 +20,8 @@ using NurMarketKassa.Services;
 
 namespace NurMarketKassa.AvaloniaHost.Views.Dialogs;
 
-// 2026-11-06: В15г — часть класса BarcodePrintWindow (Cards): перенесено из BarcodePrintWindow.cs без изменений логики.
-public partial class BarcodePrintWindow
+// 2026-11-06: В15г — часть класса BarcodePrintView (Cards): перенесено из BarcodePrintWindow.cs без изменений логики.
+public partial class BarcodePrintView
 {
     // ------------------------------------------------------------------ стили и мелкие помощники
 
@@ -136,7 +136,7 @@ public partial class BarcodePrintWindow
 
     private int PageCount => Math.Max(1, (_found.Count + PageSize - 1) / PageSize);
 
-    private void ApplyFilter()
+    private void ApplyFilter(bool keepPage = false)
     {
         var found = BarcodePrintCatalog.Search(CatalogCacheService.Products, _search.Text, _filter, _category);
         if (_onlyIds != null)
@@ -154,7 +154,7 @@ public partial class BarcodePrintWindow
         }
         _filterVersion++;
         _found = found;
-        _page = 0;
+        _page = keepPage ? Math.Min(_page, PageCount - 1) : 0; // 2026-11-11: возврат на вкладку «Штрихкоды» не сбрасывает страницу
         RenderPage();
         UpdateSelectionUi();
     }
@@ -242,7 +242,7 @@ public partial class BarcodePrintWindow
             var choices = BarcodePrintCatalog.Choices(p);
             var idx = string.IsNullOrWhiteSpace(it.Barcode) ? -1 : choices.FindIndex(c => string.Equals(c.Code, it.Barcode.Trim(), StringComparison.OrdinalIgnoreCase));
             st.BarcodeIndex = Math.Max(idx, 0);
-            st.Copies = Math.Clamp(it.Copies, 1, 99);
+            st.Copies = it.Copies > 0 ? Math.Clamp(it.Copies, 1, 99) : null; // 2026-11-11: 0 — «по умолчанию» (выбранные товары из вкладки «Товары»)
             if (it.Copies > 99)
                 capped++;
             SetSelected(st, true);
@@ -291,7 +291,7 @@ public partial class BarcodePrintWindow
         }
         if (firstEnd < end)
             Dispatcher.UIThread.Post(() => AddCardBatch(gen, firstEnd, end), DispatcherPriority.Background);
-        LayoutCards(_scroll.Bounds.Width > 0 ? _scroll.Bounds.Width : Width - 64);
+        LayoutCards(_scroll.Bounds.Width > 0 ? _scroll.Bounds.Width : FallbackWidth);
         _scroll.Offset = default;
 
         var total = CatalogCacheService.Products.Count;
@@ -308,7 +308,8 @@ public partial class BarcodePrintWindow
         ApplyTexts();
     }
 
-    private const int CardBatch = 12;
+    // 2026-11-11: во вкладке пакеты по 8 (в окне по 12): первые карточки появляются быстрее, поток интерфейса отдаётся чаще.
+    private int CardBatch => _embedded ? 8 : 12;
     private int _renderGen;
 
     /// <summary>Следующий пакет карточек страницы; страница сменилась (или окно закрыто) — пакет бросается.</summary>
@@ -323,10 +324,12 @@ public partial class BarcodePrintWindow
             _cards.Add(card);
             _cardsPanel.Children.Add(card);
         }
-        LayoutCards(_lastWidth > 0 ? _lastWidth : (_scroll.Bounds.Width > 0 ? _scroll.Bounds.Width : Width - 64));
+        LayoutCards(_lastWidth > 0 ? _lastWidth : (_scroll.Bounds.Width > 0 ? _scroll.Bounds.Width : FallbackWidth));
         if (to < end)
             Dispatcher.UIThread.Post(() => AddCardBatch(gen, to, end), DispatcherPriority.Background);
     }
+
+    private double _layoutWidth, _cardWidth;
 
     private void LayoutCards(double width)
     {
@@ -334,15 +337,42 @@ public partial class BarcodePrintWindow
             return;
         _lastWidth = width;
         const double gap = 10;
-        var usable = Math.Max(width - 14, 200);
-        var cols = Math.Max(1, (int)((usable + gap) / (250 + gap)));
-        var cardWidth = Math.Floor((usable - gap * (cols - 1)) / cols) - 1;
+        // 2026-11-11 (видео «у.mp4»: рабочая область пульсирует при прокрутке): колонки пересчитываются, только если список стал уже или шире больше чем на 24 px
+        // (раньше — на каждое изменение ширины в 1–2 px, из-за чего число колонок и ширина карточек «ходили»); новым карточкам достаётся прежняя ширина.
+        if (_layoutWidth <= 0 || width < _layoutWidth || width - _layoutWidth >= 24)
+        {
+            var usable = Math.Max(width - 18, 200); // 2026-11-11 («срез»): запас под полосу прокрутки 18 (было 14); ширина — фактическая ширина списка после раскладки (WidthFreeHost), не область просмотра: та могла быть устаревшей
+            // 2026-11-11: во вкладке «Штрихкоды» карточка не уже 290 (в окне — прежние 250): в узкой карточке подпись «В печать» / «Басууга» рядом с «Копий» рвалась по буквам (1366: 5 карточек по 247).
+            var cols = Math.Max(1, (int)((usable + gap) / ((_embedded ? 290 : 250) + gap)));
+            _cardWidth = Math.Max(Math.Floor((usable - gap * (cols - 1)) / cols) - 1, 180);
+            _layoutWidth = width;
+        }
+        var changed = false;
         foreach (var c in _cards)
         {
-            c.Width = Math.Max(cardWidth, 180);
-            c.Margin = new Thickness(0, 0, gap, gap);
+            if (double.IsNaN(c.Width) || Math.Abs(c.Width - _cardWidth) > 0.01) // у новой карточки Width = NaN
+            {
+                if (!double.IsNaN(c.Width))
+                    changed = true; // у уже разложенной карточки ширина поменялась (у новой — первая раскладка, перемерка не нужна)
+                c.Width = _cardWidth;
+            }
+            if (c.Margin.Right != gap)
+                c.Margin = new Thickness(0, 0, gap, gap);
+        }
+        // 2026-11-13: ширина карточек меняется внутри раскладки (SizeChanged списка) — после смены масштаба 90→100→90 WrapPanel держал прежние желаемые размеры (слот 323+10 при карточке 363: наложение и срез слева);
+        // перемерка панели заставляет её переразложить ряды по новой ширине; отложена (Background): синхронная, прямо в раскладке, на первом показе вкладки раскладывала панель инструментов шире вкладки.
+        if (changed && !_remeasureQueued)
+        {
+            _remeasureQueued = true;
+            Dispatcher.UIThread.Post(() =>
+            {
+                _remeasureQueued = false;
+                _cardsPanel.InvalidateMeasure();
+            }, DispatcherPriority.Background);
         }
     }
+
+    private bool _remeasureQueued;
 
     // ------------------------------------------------------------------ карточка товара
 
@@ -414,7 +444,7 @@ public partial class BarcodePrintWindow
     private async Task<bool> AskAsync(string title, string question, string ok, string cancel) =>
         ConfirmOverride != null
             ? await ConfirmOverride(question).ConfigureAwait(true)
-            : await PosConfirmDialog.ShowModalAsync(this, title, question, ok, cancel).ConfigureAwait(true);
+            : await PosConfirmDialog.ShowModalAsync(Host, title, question, ok, cancel).ConfigureAwait(true);
 
     private void SetSelected(Sel st, bool value)
     {
@@ -435,17 +465,24 @@ public partial class BarcodePrintWindow
             SetSelected(st, false);
 
         var check = new CheckBox { Content = T("В печать", "Басууга", "Print", "Yazdır", "Chopga"), IsChecked = st.Selected, IsEnabled = printable, MinHeight = 44, VerticalAlignment = VerticalAlignment.Center };
-        var copies = Num(1, 99, CopiesOf(p, st), 118);
-        copies.IsEnabled = printable;
-        Avalonia.Automation.AutomationProperties.SetName(copies, T("Копий", "Көчүрмө", "Copies", "Kopya", "Nusxa"));
-        var copiesLabel = new TextBlock { Text = T("Копий:", "Көчүрмө:", "Copies:", "Kopya:", "Nusxa:"), FontSize = 12.5, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0) };
+        // 2026-11-11 («баг в разделе штрихкоды», 15 000 товаров): NumericUpDown — самый тяжёлый элемент карточки (~14 мс на карточку, 48 карточек ≈ 0,7 с на каждый поиск и страницу).
+        // Пока карточку не выбрали и в поле не нажали, вместо него лёгкая «коробка» с числом того же размера; настоящее поле появляется при выборе, наведении, нажатии или Tab.
+        NumericUpDown? copies = null;
+        var copiesText = new TextBlock { Text = CopiesOf(p, st).ToString(), FontSize = 14, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0) };
+        var copiesBox = new Border { Width = 118, MinHeight = 44, CornerRadius = new CornerRadius(8), BorderThickness = new Thickness(1.5), Child = copiesText, Focusable = true, IsTabStop = true, Opacity = printable ? 1 : 0.5 };
+        Use(copiesBox, Border.BackgroundProperty, "BrushPanel");
+        Use(copiesBox, Border.BorderBrushProperty, "BrushInputBorder");
+        Use(copiesText, TextBlock.ForegroundProperty, "BrushText");
+        Avalonia.Automation.AutomationProperties.SetName(copiesBox, T("Копий", "Көчүрмө", "Copies", "Kopya", "Nusxa"));
+        var copiesHost = new Border { HorizontalAlignment = HorizontalAlignment.Left, Child = copiesBox };
+        var copiesLabel = new TextBlock { Text = T("Копий:", "Көчүрмө:", "Copies:", "Kopya:", "Nusxa:"), FontSize = 12.5, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 6, 0) }; // 2026-11-12 (Д-17): отступ слева
         Use(copiesLabel, TextBlock.ForegroundProperty, "BrushTextSoft");
         var top = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto") };
         top.Children.Add(check);
         Grid.SetColumn(copiesLabel, 1);
         top.Children.Add(copiesLabel);
-        Grid.SetColumn(copies, 2);
-        top.Children.Add(copies);
+        Grid.SetColumn(copiesHost, 2);
+        top.Children.Add(copiesHost);
 
         var caption = new TextBlock { Text = T("ШТРИХ-КОД", "ШТРИХ-КОД", "BARCODE", "BARKOD", "SHTRIX-KOD"), FontSize = 12, FontWeight = FontWeight.SemiBold };
         Use(caption, TextBlock.ForegroundProperty, "BrushTextSoft");
@@ -501,7 +538,7 @@ public partial class BarcodePrintWindow
         var name = new TextBlock { Text = p.Title, FontSize = 13.5, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, MaxLines = 2, TextTrimming = TextTrimming.CharacterEllipsis, MinHeight = 38 };
         Use(name, TextBlock.ForegroundProperty, "BrushText");
         ToolTip.SetTip(name, p.Title);
-        var price = new TextBlock { Text = p.PriceLine, FontSize = 12, Margin = new Thickness(0, 2, 0, 0) };
+        var price = new TextBlock { Text = BarcodePrintCatalog.LabelPriceText(p.PriceLine), FontSize = 12, Margin = new Thickness(0, 2, 0, 0) };
         Use(price, TextBlock.ForegroundProperty, "BrushTextSoft");
 
         ToolTip.SetTip(codeControl, caption.Text);
@@ -533,22 +570,49 @@ public partial class BarcodePrintWindow
         }
         Style();
 
+        NumericUpDown Realize()
+        {
+            if (copies != null)
+                return copies;
+            copies = Num(1, 99, CopiesOf(p, st), 118);
+            copies.IsEnabled = printable;
+            Avalonia.Automation.AutomationProperties.SetName(copies, T("Копий", "Көчүрмө", "Copies", "Kopya", "Nusxa"));
+            copies.ValueChanged += (_, _) =>
+            {
+                if (_copiesGuard)
+                    return;
+                var v = (int)(copies.Value ?? BaseCopies(p));
+                st.Copies = v == BaseCopies(p) ? null : v;
+                UpdateSelectionUi();
+            };
+            copiesHost.Child = copies;
+            return copies;
+        }
+        if (printable)
+        {
+            copiesBox.PointerEntered += (_, _) => Realize();
+            copiesBox.PointerPressed += (_, _) => Realize();
+            copiesBox.GotFocus += (_, _) => Realize().Focus();
+        }
+        if (st.Selected)
+            Realize();
+
         check.IsCheckedChanged += (_, _) =>
         {
             SetSelected(st, check.IsChecked == true);
+            if (check.IsChecked == true && printable)
+                Realize();
             Style();
             UpdateSelectionUi();
             SchedulePreview();
         };
-        copies.ValueChanged += (_, _) =>
+        _copiesSync.Add(() =>
         {
-            if (_copiesGuard)
-                return;
-            var v = (int)(copies.Value ?? BaseCopies(p));
-            st.Copies = v == BaseCopies(p) ? null : v;
-            UpdateSelectionUi();
-        };
-        _copiesSync.Add(() => copies.Value = CopiesOf(p, st));
+            if (copies != null)
+                copies.Value = CopiesOf(p, st);
+            else
+                copiesText.Text = CopiesOf(p, st).ToString();
+        });
         _pageSync.Add(() =>
         {
             if ((check.IsChecked == true) != st.Selected)

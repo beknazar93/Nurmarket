@@ -94,6 +94,8 @@ public sealed partial class UserPreferences
                 BulkPriceTagUnlocked = BulkPriceTagUnlocked,
                 VoiceLockEnabled = VoiceLockEnabled,
                 StaffTimesheetUnlocked = StaffTimesheetUnlocked,
+                RepairUnlocked = RepairUnlocked, // 2026-11-13
+                TradeInUnlocked = TradeInUnlocked, // 2026-11-13
                 ScalesUnlocked = ScalesUnlocked,
                 BulkPriceTagKind = BulkPriceTagKind,
                 BulkPriceTagWidthMm = BulkPriceTagWidthMm,
@@ -175,6 +177,8 @@ public sealed partial class UserPreferences
                 TelegramCommandsEnabled = TelegramCommandsEnabled,
                 DebtPrepaymentChooseMethod = DebtPrepaymentChooseMethod,
                 AdvisorCapabilitiesJson = AdvisorCapabilitiesJson,
+                SphereSettingsJson = SphereSettingsJson, // 2026-11-12: ХМ15
+                ClientPriceGroupsJson = ClientPriceGroupsJson, // 2026-11-12: ХМ15
                 PurchaseEditWindow = PurchaseEditWindow,
                 StaffAutoMarkMode = StaffAutoMarkMode,
                 IdleLogoutMinutes = IdleLogoutMinutes, // 2026-11-08
@@ -226,6 +230,7 @@ public sealed partial class UserPreferences
                 RongtaLanShelfLifeDays = RongtaLanShelfLifeDays,
                 RongtaPricePoint = RongtaPricePoint,
                 RongtaBarcodeType = RongtaBarcodeType,
+                RongtaServerBarcodeType = RongtaServerBarcodeType, // 2026-11-13: тип штрихкода в записи 0110 (способ «свой сервер»)
                 ScaleKeyCount = ScaleKeyCount,
                 LoyaltyEarnPercent = LoyaltyEarnPercent,
                 QuickCheckoutEnabled = QuickCheckoutEnabled,
@@ -452,6 +457,8 @@ public sealed partial class UserPreferences
         public bool? BulkPriceTagUnlocked { get; set; }
         public bool? VoiceLockEnabled { get; set; }
         public bool? StaffTimesheetUnlocked { get; set; }
+        public bool? RepairUnlocked { get; set; } // 2026-11-13
+        public bool? TradeInUnlocked { get; set; } // 2026-11-13
         public bool? ScalesUnlocked { get; set; }
         public int? BulkPriceTagKind { get; set; }
         public double? BulkPriceTagWidthMm { get; set; }
@@ -534,6 +541,8 @@ public sealed partial class UserPreferences
         public bool? TelegramCommandsEnabled { get; set; }
         public bool? DebtPrepaymentChooseMethod { get; set; }
         public string? AdvisorCapabilitiesJson { get; set; }
+        public string? SphereSettingsJson { get; set; }
+        public string? ClientPriceGroupsJson { get; set; }
         public string? PurchaseEditWindow { get; set; }
         public string? StaffAutoMarkMode { get; set; }
         public int? IdleLogoutMinutes { get; set; }
@@ -588,6 +597,7 @@ public sealed partial class UserPreferences
         public int? RongtaLanShelfLifeDays { get; set; }
         public int? RongtaPricePoint { get; set; }
         public int? RongtaBarcodeType { get; set; }
+        public int? RongtaServerBarcodeType { get; set; }
         public int? ScaleKeyCount { get; set; }
         public double? LoyaltyEarnPercent { get; set; }
         public bool? QuickCheckoutEnabled { get; set; }

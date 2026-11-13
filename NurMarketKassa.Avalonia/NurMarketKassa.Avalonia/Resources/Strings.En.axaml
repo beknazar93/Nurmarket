@@ -22,6 +22,8 @@
   <x:String x:Key="csh.menu.clients">Clients</x:String>
   <x:String x:Key="csh.menu.payDebt">Pay debt</x:String>
   <x:String x:Key="csh.menu.rental">Rentals</x:String>
+  <x:String x:Key="csh.menu.repair">Repair and service</x:String>
+  <x:String x:Key="csh.menu.tradeIn">Trade-in / buy-back</x:String>
   <x:String x:Key="csh.menu.settings">Settings</x:String>
   <x:String x:Key="csh.menu.marketplace">Marketplace</x:String>
   <x:String x:Key="csh.menu.crm">NurCRM</x:String>
@@ -238,8 +240,8 @@
   <x:String x:Key="csh.login.secureSubtitle">Data syncs with the cloud and the local audit database.</x:String>
   <x:String x:Key="csh.login.formTitle">Sign in to the till</x:String>
   <x:String x:Key="csh.login.formSubtitle">Email and password from Nur CRM</x:String>
-  <x:String x:Key="csh.login.email">Email</x:String>
-  <x:String x:Key="csh.login.emailWatermark">Login</x:String>
+  <x:String x:Key="csh.login.email">Email / login</x:String>
+  <x:String x:Key="csh.login.emailWatermark">Email / login</x:String>
   <x:String x:Key="csh.login.password">Password</x:String>
   <x:String x:Key="csh.login.passwordWatermark">Password</x:String>
   <x:String x:Key="csh.login.showPasswordTooltip">Show password</x:String>
@@ -445,6 +447,7 @@
   <x:String x:Key="common.cashier">Cashier</x:String>
   <x:String x:Key="cashHistory.title">Cash operation history</x:String>
   <x:String x:Key="cashHistory.subtitle">Cash movements and till openings</x:String>
+  <x:String x:Key="cashHistory.empty">No records yet. Cash in, cash out and till openings will appear here.</x:String>
   <x:String x:Key="cashOps.title">Cash operations</x:String>
   <x:String x:Key="cashOps.subtitle">Manage the shift and cash operations</x:String>
   <x:String x:Key="newOperation.title">New operation</x:String>
@@ -595,6 +598,7 @@
   <x:String x:Key="payDebt.colAmountDue">Amount due</x:String>
   <x:String x:Key="payDebt.colPaid">Paid</x:String>
   <x:String x:Key="payDebt.changeClientButton">Change</x:String>
+  <x:String x:Key="payDebt.pickHint">Pick a client from the list or search by name or phone — their debt receipts will appear here.</x:String>
   <x:String x:Key="payDebt.clientSearchWatermark">Search by name or phone…</x:String>
 
   <!-- On-screen keyboard (non-letter keys) -->
@@ -1054,7 +1058,8 @@
   <x:String x:Key="shiftHistoryView.subtitle">All shifts and their current statuses</x:String>
   <x:String x:Key="shiftHistoryView.newOperationButton">+ New operation</x:String>
   <x:String x:Key="shiftHistoryView.tableTitle">Shift list</x:String>
-  <x:String x:Key="shiftHistoryView.colShiftNumber">Shift #</x:String>
+  <x:String x:Key="shiftHistoryView.empty">No shifts yet. A shift appears after the till is opened for the first time.</x:String>
+  <x:String x:Key="shiftHistoryView.colShiftNumber">No.</x:String>
   <x:String x:Key="common.revenue">Revenue</x:String>
   <x:String x:Key="shiftHistoryView.overallPlanTitle">Till overview</x:String>
   <x:String x:Key="shift.openingBalanceLabel">Opening balance</x:String>
@@ -1409,6 +1414,8 @@
   <x:String x:Key="receiptHistory.printCopy">Print copy</x:String>
   <x:String x:Key="receiptHistory.return">Return…</x:String>
   <x:String x:Key="csh.cart.printLastReceipt">Print last receipt</x:String>
+  <x:String x:Key="csh.cart.schoolLists">Back-to-school lists</x:String>
+  <x:String x:Key="csh.cart.invoiceFromReceipt">Invoice from this receipt</x:String>
   <x:String x:Key="csh.cart.writeOff">Write-off</x:String>
   <x:String x:Key="csh.cart.writeOffTooltip">Write off damaged, expired or personal-use goods from stock</x:String>
   <x:String x:Key="csh.cart.printLastReceiptTooltip">Print a copy of this shift's last receipt</x:String>

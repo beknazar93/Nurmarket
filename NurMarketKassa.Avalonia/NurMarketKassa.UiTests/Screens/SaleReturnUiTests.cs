@@ -145,6 +145,86 @@ public sealed class SaleReturnUiTests : IDisposable
         }
     }
 
+    // ------------------------------------------------------------------ 2026-11-12 (аудит Fable, В-6, С-16…С-18, Н-8): высота списка — ЧИСЛОМ, не только снимком
+
+    public static IEnumerable<object[]> Cases3() =>
+        new (int W, int H)[] { (1024, 600), (1366, 768) }
+            .SelectMany(s => new[] { AppLanguage.Russian, AppLanguage.Kyrgyz, AppLanguage.Uzbek }.Select(l => new object[] { s.W, s.H, l }));
+
+    /// <summary>Чек s-200 «частично возвращён»: три строки, у каждой есть поле количества (весовой сыр 2,5 кг и штучные).</summary>
+    private static void StubWeightedSale()
+    {
+        UiFake.Server.Json("GET", "/api/main/pos/sales/s-200/", 200, "{\"id\":\"s-200\",\"number\":2105,\"status\":\"partially_returned\",\"return_status\":\"partial\",\"payment_method\":\"cash\",\"total\":\"1000.00\",\"items\":["
+            + "{\"id\":\"w-1\",\"product_id\":\"pw-1\",\"name\":\"Сыр российский весовой\",\"quantity\":\"2.5\",\"unit\":\"кг\",\"unit_price\":\"200\",\"total\":\"500\",\"returnable_qty\":2.5},"
+            + "{\"id\":\"w-2\",\"product_id\":\"pw-2\",\"name\":\"Хомут пластиковый 200 мм\",\"quantity\":\"5\",\"unit_price\":\"60\",\"total\":\"300\",\"returnable_qty\":5},"
+            + "{\"id\":\"w-3\",\"product_id\":\"pw-3\",\"name\":\"Лампа H4 галогенная\",\"quantity\":\"2\",\"unit_price\":\"100\",\"total\":\"200\",\"returnable_qty\":2}]}");
+    }
+
+    private static int VisibleRows(DataGrid grid) =>
+        grid.GetVisualDescendants().OfType<DataGridRow>().Count(r =>
+        {
+            if (!r.IsEffectivelyVisible || r.Bounds.Height < 10 || r.TranslatePoint(new Avalonia.Point(0, 0), grid) is not { } top)
+                return false;
+            return top.Y >= -1 && top.Y + r.Bounds.Height <= grid.Bounds.Height + 1;
+        });
+
+    [AvaloniaTheory]
+    [MemberData(nameof(Cases3))]
+    public async Task ReturnDialog_FiltersOpen_ThreeReceiptsAndTwoLinesVisible_MarkNotClipped_UnitInLabel(int width, int height, AppLanguage lang)
+    {
+        UiShot.Setup(UiTheme.Light, lang);
+        StubPhotoList();
+        StubWeightedSale();
+        await LoginAsync();
+        var dialog = new ReturnSaleDialog();
+        var tag = $"{lang} {width}x{height}";
+        try
+        {
+            UiShot.Render(dialog, new UiSize(width, height));
+            WaitFor(() => dialog.Sales.Count == 8);
+            var open = typeof(ReturnSaleDialog).GetMethod("OpenSaleByIdAsync", BindingFlags.NonPublic | BindingFlags.Instance)!;
+            await (Task)open.Invoke(dialog, ["s-200"])!;
+            UiShot.Settle(4, 30);
+            UiDrive.Click(dialog, UiDrive.Find<Button>(dialog, "ReturnFiltersToggle"));
+            UiShot.Settle(5, 30);
+
+            var grid = dialog.FindControl<DataGrid>("SalesDataGrid")!;
+            var visibleReceipts = VisibleRows(grid);
+            var linesBlock = dialog.FindControl<DockPanel>("LinesBlock")!;
+            var linesScroll = linesBlock.GetVisualDescendants().OfType<ScrollViewer>().First();
+            var cards = (linesScroll.Content as ItemsControl)!.GetRealizedContainers().OfType<Control>().ToList();
+            var fullLines = cards.Count(c => c.TranslatePoint(new Avalonia.Point(0, 0), linesScroll) is { } p && p.Y >= -1 && p.Y + c.Bounds.Height <= linesScroll.Viewport.Height + 1);
+            Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "nurmarket-tests", "ui-actual"));
+            File.AppendAllText(Path.Combine(Path.GetTempPath(), "nurmarket-tests", "ui-actual", "return-layout.txt"),
+                $"{DateTime.Now:HH:mm:ss} {tag}: таблица чеков {grid.Bounds.Height:0} px, видно чеков {visibleReceipts}, область строк {linesScroll.Viewport.Height:0} px, видно строк товара {fullLines}{Environment.NewLine}");
+            SaveShot(dialog, $"return-layout-{lang}-{width}x{height}".ToLowerInvariant());
+
+            visibleReceipts.Should().BeGreaterThanOrEqualTo(3, $"с открытыми «Фильтрами» видно не меньше 3 чеков ({tag}); высота таблицы {grid.Bounds.Height:0} px");
+            fullLines.Should().BeGreaterThanOrEqualTo(2, $"справа видно не меньше 2 строк товара ({tag}); высота области {linesScroll.Viewport.Height:0} px");
+
+            // С-18: пометка «↩ частично» не обрезана многоточием (ru, ky, uz)
+            var mark = dialog.FilteredSales.First(r => r.SaleId == "s-200").ReturnMark;
+            mark.Should().NotBeEmpty("у чека s-200 есть пометка возврата");
+            TextClipChecker.Find(dialog, "return-dialog", lang.ToString()).Where(v => v.Detail.Contains('↩')).Should().BeEmpty($"пометка возврата не обрезана ({tag})");
+
+            // С-17: у весовой строки подпись количества — с единицей строки, не «шт.»
+            var cheese = dialog.Lines.Single(l => l.Title.Contains("Сыр"));
+            cheese.ReturnQtyLabel.Should().Contain("кг", "подпись берёт единицу строки чека");
+            cheese.ReturnQtyLabel.Should().NotContain("шт");
+            UiDrive.AllText(dialog).Should().Contain(cheese.ReturnQtyLabel);
+            dialog.Lines.Single(l => l.Title.Contains("Хомут")).ReturnQtyLabel.Should().NotContain("кг", "у штучной строки единицы в чеке нет — подпись по умолчанию");
+
+            // Н-8: подписи полей суммы — не обрывки слов
+            var texts = dialog.GetVisualDescendants().OfType<TextBox>().Select(t => t.Watermark).Where(w => !string.IsNullOrEmpty(w)).ToList();
+            texts.Should().NotContain(w => w!.StartsWith("-", StringComparison.Ordinal) || w == "до" || w == "gacha" || w == "Сумма -дан", "подписи «от/до» суммы — целыми словами");
+        }
+        finally
+        {
+            dialog.Close();
+            UiShot.Pump();
+        }
+    }
+
     // ------------------------------------------------------------------ фильтры вместе, «Сбросить», поиск по товару, предвыбор
 
     [AvaloniaFact]

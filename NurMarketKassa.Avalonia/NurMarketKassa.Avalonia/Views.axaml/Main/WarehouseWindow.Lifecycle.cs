@@ -40,6 +40,8 @@ public partial class WarehouseWindow
             WriteOffTabItem.IsVisible = false;
             if (_bulkTab != null)
                 _bulkTab.IsVisible = false;
+            if (_barcodesTab != null)
+                _barcodesTab.IsVisible = false; // 2026-11-11: режим «только аналитика» — печати штрихкодов нет
             // Подсказка про сканер штрих-кода бессмысленна здесь — в этом режиме нет поиска
             // и редактирования товаров, только просмотр аналитики.
             ScanHintBorder.IsVisible = false;
@@ -446,14 +448,15 @@ public partial class WarehouseWindow
         BulkImportWizardWindow.Open(this);
     }
 
-    private async void BulkPriceTag_Click(object? sender, RoutedEventArgs e)
+    private void BulkPriceTag_Click(object? sender, RoutedEventArgs e)
     {
         if (!BarcodePrintAccess.Ensure(this)) // 2026-11-01 (П-10)
             return;
         if (!EnsureBulkPriceTagUnlocked())
             return;
 
-        await BulkPriceTagPrintDialog.Open(this).ConfigureAwait(true);
+        // 2026-11-11: печать — во вкладке «Штрихкоды» (отмеченные галочкой товары передаются в неё); окно «Печать штрихкодов и ценников» открывается оттуда же и из других мест.
+        OpenBarcodesTab(_printPicked.ToList());
     }
 
     private async void OpenLabelEditorTab_Click(object? sender, RoutedEventArgs e)

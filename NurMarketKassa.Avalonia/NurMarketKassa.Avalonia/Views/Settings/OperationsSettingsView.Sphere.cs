@@ -99,7 +99,7 @@ public partial class OperationsSettingsView
     private void RefreshSphereLockUi()
     {
         var canChange = MarketSphereLock.CanChangeNow;
-        foreach (var radio in new[] { SphereGroceryRadio, SphereClothingRadio, SphereServicesRadio })
+        foreach (var radio in new[] { SphereGroceryRadio, SphereClothingRadio, SphereServicesRadio }.Concat(_extraSphereRadios.Values))
             radio.IsEnabled = canChange;
 
         SphereLockText.Text = !canChange
@@ -149,6 +149,99 @@ public partial class OperationsSettingsView
         var digits = new string(MarketSphereLock.SupportPhone.Where(char.IsDigit).ToArray());
         if (!PlatformLauncher.OpenUrl("https://wa.me/" + digits + "?text=" + Uri.EscapeDataString(text)))
             PosLogger.Log("Вид магазина: WhatsApp поддержки не открылся.", "WARNING");
+    }
+
+    // ── 2026-11-12 (ХМ14, ТЗ хозмаг): плитки сфер из каталога и размер магазина «Хозтовары» ──────────────
+
+    private readonly Dictionary<string, Avalonia.Controls.RadioButton> _extraSphereRadios = new();
+
+    /// <summary>Кнопки сфер каталога сверх трёх базовых (<see cref="SphereCatalog.ChoiceList"/>): создаются один раз, потом только отмечаются.</summary>
+    private void RefreshExtraSphereRadios(string currentProfileId)
+    {
+        foreach (var profile in SphereCatalog.ChoiceList())
+        {
+            if (profile.Id is MarketSpheres.Grocery or MarketSpheres.Clothing or MarketSpheres.Services)
+                continue;
+            if (!_extraSphereRadios.TryGetValue(profile.Id, out var radio))
+            {
+                radio = new Avalonia.Controls.RadioButton { GroupName = "MarketSphere", Margin = new Avalonia.Thickness(0, 0, 8, 8), Tag = profile.Id };
+                radio.Classes.Add("DatePill");
+                radio.Classes.Add("SphereLockable");
+                radio.Click += Sphere_Click;
+                _extraSphereRadios[profile.Id] = radio;
+                SphereRadioPanel.Children.Add(radio);
+            }
+            radio.Content = profile.Icon + " " + profile.ShortTitle.Get();
+            radio.IsChecked = profile.Id == currentProfileId;
+        }
+    }
+
+    /// <summary>Id точной сферы, чья кнопка отмечена, или null (отмечена одна из трёх базовых).</summary>
+    private string? SelectedExtraSphere() =>
+        _extraSphereRadios.FirstOrDefault(kv => kv.Value.IsChecked == true).Key;
+
+    /// <summary>Сфера выбрана в Настройках. Новый магазин (первый выбор) получает «скан коробки» включённым (В-Х4), перешедший — выключенным.</summary>
+    private static void OnSphereChosen(string sphere, bool firstChoice)
+    {
+        if (sphere == MarketSpheres.Hardware && firstChoice)
+            SphereSettings.SetHardwareChoice(SphereSettings.GetHardwareSize(), packScan: true);
+    }
+
+    private bool _hardwareUiBusy;
+
+    private void RefreshHardwareUi()
+    {
+        var isHardware = MarketSpheres.IsHardware;
+        HardwarePanel.IsVisible = isHardware;
+        if (!isHardware)
+            return;
+        _hardwareUiBusy = true;
+        try
+        {
+            HardwareSizeTitle.Text = Dialogs.HardwareChoiceTexts.SizeStepTitle;
+            HardwareShopRadio.Content = Dialogs.HardwareChoiceTexts.SizeName(HardwareSize.Shop);
+            HardwareMarketRadio.Content = Dialogs.HardwareChoiceTexts.SizeName(HardwareSize.Market);
+            var size = SphereSettings.GetHardwareSize();
+            HardwareShopRadio.IsChecked = size == HardwareSize.Shop;
+            HardwareMarketRadio.IsChecked = size == HardwareSize.Market;
+            HardwareSizeHint.Text = Dialogs.HardwareChoiceTexts.SizeDescription(size);
+            HardwarePackScanText.Text = Dialogs.HardwareChoiceTexts.PackScanText;
+            HardwarePackScanCheck.IsChecked = SphereSettings.GetHardwarePackScan();
+            HardwareChangesText.Text = Dialogs.HardwareChoiceTexts.WhatChangesText();
+            // Нормы калькулятора правит владелец или администратор (по роли из профиля); кассиру кнопка не показывается.
+            HardwareNormsButton.IsVisible = CanSeeAiKeys;
+            HardwareNormsButton.Content = Tr.T("Нормы расхода калькулятора…", "Калькулятордун сарптоо нормалары…", "Calculator consumption rates…", "Hesaplayıcı tüketim normları…", "Kalkulyator sarf normalari…");
+        }
+        finally
+        {
+            _hardwareUiBusy = false;
+        }
+    }
+
+    private async void HardwareNorms_Click(object? sender, RoutedEventArgs e)
+    {
+        if (!CanSeeAiKeys || TopLevel.GetTopLevel(this) is not Window owner)
+            return;
+        await new HardwareCalcNormsView().ShowDialog(owner).ConfigureAwait(true);
+    }
+
+    private void HardwareSize_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_hardwareUiBusy)
+            return;
+        var size = HardwareMarketRadio.IsChecked == true ? HardwareSize.Market : HardwareSize.Shop;
+        if (!SphereSettings.SetHardwareChoice(size))
+            PosLogger.Log("Размер магазина «Хозтовары» не записан: настройки сфер не помещаются в лимит.", "WARNING");
+        RefreshHardwareUi();
+    }
+
+    private void HardwarePackScan_Changed(object? sender, RoutedEventArgs e)
+    {
+        if (_hardwareUiBusy)
+            return;
+        if (!SphereSettings.SetHardwareChoice(SphereSettings.GetHardwareSize(), HardwarePackScanCheck.IsChecked == true))
+            PosLogger.Log("«Скан коробки» не записан: настройки сфер не помещаются в лимит.", "WARNING");
+        RefreshHardwareUi();
     }
 
     private void OnSphereLockChanged() => Dispatcher.UIThread.Post(() =>

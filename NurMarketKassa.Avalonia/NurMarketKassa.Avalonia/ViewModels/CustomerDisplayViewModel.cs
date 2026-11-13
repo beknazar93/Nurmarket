@@ -783,7 +783,7 @@ public sealed class CustomerDisplayItemViewModel
         // «Скидка −1,00» — строки не складывались). Скидка строки — в колонке «Скидка» таблицы и общей строкой «Скидка».
         Title = title;
         Barcode = barcode?.Trim() ?? "";
-        QuantityText = $"×{quantity.ToString("0.###", CultureInfo.InvariantCulture)} {unit}";
+        QuantityText = $"×{NurMarketKassa.Services.MoneyText.Weight(quantity)} {unit}"; // 2026-11-12 (Д-5): запятая вместо точки
         UnitPriceText = MoneyText.Som((quantity == 0 ? 0 : lineTotal / quantity));
         TotalText = MoneyText.Som(lineTotal);
         QuantityValueText = quantity.ToString("0.###", CultureInfo.InvariantCulture);

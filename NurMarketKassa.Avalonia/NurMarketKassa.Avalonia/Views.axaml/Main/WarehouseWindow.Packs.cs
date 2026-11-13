@@ -66,11 +66,7 @@ public partial class WarehouseWindow
     private Task<bool> ConfirmPackSaleAsync(IReadOnlyList<ReceivingLineVm> lines)
     {
         ReceivingGrid.CommitEdit();
-        return PosConfirmDialog.ShowModalAsync(this,
-            TR("Поштучная продажа из упаковки", "Таңгактан даана менен сатуу", "Single pieces from a pack", "Koliden tek tek satış", "Qadoqdan donalab sotish"),
-            ReceivingPacks.PackSaleConfirmMessage(lines),
-            // 2026-11-10 (упаковка у товара склада): «Было → станет» — кнопки «Применить» / «Отмена»; без подтверждения не проводим.
-            TR("Применить", "Колдонуу", "Apply", "Uygula", "Qo'llash"),
-            TR("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"), PosConfirmAccent.Primary);
+        // 2026-11-11 (convert-to-packages): свежий остаток с сервера, «Округлить?» по согласию, затем «Было → станет» — общий шаг с «Закупками».
+        return ReceivingPackConvertFlow.ConfirmAsync(this, lines);
     }
 }

@@ -42,6 +42,7 @@ public partial class WarehouseWindow
         {
             if (e.PropertyName == nameof(WarehouseViewModel.PagedProducts))
             {
+                SyncProductsEmpty();
                 LoadPageThumbnails();
                 // 2026-11-06 (жалоба клиента «колонка Код / штрихкод пустая»): у видимых строк без единого кода читаем полную карточку (в базе их нет после сокращённой ленты).
                 NurMarketKassa.Services.ProductCodeBackfill.ScheduleForRows(_viewModel.PagedProducts.ToList());
@@ -49,6 +50,13 @@ public partial class WarehouseWindow
         };
         LoadPageThumbnails();
         NurMarketKassa.Services.ProductCodeBackfill.ScheduleForRows(_viewModel.PagedProducts.ToList());
+        // 2026-11-11: подсказка вместо голой шапки таблицы при 0 строк; пока идёт загрузка с сервера — не показывается.
+        ProductCountLoading.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == IsVisibleProperty)
+                SyncProductsEmpty();
+        };
+        SyncProductsEmpty();
         // 2026-10-06: склад, открытый в те доли секунды, пока каталог дозагружается после запуска, оставался пустым («Товаров 0»)
         // до «Обновить». Каталог загрузился, а склад пуст — перестроить список.
         // Отписка при закрытии окна: в кассе окно склада создаётся заново при каждом открытии.
@@ -181,6 +189,22 @@ public partial class WarehouseWindow
             RootGrid.Margin = compact ? new Thickness(24, 6, 24, 10) : OwnerSectionLayout.Margin;
     }
 
+    /// <summary>2026-11-11 (жалоба «пустота»): 0 строк в списке — подсказка по центру («ничего не найдено» при поиске/фильтре, «товаров пока нет» при пустом складе).</summary>
+    private void SyncProductsEmpty()
+    {
+        var empty = _viewModel.PagedProducts.Count == 0 && !ProductCountLoading.IsVisible;
+        ProductsEmptyHint.IsVisible = empty;
+        if (!empty)
+            return;
+        var filtered = CatalogCacheService.Products.Count > 0;
+        ProductsEmptyHint.Text = filtered
+            ? T("Ничего не найдено. Измените поиск или фильтры.", "Эчтеке табылган жок. Издөөнү же чыпкаларды өзгөртүңүз.", "Nothing found. Change the search or the filters.",
+                "Hiçbir şey bulunamadı. Aramayı veya filtreleri değiştirin.", "Hech narsa topilmadi. Qidiruv yoki filtrlarni o'zgartiring.")
+            : T("Товаров пока нет. Нажмите «Создать товар» или «Массовая загрузка».", "Товарлар азырынча жок. «Товар түзүү» же «Массалык жүктөө» баскычын басыңыз.",
+                "No products yet. Press “Create product” or “Bulk import”.", "Henüz ürün yok. «Ürün oluştur» veya «Toplu yükleme» düğmesine basın.",
+                "Hozircha mahsulot yo'q. «Mahsulot yaratish» yoki «Ommaviy yuklash» tugmasini bosing.");
+    }
+
     /// <summary>2026-10-06, владелец: «открывать товар на складе голосом». Вкладка «Товары», фильтры сброшены, в поиске — товар.</summary>
     public void ShowProduct(CatalogProductTileVm product)
     {
@@ -204,6 +228,7 @@ public partial class WarehouseWindow
             "writeoff" => WriteOffTabItem,
             "movements" => MovementsTabItem,
             "labels" => LabelEditorTabItem,
+            "barcodes" => _barcodesTab, // 2026-11-11: вкладка «Штрихкоды» (WarehouseWindow.Barcodes.cs)
             "bulk" => _bulkTab,
             _ => null,
         };
@@ -387,20 +412,26 @@ public partial class WarehouseWindow
                     $"kâr payı {(sale - purchase).ToString("N0", RuCulture)} {som}", $"ustama {(sale - purchase).ToString("N0", RuCulture)} {som}"), null, null),
             Card(T("Заканчивается", "Түгөнүп баратат", "Running low", "Tükenmek üzere", "Tugab bormoqda"), low.ToString("N0", RuCulture),
                 // 2026-11-06 (Б2-Т, живой тест Этапа 2): правило — «Минимальный остаток» карточки, а без него общий порог; подпись раньше называла только порог.
+                // 2026-11-11 (жалоба «по дизайну почему пустота»): в плитке — короткая суть, полная фраза и «нажмите, чтобы показать» — в подсказке (иначе плитка в 3 строки раздувала весь ряд).
+                T($"ниже минимума (<{CatalogProductTileVm.LowStockQuantityThreshold:0} без него)", $"минимумдан төмөн (жок болсо <{CatalogProductTileVm.LowStockQuantityThreshold:0})",
+                    $"below minimum (<{CatalogProductTileVm.LowStockQuantityThreshold:0} if none)", $"asgarinin altı (yoksa <{CatalogProductTileVm.LowStockQuantityThreshold:0})",
+                    $"minimaldan kam (yo'q bo'lsa <{CatalogProductTileVm.LowStockQuantityThreshold:0})"),
+                low > 0 ? "BrushWarning" : null, "low",
                 T($"ниже минимального остатка (без него — меньше {CatalogProductTileVm.LowStockQuantityThreshold:0}) — нажмите, чтобы показать", $"минималдуу калдыктан төмөн (жок болсо — {CatalogProductTileVm.LowStockQuantityThreshold:0} кем) — көрсөтүү үчүн басыңыз",
                     $"below the minimum stock (without it — under {CatalogProductTileVm.LowStockQuantityThreshold:0}) — click to show", $"asgari stokun altı (yoksa — {CatalogProductTileVm.LowStockQuantityThreshold:0} altı) — göstermek için tıklayın",
-                    $"minimal qoldiqdan kam (u bo'lmasa — {CatalogProductTileVm.LowStockQuantityThreshold:0} dan kam) — ko'rsatish uchun bosing"),
-                low > 0 ? "BrushWarning" : null, "low"),
+                    $"minimal qoldiqdan kam (u bo'lmasa — {CatalogProductTileVm.LowStockQuantityThreshold:0} dan kam) — ko'rsatish uchun bosing")),
             Card(T("Нет в наличии", "Калдыкта жок", "Out of stock", "Stokta yok", "Mavjud emas"), outOfStock.ToString("N0", RuCulture),
-                T("остаток 0 — нажмите, чтобы показать", "калдык 0 — көрсөтүү үчүн басыңыз", "stock 0 — click to show", "stok 0 — göstermek için tıklayın", "qoldiq 0 — ko'rsatish uchun bosing"),
-                outOfStock > 0 ? "BrushDanger" : null, "out"),
+                T("остаток 0", "калдык 0", "stock 0", "stok 0", "qoldiq 0"),
+                outOfStock > 0 ? "BrushDanger" : null, "out",
+                T("остаток 0 — нажмите, чтобы показать", "калдык 0 — көрсөтүү үчүн басыңыз", "stock 0 — click to show", "stok 0 — göstermek için tıklayın", "qoldiq 0 — ko'rsatish uchun bosing")),
             Card(T("Срок годности", "Жарактуулук мөөнөтү", "Expiry", "Son kullanma", "Yaroqlilik muddati"),
                 ProductExpiryIndex.IsLoaded ? marks.Count.ToString("N0", RuCulture) : "…",
                 ProductExpiryIndex.IsLoaded
                     ? T($"просрочено {expired} · скоро {expiring}", $"мөөнөтү өткөн {expired} · жакында {expiring}", $"expired {expired} · soon {expiring}",
                         $"süresi geçmiş {expired} · yakında {expiring}", $"muddati o'tgan {expired} · yaqinda {expiring}")
                     : T("загружаю с сервера…", "серверден жүктөлүүдө…", "loading from the server…", "sunucudan yükleniyor…", "serverdan yuklanmoqda…"),
-                expired > 0 ? "BrushDanger" : expiring > 0 ? "BrushWarning" : null, "expiry"),
+                expired > 0 ? "BrushDanger" : expiring > 0 ? "BrushWarning" : null, "expiry",
+                T("нажмите, чтобы показать", "көрсөтүү үчүн басыңыз", "click to show", "göstermek için tıklayın", "ko'rsatish uchun bosing")),
         };
         // 2026-10-30 (приёмка 1.17.65, «Права»): без права видеть закупку нет плитки «Склад по закупке», а у «Склада по продаже» — подсказки с наценкой (по ней считается закупка).
         if (!RevisionShowPurchase)
@@ -414,33 +445,63 @@ public partial class WarehouseWindow
         foreach (var card in cards)
             WarehouseKpiPanel.Children.Add(card);
 
-        Control Card(string label, string value, string sub, string? accent, string? filterKey)
+        Control Card(string label, string value, string sub, string? accent, string? filterKey, string? tip = null)
         {
             var active = filterKey != null && filter == filterKey;
-            var border = new Border { Classes = { "sec-kpi", "compact" } };
+            var border = new Border { Classes = { "sec-kpi", "compact" }, VerticalAlignment = VerticalAlignment.Stretch };
             if (active)
             {
                 border.BorderThickness = new Thickness(2);
                 border.Bind(Border.BorderBrushProperty, border.GetResourceObservable("BrushText"));
             }
-            var stack = new StackPanel { Spacing = 3 };
-            var l = new TextBlock { Text = label, Classes = { "sec-kpi-label" } };
-            var v = new TextBlock { Text = value, Classes = { "sec-kpi-value" }, FontSize = 20 };
+            var stack = new StackPanel { Spacing = 2 };
+            var l = new TextBlock { Text = label, Classes = { "sec-kpi-label" }, MaxLines = 2, TextTrimming = TextTrimming.CharacterEllipsis };
+            var v = new TextBlock { Text = value, Classes = { "sec-kpi-value" }, FontSize = 18 };
             if (accent != null)
                 v.Bind(TextBlock.ForegroundProperty, v.GetResourceObservable(accent));
-            var s = new TextBlock { Text = sub, FontSize = 12, TextWrapping = TextWrapping.Wrap, Classes = { "kpi-sub" } };
+            // 2026-11-11: пояснение — не больше 2 строк (многоточие), полный текст — в подсказке плитки.
+            var s = new TextBlock { Text = sub, FontSize = 12, TextWrapping = TextWrapping.Wrap, MaxLines = 2, TextTrimming = TextTrimming.CharacterEllipsis, Classes = { "kpi-sub" }, IsVisible = sub.Length > 0 };
             s.Bind(TextBlock.ForegroundProperty, s.GetResourceObservable("BrushTextSoft"));
-            stack.Children.Add(l);
-            stack.Children.Add(new Viewbox { Classes = { "sec-kpi-fit" }, Child = v });
+            // 2026-11-11: подпись и значок «Настройка» в уголке — значок поверх подписи, высоту строки не увеличивает.
+            var head = new Grid();
+            head.Children.Add(l);
+            stack.Children.Add(head);
+            var valueBox = new Viewbox { Classes = { "sec-kpi-fit" }, Child = v };
+            stack.Children.Add(valueBox);
             stack.Children.Add(s);
             // 2026-11-05 (волна 2-А, функция 1): на плитке «Срок годности» — «Списать просроченное» (если есть просроченное с остатком) и «Настройка» (режим проверки при продаже).
+            // 2026-11-11 (жалоба «пустота»): две кнопки столбиком раздували плитку до 165 px и весь ряд сводки. Теперь «Настройка» — значок-шестерёнка в углу,
+            // «Списать» — одной строкой справа от суммы (плитка не растёт).
             if (filterKey == "expiry")
             {
-                var buttons = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 0) };
+                var settingsText = T("Настройка", "Жөндөө", "Settings", "Ayarlar", "Sozlama");
+                var setup = new Button
+                {
+                    Content = new TextBlock { Text = "⚙", FontSize = 14, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
+                    Classes = { "SecondaryButton" }, Padding = new Thickness(0), MinHeight = 0, MinWidth = 0, Width = 36, Height = 36, // 2026-11-12 (аудит Д-12): цель касания 24 → 36 px; отрицательные поля не раздувают строку подписи
+                    HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, -4, -6, -8),
+                };
+                ToolTip.SetTip(setup, settingsText);
+                Avalonia.Automation.AutomationProperties.SetName(setup, settingsText);
+                setup.Click += async (_, e) =>
+                {
+                    e.Handled = true;
+                    await ShopAutomationWindow.ShowAsync(this).ConfigureAwait(true);
+                };
+                head.Children.Add(setup);
+                l.Margin = new Thickness(0, 0, 22, 0);
                 if (expired > 0)
                 {
-                    var writeOff = new Button { Content = T("Списать просроченное", "Мөөнөтү өткөндү эсептен чыгаруу", "Write off expired", "Süresi geçmişi düş", "Muddati o'tganni hisobdan chiqarish"),
-                        Classes = { "SecondaryButton" }, Padding = new Thickness(10, 4), Margin = new Thickness(0, 0, 6, 4) };
+                    // На плитке — короткая подпись (в строке с суммой, одной строкой), полное название — в подсказке и в окне списания.
+                    var writeOffText = T("Списать просроченное", "Мөөнөтү өткөндү эсептен чыгаруу", "Write off expired", "Süresi geçmişi düş", "Muddati o'tganni hisobdan chiqarish");
+                    var writeOffShort = T("Списать", "Чыгаруу", "Write off", "Düş", "Chiqarish");
+                    var writeOff = new Button
+                    {
+                        Content = new TextBlock { Text = writeOffShort, FontSize = 12 },
+                        Classes = { "SecondaryButton" }, Padding = new Thickness(8, 1), MinHeight = 36, MinWidth = 0, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(6, 6, 0, -6), // 2026-11-12 (аудит Д-12): «Списать» ~20 → 36 px высотой
+                    };
+                    Avalonia.Automation.AutomationProperties.SetName(writeOff, writeOffText);
+                    ToolTip.SetTip(writeOff, writeOffText);
                     writeOff.Click += async (_, e) =>
                     {
                         e.Handled = true;
@@ -452,19 +513,17 @@ public partial class WarehouseWindow
                             await RefreshExpiryAsync(true).ConfigureAwait(true);
                         }
                     };
-                    buttons.Children.Add(writeOff);
+                    // Строка «сумма · кнопка»: сумма слева (Viewbox сжимает её при нехватке места), кнопка справа в той же строке — плитка не растёт.
+                    var valueRow = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+                    stack.Children.Remove(valueBox);
+                    valueRow.Children.Add(valueBox);
+                    Grid.SetColumn(writeOff, 1);
+                    valueRow.Children.Add(writeOff);
+                    stack.Children.Insert(1, valueRow);
                 }
-                var setup = new Button { Content = "⚙ " + T("Настройка", "Жөндөө", "Settings", "Ayarlar", "Sozlama"), Classes = { "SecondaryButton" }, Padding = new Thickness(10, 4), Margin = new Thickness(0, 0, 0, 4) };
-                setup.Click += async (_, e) =>
-                {
-                    e.Handled = true;
-                    await ShopAutomationWindow.ShowAsync(this).ConfigureAwait(true);
-                };
-                buttons.Children.Add(setup);
-                stack.Children.Add(buttons);
             }
             border.Child = stack;
-            ToolTip.SetTip(border, label + ": " + value + "\n" + sub);
+            ToolTip.SetTip(border, label + ": " + value + "\n" + (tip ?? sub));
             if (filterKey != null)
             {
                 border.Cursor = new Cursor(StandardCursorType.Hand);

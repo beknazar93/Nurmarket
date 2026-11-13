@@ -76,7 +76,7 @@ public static class RongtaTcpProtocol
     /// No.", служит идентификатором PLU (см. Appendix мануала: "PLU No. — Retain for
     /// compatibility, no meaning"; "LFCode — unique identification... using for imputing
     /// PLU").</summary>
-    public static string BuildPluRecord(int plu, string name, double priceSom, char weighingUnit = '4', int pricePoint = 2)
+    public static string BuildPluRecord(int plu, string name, double priceSom, char weighingUnit = '4', int pricePoint = 2, int barcodeType = 5, int department = 21)
     {
         var transliteratedName = RongtaTransliterator.Transliterate(name);
         var sb = new StringBuilder(100);
@@ -90,7 +90,9 @@ public static class RongtaTcpProtocol
         // с нулевым кодом, а касса не нашла бы товар. Тип 05 = отдел(2)+код(6)+вес(4) —
         // раскладка компании «по коду», как советует документация сайта для Rongta.
         sb.Append(ClampDigits(plu, 10));                     // Art. No. / Code = PLU
-        sb.Append(ClampDigits(5, 2));                        // Barcode type 05
+        // 2026-11-13 (руководство RLS1000, команда 0110: «Barcode type, 2 цифры» сразу после «Art. No. (10)»): тип из «Настроек весов Rongta» → «Штрих-код»;
+        // по умолчанию 05, как было всегда.
+        sb.Append(ClampDigits(Math.Clamp(barcodeType, 0, 99), 2)); // Barcode type
         // 2026-11-06: раньше ClampDigits брал «последние 8 цифр» (цена ≥ 1 000 000 сом молча превращалась в другую). Теперь — явная ошибка.
         // 2026-11-07 (жалоба «цена бала 800, а на этикетке 80,00»): цена уходит в единицах «знаков после запятой» ВЕСОВ (параметр «Price point», настройка «Знаков после запятой в цене на весах»),
         // а не всегда ×100 — иначе при другом Price point на весах цена искажалась в 10 раз.
@@ -100,7 +102,7 @@ public static class RongtaTcpProtocol
             throw new ArgumentOutOfRangeException(nameof(priceSom), priceSom, "Цена не помещается в 8 цифр поля Unit price (максимум 999 999,99 сом).");
         sb.Append(ClampDigits(priceUnits, 8));               // Unit price ×10^Price point, без точки
         sb.Append(weighingUnit);                             // Weighing unit (по умолчанию '4' = кг)
-        sb.Append(ClampDigits(21, 2));                       // Dept. = 21 (префикс штрихкода)
+        sb.Append(ClampDigits(Math.Clamp(department, 0, 99), 2)); // Dept. (префикс штрихкода), по умолчанию 21 — 2026-11-13: вместе с выбранным типом
         sb.Append(ClampDigits(0, 6));                        // Tare weight (по умолчанию 0)
         sb.Append(ClampDigits(15, 3));                        // Saving period (по умолчанию 15, как в Appendix)
         sb.Append(ClampDigits(0, 1));                         // Packing type

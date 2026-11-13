@@ -39,6 +39,8 @@ public partial class EmployeesSettingsView : UserControl
         // Подписка — только пока страница на экране.
         AttachedToVisualTree += (_, _) => SettingsCloudSync.Applied += OnCloudApplied;
         DetachedFromVisualTree += (_, _) => SettingsCloudSync.Applied -= OnCloudApplied;
+        // 2026-11-11 (доступы «с сайта»): открыли «Сотрудники» — сразу перечитать свои доступы (вдруг их только что поменяли на сайте).
+        AttachedToVisualTree += (_, _) => AccessSync.Kick("employees");
 
         // 2026-09-09: офлайн (обычный или автономный режим) — реальных Сотрудников/Ролей на
         // сервере не существует без NurCRM, эти кнопки/карточка только пытались бы дёрнуть
@@ -514,6 +516,8 @@ public partial class EmployeesSettingsView : UserControl
             }
             await authApi.PatchEmployeeAsync(employee.ServerId, changed.ToDictionary(kv => kv.Key, kv => (object?)kv.Value));
             ConsultantDirectory.Forget();
+            // 2026-11-11 (доступы «с сайта»): касса сотрудника в этой сети перечитает его доступы сейчас, а не через свой такт (~90 с).
+            SyncCenter.NoteLocalChange("access");
             ShowLoadStatus(
                 Tr.T($"Доступы «{employee.Name}» обновлены.", $"«{employee.Name}» укуктары жаңыртылды.",
                     $"Permissions for “{employee.Name}” updated.", $"«{employee.Name}» için erişimler güncellendi.",

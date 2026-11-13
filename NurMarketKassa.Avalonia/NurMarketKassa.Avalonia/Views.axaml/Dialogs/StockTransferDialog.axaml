@@ -1,19 +1,19 @@
 ﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.StockTransferDialog"
+        xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
         x:CompileBindings="False"
         Title="{DynamicResource warehouse.transferCardTitle}"
-        Width="980" Height="720"
-        MinWidth="760" MinHeight="440"
+        Width="1012" Height="720"
         WindowStartupLocation="CenterOwner"
-        CanResize="True"
+        CanResize="False"
         SystemDecorations="None"
         TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
         Background="{DynamicResource DialogWindowBackground}">
 
   <Window.Styles>
     <Style Selector="TextBlock.field">
-      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="FontSize" Value="12.5"/>
       <Setter Property="Margin" Value="0,0,0,3"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
     </Style>
@@ -32,35 +32,12 @@
     <Style Selector="Border.status.cancelled"><Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/></Style>
     <Style Selector="Border.status.cancelled TextBlock"><Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/></Style>
 
-    <!-- Свои стили кнопок (2026-09-25, «статусы серые, не нажимаются»): это отдельное окно, стили
-         окна склада сюда не доходили, и «Отправить»/«Принять»/«Отменить» рисовались одинаково
-         серыми — рабочую кнопку было не отличить от выключенной. -->
-    <Style Selector="Button.PrimaryButton">
-      <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
-      <Setter Property="FontWeight" Value="Bold"/>
-      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-      <Setter Property="Cursor" Value="Hand"/>
-      <Setter Property="Padding" Value="16,8"/>
-      <Setter Property="MinHeight" Value="44"/>
-      <Setter Property="VerticalContentAlignment" Value="Center"/>
-    </Style>
-    <Style Selector="Button.SecondaryButton">
+    <!-- 2026-11-12 (Д-4): свои стили PrimaryButton/SecondaryButton убраны — кнопки окна теперь общие modal-primary / modal-secondary (PosDialogStyles). -->
+    <!-- 2026-11-12 (Д-4): заголовки таблицы — не меньше 12,5 (были 12). -->
+    <Style Selector="DataGridColumnHeader">
+      <Setter Property="FontSize" Value="12.5"/>
       <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
-      <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-      <Setter Property="Cursor" Value="Hand"/>
-      <Setter Property="Padding" Value="14,8"/>
-      <Setter Property="MinHeight" Value="44"/>
-      <Setter Property="VerticalContentAlignment" Value="Center"/>
-    </Style>
-    <!-- 2026-10-22 (модалки, пакет 3): «Отменить перемещение» — опасное действие красной обводкой; поля 44 px. -->
-    <Style Selector="Button.SecondaryButton.danger">
-      <Setter Property="Foreground" Value="{DynamicResource BrushDangerOnSoft}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushDanger}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
     </Style>
     <Style Selector="TextBox">
       <Setter Property="MinHeight" Value="44"/>
@@ -76,26 +53,46 @@
     </Style>
   </Window.Styles>
 
-  <Border Margin="14" CornerRadius="{DynamicResource SettingsCardRadius}"
-          Background="{DynamicResource BrushDialogPanel}"
-          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-          BoxShadow="0 12 32 0 #33101828"
-          Padding="22,18">
-    <Grid RowDefinitions="Auto,Auto,*,Auto,Auto">
+  <!-- 2026-11-12 (Д-4): общая рамка ModalShell — заголовок «Перемещение товара» и ✕ сверху; номер, статус и выгрузка — первой строкой содержимого;
+       внизу слева итог партии, справа «Отменить перемещение» (красная обводка), «Отправить» / «Принять» (главная, видна одна) и «Закрыть». -->
+  <dlg:ModalShell x:Name="Shell" Margin="16"
+                  Title="{DynamicResource warehouse.transferCardTitle}"
+                  ContentScroll="Disabled">
+    <dlg:ModalShell.Hint>
+      <TextBlock x:Name="SummaryText" FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+    </dlg:ModalShell.Hint>
+    <dlg:ModalShell.Footer>
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <Button x:Name="CancelTransferButton" Classes="modal-secondary danger" MaxWidth="260"
+                Content="{DynamicResource warehouse.transferCancel}" Click="CancelTransfer_Click"/>
+        <Button IsCancel="True" Classes="modal-cancel" MaxWidth="200"
+                Content="{DynamicResource common.close}" Click="Close_Click"/>
+        <Button x:Name="ShipButton" Classes="modal-primary" MaxWidth="280"
+                Content="{DynamicResource warehouse.transferShip}" Click="Ship_Click"/>
+        <Button x:Name="DeliverButton" Classes="modal-primary" MaxWidth="280"
+                Content="{DynamicResource warehouse.transferDeliver}" Click="Deliver_Click"/>
+      </StackPanel>
+    </dlg:ModalShell.Footer>
 
-      <!-- Шапка документа -->
-      <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,14">
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="0,-4,0,0">
+
+      <!-- Номер, статус, дата и выгрузка списка -->
+      <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
         <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-          <TextBlock x:Name="NumberText" FontSize="20" FontWeight="Bold"
+          <TextBlock x:Name="NumberText" FontSize="16" FontWeight="Bold"
                      Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
-          <Border x:Name="StatusBadge" Classes="status" VerticalAlignment="Center">
-            <TextBlock x:Name="StatusText" FontSize="12" FontWeight="SemiBold"/>
+          <Border x:Name="StatusBadge" Classes="status" VerticalAlignment="Center"
+                  IsVisible="{Binding Text, ElementName=StatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"> <!-- 2026-11-12 (Д-4): пустая плашка статуса не рисуется -->
+            <TextBlock x:Name="StatusText" FontSize="12.5" FontWeight="SemiBold"/>
           </Border>
-          <TextBlock x:Name="CreatedText" FontSize="12" VerticalAlignment="Center"
+          <TextBlock x:Name="CreatedText" FontSize="12.5" VerticalAlignment="Center"
                      Foreground="{DynamicResource BrushTextSoft}"/>
         </StackPanel>
-        <Button IsCancel="True" Grid.Column="1" Classes="SecondaryButton"
-                Content="{DynamicResource common.close}" Click="Close_Click"/>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+          <Button Classes="modal-secondary" MinHeight="40" MinWidth="72" Padding="12,0" Content="Excel" Click="ExportExcel_Click"/>
+          <Button Classes="modal-secondary" MinHeight="40" MinWidth="72" Padding="12,0" Content="Word" Click="ExportWord_Click"/>
+          <Button Classes="modal-secondary" MinHeight="40" MinWidth="72" Padding="12,0" Content="CSV" Click="ExportCsv_Click"/>
+        </StackPanel>
       </Grid>
 
       <!-- Маршрут и сопровождение -->
@@ -109,7 +106,7 @@
             <TextBlock Classes="field" Text="{DynamicResource warehouse.transferFrom}"/>
             <Grid ColumnDefinitions="*,Auto">
               <TextBox x:Name="FromBox" LostFocus="Field_Changed"/>
-              <Button x:Name="FromPickButton" Grid.Column="1" Classes="SecondaryButton" Content="▾" Tag="from" MinWidth="44"
+              <Button x:Name="FromPickButton" Grid.Column="1" Classes="modal-secondary" Content="▾" Tag="from" MinWidth="44"
                       HorizontalContentAlignment="Center" Margin="6,0,0,0" Padding="12,4" IsVisible="False" Click="PickPlace_Click"/>
             </Grid>
           </StackPanel>
@@ -117,7 +114,7 @@
             <TextBlock Classes="field" Text="{DynamicResource warehouse.transferTo}"/>
             <Grid ColumnDefinitions="*,Auto">
               <TextBox x:Name="ToBox" LostFocus="Field_Changed"/>
-              <Button x:Name="ToPickButton" Grid.Column="1" Classes="SecondaryButton" Content="▾" Tag="to" MinWidth="44"
+              <Button x:Name="ToPickButton" Grid.Column="1" Classes="modal-secondary" Content="▾" Tag="to" MinWidth="44"
                       HorizontalContentAlignment="Center" Margin="6,0,0,0" Padding="12,4" IsVisible="False" Click="PickPlace_Click"/>
             </Grid>
           </StackPanel>
@@ -165,11 +162,11 @@
                        TextChanged="ItemSearch_TextChanged"
                        KeyDown="ItemSearch_KeyDown"/>
               <TextBox x:Name="ItemQuantityBox" Width="90" Text="1"/>
-              <Button Classes="SecondaryButton" Content="{DynamicResource warehouse.transferAddItem}"
+              <Button Classes="modal-secondary" Content="{DynamicResource warehouse.transferAddItem}"
                       Click="AddItem_Click"/>
-              <Button Classes="SecondaryButton" Content="{DynamicResource warehouse.transferPickFromList}"
+              <Button Classes="modal-secondary" Content="{DynamicResource warehouse.transferPickFromList}"
                       Click="PickFromList_Click"/>
-              <Button Classes="SecondaryButton" Content="{DynamicResource warehouse.transferRemoveItem}"
+              <Button Classes="modal-secondary" Content="{DynamicResource warehouse.transferRemoveItem}"
                       Click="RemoveItem_Click"/>
             </WrapPanel>
 
@@ -183,7 +180,7 @@
               <ItemsControl x:Name="SuggestionsPanel">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
-                    <Button Classes="SecondaryButton"
+                    <Button Classes="modal-secondary"
                             HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Left"
                             Margin="0,1"
@@ -236,14 +233,14 @@
             <StackPanel Grid.Row="0" Spacing="6" Margin="0,0,0,8">
               <WrapPanel Orientation="Horizontal">
                 <ComboBox x:Name="FileKindBox" Width="190" Margin="0,0,6,6"/>
-                <Button x:Name="CreateDocButton" Classes="PrimaryButton" Margin="0,0,6,6" Padding="10,8" Click="CreateDoc_Click"/>
-                <Button x:Name="AttachButton" Classes="SecondaryButton" Margin="0,0,6,6" Padding="10,8" Content="{DynamicResource warehouse.transferAttach}"
+                <Button x:Name="CreateDocButton" Classes="modal-primary" Margin="0,0,6,6" Padding="10,8" Click="CreateDoc_Click"/>
+                <Button x:Name="AttachButton" Classes="modal-secondary" Margin="0,0,6,6" Padding="10,8" Content="{DynamicResource warehouse.transferAttach}"
                         Click="Attach_Click"/>
-                <Button Classes="SecondaryButton" Margin="0,0,6,6" Padding="10,8" Content="{DynamicResource warehouse.transferOpenFile}"
+                <Button Classes="modal-secondary" Margin="0,0,6,6" Padding="10,8" Content="{DynamicResource warehouse.transferOpenFile}"
                         Click="OpenFile_Click"/>
-                <Button x:Name="PrintDocButton" Classes="SecondaryButton" Margin="0,0,6,6" Padding="10,8" Click="PrintDoc_Click"/>
-                <Button Classes="SecondaryButton" Margin="0,0,6,6" Padding="10,8" Content="Word" Click="DocWord_Click"/>
-                <Button Classes="SecondaryButton" Margin="0,0,6,6" Padding="10,8" Content="Excel" Click="DocExcel_Click"/>
+                <Button x:Name="PrintDocButton" Classes="modal-secondary" Margin="0,0,6,6" Padding="10,8" Click="PrintDoc_Click"/>
+                <Button Classes="modal-secondary" Margin="0,0,6,6" Padding="10,8" Content="Word" Click="DocWord_Click"/>
+                <Button Classes="modal-secondary" Margin="0,0,6,6" Padding="10,8" Content="Excel" Click="DocExcel_Click"/>
               </WrapPanel>
               <StackPanel Orientation="Horizontal" Spacing="18">
                 <CheckBox x:Name="AutoWaybillCheck" Click="AutoDocs_Click"/>
@@ -270,28 +267,6 @@
           <TextBlock x:Name="WarningText" FontSize="13" TextWrapping="Wrap" Foreground="{DynamicResource BrushDangerOnSoft}"/>
         </ScrollViewer>
       </Border>
-
-      <!-- Статусы и выгрузка -->
-      <Grid Grid.Row="4" ColumnDefinitions="Auto,*,Auto" Margin="0,14,0,0">
-        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
-          <Button x:Name="ShipButton" Classes="PrimaryButton"
-                  Content="{DynamicResource warehouse.transferShip}" Click="Ship_Click"/>
-          <Button x:Name="DeliverButton" Classes="PrimaryButton"
-                  Content="{DynamicResource warehouse.transferDeliver}" Click="Deliver_Click"/>
-          <Button x:Name="CancelTransferButton" Classes="SecondaryButton danger"
-                  Content="{DynamicResource warehouse.transferCancel}" Click="CancelTransfer_Click"/>
-        </StackPanel>
-
-        <!-- 2026-11-06 (В11, макет MStock.html): итог партии и что станет с документом после кнопки слева. -->
-        <TextBlock x:Name="SummaryText" Grid.Column="1" Margin="16,0" FontSize="13" VerticalAlignment="Center" TextWrapping="Wrap"
-                   Foreground="{DynamicResource BrushTextSoft}"/>
-
-        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
-          <Button Classes="SecondaryButton" Content="Excel" Click="ExportExcel_Click"/>
-          <Button Classes="SecondaryButton" Content="Word" Click="ExportWord_Click"/>
-          <Button Classes="SecondaryButton" Content="CSV" Click="ExportCsv_Click"/>
-        </StackPanel>
-      </Grid>
     </Grid>
-  </Border>
+  </dlg:ModalShell>
 </Window>

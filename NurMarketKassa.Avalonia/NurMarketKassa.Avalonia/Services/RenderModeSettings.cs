@@ -214,13 +214,16 @@ public static class RenderModeSettings
         PosLogger.Log("Режим отрисовки сброшен на «Авто» после сбоя — настройка записана.", "WARNING");
         try
         {
-            App.GetRequiredService<IUserPrompts>().ShowWarning(RollbackNotice);
+            Notify(RollbackNotice);
         }
         catch (Exception ex)
         {
             PosLogger.Log($"Режим отрисовки: уведомление не показано ({ex.Message}).", "WARNING");
         }
     }
+
+    /// <summary>Показ уведомления об откате (тесты подменяют).</summary>
+    public static Action<string> Notify { get; set; } = text => App.GetRequiredService<IUserPrompts>().ShowWarning(text);
 
     public static string RollbackNotice => Tr.T(
         "Режим отрисовки сброшен после сбоя: прошлый запуск с выбранным режимом не открыл окно. Включён режим «Авто» (Настройки → Экран → Производительность).",

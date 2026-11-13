@@ -166,8 +166,8 @@ public partial class PackageChoiceDialog : Window
         var total = (qty ?? 0) * unitPrice;
 
         PriceCalcText.Text = Tr.T(
-            $"Цена: {unitPrice.ToString("0.00", CultureInfo.InvariantCulture)} сом × {(qty ?? 0).ToString("0.###", CultureInfo.InvariantCulture)} = {total.ToString("0.00", CultureInfo.InvariantCulture)} сом",
-            $"Баасы: {unitPrice.ToString("0.00", CultureInfo.InvariantCulture)} сом × {(qty ?? 0).ToString("0.###", CultureInfo.InvariantCulture)} = {total.ToString("0.00", CultureInfo.InvariantCulture)} сом", $"Price: {unitPrice.ToString("0.00", CultureInfo.InvariantCulture)} som × {(qty ?? 0).ToString("0.###", CultureInfo.InvariantCulture)} = {total.ToString("0.00", CultureInfo.InvariantCulture)} som", $"Fiyat: {unitPrice.ToString("0.00", CultureInfo.InvariantCulture)} som × {(qty ?? 0).ToString("0.###", CultureInfo.InvariantCulture)} = {total.ToString("0.00", CultureInfo.InvariantCulture)} som", $"Narxi: {unitPrice.ToString("0.00", CultureInfo.InvariantCulture)} so'm × {(qty ?? 0).ToString("0.###", CultureInfo.InvariantCulture)} = {total.ToString("0.00", CultureInfo.InvariantCulture)} so'm");
+            $"Цена: {MoneyText.Weight(unitPrice, "0.00")} сом × {MoneyText.Weight(qty ?? 0)} = {MoneyText.Weight(total, "0.00")} сом",
+            $"Баасы: {MoneyText.Weight(unitPrice, "0.00")} сом × {MoneyText.Weight(qty ?? 0)} = {MoneyText.Weight(total, "0.00")} сом", $"Price: {MoneyText.Weight(unitPrice, "0.00")} som × {MoneyText.Weight(qty ?? 0)} = {MoneyText.Weight(total, "0.00")} som", $"Fiyat: {MoneyText.Weight(unitPrice, "0.00")} som × {MoneyText.Weight(qty ?? 0)} = {MoneyText.Weight(total, "0.00")} som", $"Narxi: {MoneyText.Weight(unitPrice, "0.00")} so'm × {MoneyText.Weight(qty ?? 0)} = {MoneyText.Weight(total, "0.00")} so'm");
 
         var unit = IsPieceMode ? Tr.T("шт", "даана", "pcs", "adet", "dona") : Tr.T("пачек", "пачка", "packs", "paket", "paket");
         AvailableText.Text = Tr.T(

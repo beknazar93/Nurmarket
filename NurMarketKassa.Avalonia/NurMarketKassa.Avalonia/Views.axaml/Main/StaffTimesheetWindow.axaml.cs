@@ -73,9 +73,18 @@ public partial class StaffTimesheetWindow : Window, IOwnerSectionExcel, IOwnerSe
         _ownerSection = true;
         Shell.ShowClose = false;
         Shell.Footer = null;
-        Shell.Title = null;
+        // 2026-11-11 (живой показ 1.17.85, Д-4: «пустая шапка окна и широкие чёрные поля»): шапка оболочки остаётся всегда — без заголовка она была пустой полосой.
+        // Теперь в ней заголовок «Табель сотрудников» (без подзаголовка); пустой подвал (кнопки «Закрыть» в разделе нет) прячем; карточка занимает всю высоту раздела
+        // (раньше — 85 % экрана по центру, отсюда чёрные поля сверху и снизу).
         Shell.Subtitle = null;
         Shell.Margin = OwnerSectionLayout.Margin;
+        Shell.ScreenHeightShare = 1.0;
+        Shell.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Stretch;
+        Shell.TemplateApplied += (_, e) =>
+        {
+            if (e.NameScope.Find<Control>("PART_FooterGrid")?.Parent is Control footerBand)
+                footerBand.IsVisible = false;
+        };
     }
 
     private async void Window_Loaded(object? sender, RoutedEventArgs e) => await LoadAsync().ConfigureAwait(true);

@@ -108,6 +108,7 @@ public static class SaleReceiptTextBuilder
         decimal linesTotal = 0;
         var lineCount = 0; // 2026-11-02 (К3-07)
         var anyWeighed = false;
+        List<SerialRecord>? serialRecords = null; // 2026-11-12 (ЭЛ3): читается из журнала один раз, и только в сфере «Электроника»
         foreach (var line in CartDisplayHelper.EnumerateSaleLineItems(sale))
         {
             lineCount++;
@@ -131,6 +132,18 @@ public static class SaleReceiptTextBuilder
                          w))
             {
                 Line(part);
+            }
+
+            // 2026-11-12 (ЭЛ3, сфера «Электроника»): серийники и гарантия этой продажи из журнала кассы (повторная печать с сервера); у других сфер — ничего.
+            // 2026-11-13 (сервер sn1311): сервер вернул serial_numbers / warranty_until строки — печатаем их; нет (старый сервер, флаг выключен) — журнал кассы, как раньше.
+            if (ElectronicsProfile.IsActive)
+            {
+                var fromServer = WarrantyCard.ItemLinesFromServer(line, w);
+                foreach (var serialLine in fromServer.Count > 0
+                             ? fromServer
+                             : WarrantyCard.ItemLinesFromRecords(
+                                 serialRecords ??= SerialJournal.ForSale(Str(sale, "id")), CartDisplayHelper.TryProductId(line), name, w))
+                    Line(serialLine);
             }
         }
 

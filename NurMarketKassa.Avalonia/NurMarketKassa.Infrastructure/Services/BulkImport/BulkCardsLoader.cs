@@ -371,7 +371,8 @@ public static class BulkCardsLoader
     {
         System.Text.Json.JsonElement? found = null;
         await WithRetryAsync(async t => { found = await api.FindWarehouseProductByBarcodeAsync(barcode, t).ConfigureAwait(false); }, createdBarcode: null, api, gate, ct).ConfigureAwait(false);
-        return found is not null;
+        // 2026-11-11 (разбор «Кыргызстанские штрихкоды», п. 4): «есть на складе» — только товар именно с этим штрихкодом (основным или доп.), чужой ответ сервера не в счёт.
+        return PurchaseReceivingService.OnlyIfHasCode(found, barcode, requireField: true) is not null;
     }
 
     /// <summary>Объединённый список доп. штрихкодов: сначала то, что сейчас на сервере (с названиями и количествами упаковок), потом новые из файла, которых там нет.
@@ -380,9 +381,11 @@ public static class BulkCardsLoader
     {
         var line = row.Line!;
         System.Text.Json.JsonElement? card = null;
-        await WithRetryAsync(async t => { card = await api.FindWarehouseProductByBarcodeAsync(row.Tile?.Barcode ?? line.Barcode, t).ConfigureAwait(false); },
+        var cardCode = row.Tile?.Barcode ?? line.Barcode;
+        await WithRetryAsync(async t => { card = await api.FindWarehouseProductByBarcodeAsync(cardCode, t).ConfigureAwait(false); },
             createdBarcode: null, api, gate, ct).ConfigureAwait(false);
-        return MergeAlternates(card, row.AltFull);
+        // 2026-11-11: доп. штрихкоды чужого товара (ответ сервера про другой код) не сливаем.
+        return MergeAlternates(PurchaseReceivingService.OnlyIfHasCode(card, cardCode, requireField: true), row.AltFull);
     }
 
     /// <summary>Чистое слияние (для проверки без сети): <paramref name="card"/> — карточка товара с сервера, <paramref name="planned"/> — список плана.</summary>
@@ -450,7 +453,8 @@ public static class BulkCardsLoader
                 {
                     try
                     {
-                        if (await api.FindWarehouseProductByBarcodeAsync(createdBarcode, ct).ConfigureAwait(false) is not null)
+                        // 2026-11-11: «уже создан» — только товар именно с этим штрихкодом.
+                        if (PurchaseReceivingService.OnlyIfHasCode(await api.FindWarehouseProductByBarcodeAsync(createdBarcode, ct).ConfigureAwait(false), createdBarcode, requireField: true) is not null)
                             return; // товар уже создан до обрыва
                     }
                     catch (Exception checkEx) when (IsTransient(checkEx))

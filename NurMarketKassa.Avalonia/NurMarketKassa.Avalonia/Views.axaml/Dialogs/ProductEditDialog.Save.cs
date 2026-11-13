@@ -322,6 +322,9 @@ public partial class ProductEditDialog
                 Plu = pluValue,
                 WholesalePrice = wholesaleValue, // 2026-11-01 (С2-13): значение из проверки («1 500» — 1500, а не 0)
                 MinimumQuantity = _minimumQuantityKnown ? minimumValue ?? 0 : null,
+                TrackSerials = SerialsRequestTrack(),
+                SendWarrantyMonths = SerialsRequestSendWarranty(),
+                WarrantyMonths = SerialsRequestWarranty(),
                 // 2026-10-20: поставщик — только если кассир его выбрал/сменил в этом окне (иначе «client» на сервере не трогаем).
                 SupplierId = _supplierChanged ? _supplierId : null,
                 DiscountPercent = discountValue,
@@ -405,6 +408,7 @@ public partial class ProductEditDialog
                 var updateId = _existing.Id;
                 var write = await ServerAnswerWait.ForegroundWriteAsync("products/update", t => _catalogApi.UpdateProductAsync(updateId, request, t)).ConfigureAwait(true);
                 SavedProductId = updateId; // 2026-11-07: склад обновит в каталоге только этот товар (без полной загрузки)
+                RememberSerialsAfterSave(updateId, request); // 2026-11-13 (сервер sn1311)
                 if (write.Pending)
                 {
                     var pendingName = request.Name;

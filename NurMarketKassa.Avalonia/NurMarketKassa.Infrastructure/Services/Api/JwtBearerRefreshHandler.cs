@@ -37,6 +37,9 @@ public sealed class JwtBearerRefreshHandler : DelegatingHandler
         {
             var response = await SendCoreAsync(request, cancellationToken).ConfigureAwait(false);
             var status = (int)response.StatusCode;
+            // 2026-11-13 (ответ Умара, п. 5): 401 session_revoked — логин открыли на другом устройстве; вход этой кассы закрыт, окно «Вход выполнен на другом устройстве» вместо тихого выброса.
+            if (status == 401)
+                await NoteSessionRevokedAsync(request, response, cancellationToken).ConfigureAwait(false);
             // 2026-11-03 (С-18, аудит «зависание при медленном сервере»): долгий ответ — строка в журнал (метод, путь, секунды; без токенов и тел),
             // чтобы владелец и мы видели «сервер медлил». Быстрые ответы подряд снимают значок «Сервер медлит».
             var elapsed = DateTime.UtcNow - started;
@@ -86,6 +89,38 @@ public sealed class JwtBearerRefreshHandler : DelegatingHandler
             // Быстрая отмена (кассир закрыл окно) сбоем сервера не считается.
             ServerOutageMonitor.ReportTransportFailure(DescribeRequest(request), ex, startedAt);
             throw;
+        }
+    }
+
+    /// <summary>2026-11-13: тело 401 с кодом session_revoked (reason device_replaced, by_device_name, at) → <see cref="SessionExpiryMonitor.NoteRevoked"/> и потеря входа (ExpireSession: токены стираются,
+    /// очередь продаж, смена и корзины не трогаются — как при истёкшем входе). Тело буферизуется, вызывающие читают его как обычно. 401 самого входа (неверный пароль) не смотрим.</summary>
+    private async Task NoteSessionRevokedAsync(HttpRequestMessage request, HttpResponseMessage response, CancellationToken ct)
+    {
+        try
+        {
+            var path = request.RequestUri?.AbsolutePath ?? "";
+            if (path.Contains("/auth/login", StringComparison.OrdinalIgnoreCase) || response.Content is null)
+                return;
+            await response.Content.LoadIntoBufferAsync().ConfigureAwait(false);
+            var text = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            if (text.Length == 0 || !text.Contains("session_revoked", StringComparison.Ordinal))
+                return;
+            using var doc = System.Text.Json.JsonDocument.Parse(text);
+            var root = doc.RootElement;
+            if (root.ValueKind != System.Text.Json.JsonValueKind.Object
+                || !root.TryGetProperty("code", out var code) || code.ValueKind != System.Text.Json.JsonValueKind.String
+                || !string.Equals(code.GetString(), "session_revoked", StringComparison.Ordinal))
+                return;
+            static string? Str(System.Text.Json.JsonElement o, string n) =>
+                o.TryGetProperty(n, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.String && !string.IsNullOrWhiteSpace(v.GetString()) ? v.GetString() : null;
+            SessionExpiryMonitor.NoteRevoked(new SessionExpiryMonitor.RevokedInfo(Str(root, "by_device_name"), Str(root, "at")));
+            // Запрос обновления токена: ExpireSession вызовет обычный путь (refreshed == false). Остальные запросы — объявляем потерю входа здесь.
+            if (!path.Contains("/auth/refresh", StringComparison.OrdinalIgnoreCase))
+                _api.ExpireSession(path);
+        }
+        catch (Exception ex) when (ex is System.Text.Json.JsonException or HttpRequestException or ObjectDisposedException or InvalidOperationException)
+        {
+            // Не JSON или обрыв при чтении тела — это не session_revoked; обычная обработка 401 продолжается.
         }
     }
 

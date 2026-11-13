@@ -52,7 +52,8 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
     {
         _state = state;
         _viewModel = viewModel;
-        _viewModel.CloseRequested = () => _ = CloseAsync(true);
+        // 2026-11-11 (живой показ 1.17.85, Д-6): в журнал — каким путём закрыли (раньше одна общая строка «Esc, кнопка или настройки»).
+        _viewModel.CloseRequested = () => _ = CloseAsync(true, "Esc или ✕ на самом экране покупателя");
     }
 
     public bool IsOpen => _window?.IsVisible == true;
@@ -93,13 +94,37 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
 
     public void SetQrAmount(double? amount) => _state.SetQrAmount(amount); // 2026-11-05 (ревью п. 17)
 
+    /// <summary>2026-11-12 (жалоба тестера «не генерируется QR для кассовой стороны, сделать QR побольше для 1 экрана»): QR видит покупатель на своём экране —
+    /// окно экрана покупателя видно (не предпросмотр), стоит на НЕосновном мониторе и в нём включён «QR оплаты». Один монитор, «Дублировать» в Windows,
+    /// окно покупателя на основном мониторе или закрыто — false: окно оплаты показывает QR крупно у кассира.</summary>
+    public bool ShowsPaymentQrToCustomer
+    {
+        get
+        {
+            try
+            {
+                if (OperatingSystem.IsAndroid() || _window is not { IsVisible: true } window
+                    || _viewModel.IsPreviewMode || !_viewModel.Settings.ShowPaymentQr)
+                    return false;
+                var screens = ScreensOf(window);
+                var screen = screens?.FirstOrDefault(s => s.Bounds.Contains(window.Position));
+                return screen is { IsPrimary: false };
+            }
+            catch (Exception ex)
+            {
+                Log($"Проверка «QR на экране покупателя» не удалась: {ex.Message}");
+                return false;
+            }
+        }
+    }
+
     public Task OpenAsync()
     {
         OpenManually();
         return Task.CompletedTask;
     }
 
-    public Task CloseAsync() => CloseAsync(true);
+    public Task CloseAsync() => CloseAsync(true, "запрос программы (CloseAsync)");
 
     public Task ApplySettingsAsync()
     {
@@ -275,11 +300,14 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
         });
     }
 
-    public Task CloseAsync(bool closedManually)
+    public Task CloseAsync(bool closedManually) => CloseAsync(closedManually, null);
+
+    /// <summary>2026-11-11 (Д-6): <paramref name="how"/> — каким путём закрыто вручную (Ctrl+M/«Экран», Esc на экране покупателя, настройки) — пишется в журнал.</summary>
+    public Task CloseAsync(bool closedManually, string? how)
     {
         if (!Dispatcher.UIThread.CheckAccess())
         {
-            Dispatcher.UIThread.Post(() => _ = CloseAsync(closedManually));
+            Dispatcher.UIThread.Post(() => _ = CloseAsync(closedManually, how));
             return Task.CompletedTask;
         }
 
@@ -287,7 +315,7 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
         if (closedManually)
         {
             _sessionActive = false;
-            Log("Закрыт вручную (кнопка «Экран», Esc или настройки) — сам не откроется до следующего запуска/смены.");
+            Log($"Закрыт вручную ({how ?? "кнопка «Экран», Esc или настройки"}) — сам не откроется до следующего запуска/смены.");
         }
         _state.Hide();
         CaptureWindowBounds();
@@ -354,7 +382,7 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
         return Tr.T("Настройки применены.", "Жөндөөлөр колдонулду.", "Settings applied.", "Ayarlar uygulandı.", "Sozlamalar qo'llandi.");
     }
 
-    public void CloseDisplay() => _ = CloseAsync(true);
+    public void CloseDisplay() => _ = CloseAsync(true, "кнопка «Закрыть» в настройках экрана покупателя");
 
     /// <summary>Вид кассы или её тема поменялись (2026-09-28): экран покупателя перестраивается
     /// сразу — вид «как у кассы» и цвета «как тема кассы» берутся в момент перерисовки. Если окно
@@ -413,6 +441,23 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
                 var window = new CustomerDisplayWindow(_viewModel) { ShowActivated = false }; // 2026-10-30: экран покупателя не отбирает фокус у модалки
                 _window = window;
                 window.Screens.Changed += OnScreensChanged;
+                // 2026-11-11 (живой показ 1.17.85, Д-6: экран покупателя «закрылся сам» через 21 с после запуска, в журнале «Закрыт вручную»; перед этим закрылась
+                // модалка кассы): после закрытия модалки Windows мог сделать активным окно экрана покупателя (оно поверх всех на втором мониторе) — и следующий Esc
+                // кассира уходил ему и закрывал его. Теперь экран покупателя на втором мониторе активность сразу возвращает окну кассы; Esc на нём закрывает
+                // только в режиме предпросмотра (CustomerDisplayWindow.OnKeyDown).
+                window.Activated += (_, _) =>
+                {
+                    if (!_requiresSecondaryScreen || _viewModel.IsPreviewMode)
+                        return;
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        if (ReferenceEquals(_window, window) && window.IsActive && KassaWindowToActivate(window) is { } kassa)
+                        {
+                            Log($"Окно экрана покупателя стало активным — активность возвращена окну {kassa.GetType().Name}.");
+                            kassa.Activate();
+                        }
+                    }, DispatcherPriority.Background);
+                };
                 window.Closing += (_, e) =>
                 {
                     // 2026-10-27: причина закрытия в журнал. Кнопка закрытия окна (режим «в окне») — решение кассира;
@@ -614,6 +659,19 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
         _watchdog = null;
         _viewModel.CloseRequested = null;
         _ = CloseAsync(false);
+    }
+
+    /// <summary>2026-11-11 (Д-6): окно программы, которому вернуть активность вместо экрана покупателя: последнее показанное видимое окно (модалка, если открыта), иначе главное.</summary>
+    private static Window? KassaWindowToActivate(Window customerWindow)
+    {
+#if NURANDROID
+        return null;
+#else
+        if (Application.Current?.ApplicationLifetime is not Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+            return null;
+        return desktop.Windows.LastOrDefault(w => w.IsVisible && !ReferenceEquals(w, customerWindow) && w is not CustomerDisplayWindow)
+               ?? (desktop.MainWindow is { IsVisible: true } main && !ReferenceEquals(main, customerWindow) ? main : null);
+#endif
     }
 
     private static Window? TryGetMainWindow() =>

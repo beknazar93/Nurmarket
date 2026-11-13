@@ -44,10 +44,41 @@ public sealed class HardwareCalcSettings
         Converters = { new JsonStringEnumConverter() },
     };
 
-    /// <summary>Нормы, с которыми работает касса. Заменяются владельцем (ТЗ 4.2) через <see cref="Use"/>.</summary>
-    public static HardwareCalcSettings Current { get; private set; } = CreateDefault();
+    private static HardwareCalcSettings? _override;
+    private static HardwareCalcSettings? _cached;
+    private static string? _cachedJson;
 
-    public static void Use(HardwareCalcSettings? settings) => Current = settings ?? CreateDefault();
+    /// <summary>Нормы, с которыми работает касса. 2026-11-12 (ХМ5, ХМ15): берутся из общих настроек сфер компании (раздел «calc» ключа
+    /// <see cref="UserPreferences.SphereSettingsJson"/>, меняет владелец — <see cref="TrySaveToCompany"/>); раздела нет, он битый или больше
+    /// <see cref="MaxJsonBytes"/> — типовые нормы. <see cref="Use"/> подменяет нормы (стенд, тесты).</summary>
+    public static HardwareCalcSettings Current
+    {
+        get
+        {
+            if (_override is { } forced)
+                return forced;
+            var json = SphereSettings.Section(UserPreferences.Instance.SphereSettingsJson, "calc")?.ToJsonString();
+            if (_cached is not null && json == _cachedJson)
+                return _cached;
+            _cachedJson = json;
+            return _cached = json is null ? CreateDefault() : FromJson(json);
+        }
+    }
+
+    /// <summary>Подменить нормы (стенд, тесты); null — снова брать из настроек компании.</summary>
+    public static void Use(HardwareCalcSettings? settings) => _override = settings;
+
+    /// <summary>Записать нормы в общие настройки компании (все кассы получат их через SettingsCloudSync). false — не поместились в лимит.</summary>
+    public static bool TrySaveToCompany(HardwareCalcSettings settings)
+    {
+        var json = settings.ToJson();
+        if (System.Text.Encoding.UTF8.GetByteCount(json) > MaxJsonBytes)
+            return false;
+        return SphereSettings.TrySetSection("calc", System.Text.Json.Nodes.JsonNode.Parse(json));
+    }
+
+    /// <summary>Сбросить нормы к типовым (раздел «calc» убирается).</summary>
+    public static bool ResetCompany() => SphereSettings.TrySetSection("calc", null);
 
     public static HardwareCalcSettings CreateDefault() => new()
     {

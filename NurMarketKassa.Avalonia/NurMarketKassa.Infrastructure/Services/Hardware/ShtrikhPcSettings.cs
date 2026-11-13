@@ -116,6 +116,14 @@ public sealed class ShtrikhPcSettings
     /// <summary>Перед загрузкой очистить базу товаров весов (команда «$$$CLR» в конце файла). По умолчанию выключено.</summary>
     public bool ClearBase { get; set; }
 
+    /// <summary>2026-11-12 (ТЗ PC-200, п. 3.1 поле 14 и п. 6.3): код формата этикетки для выгружаемых товаров. 0 — формат, выбранный на весах («Система и печать», параметр 213);
+    /// на весах магазина 12.11 сделаны «Формат 58x40» (код 13) и «Формат 58x30» (код 14). Код должен существовать на весах (строка «&lt;L»), иначе весы возьмут формат по умолчанию.</summary>
+    public int LabelFormat { get; set; }
+
+    public const int LabelFormat58x40 = 13;
+    public const int LabelFormat58x30 = 14;
+    public const int MaxLabelFormat = 999_999;
+
     public string LineStyle { get; set; } = LineSpace;
 
     /// <summary>Десятичный разделитель цены в файле: «,» (русская Windows весов) или «.». Из руководства не следует — переключается.</summary>
@@ -188,6 +196,7 @@ public sealed class ShtrikhPcSettings
         ScenarioFile = ShtrikhPcScenarioWriter.SafeFileName(ScenarioFile);
         ScenarioFolder = string.IsNullOrWhiteSpace(ScenarioFolder) || ScenarioFolder.IndexOfAny(new[] { '/', ':', '*', '?', '"', '<', '>', '|' }) >= 0 ? ShtrikhPcScenarioWriter.DefaultFolder : ScenarioFolder.Trim().Trim('\\');
         PriceDecimals = Math.Clamp(PriceDecimals, 0, 3);
+        LabelFormat = Math.Clamp(LabelFormat, 0, MaxLabelFormat); // 2026-11-12
         if (LineStyle is not (LineSpace or LineGlued or LineSemicolon))
             LineStyle = LineSpace;
         DecimalSeparator = DecimalSeparator == "," ? "," : ".";

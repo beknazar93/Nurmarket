@@ -14,6 +14,18 @@ public static class SessionExpiryMonitor
     /// <summary>Сессия недействительна: ждём повторного входа.</summary>
     public static bool IsExpired => Volatile.Read(ref _expired) != 0;
 
+    /// <summary>2026-11-13 (ответ Умара, п. 5): сервер закрыл этот вход, потому что логин открыли на другом устройстве (401 session_revoked, reason device_replaced).
+    /// Имя устройства и время — если сервер прислал. null — потеря входа по другой причине (срок 7 суток).</summary>
+    public sealed record RevokedInfo(string? ByDeviceName, string? At);
+
+    private static RevokedInfo? _revoked;
+
+    /// <summary>Причина «вошли на другом устройстве»; ставится до <see cref="Report"/>, сбрасывается входом (<see cref="Reset"/>). Окно «Сессия истекла» показывает по ней другой текст.</summary>
+    public static RevokedInfo? Revoked => Volatile.Read(ref _revoked);
+
+    /// <summary>Запоминает, что вход закрыт заменой устройства (401 session_revoked). Сама сессия объявляется недействительной отдельно (<see cref="Report"/>).</summary>
+    public static void NoteRevoked(RevokedInfo info) => Volatile.Write(ref _revoked, info);
+
     /// <summary>Сессия объявлена недействительной (один раз до следующего входа). Вызывается в фоновом потоке.</summary>
     public static event Action? Expired;
 
@@ -47,7 +59,7 @@ public static class SessionExpiryMonitor
         Interlocked.Exchange(ref _lastReminderTicks, Clock().Ticks); // первое окно показывает событие Expired — отсчёт напоминаний от него
         StartTimer();
         // 2026-11-06: если время входа известно — причина в журнале («срок входа истёк (прошло N ч с входа)»), без токенов.
-        var cause = RefreshExpiryWatcher.Current.DescribeLoss();
+        var cause = Revoked is not null ? "вход закрыт: логин открыт на другом устройстве (session_revoked)" : RefreshExpiryWatcher.Current.DescribeLoss(); // 2026-11-13
         PosLogger.Log($"Сессия недействительна ({source}){(cause is null ? "" : ": " + cause)} — нужен повторный вход; очередь и данные сохранены.", "AUTH");
         Raise(Changed);
         Raise(Expired);
@@ -57,6 +69,7 @@ public static class SessionExpiryMonitor
     /// <summary>Успешный вход (или восстановление сессии): снова можно объявлять.</summary>
     public static void Reset()
     {
+        Volatile.Write(ref _revoked, null); // 2026-11-13
         if (Interlocked.Exchange(ref _expired, 0) != 0)
         {
             StopTimer();
@@ -68,6 +81,7 @@ public static class SessionExpiryMonitor
     /// <summary>Только для тестов: чистое состояние без событий и записей в журнал.</summary>
     internal static void ResetForTests()
     {
+        Volatile.Write(ref _revoked, null);
         Interlocked.Exchange(ref _expired, 0);
         StopTimer();
         Interlocked.Exchange(ref _lastReminderTicks, 0);

@@ -175,7 +175,7 @@ public sealed class SiteReviewsWindow : Window, IOwnerSection
             return;
         _loading.IsVisible = true;
         _refresh.IsEnabled = false;
-        string? error = null;
+        Exception? error = null;
         try
         {
             var page = await _api.ListReviewsAsync(_filter, _productId, _lifetime.Token).ConfigureAwait(true);
@@ -192,7 +192,7 @@ public sealed class SiteReviewsWindow : Window, IOwnerSection
         catch (Exception ex)
         {
             _offline = SiteOrdersWindow.IsNoConnection(ex);
-            error = ErrorText(ex);
+            error = ex;
             PosLogger.Log($"Отзывы витрины: не загружены: {ex.Message}", "SHOWCASE");
         }
         finally
@@ -219,32 +219,33 @@ public sealed class SiteReviewsWindow : Window, IOwnerSection
             "The server doesn't support this section for your company yet.", "Sunucu bu bölümü şirketiniz için henüz desteklemiyor.", "Server bu bo'limni kompaniyangiz uchun hali qo'llab-quvvatlamaydi."),
         _ when SiteOrdersWindow.IsNoConnection(ex) => Tr.T("Нет связи с сервером — кнопки временно недоступны.", "Сервер менен байланыш жок — баскычтар убактылуу жеткиликсиз.",
             "No connection to the server — buttons are temporarily unavailable.", "Sunucuyla bağlantı yok — düğmeler geçici olarak kullanılamıyor.", "Server bilan aloqa yo'q — tugmalar vaqtincha mavjud emas."),
-        _ => ServerTelegramBotApi.DescribeFields(ex),
+        _ => ServerOutageMonitor.FriendlyError(ex), // 2026-11-12 (Д-2): без сырого ответа сервера
     };
 
     // ------------------------------------------------------------------ отрисовка
 
-    private void Render(string? error)
+    private void Render(Exception? error)
     {
         _list.Children.Clear();
-        _status.Text = error ?? (_loadedOnce
+        // 2026-11-12 (оценка UX/UI, Д-2): сбой загрузки — общий блок состояния с «Повторить» (раньше — красная строка наверху и пустой экран); прежний список при обрыве связи остаётся.
+        if (error != null && !(_offline && _reviews.Count > 0))
+        {
+            _status.Text = "";
+            _list.Children.Add(StateBlock.Failure(this, error,
+                Tr.T("Не удалось загрузить отзывы", "Пикирлерди жүктөө мүмкүн болгон жок", "Couldn't load the reviews", "Yorumlar yüklenemedi", "Sharhlarni yuklab bo'lmadi"),
+                () => _ = ReloadAsync(), ErrorText(error)));
+            return;
+        }
+        _status.Text = error != null ? ErrorText(error) : (_loadedOnce
             ? Tr.T($"Отзывов: {_reviews.Count}. Ответ магазина виден покупателям под отзывом на сайте.", $"Пикир: {_reviews.Count}. Дүкөндүн жообу сайттагы пикирдин астында көрүнөт.",
                 $"Reviews: {_reviews.Count}. The shop's reply is shown under the review on the website.", $"Yorum: {_reviews.Count}. Mağazanın yanıtı sitede yorumun altında görünür.",
                 $"Sharhlar: {_reviews.Count}. Do'kon javobi saytda sharh ostida ko'rinadi.")
             : "");
-        if (error != null && !_offline)
-            return;
         if (_reviews.Count == 0 && error == null)
         {
-            var empty = new TextBlock
-            {
-                Text = _filter == ShowcaseExtrasApiService.ReviewPending
-                    ? Tr.T("Новых отзывов нет.", "Жаңы пикирлер жок.", "No new reviews.", "Yeni yorum yok.", "Yangi sharhlar yo'q.")
-                    : Tr.T("Отзывов нет.", "Пикирлер жок.", "No reviews.", "Yorum yok.", "Sharhlar yo'q."),
-                FontSize = 14, Margin = new Thickness(0, 24, 0, 0), HorizontalAlignment = HorizontalAlignment.Center,
-            };
-            empty.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
-            _list.Children.Add(empty);
+            _list.Children.Add(StateBlock.Empty(_filter == ShowcaseExtrasApiService.ReviewPending
+                ? Tr.T("Новых отзывов нет.", "Жаңы пикирлер жок.", "No new reviews.", "Yeni yorum yok.", "Yangi sharhlar yo'q.")
+                : Tr.T("Отзывов нет.", "Пикирлер жок.", "No reviews.", "Yorum yok.", "Sharhlar yo'q.")));
             return;
         }
 

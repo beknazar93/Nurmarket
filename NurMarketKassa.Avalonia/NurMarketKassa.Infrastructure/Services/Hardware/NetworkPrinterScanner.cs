@@ -41,9 +41,13 @@ public static class NetworkPrinterScanner
     }
 
     /// <summary>Адреса вида «TCP:192.168.1.50:9100» (по возрастанию IP), у которых открыт порт 9100. Не вызывать с потока интерфейса.</summary>
-    public static async Task<IReadOnlyList<string>> ScanAsync(IProgress<Progress>? progress, CancellationToken ct)
+    public static Task<IReadOnlyList<string>> ScanAsync(IProgress<Progress>? progress, CancellationToken ct) =>
+        ScanAsync(EnumerateHosts(), IsOpenAsync, progress, ct);
+
+    /// <summary>2026-11-13 (мастер «Подключить принтер»): тот же поиск по заданному списку адресов и способу проверки порта — для тестов с подменным «сокетом».</summary>
+    internal static async Task<IReadOnlyList<string>> ScanAsync(IReadOnlyList<uint> hosts, Func<string, CancellationToken, Task<bool>> isOpenAsync,
+        IProgress<Progress>? progress, CancellationToken ct)
     {
-        var hosts = EnumerateHosts();
         var found = new ConcurrentBag<uint>();
         var done = 0;
         progress?.Report(new Progress(0, hosts.Count, 0));
@@ -60,7 +64,7 @@ public static class NetworkPrinterScanner
             }
             try
             {
-                if (!ct.IsCancellationRequested && await IsOpenAsync(ScaleNetworkScanner.ToIp(ip), ct).ConfigureAwait(false))
+                if (!ct.IsCancellationRequested && await isOpenAsync(ScaleNetworkScanner.ToIp(ip), ct).ConfigureAwait(false))
                     found.Add(ip);
             }
             finally

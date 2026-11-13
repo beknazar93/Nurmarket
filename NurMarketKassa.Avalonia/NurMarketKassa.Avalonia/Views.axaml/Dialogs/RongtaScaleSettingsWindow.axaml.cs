@@ -5,10 +5,12 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Threading;
 using NurMarketKassa.Core.Application;
 using NurMarketKassa.Services;
 using NurMarketKassa.Services.Hardware;
 using static NurMarketKassa.AvaloniaHost.Views.Dialogs.ScaleUi;
+using RongtaBarcodeTypeWriter = NurMarketKassa.AvaloniaHost.Services.RongtaBarcodeTypeWriter;
 
 namespace NurMarketKassa.AvaloniaHost.Views.Dialogs;
 
@@ -25,12 +27,20 @@ namespace NurMarketKassa.AvaloniaHost.Views.Dialogs;
 ///   (RongtaTcpServerService, раздел 2.2–2.4 «Label Scale Software User Manual»);
 /// • типы весового штрих-кода (Appendix II) с живым примером и сверкой с кассой.
 /// Ничего из этого на живых весах Rongta не проверено.
+/// 2026-11-13 (разбор RLS1000 на локальной ловушке, docs/Отчеты/Rongta-RLS1000-разбор.md): порты весов известны (товары — TCP 4001 «!0V»,
+/// RLS1000 — UDP 5001). Вкладки: «Подключение / Загрузка товаров / Штрих-код / Дата и параметры»; тип штрихкода в карточки и дата —
+/// «родными» командами весов (RongtaUdpProtocol), поле «TCP-порт для проверки» убрано.
 /// </summary>
 public partial class RongtaScaleSettingsWindow : Window
 {
     private TextBox _ipBox = null!;
-    private NumericUpDown _portBox = null!;
     private Button _checkButton = null!;
+    private TextBlock _currentTypeText = null!;
+    private TextBlock _currentTypeWarning = null!;
+    private Button _fixTypeButton = null!;
+    private TextBlock _writeTypeText = null!;
+    private TextBlock _recommendText = null!;
+    private bool _verdictOk = true; // 2026-11-13: касса читает пример этикетки выбранного типа (для кнопки «Исправить: тип 07»)
 
     private ComboBox _typeBox = null!;
     private NumericUpDown _department = null!;
@@ -41,7 +51,8 @@ public partial class RongtaScaleSettingsWindow : Window
     private TextBlock _verdictText = null!;
     private TextBlock _typeHint = null!;
     private TextBlock _ceilingText = null!;
-    private readonly List<RongtaBarcodeFormat.BarcodeType> _types = RongtaBarcodeFormat.Types.ToList();
+    // 2026-11-13: рекомендуемый 07 — первым в списке (раньше список открывался на выбранном типе, 07 приходилось искать прокруткой).
+    private readonly List<RongtaBarcodeFormat.BarcodeType> _types = RongtaBarcodeFormat.PickerOrder().ToList();
 
     public RongtaScaleSettingsWindow()
     {
@@ -51,16 +62,18 @@ public partial class RongtaScaleSettingsWindow : Window
         Title = L("Настройки весов Rongta", "Rongta таразасынын жөндөөлөрү", "Rongta scale settings", "Rongta tartı ayarları", "Rongta tarozi sozlamalari");
         TitleText.Text = Title;
         // 2026-09-30: весы Rongta понимают протокол Dahua (порт 4001) — касса пишет товары сама.
+        // 2026-11-13 (разбор RLS1000): тип штрихкода и дату касса передаёт «родной» командой весов (порт 5001) — вкладки «Штрих-код» и «Дата и параметры».
         IntroText.Text = L(
-            "Весы Rongta (RLS1000/RLS1100): касса может записывать товары прямо в весы по сети (порт 4001, без RLS1000) или через программу RLS1000. Здесь — адрес, проверка связи, способ загрузки и штрих-код.",
-            "Rongta таразасы (RLS1000/RLS1100): касса товарларды тармак аркылуу түз таразага жаза алат (4001 порт, RLS1000'сиз) же RLS1000 программасы аркылуу. Бул жерде — дарек, байланышты текшерүү, жүктөө жолу жана штрих-код.",
-            "Rongta scales (RLS1000/RLS1100): the till can write goods straight into the scale over the network (port 4001, no RLS1000) or through RLS1000. Here: address, connection check, upload method and barcode.",
-            "Rongta tartılar (RLS1000/RLS1100): kasa ürünleri ağ üzerinden doğrudan tartıya yazabilir (port 4001, RLS1000'siz) ya da RLS1000 ile. Burada: adres, bağlantı kontrolü, yükleme yolu ve barkod.",
-            "Rongta tarozilari (RLS1000/RLS1100): kassa tovarlarni tarmoq orqali to‘g‘ridan-to‘g‘ri taroziga yoza oladi (4001 port, RLS1000'siz) yoki RLS1000 orqali. Bu yerda — manzil, aloqani tekshirish, yuklash usuli va shtrix-kod.");
+            "Весы Rongta (RLS1000/RLS1100): касса записывает товары прямо в весы по сети, без программы RLS1000. Здесь — адрес весов, способ загрузки, тип штрихкода и дата.",
+            "Rongta таразасы (RLS1000/RLS1100): касса товарларды RLS1000 программасыз тармак аркылуу түз таразага жазат. Бул жерде — таразанын дареги, жүктөө жолу, штрих-коддун түрү жана дата.",
+            "Rongta scales (RLS1000/RLS1100): the till writes goods straight into the scale over the network, without RLS1000. Here: scale address, upload method, barcode type and date.",
+            "Rongta tartılar (RLS1000/RLS1100): kasa ürünleri RLS1000 olmadan ağ üzerinden doğrudan tartıya yazar. Burada: tartı adresi, yükleme yolu, barkod türü ve tarih.",
+            "Rongta tarozilari (RLS1000/RLS1100): kassa tovarlarni RLS1000'siz tarmoq orqali to‘g‘ridan-to‘g‘ri taroziga yozadi. Bu yerda — tarozi manzili, yuklash usuli, shtrix-kod turi va sana.");
 
         Tabs.Items.Add(MakeTab(L("Подключение", "Туташуу", "Connection", "Bağlantı", "Ulanish"), BuildConnectionTab()));
         Tabs.Items.Add(MakeTab(L("Загрузка товаров", "Товарларды жүктөө", "Uploading goods", "Ürün yükleme", "Tovarlarni yuklash"), BuildUploadTab()));
         Tabs.Items.Add(MakeTab(L("Штрих-код", "Штрих-код", "Barcode", "Barkod", "Shtrix-kod"), BuildBarcodeTab()));
+        Tabs.Items.Add(MakeTab(L("Дата и параметры", "Дата жана параметрлер", "Date and settings", "Tarih ve ayarlar", "Sana va parametrlar"), BuildDateTab()));
         UpdateHeader();
         ShowResult(L("Введите IP весов и нажмите «Проверить связь».", "Таразанын IP'син киргизип «Байланышты текшерүү» басыңыз.", "Enter the scale IP and press “Check connection”.", "Tartı IP'sini girip “Bağlantıyı kontrol et”e basın.", "Tarozi IP'sini kiriting va «Aloqani tekshirish»ni bosing."), false);
     }
@@ -74,8 +87,9 @@ public partial class RongtaScaleSettingsWindow : Window
     private void UpdateHeader()
     {
         var ip = (_ipBox.Text ?? "").Trim();
+        // 2026-11-13: порты весов известны (товары — TCP 4001, тип штрихкода и дата — UDP 5001), поле «TCP-порт для проверки» убрано.
         ConnectionText.Text = L("Весы: ", "Тараза: ", "Scale: ", "Tartı: ", "Tarozi: ")
-            + (ip.Length > 0 ? ip : "—") + " · TCP " + ((int)(_portBox.Value ?? 5001)).ToString(CultureInfo.InvariantCulture);
+            + (ip.Length > 0 ? ip : "—") + L(" · товары — порт 4001 · тип штрихкода и дата — порт 5001", " · товарлар — 4001 порт · штрих-коддун түрү жана дата — 5001 порт", " · goods — port 4001 · barcode type and date — port 5001", " · ürünler — port 4001 · barkod türü ve tarih — port 5001", " · tovarlar — 4001 port · shtrix-kod turi va sana — 5001 port");
     }
 
     // =====================================================================================
@@ -98,16 +112,13 @@ public partial class RongtaScaleSettingsWindow : Window
         _ipBox = new TextBox { Text = IpOf(BrandRongta), Watermark = "192.168.1.87", MinWidth = 220 };
         _ipBox.LostFocus += (_, _) => { SaveConnection(); UpdateHeader(); };
         body.Children.Add(Row(L("IP-адрес весов", "Таразанын IP-дареги", "Scale IP address", "Tartı IP adresi", "Tarozi IP manzili"), _ipBox));
-
-        _portBox = new NumericUpDown { Minimum = 1, Maximum = 65535, Increment = 1, FormatString = "0", Value = prefs.RongtaScalePort, MinWidth = 140 };
-        _portBox.ValueChanged += (_, _) => UpdateHeader();
-        body.Children.Add(Row(L("TCP-порт для проверки", "Текшерүү үчүн TCP-порт", "TCP port to check", "Kontrol için TCP portu", "Tekshirish uchun TCP port"), _portBox));
+        // 2026-11-13 (разбор RLS1000): порты весов найдены — поле «TCP-порт для проверки» больше не нужно.
         body.Children.Add(Text(L(
-            "Порт самих весов в руководствах Rongta не указан. 5001 — порт по умолчанию из настроек RLS1000 (TCP/IP). Главное — ответ на ping: если весы отвечают, сеть в порядке; дальше обмен ведёт RLS1000.",
-            "Таразанын өз порту Rongta колдонмолорунда көрсөтүлгөн эмес. 5001 — RLS1000 жөндөөлөрүндөгү (TCP/IP) демейки порт. Негизгиси — ping'ге жооп: тараза жооп берсе, тармак жакшы; андан ары алмашууну RLS1000 жүргүзөт.",
-            "The scale's own port is not given in the Rongta manuals. 5001 is the RLS1000 default (TCP/IP settings). What matters is the ping reply: if the scale answers, the network is fine; RLS1000 does the rest.",
-            "Tartının kendi portu Rongta kılavuzlarında yok. 5001, RLS1000 ayarlarındaki (TCP/IP) varsayılandır. Önemli olan ping yanıtıdır: tartı yanıt verirse ağ sorunsuzdur; gerisini RLS1000 yapar.",
-            "Tarozining o‘z porti Rongta qo‘llanmalarida ko‘rsatilmagan. 5001 — RLS1000 sozlamalaridagi (TCP/IP) standart port. Asosiysi — ping javobi: tarozi javob bersa, tarmoq joyida; qolganini RLS1000 bajaradi."), "hint"));
+            "«Проверить связь» спрашивает весы по сети (ping) и читает ячейку PLU №1 (порт 4001 — им касса пишет товары). На весах ничего не меняется.",
+            "«Байланышты текшерүү» таразаны тармактан сурайт (ping) жана PLU №1 уячасын окуйт (4001 порт — аны менен касса товарларды жазат). Таразада эч нерсе өзгөрбөйт.",
+            "“Check connection” asks the scale over the network (ping) and reads PLU slot No. 1 (port 4001, used by the till to write goods). Nothing changes on the scale.",
+            "“Bağlantıyı kontrol et” tartıya ağdan sorar (ping) ve 1 numaralı PLU hücresini okur (port 4001 — kasa ürünleri bununla yazar). Tartıda hiçbir şey değişmez.",
+            "«Aloqani tekshirish» taroziga tarmoq orqali murojaat qiladi (ping) va 1-PLU katagini o‘qiydi (4001 port — u orqali kassa tovarlarni yozadi). Tarozida hech narsa o‘zgarmaydi."), "hint"));
 
         _checkButton = MakeButton(L("Проверить связь", "Байланышты текшерүү", "Check connection", "Bağlantıyı kontrol et", "Aloqani tekshirish"), false, async (_, _) => await CheckAsync().ConfigureAwait(true));
         body.Children.Add(ButtonRow(
@@ -127,12 +138,13 @@ public partial class RongtaScaleSettingsWindow : Window
             })));
         panel.Children.Add(card);
 
-        var rls = Card(L("Этот же адрес — в RLS1000", "Ушул эле дарек — RLS1000'до", "The same address goes into RLS1000", "Aynı adres RLS1000'e girilir", "Shu manzil RLS1000 ga ham kiritiladi"),
-            L("RLS1000 хранит весы в своём списке: «Creat Connection» → колонка D «IP add. of label scale». Кнопка «Test Connection» в меню «Network» RLS1000 проверяет связь её собственным протоколом.",
-              "RLS1000 таразаларды өз тизмесинде сактайт: «Creat Connection» → D тилкеси «IP add. of label scale». RLS1000'дун «Network» менюсундагы «Test Connection» өз протоколу менен текшерет.",
-              "RLS1000 keeps scales in its own list: “Creat Connection” → column D “IP add. of label scale”. “Network → Test Connection” in RLS1000 checks the link with its own protocol.",
-              "RLS1000 tartıları kendi listesinde tutar: “Creat Connection” → D sütunu “IP add. of label scale”. RLS1000'deki “Network → Test Connection” kendi protokolüyle kontrol eder.",
-              "RLS1000 tarozilarni o‘z ro‘yxatida saqlaydi: «Creat Connection» → D ustuni «IP add. of label scale». RLS1000 dagi «Network → Test Connection» o‘z protokoli bilan tekshiradi."),
+        // 2026-11-13: по живой программе RLS1000 V1.129 (русский интерфейс) — колонка «id магазина / ip магазина», «Сеть → Проверка порта» (F12).
+        var rls = Card(L("Если пользуетесь программой RLS1000", "RLS1000 программасын колдонсоңуз", "If you use the RLS1000 program", "RLS1000 programını kullanıyorsanız", "RLS1000 dasturidan foydalansangiz"),
+            L("В RLS1000 тот же адрес вписывают в строку весов (колонка IP). «Сеть → Проверка порта» (F12) проверяет связь. Не держите RLS1000 и кассу на связи с весами одновременно.",
+              "RLS1000'до ушул эле даректи тараза сабына жазышат (IP тилкеси). «Сеть → Проверка порта» (F12) байланышты текшерет. RLS1000 менен кассаны таразага бир убакта туташтырбаңыз.",
+              "In RLS1000 the same address goes into the scale row (IP column). “Network → Test port” (F12) checks the link. Do not keep RLS1000 and the till talking to the scale at the same time.",
+              "RLS1000'de aynı adres tartı satırına yazılır (IP sütunu). “Ağ → Port testi” (F12) bağlantıyı kontrol eder. RLS1000 ile kasayı aynı anda tartıya bağlamayın.",
+              "RLS1000 da shu manzil tarozi qatoriga yoziladi (IP ustuni). «Сеть → Проверка порта» (F12) aloqani tekshiradi. RLS1000 va kassani bir vaqtda taroziga ulamang."),
             out _);
         panel.Children.Add(rls);
         return panel;
@@ -142,7 +154,6 @@ public partial class RongtaScaleSettingsWindow : Window
     {
         var prefs = UserPreferences.Instance;
         prefs.RongtaScaleIp = (_ipBox.Text ?? "").Trim();
-        prefs.RongtaScalePort = (int)(_portBox.Value ?? 5001);
         prefs.SaveToDisk();
     }
 
@@ -155,13 +166,12 @@ public partial class RongtaScaleSettingsWindow : Window
             ShowResult(L("Введите IP-адрес весов, например 192.168.1.87.", "Таразанын IP-дарегин киргизиңиз, мисалы 192.168.1.87.", "Enter the scale IP address, e.g. 192.168.1.87.", "Tartı IP adresini girin, ör. 192.168.1.87.", "Tarozi IP manzilini kiriting, masalan 192.168.1.87."), true);
             return;
         }
-        var port = (int)(_portBox.Value ?? 5001);
         _checkButton.IsEnabled = false;
         ShowResult(L("Проверка…", "Текшерилүүдө…", "Checking…", "Kontrol ediliyor…", "Tekshirilmoqda…"), false);
         try
         {
+            // 2026-11-13: проверка «TCP-порт 5001» убрана — у весов это UDP-порт RLS1000 (разбор RLS1000), TCP-проверка его всегда «не открыт».
             var (pingOk, rtt) = await PingAsync(ip).ConfigureAwait(true);
-            var tcpOk = await ScaleNetworkScanner.TcpPortOpenAsync(ip, port, 1500).ConfigureAwait(true);
             var arp = ScaleNetworkScanner.ReadArpTable()
                 .FirstOrDefault(a => a.Address == ScaleNetworkScanner.ToNumber(System.Net.IPAddress.Parse(ip))).Mac;
 
@@ -170,9 +180,6 @@ public partial class RongtaScaleSettingsWindow : Window
                 pingOk
                     ? L($"ping: весы отвечают ({rtt} мс)", $"ping: тараза жооп берет ({rtt} мс)", $"ping: the scale answers ({rtt} ms)", $"ping: tartı yanıt veriyor ({rtt} ms)", $"ping: tarozi javob beradi ({rtt} ms)")
                     : L("ping: нет ответа", "ping: жооп жок", "ping: no reply", "ping: yanıt yok", "ping: javob yo‘q"),
-                tcpOk
-                    ? L($"TCP {port}: порт открыт", $"TCP {port}: порт ачык", $"TCP {port}: port open", $"TCP {port}: port açık", $"TCP {port}: port ochiq")
-                    : L($"TCP {port}: не принимает подключение", $"TCP {port}: туташууну кабыл албайт", $"TCP {port}: connection refused/timeout", $"TCP {port}: bağlantı kabul edilmiyor", $"TCP {port}: ulanishni qabul qilmaydi"),
             };
             if (arp is not null)
                 lines.Add("MAC " + arp);
@@ -185,12 +192,12 @@ public partial class RongtaScaleSettingsWindow : Window
                 ? L("TCP 4001: весы ответили — можно отправлять напрямую", "TCP 4001: тараза жооп берди — түз жөнөтсө болот", "TCP 4001: the scale answered — direct sending works", "TCP 4001: tartı yanıt verdi — doğrudan gönderim olur", "TCP 4001: tarozi javob berdi — to‘g‘ridan-to‘g‘ri yuborish mumkin")
                 : L("TCP 4001: весы не ответили", "TCP 4001: тараза жооп берген жок", "TCP 4001: the scale did not answer", "TCP 4001: tartı yanıt vermedi", "TCP 4001: tarozi javob bermadi"));
 
-            var ok = pingOk || tcpOk || arp is not null || directCheck?.Replied == true;
+            var ok = pingOk || arp is not null || directCheck?.Replied == true;
             var summary = ok
                 ? L("Устройство по этому адресу в сети. ", "Бул даректеги түзмөк тармакта. ", "A device at this address is on the network. ", "Bu adresteki cihaz ağda. ", "Bu manzildagi qurilma tarmoqda. ")
                 : L("По этому адресу никого нет: проверьте IP на весах, кабель и что весы включены. ", "Бул даректе эч ким жок: таразадагы IP'ни, кабелди жана тараза күйүк экенин текшериңиз. ", "Nobody at this address: check the IP on the scale, the cable and that the scale is on. ", "Bu adreste kimse yok: tartıdaki IP'yi, kabloyu ve tartının açık olduğunu kontrol edin. ", "Bu manzilda hech kim yo‘q: tarozidagi IP, kabel va tarozi yoqilganini tekshiring. ");
             ShowResult(summary + string.Join(" · ", lines), !ok);
-            PosLogger.Log($"Rongta: проверка связи {ip}: ping={pingOk}, tcp{port}={tcpOk}, mac={arp ?? "-"}", "SCALES");
+            PosLogger.Log($"Rongta: проверка связи {ip}: ping={pingOk}, tcp4001={directCheck?.Replied == true}, mac={arp ?? "-"}", "SCALES");
         }
         catch (Exception ex)
         {
@@ -310,12 +317,37 @@ public partial class RongtaScaleSettingsWindow : Window
     {
         var panel = new StackPanel { Spacing = 12, Margin = new Thickness(0, 10, 8, 10) };
 
+        // 2026-11-13: крупно — какой тип сейчас, пример этикетки дороже 1000 сом, предупреждение и кнопка исправления; что касса пишет в карточки.
+        var now = Card(L("Тип штрихкода сейчас", "Штрих-коддун азыркы түрү", "Current barcode type", "Şu anki barkod türü", "Hozirgi shtrix-kod turi"), null, out var nowBody);
+        _currentTypeText = Themed(this, new TextBlock { FontSize = 20, FontWeight = FontWeight.Bold, TextWrapping = TextWrapping.Wrap }, TextBlock.ForegroundProperty, "BrushText", Brushes.Black);
+        nowBody.Children.Add(_currentTypeText);
+        _currentTypeWarning = new TextBlock { Classes = { "label" }, TextWrapping = TextWrapping.Wrap, FontWeight = FontWeight.SemiBold };
+        nowBody.Children.Add(_currentTypeWarning);
+        // 2026-11-13: крупная рекомендация и кнопка «Исправить: тип 07» — для ЛЮБОГО типа, с которым касса не прочтёт этикетку или есть предел суммы (раньше — только для типов по сумме).
+        _recommendText = new TextBlock { FontSize = 15, FontWeight = FontWeight.Bold, TextWrapping = TextWrapping.Wrap };
+        nowBody.Children.Add(_recommendText);
+        _fixTypeButton = MakeButton("", true, (_, _) => ChooseRecommendedType());
+        nowBody.Children.Add(ButtonRow(_fixTypeButton));
+        _writeTypeText = Text("", "hint");
+        nowBody.Children.Add(_writeTypeText);
+        Button? applyAllButton = null;
+        applyAllButton = MakeButton(L("Записать тип во все товары на весах…", "Түрдү таразадагы бардык товарларга жазуу…", "Write the type into all goods on the scale…", "Türü tartıdaki tüm ürünlere yaz…", "Turni tarozidagi barcha tovarlarga yozish…"), false,
+            async (_, _) => await ApplyTypeToAllAsync(applyAllButton!).ConfigureAwait(true));
+        nowBody.Children.Add(ButtonRow(applyAllButton,
+            MakeButton(L("Не записывать тип в карточки", "Түрдү карточкаларга жазбоо", "Do not write the type into cards", "Türü kartlara yazma", "Turni kartochkalarga yozmaslik"), false, (_, _) =>
+            {
+                UserPreferences.Instance.RongtaServerBarcodeType = null;
+                UserPreferences.Instance.SaveToDisk();
+                UpdateCurrentType();
+            })));
+        panel.Children.Add(now);
+
         var card = Card(L("Тип штрих-кода на весах", "Таразадагы штрих-коддун түрү", "Barcode type on the scale", "Tartıdaki barkod türü", "Tarozidagi shtrix-kod turi"),
-            L("Тип (0–99) задаётся в RLS1000: «Setting» → «barcode type», у товара — поле «Barcode Type» в PLU Manager; на весах — [SETTING] → «set default barcode type». Таблица типов — Appendix II руководства RLS1000.",
-              "Түрү (0–99) RLS1000'до коюлат: «Setting» → «barcode type», товарда — PLU Manager'деги «Barcode Type» талаасы; таразада — [SETTING] → «set default barcode type». Түрлөрдүн таблицасы — RLS1000 колдонмосунун Appendix II.",
-              "The type (0–99) is set in RLS1000: “Setting” → “barcode type”, per item — the “Barcode Type” field in PLU Manager; on the scale — [SETTING] → “set default barcode type”. Type table — Appendix II of the RLS1000 manual.",
-              "Tür (0–99) RLS1000'de ayarlanır: “Setting” → “barcode type”, ürün başına — PLU Manager'da “Barcode Type”; tartıda — [SETTING] → “set default barcode type”. Tür tablosu — RLS1000 kılavuzu Appendix II.",
-              "Turi (0–99) RLS1000 da belgilanadi: «Setting» → «barcode type», tovarda — PLU Manager dagi «Barcode Type» maydoni; tarozida — [SETTING] → «set default barcode type». Turlar jadvali — RLS1000 qo‘llanmasi, Appendix II."),
+            L("Тип (0–99) — как весы складывают цифры штрихкода (таблица Appendix II руководства RLS1000). Касса читает этикетки по этому типу и записывает его в весовые карточки при «Отправить на весы». У каждого типа ниже — пример и проверка.",
+              "Түрү (0–99) — тараза штрих-коддун сандарын кантип түзөт (RLS1000 колдонмосунун Appendix II таблицасы). Касса этикеткаларды ушул түр боюнча окуйт жана «Таразага жөнөтүү» учурунда салмактуу карточкаларга жазат. Төмөндө ар бир түргө мисал жана текшерүү бар.",
+              "The type (0–99) is how the scale builds the barcode digits (Appendix II of the RLS1000 manual). The till reads labels by this type and writes it into weighed cards on “Send to scale”. Each type below has an example and a check.",
+              "Tür (0–99), tartının barkod hanelerini nasıl dizdiğidir (RLS1000 kılavuzu Appendix II). Kasa etiketleri bu türe göre okur ve «Tartıya gönder»de tartılı kartlara yazar. Aşağıda her tür için örnek ve kontrol var.",
+              "Tur (0–99) — tarozi shtrix-kod raqamlarini qanday tuzishi (RLS1000 qo‘llanmasi, Appendix II jadvali). Kassa yorliqlarni shu tur bo‘yicha o‘qiydi va «Taroziga yuborish»da vaznli kartochkalarga yozadi. Quyida har bir tur uchun misol va tekshiruv bor."),
             out var body);
 
         var formatHint = Text(CompanyFormatText(), "hint");
@@ -323,9 +355,11 @@ public partial class RongtaScaleSettingsWindow : Window
         // 2026-11-05: единица суммы (тыйын/сом) — на этой кассе, важнее сайта (хотфикс TM-30F: 76800 = 768,00 сом, а не 76 800).
         body.Children.Add(AmountUnitPicker(this, () => { formatHint.Text = CompanyFormatText(); UpdateSample(); }));
 
-        _typeBox = new ComboBox { MinWidth = 360 };
+        _typeBox = new ComboBox { MinWidth = 360, MaxDropDownHeight = 420 };
         foreach (var t in _types)
-            _typeBox.Items.Add($"{t.Type:00} — {t.Pattern}");
+            _typeBox.Items.Add($"{t.Type:00} — {t.Pattern}" + (t.Type == RongtaBarcodeFormat.RecommendedTypeNumber ? "   ★ " + L("рекомендуется", "сунушталат", "recommended", "önerilir", "tavsiya etiladi") : ""));
+        // 2026-11-13: при открытии списка выбранный тип на виду (ComboBox виртуализирует строки); 07 — первая строка, 00–09 выше остальных.
+        _typeBox.DropDownOpened += (_, _) => Dispatcher.UIThread.Post(() => { if (_typeBox.SelectedIndex >= 0) _typeBox.ScrollIntoView(_typeBox.SelectedIndex); }, DispatcherPriority.Loaded);
         // 2026-09-30: тип запоминается (раньше всегда открывался 07). По умолчанию 02 — так стоит на
         // весах владельца (этикетка 20 34567 00290 8: отдел 20, код 5 цифр, сумма 5 цифр).
         _typeBox.SelectedIndex = Math.Max(0, _types.FindIndex(t => t.Type == UserPreferences.Instance.RongtaBarcodeType));
@@ -334,6 +368,8 @@ public partial class RongtaScaleSettingsWindow : Window
             if (SelectedType is { } selected)
             {
                 UserPreferences.Instance.RongtaBarcodeType = selected.Type;
+                // 2026-11-13: выбранная структура уходит и в записи товара способа «свой сервер» (команда 0110, поле Barcode type) — до первого выбора там 05.
+                UserPreferences.Instance.RongtaServerBarcodeType = selected.Type;
                 UserPreferences.Instance.SaveToDisk();
             }
             UpdateSample();
@@ -356,11 +392,12 @@ public partial class RongtaScaleSettingsWindow : Window
             UpdateSample();
         };
         body.Children.Add(Row(L("Отдел / префикс товара (DD)", "Товардын бөлүмү / префикси (DD)", "Item department / prefix (DD)", "Ürün reyonu / öneki (DD)", "Tovar bo‘limi / prefiksi (DD)"), _department));
-        body.Children.Add(Text(L("При отправке «напрямую по сети» касса сама записывает этот отдел в каждый товар. Тип штрих-кода меняется только на весах: [SETTING] → «set default barcode type».",
-            "«Тармак аркылуу түз» жөнөткөндө касса бул бөлүмдү ар бир товарга өзү жазат. Штрих-коддун түрү таразада гана өзгөрөт: [SETTING] → «set default barcode type».",
-            "When sending “directly over the network” the till writes this department into every item. The barcode type is changed only on the scale: [SETTING] → “set default barcode type”.",
-            "“Doğrudan ağ üzerinden” gönderimde kasa bu reyonu her ürüne yazar. Barkod türü yalnızca tartıda değişir: [SETTING] → “set default barcode type”.",
-            "«To‘g‘ridan-to‘g‘ri tarmoq orqali» yuborishda kassa bu bo‘limni har bir tovarga o‘zi yozadi. Shtrix-kod turi faqat tarozida o‘zgaradi: [SETTING] → «set default barcode type»."), "hint"));
+        // 2026-11-13 (разбор RLS1000 на локальной ловушке): в «!0V» (порт 4001) поля типа нет — тип уходит «родной» командой весов «обновить PLU» (порт 5001, байт 42 карточки).
+        body.Children.Add(Text(L("Отдел касса пишет в каждый товар. Тип штрихкода касса пишет в каждую весовую карточку отдельной командой весов (порт 5001, как программа RLS1000). Если весы её не примут — тип ставят на весах: [SETTING] (держать 2–3 с) → «barcode type: set all barcodes' type» → номер типа → [PRN/ENTER].",
+            "Бөлүмдү касса ар бир товарга жазат. Штрих-коддун түрүн касса ар бир салмактуу карточкага таразанын өзүнчө буйругу менен жазат (5001 порт, RLS1000 программасындай). Тараза аны кабыл албаса — түрдү таразада коюшат: [SETTING] (2–3 с кармоо) → «barcode type: set all barcodes' type» → түрдүн номери → [PRN/ENTER].",
+            "The till writes the department into every item. The barcode type is written into every weighed card with a separate scale command (port 5001, like RLS1000). If the scale does not accept it, set the type on the scale: [SETTING] (hold 2–3 s) → “barcode type: set all barcodes' type” → type number → [PRN/ENTER].",
+            "Kasa reyonu her ürüne yazar. Barkod türünü her tartılı karta ayrı bir tartı komutuyla yazar (port 5001, RLS1000 gibi). Tartı kabul etmezse tür tartıda ayarlanır: [SETTING] (2–3 sn basılı) → «barcode type: set all barcodes' type» → tür numarası → [PRN/ENTER].",
+            "Bo‘limni kassa har bir tovarga yozadi. Shtrix-kod turini kassa har bir vaznli kartochkaga tarozining alohida buyrug‘i bilan yozadi (5001 port, RLS1000 dasturi kabi). Tarozi uni qabul qilmasa — turni tarozida belgilashadi: [SETTING] (2–3 s bosib turish) → «barcode type: set all barcodes' type» → tur raqami → [PRN/ENTER]."), "hint"));
 
         _sampleCode = new NumericUpDown { Minimum = 1, Maximum = 9999999, Increment = 1, FormatString = "0", Value = 123, MinWidth = 140 };
         _sampleCode.ValueChanged += (_, _) => UpdateSample();
@@ -384,11 +421,12 @@ public partial class RongtaScaleSettingsWindow : Window
         panel.Children.Add(card);
 
         panel.Children.Add(Card(L("Что проверить на весах", "Таразада эмнени текшерүү керек", "What to check on the scale", "Tartıda neyi kontrol etmeli", "Tarozida nimani tekshirish kerak"),
-            L("1) Для типов 00–09 первые две цифры — «отдел» (Dept.) товара: чтобы касса узнала весовой штрих-код, отдел должен быть 20–29. Типы 10–19 ставят префикс 20–29 сами — отдел не важен. 2) «Код товара» в штрих-коде весы берут из поля товара Code (Art. No.) — оно должно совпадать с PLU/кодом товара в кассе. При способе «свой сервер» касса сейчас передаёт Code = 0 — проверьте первую этикетку. 3) Сумма в штрих-коде считается в сотых (тыйынах) при двух знаках после запятой у цены — это допущение, в руководстве не описано.",
-              "1) 00–09 түрлөрүндө алгачкы эки сан — товардын «бөлүмү» (Dept.): касса салмактуу штрих-кодду таанышы үчүн бөлүм 20–29 болушу керек. 10–19 түрлөрү 20–29 префиксин өздөрү коюшат — бөлүм маанилүү эмес. 2) Штрих-коддогу «товар кодун» тараза товардын Code (Art. No.) талаасынан алат — ал кассадагы PLU/товар коду менен дал келиши керек. «Өз сервер» жолунда касса азыр Code = 0 берет — биринчи этикетканы текшериңиз. 3) Штрих-коддогу сумма баада эки белги болгондо жүздүктөрдө (тыйында) эсептелет — бул божомол, колдонмодо жазылган эмес.",
-              "1) For types 00–09 the first two digits are the item “department” (Dept.): for the till to recognise a weight barcode it must be 20–29. Types 10–19 put prefix 20–29 themselves — department does not matter. 2) The scale takes the “item code” in the barcode from the item's Code (Art. No.) field — it must match the PLU/item code in the till. With “own server” the till currently sends Code = 0 — check the first label. 3) The amount is assumed to be in hundredths (tiyin) with two price decimals — this is an assumption, not in the manual.",
-              "1) 00–09 türlerinde ilk iki hane ürünün “reyonu”dur (Dept.): kasanın tartı barkodunu tanıması için 20–29 olmalı. 10–19 türleri 20–29 önekini kendileri koyar — reyon önemsiz. 2) Barkoddaki “ürün kodu” ürünün Code (Art. No.) alanından alınır — kasadaki PLU/ürün koduyla aynı olmalı. “Kendi sunucu” yolunda kasa şu an Code = 0 gönderiyor — ilk etiketi kontrol edin. 3) Tutarın iki ondalıklı fiyatta yüzde birlerle (tiyin) olduğu varsayılır — kılavuzda yok.",
-              "1) 00–09 turlarida dastlabki ikki raqam — tovar «bo‘limi» (Dept.): kassa vaznli shtrix-kodni tanishi uchun bo‘lim 20–29 bo‘lishi kerak. 10–19 turlari 20–29 prefiksini o‘zlari qo‘yadi — bo‘lim muhim emas. 2) Shtrix-koddagi «tovar kodi»ni tarozi tovarning Code (Art. No.) maydonidan oladi — u kassadagi PLU/tovar kodiga mos bo‘lishi kerak. «O‘z server» usulida kassa hozir Code = 0 yuboradi — birinchi yorliqni tekshiring. 3) Summa narxda ikki kasr bo‘lganda yuzdan birlarda (tiyinda) deb faraz qilinadi — qo‘llanmada yozilmagan."),
+            // 2026-11-13: «касса передаёт Code = 0» устарело (Code = PLU с 28.09); добавлен безопасный порядок проверки нового типа.
+            L("1) Сначала один товар: отправьте его на весы, на весах откройте карточку (держать [PLU] → номер PLU) — «Bar Code Type» должен быть таким, как здесь. 2) Положите товар дороже 1000 сом и напечатайте этикетку: штрихкод должен быть. Отсканируйте его кассой — сумма должна совпасть с этикеткой. 3) Для типов 00–09 первые две цифры — отдел: для кассы он должен быть 20–29. 4) Старые этикетки (по сумме) после смены типа не сканируйте — перепечатайте.",
+              "1) Адегенде бир товар: аны таразага жөнөтүңүз, таразада карточкасын ачыңыз ([PLU] кармоо → PLU номери) — «Bar Code Type» ушул жердегидей болушу керек. 2) 1000 сомдон кымбат товарды коюп, этикетка басыңыз: штрих-код болушу керек. Аны касса менен сканерлеңиз — сумма этикеткадагыдай болушу керек. 3) 00–09 түрлөрүндө алгачкы эки сан — бөлүм: касса үчүн 20–29 болушу керек. 4) Түрдү алмаштыргандан кийин эски (сумма боюнча) этикеткаларды сканерлебеңиз — кайра басыңыз.",
+              "1) Start with one item: send it to the scale, open its card on the scale (hold [PLU] → PLU number) — “Bar Code Type” must be the one shown here. 2) Put an item costing over 1000 som and print a label: the barcode must be there. Scan it at the till — the amount must match the label. 3) For types 00–09 the first two digits are the department: it must be 20–29 for the till. 4) Do not scan old (amount) labels after changing the type — reprint them.",
+              "1) Önce tek ürün: tartıya gönderin, tartıda kartını açın ([PLU] basılı → PLU numarası) — «Bar Code Type» buradaki gibi olmalı. 2) 1000 somdan pahalı bir ürün koyup etiket basın: barkod olmalı. Kasada okutun — tutar etiketle aynı olmalı. 3) 00–09 türlerinde ilk iki hane reyondur: kasa için 20–29 olmalı. 4) Tür değiştikten sonra eski (tutarlı) etiketleri okutmayın — yeniden basın.",
+              "1) Avval bitta tovar: uni taroziga yuboring, tarozida kartochkasini oching ([PLU] ni bosib turish → PLU raqami) — «Bar Code Type» shu yerdagidek bo‘lishi kerak. 2) 1000 so‘mdan qimmat tovarni qo‘yib, yorliq chop eting: shtrix-kod bo‘lishi kerak. Uni kassada skanerlang — summa yorliqdagidek bo‘lishi kerak. 3) 00–09 turlarida dastlabki ikki raqam — bo‘lim: kassa uchun 20–29 bo‘lishi kerak. 4) Tur almashgandan keyin eski (summali) yorliqlarni skanerlamang — qayta chop eting."),
             out _));
 
         UpdateSample();
@@ -399,6 +437,12 @@ public partial class RongtaScaleSettingsWindow : Window
         _typeBox.SelectedIndex >= 0 && _typeBox.SelectedIndex < _types.Count ? _types[_typeBox.SelectedIndex] : null;
 
     private void UpdateSample()
+    {
+        UpdateSampleCore();
+        UpdateCurrentType(); // 2026-11-13: после сверки с кассой — кнопке «Исправить» нужен её итог (_verdictOk)
+    }
+
+    private void UpdateSampleCore()
     {
         if (_verdictText is null || _sampleText is null)
             return;
@@ -427,16 +471,24 @@ public partial class RongtaScaleSettingsWindow : Window
           }) + ".";
 
         // 2026-11-06: потолок суммы структуры и предупреждение, если в каталоге есть товары дороже.
-        var report = RongtaBarcodeFormat.CheckCatalog(type, CatalogCacheService.Products.Where(p => p.IsWeighted).Select(p => LocalCartService.ParsePrice(p.PriceLine)));
-        _ceilingText.Text = (RongtaBarcodeFormat.CeilingText(type) + " " + RongtaBarcodeFormat.CatalogWarning(report)).Trim();
+        // 2026-11-12: единица суммы в штрихкоде — по «Price point» весов (настройка на вкладке загрузки).
+        var pricePoint = Math.Clamp(UserPreferences.Instance.RongtaPricePoint, 0, 3);
+        var report = RongtaBarcodeFormat.CheckCatalog(type, CatalogCacheService.Products.Where(p => p.IsWeighted).Select(p => LocalCartService.ParsePrice(p.PriceLine)), pricePoint);
+        _ceilingText.Text = (RongtaBarcodeFormat.CeilingText(type, pricePoint) + " " + RongtaBarcodeFormat.CatalogWarning(report)).Trim();
         Themed(this, _ceilingText, TextBlock.ForegroundProperty, report.HasProblem ? "BrushWarning" : "BrushTextSoft", report.HasProblem ? Brushes.DarkOrange : Brushes.Gray);
 
         var code = (long)(_sampleCode.Value ?? 1);
         var grams = (int)(_sampleGrams.Value ?? 392);
         var amount = Math.Round((decimal)(_samplePrice.Value ?? 250) * grams / 1000m, 2);
-        var sample = RongtaBarcodeFormat.BuildSample(type, (int)(_department.Value ?? 20), code, grams, amount);
+        var sample = RongtaBarcodeFormat.BuildSample(type, (int)(_department.Value ?? 20), code, grams, amount, pricePoint);
         _sampleText.Text = sample ?? "—";
 
+        if (!RongtaBarcodeFormat.AmountFits(type, amount, pricePoint))
+        {
+            // 2026-11-12: сумма примера не помещается в поле — весы напечатают этикетку без штрихкода (не обрезанную сумму).
+            SetVerdict(false, RongtaBarcodeFormat.CeilingText(type, pricePoint));
+            return;
+        }
         if (type.Value == RongtaBarcodeFormat.ValueKind.None)
         {
             SetVerdict(false, L("В этом типе нет веса и суммы — для весового товара не подходит.", "Бул түрдө салмак да, сумма да жок — салмактуу товарга ылайыксыз.", "This type has no weight or amount — not for weighed goods.", "Bu türde ağırlık ve tutar yok — tartılı ürün için uygun değil.", "Bu turda vazn ham, summa ham yo‘q — vaznli tovarga mos emas."));
@@ -465,17 +517,179 @@ public partial class RongtaScaleSettingsWindow : Window
 
     private void SetVerdict(bool ok, string message)
     {
+        _verdictOk = ok;
         _verdictText.Text = (ok ? "✓ " : "⚠ " + L("Касса НЕ узнает товар: ", "Касса товарды ТААНЫБАЙТ: ", "The till will NOT recognise the item: ", "Kasa ürünü TANIMAZ: ", "Kassa tovarni TANIMAYDI: ")) + message;
         Themed(this, _verdictText, TextBlock.ForegroundProperty, ok ? "BrushSuccess" : "BrushWarning", ok ? Brushes.Green : Brushes.DarkOrange);
     }
 
+    /// <summary>2026-11-13: верхний блок вкладки «Штрих-код» — тип крупно, пример этикетки «1,150 кг × 1100 = 1265,00 сом» (случай владельца),
+    /// предупреждение для типов по сумме с кнопкой исправления и что касса пишет в карточки.</summary>
+    private void UpdateCurrentType()
+    {
+        if (_currentTypeText is null || SelectedType is not { } type)
+            return;
+        var pricePoint = Math.Clamp(UserPreferences.Instance.RongtaPricePoint, 0, 3);
+        var kind = type.Value switch
+        {
+            RongtaBarcodeFormat.ValueKind.Price => L("по сумме", "сумма боюнча", "by amount", "tutara göre", "summa bo‘yicha"),
+            RongtaBarcodeFormat.ValueKind.Weight => L("по весу", "салмак боюнча", "by weight", "ağırlığa göre", "vazn bo‘yicha"),
+            _ => L("без веса и суммы", "салмаксыз жана суммасыз", "no weight or amount", "ağırlık ve tutar yok", "vazn va summasiz"),
+        };
+        const decimal sampleAmount = 1265.00m;
+        var sample = RongtaBarcodeFormat.BuildSample(type, (int)(_department?.Value ?? 20), 5, 1150, sampleAmount, pricePoint);
+        _currentTypeText.Text = L($"Тип {type.Type:00} — {kind} ({type.Pattern})", $"{type.Type:00} түрү — {kind} ({type.Pattern})", $"Type {type.Type:00} — {kind} ({type.Pattern})", $"Tür {type.Type:00} — {kind} ({type.Pattern})", $"{type.Type:00} turi — {kind} ({type.Pattern})")
+            + "\n" + L("Пример: 1,150 кг × 1100 сом = 1265,00 сом → ", "Мисал: 1,150 кг × 1100 сом = 1265,00 сом → ", "Example: 1.150 kg × 1100 som = 1265.00 som → ", "Örnek: 1,150 kg × 1100 som = 1265,00 som → ", "Misol: 1,150 kg × 1100 so‘m = 1265,00 so‘m → ")
+            + (sample ?? L("штрихкода НЕТ", "штрих-код ЖОК", "NO barcode", "barkod YOK", "shtrix-kod YO‘Q"));
+
+        var amountLimited = type.Value == RongtaBarcodeFormat.ValueKind.Price && !RongtaBarcodeFormat.AmountFits(type, sampleAmount, pricePoint);
+        _currentTypeWarning.Text = amountLimited
+            ? "⚠ " + RongtaBarcodeFormat.CeilingText(type, pricePoint)
+            : type.Value == RongtaBarcodeFormat.ValueKind.Weight
+                ? "✓ " + L("Предела суммы нет — штрихкод печатается при любой сумме.", "Сумма чеги жок — штрих-код каалаган суммада басылат.", "No amount limit — the barcode is printed at any amount.", "Tutar sınırı yok — barkod her tutarda basılır.", "Summa chegarasi yo‘q — shtrix-kod har qanday summada chop etiladi.")
+                : "";
+        Themed(this, _currentTypeWarning, TextBlock.ForegroundProperty, amountLimited ? "BrushWarning" : "BrushSuccess", amountLimited ? Brushes.DarkOrange : Brushes.Green);
+        // 2026-11-13: кнопка — для любого типа, кроме 07, если в нём предел суммы / нет веса или касса не прочтёт пример этикетки (тип 27 с «00…» и т. п.).
+        _fixTypeButton.IsVisible = RongtaBarcodeFormat.NeedsRecommendedFix(type, _verdictOk);
+        _fixTypeButton.Content = L("Исправить: тип 07 (рекомендуется)", "Оңдоо: 07 түрү (сунушталат)", "Fix: type 07 (recommended)", "Düzelt: tür 07 (önerilir)", "Tuzatish: 07 turi (tavsiya etiladi)");
+        var isRecommended = type.Type == RongtaBarcodeFormat.RecommendedTypeNumber;
+        _recommendText.Text = (isRecommended ? "✓ " : "★ ") + L(
+            "Для Rongta рекомендуем тип 07 — проверено на весах RLS1000: штрихкод печатается при любой сумме (вес в граммах, префикс 20).",
+            "Rongta үчүн 07 түрүн сунуштайбыз — RLS1000 таразасында текшерилген: штрих-код каалаган суммада басылат (салмак граммда, префикс 20).",
+            "For Rongta we recommend type 07 — verified on an RLS1000 scale: the barcode is printed at any amount (weight in grams, prefix 20).",
+            "Rongta için 07 türünü öneriyoruz — RLS1000 tartıda doğrulandı: barkod her tutarda basılır (ağırlık gram, önek 20).",
+            "Rongta uchun 07 turini tavsiya qilamiz — RLS1000 tarozisida tekshirilgan: shtrix-kod har qanday summada chop etiladi (vazn grammda, prefiks 20).");
+        Themed(this, _recommendText, TextBlock.ForegroundProperty, isRecommended ? "BrushSuccess" : "BrushText", isRecommended ? Brushes.Green : Brushes.Black);
+
+        _writeTypeText.Text = RongtaBarcodeTypeWriter.ChosenType is int t
+            ? L($"Касса записывает тип {t:00} в каждую весовую карточку при «Отправить на весы» (порт 5001).", $"Касса {t:00} түрүн «Таразага жөнөтүү» учурунда ар бир салмактуу карточкага жазат (5001 порт).", $"The till writes type {t:00} into every weighed card on “Send to scale” (port 5001).", $"Kasa {t:00} türünü «Tartıya gönder»de her tartılı karta yazar (port 5001).", $"Kassa {t:00} turini «Taroziga yuborish»da har bir vaznli kartochkaga yozadi (5001 port).")
+            : L("Касса тип в карточки не записывает — на весах остаётся их тип. Выберите тип в списке ниже, чтобы касса его записывала.", "Касса түрдү карточкаларга жазбайт — таразада өз түрү калат. Касса жазышы үчүн төмөнкү тизмеден түрдү тандаңыз.", "The till does not write the type into cards — the scale keeps its own. Choose a type in the list below for the till to write it.", "Kasa türü kartlara yazmaz — tartıda kendi türü kalır. Kasanın yazması için aşağıdaki listeden bir tür seçin.", "Kassa turni kartochkalarga yozmaydi — tarozida o‘z turi qoladi. Kassa yozishi uchun quyidagi ro‘yxatdan tur tanlang.");
+    }
+
+    /// <summary>2026-11-13: «Записать тип во все товары на весах» — весовые товары, которые касса уже отправляла на эти весы, с подтверждением.</summary>
+    private async Task ApplyTypeToAllAsync(Button button)
+    {
+        SaveConnection();
+        if (RongtaBarcodeTypeWriter.ChosenType is not int type)
+        {
+            ShowResult(L("Сначала выберите тип штрихкода в списке.", "Адегенде тизмеден штрих-коддун түрүн тандаңыз.", "Choose a barcode type in the list first.", "Önce listeden bir barkod türü seçin.", "Avval ro‘yxatdan shtrix-kod turini tanlang."), true);
+            return;
+        }
+        var records = RongtaBarcodeTypeWriter.FromSentGoods();
+        if (records.Count == 0)
+        {
+            ShowResult(L("Касса ещё не отправляла весовые товары на эти весы. Откройте окно «Весы» и нажмите «Отправить на весы» — тип уйдёт вместе с товарами.", "Касса бул таразага салмактуу товар жөнөтө элек. «Таразалар» терезесин ачып «Таразага жөнөтүү» басыңыз — түр товарлар менен кетет.", "The till has not sent weighed goods to this scale yet. Open the “Scales” window and press “Send to scale” — the type goes with the goods.", "Kasa bu tartıya henüz tartılı ürün göndermedi. «Tartı» penceresini açıp «Tartıya gönder»e basın — tür ürünlerle gider.", "Kassa bu taroziga hali vaznli tovar yubormagan. «Tarozi» oynasini ochib «Taroziga yuborish»ni bosing — tur tovarlar bilan ketadi."), true);
+            return;
+        }
+        var ip = (_ipBox.Text ?? "").Trim();
+        var question = L($"Записать тип {type:00} в весовые товары на весах {ip}: {records.Count} шт.? Название и цена в этих карточках обновятся из каталога. Советуем сначала проверить на одном товаре (окно «Весы»).",
+            $"{ip} таразасындагы салмактуу товарларга {type:00} түрүн жазабызбы: {records.Count} даана? Бул карточкалардагы аталыш жана баа каталогдон жаңыланат. Адегенде бир товардан текшерүүнү сунуштайбыз («Таразалар» терезеси).",
+            $"Write type {type:00} into the weighed goods on scale {ip}: {records.Count} items? Names and prices in these cards are refreshed from the catalog. We advise checking one item first (the “Scales” window).",
+            $"{ip} tartısındaki tartılı ürünlere {type:00} türü yazılsın mı: {records.Count} adet? Bu kartlardaki ad ve fiyat katalogdan güncellenir. Önce tek üründe denemenizi öneririz («Tartı» penceresi).",
+            $"{ip} tarozisidagi vaznli tovarlarga {type:00} turi yozilsinmi: {records.Count} ta? Bu kartochkalardagi nom va narx katalogdan yangilanadi. Avval bitta tovarda tekshirishni maslahat beramiz («Tarozi» oynasi).");
+        if (!await NurMarketKassa.AvaloniaHost.Services.PosDialogs.ConfirmYesNoModalAsync(this, question,
+                L("Тип штрихкода на весах", "Таразадагы штрих-коддун түрү", "Barcode type on the scale", "Tartıdaki barkod türü", "Tarozidagi shtrix-kod turi"),
+                L("Записать", "Жазуу", "Write", "Yaz", "Yozish")).ConfigureAwait(true))
+            return;
+        button.IsEnabled = false;
+        ShowResult(L("Запись на весы…", "Таразага жазылууда…", "Writing to the scale…", "Tartıya yazılıyor…", "Taroziga yozilmoqda…"), false);
+        try
+        {
+            var (ok, note) = await RongtaBarcodeTypeWriter.WriteAsync(ip, records, Math.Clamp(UserPreferences.Instance.RongtaPricePoint, 0, 3), type, CancellationToken.None).ConfigureAwait(true);
+            ShowResult(note + (ok
+                ? L(" Положите товар дороже 1000 сом и напечатайте этикетку — штрихкод должен быть.", " 1000 сомдон кымбат товарды коюп этикетка басыңыз — штрих-код болушу керек.", " Put an item over 1000 som and print a label — the barcode must be there.", " 1000 somdan pahalı bir ürün koyup etiket basın — barkod olmalı.", " 1000 so‘mdan qimmat tovarni qo‘yib yorliq chop eting — shtrix-kod bo‘lishi kerak.")
+                : " " + RongtaBarcodeTypeWriter.NoReplyHint(type)), !ok); // 2026-11-13: запасной путь на весах и журнал обмена — одним текстом
+        }
+        finally
+        {
+            button.IsEnabled = true;
+        }
+    }
+
+    // =====================================================================================
+    // Дата и параметры
+    // =====================================================================================
+
+    /// <summary>2026-11-13: вкладка «Дата и параметры» — дата/время ПК на весы (пакет «подключиться», как RLS1000) и что из системных параметров ставить на весах.</summary>
+    private Control BuildDateTab()
+    {
+        var panel = new StackPanel { Spacing = 12, Margin = new Thickness(0, 10, 8, 10) };
+        var date = Card(L("Дата и время на весах", "Таразадагы дата жана убакыт", "Date and time on the scale", "Tartıdaki tarih ve saat", "Tarozidagi sana va vaqt"),
+            L("Дату упаковки на этикетке весы берут из своих часов. Кнопка ниже передаёт весам дату и время этого компьютера — так же, как программа RLS1000 при каждом подключении (порт 5001). Товары и настройки весов не меняются.",
+              "Этикеткадагы таңгактоо датасын тараза өз саатынан алат. Төмөнкү баскыч таразага ушул компьютердин датасын жана убактысын берет — RLS1000 программасы ар бир туташууда кылгандай (5001 порт). Товарлар жана тараза жөндөөлөрү өзгөрбөйт.",
+              "The scale takes the packing date on the label from its own clock. The button below gives the scale this computer's date and time — the way RLS1000 does on every connection (port 5001). Goods and scale settings are not changed.",
+              "Tartı etiketteki paketleme tarihini kendi saatinden alır. Aşağıdaki düğme tartıya bu bilgisayarın tarih ve saatini verir — RLS1000'in her bağlantıda yaptığı gibi (port 5001). Ürünler ve tartı ayarları değişmez.",
+              "Yorliqdagi qadoqlash sanasini tarozi o‘z soatidan oladi. Quyidagi tugma taroziga shu kompyuterning sana va vaqtini beradi — RLS1000 dasturi har ulanishda qilganidek (5001 port). Tovarlar va tarozi sozlamalari o‘zgarmaydi."),
+            out var dateBody);
+        Button? clockButton = null;
+        clockButton = MakeButton(L("Записать дату и время на весы", "Датаны жана убакытты таразага жазуу", "Write date and time to the scale", "Tarihi ve saati tartıya yaz", "Sana va vaqtni taroziga yozish"), true,
+            async (_, _) => await SyncClockAsync(clockButton!).ConfigureAwait(true));
+        dateBody.Children.Add(ButtonRow(clockButton));
+        dateBody.Children.Add(Text(L("Весы ставят часы по ПК, если у них включено «автоматически обновлять время» (так с завода). Если часы не изменились — поставьте вручную: [SETTING] → «T date adjusting». Дата снова сбивается после выключения — батарейка часов.",
+            "Таразада «автоматически обновлять время» күйүк болсо (заводдон ушундай), саатты ПК боюнча коёт. Саат өзгөрбөсө — кол менен коюңуз: [SETTING] → «T date adjusting». Өчүргөндөн кийин дата кайра бузулса — сааттын батарейкасы.",
+            "The scale sets its clock from the PC if “auto update time” is on (factory default). If the clock did not change, set it by hand: [SETTING] → “T date adjusting”. If the date resets after power-off — the clock battery.",
+            "Tartıda «otomatik saat güncelle» açıksa (fabrika ayarı) saati PC'ye göre kurar. Saat değişmediyse elle kurun: [SETTING] → «T date adjusting». Kapatınca tarih yine bozuluyorsa — saat pili.",
+            "Tarozida «avtomatik vaqtni yangilash» yoqilgan bo‘lsa (zavoddan shunday), soatni kompyuter bo‘yicha qo‘yadi. Soat o‘zgarmasa — qo‘lda qo‘ying: [SETTING] → «T date adjusting». O‘chirgandan keyin sana yana buzilsa — soat batareyasi."), "hint"));
+        panel.Children.Add(date);
+
+        panel.Children.Add(Card(L("Системные параметры весов", "Таразанын система параметрлери", "Scale system settings", "Tartı sistem ayarları", "Tarozi tizim parametrlari"),
+            L("Знаки цены, формат даты, тип штрихкода «по умолчанию» и «для всех» программа RLS1000 пишет одним блоком, который переписывает ВСЕ настройки весов. Касса этот блок не отправляет, чтобы не сбить ваши весы. Ставьте на весах ([SETTING], держать 2–3 с): «J decimal digits in unit price» = 2 и «X total price precision» = 2 (как «Знаков после запятой» на вкладке «Загрузка товаров»), «set default barcode type» — тип для новых товаров. Не трогайте «ВЫБОР ФОРМАТА ЭТИКЕТКИ» (D0/D1) и «Recover factory system para».",
+              "Баанын белгилерин, дата форматын, «демейки» жана «баары үчүн» штрих-код түрүн RLS1000 программасы бир блок менен жазат, ал таразанын БАРДЫК жөндөөлөрүн кайра жазат. Касса тараза бузулбашы үчүн бул блокту жөнөтпөйт. Таразада коюңуз ([SETTING], 2–3 с кармоо): «J decimal digits in unit price» = 2 жана «X total price precision» = 2 («Товарларды жүктөө» өтмөгүндөгү «Үтүрдөн кийинки белгилер» сыяктуу), «set default barcode type» — жаңы товарлар үчүн түр. «ВЫБОР ФОРМАТА ЭТИКЕТКИ» (D0/D1) жана «Recover factory system para» тийбеңиз.",
+              "Price decimals, date format and the “default” and “all items” barcode types are written by RLS1000 as one block that overwrites ALL scale settings. The till does not send that block so as not to upset your scale. Set on the scale ([SETTING], hold 2–3 s): “J decimal digits in unit price” = 2 and “X total price precision” = 2 (same as “Decimals” on the “Uploading goods” tab), “set default barcode type” — type for new items. Do not touch “LABEL FORMAT” (D0/D1) or “Recover factory system para”.",
+              "Fiyat ondalığı, tarih biçimi, «varsayılan» ve «tümü için» barkod türünü RLS1000 tek blokla yazar; bu blok tartının TÜM ayarlarının üzerine yazar. Kasa tartınızı bozmamak için bu bloğu göndermez. Tartıda ayarlayın ([SETTING], 2–3 sn basılı): «J decimal digits in unit price» = 2 ve «X total price precision» = 2 («Ürün yükleme» sekmesindeki «Ondalık hane» gibi), «set default barcode type» — yeni ürünler için tür. «ETİKET BİÇİMİ» (D0/D1) ve «Recover factory system para»ya dokunmayın.",
+              "Narx xonalari, sana formati, «standart» va «hammasi uchun» shtrix-kod turini RLS1000 dasturi bitta blok bilan yozadi, u tarozining BARCHA sozlamalarini qayta yozadi. Kassa tarozingizni buzmaslik uchun bu blokni yubormaydi. Tarozida belgilang ([SETTING], 2–3 s bosib turish): «J decimal digits in unit price» = 2 va «X total price precision» = 2 («Tovarlarni yuklash» bo‘limidagi «Verguldan keyingi xonalar» kabi), «set default barcode type» — yangi tovarlar uchun tur. «ВЫБОР ФОРМАТА ЭТИКЕТКИ» (D0/D1) va «Recover factory system para» ga tegmang."),
+            out _));
+        return panel;
+    }
+
+    private async Task SyncClockAsync(Button button)
+    {
+        SaveConnection();
+        var ip = (_ipBox.Text ?? "").Trim();
+        var scale = RongtaUdpScaleService.TryCreate(ip);
+        if (scale is null)
+        {
+            ShowResult(L("Введите IP-адрес весов на вкладке «Подключение».", "«Туташуу» өтмөгүндө таразанын IP-дарегин киргизиңиз.", "Enter the scale IP address on the “Connection” tab.", "«Bağlantı» sekmesinde tartı IP adresini girin.", "«Ulanish» bo‘limida tarozi IP manzilini kiriting."), true);
+            return;
+        }
+        button.IsEnabled = false;
+        ShowResult(L("Связь с весами…", "Тараза менен байланыш…", "Contacting the scale…", "Tartıya bağlanılıyor…", "Tarozi bilan aloqa…"), false);
+        try
+        {
+            var now = DateTime.Now;
+            var result = await scale.ConnectOnlyAsync(now, CancellationToken.None).ConfigureAwait(true);
+            PosLogger.Log($"Rongta: дата и время {now:dd.MM.yyyy HH:mm:ss} → {scale.Host}:{scale.Port} (UDP): {result.Error} {result.Detail}", "SCALES");
+            var stamp = now.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
+            ShowResult(result.Ok
+                ? L($"Весы ответили; передано {stamp}. Проверьте часы на весах.", $"Тараза жооп берди; {stamp} берилди. Таразадагы саатты текшериңиз.", $"The scale answered; {stamp} sent. Check the clock on the scale.", $"Tartı yanıt verdi; {stamp} gönderildi. Tartıdaki saati kontrol edin.", $"Tarozi javob berdi; {stamp} yuborildi. Tarozidagi soatni tekshiring.")
+                : L($"Весы не ответили ({RongtaBarcodeTypeWriter.ErrorText(result.Error)}). Дату можно поставить на весах: [SETTING] → «T date adjusting».", $"Тараза жооп берген жок ({RongtaBarcodeTypeWriter.ErrorText(result.Error)}). Датаны таразада коюуга болот: [SETTING] → «T date adjusting».", $"The scale did not answer ({RongtaBarcodeTypeWriter.ErrorText(result.Error)}). The date can be set on the scale: [SETTING] → “T date adjusting”.", $"Tartı yanıt vermedi ({RongtaBarcodeTypeWriter.ErrorText(result.Error)}). Tarih tartıda ayarlanabilir: [SETTING] → «T date adjusting».", $"Tarozi javob bermadi ({RongtaBarcodeTypeWriter.ErrorText(result.Error)}). Sanani tarozida qo‘yish mumkin: [SETTING] → «T date adjusting»."), !result.Ok);
+        }
+        finally
+        {
+            button.IsEnabled = true;
+        }
+    }
+
     /// <summary>2026-11-06 (жалоба «у Rongta не видит суммы больше 999»): одной кнопкой — структура «по весу» с теми же префиксом и числом цифр кода (02 → 07): вес не имеет предела суммы.
     /// Касса сама начинает читать префикс как ВЕС (правило префикса снимается с «сумма»). Тип на самих весах касса не меняет — прямой протокол записи этого поля не описан: нужно выставить то же значение
-    /// на весах ([SETTING] → set default barcode type) и в RLS1000 (Barcode Type у товаров).</summary>
+    /// на весах ([SETTING] → «barcode type: set all barcodes' type» — 2026-11-13: default действует только на новые карточки) и в RLS1000 (Barcode Type у товаров).</summary>
     private void ChooseUnlimitedStructure()
     {
         var current = SelectedType;
-        var recommended = current is null ? null : RongtaBarcodeFormat.RecommendedWeightType(current);
+        SelectStructure(current is null ? null : RongtaBarcodeFormat.RecommendedWeightType(current));
+    }
+
+    /// <summary>2026-11-13: кнопка «Исправить: тип 07 (рекомендуется)» — структура 07 (проверена вживую на RLS1000) для любого текущего типа; отдел вне 20–29 заменяется на 20.</summary>
+    private void ChooseRecommendedType()
+    {
+        var department = (int)(_department.Value ?? 20);
+        if (department is < 20 or > 29)
+            _department.Value = 20; // ValueChanged запоминает отдел
+        SelectStructure(RongtaBarcodeFormat.RecommendedType);
+    }
+
+    private void SelectStructure(RongtaBarcodeFormat.BarcodeType? recommended)
+    {
+        var current = SelectedType;
         if (current is null || recommended is null)
         {
             ShowResult(L("Подходящая структура по весу не найдена — выберите её в списке.", "Салмак боюнча ылайыктуу түзүлүш табылган жок — тизмеден тандаңыз.", "No suitable by-weight structure found — choose one in the list.", "Uygun ağırlık yapısı bulunamadı — listeden seçin.", "Mos vazn tuzilmasi topilmadi — ro‘yxatdan tanlang."), true);
@@ -491,11 +705,12 @@ public partial class RongtaScaleSettingsWindow : Window
             ScaleLabelCodeRegistry.UnpublishAmountPrefix(text);
         }
         var kg = RongtaBarcodeFormat.MaxWeightKg(recommended).ToString("0.###", CultureInfo.GetCultureInfo("ru-RU"));
-        ShowResult(L($"Выбрана структура {recommended.Type:00} ({recommended.Pattern}): вес до {kg} кг, предела суммы нет; касса читает префикс как вес. ВАЖНО: то же значение выставьте на самих весах — [SETTING] → «set default barcode type» → {recommended.Type:00} (и «Barcode Type» у товаров в RLS1000) и проверьте «Price point» (знаки цены). Касса тип на весах не меняет. Затем распечатайте этикетку и считайте её сканером кассы.",
-            $"{recommended.Type:00} түзүлүшү тандалды ({recommended.Pattern}): салмак {kg} кг га чейин, сумма чеги жок; касса префиксти салмак катары окуйт. МААНИЛҮҮ: ушул эле маанини таразанын өзүндө коюңуз — [SETTING] → «set default barcode type» → {recommended.Type:00} (жана RLS1000 дөгү товарлардын «Barcode Type» талаасы) жана «Price point» ти (баанын белгилери) текшериңиз. Касса таразадагы түрдү өзгөртпөйт. Анан этикетка басып, касса сканери менен окуңуз.",
-            $"Structure {recommended.Type:00} ({recommended.Pattern}) chosen: weight up to {kg} kg, no amount limit; the till reads the prefix as weight. IMPORTANT: set the same value on the scale itself — [SETTING] → “set default barcode type” → {recommended.Type:00} (and “Barcode Type” of the items in RLS1000) and check “Price point” (price decimals). The till does not change the type on the scale. Then print a label and read it with the till's scanner.",
-            $"{recommended.Type:00} yapısı seçildi ({recommended.Pattern}): {kg} kg'a kadar ağırlık, tutar sınırı yok; kasa öneki ağırlık olarak okur. ÖNEMLİ: aynı değeri tartının kendisinde ayarlayın — [SETTING] → “set default barcode type” → {recommended.Type:00} (ve RLS1000'de ürünlerin “Barcode Type” alanı) ve “Price point”i (fiyat ondalığı) kontrol edin. Kasa tartıdaki türü değiştirmez. Sonra bir etiket basıp kasa tarayıcısıyla okutun.",
-            $"{recommended.Type:00} tuzilmasi tanlandi ({recommended.Pattern}): vazn {kg} kg gacha, summa chegarasi yo‘q; kassa prefiksni vazn deb o‘qiydi. MUHIM: shu qiymatni tarozining o‘zida ham belgilang — [SETTING] → «set default barcode type» → {recommended.Type:00} (va RLS1000 dagi tovarlarning «Barcode Type» maydoni) hamda «Price point» ni (narx xonalari) tekshiring. Kassa tarozidagi turni o‘zgartirmaydi. So‘ng yorliq chop etib, kassa skaneri bilan o‘qing."), false);
+        // 2026-11-13: тип теперь уходит в карточки весов «родной» командой (UDP 5001) при «Отправить на весы» / «Записать тип во все товары».
+        ShowResult(L($"Выбрана структура {recommended.Type:00} ({recommended.Pattern}): вес до {kg} кг, предела суммы нет; касса читает префикс как вес. Касса запишет тип {recommended.Type:00} в весовые карточки при «Отправить на весы» (или кнопкой «Записать тип во все товары на весах»). Проверьте сначала один товар: этикетка дороже 1000 сом должна выйти со штрихкодом.",
+            $"{recommended.Type:00} түзүлүшү тандалды ({recommended.Pattern}): салмак {kg} кг га чейин, сумма чеги жок; касса префиксти салмак катары окуйт. Касса {recommended.Type:00} түрүн «Таразага жөнөтүү» учурунда (же «Түрдү таразадагы бардык товарларга жазуу» баскычы менен) салмактуу карточкаларга жазат. Адегенде бир товарды текшериңиз: 1000 сомдон кымбат этикетка штрих-код менен чыгышы керек.",
+            $"Structure {recommended.Type:00} ({recommended.Pattern}) chosen: weight up to {kg} kg, no amount limit; the till reads the prefix as weight. The till writes type {recommended.Type:00} into weighed cards on “Send to scale” (or with “Write the type into all goods on the scale”). Check one item first: a label over 1000 som must come out with a barcode.",
+            $"{recommended.Type:00} yapısı seçildi ({recommended.Pattern}): {kg} kg'a kadar ağırlık, tutar sınırı yok; kasa öneki ağırlık olarak okur. Kasa {recommended.Type:00} türünü «Tartıya gönder»de (veya «Türü tartıdaki tüm ürünlere yaz» ile) tartılı kartlara yazar. Önce tek ürünü kontrol edin: 1000 somdan pahalı etiket barkodlu çıkmalı.",
+            $"{recommended.Type:00} tuzilmasi tanlandi ({recommended.Pattern}): vazn {kg} kg gacha, summa chegarasi yo‘q; kassa prefiksni vazn deb o‘qiydi. Kassa {recommended.Type:00} turini «Taroziga yuborish»da (yoki «Turni tarozidagi barcha tovarlarga yozish» tugmasi bilan) vaznli kartochkalarga yozadi. Avval bitta tovarni tekshiring: 1000 so‘mdan qimmat yorliq shtrix-kod bilan chiqishi kerak."), false);
     }
 
     /// <summary>«Подобрать под кассу»: перебирает типы (сначала с фиксированным префиксом — им
@@ -524,7 +739,7 @@ public partial class RongtaScaleSettingsWindow : Window
             };
             foreach (var dept in departments)
             {
-                var sample = RongtaBarcodeFormat.BuildSample(type, dept, code, grams, amount);
+                var sample = RongtaBarcodeFormat.BuildSample(type, dept, code, grams, amount, Math.Clamp(UserPreferences.Instance.RongtaPricePoint, 0, 3)); // 2026-11-12: единица суммы по Price point
                 if (sample is null || !VerifyWithKassa(sample, code, byWeight, grams, amount).Ok)
                     continue;
                 _typeBox.SelectedIndex = _types.IndexOf(type);

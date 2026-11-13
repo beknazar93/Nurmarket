@@ -21,6 +21,9 @@ public sealed class MarketSphereChoiceWindow : Window
 
     public string? Chosen { get; private set; }
 
+    /// <summary>2026-11-12 (ХМ14): размер магазина, выбранный на втором шаге при сфере «Хозтовары»; иначе null.</summary>
+    public HardwareSize? ChosenHardwareSize { get; private set; }
+
     public static async Task MaybeAskAsync(Window owner)
     {
         var prefs = UserPreferences.Instance;
@@ -52,13 +55,17 @@ public sealed class MarketSphereChoiceWindow : Window
                 return;
 
             MarketSpheres.Set(sphere);
+            // 2026-11-12 (ХМ14): «Хозтовары» — размер магазина и «скан коробки» (новому магазину включён, В-Х4); на сервер уходит только базовая сфера (grocery).
+            if (sphere == MarketSpheres.Hardware)
+                SphereSettings.SetHardwareChoice(dialog.ChosenHardwareSize ?? HardwareSize.Shop, packScan: true);
             prefs.MarketSphereChoicePending = false;
             prefs.SaveToDisk();
             PosLogger.Log($"Первый запуск: выбран вид магазина {sphere}.", "SETTINGS");
             try
             {
-                await App.GetRequiredService<ClientDebtsApiService>().SetCompanyMarketSphereAsync(sphere).ConfigureAwait(true);
-                MarketSphereSync.NoteSavedOnServer(sphere);
+                var serverSphereValue = MarketSpheres.Normalize(sphere);
+                await App.GetRequiredService<ClientDebtsApiService>().SetCompanyMarketSphereAsync(serverSphereValue).ConfigureAwait(true);
+                MarketSphereSync.NoteSavedOnServer(serverSphereValue);
                 PosLogger.Log("Первый запуск: вид магазина сохранён на сервере для всех касс компании.", "SETTINGS");
             }
             catch (Exception ex)
@@ -92,21 +99,14 @@ public sealed class MarketSphereChoiceWindow : Window
         KeyDown += (_, e) => { if (e.Key == Key.Escape) Close(); };
 
         var root = new StackPanel { Spacing = 12 };
-        root.Children.Add(Tile("IconCart", Tr.T("Продукты", "Азык-түлүк", "Grocery", "Market (gıda)", "Oziq-ovqat"),
-            Tr.T("Продуктовый магазин, супермаркет: весы и весовые товары, быстрые продажи.", "Азык-түлүк дүкөнү, супермаркет: таразалар жана салмактуу товарлар, тез сатуу.",
-                "Grocery store, supermarket: scales and weighed goods, fast sales.", "Market, süpermarket: teraziler ve tartılı ürünler, hızlı satış.",
-                "Oziq-ovqat do'koni, supermarket: tarozilar va tortiladigan mahsulotlar, tez sotuv."),
-            MarketSpheres.Grocery));
-        root.Children.Add(Tile("IconTag", Tr.T("Одежда, обувь и похожие", "Кийим, бут кийим жана ушул сыяктуулар", "Clothing, shoes and similar", "Giyim, ayakkabı ve benzeri", "Kiyim, poyabzal va shunga o'xshash"),
-            Tr.T("Размеры и цвета, этикетки размеров, обмен по закону, консультант, прокат.", "Өлчөмдөр жана түстөр, өлчөм этикеткалары, мыйзам боюнча алмаштыруу, консультант, прокат.",
-                "Sizes and colours, size labels, legal exchange, consultant, rentals.", "Beden ve renkler, beden etiketleri, yasal değişim, danışman, kiralama.",
-                "O'lcham va ranglar, o'lcham yorliqlari, qonun bo'yicha almashtirish, maslahatchi, prokat."),
-            MarketSpheres.Clothing));
-        root.Children.Add(Tile("IconSettings", Tr.T("Услуги", "Кызматтар", "Services", "Hizmetler", "Xizmatlar"),
-            Tr.T("Салон, ремонт, прокат: услуги без остатка на складе, прокат вещей.", "Салон, оңдоо, прокат: кампада калдыгы жок кызматтар, буюмдарды прокатка берүү.",
-                "Salon, repair, rentals: services without stock, item rentals.", "Salon, tamir, kiralama: stoksuz hizmetler, eşya kiralama.",
-                "Salon, ta'mirlash, prokat: omborda qoldiqsiz xizmatlar, buyumlarni prokatga berish."),
-            MarketSpheres.Services));
+        // 2026-11-12 (ХМ14): плитки строятся из каталога сфер (три базовые + профили с ChoiceVisible — «Хозтовары»); тексты базовых те же, что были.
+        foreach (var profile in SphereCatalog.ChoiceList())
+        {
+            var id = profile.Id;
+            root.Children.Add(Tile(IconKeyFor(profile), profile.Title.Get(), profile.Description.Get(),
+                () => { if (id == MarketSpheres.Hardware) ShowHardwareStep(); else { Chosen = id; Close(); } }));
+        }
+        _chooseStep = root;
 
         var later = new Button { Content = Tr.T("Позже", "Кийинчерээк", "Later", "Sonra", "Keyinroq"), IsCancel = true, MinWidth = 120 };
         later.Classes.Add("modal-cancel");
@@ -117,6 +117,7 @@ public sealed class MarketSphereChoiceWindow : Window
             Footer = later,
             Content = root,
         };
+        _shell = shell;
         shell[!ModalShell.TitleProperty] = new Avalonia.Data.Binding { Source = this, Path = nameof(Title) };
         // 2026-11-08, владелец: после выбора вид магазина меняет только техподдержка (MarketSphereLock) — было «в любой момент».
         shell.Subtitle = Tr.T("Касса настроится под ваш вид торговли. Выбор делается один раз: потом вид магазина меняется только через техподдержку.",
@@ -124,11 +125,50 @@ public sealed class MarketSphereChoiceWindow : Window
             "The till will adapt to your kind of trade. You choose once: after that the store type can only be changed through support.",
             "Kasa ticaret türünüze göre ayarlanır. Seçim bir kez yapılır: sonra mağaza türü yalnızca teknik destek aracılığıyla değişir.",
             "Kassa savdo turingizga moslashadi. Tanlov bir marta qilinadi: keyin do'kon turi faqat texnik yordam orqali o'zgaradi.");
+        _firstSubtitle = shell.Subtitle;
         Content = shell;
     }
 
+    private ModalShell _shell = null!;
+    private StackPanel _chooseStep = null!;
+    private string? _firstSubtitle;
+
+    /// <summary>Значок плитки (векторный, из ресурсов): у базовых — прежние, у остальных — по ключу значка профиля.</summary>
+    private static string IconKeyFor(SphereProfile profile) => profile.Id switch
+    {
+        MarketSpheres.Grocery => "IconCart",
+        MarketSpheres.Clothing => "IconTag",
+        MarketSpheres.Services => "IconSettings",
+        _ => profile.IconKey == "pencil" ? "IconPencil" : profile.IconKey == "phone" ? "IconPhone" : "IconPackage", // 2026-11-12 (ЭЛ1): значок «Электроники»
+    };
+
+    /// <summary>2026-11-12 (ХМ14): второй шаг «Хозтоваров» — размер магазина (хозмаг у дома / строительный маркет) и «что изменится».</summary>
+    private void ShowHardwareStep()
+    {
+        var panel = new StackPanel { Spacing = 12 };
+        foreach (var size in new[] { HardwareSize.Shop, HardwareSize.Market })
+        {
+            var s = size;
+            panel.Children.Add(Tile("IconPackage", HardwareChoiceTexts.SizeName(s), HardwareChoiceTexts.SizeDescription(s),
+                () => { Chosen = MarketSpheres.Hardware; ChosenHardwareSize = s; Close(); }));
+        }
+        var changes = new TextBlock { Text = HardwareChoiceTexts.WhatChangesText(), FontSize = 12.5, TextWrapping = TextWrapping.Wrap };
+        Use(changes, TextBlock.ForegroundProperty, "BrushTextSoft");
+        panel.Children.Add(changes);
+        var back = new Button { Content = HardwareChoiceTexts.BackText, MinWidth = 120, HorizontalAlignment = HorizontalAlignment.Left };
+        back.Classes.Add("modal-cancel");
+        back.Click += (_, _) =>
+        {
+            _shell.Content = _chooseStep;
+            _shell.Subtitle = _firstSubtitle;
+        };
+        panel.Children.Add(back);
+        _shell.Subtitle = HardwareChoiceTexts.SizeStepSubtitle;
+        _shell.Content = panel;
+    }
+
     /// <summary>Плитка вида магазина — кнопка на всю ширину: значок слева, название и описание справа.</summary>
-    private Button Tile(string iconKey, string name, string description, string sphere)
+    private Button Tile(string iconKey, string name, string description, Action onClick)
     {
         var tile = new Button
         {
@@ -158,11 +198,7 @@ public sealed class MarketSphereChoiceWindow : Window
         Avalonia.Automation.AutomationProperties.SetName(tile, name);
         tile.PointerEntered += (_, _) => Use(tile, BorderBrushProperty, "BrushAccentStrong");
         tile.PointerExited += (_, _) => Use(tile, BorderBrushProperty, "BrushBorder");
-        tile.Click += (_, _) =>
-        {
-            Chosen = sphere;
-            Close();
-        };
+        tile.Click += (_, _) => onClick();
         return tile;
     }
 

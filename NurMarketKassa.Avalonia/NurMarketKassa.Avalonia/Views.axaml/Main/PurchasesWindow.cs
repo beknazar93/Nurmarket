@@ -527,6 +527,7 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
             var (list, count, total, hasNext) = await _svc.GetReceiptsPageAsync(page, PageSize, _filterSupplier.Selected?.Id, from, to, cts.Token).ConfigureAwait(true);
             if (gen != _gen)
                 return;
+            ReceiptsLoaded(); // 2026-11-11 (БП-7): время удачной загрузки для карточки «Нет связи»
             ShowReceipts(page == 1 ? list : _receipts.Concat(list).ToList(), count, total, page, hasNext);
             SetStatus(null);
             PosLogger.Log($"Закупки: история, страница {page} — {list.Count} из {count}, сумма {total:0.00}.", "INFO");
@@ -535,9 +536,8 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
         {
             if (gen != _gen)
                 return;
-            SetStatus(T("Закупки не загрузились: ", "Сатып алуулар жүктөлгөн жок: ", "Purchases didn't load: ", "Satın almalar yüklenmedi: ", "Xaridlar yuklanmadi: ")
-                      + (ex is OperationCanceledException ? T("сервер не ответил", "сервер жооп берген жок", "the server didn't respond", "sunucu yanıt vermedi", "server javob bermadi") : ServerTelegramBotApi.DescribeFields(ex))
-                      + T(" — нажмите «Обновить».", " — «Жаңыртууну» басыңыз.", " — press “Refresh”.", " — «Yenile»ye basın.", " — «Yangilash»ni bosing."), error: true);
+            // 2026-11-11 (аудит «Закупки», БП-7): вместо красной строки с техническим текстом — карточка «Нет связи с NurCRM» с «Повторить» (PurchasesWindow.States.cs).
+            ReceiptsLoadFailed(ex);
             PosLogger.Log($"Закупки: история не загружена ({ex.GetType().Name}: {ex.Message}).", "WARNING");
             Render();
         }
@@ -565,7 +565,9 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(40));
-            var list = await _svc.GetReturnsAsync(_filterSupplier.Selected?.Id, cts.Token).ConfigureAwait(true);
+            // 2026-11-11: при признаке supplier_return_edit_24h — и аннулированные (status=all, плашка «АННУЛИРОВАН»); в итоги (RenderKpi) они не входят
+            var withVoided = await _svc.ReturnEditFeatureAsync(cts.Token).ConfigureAwait(true);
+            var list = await _svc.GetReturnsAsync(_filterSupplier.Selected?.Id, cts.Token, withVoided).ConfigureAwait(true);
             if (gen != _gen)
                 return;
             ShowReturns(list);
@@ -622,15 +624,16 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
         }
         if (_tab == "returns")
         {
-            var list = ShownReturns().ToList();
+            var list = ShownReturns().Where(r => !r.EditState.IsVoided).ToList(); // 2026-11-11: аннулированные (status=all) — не в итогах
             _kpi.Children.Add(UiKit.Kpi(T("Возвратов", "Кайтаруулар", "Returns", "İadeler", "Qaytarishlar"), list.Count.ToString(CultureInfo.InvariantCulture)));
             _kpi.Children.Add(UiKit.Kpi(T("На сумму", "Суммасы", "Worth", "Tutar", "Summasi"), MoneyText.Som(list.Sum(r => r.Total))));
             _kpi.Children.Add(UiKit.Kpi(T("В счёт долга", "Карыздын эсебине", "Against debt", "Borca sayılan", "Qarz hisobiga"),
                 MoneyText.Som(list.Where(r => r.Compensation == "debt_offset").Sum(r => r.Total))));
             return;
         }
-        _kpi.Children.Add(UiKit.Kpi(T("Всего закупок", "Бардык сатып алуулар", "Total purchases", "Toplam satın alma", "Jami xaridlar"), _receiptCount.ToString("N0", Ru)));
-        _kpi.Children.Add(UiKit.Kpi(T("Общая сумма", "Жалпы сумма", "Total amount", "Toplam tutar", "Umumiy summa"), MoneyText.Som(_receiptTotal)));
+        // 2026-11-11 (БП-7): закупки не загрузились — «—», а не обманчивый 0.
+        _kpi.Children.Add(UiKit.Kpi(T("Всего закупок", "Бардык сатып алуулар", "Total purchases", "Toplam satın alma", "Jami xaridlar"), ReceiptsUnknown ? "—" : _receiptCount.ToString("N0", Ru)));
+        _kpi.Children.Add(UiKit.Kpi(T("Общая сумма", "Жалпы сумма", "Total amount", "Toplam tutar", "Umumiy summa"), ReceiptsUnknown ? "—" : MoneyText.Som(_receiptTotal)));
         // 2026-10-27, аудит владельца С-2: плитка «В долг (по этому ПК)» показывала 0,00 при строке «В долг» в списке — она считала только
         // заметки закупок, а строка берёт ещё и записанные долги по приходам. Теперь та же двойная проверка, что у значка оплаты строки (PayPill).
         var debt = _receipts.Sum(r => _notes.TryGetValue(r.Id, out var n) ? n.Debt : _debtAmounts.GetValueOrDefault(SupplierDebtRecorder.MarkerForReceipt(r.Id)));
@@ -770,6 +773,12 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
             return;
         }
 
+        if (ReceiptsErrorCard() is { } errorCard) // 2026-11-11 (БП-7): «Нет связи с NurCRM» + «Повторить»
+        {
+            _rows.Children.Add(errorCard);
+            _more.IsVisible = false;
+            return;
+        }
         if (!_loaded || (_receipts.Count == 0 && _status.IsVisible))
             return;
         var shown = ShownReceipts().ToList();
@@ -1229,7 +1238,10 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
             voided.HorizontalAlignment = HorizontalAlignment.Left;
             info.Children.Insert(0, voided);
         }
-        info.Children.Add(ReturnEditFlows.SupplierBar(this, r, async () =>
+        // 2026-11-12 (правка накладной возврата): печать/PDF/Word/Excel и здесь (как в «Возвратах поставщикам» и карточке поставщика); хозяин кнопок — само окно
+        // возврата `w` (раньше — окно «Закупок»: окно правки открывалось с владельцем под этим модальным окном).
+        info.Children.Add(SupplierReturnDocUi.Bar(w, () => r, SupplierById(r.SupplierId)));
+        info.Children.Add(ReturnEditFlows.SupplierBar(w, r, async () =>
         {
             w.Close();
             await ReloadAsync().ConfigureAwait(true);
@@ -1237,7 +1249,7 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
         SectionCards.AsModal(w, 620);
         var close = SectionCards.Cancel(T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"));
         close.Click += (_, _) => w.Close();
-        w.Content = SectionCards.Shell(w.Title, $"{r.SupplierName} · {r.CreatedAt:dd.MM.yyyy HH:mm} · {MoneyText.Som(r.Total)}", info, SectionCards.Buttons(close));
+        w.Content = SectionCards.Shell(w.Title, $"{ReturnEditFlows.SupplierNumber(r)} · {r.SupplierName} · {r.CreatedAt:dd.MM.yyyy HH:mm} · {MoneyText.Som(r.Total)}", info, SectionCards.Buttons(close));
         await w.ShowDialog(this).ConfigureAwait(true);
     }
 

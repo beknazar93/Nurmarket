@@ -28,7 +28,7 @@
             <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontSize" Value="12.5"/> <!-- 2026-11-12 (Д-5): шрифт кнопок под чеком не меньше 12,5 (было 12) -->
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
@@ -1214,6 +1214,19 @@
                             Content="{DynamicResource csh.menu.rental}"
                             Click="Rental_Click"/>
                 </Grid>
+                <!-- 2026-11-12 (КТ2): «Списки к школе» — только в сфере «Канцтовары». -->
+                <Button Classes="cart-action"
+                        HorizontalAlignment="Stretch"
+                        Margin="0,0,0,6"
+                        IsVisible="{Binding ShowSchoolLists}"
+                        Content="{DynamicResource csh.cart.schoolLists}"
+                        Click="SchoolLists_Click"/>
+                <Button Classes="cart-action"
+                        HorizontalAlignment="Stretch"
+                        Margin="0,0,0,6"
+                        IsVisible="{Binding ShowInvoiceFromReceipt}"
+                        Content="{DynamicResource csh.cart.invoiceFromReceipt}"
+                        Click="InvoiceFromReceipt_Click"/>
                   </StackPanel>
                   </Border>
                 </Popup>

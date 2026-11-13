@@ -400,6 +400,12 @@
                                 <TextBlock Classes="FieldLabel" x:Name="MinimumQuantityLabel"/>
                                 <TextBox Text="{Binding MinimumQuantity}"/>
                             </StackPanel>
+                            <!-- 2026-11-13 (сервер sn1311): сфера «Электроника» — «Продаётся с серийными номерами» и гарантия в месяцах (видно только в этой сфере, ProductEditDialog.Serials.cs). -->
+                            <StackPanel x:Name="SerialsBlock" Spacing="8" Width="260" HorizontalAlignment="Left" IsVisible="False">
+                                <CheckBox x:Name="TrackSerialsCheck"/>
+                                <TextBlock Classes="FieldLabel" x:Name="WarrantyMonthsLabel"/>
+                                <TextBox x:Name="WarrantyMonthsBox"/>
+                            </StackPanel>
                             <!-- 2026-10-05, владелец: закупка дороже продажи — красное предупреждение (ProductEditDialog.PriceWarning). -->
                             <Border IsVisible="{Binding HasPriceWarning}" CornerRadius="8" Padding="12,8" BorderThickness="1"
                                     Background="{DynamicResource BrushDangerSoft}" BorderBrush="{DynamicResource BrushDanger}">

@@ -55,6 +55,14 @@ public static class PaymentErrorMessages
 
         if (ex is ApiException api)
         {
+            // 2026-11-13 (сервер bc1112): отказ «скидка ниже закупки без права can_sell_below_cost» — раньше мог попасть под общий «ошибка скидки» или сырой ответ.
+            if (BelowCostGuard.IsServerDenial(api))
+                return BelowCostGuard.ServerDeniedText(api, null);
+
+            // 2026-11-13 (сервер sn1311): serial_already_sold / serial_count_mismatch / serial_duplicate_in_line / serial_too_long — понятный текст, чек остаётся в кассе.
+            if (ServerErrorCodes.SerialFriendly(api) is { } serialText)
+                return serialText;
+
             if (LooksLikeDiscountError(api.Message))
                 return DiscountFailure;
 

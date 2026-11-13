@@ -47,7 +47,7 @@
 
         <!-- Метки полей -->
         <Style Selector="TextBlock.ShiftFieldLabel">
-            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontSize" Value="12.5"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
             <Setter Property="Margin" Value="0,0,0,4"/>
@@ -81,7 +81,7 @@
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock Text="{DynamicResource shiftSummary.title}" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
                         <TextBlock Text="{DynamicResource shiftSummary.subtitle}"
-                                   FontSize="12" Foreground="{DynamicResource BrushTextSoft}" Margin="0,2,0,0"/>
+                                   FontSize="12.5" Foreground="{DynamicResource BrushTextSoft}" Margin="0,2,0,0"/>
                     </StackPanel>
                 </StackPanel>
             </DockPanel>
@@ -176,7 +176,7 @@
                         <Border Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
                                 CornerRadius="10" Padding="14">
                             <StackPanel Spacing="4">
-                                <TextBlock Text="{DynamicResource shift.actualBalanceLabel}" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" FontWeight="SemiBold"/>
+                                <TextBlock Text="{DynamicResource shift.actualBalanceLabel}" Foreground="{DynamicResource BrushTextSoft}" FontSize="12.5" FontWeight="SemiBold"/>
                                 <TextBlock Text="{Binding ActualBalanceText}" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
                                 <TextBlock Text="{Binding DifferenceText}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource BrushTextMuted}"/>
                             </StackPanel>

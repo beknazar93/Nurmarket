@@ -293,6 +293,11 @@
                                  Foreground="{DynamicResource BrushAccent}"/>
                     <TextBlock x:Name="StatusText" FontSize="13" TextWrapping="Wrap"
                                Foreground="{DynamicResource BrushText}"/>
+                    <!-- 2026-11-13: плашка после записи типа штрихкода в карточки Rongta (проверка на весах / запасной путь, если весы не ответили). -->
+                    <Border x:Name="RongtaCheckBanner" IsVisible="False" CornerRadius="8" Padding="10,6" BorderThickness="1"
+                            Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}">
+                        <TextBlock x:Name="RongtaCheckText" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushText}"/>
+                    </Border>
                 </StackPanel>
                 <!-- 2026-09-30: лист кнопок весов — печать на A4 и сохранение в Word -->
                 <Button Grid.Column="1" x:Name="KeySheetButton" Classes="SecondaryActionButton" Height="44"

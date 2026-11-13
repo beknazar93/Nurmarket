@@ -137,6 +137,13 @@ public sealed class SideMenuViewModel : ViewModelBase
     public string CashierLabel =>
         Tr.T("Кассир", "Кассир", "Cashier", "Kasiyer", "Kassir");
 
+    /// <summary>2026-11-11 (живой показ 1.17.85, Д-11: при закрытой смене плитка «Возврат» выглядела активной, а причина — мелкой строкой под чеком):
+    /// возврат сейчас недоступен без открытой смены (в режиме «продажа без связи» возврат идёт по чекам кассы — тогда плитка обычная).</summary>
+    public bool ReturnNeedsShift => !_session.IsShiftOpen && !OfflineModeHelper.SellLocally;
+
+    public string ReturnNeedsShiftText =>
+        Tr.T("нужна открытая смена", "ачык смена керек", "open a shift first", "önce vardiya açın", "ochiq smena kerak");
+
     /// <summary>Сессия — обычный объект без уведомлений, поэтому карточку в шапке меню
     /// обновляет тот же код, что пересчитывает остаток в кассе (MainWindow.UpdateShiftBalanceUi):
     /// смена открылась, закрылась или кассир сменился — три момента, когда это меняется.</summary>
@@ -147,6 +154,7 @@ public sealed class SideMenuViewModel : ViewModelBase
         OnPropertyChanged(nameof(ShiftStateText));
         OnPropertyChanged(nameof(CashierLabel));
         OnPropertyChanged(nameof(CashboxTitle));
+        OnPropertyChanged(nameof(ReturnNeedsShift)); // 2026-11-11 (Д-11)
     }
 
     public string CashboxTitle =>
@@ -321,6 +329,35 @@ public sealed class SideMenuViewModel : ViewModelBase
         NavigateCartRemovalsAction?.Invoke();
     });
 
+    /// <summary>2026-11-13 (решение владельца: «Ремонт и trade-in — доп. услуги в Маркетплейсе»): пункты «Ремонт и сервис» и «Trade-in / скупка» видны, только если функция подключена
+    /// (ключ или сервер) и пункт не скрыт в «Разделах меню»; окна открывает главное окно кассы.</summary>
+    public Action? NavigateRepairAction { get; set; }
+
+    public Action? NavigateTradeInAction { get; set; }
+
+    private ICommand? _navigateRepairCommand;
+    private ICommand? _navigateTradeInCommand;
+
+    public ICommand NavigateRepairCommand => _navigateRepairCommand ??= new RelayCommand(() =>
+    {
+        CloseMenuCommand.Execute(null);
+        NavigateRepairAction?.Invoke();
+    });
+
+    public ICommand NavigateTradeInCommand => _navigateTradeInCommand ??= new RelayCommand(() =>
+    {
+        CloseMenuCommand.Execute(null);
+        NavigateTradeInAction?.Invoke();
+    });
+
+    public bool ShowRepair => NavigateRepairAction != null
+                              && NurMarketKassa.Services.UserPreferences.Instance.RepairUnlocked
+                              && !NurMarketKassa.Services.SectionVisibility.IsHidden("kassa.repair");
+
+    public bool ShowTradeIn => NavigateTradeInAction != null
+                               && NurMarketKassa.Services.UserPreferences.Instance.TradeInUnlocked
+                               && !NurMarketKassa.Services.SectionVisibility.IsHidden("kassa.tradein");
+
     public bool ShowRental => _navigateRentalAction != null
                               && NurMarketKassa.Services.MarketSpheres.HasRentals // 2026-10-20: во всех сферах
                               && !NurMarketKassa.Services.SectionVisibility.IsHidden("kassa.rental");
@@ -328,6 +365,8 @@ public sealed class SideMenuViewModel : ViewModelBase
     public void RefreshEntitlements()
     {
         OnPropertyChanged(nameof(ShowRental));
+        OnPropertyChanged(nameof(ShowRepair));  // 2026-11-13
+        OnPropertyChanged(nameof(ShowTradeIn)); // 2026-11-13
         // 2026-09-26, разделение программ: склад, продажи, финансы, зарплата, ABC, клиенты, CRM и
         // пополнение — в программе владельца. В кассе они остаются только в автономном режиме
         // (см. AppMode.OwnerSectionsInKassa).

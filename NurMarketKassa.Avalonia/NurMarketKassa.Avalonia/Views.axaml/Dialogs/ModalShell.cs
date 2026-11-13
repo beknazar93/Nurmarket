@@ -541,6 +541,9 @@ public class ModalShell : ContentControl
         CancelServerWait();
     }
 
+    /// <summary>2026-11-12 (аудит 12.11, Т-11): рабочая область экрана для тестов окон (логические единицы); null — настоящий экран.</summary>
+    public static Avalonia.Size? WorkingAreaForTests { get; set; }
+
     /// <summary>Ограничивает высоту карточки долей рабочей области экрана кассы. На Android размер
     /// окна задаёт WindowLayerHost (см. DialogScreenFit.FitToKassaScreen) — там не трогаем.</summary>
     private void FitToScreenHeight()
@@ -549,11 +552,23 @@ public class ModalShell : ContentControl
             return;
         try
         {
-            var screen = DialogScreenFit.KassaScreen(window);
-            if (screen is null)
-                return;
-            var scaling = screen.Scaling > 0 ? screen.Scaling : 1.0;
-            var workingHeight = screen.WorkingArea.Height / scaling;
+            // 2026-11-12 (аудит 12.11, Т-11): тесты окон подменяют рабочую область экрана (экран Headless больше окна теста) — карточку ограничивает сам ModalShell,
+            // а не тест, выставляя MaxHeight руками. В программе подмены нет (null) — прежний расчёт по экрану.
+            double workingHeight, workingWidth;
+            if (WorkingAreaForTests is { } fake)
+            {
+                workingHeight = fake.Height;
+                workingWidth = fake.Width;
+            }
+            else
+            {
+                var screen = DialogScreenFit.KassaScreen(window);
+                if (screen is null)
+                    return;
+                var scaling = screen.Scaling > 0 ? screen.Scaling : 1.0;
+                workingHeight = screen.WorkingArea.Height / scaling;
+                workingWidth = screen.WorkingArea.Width / scaling;
+            }
             if (workingHeight <= 0)
                 return;
             var share = Math.Clamp(ScreenHeightShare, 0.5, 1.0);
@@ -566,7 +581,6 @@ public class ModalShell : ContentControl
             // 2026-10-24 (аудит круга 8, С-7, П-10): и по ширине — карточка не шире рабочей области за вычетом отступа окна (32),
             // рамки ОС и полей под тень. Табель, Прокат, Логи, Некорректные чеки (1112 px) на экране 1024 уходили за край;
             // широкое содержимое (таблицы) получает горизонтальную прокрутку своего DataGrid/ScrollViewer.
-            var workingWidth = screen.WorkingArea.Width / scaling;
             if (workingWidth > 0)
                 MaxWidth = Math.Max(320, Math.Floor(workingWidth - 32 - DialogScreenFit.ChromeSize(window).Width - Margin.Left - Margin.Right));
         }

@@ -88,8 +88,10 @@ public static class NurCrmReportsApi
         decimal ItemsQty = 0m,
         string? Reason = null,
         // 2026-11-10 (правка и аннулирование возвратов 24 ч): version/status/can_edit/can_void по ответу сервера (нет полей — None, кнопок нет). Кнопки в окнах
-        // «Возврат от клиента» подключает другой исполнитель: ReturnEditUi.Bar(..., ReturnDocKind.Customer, ...) и ReturnEditFlows.VoidAsync.
-        ReturnEditState? Edit = null);
+        // «Возврат от клиента» — ReturnEditFlows.Bar / ShowCustomerReturnsAsync (2026-11-11).
+        ReturnEditState? Edit = null,
+        // 2026-11-11 (живой показ 1.17.85, Д-7: «Возврат №7328e9cf»): свой номер документа возврата, если сервер его присылает (number / doc_number / return_number).
+        string? Number = null);
 
     /// <summary>GET api/main/pos/returns/?date_from&amp;date_to&amp;shift&amp;sale.
     ///
@@ -103,12 +105,16 @@ public static class NurCrmReportsApi
         DateTime? dateToInclusive,
         string? shiftId = null,
         string? saleId = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        bool includeVoided = false)
     {
         if (Client is not { } client)
             return null;
 
         var query = new Dictionary<string, string>();
+        // 2026-11-11 (сервер Умара): по умолчанию список БЕЗ аннулированных; status=all — со всеми (для плашки «АННУЛИРОВАН»). Итоги считать без IsVoided.
+        if (includeVoided)
+            query["status"] = "all";
         if (dateFrom is { } from)
             query["date_from"] = from.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         if (dateToInclusive is { } to)
@@ -175,7 +181,8 @@ public static class NurCrmReportsApi
                         names.Count > 0 ? string.Join(", ", names) : null,
                         qty,
                         ReasonOf(row) ?? (itemReasons.Count > 0 ? string.Join("; ", itemReasons) : null),
-                        ReturnEditState.Parse(row)));
+                        ReturnEditState.Parse(row),
+                        Str(row, "number") ?? Str(row, "doc_number") ?? Str(row, "return_number")));
                 }
 
                 var hasNext = data.ValueKind == JsonValueKind.Object
@@ -215,8 +222,11 @@ public static class NurCrmReportsApi
     public static async Task<(int Count, decimal Sum)?> ReturnsTotalsAsync(DateTime from, DateTime toInclusive, CancellationToken ct = default)
     {
         var list = await ListReturnsAsync(from.Date, toInclusive.Date, ct: ct).ConfigureAwait(false);
-        return list is null ? null : (list.Count, list.Sum(r => r.Amount));
+        return list is null ? null : (list.Count(r => !IsVoided(r)), list.Where(r => !IsVoided(r)).Sum(r => r.Amount)); // 2026-11-11: аннулированные — не в итогах
     }
+
+    /// <summary>2026-11-11: возврат аннулирован (status: voided) — в итоги не входит.</summary>
+    public static bool IsVoided(PosReturn r) => r.Edit is { IsVoided: true };
 
     /// <summary>Возвраты одной смены. Сначала — по полю shift самого возврата (так будет, когда
     /// сервер начнёт его заполнять). ВРЕМЕННО (2026-09-28): shift у возвратов всегда пустой, поэтому
@@ -244,6 +254,7 @@ public static class NurCrmReportsApi
                               && !string.IsNullOrEmpty(report.CashierId)
                               && string.Equals(r.CashierId, report.CashierId, StringComparison.OrdinalIgnoreCase))
                 .ToList();
+        chosen.RemoveAll(IsVoided); // 2026-11-11: аннулированные — не в итогах смены
         return (chosen.Count, chosen.Sum(r => r.Amount));
     }
 

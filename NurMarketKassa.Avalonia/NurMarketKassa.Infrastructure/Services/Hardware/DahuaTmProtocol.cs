@@ -34,6 +34,10 @@ public sealed record DahuaTmPlu
     /// <summary>«Префикс штрихкода» товара (madv5, 2 цифры) — это F/FF в формате ШК весов.</summary>
     public int BarcodePrefix { get; init; } = 20;
 
+    /// <summary>2026-11-12: поле madv4 (2 цифры). У Dahua смысл неизвестен (их программа шлёт 0). 2026-11-13: у Rongta проверено на весах владельца —
+    /// madv4 = 07 тип штрихкода карточки НЕ меняет; касса всегда пишет 0 (настройка убрана), параметр оставлен для стенда.</summary>
+    public int CardBarcodeType { get; init; }
+
     /// <summary>Тара в кг (mtare, в пакете — граммы, 5 цифр).</summary>
     public decimal TareKg { get; init; }
 
@@ -180,7 +184,8 @@ public static class DahuaTmProtocol
             return DahuaTmPluProblem.BadPluNumber;
         if (plu.ProductCode is < 0 or > 9_999_999)
             return DahuaTmPluProblem.BadProductCode;
-        if (plu.Price < 0 || ScalePrice(plu.Price, priceDecimals) > 999_999)
+        // 2026-11-11 (ТЗ «TM-30F — цена на этикетке в 10 раз больше»): предел — общий ScalePriceLimits по тому же Price point, что и формат цены
+        if (plu.Price < 0 || !ScalePriceLimits.Fits(plu.Price, ScalePriceLimits.DahuaMaxUnits, Math.Clamp(priceDecimals, 0, 3)))
             return DahuaTmPluProblem.PriceDoesNotFit;
         if (plu.ShelfLifeDays is < 0 or > 999)
             return DahuaTmPluProblem.BadShelfLife;
@@ -190,7 +195,8 @@ public static class DahuaTmProtocol
             return DahuaTmPluProblem.TareDoesNotFit;
         if (plu.LabelNumber is < 0 or > 15)
             return DahuaTmPluProblem.BadLabelNumber;
-        if (plu.SpecialInfo1 is < 0 or > 99 || plu.SpecialInfo2 is < 0 or > 99 || plu.SpecialInfo3 is < 0 or > 99)
+        if (plu.SpecialInfo1 is < 0 or > 99 || plu.SpecialInfo2 is < 0 or > 99 || plu.SpecialInfo3 is < 0 or > 99
+            || plu.CardBarcodeType is < 0 or > 99) // 2026-11-12: madv4 — тоже 2 цифры
             return DahuaTmPluProblem.BadSpecialInfo;
         return DahuaTmPluProblem.None;
     }
@@ -199,6 +205,19 @@ public static class DahuaTmProtocol
     /// (+0,5 и отбросить дробь). priceDecimals = «Price point» системных параметров весов:
     /// 0 — «Integer [123]» (так у владельца), 1 — [12.3], 2 — [1.23], 3 — [0.123].</summary>
     public static long ScalePrice(decimal price, int priceDecimals) => ScaleDecimal(price, Math.Clamp(priceDecimals, 0, 3));
+
+    /// <summary>2026-11-11 (ТЗ «TM-30F — цена на этикетке в 10 раз больше»): какую цену напечатают весы, если касса отправила цену с
+    /// <paramref name="kassaPricePoint"/> знаками, а в весах «Price point» = <paramref name="scalePricePoint"/>. Весы ставят точку сами: число из поля mprice
+    /// делится на 10^Price point весов. Касса 2 знака, весы 1 — цена в 10 раз больше; касса 0, весы 2 — в 100 раз меньше.
+    /// Прочитать «Price point» с весов протокол не позволяет (команды чтения системных параметров в «Русском масштабе» нет, касса их и не пишет) —
+    /// поэтому только настройка кассы, подсказка и этот пример.</summary>
+    public static decimal LabelPrice(decimal price, int kassaPricePoint, int scalePricePoint)
+    {
+        decimal value = ScalePrice(price, kassaPricePoint);
+        for (var i = 0; i < Math.Clamp(scalePricePoint, 0, 3); i++)
+            value /= 10m;
+        return value;
+    }
 
     private static long ScaleDecimal(decimal value, int decimals)
     {
@@ -232,6 +251,7 @@ public static class DahuaTmProtocol
             ["madv1"] = plu.SpecialInfo1,
             ["madv2"] = plu.SpecialInfo2,
             ["madv3"] = plu.SpecialInfo3,
+            ["madv4"] = plu.CardBarcodeType, // 2026-11-12: по умолчанию 0 — как раньше; ReservedAdv ниже (стенд/эталоны) важнее
         };
         if (plu.ReservedAdv is { } reserved)
         {

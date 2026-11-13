@@ -710,7 +710,7 @@ public sealed partial class AiAdvisorWindow
     // ── 2026-10-05, владелец: «добавь возможность ИИ управлять ботом» (ответ «1 да»). ИИ предлагает изменение
     // строкой «БОТ: {...}», программа показывает его карточкой; на сервер (PATCH telegram-bot/settings/) — только по «Применить».
 
-    private static readonly (string Key, string Title)[] BotSwitches =
+    private static (string Key, string Title)[] BotSwitches => new (string Key, string Title)[] // 2026-11-12 (Д-5): было static readonly — язык брался один раз; теперь при каждом обращении
     {
         ("shift_summary_enabled", T("Сводка смены владельцу", "Ээсине смена жыйынтыгы", "Shift summary to the owner", "Sahibine vardiya özeti", "Egasiga smena xulosasi")),
         ("commands_enabled", T("Команды владельца в боте", "Боттогу ээсинин буйруктары", "Owner commands in the bot", "Bottaki sahip komutları", "Botdagi egasi buyruqlari")),
@@ -803,6 +803,9 @@ public sealed partial class AiAdvisorWindow
                 SourceLabel: $"Сводка (сервер NurCRM), периоды на {snap.BuiltAtLocal:dd.MM HH:mm}"));
         if (await Part(debts, "долги").ConfigureAwait(false) is { } d)
             list.Add(d);
+        // 2026-11-12 (КТ4): сфера «Канцтовары» — вид магазина и сезон «к школе» (у других сфер части нет).
+        if (StationerySeason.SectionFor(DateTime.Today) is { } seasonSection)
+            list.Add(seasonSection);
         if (access.Products)
         {
             list.Add(OwnerAiContext.WarehouseTotalsSection());

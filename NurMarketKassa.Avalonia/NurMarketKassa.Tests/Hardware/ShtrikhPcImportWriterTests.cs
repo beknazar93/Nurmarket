@@ -61,30 +61,53 @@ public sealed class ShtrikhPcImportWriterTests : IDisposable
         var fields = line["<D ".Length..].Split(';');
         fields.Should().HaveCount(ShtrikhPcImportWriter.FieldCount);
         fields[0].Should().Be("69312");       // 1 код
-        fields[1].Should().Be("0");           // 2 штрих-код — только для поиска; нет штрихкода — «0»
+        fields[1].Should().Be("");            // 2 штрих-код — только для поиска; нет штрихкода — пусто (2026-11-12: ТЗ PC-200, п. 3.1)
         fields[2].Should().Be("Лук репчатый"); // 3 наименование
         fields[3].Should().Be("0");           // 4 тип: весовой
         fields[4].Should().Be("55.50");       // 5 цена, 2 знака, точка (как в файле Умара: 650.00)
         fields[5..9].Should().OnlyContain(f => f == "0");     // 6–9 группы-владельцы
         fields[11].Should().Be("14");         // 12 срок годности
-        fields[9..11].Should().OnlyContain(f => f == " ");    // 10–11 резерв — одиночный пробел
-        fields[12].Should().Be(" ");          // 13 дата реализации
+        fields[9..11].Should().OnlyContain(f => f == "");     // 10–11 резерв — пусто (2026-11-12: строка, принятая весами 12.11)
+        fields[12].Should().Be("");           // 13 дата реализации
         fields[13].Should().Be("0");          // 14 формат этикетки по умолчанию
         fields[14].Should().Be("0");          // 15 блокировка
         fields[15].Should().Be("0");          // 16 разрешение менять цену
-        fields[16..21].Should().OnlyContain(f => f == " ");   // 17–21 резерв
-        fields[21].Should().Be(" ");          // 22 сертификат
+        fields[16..21].Should().OnlyContain(f => f == "");    // 17–21 резерв
+        fields[21].Should().Be("");           // 22 сертификат
         fields[22..25].Should().OnlyContain(f => f == "0");   // 23–25 масса тары
         fields[25..34].Should().OnlyContain(f => f == "0");   // 26–34 коды ресурсов
     }
 
     [Fact]
-    public void Build_Line_IsExactlyAsInUmarsFile()
+    public void Build_Line_IsExactlyAsInTheSpec_AcceptedByTheScale_2026_11_12()
     {
-        // Пример из ТЗ Умара (проверено на месте): с пробелом после «<D», цена с точкой и 2 знаками, резервные поля — пробел, поле 2 — «0».
-        var line = DataLines(ShtrikhPcImportWriter.Build(new[] { Item(123, "Говядина мякоть", 650m) }, Settings()).Text).Single();
+        // 2026-11-12: эталон — строка из «Весы Штрих PC-200 — как всё устроено, полное ТЗ (12.11.2026)», п. 3.1, принятая живыми весами 12.11 (байт в байт, cp1251).
+        // До 12.11 эталоном была строка из ТЗ 06.11 («; ;» и «0» во втором поле) — весы принимали и её, но теперь пишем как в новом ТЗ.
+        var build = ShtrikhPcImportWriter.Build(new[] { Item(98765, "ТЕСТ NurMarket", 100m) }, Settings());
+        var line = DataLines(build.Text).Single();
 
-        line.Should().Be("<D 123;0;Говядина мякоть;0;650.00;0;0;0;0; ; ;0; ;0;0;0; ; ; ; ; ; ;0;0;0;0;0;0;0;0;0;0;0;0");
+        line.Should().Be("<D 98765;;ТЕСТ NurMarket;0;100.00;0;0;0;0;;;0;;0;0;0;;;;;;;0;0;0;0;0;0;0;0;0;0;0;0");
+        ShtrikhPcImportWriter.Encode(build.Text).Should().Equal(ShtrikhPcImportWriter.Encode("##@@&&\r\n#\r\n" + line + "\r\n"));
+    }
+
+    [Fact]
+    public void Build_LabelFormat_GoesToField14()
+    {
+        // 2026-11-12 (ТЗ PC-200, п. 3.1 поле 14, п. 6): 13 — «Формат 58x40», 14 — «Формат 58x30» на весах магазина.
+        var fields = DataLines(ShtrikhPcImportWriter.Build(new[] { Item(5) }, Settings(s => s.LabelFormat = ShtrikhPcSettings.LabelFormat58x30)).Text).Single()["<D ".Length..].Split(';');
+
+        fields[13].Should().Be("14");
+        new ShtrikhPcSettings { LabelFormat = -3 }.Normalize().LabelFormat.Should().Be(0);
+    }
+
+    [Fact]
+    public void CleanName_DropsEmojiAndKazakhLetters_KeepsCp1251()
+    {
+        // 2026-11-12 (ТЗ PC-200, прокол 7): знаки вне cp1251 — заранее заменить, иначе на весах «?».
+        ShtrikhPcImportWriter.CleanName("Алма 🍎 сүт өрүк ң").Should().Be("Алма сут орук н");
+        ShtrikhPcImportWriter.CleanName("Әнұр һ").Should().Be("Анур х");
+        ShtrikhPcImportWriter.CleanName("Сыр №1 «Голландский»").Should().Be("Сыр N1 \"Голландский\"");
+        ShtrikhPcImportWriter.Decode(ShtrikhPcImportWriter.Encode(ShtrikhPcImportWriter.CleanName("Кофе ☕ Ёлка"))).Should().Be("Кофе Ёлка");
     }
 
     [Fact]
@@ -96,7 +119,7 @@ public sealed class ShtrikhPcImportWriterTests : IDisposable
         var lines = DataLines(ShtrikhPcImportWriter.Build(new[] { withBarcode, junk }, Settings()).Text);
 
         lines[0].Split(';')[1].Should().Be("4870001234567");
-        lines[1].Split(';')[1].Should().Be("0");
+        lines[1].Split(';')[1].Should().Be("", "2026-11-12: без штрихкода — пусто, как в ТЗ PC-200");
     }
 
     [Fact]
@@ -191,7 +214,7 @@ public sealed class ShtrikhPcImportWriterTests : IDisposable
     public void CleanName_TruncatesTo255_AndRemovesSeparators()
     {
         ShtrikhPcImportWriter.CleanName(new string('Я', 400)).Should().HaveLength(255);
-        ShtrikhPcImportWriter.CleanName("Сыр; «Голландский»\r\nнарезка").Should().Be("Сыр, \"Голландский\"  нарезка");
+        ShtrikhPcImportWriter.CleanName("Сыр; «Голландский»\r\nнарезка").Should().Be("Сыр, \"Голландский\" нарезка"); // 2026-11-13: переводы строки и пробелы после удаления знаков схлопываются в один пробел (как у эмодзи в тесте выше)
     }
 
     [Fact]

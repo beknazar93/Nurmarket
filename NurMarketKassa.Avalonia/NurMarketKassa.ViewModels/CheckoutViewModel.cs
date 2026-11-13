@@ -642,6 +642,9 @@ namespace NurMarketKassa.ViewModels
             {
                 if (CanPay)
                     return "";
+                if (HasBelowCostBlock)
+                    return Tr.T("Цена ниже закупки — нужна другая скидка или право.", "Баа сатып алуудан төмөн — арзандатууну өзгөртүңүз же укук керек.", "Price below cost — change the discount or get the permission.",
+                        "Fiyat alışın altında — indirimi değiştirin veya yetki gerekir.", "Narx xarid narxidan past — chegirmani o'zgartiring yoki huquq kerak.");
                 // 2026-10-27 (Н-8/Н-7): сумма активного способа введена неверно — говорим, что не так (пример, не больше двух знаков).
                 var amountProblem = PaymentMethod switch
                 {
@@ -689,6 +692,68 @@ namespace NurMarketKassa.ViewModels
         /// это была плашка на 4 секунды, которая гасла одновременно с открытием окна оплаты и кассир видел только новый итог. Теперь текст стоит
         /// в окне оплаты над кнопками, пока оно открыто (без модального окна). Пусто — цены не менялись.</summary>
         public string PriceChangeNotice { get; set; } = "";
+
+        // 2026-11-13 (сервер bc1112, находка проверяющего п. 4): скидка на чек вводится В ЭТОМ окне, поэтому проверку «ниже закупки» делаем здесь — при каждом пересчёте итога.
+        // Проверку задаёт чек (BasketPanelViewModel): сумма скидки с бонусами → текст отказа или null. Бонусы считаются скидкой: уходят на сервер одной суммой со скидкой на чек.
+        private string? _belowCostText;
+        private bool _belowCostRecheckStarted;
+        private Func<double, string?>? _belowCostCheck;
+
+        public Func<double, string?>? BelowCostCheck
+        {
+            get => _belowCostCheck;
+            set
+            {
+                _belowCostCheck = value;
+                RefreshBelowCost();
+            }
+        }
+
+        /// <summary>Перечитать профиль прав (право могли выдать на сайте при открытом чеке); true — профиль получен. Вызывается один раз за окно, когда оплата заблокирована.</summary>
+        public Func<Task<bool>>? BelowCostRecheck { get; set; }
+
+        public bool HasBelowCostBlock => !string.IsNullOrEmpty(_belowCostText);
+
+        public string BelowCostBlockText => _belowCostText ?? "";
+
+        private void RefreshBelowCost()
+        {
+            string? text = null;
+            try
+            {
+                text = _belowCostCheck?.Invoke((double)_orderDiscountExact + _pointsRedeemed);
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                text = null; // сбой проверки не должен запирать оплату: сервер всё равно откажет понятным текстом
+            }
+            var changed = !string.Equals(text, _belowCostText, StringComparison.Ordinal);
+            _belowCostText = text;
+            if (changed)
+            {
+                OnPropertyChanged(nameof(HasBelowCostBlock));
+                OnPropertyChanged(nameof(BelowCostBlockText));
+                RaiseCommandsCanExecuteChanged();
+            }
+            if (text != null && !_belowCostRecheckStarted && BelowCostRecheck is { } recheck)
+            {
+                _belowCostRecheckStarted = true;
+                _ = RecheckBelowCostAsync(recheck);
+            }
+        }
+
+        private async Task RecheckBelowCostAsync(Func<Task<bool>> recheck)
+        {
+            try
+            {
+                if (await recheck().ConfigureAwait(true))
+                    RefreshBelowCost(); // право могло появиться — проверка берёт его заново
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                // перепроверка прав необязательна: окно остаётся заблокированным до смены скидки
+            }
+        }
 
         public bool HasPriceChangeNotice => !string.IsNullOrWhiteSpace(PriceChangeNotice);
 
@@ -854,6 +919,7 @@ namespace NurMarketKassa.ViewModels
             OnPropertyChanged(nameof(QrAmountDisplay));
             // 2026-11-05 (ревью п. 17): экран покупателя строит динамический QR по безналичной части, а не по всему чеку.
             _customerDisplay?.SetQrAmount(IsMixedMode ? ParseNonNegative(_mixedNonCashAmount) : null);
+            RefreshCashierQr(); // 2026-11-12: QR окна оплаты (с суммой, если включено) — CheckoutViewModel.PaymentQr.cs
         }
 
         public bool IsLoadingClients
@@ -906,8 +972,22 @@ namespace NurMarketKassa.ViewModels
                 OnPropertyChanged(nameof(ClientLoyaltyBalanceDisplay));
                 OnPropertyChanged(nameof(PointsToRedeemInput));
                 RecalculateTotals();
+                // 2026-11-12 (ХМ8, цена прораба): выбран клиент, отмеченный «прораб», а строки чека ещё не по опту — окно закрывается без оплаты,
+                // чек пересчитывает корзина (BasketPanelViewModel.PayCoreAsync) и открывает окно оплаты снова. Для других сфер проверка не задана.
+                if (value != null && ForemanRepriceCheck?.Invoke(value) == true)
+                {
+                    ForemanClient = value;
+                    _customerDisplay?.SetSelectedBankQrPath(null);
+                    RequestClose?.Invoke(false);
+                }
             }
         }
+
+        /// <summary>2026-11-12 (ХМ8): нужно ли пересчитать чек по цене прораба для этого клиента (задаёт корзина; null — не нужно никогда).</summary>
+        public Func<ClientOption, bool>? ForemanRepriceCheck { get; set; }
+
+        /// <summary>2026-11-12 (ХМ8): клиент-прораб, из-за которого окно оплаты закрыто для пересчёта чека; иначе null.</summary>
+        public ClientOption? ForemanClient { get; private set; }
 
         public bool HasSelectedClient => _selectedClient != null;
 
@@ -1214,6 +1294,7 @@ namespace NurMarketKassa.ViewModels
                 : _orderDiscountExact;
             _effectiveTotalDue = (double)Math.Max(0m, baseRounded - discountAndPoints);
             _discountDirty = IsDiscountChangedFromInitial();
+            RefreshBelowCost(); // 2026-11-13: скидка/бонусы изменились — проверка «ниже закупки» до приёма денег
 
             OnPropertyChanged(nameof(BigTotalDisplay));
             OnPropertyChanged(nameof(SubtotalDisplay));
@@ -1376,6 +1457,9 @@ namespace NurMarketKassa.ViewModels
 
         private bool CanExecutePay(object? _)
         {
+            // 2026-11-13: цена со скидкой ниже закупки без права «Продажа ниже закупки» — оплату не принимаем ДО приёма денег (QR/карта), а не после.
+            if (HasBelowCostBlock)
+                return false;
             if (PaymentMethod == "cash")
             {
                 var cash = ParseCash();

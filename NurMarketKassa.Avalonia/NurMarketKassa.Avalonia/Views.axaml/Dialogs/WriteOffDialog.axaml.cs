@@ -247,7 +247,7 @@ public partial class WriteOffDialog : Window
 
             Pending = _vm.WriteOffPending;
             PosLogger.Log($"Списание из кассы: {name} × {qty:0.###} ({reason}){(Pending ? " — ответ сервера ещё не получен" : "")}", "WRITEOFF");
-            var qtyText = qty.ToString("0.###", CultureInfo.InvariantCulture);
+            var qtyText = MoneyText.Weight(qty); // 2026-11-12 (Д-5): запятая вместо точки
             ResultMessage = Tr.T($"Списано: {name} — {qtyText} ({reason}).", $"Эсептен чыгарылды: {name} — {qtyText} ({reason}).",
                 $"Written off: {name} — {qtyText} ({reason}).", $"Düşüldü: {name} — {qtyText} ({reason}).",
                 $"Hisobdan chiqarildi: {name} — {qtyText} ({reason}).");

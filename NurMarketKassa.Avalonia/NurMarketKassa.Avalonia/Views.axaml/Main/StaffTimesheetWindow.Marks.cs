@@ -27,6 +27,8 @@ public partial class StaffTimesheetWindow
     private List<TimesheetMark> _allMarks = new();
     private List<(string Key, string Name)> _employees = new();
     private readonly Dictionary<string, Dictionary<DateOnly, double>> _shiftHours = new(StringComparer.OrdinalIgnoreCase);
+    // 2026-11-11 (Д-2): дни со сменой длиннее 16 ч (возможно, забыли закрыть) — клетка предупреждает.
+    private readonly Dictionary<string, HashSet<DateOnly>> _longShiftDays = new(StringComparer.OrdinalIgnoreCase);
     private int _year = DateTime.Today.Year, _month = DateTime.Today.Month;
 
     // закреплённые части сетки
@@ -84,8 +86,12 @@ public partial class StaffTimesheetWindow
         _allMarks = _deps.Marks.Load().Marks;
         _employees = TimesheetMarksService.MergeEmployees(_serverEmployees, _shifts, _allMarks);
         _shiftHours.Clear();
+        _longShiftDays.Clear();
         foreach (var (key, name) in _employees)
+        {
             _shiftHours[key] = TimesheetMarksService.ShiftHoursByDay(_shifts, key, name);
+            _longShiftDays[key] = TimesheetMarksService.LongShiftDays(_shifts, key, name);
+        }
     }
 
     private List<(string Key, string Name)> VisibleEmployees()
@@ -312,6 +318,10 @@ public partial class StaffTimesheetWindow
         }
 
         var description = Describe(name, date, mark, shiftH, check);
+        // 2026-11-11 (Д-2): смена длиннее 16 ч касается этого дня — часы по смене недостоверны: в подсказке «возможно, забыли закрыть», цифры — цветом предупреждения.
+        var longShift = shiftH > 0 && _longShiftDays.TryGetValue(key, out var longDays) && longDays.Contains(date);
+        if (longShift)
+            description += "; " + LongShiftText;
         var panel = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         var codeText = new TextBlock
         {
@@ -319,7 +329,7 @@ public partial class StaffTimesheetWindow
             FontStyle = mark is { Auto: true } ? FontStyle.Italic : FontStyle.Normal,
         };
         if (mark is null)
-            codeText.Foreground = textSoft; // без отметки (только «~часы по смене») — приглушённо
+            codeText.Foreground = longShift ? Res("BrushWarning", Brushes.DarkOrange) : textSoft; // без отметки (только «~часы по смене») — приглушённо
         panel.Children.Add(codeText);
         if (line2.Length > 0)
             panel.Children.Add(new TextBlock { Text = line2, FontSize = 11, HorizontalAlignment = HorizontalAlignment.Center, FontStyle = mark is { Auto: true } ? FontStyle.Italic : FontStyle.Normal });
@@ -336,6 +346,12 @@ public partial class StaffTimesheetWindow
         button.Click += Cell_Click;
         return button;
     }
+
+    private static string LongShiftText => Tr.T("смена длиннее 16 ч — возможно, её забыли закрыть, часы по смене завышены",
+        "смена 16 сааттан узун — жабылбай калган болушу мүмкүн, смена боюнча саат көбөйтүлгөн",
+        "a shift longer than 16 h — it may have been left open, the shift hours are overstated",
+        "16 saatten uzun vardiya — açık unutulmuş olabilir, vardiya saatleri fazla",
+        "16 soatdan uzun smena — yopilmay qolgan bo'lishi mumkin, smena soatlari oshirilgan");
 
     private static string Describe(string name, DateOnly date, TimesheetMark? mark, double shiftH, TimesheetCheck check)
     {

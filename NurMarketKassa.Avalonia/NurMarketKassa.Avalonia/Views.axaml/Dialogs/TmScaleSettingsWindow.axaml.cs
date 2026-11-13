@@ -444,13 +444,18 @@ public partial class TmScaleSettingsWindow : Window
         _priceDecimalsBox.Items.Add("Max 2 bit after PT [1.23]");
         _priceDecimalsBox.Items.Add("Max 3 bit after PT [0.123]");
         _priceDecimalsBox.SelectedIndex = Math.Clamp(UserPreferences.Instance.TmScalePricePoint, 0, 3);
-        _priceDecimalsBox.SelectionChanged += (_, _) => UpdateSample();
-        body.Children.Add(Row(L("Цена на весах (Price point)", "Таразадагы баа (Price point)", "Price on the scale (Price point)", "Tartıdaki fiyat (Price point)", "Tarozidagi narx (Price point)"), _priceDecimalsBox));
-        body.Children.Add(Text(L("Должно совпадать с «Price point» в системных параметрах весов («Русский масштаб» → «Системные параметры»). На весах владельца 28.09 стояло «Integer [123]». Если не совпадёт — все цены на весах будут в 10/100/1000 раз больше или меньше.",
-            "Таразанын системалык параметрлериндеги «Price point» менен дал келиши керек («Русский масштаб» → «Системные параметры»). 28.09 ээсинин таразасында «Integer [123]» болчу. Дал келбесе — таразадагы бардык баалар 10/100/1000 эсе чоң же кичине болот.",
-            "Must match “Price point” in the scale's system parameters (“Russian Scale” → “System parameters”). The owner's scale had “Integer [123]” on 28.09. If it does not match, all prices on the scale will be 10/100/1000 times larger or smaller.",
-            "Tartının sistem parametrelerindeki «Price point» ile aynı olmalı («Русский масштаб» → «Системные параметры»). Sahibin tartısında 28.09'da «Integer [123]» vardı. Uyuşmazsa tartıdaki tüm fiyatlar 10/100/1000 kat büyük veya küçük olur.",
-            "Tarozi tizim parametrlaridagi «Price point» bilan mos kelishi kerak («Русский масштаб» → «Системные параметры»). 28.09 da egasining tarozisida «Integer [123]» edi. Mos kelmasa — tarozidagi barcha narxlar 10/100/1000 marta katta yoki kichik bo‘ladi."), "hint"));
+        _priceDecimalsBox.SelectionChanged += (_, _) => { UpdateSample(); UpdatePricePreview(); };
+        body.Children.Add(Row(L("Знаков после запятой в цене на весах (Price point)", "Таразадагы баада үтүрдөн кийинки белгилер (Price point)", "Decimals in the price on the scale (Price point)", "Tartıdaki fiyatta ondalık hane (Price point)", "Tarozidagi narxda verguldan keyingi xonalar (Price point)"), _priceDecimalsBox));
+        // 2026-11-11 (ТЗ «TM-30F — цена на этикетке в 10 раз больше»): касса слала цену с 2 знаками, а в весах Price point = 1. Настройка управляет
+        // числом в поле цены (сом × 10^знаков) и пределом цены; прочитать Price point с весов протокол не даёт — подсказка и живой пример ниже.
+        body.Children.Add(Text(L("Должно совпадать с параметром весов «Price point» («Русский масштаб» → «Базовая настройка → Системные параметры» → «Common param»). Если на этикетке цена в 10 раз больше — уменьшите здесь на 1 (например, 2 → 1), в 10 раз меньше — увеличьте на 1, затем сохраните и отправьте товары на весы заново. Прочитать этот параметр с весов касса не может — проверьте первой этикеткой.",
+            "Таразанын «Price point» параметри менен дал келиши керек («Русский масштаб» → «Базовая настройка → Системные параметры» → «Common param»). Этикеткадагы баа 10 эсе чоң болсо — бул жерде 1ге азайтыңыз (мисалы, 2 → 1), 10 эсе кичине болсо — 1ге көбөйтүңүз, анан сактап, товарларды таразага кайра жөнөтүңүз. Касса бул параметрди таразадан окуй албайт — биринчи этикетка менен текшериңиз.",
+            "Must match the scale's “Price point” parameter (“Russian Scale” → “Basic settings → System parameters” → “Common param”). If the price on the label is 10 times larger, reduce it here by 1 (e.g. 2 → 1); if 10 times smaller, increase it by 1; then save and send the goods to the scale again. The till cannot read this parameter from the scale — check with the first label.",
+            "Tartının «Price point» parametresiyle aynı olmalı («Русский масштаб» → «Базовая настройка → Системные параметры» → «Common param»). Etikette fiyat 10 kat büyükse burada 1 azaltın (örneğin 2 → 1), 10 kat küçükse 1 artırın; sonra kaydedip ürünleri tartıya yeniden gönderin. Kasa bu parametreyi tartıdan okuyamaz — ilk etiketle kontrol edin.",
+            "Tarozining «Price point» parametri bilan mos kelishi kerak («Русский масштаб» → «Базовая настройка → Системные параметры» → «Common param»). Yorliqdagi narx 10 baravar katta bo‘lsa — bu yerda 1 ga kamaytiring (masalan, 2 → 1), 10 baravar kichik bo‘lsa — 1 ga oshiring, so‘ng saqlab, tovarlarni taroziga qayta yuboring. Kassa bu parametrni tarozidan o‘qiy olmaydi — birinchi yorliq bilan tekshiring."), "hint"));
+        _pricePreview = Text("", "hint");
+        body.Children.Add(_pricePreview);
+        UpdatePricePreview();
 
         _shelfLife = new NumericUpDown { Minimum = 0, Maximum = 999, Increment = 1, FormatString = "0", Value = UserPreferences.Instance.TmScaleShelfLifeDays, MinWidth = 140 };
         body.Children.Add(Row(L("Срок годности, дней (0 — нет)", "Жарактуулук мөөнөтү, күн (0 — жок)", "Shelf life, days (0 — none)", "Raf ömrü, gün (0 — yok)", "Yaroqlilik muddati, kun (0 — yo‘q)"), _shelfLife));
@@ -486,6 +491,32 @@ public partial class TmScaleSettingsWindow : Window
               "To‘g‘ridan-to‘g‘ri yuborish ishlamasa: «Tarozi» oynasi → «Русский масштаб uchun fayl» tovarlarni DIGI_TOP2000 import formatida saqlaydi (PLU, nomi, narxi, kodi, muddati; Windows-1251). Ularning dasturida: «Настройки товаров» → «Импорт» → «Text Files (*.txt, *.plu)» → DIGI_TOP2000 formati → so‘ng taroziga «Скачать» (Download). Tovar turi va shtrix-kod prefiksi bu formatda berilmaydi — dastur «Взвешивание» qo‘yadi."),
             out _));
         return panel;
+    }
+
+    private TextBlock? _pricePreview;
+
+    /// <summary>2026-11-11: живой пример — какое число уйдёт в поле цены и что напечатают весы при каждом их «Price point» (совпадает только один).</summary>
+    private void UpdatePricePreview()
+    {
+        if (_pricePreview is null || _priceDecimalsBox is null)
+            return;
+        var pp = Math.Clamp(_priceDecimalsBox.SelectedIndex < 0 ? UserPreferences.Instance.TmScalePricePoint : _priceDecimalsBox.SelectedIndex, 0, 3);
+        _pricePreview.Text = TmPricePreviewText(250m, pp);
+    }
+
+    /// <summary>2026-11-11: текст примера (5 языков): «250 сом уйдёт числом 2500; весы с Price point 0 → 2500, 1 → 250,0 ✓, 2 → 25,00, 3 → 2,500».</summary>
+    internal static string TmPricePreviewText(decimal price, int kassaPricePoint)
+    {
+        var ru = CultureInfo.GetCultureInfo("ru-RU");
+        var raw = DahuaTmProtocol.ScalePrice(price, kassaPricePoint).ToString(CultureInfo.InvariantCulture);
+        var variants = string.Join("; ", Enumerable.Range(0, 4).Select(k =>
+            $"{k} → {DahuaTmProtocol.LabelPrice(price, kassaPricePoint, k).ToString(k == 0 ? "0" : "0." + new string('0', k), ru)}{(k == kassaPricePoint ? " ✓" : "")}"));
+        var p = price.ToString("0.##", ru);
+        return L($"Пример: цена {p} сом уйдёт на весы числом {raw}. Что напечатают весы при их «Price point»: {variants}.",
+            $"Мисал: {p} сом баа таразага {raw} саны менен кетет. Таразанын «Price point» маанисине жараша этикеткада: {variants}.",
+            $"Example: the price {p} som goes to the scale as the number {raw}. What the scale prints for its “Price point”: {variants}.",
+            $"Örnek: {p} som fiyat tartıya {raw} sayısı olarak gider. Tartının «Price point» değerine göre etikette: {variants}.",
+            $"Misol: {p} so‘m narx taroziga {raw} soni bilan ketadi. Tarozining «Price point» qiymatiga qarab yorliqda: {variants}.");
     }
 
     private void SaveUpload()

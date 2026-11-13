@@ -202,7 +202,7 @@
                                      Content="{Binding TransferMethodLabel}" IsChecked="{Binding IsTransferMethod, Mode=TwoWay}"/>
                     </Grid>
                 </Grid>
-                <TextBlock Text="{Binding TransferHint}" FontSize="12" TextWrapping="Wrap"
+                <TextBlock Text="{Binding TransferHint}" FontSize="12.5" TextWrapping="Wrap"
                            IsVisible="{Binding ShowTransferHint}" Foreground="{DynamicResource BrushTextSoft}"/>
 
                 <!-- 2026-10-18, ревью (деньги): ответ на оплату не дошёл — сумма, способ, чек и смена клиента закрыты; выход —
@@ -253,6 +253,11 @@
                            TextWrapping="Wrap"/>
             </StackPanel>
             </ScrollViewer>
+
+            <!-- 2026-11-12 (Д-4): пока клиент не выбран, нижняя часть была пустой — пояснение, что здесь появится. -->
+            <TextBlock Grid.Row="2" Text="{DynamicResource payDebt.pickHint}" FontSize="14" TextWrapping="Wrap" MaxWidth="420"
+                       TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Foreground="{DynamicResource BrushTextSoft}" IsVisible="{Binding !HasSelectedClient}"/>
 
             <Grid Grid.Row="2" RowDefinitions="Auto,Auto,*" IsVisible="{Binding HasSelectedClient}">
                 <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,10">

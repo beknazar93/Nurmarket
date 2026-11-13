@@ -451,6 +451,13 @@ public static class ServerOutageMonitor
             "The request failed. Try again later.", "İstek gerçekleştirilemedi. Daha sonra tekrar deneyin.", "So'rovni bajarib bo'lmadi. Keyinroq qayta urinib ko'ring.");
     }
 
+    /// <summary>2026-11-12 (оценка UX/UI, Д-2): сбой именно «сервер/сеть недоступны» (а не отказ 4xx, не медленный ответ, не принтер и не отмена) — для блока состояния:
+    /// такой сбой показывается карточкой «Сервер NurCRM недоступен», остальные — карточкой «Не удалось …» с понятной причиной.</summary>
+    public static bool IsServerUnavailable(Exception? ex) =>
+        ex is not ServerNotAnsweringException
+        && !(ex is ApiException && ServerErrorCodes.Friendly(ex) is not null)
+        && (ex is null || IsNetworkOrServer(ex));
+
     /// <summary>2026-11-02 (В3-03): сбой именно сети/сервера (а не принтера, диска или отмены пользователем). IOException считается сетевым только внутри HttpRequestException.</summary>
     private static bool IsNetworkOrServer(Exception ex) => ex switch
     {

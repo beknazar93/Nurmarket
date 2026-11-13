@@ -625,6 +625,37 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
         return rows.OrderByDescending(r => r.CreatedAt).ToList();
     }
 
+    /// <summary>2026-11-11 (сводка Умара): виртуальная строка deals «sale:&lt;uuid&gt;» (is_check_debt) → строка ЧЕКА «Долг по чеку №…» (Id = uuid чека, без сделки:
+    /// «Оплатить» — оплата долга по чеку). null — чек уже есть среди строк (из pos/sales или уже добавлен), нет uuid или остаток 0 (долг не задваивается).</summary>
+    internal static DebtSaleRow? CheckDebtRow(JsonElement deal, IReadOnlyList<DebtSaleRow> saleRows, IReadOnlyList<DebtSaleRow> added)
+    {
+        var saleId = ClientCheckDebtDeals.SaleId(deal);
+        if (saleId.Length == 0 || ClientCheckDebtDeals.Remaining(deal) is not { } remaining || remaining <= 0.005)
+            return null;
+        if (saleRows.Any(r => !r.IsNoSale && string.Equals(r.Id, saleId, StringComparison.OrdinalIgnoreCase))
+            || added.Any(r => string.Equals(r.Id, saleId, StringComparison.OrdinalIgnoreCase)))
+            return null;
+        DateTimeOffset.TryParse(TryGetString(deal, "created_at") ?? TryGetString(deal, "date"), CultureInfo.InvariantCulture, DateTimeStyles.None, out var created);
+        var number = ClientCheckDebtDeals.Number(deal);
+        var original = ClientCheckDebtDeals.Original(deal) ?? remaining;
+        PosLogger.Log($"Оплата долга: долг по старому чеку {saleId} (строка сервера is_check_debt) — {remaining:0.00} сом, в списке чеков его не было — добавлен строкой чека.", "INFO");
+        return new DebtSaleRow
+        {
+            Id = saleId,
+            Number = number,
+            CreatedAt = created,
+            DateDisplay = created == default ? "" : created.LocalDateTime.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture),
+            FirstItemName = ClientCheckDebtDeals.Title(number),
+            Amount = remaining,
+            AmountDisplay = MoneyText.Som(remaining),
+            AmountToPayText = DebtSaleRow.InputText(remaining),
+            SaleRemaining = remaining,
+            SaleRemainingFromServer = true,
+            OriginalAmount = original,
+            OriginalAmountDisplay = MoneyText.Som(original),
+        };
+    }
+
     /// <summary>2026-10-21 (ревью денег, A2): сделки клиента без продажи с остатком долга (GET clients/{id}/deals/ — у сделки
     /// продажи есть поле sale; сделки уже найденных чеков исключаются по deal_id). Не получилось — пусто, как раньше (WARNING).</summary>
     /// <param name="onIncomplete">2026-10-31 (приёмка 1.17.68, В-1б): вызывается, если долги без продажи не получены (сбой запроса или чек без известной сделки) — ответ неполный, кэшировать его нельзя.</param>
@@ -651,6 +682,14 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
             {
                 if (deal.ValueKind != JsonValueKind.Object)
                     continue;
+                // 2026-11-11 (сводка Умара): виртуальная строка старого долгового чека (id «sale:<uuid>», is_check_debt) — НЕ сделка и не «долг без продажи».
+                // Чек уже в списке (pos/sales) — второй раз не считаем; нет — строка чека: «Оплатить» идёт оплатой долга по чеку (pos/sales/<uuid>/pay-debt/).
+                if (ClientCheckDebtDeals.IsVirtual(deal))
+                {
+                    if (CheckDebtRow(deal, saleRows, result) is { } checkRow)
+                        result.Add(checkRow);
+                    continue;
+                }
                 var id = TryGetString(deal, "id") ?? (TryGetDouble(deal, "id") is { } n ? n.ToString("0", CultureInfo.InvariantCulture) : null);
                 if (string.IsNullOrWhiteSpace(id) || knownDeals.Contains(id) || Linked(deal, "sale") || Linked(deal, "sale_id"))
                     continue;

@@ -95,6 +95,18 @@ public static class SessionExpiredPrompt
             using var important = ModalAnnouncements.BeginImportant(); // 2026-11-06 (Б-8): пока окно открыто, фоновые анонсы ждут
             SessionExpiryMonitor.NoteReminderShown(); // 2026-11-06: следующее напоминание — через 10 минут после ЭТОГО вопроса
             // 2026-11-06: честная причина — срок входа (7 суток от входа по паролю), а не «чужой вход».
+            // 2026-11-13 (ответ Умара, п. 5): вход закрыт, потому что логин открыли на другом устройстве (401 session_revoked) — своё окно с именем устройства и временем. Кнопка «Войти снова» — экран входа.
+            if (SessionExpiryMonitor.Revoked is { } revoked)
+            {
+                var again = await PosConfirmDialog.ShowModalAsync(TopWindow(window), NurMarketKassa.ViewModels.DeviceSlotPrompt.RevokedTitle,
+                    NurMarketKassa.ViewModels.DeviceSlotPrompt.RevokedMessage(revoked.ByDeviceName, revoked.At),
+                    confirmText: NurMarketKassa.ViewModels.DeviceSlotPrompt.RevokedSignIn,
+                    cancelText: NurMarketKassa.ViewModels.DeviceSlotPrompt.RevokedLater).ConfigureAwait(true);
+                SessionExpiryMonitor.NoteReminderShown();
+                if (again)
+                    await signInAgain().ConfigureAwait(true);
+                return;
+            }
             var signIn = await PosConfirmDialog.ShowModalAsync(
                 TopWindow(window),
                 Tr.T("Сессия истекла", "Сессиянын мөөнөтү бүттү", "Session expired", "Oturum süresi doldu", "Sessiya muddati tugadi"),

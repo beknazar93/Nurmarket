@@ -53,11 +53,12 @@ public sealed class SaleFilterBar : UserControl
         Name(_status, T("Статус чека", "Чектин статусу", "Receipt status", "Fiş durumu", "Chek holati"));
         Name(_cashier, T("Кассир", "Кассир", "Cashier", "Kasiyer", "Kassir"));
         _client.Watermark = T("Клиент", "Кардар", "Customer", "Müşteri", "Mijoz");
-        _from.Watermark = T("Сумма от", "Сумма -дан", "Amount from", "Tutar min", "Summa dan");
-        _to.Watermark = T("до", "-га чейин", "to", "max", "gacha");
+        // 2026-11-12 (аудит Fable, Н-8): подписи полей суммы — целыми словами (были обрывки «Сумма -дан», «-га чейин», «до», «gacha»)
+        _from.Watermark = T("Сумма от", "Эң аз сумма", "Amount from", "Tutar min", "Min. summa");
+        _to.Watermark = T("Сумма до", "Эң көп сумма", "Amount to", "Tutar max", "Maks. summa");
         Name(_client, T("Клиент: имя или телефон", "Кардар: аты же телефону", "Customer: name or phone", "Müşteri: ad veya telefon", "Mijoz: ism yoki telefon"));
-        Name(_from, T("Сумма от", "Сумма -дан", "Amount from", "Tutar en az", "Summa dan"));
-        Name(_to, T("Сумма до", "Сумма -га чейин", "Amount to", "Tutar en çok", "Summa gacha"));
+        Name(_from, T("Сумма от", "Эң аз сумма", "Amount from", "Tutar en az", "Eng kam summa"));
+        Name(_to, T("Сумма до", "Эң көп сумма", "Amount to", "Tutar en çok", "Eng ko'p summa"));
         _reset.Content = T("Сбросить", "Тазалоо", "Reset", "Sıfırla", "Tozalash");
         Name(_reset, T("Сбросить фильтры", "Чыпкаларды тазалоо", "Reset filters", "Filtreleri sıfırla", "Filtrlarni tozalash"));
         _reset.Classes.Add("btn-secondary"); // стиль окна возврата
@@ -118,8 +119,20 @@ public sealed class SaleFilterBar : UserControl
         _client.TextChanged += (_, _) => Apply(() => Filter.Client = string.IsNullOrWhiteSpace(_client.Text) ? null : _client.Text);
         _reset.Click += (_, _) => Reset();
 
+        // 2026-11-11 (живой показ 1.17.85, Д-9: «Сумма от» и «до» разрывались, «до» и «Сбросить» уходили на вторую строку): поля компактнее, пары держатся вместе —
+        // «Период + дата», «Сумма от — до», «Сбросить + счётчик» — перенос строки только между блоками.
+        _client.Width = 136;
+        _from.Width = 104;
+        _to.Width = 104;
+        static StackPanel Pair(params Control[] items)
+        {
+            var p = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+            foreach (var i in items)
+                p.Children.Add(i);
+            return p;
+        }
         var wrap = new WrapPanel { Orientation = Orientation.Horizontal };
-        foreach (var c in new Control[] { _period, _date, _payment, _status, _cashier, _client, _from, _to, _reset, _count })
+        foreach (var c in new Control[] { Pair(_period, _date), _payment, _status, _cashier, _client, Pair(_from, _to), Pair(_reset, _count) })
             wrap.Children.Add(c);
         Content = wrap;
     }

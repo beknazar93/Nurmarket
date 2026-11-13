@@ -212,7 +212,18 @@ public partial class MainWindow
         }
         else
         {
-            qtyToAdd = ParseManualQuantity(_viewModel.Basket.ManualQuantity, false, QuantityRules.ForTile(vm));
+            // 2026-11-12 (ХМ6, ТЗ хозмаг): товар с дробной единицей («Хозтовары», дробное количество включено) — окно «Количество / длина / площадь»,
+            // если кассир сам не набрал количество в поле (по умолчанию «1»). Отмена окна — товар не добавляется. Другие сферы и «шт» — как раньше.
+            var manualText = _viewModel.Basket.ManualQuantity?.Trim();
+            if (MarketSpheres.Profile.QuantityPad && QuantityRules.ForTile(vm) is { } padRule && string.IsNullOrEmpty(manualText == "1" ? "" : manualText))
+            {
+                var pad = new QuantityPadDialog(vm.Title, vm.PriceLine, vm.Unit, padRule);
+                if (await PosDialogHost.ShowModalAsync(pad, this).ConfigureAwait(true) != true)
+                    return;
+                qtyToAdd = pad.Quantity;
+            }
+            else
+                qtyToAdd = ParseManualQuantity(_viewModel.Basket.ManualQuantity, false, QuantityRules.ForTile(vm));
             if (qtyToAdd <= 0)
             {
                 PosMessageBox.Show(this, Tr.T("Укажите корректное количество.", "Туура санды көрсөтүңүз.", "Enter a valid quantity.", "Geçerli bir miktar girin.", "To'g'ri miqdorni kiriting."), Tr.T("Количество", "Саны", "Quantity", "Miktar", "Miqdor"),
@@ -243,7 +254,68 @@ public partial class MainWindow
         _viewModel.Basket.ManualQuantity = mustWeigh || QuantityRules.ForTile(vm) != null
             ? qtyToAdd.ToString("0.###", CultureInfo.InvariantCulture)
             : qtyToAdd.ToString("0", CultureInfo.InvariantCulture);
+        // 2026-11-12 (ЭЛ2, сфера «Электроника»): товар из категории «с серийником» — сначала IMEI / серийные номера (по одному на штуку).
+        // Отмена окна — товар не добавляется; «Пропустить» — добавляется без номера. В других сферах блок не выполняется.
+        List<string>? serials = null;
+        if (ElectronicsProfile.IsActive && !mustWeigh && lineNameOverride == null
+            && qtyToAdd >= 1 && qtyToAdd % 1 == 0 && ElectronicsProfile.NeedsSerialFor(vm.Id, vm.Category))
+        {
+            serials = await AskSerialNumbersAsync(vm, (int)qtyToAdd).ConfigureAwait(true);
+            if (serials == null)
+                return;
+        }
+
+        var flashBefore = _viewModel.Basket.AddFlashVersion;
         _viewModel.Basket.AddProductFromCatalog(vm, lineNameOverride);
+
+        if (serials is { Count: > 0 } && _viewModel.Basket.AddFlashVersion != flashBefore
+            && _viewModel.Basket.LastAddedItemId is { } addedLineId
+            && ReceiptSnapshotCartEditor.AddLineSerials(cart, addedLineId, serials, ElectronicsProfile.WarrantyMonthsFor(vm.Id, vm.Category))) // 2026-11-13: track_serials / warranty_months с сервера главнее категории
+            _viewModel.Basket.RefreshFromCart();
+    }
+
+    /// <summary>2026-11-12 (ЭЛ2): окно серийных номеров. null — кассир отменил (товар не добавляем); пустой список — «Пропустить» (после подтверждения).
+    /// Номер, который эта касса уже продавала, — предупреждение «уже продан в чеке №…» (возврат и перепродажа бывают, поэтому не запрет).</summary>
+    private async Task<List<string>?> AskSerialNumbersAsync(CatalogProductTileVm vm, int count)
+    {
+        var inCart = new List<string>();
+        var cart = ResolveCartService();
+        if (cart.HasCart)
+            foreach (var item in CartDisplayHelper.EnumerateItems(cart.Root))
+                inCart.AddRange(SerialJournal.ReadSerials(item));
+
+        while (true)
+        {
+            var dlg = new SerialNumberDialog(vm.Title, count, inCart);
+            if (await PosDialogHost.ShowModalAsync(dlg, this).ConfigureAwait(true) != true)
+                return null;
+            if (dlg.Skipped)
+            {
+                var skip = await PosDialogs.ConfirmYesNoModalAsync(this,
+                    Tr.T("Продать без серийного номера? На чеке и в гарантии его не будет.", "Сериялык номерсиз сатасызбы? Чекте жана кепилдикте ал болбойт.",
+                        "Sell without a serial number? It will not appear on the receipt or the warranty.", "Seri numarasız satılsın mı? Fişte ve garantide yer almaz.",
+                        "Seriya raqamisiz sotilsinmi? Chekda va kafolatda u bo'lmaydi."),
+                    confirmText: Tr.T("Продать без номера", "Номерсиз сатуу", "Sell without number", "Numarasız sat", "Raqamsiz sotish"));
+                if (skip)
+                    return new List<string>();
+                continue;
+            }
+
+            var sold = dlg.Serials.Select(s => (Serial: s, Record: SerialJournal.FindSold(s))).FirstOrDefault(x => x.Record != null);
+            if (sold.Record is { } prev)
+            {
+                var again = await PosDialogs.ConfirmYesNoModalAsync(this,
+                    Tr.T($"Номер {sold.Serial} уже продан этой кассой ({SerialJournal.Day(prev.SoldAt)}{(prev.ReceiptNo.Length > 0 ? ", чек №" + prev.ReceiptNo : "")}). Продать снова (например, после возврата)?",
+                        $"{sold.Serial} номери бул касса аркылуу сатылган ({SerialJournal.Day(prev.SoldAt)}{(prev.ReceiptNo.Length > 0 ? ", чек №" + prev.ReceiptNo : "")}). Кайра сатасызбы (мисалы, кайтаруудан кийин)?",
+                        $"Number {sold.Serial} was already sold by this till ({SerialJournal.Day(prev.SoldAt)}{(prev.ReceiptNo.Length > 0 ? ", receipt " + prev.ReceiptNo : "")}). Sell again (e.g. after a return)?",
+                        $"{sold.Serial} numarası bu kasada zaten satılmış ({SerialJournal.Day(prev.SoldAt)}{(prev.ReceiptNo.Length > 0 ? ", fiş " + prev.ReceiptNo : "")}). Tekrar satılsın mı (örneğin iadeden sonra)?",
+                        $"{sold.Serial} raqami bu kassada allaqachon sotilgan ({SerialJournal.Day(prev.SoldAt)}{(prev.ReceiptNo.Length > 0 ? ", chek №" + prev.ReceiptNo : "")}). Qayta sotilsinmi (masalan, qaytarishdan keyin)?"),
+                    confirmText: Tr.T("Продать снова", "Кайра сатуу", "Sell again", "Tekrar sat", "Qayta sotish"));
+                if (!again)
+                    continue;
+            }
+            return dlg.Serials.ToList();
+        }
     }
 
     // 2026-10-27: голосовое добавление товара (AddProductByVoiceAsync) убрано вместе с голосовым управлением — есть ИИ-ассистент.
@@ -774,6 +846,16 @@ public partial class MainWindow
     {
         if (lossText is not { } text)
             return true;
+        // 2026-11-13 (сервер bc1112): без права «Продажа ниже закупки» (can_sell_below_cost) «Я знаю что делаю» не предлагаем — сервер такую продажу не проведёт.
+        // Скидка не применяется (вызывающий код возвращает прежнюю), кассиру — что нужно сделать. Список строк берём из текста убытка.
+        if (!_viewModel.Basket.CanSellBelowCost)
+            await BelowCostGuard.RecheckProfileAsync().ConfigureAwait(true); // 2026-11-13: право могли выдать на сайте при открытом чеке — перечитываем профиль до отказа
+        if (!_viewModel.Basket.CanSellBelowCost)
+        {
+            PosLogger.Log("Скидка в убыток не применена: права can_sell_below_cost нет.", "CART");
+            _prompts.ShowWarning(BelowCostGuard.BlockedText(Array.Empty<BelowCostHit>()) + "\n\n" + text);
+            return false;
+        }
         // 2026-10-04: ShowModalAsync — в Windows прежний синхронный показ, на Android — без вложенного цикла.
         var ok = await PosConfirmDialog.ShowModalAsync(
             this,

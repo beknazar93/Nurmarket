@@ -34,8 +34,52 @@ public enum ReturnEditAction
 
 public static class ReturnDocKinds
 {
-    /// <summary>object_type в запросе подтверждения PIN.</summary>
-    public static string ObjectType(ReturnDocKind kind) => kind == ReturnDocKind.Supplier ? "supplier_return" : "pos_return";
+    // 2026-11-11: сводка Умара 11.11 даёт object_type "supplier"/"pos", а его прежнее сообщение — "supplier_return"/"pos_return". Основное — как в сводке;
+    // если сервер отвечает 400 про object_type, ConfirmAsync один раз повторяет с другим значением и запоминает сработавшее (только в памяти процесса).
+    private static readonly bool[] LegacyObjectType = new bool[2];
+
+    /// <summary>object_type в запросе подтверждения PIN — тот вариант, что последним принял сервер (по умолчанию как в сводке 11.11).</summary>
+    public static string ObjectType(ReturnDocKind kind) => ObjectType(kind, UsesLegacyObjectType(kind));
+
+    /// <summary>object_type: <paramref name="legacy"/> = false — "supplier"/"pos" (сводка 11.11), true — "supplier_return"/"pos_return" (прежнее сообщение).</summary>
+    public static string ObjectType(ReturnDocKind kind, bool legacy) =>
+        kind == ReturnDocKind.Supplier ? (legacy ? "supplier_return" : "supplier") : (legacy ? "pos_return" : "pos");
+
+    internal static bool UsesLegacyObjectType(ReturnDocKind kind)
+    {
+        lock (LegacyObjectType)
+            return LegacyObjectType[(int)kind];
+    }
+
+    internal static void RememberObjectType(ReturnDocKind kind, bool legacy)
+    {
+        lock (LegacyObjectType)
+            LegacyObjectType[(int)kind] = legacy;
+    }
+
+    internal static void ResetObjectTypeForTests()
+    {
+        lock (LegacyObjectType)
+            Array.Clear(LegacyObjectType);
+    }
+
+    /// <summary>2026-11-11: отказ 400 именно из-за object_type (validation_error / ошибка поля object_type) — повод один раз попробовать другое значение.
+    /// Ошибка PIN (поле pin) сюда не относится.</summary>
+    internal static bool IsObjectTypeRejected(Exception ex)
+    {
+        if (ex is not ApiException { StatusCode: 400 } api)
+            return false;
+        if (api.Payload is { ValueKind: JsonValueKind.Object } p)
+        {
+            if (p.TryGetProperty("pin", out _))
+                return false;
+            var code = ServerErrorCodes.Code(p) ?? "";
+            if (code is "pin_invalid" or "invalid_pin" or "wrong_pin" or "pin_locked" or "pin_not_set")
+                return false;
+            return p.GetRawText().Contains("object_type", StringComparison.OrdinalIgnoreCase);
+        }
+        return (api.Message ?? "").Contains("object_type", StringComparison.OrdinalIgnoreCase);
+    }
 
     /// <summary>Адрес документа (с «/» в конце).</summary>
     public static string DocPath(ReturnDocKind kind, string id) =>
@@ -178,6 +222,12 @@ public sealed class ReturnEditException : Exception
     public int? CurrentVersion { get; init; }
     public int? StatusCode { get; init; }
 
+    /// <summary>2026-11-12 (аудит С-8): поля 409 negative_stock / exceeds_returnable по ТЗ Умару — какой товар, сколько доступно на складе, сколько можно вернуть. null — сервер не прислал.</summary>
+    public string? ProductId { get; init; }
+    public string? ProductName { get; init; }
+    public decimal? Available { get; init; }
+    public decimal? MaxQty { get; init; }
+
     public ReturnEditException(ReturnEditFailure failure, string code, string message, Exception? inner = null) : base(message, inner)
     {
         Failure = failure;
@@ -193,6 +243,13 @@ public sealed class ReturnEditException : Exception
 
 public static class ReturnEditErrors
 {
+    /// <summary>2026-11-12 (аудит В-3, В-2): исход правки/аннулирования НЕИЗВЕСТЕН — только обрыв связи/таймаут, 5xx и «запрос с этим ключом ещё выполняется» (408/409/423/425/429 без кода отказа).
+    /// Отказ по существу (negative_stock, exceeds_returnable, 412, 403, 400…) — ничего не сохранено; общий <see cref="PendingIdempotencyKey.OnError"/> считает неизвестным ЛЮБОЙ 409 —
+    /// из-за него после отказа 409 и чужой правки появлялось ложное «скорее всего, сохранено». Признак «без ответа» в окнах ведётся по этому методу.</summary>
+    public static bool IsOutcomeUnknown(ReturnEditException e) =>
+        e.Failure == ReturnEditFailure.Connection
+        || (e.Failure == ReturnEditFailure.Server && (e.StatusCode is null or >= 500 || (e.Code.Length == 0 && e.StatusCode is 408 or 409 or 423 or 425 or 429)));
+
     /// <summary>Любая ошибка запроса → <see cref="ReturnEditException"/> (оригинал — InnerException, для решения о ключе повтора).</summary>
     public static ReturnEditException Classify(Exception ex)
     {
@@ -243,11 +300,31 @@ public static class ReturnEditErrors
             AttemptsLeft = ServerErrorCodes.AttemptsLeft(api),
             RetryAfterSeconds = ServerErrorCodes.RetryAfterSeconds(api),
             CurrentVersion = currentVersion,
+            // 2026-11-12 (аудит С-8): товар и числа из тела 409 (ТЗ Умару: product_id, available, max_qty)
+            ProductId = api.Payload is { ValueKind: JsonValueKind.Object } pl && pl.TryGetProperty("product_id", out var pid) && pid.ValueKind is JsonValueKind.String or JsonValueKind.Number ? pid.ToString() : null,
+            ProductName = api.Payload is { ValueKind: JsonValueKind.Object } pn && pn.TryGetProperty("product_name", out var pnm) && pnm.ValueKind == JsonValueKind.String ? pnm.GetString() : null,
+            Available = api.Payload is { } pa ? ServerErrorCodes.Number(pa, "available") : null,
+            MaxQty = api.Payload is { } pm ? ServerErrorCodes.Number(pm, "max_qty") : null,
         };
     }
 
-    /// <summary>Понятный текст на языке кассы (5 языков). Для «прочих» отказов — слова сервера.</summary>
-    public static string Text(ReturnEditException e) => e.Failure switch
+    /// <summary>2026-11-12 (аудит С-8): «Товар «X»: на складе N» / «можно не больше N» — из полей 409; пусто, если сервер их не прислал. <paramref name="productName"/> — название по id товара (строки окна).</summary>
+    private static string StockDetail(ReturnEditException e, Func<string, string?>? productName, bool available)
+    {
+        var number = available ? e.Available : e.MaxQty;
+        var name = !string.IsNullOrWhiteSpace(e.ProductName) ? e.ProductName
+            : e.ProductId is { Length: > 0 } id && productName?.Invoke(id) is { Length: > 0 } byId ? byId : null;
+        if (number is null && name is null)
+            return "";
+        var n = number is { } v ? v.ToString("0.###", CultureInfo.CurrentCulture) : "—";
+        var who = name is null ? "" : $"«{name}»: ";
+        return " " + (available
+            ? Tr.T($"{who}на складе {n}.", $"{who}кампада {n}.", $"{who}in stock {n}.", $"{who}stokta {n}.", $"{who}omborda {n}.")
+            : Tr.T($"{who}можно не больше {n}.", $"{who}{n} ашпашы керек.", $"{who}at most {n}.", $"{who}en çok {n}.", $"{who}{n} dan oshmasin."));
+    }
+
+    /// <summary>Понятный текст на языке кассы (5 языков). Для «прочих» отказов — слова сервера. <paramref name="productName"/> — название товара по id (для 409 negative_stock / exceeds_returnable).</summary>
+    public static string Text(ReturnEditException e, Func<string, string?>? productName = null) => e.Failure switch
     {
         ReturnEditFailure.PinInvalid => ServerErrorCodes.PinInvalidText(e.AttemptsLeft),
         ReturnEditFailure.PinLocked => ServerErrorCodes.PinLockedText(e.RetryAfterSeconds),
@@ -279,9 +356,9 @@ public static class ReturnEditErrors
             "Кампада калдык жетишпейт — сервер өзгөртүүнү өткөргөн жок. Товардын калдыгын текшериңиз.",
             "Not enough stock — the server did not apply the change. Check the product stock.",
             "Stok yetersiz — sunucu değişikliği işlemedi. Ürün stokunu kontrol edin.",
-            "Omborda qoldiq yetarli emas — server o'zgarishni o'tkazmadi. Mahsulot qoldig'ini tekshiring."),
+            "Omborda qoldiq yetarli emas — server o'zgarishni o'tkazmadi. Mahsulot qoldig'ini tekshiring.") + StockDetail(e, productName, available: true),
         ReturnEditFailure.ExceedsReturnable => Tr.T("Количество больше, чем можно вернуть по документу-основанию.", "Саны негизги документ боюнча кайтарууга мүмкүн болгондон көп.",
-            "The quantity exceeds what can be returned under the source document.", "Miktar, kaynak belgeye göre iade edilebilecek miktarı aşıyor.", "Miqdor asosiy hujjat bo'yicha qaytarish mumkin bo'lganidan ko'p."),
+            "The quantity exceeds what can be returned under the source document.", "Miktar, kaynak belgeye göre iade edilebilecek miktarı aşıyor.", "Miqdor asosiy hujjat bo'yicha qaytarish mumkin bo'lganidan ko'p.") + StockDetail(e, productName, available: false),
         ReturnEditFailure.RefundExceedsPaid => Tr.T("Сумма возврата больше оплаченной по чеку.", "Кайтаруу суммасы чек боюнча төлөнгөндөн көп.", "The refund exceeds the amount paid for the receipt.",
             "İade tutarı fişte ödenenden fazla.", "Qaytarish summasi chek bo'yicha to'langanidan ko'p."),
         ReturnEditFailure.Connection => Tr.T("Нет связи с сервером. Ничего не изменено — повторите, когда связь появится.", "Сервер менен байланыш жок. Эч нерсе өзгөргөн жок — байланыш пайда болгондо кайталаңыз.",
@@ -458,6 +535,7 @@ public sealed class ReturnEditApi
     {
         lock (LockGate)
             _pinLockedUntilUtc = DateTime.MinValue;
+        ReturnDocKinds.ResetObjectTypeForTests();
     }
 
     /// <summary>Карточка документа (GET …/returns/{id}/) — свежие version/can_edit по времени сервера перед правкой.</summary>
@@ -499,19 +577,43 @@ public sealed class ReturnEditApi
             return new ReturnConfirmResult(false, null, "", new ReturnEditException(ReturnEditFailure.PinLocked, ServerErrorCodes.PinLocked, "pin_locked (local)") { RetryAfterSeconds = locked });
         if (string.IsNullOrWhiteSpace(pin))
             return new ReturnConfirmResult(false, null, "", new ReturnEditException(ReturnEditFailure.PinInvalid, ServerErrorCodes.PinInvalid, "empty"));
+        var legacy = ReturnDocKinds.UsesLegacyObjectType(kind);
         var body = new Dictionary<string, object?>
         {
             ["pin"] = pin.Trim(),
             ["scope"] = ReturnDocKinds.Scope(action),
-            ["object_type"] = ReturnDocKinds.ObjectType(kind),
+            ["object_type"] = ReturnDocKinds.ObjectType(kind, legacy),
             ["object_id"] = id,
             ["version"] = version,
         };
-        var what = $"{ReturnDocKinds.ObjectType(kind)} {id} ({ReturnDocKinds.Scope(action)}, v{version})";
+        var what = $"{ReturnDocKinds.ObjectType(kind, legacy)} {id} ({ReturnDocKinds.Scope(action)}, v{version})";
         try
         {
             using var critical = ApiThrottle.BeginCritical();
-            var r = await _api.RequestAsync(HttpMethod.Post, "api/users/auth/pin/verify/", body, null, ct, TimeSpan.FromSeconds(15)).ConfigureAwait(false);
+            JsonElement r;
+            try
+            {
+                r = await _api.RequestAsync(HttpMethod.Post, "api/users/auth/pin/verify/", body, null, ct, TimeSpan.FromSeconds(15)).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ReturnDocKinds.IsObjectTypeRejected(ex))
+            {
+                // 2026-11-11: расхождение сводки Умара и прежнего сообщения об object_type — ОДИН повтор с другим значением; в журнал только факт (без PIN/токена)
+                var tried = ReturnDocKinds.ObjectType(kind, legacy);
+                legacy = !legacy;
+                body["object_type"] = ReturnDocKinds.ObjectType(kind, legacy);
+                PosLogger.Log($"Возвраты: сервер не принял object_type «{tried}» — повтор с «{ReturnDocKinds.ObjectType(kind, legacy)}».", "WARNING");
+                try
+                {
+                    r = await _api.RequestAsync(HttpMethod.Post, "api/users/auth/pin/verify/", body, null, ct, TimeSpan.FromSeconds(15)).ConfigureAwait(false);
+                }
+                catch (ApiException again) when (!ReturnDocKinds.IsObjectTypeRejected(again) && !SyncService.IsConnectivityFailure(again))
+                {
+                    ReturnDocKinds.RememberObjectType(kind, legacy); // сервер ответил по существу (например, неверный PIN) — значит, этот object_type он понимает
+                    throw;
+                }
+                ReturnDocKinds.RememberObjectType(kind, legacy);
+                what = $"{ReturnDocKinds.ObjectType(kind, legacy)} {id} ({ReturnDocKinds.Scope(action)}, v{version})";
+            }
             body["pin"] = null;
             if (r.ValueKind != JsonValueKind.Object)
                 return new ReturnConfirmResult(false, null, "", new ReturnEditException(ReturnEditFailure.Server, "", "no_token"));

@@ -289,7 +289,9 @@ public sealed class SupplierApiService
     public async Task<List<SupplierDeal>> GetDealsAsync(string supplierId, CancellationToken ct = default)
     {
         var d = await GetJsonAsync($"api/main/clients/{Esc(supplierId)}/deals/", new Dictionary<string, string> { ["page_size"] = "500" }, ct).ConfigureAwait(false);
-        return Rows(d).Select(ParseDeal).OrderByDescending(x => x.CreatedAt ?? DateTime.MinValue).ToList();
+        // 2026-11-11 (сводка Умара): виртуальные строки старых долговых чеков («sale:…», is_check_debt) — это долг ПО ЧЕКУ перед нами, а не сделка с поставщиком:
+        // без графика и оплат, оплата взноса (deals/{id}/pay/) к ним неприменима, в «наш долг поставщику» не входят — в список сделок не берём.
+        return ClientCheckDebtDeals.RealDeals(Rows(d)).Select(ParseDeal).OrderByDescending(x => x.CreatedAt ?? DateTime.MinValue).ToList();
     }
 
     /// <summary>2026-10-22 (аудит 1.17.59, П-Ж): оплата ОДНОГО взноса долга поставщику — POST clients/{id}/deals/{deal}/pay/ (тот же адрес,
@@ -300,6 +302,8 @@ public sealed class SupplierApiService
     /// сервер не проводит второй раз. Расход отдельным запросом (construction/cashflows/) НЕ пишем — чтобы не получить двойной расход.</summary>
     public Task<JsonElement> PayInstallmentAsync(string supplierId, string dealId, string installmentId, string idempotencyKey, string note, CancellationToken ct = default)
     {
+        if (ClientCheckDebtDeals.RejectVirtualDealId(dealId) is { } virtualDeal) // 2026-11-11: «sale:…» — долг по чеку, не сделка
+            return Task.FromException<JsonElement>(virtualDeal);
         var body = new Dictionary<string, string>
         {
             ["date"] = DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
@@ -658,6 +662,9 @@ public sealed class SupplierApiService
             ["page"] = Math.Max(1, page).ToString(CultureInfo.InvariantCulture),
             ["limit"] = Math.Clamp(limit, 1, 200).ToString(CultureInfo.InvariantCulture),
         };
+        // 2026-11-11: аннулированный возврат держит свой номер — индекс номеров берёт и его (иначе номер мог бы выдаться повторно)
+        if (series == DocSeries.Return && ServerCapabilities.Has(ServerCapabilities.SupplierReturnEdit24h))
+            query["status"] = "all";
         var d = await GetJsonAsync(series == DocSeries.Return ? "api/main/suppliers/returns/" : "api/main/suppliers/receipts/", query, ct).ConfigureAwait(false);
         return ParseDocPage(d, series, settings);
     };
@@ -690,11 +697,31 @@ public sealed class SupplierApiService
         ParseReturn(await GetJsonAsync($"api/main/suppliers/returns/{Esc(returnId)}/", null, ct).ConfigureAwait(false));
 
     /// <summary>Возвраты поставщику (GET suppliers/returns/ — те же, что в разделе «Возвраты поставщикам»).</summary>
-    public async Task<List<SupplierReturnInfo>> GetReturnsAsync(string? supplierId, CancellationToken ct = default)
+    /// <summary>2026-11-11: есть ли у сервера правка/аннулирование возврата поставщику (признак supplier_return_edit_24h; ждёт не дольше 5 с, сбой — false).
+    /// По нему списки просят и аннулированные (?status=all) — с плашкой «АННУЛИРОВАН».</summary>
+    public async Task<bool> ReturnEditFeatureAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(TimeSpan.FromSeconds(5));
+            return await ServerCapabilities.HasAsync(_api, ServerCapabilities.SupplierReturnEdit24h, cts.Token).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException && !ct.IsCancellationRequested)
+        {
+            return ServerCapabilities.Has(ServerCapabilities.SupplierReturnEdit24h);
+        }
+    }
+
+    // 2026-11-11 (сервер Умара): по умолчанию сервер отдаёт список БЕЗ аннулированных; includeVoided — ?status=all (плашка «АННУЛИРОВАН»;
+    // итоги вызывающий считает без EditState.IsVoided).
+    public async Task<List<SupplierReturnInfo>> GetReturnsAsync(string? supplierId, CancellationToken ct = default, bool includeVoided = false)
     {
         var query = new Dictionary<string, string> { ["page"] = "1", ["limit"] = "200" };
         if (!string.IsNullOrEmpty(supplierId))
             query["supplier_id"] = supplierId;
+        if (includeVoided)
+            query["status"] = "all";
         var d = await GetJsonAsync("api/main/suppliers/returns/", query, ct).ConfigureAwait(false);
         return Rows(d).Select(ParseReturn).Where(r => string.IsNullOrEmpty(supplierId) || r.SupplierId.Length == 0 || r.SupplierId == supplierId)
             .OrderByDescending(r => r.CreatedAt ?? DateTime.MinValue).ToList();

@@ -297,6 +297,7 @@ public sealed class SuppliersWindow : Window, IOwnerSection
     // ------------------------------------------------------------------ загрузка
 
     private CancellationTokenSource? _loadCts;
+    private Exception? _loadError; // 2026-11-12 (Д-2): сбой загрузки, пока списка нет — Render() показывает блок состояния
 
     private async Task LoadAsync(bool fromCache = false)
     {
@@ -305,6 +306,7 @@ public sealed class SuppliersWindow : Window, IOwnerSection
         if (!fromCache)
             SupplierApiService.InvalidateSummaries(); // «Обновить» и перечитывание после записи долга — всегда с сервера
         _summariesDone = false;
+        _loadError = null; // 2026-11-12 (Д-2)
         SetStatus(T("Загружаю поставщиков…", "Жеткирүүчүлөр жүктөлүүдө…", "Loading suppliers…", "Tedarikçiler yükleniyor…", "Yetkazib beruvchilar yuklanmoqda…"));
         try
         {
@@ -358,9 +360,16 @@ public sealed class SuppliersWindow : Window, IOwnerSection
             if (gen != _gen)
                 return;
             _summariesDone = true;
-            SetStatus(T("Не удалось загрузить поставщиков: ", "Жеткирүүчүлөрдү жүктөө мүмкүн болгон жок: ", "Couldn't load suppliers: ", "Tedarikçiler yüklenemedi: ", "Yetkazib beruvchilarni yuklab bo'lmadi: ")
-                      + (ex is OperationCanceledException ? T("сервер не ответил", "сервер жооп берген жок", "the server didn't respond", "sunucu yanıt vermedi", "server javob bermadi") : ServerTelegramBotApi.DescribeFields(ex)),
-                error: true);
+            // 2026-11-12 (оценка UX/UI, Д-2): вместо красной строки с сырым ответом сервера — общий блок состояния в списке (текст сервера — в «Подробнее» и журнале).
+            // Список уже был — остаётся, а в строке состояния одна фраза.
+            if (_suppliers.Count == 0)
+            {
+                _loadError = ex;
+                SetStatus(null);
+            }
+            else
+                SetStatus(T("Не удалось обновить поставщиков: ", "Жеткирүүчүлөрдү жаңыртуу мүмкүн болгон жок: ", "Couldn't refresh suppliers: ", "Tedarikçiler güncellenemedi: ", "Yetkazib beruvchilarni yangilab bo'lmadi: ")
+                          + ServerOutageMonitor.FriendlyError(ex), error: true);
             RenderKpi();
             Render();
             PosLogger.Log($"Поставщики: не загружены ({ex.GetType().Name}: {ex.Message}).", "WARNING");
@@ -449,6 +458,13 @@ public sealed class SuppliersWindow : Window, IOwnerSection
         _rows.Children.Clear();
         if (!_loaded || (_suppliers.Count == 0 && !_summariesDone))
             return;
+        if (_loadError is { } failure && _suppliers.Count == 0)
+        {
+            _rows.Children.Add(StateBlock.Failure(this, failure,
+                T("Не удалось загрузить поставщиков", "Жеткирүүчүлөрдү жүктөө мүмкүн болгон жок", "Couldn't load suppliers", "Tedarikçiler yüklenemedi", "Yetkazib beruvchilarni yuklab bo'lmadi"),
+                () => _ = LoadAsync()));
+            return;
+        }
         var shown = Shown().Take(500).ToList();
         if (shown.Count == 0)
         {
@@ -471,7 +487,7 @@ public sealed class SuppliersWindow : Window, IOwnerSection
                             "No debts to suppliers. A purchase “on credit” on the NurCRM website records a debt — it will appear here with its due date.",
                             "Tedarikçilere borç yok. NurCRM sitesinde «veresiye» alım borç kaydeder — burada vadesiyle görünür.",
                             "Yetkazib beruvchilar oldida qarz yo'q. NurCRM saytida «qarzga» xarid qarzni yozadi — u shu yerda to'lov muddati bilan ko'rinadi.");
-            _rows.Children.Add(SectionCards.Empty(this, text));
+            _rows.Children.Add(StateBlock.Empty(text)); // 2026-11-12 (Д-2): общий блок «пусто»
             return;
         }
         foreach (var s in shown)

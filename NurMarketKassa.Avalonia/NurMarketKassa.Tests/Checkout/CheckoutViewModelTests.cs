@@ -73,6 +73,33 @@ public sealed class CheckoutViewModelTests
         viewModel.ErrorMessage.Should().Contain("не может превышать");
     }
 
+    // 2026-11-13 (находка проверяющего п. 4): скидка на чек, введённая в окне оплаты, проверяется на «ниже закупки» ДО приёма денег.
+    [Fact]
+    public void PaymentIsBlocked_WhenDiscountEnteredInWindowGoesBelowCost_AndFreedAfterChange()
+    {
+        var viewModel = CreateViewModel(100);
+        var seen = new List<double>();
+        // закупка 80: скидка на чек больше 20 уводит цену ниже закупки
+        viewModel.BelowCostCheck = discount => { seen.Add(discount); return discount > 20 ? "ниже закупки" : null; };
+        viewModel.CanPay.Should().BeTrue("скидки нет — продажа не ниже закупки");
+
+        viewModel.IsDiscountSum = true;
+        viewModel.DiscountInput = "30";
+        viewModel.HasBelowCostBlock.Should().BeTrue();
+        viewModel.BelowCostBlockText.Should().Be("ниже закупки");
+        viewModel.CanPay.Should().BeFalse("оплату по QR/карте не принимаем, пока скидка уводит цену ниже закупки");
+        viewModel.HasPayBlockedHint.Should().BeTrue();
+        var closed = false;
+        viewModel.RequestClose += _ => closed = true;
+        viewModel.PayCommand.Execute(null);
+        closed.Should().BeFalse();
+
+        viewModel.DiscountInput = "10";
+        viewModel.HasBelowCostBlock.Should().BeFalse();
+        viewModel.CanPay.Should().BeTrue();
+        seen.Should().Contain(30d).And.Contain(10d);
+    }
+
     private static CheckoutViewModel CreateViewModel(double total) =>
         new(
             new CartTotalsCalculator.CartTotals

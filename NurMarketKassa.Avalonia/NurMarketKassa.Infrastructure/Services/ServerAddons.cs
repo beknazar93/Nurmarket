@@ -29,12 +29,15 @@ public static class ServerAddons
     public static readonly string[] Slugs =
     {
         "loyalty", "timesheet", "analytics", "pricetag", "bulktag", "labeleditor", "scales", "export", "telegram", "shiftstats", "language",
+        "repair", "trade_in", // 2026-11-13: «Ремонт и сервис», «Trade-in / скупка» (коды сервера «kassa-repair», «kassa-trade_in»; сервер их пока не выдаёт — подключает поддержка)
     };
 
     /// <summary>Период опроса сервера.</summary>
     public static readonly TimeSpan RefreshEvery = TimeSpan.FromMinutes(15);
 
-    public sealed record AddonEntry(string Code, bool Active, string? Until);
+    /// <remarks>2026-11-13 (сервер «ev1311»): <paramref name="Source"/> — откуда подключена функция: «key» (по ключу), «trial» (пробный период), «support» (включила поддержка);
+    /// null — поля нет (старый сервер) или значение другое (например «purchase»): подписи нет.</remarks>
+    public sealed record AddonEntry(string Code, bool Active, string? Until, string? Source = null);
 
     /// <summary>2026-11-06 («купил на сайте — программа подхватывает»): итог немедленной проверки покупок.</summary>
     public enum PurchaseCheckStatus
@@ -74,6 +77,10 @@ public static class ServerAddons
     public static event Action? Changed;
 
     private static volatile Snap? _snap;
+    // 2026-11-13 (сервер «ev1311»: ETag у users/company/addons/): ETag последнего 200 и компания, чей он; 304 — список тот же, разбор и запись кэша не нужны.
+    private static string? _etag;
+    private static string? _etagAccount;
+    private static volatile bool _etagSupported;
     private static int _diskLoaded;
     private static DateTime _lastAttemptUtc = DateTime.MinValue;
     /// <summary>2026-10-31 (приёмка 1.17.68): компания последней попытки загрузки; другая компания (смена аккаунта) обходит паузу между попытками.</summary>
@@ -147,6 +154,27 @@ public static class ServerAddons
 
     /// <summary>Открыта сервером, а ключа на этой кассе нет — на плитке «Подключено» вместо «Куплено».</summary>
     public static bool IsServerOnly(string slug) => IsGranted(slug) && !UserPreferences.Instance.IsKeyUnlocked(slug);
+
+    /// <summary>2026-11-13: сервер отдаёт ETag у addons — условные запросы работают (304), проверку можно делать чаще.</summary>
+    public static bool EtagSupported => _etagSupported;
+
+    /// <summary>2026-11-13: откуда подключена функция на сервере: «key» / «trial» / «support» / «promo» (2026-11-13: промокод, ответ Умара); null — не включена, поля нет или значение неизвестное.</summary>
+    public static string? GrantedSource(string slug)
+    {
+        var snap = Current(UserPreferences.Instance.LastDataAccountKey);
+        var item = snap?.Items.FirstOrDefault(i => string.Equals(i.Code, CodePrefix + slug, StringComparison.OrdinalIgnoreCase));
+        return item is not null && IsActive(item) && item.Source is "key" or "trial" or "support" or "promo" ? item.Source : null;
+    }
+
+    /// <summary>2026-11-13: подпись источника подключения на 5 языках; пусто — источник неизвестен (подписи нет).</summary>
+    public static string SourceLabel(string? source) => source switch
+    {
+        "key" => Tr.T("по ключу", "ачкыч боюнча", "by key", "anahtarla", "kalit bo'yicha"),
+        "trial" => Tr.T("пробный период", "сыноо мөөнөтү", "trial period", "deneme süresi", "sinov muddati"),
+        "support" => Tr.T("включено поддержкой", "колдоо кызматы күйгүздү", "enabled by support", "destek tarafından açıldı", "qo'llab-quvvatlash yoqdi"),
+        "promo" => Tr.T("по промокоду", "промокод менен", "by promo code", "promosyon koduyla", "promokod orqali"),
+        _ => "",
+    };
 
     /// <summary>Срок функции с сервера: null — бессрочно или не включена.</summary>
     public static DateOnly? GrantedUntil(string slug)
@@ -235,7 +263,7 @@ public static class ServerAddons
                 v = 1,
                 account = snap.Account,
                 loadedAtUtc = snap.LoadedAtUtc.ToString("o", CultureInfo.InvariantCulture),
-                items = snap.Items.Select(i => new { code = i.Code, active = i.Active, until = i.Until }).ToList(),
+                items = snap.Items.Select(i => new { code = i.Code, active = i.Active, until = i.Until, source = i.Source }).ToList(),
             });
             AtomicFile.WriteAllText(CachePath, json);
         }
@@ -255,6 +283,9 @@ public static class ServerAddons
             _boostTimer = null;
         }
         _snap = null;
+        _etag = null;
+        _etagAccount = null;
+        _etagSupported = false;
         Volatile.Write(ref _diskLoaded, 1);
         _lastAttemptUtc = DateTime.MinValue;
     }
@@ -263,6 +294,8 @@ public static class ServerAddons
     public static void ReloadFromDiskForStand()
     {
         _snap = null;
+        _etag = null;
+        _etagAccount = null;
         Volatile.Write(ref _diskLoaded, 0);
         _lastAttemptUtc = DateTime.MinValue;
     }
@@ -285,7 +318,8 @@ public static class ServerAddons
             var active = el.TryGetProperty("active", out var a)
                 && (a.ValueKind == JsonValueKind.True || (a.ValueKind == JsonValueKind.String && string.Equals(a.GetString(), "true", StringComparison.OrdinalIgnoreCase)));
             string? until = el.TryGetProperty("until", out var u) && u.ValueKind == JsonValueKind.String ? u.GetString() : null;
-            list.Add(new AddonEntry(code, active, until));
+            string? source = el.TryGetProperty("source", out var so) && so.ValueKind == JsonValueKind.String ? so.GetString()?.Trim().ToLowerInvariant() : null;
+            list.Add(new AddonEntry(code, active, until, source));
         }
         return list;
     }
@@ -379,10 +413,22 @@ public static class ServerAddons
             _attemptCompany = companyId;
             var before = GrantedSet();
             JsonElement data;
+            var account = AppPaths.CompanyKey(companyId);
+            string? newTag;
             try
             {
                 // 2026-10-31: общий клиент NurMarketApiClient — через него идут Bearer, щит 429 (Retry-After) и счёт сбоев сервера.
-                data = await api.RequestAsync(HttpMethod.Get, "api/users/company/addons/", null, null, ct, TimeSpan.FromSeconds(20)).ConfigureAwait(false);
+                // 2026-11-13 (сервер «ev1311»: ETag у addons): If-None-Match, если список этой компании уже в памяти; 304 — ничего не меняется и ничего не разбирается.
+                var sendTag = _etag is not null && string.Equals(_etagAccount, account, StringComparison.Ordinal) && Current(account) is not null ? _etag : null;
+                int status;
+                (data, status, newTag) = await api.GetConditionalAsync("api/users/company/addons/", null, sendTag, ct, TimeSpan.FromSeconds(20)).ConfigureAwait(false);
+                if (status == 304 && sendTag is not null && Current(account) is { } same)
+                {
+                    same.LoadedAtUtc = NowUtc; // кэш подтверждён сервером (на диск не пишем — список тот же)
+                    _etagSupported = true;
+                    _lastIssue = "";
+                    return new PurchaseCheck(PurchaseCheckStatus.Checked, Array.Empty<string>());
+                }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -415,8 +461,11 @@ public static class ServerAddons
             }
 
             _lastIssue = "";
-            var snap = new Snap { Account = AppPaths.CompanyKey(companyId) /* 2026-11-05: с префиксом стенда, как LastDataAccountKey */, LoadedAtUtc = NowUtc, Items = items };
+            var snap = new Snap { Account = account /* 2026-11-05: с префиксом стенда, как LastDataAccountKey */, LoadedAtUtc = NowUtc, Items = items };
             _snap = snap;
+            _etag = string.IsNullOrWhiteSpace(newTag) ? null : newTag; // 2026-11-13: нет ETag (старый сервер) — запросы безусловные, как раньше
+            _etagAccount = account;
+            _etagSupported = _etag is not null;
             Volatile.Write(ref _diskLoaded, 1);
             SaveToDisk(snap);
             var after = GrantedSet();

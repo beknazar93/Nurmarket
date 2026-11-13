@@ -56,6 +56,8 @@ internal static partial class MarketplaceContent
         {
             case "loyalty": Loyalty(item); return;
             case "timesheet": Timesheet(item); return;
+            case "repair": Repair(item); return;     // 2026-11-13
+            case "trade_in": TradeIn(item); return;  // 2026-11-13
             case "scales": Scales(item); return;
             case "analytics": Analytics(item); return;
             case "pricetag": PriceTag(item); return;
@@ -82,7 +84,7 @@ internal static partial class MarketplaceContent
 
     // ------------------------------------------------------------------ общее
 
-    private static string T(string ru, string ky, string en, string tr, string uz) => Tr.T(ru, ky, en, tr, uz);
+    private static string T(string ru, string ky, string en, string tr, string uz) => NurMarketKassa.AvaloniaHost.Views.Dialogs.ScaleUi.OwnerPath(Tr.T(ru, ky, en, tr, uz)); // 2026-11-11: в программе владельца «Настройки → Весы» = «Товары → Весы»
 
     private static MarketplaceBenefit B(string iconKey, string title, string text) => new(iconKey, title, text);
 

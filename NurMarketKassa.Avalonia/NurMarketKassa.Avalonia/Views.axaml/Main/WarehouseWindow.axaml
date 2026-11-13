@@ -347,6 +347,21 @@
         <Style Selector="DataGridCell.rcv-num TextBox">
             <Setter Property="HorizontalContentAlignment" Value="Right"/>
         </Style>
+        <!-- 2026-11-11 (снимок владельца, тёмная тема: поле «Принимаем» в правке — чёрная заливка, тонкая оранжевая рамка, «1» не читается): поле правки ячейки —
+             фон поля и цвет текста темы (не системные цвета Fluent «в фокусе»), каретка цвета текста, рамка в фокусе толще. -->
+        <Style Selector="DataGridCell TextBox">
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="CaretBrush" Value="{DynamicResource BrushText}"/>
+            <Setter Property="SelectionForegroundBrush" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="DataGridCell TextBox:focus">
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="DataGridCell TextBox:focus /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+        </Style>
         <Style Selector="DataGridCell.rcv-soft TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
             <Setter Property="FontSize" Value="12.5"/>
@@ -799,7 +814,8 @@
                              под таблицей): товары, стоимость по закупке и по продаже, «Заканчивается», «Нет в наличии», «Срок
                              годности»; нажатие на плитку включает фильтр. Собирается в коде (WarehouseWindow.Redesign.cs). -->
                         <!-- 2026-10-19, О9 (аудит, проблема 4): плитки sec-kpi в KpiTileGrid — на 1024 суммы не обрезаются «65 087 с…». -->
-                        <ctl:KpiTileGrid Grid.Row="0" x:Name="WarehouseKpiPanel" MinTileWidth="128" Spacing="8" Margin="0,0,0,14"/>
+                        <!-- 2026-11-11 (жалоба «пустота»): MinTileWidth 128 → 160 — на узком разделе плитки не сжимаются до 130 px (пояснения шли в 3 строки), а делятся 3 + 3. -->
+                        <ctl:KpiTileGrid Grid.Row="0" x:Name="WarehouseKpiPanel" MinTileWidth="160" Spacing="8" Margin="0,0,0,14"/>
 
                         <Grid x:Name="ProductsSearchRow" Grid.Row="1" ColumnDefinitions="*,Auto,Auto,Auto,Auto" Margin="0,0,0,12">
                             <!-- 2026-10-06, владелец: «сделай редизайн кнопок, расположение, удобство» — у поиска значок и «✕» очистки. -->
@@ -910,8 +926,11 @@
                                 <DataGridTemplateColumn Header="{DynamicResource common.name}" Width="*" MinWidth="200" SortMemberPath="Title">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <Grid ColumnDefinitions="Auto,*" VerticalAlignment="Center">
-                                                <Grid Grid.Column="0" Width="36" Height="36" Margin="0,0,10,0">
+                                            <Grid ColumnDefinitions="Auto,Auto,*" VerticalAlignment="Center">
+                                                <!-- 2026-11-11: галочка «В печать» — выбор товаров для «Печать ценников (N)» (вкладка «Штрихкоды», WarehouseWindow.Barcodes.cs). -->
+                                                <CheckBox Grid.Column="0" Width="28" MinWidth="0" MinHeight="32" Padding="0" Margin="0,0,6,0" VerticalAlignment="Center" Focusable="False"
+                                                          DataContextChanged="PrintPick_DataContextChanged" Click="PrintPick_Click"/>
+                                                <Grid Grid.Column="1" Width="36" Height="36" Margin="0,0,10,0">
                                                     <Border Background="{DynamicResource BrushPanelSoft}" CornerRadius="6">
                                                         <PathIcon Width="16" Height="16" Foreground="{DynamicResource BrushTextMuted}"
                                                                   Data="M12,2L2,7V17L12,22L22,17V7L12,2M12,4.15L19.16,7.75L12,11.35L4.84,7.75L12,4.15M4,9.28L11,12.78V19.7L4,16.2V9.28M13,19.7V12.78L20,9.28V16.2L13,19.7Z"/>
@@ -923,7 +942,7 @@
                                                     </Border>
                                                 </Grid>
                                                 <!-- 2026-10-06, редизайн склада: под названием — «категория · бренд» и метка срока годности. -->
-                                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                                <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="2">
                                                     <TextBlock Text="{ReflectionBinding Title}" FontSize="14" FontWeight="SemiBold"
                                                                TextTrimming="CharacterEllipsis"
                                                                ToolTip.Tip="{ReflectionBinding Title}"/>
@@ -1171,6 +1190,11 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                         </ScrollViewer>
+                        <!-- 2026-11-11 (жалоба «пустота»): при 0 строк — не голая шапка таблицы, а подсказка (текст ставит WarehouseWindow.Redesign.cs, SyncProductsEmpty). -->
+                        <TextBlock Grid.Row="3" x:Name="ProductsEmptyHint" IsVisible="False" IsHitTestVisible="False"
+                                   HorizontalAlignment="Center" VerticalAlignment="Top" Margin="24,72,24,0"
+                                   TextAlignment="Center" TextWrapping="Wrap" MaxWidth="520" FontSize="14"
+                                   Foreground="{DynamicResource BrushTextSoft}"/>
 
                         <!-- Итог по складу — то же, что в нижней строке «Остатков товаров»: сколько
                              позиций, сколько единиц лежит и на какую сумму, по закупке и по продаже.
@@ -1327,7 +1351,8 @@
                              (так же не работал фильтр статусов перемещений). Поставщик — кнопка с
                              раскрывающимся прямо в окне списком, оплата — два переключателя. -->
                         <StackPanel Grid.Row="3" Spacing="6" Margin="0,0,0,10" x:CompileBindings="False">
-                            <WrapPanel>
+                            <!-- 2026-11-12 (аудит Д-4): на узком окне сюда же приезжает «Приём: … ▾» (WarehouseWindow.ReceivingPack.cs) — отдельный ряд кнопок отнимал у таблицы 52 px. -->
+                            <WrapPanel x:Name="ReceivingSupplierWrap">
                                 <WrapPanel.Styles>
                                     <Style Selector="WrapPanel > :is(Control)"><Setter Property="Margin" Value="0,0,10,8"/></Style>
                                 </WrapPanel.Styles>
@@ -1421,7 +1446,9 @@
                              по одной единице, а в накладной обычно коробка. Название и единицу
                              можно вписать только у нового товара — у существующего они живут в
                              карточке склада (см. ReceivingGrid_BeginningEdit). -->
+                        <!-- 2026-11-11 (аудит «Закупки», БП-3): FontFeatures наследуется ячейками — цифры таблицы приёмки одинаковой ширины. -->
                         <DataGrid Grid.Row="4" x:Name="ReceivingGrid"
+                                  FontFeatures="{DynamicResource TabularNumbers}"
                                   x:CompileBindings="False"
                                   ItemsSource="{Binding ReceivingLines}"
                                   AutoGenerateColumns="False"
@@ -1519,7 +1546,8 @@
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellEditingTemplate>
                                 </DataGridTemplateColumn>
-                                <DataGridTextColumn Width="108"
+                                <!-- 2026-11-12 (аудит Д-8): 13 цифр штрихкода не обрезаются («46070000000:») — минимум 132 px, раскладка по ширине таблицы (O9) ниже не опускает. -->
+                                <DataGridTextColumn Width="108" MinWidth="132"
                                                     Binding="{ReflectionBinding Barcode}">
                                     <DataGridTextColumn.Header><TextBlock x:Name="RcvBarHeader"/></DataGridTextColumn.Header>
                                 </DataGridTextColumn>
@@ -1543,7 +1571,7 @@
                                                 <TextBlock FontSize="11.5" FontWeight="Normal" HorizontalAlignment="Right" TextAlignment="Right" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"
                                                            Foreground="{DynamicResource BrushTextSoft}" Text="{ReflectionBinding PackShortNote}" ToolTip.Tip="{ReflectionBinding PackNote}"
                                                            IsVisible="{ReflectionBinding PackMode}"/>
-                                                <TextBlock FontSize="11.5" FontWeight="SemiBold" HorizontalAlignment="Right" TextAlignment="Right" TextTrimming="CharacterEllipsis" Cursor="Hand"
+                                                <TextBlock FontSize="12.5" FontWeight="SemiBold" HorizontalAlignment="Right" TextAlignment="Right" TextTrimming="CharacterEllipsis" Cursor="Hand" TextDecorations="Underline"
                                                            Foreground="{DynamicResource BrushAccent}" Text="{ReflectionBinding PackLinkShort}" ToolTip.Tip="{ReflectionBinding PackLinkHint}" Tag="rcv-packlink" PointerPressed="ReceivingPackLink_PointerPressed"/>
                                             </StackPanel>
                                         </DataTemplate>

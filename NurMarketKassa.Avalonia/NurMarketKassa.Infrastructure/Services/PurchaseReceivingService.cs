@@ -685,6 +685,18 @@ public sealed class PurchaseReceivingService
         return !requireField && !any;
     }
 
+    /// <summary>2026-11-11 (разбор «Кыргызстанские штрихкоды», п. 4): ответ сервера по штрихкоду — только если в нём именно этот код (основной или доп., формы — ProductCodeLookup.Candidates),
+    /// иначе null. Для карточки товара, массовой загрузки, фоновых новых товаров и проверки «товар уже есть» — чтобы чужой товар не подставлялся и не считался найденным.</summary>
+    public static JsonElement? OnlyIfHasCode(JsonElement? answer, string? code, bool requireField)
+    {
+        if (answer is not { } a)
+            return null;
+        if (ServerAnswerHasCode(a, ProductCodeLookup.Candidates(code), requireField))
+            return a;
+        PosLogger.Log($"Штрихкод {MaskCode(code)}: ответ сервера отброшен — у товара {Str(a, "id") ?? "?"} другой штрихкод.", "CATALOG");
+        return null;
+    }
+
     public static ReceivingLineVm FromTile(NurMarketKassa.Models.Pos.CatalogProductTileVm tile, double quantity)
     {
         var price = LocalCartService.ParsePrice(tile.PriceLine ?? "");
@@ -782,17 +794,8 @@ public sealed class PurchaseReceivingService
                 // сервер не принимает, а округление исказило бы склад), и только при связи с сервером (карточку товара правит PATCH перед приходом).
                 if (line.CanPackSale && line.PackSaleConvertsExisting)
                 {
-                    // 2026-11-11 (convert-to-packages): остаток, который не делится, больше не блокирует заранее — перед подтверждением окно читает СВЕЖИЙ остаток
-                    // и предлагает «Округлить» (allow_rounding) только по явному согласию (ReceivingPackConvertFlow); здесь — лишь если строка пришла с уже подтверждённым остатком без округления.
-                    if (line.PackConvertExpected is not null && !line.PackConvertAllowRounding && line.ConvertedStock is null)
-                    {
-                        var pieces = line.StockBefore * (line.CardPackSize > 0 ? line.CardPackSize : 1);
-                        problems.Add(Tr.T($"{name}: остаток {pieces:0.###} шт не делится на упаковки по {line.PiecesPerPack:0.###} шт — поправьте остаток (ревизия) или выберите другое «шт в упак.»",
-                            $"{name}: калдык {pieces:0.###} даана {line.PiecesPerPack:0.###} даанадан таңгакка бөлүнбөйт — калдыкты оңдоңуз (ревизия) же башка «даана/таңгак» тандаңыз",
-                            $"{name}: the stock of {pieces:0.###} pcs does not divide into packs of {line.PiecesPerPack:0.###} — fix the stock (stocktake) or choose another “pcs/pack”",
-                            $"{name}: {pieces:0.###} adet stok {line.PiecesPerPack:0.###} adetlik kolilere bölünmüyor — stoğu düzeltin (sayım) veya başka «adet/koli» seçin",
-                            $"{name}: {pieces:0.###} dona qoldiq {line.PiecesPerPack:0.###} donalik qadoqlarga bo'linmaydi — qoldiqni tuzating (inventarizatsiya) yoki boshqa «dona/qadoq» tanlang"));
-                    }
+                    // 2026-11-11 (convert-to-packages): остаток, который не делится на целые упаковки, здесь больше не блокирует — перед подтверждением окно читает СВЕЖИЙ остаток
+                    // и предлагает «Округлить» (allow_rounding) только по явному согласию (ReceivingPackConvertFlow); без согласия сервер ответит not_divisible, строка не проведётся.
                     if (OfflineModeHelper.UseLocalOperations)
                         problems.Add(Tr.T($"{name}: упаковку в карточку товара можно записать только при связи с сервером", $"{name}: таңгакты товардын картасына сервер менен байланышта гана жазууга болот",
                             $"{name}: the pack can be written to the product card only while connected to the server", $"{name}: koli ürün kartına yalnızca sunucuya bağlıyken yazılabilir", $"{name}: qadoqni mahsulot kartasiga faqat server bilan aloqada yozish mumkin"));
@@ -874,7 +877,7 @@ public sealed class PurchaseReceivingService
             default:
                 PosLogger.Log($"Приёмка: сервер отказал в переводе товара {line.ProductId} в упаковки: {outcome.Kind} ({outcome.Status}) {outcome.ServerMessage}", "WARNING");
                 addError(ReceivingPackConvert.Describe(outcome, line));
-                if (outcome.Kind == ReceivingPackConvert.Kind.StockChanged)
+                if (outcome.Kind is ReceivingPackConvert.Kind.StockChanged or ReceivingPackConvert.Kind.NegativeStock) // 2026-11-11: и остаток в минусе
                     RefreshProductLater(line.ProductId); // перечитать карточку: следующее подтверждение покажет новый остаток
                 return false;
         }
@@ -1068,7 +1071,8 @@ public sealed class PurchaseReceivingService
                         st.SetOutcome(line, "check");
                         return;
                     }
-                    if (await Api.FindWarehouseProductByBarcodeAsync(line.Barcode, ct).ConfigureAwait(false) is { } existing
+                    // 2026-11-11: «товар уже создан прошлой попыткой» — только если у найденного именно этот штрихкод.
+                    if (OnlyIfHasCode(await Api.FindWarehouseProductByBarcodeAsync(line.Barcode, ct).ConfigureAwait(false), line.Barcode, requireField: true) is { } existing
                         && Str(existing, "id") is { Length: > 0 } existingId)
                     {
                         line.ProductId = existingId;

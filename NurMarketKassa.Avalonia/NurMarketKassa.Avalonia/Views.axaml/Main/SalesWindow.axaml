@@ -70,6 +70,20 @@
             <Setter Property="Margin" Value="4" />
         </Style>
 
+        <!-- 2026-11-12 (Д-3): поиск чека переехал из шапки во вкладку «Чеки» и отнял строку у таблицы; на низком окне (1024×600, класс short — SizeChanged в коде)
+             плитки и отступы плотнее, чтобы в таблице оставалось место хотя бы на подсказку «Чеков нет» и пару строк. -->
+        <Style Selector="Window.short Border.sec-kpi">
+            <Setter Property="Padding" Value="14,6" />
+        </Style>
+        <Style Selector="Window.short TextBlock#RefundsNoteText">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="Window.short ctl|KpiTileGrid">
+            <Setter Property="Margin" Value="0,0,0,8" />
+        </Style>
+        <Style Selector="Window.short Grid#HeaderRow">
+            <Setter Property="Margin" Value="0,0,0,8" />
+        </Style>
         <!-- 2026-10-18, доводка О4: шапка таблиц — цветом панели во всех темах (у Fluent в тёмной теме — чёрная полоса). -->
         <Style Selector="DataGridColumnHeader">
             <Setter Property="Background" Value="Transparent"/>
@@ -104,17 +118,19 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" x:Name="TitleText" Text="{DynamicResource csh.menu.sales}" FontSize="26" FontWeight="Bold"
-                       Foreground="{DynamicResource BrushText}" VerticalAlignment="Center" />
-            <!-- 2026-10-18, доводка О4: часы кассира — в шапке справа от названия (была своя строка под плитками: пустая рамка,
-                 меньше строк чеков). В программе владельца скрыты (AsOwnerSection). -->
-            <Border Grid.Column="0" x:Name="ClockBadge" Classes="TimeBadge" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="12,0,12,0">
-                <TextBlock x:Name="CurrentTimeText" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"
-                           FontFeatures="{DynamicResource TabularNumbers}" />
-            </Border>
+            <!-- 2026-11-12 (оценка UX/UI, Д-3): шапка как в «Финансах» — заголовок слева, часы сразу за ним; поле поиска чека при показе окна
+                 переезжает во вкладку «Чеки» (MoveSearchIntoChecksTab), на телефоне остаётся здесь. -->
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                <TextBlock x:Name="TitleText" Text="{DynamicResource csh.menu.sales}" FontSize="26" FontWeight="Bold"
+                           Foreground="{DynamicResource BrushText}" VerticalAlignment="Center" />
+                <Border x:Name="ClockBadge" Classes="TimeBadge" VerticalAlignment="Center">
+                    <TextBlock x:Name="CurrentTimeText" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"
+                               FontFeatures="{DynamicResource TabularNumbers}" />
+                </Border>
+            </StackPanel>
             <!-- 2026-10-18, этап О3 (правило аудита 1): одна главная — жёлтая «Обновить» (sec-primary), Excel / Word / «Назад» —
                  обводкой (sec-outline), без серой заливки. Стили — PosDialogStyles.axaml. -->
-            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+            <StackPanel Grid.Column="1" x:Name="HeaderActions" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                 <Border Background="{DynamicResource BrushInput}" CornerRadius="8" Padding="4,0" VerticalAlignment="Center"
                         BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
                     <!-- 2026-10-24 (аудит, круг 8, М-11): подсказка «Поиск чека: номер или товар» обрезалась при 220 -->
@@ -123,19 +139,19 @@
                              TextChanged="SearchReceiptBox_TextChanged" />
                 </Border>
                 <Button Content="Excel" Classes="sec-outline"
-                        Margin="10,0,0,0" Click="ExportExcel_Click"
+                        Click="ExportExcel_Click"
                         ToolTip.Tip="{DynamicResource loc.owner.sales.excelTip}"/>
                 <Button Content="Word" Classes="sec-outline"
-                        Margin="6,0,0,0" Click="ExportWord_Click"
+                        Click="ExportWord_Click"
                         ToolTip.Tip="{DynamicResource loc.owner.sales.wordTip}"/>
                 <!-- 2026-11-06 (В11, Д4-25): «Обновить» — не главное действие раздела: значок 40×40 с подсказкой, без жёлтой заливки (жёлтое — только действие раздела). -->
                 <Button x:Name="RefreshButton" Classes="sec-outline" Width="40" Height="40" MinWidth="40" MinHeight="40" Padding="0"
-                        Margin="10,0,0,0" Click="Refresh_Click"
+                        Click="Refresh_Click"
                         ToolTip.Tip="{DynamicResource common.refresh}" AutomationProperties.Name="{DynamicResource common.refresh}">
                     <PathIcon Data="{StaticResource IconRefresh}" Width="18" Height="18"/>
                 </Button>
                 <Button x:Name="BackButton" Content="{DynamicResource common.back}" Classes="sec-outline"
-                        Margin="10,0,0,0" Click="Back_Click" />
+                        Click="Back_Click" />
             </StackPanel>
         </Grid>
 

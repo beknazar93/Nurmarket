@@ -15,6 +15,7 @@ import '../../core/catalog/global_products.dart';
 import '../../core/db/database.dart';
 import '../../core/invoice/invoice_match.dart' show InvoiceGuard;
 import '../../core/providers.dart';
+import '../../core/util/price_limits.dart';
 import '../../core/util/product_picker.dart';
 import '../../core/util/ui.dart';
 import '../../core/util/audit.dart';
@@ -906,6 +907,12 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
                       toast(c, qErr, error: true);
                       return;
                     }
+                    // 2026-11-11 (ответ Умара): цена выше предела сервера — не добавляем, понятный текст
+                    final limit = PriceLimits.problem(c, sale: parseNum(price.text), purchase: parseNum(cost.text));
+                    if (limit != null) {
+                      toast(c, limit, error: true);
+                      return;
+                    }
                     Navigator.pop(c, name.text.trim().isNotEmpty && (parseNum(cost.text) ?? 0) > 0);
                   },
                   child: Text(l.createAndAdd),
@@ -1038,6 +1045,16 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
 
   Future<void> _postOnce({bool ask = true}) async {
     final l = context.l;
+    // 2026-11-11 (ответ Умара): цена продажи > 9 999 999,999 или закупка > 9 999 999 999,9999 (в том числе из накладной/ИИ) — не проводим, понятный текст.
+    for (final x in _lines) {
+      final limit = PriceLimits.problem(context, sale: x.price, purchase: x.cost);
+      if (limit != null) {
+        final text = '${x.name}: $limit';
+        toast(context, text, error: true);
+        if (!ask) _aiSink.report(HandleOutcome.error(text));
+        return;
+      }
+    }
     // 13.10, макет ПР6: итог перед проведением — позиции, штуки, новые товары, изменённые цены, сумма закупки.
     final qty = _lines.fold(0.0, (s, x) => s + x.qty);
     final priceChanges = _lines.where((x) => x.priceChanged).length;

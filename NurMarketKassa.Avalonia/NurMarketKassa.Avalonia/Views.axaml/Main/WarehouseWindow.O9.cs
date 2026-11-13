@@ -92,47 +92,8 @@ public partial class WarehouseWindow
         // 2026-11-07: порог узкого вида 1300 (был 1254; +44 px колонки «№»; в узком виде «№» 40 px, соседние сужены на 30 px — итого 944 px при ширине таблицы ~960). 2026-10-29, спека Fable (Specs-1029/01): колонки и ширины по спеке. Полный вид (таблица от 1210 точек) — 12 колонок, фиксированные = 1040, «Название» — остаток (≥ 170);
         // узкий вид (1024×600, таблица ~960) прячет «Штрихкод», «На складе», «Прибыль с шт.», вторые строки подписей (класс rcv-compact у таблицы), «Закупка изменилась» —
         // только «↑ +3 %»; в итоговой панели прячутся «Выручка» и «Средняя наценка». Ширина — по самой таблице, а не окна (в программе владельца таблица уже окна на ширину меню).
-        ReceivingGrid.SizeChanged += (_, e) =>
-        {
-            if (e.NewSize.Width <= 0)
-                return;
-            var compact = e.NewSize.Width < 1300; // 2026-11-07: было 1210; +44 px колонки «№»; затем 1254 → 1300 (жалоба «Где в приёмке штрихкод?»: колонки 1128 + «Название» ≥ 170 = 1298, при 1254–1277 была горизонтальная прокрутка)
-            ApplyReceivingCompactLayout(compact);
-            RcvColBarcode.IsVisible = !compact;
-            RcvColWas.IsVisible = !compact;
-            RcvColProfit.IsVisible = !compact;
-            SumSaleBox.IsVisible = !compact;
-            SumMarkupBox.IsVisible = !compact;
-            if (compact != ReceivingGrid.Classes.Contains("rcv-compact"))
-            {
-                if (compact)
-                    ReceivingGrid.Classes.Add("rcv-compact");
-                else
-                    ReceivingGrid.Classes.Remove("rcv-compact");
-            }
-            RcvColName.MinWidth = 170;
-            ReceivingGrid.RowHeight = compact ? 48 : 52;
-            ReceivingGrid.ColumnHeaderHeight = compact ? 40 : 44;
-            var widths = compact
-                ? new (DataGridColumn Column, double Width)[] { (RcvColNo, 40), (RcvColUnit, 48), (RcvColQty, 96), (RcvColPurchase, 88), (RcvColMarkup, 80), (RcvColSale, 84), (RcvColChange, 100), (RcvColAuto, 128), (RcvColTotal, 92), (RcvColRemove, 44) }
-                : new (DataGridColumn Column, double Width)[] { (RcvColNo, 44), (RcvColBarcode, 120), (RcvColUnit, 48), (RcvColWas, 80), (RcvColQty, 96), (RcvColPurchase, 88), (RcvColMarkup, 76), (RcvColSale, 84), (RcvColChange, 128), (RcvColAuto, 144), (RcvColProfit, 84), (RcvColTotal, 92), (RcvColRemove, 44) };
-            foreach (var (column, width) in widths)
-                if (column.Width.Value != width)
-                    column.Width = new DataGridLength(width);
-            // 2026-11-10 (владелец: «Наименование должно быть длинным!», как колонка «Товар» в вебе): название — главная колонка. Если ему не хватает места
-            // (цель: ≥ 300 px в полном виде, ≥ 220 px в узком), сначала прячутся второстепенные колонки: «Прибыль с шт.» (есть в подсказке «Как посчитана цена»),
-            // «На складе», затем «Закупка изменилась». «Как посчитана цена» не прячется — в ней кнопка «Как у всех».
-            var nameMin = compact ? 220 : 300;
-            RcvColChange.IsVisible = true; // стало шире — возвращается (две другие — по правилу узкого вида выше)
-            var used = widths.Where(w => w.Column.IsVisible).Sum(w => w.Width) + 4; // + рамка/полоса прокрутки
-            foreach (var optional in new[] { RcvColProfit, RcvColWas, RcvColChange })
-            {
-                if (!optional.IsVisible || used + nameMin <= e.NewSize.Width)
-                    continue;
-                optional.IsVisible = false;
-                used -= widths.FirstOrDefault(x => ReferenceEquals(x.Column, optional)).Width;
-            }
-        };
+        // 2026-11-11 (решение владельца «простая таблица, подробности по раскрытию»): раскладка по ширине — метод ApplyReceivingColumns (его же зовёт «Подробнее ▸»).
+        ReceivingGrid.SizeChanged += (_, e) => ApplyReceivingColumns(e.NewSize.Width);
         // Перемещение: пустой журнал документов или движения — заголовок и подсказка по выбранному разделу.
         void SyncMovements()
         {
@@ -323,5 +284,50 @@ public partial class WarehouseWindow
             value is string s ? s.Replace('.', ',') : value;
 
         public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => value;
+    }
+
+    /// <summary>Раскладка колонок таблицы приёмки по её ширине (узкий вид, ширины, прячем второстепенные), затем «Подробнее ▸» (WarehouseWindow.ReceivingKeys.cs).</summary>
+    private void ApplyReceivingColumns(double tableWidth)
+    {
+        if (tableWidth <= 0)
+            return;
+        RcvColAuto.IsVisible = true; // 2026-11-11: могла быть свёрнута «Подробнее ▸» — правило ниже её не прячет
+        var compact = tableWidth < 1300; // 2026-11-07: было 1210; +44 px колонки «№»; затем 1254 → 1300 (жалоба «Где в приёмке штрихкод?»: колонки 1128 + «Название» ≥ 170 = 1298, при 1254–1277 была горизонтальная прокрутка)
+        ApplyReceivingCompactLayout(compact);
+        RcvColBarcode.IsVisible = !compact;
+        RcvColWas.IsVisible = !compact;
+        RcvColProfit.IsVisible = !compact;
+        SumSaleBox.IsVisible = !compact;
+        SumMarkupBox.IsVisible = !compact;
+        if (compact != ReceivingGrid.Classes.Contains("rcv-compact"))
+        {
+            if (compact)
+                ReceivingGrid.Classes.Add("rcv-compact");
+            else
+                ReceivingGrid.Classes.Remove("rcv-compact");
+        }
+        RcvColName.MinWidth = 170;
+        ReceivingGrid.RowHeight = compact ? 48 : 52;
+        ReceivingGrid.ColumnHeaderHeight = compact ? 40 : 44;
+        var widths = compact
+            ? new (DataGridColumn Column, double Width)[] { (RcvColNo, 40), (RcvColUnit, 48), (RcvColQty, 96), (RcvColPurchase, 88), (RcvColMarkup, 80), (RcvColSale, 84), (RcvColChange, 100), (RcvColAuto, 128), (RcvColTotal, 92), (RcvColRemove, 44) }
+            : new (DataGridColumn Column, double Width)[] { (RcvColNo, 44), (RcvColBarcode, 120), (RcvColUnit, 48), (RcvColWas, 80), (RcvColQty, 96), (RcvColPurchase, 88), (RcvColMarkup, 76), (RcvColSale, 84), (RcvColChange, 128), (RcvColAuto, 144), (RcvColProfit, 84), (RcvColTotal, 92), (RcvColRemove, 44) };
+        foreach (var (column, colWidth) in widths)
+            if (column.Width.Value != colWidth)
+                column.Width = new DataGridLength(colWidth);
+        // 2026-11-10 (владелец: «Наименование должно быть длинным!», как колонка «Товар» в вебе): название — главная колонка. Если ему не хватает места
+        // (цель: ≥ 300 px в полном виде, ≥ 220 px в узком), сначала прячутся второстепенные колонки: «Прибыль с шт.» (есть в подсказке «Как посчитана цена»),
+        // «На складе», затем «Закупка изменилась». «Как посчитана цена» не прячется — в ней кнопка «Как у всех».
+        var nameMin = compact ? 220 : 300;
+        RcvColChange.IsVisible = true; // стало шире — возвращается (две другие — по правилу узкого вида выше)
+        var used = widths.Where(w => w.Column.IsVisible).Sum(w => w.Width) + 4; // + рамка/полоса прокрутки
+        foreach (var optional in new[] { RcvColProfit, RcvColWas, RcvColChange })
+        {
+            if (!optional.IsVisible || used + nameMin <= tableWidth)
+                continue;
+            optional.IsVisible = false;
+            used -= widths.FirstOrDefault(x => ReferenceEquals(x.Column, optional)).Width;
+        }
+        ApplyReceivingDetails(tableWidth); // 2026-11-11: подробные колонки свёрнуты по умолчанию на таблице уже 1500 или по выбору кассира
     }
 }

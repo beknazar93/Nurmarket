@@ -46,7 +46,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
         /// Журнал удалений — только запасной путь, когда сервер список не дал.</summary>
         private async Task<List<RefundItem>> FetchRefundsAsync(DateTime from, DateTime to, CancellationToken token)
         {
-            var list = await NurMarketKassa.Services.Api.NurCrmReportsApi.ListReturnsAsync(from.Date, to.Date, ct: token).ConfigureAwait(true);
+            // 2026-11-11 (сервер Умара, pos_return_edit_24h): и аннулированные (status=all) — строка с меткой «АННУЛИРОВАН»; в итоги, ленту и разбор они не входят
+            var withVoided = NurMarketKassa.Services.Api.ReturnEditGate.FeatureOn(NurMarketKassa.Services.Api.ReturnDocKind.Customer);
+            var list = await NurMarketKassa.Services.Api.NurCrmReportsApi.ListReturnsAsync(from.Date, to.Date, ct: token, includeVoided: withVoided).ConfigureAwait(true);
             token.ThrowIfCancellationRequested();
             if (list is null)
                 return await FetchCartItemDeletionsAsync(from, to, token).ConfigureAwait(true);
@@ -63,9 +65,15 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     ReceiptNumber = r.SaleNumber is { } n ? $"№{n}" : "",
                     TotalAmount = r.Amount,
                     IsExact = true,
-                    Kind = r.IsFull
+                    Kind = (r.IsFull
                         ? Tr.T("Полный возврат", "Толук кайтаруу", "Full return", "Tam iade", "To'liq qaytarish")
-                        : Tr.T("Частичный возврат", "Жарым-жартылай кайтаруу", "Partial return", "Kısmi iade", "Qisman qaytarish"),
+                        : Tr.T("Частичный возврат", "Жарым-жартылай кайтаруу", "Partial return", "Kısmi iade", "Qisman qaytarish"))
+                        + (NurMarketKassa.Services.Api.NurCrmReportsApi.IsVoided(r) ? " · " + NurMarketKassa.Services.Api.ReturnEditErrors.VoidedMark() : ""),
+                    // 2026-11-11: правка/аннулирование 24 ч — кнопка «Правка» в строке (окно возвратов чека)
+                    IsVoided = NurMarketKassa.Services.Api.NurCrmReportsApi.IsVoided(r),
+                    // 2026-11-12 (владелец: «корректировка возвратных накладных от клиентов и от поставщиков!»): в программе владельца кнопка «Править возврат» — у каждого
+                    // возврата с чеком: окно возвратов чека само покажет «Редактировать / Удалить» или причину, почему нельзя (24 ч, чек в долг, нет признака сервера).
+                    CanManage = !string.IsNullOrEmpty(r.SaleId) && (ReceiptReturnActions.Enabled || (withVoided && r.Edit is { HasServerFlags: true })),
                     ProductName = r.ItemsText ?? "—",
                     QuantityDisplay = r.ItemsQty > 0 ? r.ItemsQty.ToString("0.###", CultureInfo.InvariantCulture) : "",
                     Reason = r.Reason ?? "",
@@ -160,7 +168,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
         private void UpdateStats(List<SaleItem> sales, List<RefundItem> refunds)
         {
             decimal totalSales = sales.Sum(s => s.TotalAmount);
-            decimal totalRefunds = refunds.Sum(r => Math.Abs(r.TotalAmount));
+            decimal totalRefunds = refunds.Where(r => !r.IsVoided).Sum(r => Math.Abs(r.TotalAmount)); // 2026-11-11: без аннулированных
 
             decimal cashSales = sales
                 .Where(s =>
@@ -947,7 +955,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     PaymentMethod = s.PaymentMethod ?? "—"
                 });
             }
-            foreach (var r in refunds)
+            foreach (var r in refunds.Where(r => !r.IsVoided)) // 2026-11-11: аннулированный возврат — не движение денег
             {
                 rows.Add(new HistoryItem
                 {
@@ -972,6 +980,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
         private async void ReceiptRow_Tapped(object sender, TappedEventArgs e)
         {
             var row = Avalonia.VisualTree.VisualExtensions.FindAncestorOfType<DataGridRow>(e.Source as Avalonia.Visual, includeSelf: true);
+            if (Avalonia.VisualTree.VisualExtensions.FindAncestorOfType<Button>(e.Source as Avalonia.Visual, includeSelf: true) is not null)
+                return; // 2026-11-11: нажатие кнопки «Правка» в строке возврата — не открытие чека
             switch (row?.DataContext)
             {
                 case SaleItem s:
@@ -1024,6 +1034,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     }
                 }
                 ShowReceiptDetailsPopup(receiptNumber ?? "—", items);
+                ShowPopupReturnActions(receiptId, receiptNumber, json); // 2026-11-12: «Возврат» и «Правка возвратов» — только в программе владельца
             }
             catch (Exception ex)
             {
@@ -1100,6 +1111,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     (double)s.TotalAmount, 0, 0, null, Array.Empty<ShiftReportData.SaleLine>(), s.ReceiptNumber))
                 .ToList();
             var returns = _refunds
+                .Where(r => !r.IsVoided) // 2026-11-11: без аннулированных
                 .Select(r => (r.CreatedAt,
                     $"{r.CreatedAt:dd.MM.yyyy} {r.TimeDisplay} · {(string.IsNullOrEmpty(r.ReceiptNumber) ? "—" : r.ReceiptNumber)} · {r.Kind}",
                     (double)r.TotalAmount,
@@ -1119,8 +1131,61 @@ namespace NurMarketKassa.AvaloniaHost.Views
             }
         }
 
+        /// <summary>2026-11-11 (сервер Умара, pos_return_edit_24h): «Правка» в строке возврата — окно возвратов этого чека (Редактировать / Удалить / История,
+        /// пояснение, если сервер не разрешает); после изменения список возвратов и итоги перечитываются.</summary>
+        private async void RefundManage_Click(object sender, RoutedEventArgs e)
+        {
+            e.Handled = true;
+            if ((sender as Control)?.DataContext is not RefundItem { SaleId.Length: > 0 } item)
+                return;
+            try
+            {
+                // 2026-11-12: у владельца без признака сервера — пояснение, почему правки нет (а не молча); с признаком — то же окно, что в кассе
+                var changed = ReceiptReturnActions.Enabled
+                    ? await ReceiptReturnActions.OpenReturnsListAsync(this, item.SaleId, item.ReceiptNumber)
+                    : await ReturnEditFlows.ShowCustomerReturnsAsync(this, item.SaleId, item.ReceiptNumber);
+                if (changed)
+                    await LoadDataAsync(_historyFrom, _historyTo, forceRefresh: true);
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Финансы: правка возвратов чека {item.SaleId} не открылась: {ex.Message}", "WARNING");
+            }
+        }
+
+        private ReceiptReturnActions _popupReturn;
+
+        /// <summary>2026-11-12 (владелец: «Возврат чеков добавь и программу владельца»): карточка чека «Финансов» (из «Чеков», «Возвратов» и «Истории») —
+        /// «Возврат» (то же окно возврата, что в кассе, сразу с этим чеком) и «Правка возвратов» (возвраты чека с правкой/удалением 24 ч); после — список и итоги
+        /// перечитываются с сервера. Только программа владельца (ReceiptReturnActions.Enabled) — «Финансы» кассы прежние.</summary>
+        private void ShowPopupReturnActions(string saleId, string receiptNumber, JsonElement json)
+        {
+            if (!ReceiptReturnActions.Enabled || PopupFooterPanel == null)
+                return;
+            if (_popupReturn == null)
+            {
+                _popupReturn = new ReceiptReturnActions
+                {
+                    OwnerWindow = () => this,
+                    BeforeOpen = () => ReceiptDetailsPopup.IsOpen = false,
+                    Changed = () => LoadDataAsync(_historyFrom, _historyTo, forceRefresh: true),
+                };
+                PopupFooterPanel.Children.Insert(0, _popupReturn.View);
+            }
+            // 2026-11-12 (аудит 12.11, Д-5): с кнопками возврата карточка не выше окна (отступ 24), список позиций прокручивается
+            if (ReceiptDetailsPopup.Child is Border card && Bounds.Height > 200)
+                card.MaxHeight = Bounds.Height - 24;
+            var row = _sales.FirstOrDefault(s => string.Equals(s.Id, saleId, StringComparison.OrdinalIgnoreCase));
+            string Text(string name) => json.ValueKind == JsonValueKind.Object && json.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+            // полностью возвращённый чек «Финансы» в список не берут (canceled) — статус тогда из карточки чека
+            _popupReturn.ShowFor(saleId, receiptNumber, row?.Status is { Length: > 0 } st ? st : Text("status"),
+                row?.ReturnStatus is { Length: > 0 } rs ? rs : Text("return_status"));
+        }
+
         private async void RefundsGrid_MouseDoubleClick(object sender, TappedEventArgs e)
         {
+            if (Avalonia.VisualTree.VisualExtensions.FindAncestorOfType<Button>(e.Source as Avalonia.Visual, includeSelf: true) is not null)
+                return; // 2026-11-11: двойное нажатие на кнопку «Правка» — не открытие чека
             // 2026-09-30: возврат с сервера открывает свой чек. У записей журнала удалений корзины
             // (запасной путь) id чека нет — они не открываются.
             if (RefundsGrid.SelectedItem is RefundItem { SaleId.Length: > 0 } item)
@@ -1300,6 +1365,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
             // 2026-10-18: для вкладки «Чеки» «Продаж и финансов» (см. FetchSalesPageAsync).
             public decimal DiscountTotal { get; set; }
             public string FirstItemName { get; set; } = "";
+            // 2026-11-12 (возврат чеков в программе владельца): статус возврата (none/partial/full), кассир и клиент — для «Чеков», карточки чека и фильтров.
+            public string ReturnStatus { get; set; }
+            public string Cashier { get; set; }
+            public string ClientName { get; set; }
         }
 
         public class RefundItem
@@ -1323,6 +1392,13 @@ namespace NurMarketKassa.AvaloniaHost.Views
             public string ProductName { get; set; } = "";
             public string QuantityDisplay { get; set; } = "";
             public string DeletedBy { get; set; } = "";
+            /// <summary>2026-11-11: аннулированный возврат (status=all) — с меткой, не в итогах.</summary>
+            public bool IsVoided { get; set; }
+            /// <summary>2026-11-11: показать кнопку «Правка» (признак pos_return_edit_24h и поля сервера у возврата).</summary>
+            public bool CanManage { get; set; }
+            public string ManageText => ReceiptReturnActions.Enabled // 2026-11-12: у владельца — «Править возврат» (как просил владелец), в кассе — прежнее «Правка»
+                ? Tr.T("Править возврат", "Кайтарууну оңдоо", "Edit return", "İadeyi düzenle", "Qaytarishni tahrirlash")
+                : Tr.T("Правка", "Оңдоо", "Edit", "Düzenle", "Tahrirlash");
         }
 
         public class HistoryItem

@@ -22,6 +22,8 @@
   <x:String x:Key="csh.menu.clients">Клиенты</x:String>
   <x:String x:Key="csh.menu.payDebt">Оплата долга</x:String>
   <x:String x:Key="csh.menu.rental">Прокат</x:String>
+  <x:String x:Key="csh.menu.repair">Ремонт и сервис</x:String>
+  <x:String x:Key="csh.menu.tradeIn">Trade-in / скупка</x:String>
   <x:String x:Key="csh.menu.settings">Настройки</x:String>
   <x:String x:Key="csh.menu.marketplace">Маркетплейс</x:String>
   <x:String x:Key="csh.menu.crm">NurCRM</x:String>
@@ -238,8 +240,8 @@
   <x:String x:Key="csh.login.secureSubtitle">Данные синхронизируются с облаком и локальной базой аудита.</x:String>
   <x:String x:Key="csh.login.formTitle">Вход в кассу</x:String>
   <x:String x:Key="csh.login.formSubtitle">Email и пароль от Nur CRM</x:String>
-  <x:String x:Key="csh.login.email">Email</x:String>
-  <x:String x:Key="csh.login.emailWatermark">Логин</x:String>
+  <x:String x:Key="csh.login.email">Email / логин</x:String>
+  <x:String x:Key="csh.login.emailWatermark">Email / логин</x:String>
   <x:String x:Key="csh.login.password">Пароль</x:String>
   <x:String x:Key="csh.login.passwordWatermark">Пароль</x:String>
   <x:String x:Key="csh.login.showPasswordTooltip">Показать пароль</x:String>
@@ -445,6 +447,7 @@
   <x:String x:Key="common.cashier">Кассир</x:String>
   <x:String x:Key="cashHistory.title">История кассовых операций</x:String>
   <x:String x:Key="cashHistory.subtitle">Движение средств и открытия кассы</x:String>
+  <x:String x:Key="cashHistory.empty">Записей пока нет. Здесь появятся внесения, изъятия и открытия кассы.</x:String>
   <x:String x:Key="cashOps.title">Кассовые операции</x:String>
   <x:String x:Key="cashOps.subtitle">Управление сменой и кассовыми операциями</x:String>
   <x:String x:Key="newOperation.title">Новая операция</x:String>
@@ -595,6 +598,7 @@
   <x:String x:Key="payDebt.colAmountDue">К оплате</x:String>
   <x:String x:Key="payDebt.colPaid">Оплачено</x:String>
   <x:String x:Key="payDebt.changeClientButton">Сменить</x:String>
+  <x:String x:Key="payDebt.pickHint">Выберите клиента из списка или найдите по имени или телефону — здесь появятся его долговые чеки.</x:String>
   <x:String x:Key="payDebt.clientSearchWatermark">Поиск по имени или телефону…</x:String>
 
   <!-- On-screen keyboard (non-letter keys) -->
@@ -1054,7 +1058,8 @@
   <x:String x:Key="shiftHistoryView.subtitle">Список всех кассовых смен и их текущие статусы</x:String>
   <x:String x:Key="shiftHistoryView.newOperationButton">+ Новая операция</x:String>
   <x:String x:Key="shiftHistoryView.tableTitle">Список кассовых смен</x:String>
-  <x:String x:Key="shiftHistoryView.colShiftNumber">№ Смены</x:String>
+  <x:String x:Key="shiftHistoryView.empty">Смен пока нет. Смена появится после первого открытия кассы.</x:String>
+  <x:String x:Key="shiftHistoryView.colShiftNumber">№</x:String>
   <x:String x:Key="common.revenue">Выручка</x:String>
   <x:String x:Key="shiftHistoryView.overallPlanTitle">Общий план по кассе</x:String>
   <x:String x:Key="shift.openingBalanceLabel">Баланс на начало</x:String>
@@ -1409,6 +1414,8 @@
   <x:String x:Key="receiptHistory.printCopy">Печать копии</x:String>
   <x:String x:Key="receiptHistory.return">Вернуть…</x:String>
   <x:String x:Key="csh.cart.printLastReceipt">Печать последнего чека</x:String>
+  <x:String x:Key="csh.cart.schoolLists">Списки к школе</x:String>
+  <x:String x:Key="csh.cart.invoiceFromReceipt">Счёт из этого чека</x:String>
   <x:String x:Key="csh.cart.writeOff">Списание</x:String>
   <x:String x:Key="csh.cart.writeOffTooltip">Списать испорченный, просроченный или взятый для себя товар со склада</x:String>
   <x:String x:Key="csh.cart.printLastReceiptTooltip">Напечатать копию последнего чека этой смены</x:String>

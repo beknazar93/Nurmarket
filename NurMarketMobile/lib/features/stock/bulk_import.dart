@@ -16,6 +16,7 @@ import '../../core/catalog/global_products.dart';
 import '../../core/db/database.dart';
 import '../../core/providers.dart';
 import '../../core/units.dart';
+import '../../core/util/price_limits.dart';
 import '../../core/util/ui.dart';
 import '../../l10n/app_localizations.dart';
 import '../admin/admin_receive.dart';
@@ -28,7 +29,7 @@ import 'unit_picker.dart';
 /// не дублируется — прибавляется количество, обновляются цены (тем же путём, что приёмка без поставщика).
 /// 2026-10-29: что не так со строкой — подсвечивается в списке; строку с ошибкой не загружаем, пока её не поправят.
 
-enum RowProblem { noName, noPrice, badUnit, qtyWhole, qtyNegative, badBarcode }
+enum RowProblem { noName, noPrice, badUnit, qtyWhole, qtyNegative, badBarcode, priceTooBig }
 
 
 
@@ -80,6 +81,8 @@ class ImportRow {
 
     if (qtyProblem(unit, qty) == QtyProblem.notWhole) RowProblem.qtyWhole,
     if (!barcodeFieldOk(barcode)) RowProblem.badBarcode, // 2026-10-29: штрихкод — только 4–14 цифр
+    // 2026-11-11 (ответ Умара): цена продажи ≤ 9 999 999,999, закупка ≤ 9 999 999 999,9999 — выше сервер не примет
+    if (PriceLimits.saleExceeds(price) || PriceLimits.purchaseExceeds(cost)) RowProblem.priceTooBig,
 
   ];
 
@@ -723,6 +726,7 @@ class _BulkImportScreenState extends ConsumerState<BulkImportScreen> {
         RowProblem.qtyWhole => l.bkErrQtyWhole(qtyText(r.qty), r.unit),
         RowProblem.qtyNegative => l.bkErrQtyNeg,
         RowProblem.badBarcode => l.barcodeBadLen,
+        RowProblem.priceTooBig => PriceLimits.problem(context, sale: r.price, purchase: r.cost) ?? '',
       },
   ].join('; ');
 

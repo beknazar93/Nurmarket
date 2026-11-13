@@ -246,6 +246,11 @@ public sealed class ProductEditRequest
     /// <summary>2026-10-11, тестировщик (склад.md, 2.1.3): «Минимальный остаток» на вкладке «Упаковка». null — поле не трогаем
     /// (значение с сервера не прочитано), число — пишем в minimum_quantity.</summary>
     public double? MinimumQuantity { get; set; }
+    /// <summary>2026-11-13 (сервер sn1311, «Электроника»): track_serials — товар продаётся с серийными номерами. null — поле не трогаем (не электроника / старый сервер).</summary>
+    public bool? TrackSerials { get; set; }
+    /// <summary>2026-11-13 (сервер sn1311): warranty_months — гарантия в месяцах (null вместе с <see cref="SendWarrantyMonths"/> = убрать гарантию). Пишется только при <see cref="SendWarrantyMonths"/>.</summary>
+    public int? WarrantyMonths { get; set; }
+    public bool SendWarrantyMonths { get; set; }
     /// <summary>2026-10-20, владелец: поставщик товара — поле «client» товара NurCRM (id поставщика из clients/?type=suppliers;
     /// так его пишет форма товара сайта). null — поле не трогаем (кассир поставщика не менял), "" — убрать поставщика.</summary>
     public string? SupplierId { get; set; }

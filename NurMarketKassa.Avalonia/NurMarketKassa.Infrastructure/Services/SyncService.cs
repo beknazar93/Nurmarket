@@ -583,6 +583,13 @@ public sealed partial class SyncService : IDisposable
                 if (verdict == ReplayVerdict.RetryNotifyOwner
                     && (ex.Message.Contains("смен", StringComparison.OrdinalIgnoreCase) || ex.Message.Contains("shift", StringComparison.OrdinalIgnoreCase)))
                     verdict = ReplayVerdict.Rejected;
+                // 2026-11-13 (сервер bc1112): отказ «ниже закупки без права can_sell_below_cost» — не «ждём прав» (403 иначе RetryNotifyOwner: чек висел бы в очереди вечно), а отклонён с причиной.
+                var belowCostDenied = BelowCostGuard.IsServerDenial(ex);
+                if (belowCostDenied)
+                {
+                    verdict = ReplayVerdict.Rejected;
+                    OfflinePendingSalesStore.Update(entry.Id, e => e.ReviewNeeded = true); // «Требует проверки»: автоповтора нет, решает человек
+                }
                 // 2026-10-29: «в долг» без связи — деловой отказ сервера (лимит долга, клиент удалён/заблокирован), в том числе 409, — не повод повторять:
                 // чек уходит в «Требует проверки» с причиной, очередь идёт дальше. Обычный 409 «ключ ещё выполняется» остаётся временным.
                 var debtBusinessReject = entry.OfflineDebt && OfflineRejection.IsBusinessConflict(ex);
@@ -619,7 +626,7 @@ public sealed partial class SyncService : IDisposable
                     && (ex.Message.Contains("смен", StringComparison.OrdinalIgnoreCase)
                         || ex.Message.Contains("shift", StringComparison.OrdinalIgnoreCase)))
                     retryable = true;
-                var failText = ex.Message;
+                var failText = belowCostDenied ? BelowCostGuard.ReplayRejectedText(ex, entry.CartJson) : ex.Message;
                 if (verdict == ReplayVerdict.RetryNotifyOwner)
                 {
                     // Тариф/подписка/права: остальные чеки получат тот же ответ — проход прекращаем, чек ждёт; владельцу — одно оповещение.

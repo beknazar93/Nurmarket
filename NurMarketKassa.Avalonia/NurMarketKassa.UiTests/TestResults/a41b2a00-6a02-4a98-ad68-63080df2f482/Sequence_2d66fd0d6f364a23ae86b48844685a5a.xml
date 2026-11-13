@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<TestSequence>
+  <Test Name="NurMarketKassa.UiTests.Screens.ReceivingPackBarUiTests.Warehouse_DefaultMode_GoesToNewLines_RealRepeatScan_ApplyAllAsksWhenValuesEntered" DisplayName="NurMarketKassa.UiTests.Screens.ReceivingPackBarUiTests.Warehouse_DefaultMode_GoesToNewLines_RealRepeatScan_ApplyAllAsksWhenValuesEntered" Source="C:\Users\User\Desktop\Nurmarket\NurMarketKassa.Avalonia\NurMarketKassa.UiTests\bin\Debug\net8.0-windows\NurMarketKassa.UiTests.dll" Completed="False" />
+</TestSequence>

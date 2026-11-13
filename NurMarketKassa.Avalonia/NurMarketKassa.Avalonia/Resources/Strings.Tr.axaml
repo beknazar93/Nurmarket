@@ -22,6 +22,8 @@
   <x:String x:Key="csh.menu.clients">Müşteriler</x:String>
   <x:String x:Key="csh.menu.payDebt">Borç ödeme</x:String>
   <x:String x:Key="csh.menu.rental">Kiralama</x:String>
+  <x:String x:Key="csh.menu.repair">Tamir ve servis</x:String>
+  <x:String x:Key="csh.menu.tradeIn">Trade-in / alım</x:String>
   <x:String x:Key="csh.menu.settings">Ayarlar</x:String>
   <x:String x:Key="csh.menu.marketplace">Pazaryeri</x:String>
   <x:String x:Key="csh.menu.crm">NurCRM</x:String>
@@ -238,8 +240,8 @@
   <x:String x:Key="csh.login.secureSubtitle">Veriler bulut ve yerel denetim veritabanıyla senkronize edilir.</x:String>
   <x:String x:Key="csh.login.formTitle">Kasaya giriş</x:String>
   <x:String x:Key="csh.login.formSubtitle">Nur CRM e-postanız ve şifreniz</x:String>
-  <x:String x:Key="csh.login.email">E-posta</x:String>
-  <x:String x:Key="csh.login.emailWatermark">Kullanıcı adı</x:String>
+  <x:String x:Key="csh.login.email">E-posta / kullanıcı adı</x:String>
+  <x:String x:Key="csh.login.emailWatermark">E-posta / kullanıcı adı</x:String>
   <x:String x:Key="csh.login.password">Şifre</x:String>
   <x:String x:Key="csh.login.passwordWatermark">Şifre</x:String>
   <x:String x:Key="csh.login.showPasswordTooltip">Şifreyi göster</x:String>
@@ -445,6 +447,7 @@
   <x:String x:Key="common.cashier">Kasiyer</x:String>
   <x:String x:Key="cashHistory.title">Kasa işlemleri geçmişi</x:String>
   <x:String x:Key="cashHistory.subtitle">Nakit hareketleri ve kasa açılışları</x:String>
+  <x:String x:Key="cashHistory.empty">Henüz kayıt yok. Para girişleri, çıkışları ve kasa açılışları burada görünecek.</x:String>
   <x:String x:Key="cashOps.title">Kasa işlemleri</x:String>
   <x:String x:Key="cashOps.subtitle">Vardiya ve kasa işlemlerini yönet</x:String>
   <x:String x:Key="newOperation.title">Yeni işlem</x:String>
@@ -595,6 +598,7 @@
   <x:String x:Key="payDebt.colAmountDue">Ödenecek tutar</x:String>
   <x:String x:Key="payDebt.colPaid">Ödenen</x:String>
   <x:String x:Key="payDebt.changeClientButton">Değiştir</x:String>
+  <x:String x:Key="payDebt.pickHint">Listeden bir müşteri seçin veya ad ya da telefonla arayın — borçlu fişleri burada görünecek.</x:String>
   <x:String x:Key="payDebt.clientSearchWatermark">İsim veya telefon ile ara…</x:String>
 
   <!-- Ekran klavyesi (harf olmayan tuşlar) -->
@@ -1054,7 +1058,8 @@
   <x:String x:Key="shiftHistoryView.subtitle">Tüm vardiyaların listesi ve mevcut durumları</x:String>
   <x:String x:Key="shiftHistoryView.newOperationButton">+ Yeni işlem</x:String>
   <x:String x:Key="shiftHistoryView.tableTitle">Vardiya listesi</x:String>
-  <x:String x:Key="shiftHistoryView.colShiftNumber">Vardiya no</x:String>
+  <x:String x:Key="shiftHistoryView.empty">Henüz vardiya yok. İlk kasa açılışından sonra vardiya görünür.</x:String>
+  <x:String x:Key="shiftHistoryView.colShiftNumber">No.</x:String>
   <x:String x:Key="common.revenue">Ciro</x:String>
   <x:String x:Key="shiftHistoryView.overallPlanTitle">Kasa genel bakışı</x:String>
   <x:String x:Key="shift.openingBalanceLabel">Açılış bakiyesi</x:String>
@@ -1409,6 +1414,8 @@
   <x:String x:Key="receiptHistory.printCopy">Kopya yazdır</x:String>
   <x:String x:Key="receiptHistory.return">İade et…</x:String>
   <x:String x:Key="csh.cart.printLastReceipt">Son fişi yazdır</x:String>
+  <x:String x:Key="csh.cart.schoolLists">Okul listeleri</x:String>
+  <x:String x:Key="csh.cart.invoiceFromReceipt">Bu fişten fatura</x:String>
   <x:String x:Key="csh.cart.writeOff">Düşüm</x:String>
   <x:String x:Key="csh.cart.writeOffTooltip">Hasarlı, son kullanma tarihi geçmiş veya kişisel kullanım için alınan ürünü stoktan düş</x:String>
   <x:String x:Key="csh.cart.printLastReceiptTooltip">Bu vardiyanın son fişinin kopyasını yazdır</x:String>

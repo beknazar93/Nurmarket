@@ -359,6 +359,18 @@ String? str(Map<String, dynamic>? m, String key) {
   return null;
 }
 
+/// 2026-11-11 (сводка Умара): GET clients/{id}/deals/ добавляет в конец ВИРТУАЛЬНЫЕ строки старых долговых чеков —
+/// id «sale:`uuid чека`», is_check_debt: true, без рассрочек и платежей. Это не сделка: в адреса сделок (detail / pay / PATCH) не отправлять.
+bool isCheckDebtRow(Map<String, dynamic>? deal) {
+  if (deal == null) return false;
+  final flag = deal['is_check_debt'];
+  if (flag == true || (flag is String && flag.toLowerCase() == 'true')) return true;
+  return isCheckDebtId(str(deal, 'id'));
+}
+
+/// id вида «sale:…» — виртуальная строка долга по чеку, не id сделки.
+bool isCheckDebtId(String? id) => (id ?? '').trim().toLowerCase().startsWith('sale:');
+
 double num0(Map<String, dynamic>? m, String key) {
   final v = m?[key];
   if (v is num) return v.toDouble();

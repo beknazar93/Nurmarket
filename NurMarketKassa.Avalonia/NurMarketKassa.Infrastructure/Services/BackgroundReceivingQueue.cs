@@ -318,6 +318,8 @@ public sealed partial class BackgroundReceivingQueue
             }
         });
         EnsureLoaded();
+        lock (_sync)
+            PublishReceiptHolds(); // 2026-11-11 (Д-4): после Shutdown (смена аккаунта) набор «приход в пути» снят — вернуть для оставшихся задач
         EnsureWorker();
         Wake();
     }
@@ -480,6 +482,7 @@ public sealed partial class BackgroundReceivingQueue
             _loaded = true;
             _closed = false;
             _closedFile = null;
+            PublishReceiptHolds(); // 2026-11-11 (Д-4): задач нет — и защиты остатка их товаров нет
         }
         try
         {
@@ -505,6 +508,8 @@ public sealed partial class BackgroundReceivingQueue
         catch (ObjectDisposedException)
         {
         }
+        // 2026-11-11 (Д-4): остановленная очередь остаток не прибавит — её товары ленту не держат (Resume вернёт защиту для незавершённых задач).
+        StockSyncService.SetReceiptHolds(this, Array.Empty<string>());
     }
 
     // ------------------------------------------------------------------ вспомогательное

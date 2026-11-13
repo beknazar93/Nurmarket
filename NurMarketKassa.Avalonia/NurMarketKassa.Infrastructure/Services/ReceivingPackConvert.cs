@@ -15,6 +15,9 @@ public static class ReceivingPackConvert
     /// <summary>Признак сервера в capabilities (если появится). Адрес вызывается и без признака: 404/405 — откат на прежний PATCH с предупреждением.</summary>
     public const string Capability = "products_convert_to_packages";
 
+    /// <summary>2026-11-11 (сводка Умара): значения по умолчанию в запросе перевода.</summary>
+    public const string DefaultUnit = "упак", DefaultPackageName = "Штука";
+
     public enum Kind
     {
         Ok,
@@ -28,6 +31,8 @@ public static class ReceivingPackConvert
         HasPromotionTiers,
         InOpenCart,
         PriceOverflow,
+        /// <summary>2026-11-11 (сводка Умара): остаток товара отрицательный — переводить в упаковки нечего.</summary>
+        NegativeStock,
         Other,
     }
 
@@ -44,6 +49,7 @@ public static class ReceivingPackConvert
         ("has_promotion_tiers", Kind.HasPromotionTiers),
         ("product_in_open_cart", Kind.InOpenCart),
         ("price_overflow", Kind.PriceOverflow),
+        ("negative_stock", Kind.NegativeStock), // 2026-11-11 (сводка Умара)
     };
 
     /// <summary>Тело запроса строки: штук в упаковке, единица, название упаковки, остаток из подтверждения, согласие на округление, ключ. Своей цены упаковки НЕ шлём — её считает сервер.</summary>
@@ -56,10 +62,10 @@ public static class ReceivingPackConvert
             ["allow_rounding"] = line.PackConvertAllowRounding,
             ["idempotency_key"] = key,
         };
-        if (!string.IsNullOrWhiteSpace(line.Unit))
-            body["unit"] = line.Unit.Trim();
-        if (!string.IsNullOrWhiteSpace(line.PackName))
-            body["package_name"] = line.PackName.Trim();
+        // 2026-11-11 (сводка Умара): по умолчанию unit «упак» (единица товара после перевода — упаковка) и package_name «Штука» (упаковка поштучной продажи).
+        // Раньше шли line.Unit (единица ШТУКИ, «шт») и пустое название — товар после перевода оставался «шт» при остатке в упаковках. Название из строки («Пачка») — как раньше.
+        body["unit"] = DefaultUnit;
+        body["package_name"] = string.IsNullOrWhiteSpace(line.PackName) ? DefaultPackageName : line.PackName.Trim();
         return body;
     }
 
@@ -228,6 +234,7 @@ public static class ReceivingPackConvert
         var per = N(line.PiecesPerPack);
         var cur = o.CurrentQuantity is { } c ? N(c) : "?";
         var stock = N(line.PackConvertStockSeen);
+        var neg = o.CurrentQuantity is { } nq ? $" ({N(nq)})" : ""; // 2026-11-11: negative_stock — остаток из ответа, если сервер его прислал
         const string notPostedRu = " Строка не проведена.", notPostedKy = " Сап өткөрүлгөн жок.", notPostedEn = " The line was not posted.", notPostedTr = " Satır işlenmedi.", notPostedUz = " Qator o'tkazilmadi.";
         return o.Kind switch
         {
@@ -271,6 +278,12 @@ public static class ReceivingPackConvert
                 $"{name}: the pack price (price × {per}) exceeds the server limit — reduce “pcs/pack” or the price.{notPostedEn}",
                 $"{name}: koli fiyatı (fiyat × {per}) sunucu sınırını aşıyor — «adet/koli»yi veya fiyatı azaltın.{notPostedTr}",
                 $"{name}: qadoq narxi (narx × {per}) server chegarasidan oshadi — «dona/qadoq»ni yoki narxni kamaytiring.{notPostedUz}"),
+            // 2026-11-11 (сводка Умара): negative_stock — остаток в минусе, делить на упаковки нечего
+            Kind.NegativeStock => Tr.T($"{name}: остаток товара на сервере в минусе{neg} — перевести его в упаковки нельзя. Сначала поправьте остаток (ревизия), потом проведите ещё раз.{notPostedRu}",
+                $"{name}: сервердеги товардын калдыгы минуста{neg} — аны таңгакка которууга болбойт. Адегенде калдыкты оңдоп (ревизия), анан кайра өткөрүңүз.{notPostedKy}",
+                $"{name}: the product's stock on the server is negative{neg} — it can't be converted to packs. Fix the stock first (stocktake), then post again.{notPostedEn}",
+                $"{name}: ürünün sunucudaki stoğu ekside{neg} — koliye çevrilemez. Önce stoğu düzeltin (sayım), sonra tekrar kaydedin.{notPostedTr}",
+                $"{name}: serverdagi mahsulot qoldig'i minusda{neg} — uni qadoqqa o'tkazib bo'lmaydi. Avval qoldiqni tuzating (inventarizatsiya), keyin qayta o'tkazing.{notPostedUz}"),
             _ => Tr.T($"{name}: сервер не перевёл остаток в упаковки — {o.ServerMessage}.{notPostedRu}",
                 $"{name}: сервер калдыкты таңгакка которгон жок — {o.ServerMessage}.{notPostedKy}",
                 $"{name}: the server did not convert the stock to packs — {o.ServerMessage}.{notPostedEn}",

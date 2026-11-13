@@ -295,8 +295,13 @@ public sealed class BranchesWindow : Window, IOwnerSection
         {
             if (gen != _branchGen)
                 return;
-            _branchSummary.IsVisible = true;
-            _branchSummary.Text = T("Не удалось загрузить: ", "Жүктөө мүмкүн болгон жок: ", "Couldn't load: ", "Yüklenemedi: ", "Yuklab bo'lmadi: ") + ServerTelegramBotApi.DescribeFields(ex);
+            // 2026-11-12 (оценка UX/UI, Д-2): ошибка — общим блоком в списке с «Повторить», без сырого текста сервера (он — в «Подробнее» и журнале).
+            _branchSummary.IsVisible = false;
+            _branchKpi.IsVisible = false;
+            _branchList.Children.Clear();
+            _branchList.Children.Add(StateBlock.Failure(this, ex,
+                T("Не удалось загрузить филиалы", "Филиалдарды жүктөө мүмкүн болгон жок", "Couldn't load the branches", "Şubeler yüklenemedi", "Filiallarni yuklab bo'lmadi"),
+                () => _ = LoadBranchesAsync()));
             PosLogger.Log($"Филиалы: не загружены ({ex.Message}).", "WARNING");
         }
     }
@@ -358,7 +363,7 @@ public sealed class BranchesWindow : Window, IOwnerSection
         }
         else
         {
-            _branchList.Children.Add(SectionCards.Empty(this, T("Филиалов пока нет. Нажмите «＋ Новый филиал» — потом товар можно будет перемещать с главного склада в филиал (вкладка «Перемещения»). Можно до 3 филиалов.",
+            _branchList.Children.Add(StateBlock.Empty(T("Филиалов пока нет. Нажмите «＋ Новый филиал» — потом товар можно будет перемещать с главного склада в филиал (вкладка «Перемещения»). Можно до 3 филиалов.",
                 "Азырынча филиал жок. «＋ Жаңы филиал» басыңыз — анан товарды башкы кампадан филиалга жылдырса болот («Жылдыруулар» өтмөгү). 3 филиалга чейин болот.",
                 "No branches yet. Press “＋ New branch” — then you can move goods from the main warehouse to it (the “Transfers” tab). Up to 3 branches.",
                 "Henüz şube yok. «＋ Yeni şube»ye basın — sonra ürünleri ana depodan şubeye taşıyabilirsiniz («Transferler» sekmesi). En fazla 3 şube.",
@@ -370,7 +375,7 @@ public sealed class BranchesWindow : Window, IOwnerSection
             || SearchMatch.Matches(query, b.Name, b.Code, b.Address, b.Phone, b.Email)).ToList(); // 2026-10-29: единый поиск
         if (_branches.Count > 0 && shown.Count == 0)
         {
-            _branchList.Children.Add(SectionCards.Empty(this, T("Ничего не найдено. Ищется по названию, коду, адресу, телефону и почте.", "Эч нерсе табылган жок. Аталышы, коду, дареги, телефону жана почтасы боюнча изделет.",
+            _branchList.Children.Add(StateBlock.Empty(T("Ничего не найдено. Ищется по названию, коду, адресу, телефону и почте.", "Эч нерсе табылган жок. Аталышы, коду, дареги, телефону жана почтасы боюнча изделет.",
                 "Nothing found. The search looks at name, code, address, phone and email.", "Hiçbir şey bulunamadı. Ad, kod, adres, telefon ve e-postaya göre aranır.",
                 "Hech narsa topilmadi. Nomi, kodi, manzili, telefoni va pochtasi bo'yicha qidiriladi.")));
             return;
@@ -660,7 +665,7 @@ public sealed class BranchesWindow : Window, IOwnerSection
             {
                 // 2026-10-20, этап О9б: пусто — подсказкой по центру списка, плиток нет.
                 _transferKpi.IsVisible = false;
-                _transferList.Children.Add(SectionCards.Empty(this, T("Перемещений за этот период нет. Чтобы перенести товар с главного склада в филиал или между филиалами, нажмите «＋ Новое перемещение». Прошлые — «Всё время».",
+                _transferList.Children.Add(StateBlock.Empty(T("Перемещений за этот период нет. Чтобы перенести товар с главного склада в филиал или между филиалами, нажмите «＋ Новое перемещение». Прошлые — «Всё время».",
                     "Бул мезгилде жылдыруу жок. Товарды башкы кампадан филиалга же филиалдардын ортосунда жылдыруу үчүн «＋ Жаңы жылдыруу» басыңыз. Мурункулары — «Бардык убакыт».",
                     "No transfers for this period. To move goods from the main warehouse to a branch or between branches, press “＋ New transfer”. Older ones — “All time”.",
                     "Bu dönemde transfer yok. Ürünleri ana depodan şubeye veya şubeler arasında taşımak için «＋ Yeni transfer»e basın. Eskiler — «Tüm zamanlar».",
@@ -699,8 +704,19 @@ public sealed class BranchesWindow : Window, IOwnerSection
             if (reset)
                 _transferList.Children.Clear();
             _transferKpi.IsVisible = false;
-            _transferSummary.IsVisible = true;
-            _transferSummary.Text = T("Не удалось загрузить: ", "Жүктөө мүмкүн болгон жок: ", "Couldn't load: ", "Yüklenemedi: ", "Yuklab bo'lmadi: ") + ServerTelegramBotApi.DescribeFields(ex);
+            // 2026-11-12 (Д-2): новый список не загрузился — блок состояния с «Повторить»; «Показать ещё» не удалось — одна строка, список остаётся.
+            if (reset)
+            {
+                _transferSummary.IsVisible = false;
+                _transferList.Children.Add(StateBlock.Failure(this, ex,
+                    T("Не удалось загрузить перемещения", "Жылдырууларды жүктөө мүмкүн болгон жок", "Couldn't load the transfers", "Transferler yüklenemedi", "Ko'chirishlarni yuklab bo'lmadi"),
+                    () => _ = LoadTransfersAsync(reset: true)));
+            }
+            else
+            {
+                _transferSummary.IsVisible = true;
+                _transferSummary.Text = T("Не удалось загрузить ещё: ", "Дагы жүктөө мүмкүн болгон жок: ", "Couldn't load more: ", "Daha fazlası yüklenemedi: ", "Yana yuklab bo'lmadi: ") + ServerOutageMonitor.FriendlyError(ex);
+            }
             PosLogger.Log($"Перемещения филиалов: не загружены ({ex.Message}).", "WARNING");
         }
     }

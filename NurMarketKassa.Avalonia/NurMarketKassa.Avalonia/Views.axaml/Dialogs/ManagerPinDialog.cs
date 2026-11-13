@@ -185,6 +185,7 @@ public sealed class ManagerPinDialog : Window
             _final = true;
             FinalError = e;
             SetPadEnabled(false);
+            _pad.IsVisible = false; // 2026-11-11: повтор PIN бессмыслен — цифровой блок прячем, длинное пояснение (например, «не задан PIN») помещается на 1024×600
             return;
         }
         if (e.Failure == ReturnEditFailure.PinLocked)

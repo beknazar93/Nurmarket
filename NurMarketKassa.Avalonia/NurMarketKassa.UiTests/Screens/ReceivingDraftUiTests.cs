@@ -294,6 +294,40 @@ public sealed class ReceivingDraftUiTests : IDisposable
         }
     }
 
+    /// <summary>2026-11-11 (Д-5, живая проверка «Склада»): «Закрыть склад?» писал «приёмка — 2. После закрытия они пропадут», хотя черновик пишется.
+    /// Теперь при записанном черновике — «сохранится черновиком», «пропадут» — только про массовое добавление и при незаписанном черновике.</summary>
+    [AvaloniaFact]
+    public async Task Warehouse_CloseQuestion_SaysDraftKept_WhenDraftWritten_OldWarningOtherwise()
+    {
+        var (window, vm) = await OpenWarehouseAsync(AppLanguage.Russian);
+        try
+        {
+            vm.ReceivingLines.Clear();
+            UiShot.Settle(10);
+            vm.ReceivingLines.Add(new ReceivingLineVm { Barcode = "4600000000028", ProductName = "Кефир", Source = ReceivingSource.Unknown, Quantity = 3, PurchasePrice = 50, SalePrice = 70 });
+            vm.ReceivingLines.Add(new ReceivingLineVm { Barcode = "4600000000011", ProductName = "Молоко", Source = ReceivingSource.Unknown, Quantity = 1, PurchasePrice = 40, SalePrice = 55 });
+            UiShot.Settle(4);
+            var draft = (ReceivingDraftSession)typeof(WarehouseWindow).GetField("_receivingDraft", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(window)!;
+            draft.SaveNowAndCheck().Should().BeTrue("черновик включён и записан");
+
+            var kept = WarehouseWindow.CloseQuestionText(2, 0, receivingKept: true);
+            kept.Should().Contain("сохранится черновиком").And.NotContain("пропадут");
+            WarehouseWindow.CloseQuestionText(2, 0, receivingKept: false).Should().Contain("приёмка — 2").And.Contain("пропадут", "черновик не записался — прежнее предупреждение");
+            var mixed = WarehouseWindow.CloseQuestionText(2, 3, receivingKept: true);
+            mixed.Should().Contain("массовое добавление — 3").And.Contain("пропадут").And.Contain("сохранится черновиком").And.NotContain("приёмка — 2");
+
+            UiShot.Setup(UiTheme.Light, AppLanguage.Kyrgyz);
+            WarehouseWindow.CloseQuestionText(2, 0, receivingKept: true).Should().Contain("долбоор болуп сакталат");
+        }
+        finally
+        {
+            UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
+            vm.ReceivingLines.Clear();
+            window.Close();
+            UiShot.Pump();
+        }
+    }
+
     // ------------------------------------------------------------------ «Закупки → Приём товара»
 
     [AvaloniaTheory]

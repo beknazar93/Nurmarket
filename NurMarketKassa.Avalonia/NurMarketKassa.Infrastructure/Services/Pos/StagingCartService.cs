@@ -147,7 +147,8 @@ public static class StagingCartService
             // он не печатает и точку — поэтому TrimEnd('0') откусывал нули самого числа и
             // 10.000 кг уходило на сервер как "1" (живой баг: чек на 1000 сом проводился как 100).
             // 2026-10-26 (ХМ2): «Хозтовары» — дробные м/м²/л уходят как есть ("2.5"); для остальных PieceText = прежнее Math.Round(qty, 0).
-            var qtyStr = CartDisplayHelper.LineMustWeigh(it)
+            // 2026-11-13: строка в упаковках (sale_unit) — количество как есть, без округления до целого штучного (сервер сам скажет, если дробные упаковки нельзя).
+            var qtyStr = CartDisplayHelper.LineMustWeigh(it) || ProductSaleUnits.LineKey(it) is not null
                 ? qty.ToString("0.###", CultureInfo.InvariantCulture)
                 : QuantityRules.PieceText(it, qty);
             var unitPrice = CartDisplayHelper.FormatMoney(CartDisplayHelper.UnitPrice(it));
@@ -170,6 +171,22 @@ public static class StagingCartService
                     if (!string.IsNullOrWhiteSpace(disc))
                         variantBody["discount_total"] = disc;
                     await api.PosAddItemRawAsync(cartId, variantBody, cancellationToken).ConfigureAwait(false);
+                }
+                else if (ProductSaleUnits.LineKey(it) is { } saleUnit)
+                {
+                    // 2026-11-13 (ответ Умара 13.11, строймаркет): единица продажи — в строке sale_unit и количество в УПАКОВКАХ, сервер списывает qty × factor и ставит цену упаковки.
+                    // unit_price уходит только у оптовой строки (цена wholesale_price упаковки выбрана кассиром).
+                    var unitBody = new Dictionary<string, string>
+                    {
+                        ["product_id"] = productId,
+                        ["quantity"] = qtyStr,
+                        ["sale_unit"] = saleUnit,
+                    };
+                    if (it.TryGetProperty("is_wholesale", out var wholesaleMark) && wholesaleMark.ValueKind == JsonValueKind.True)
+                        unitBody["unit_price"] = unitPrice;
+                    if (!string.IsNullOrWhiteSpace(disc))
+                        unitBody["discount_total"] = disc;
+                    await api.PosAddItemRawAsync(cartId, unitBody, cancellationToken).ConfigureAwait(false);
                 }
                 else if (!string.IsNullOrWhiteSpace(salePackageId))
                 {
@@ -205,6 +222,59 @@ public static class StagingCartService
                     ex.Payload);
             }
         }
+
+        await PushSerialsAsync(api, cartId, doc.RootElement, cancellationToken).ConfigureAwait(false); // 2026-11-13 (сервер sn1311): серийники строк
+    }
+
+    /// <summary>2026-11-13 (сервер sn1311, «Электроника»): серийники уходят отдельным запросом на уже добавленную строку серверной корзины — POST pos/sales/{cart}/items/{item}/serials/
+    /// (тело <c>{"serial_numbers": [...]}</c> заменяет список строки целиком). Add-item номеров не принимает. Только при флаге компании electronics_2026_11; без номеров в чеке запроса нет.
+    /// Строки снимка с одним товаром и ценой склеены (<see cref="PushGroupKey"/>) — номера склеены без повторов; к строке сервера группа подбирается по товару и порядку.
+    /// Ошибка номера (serial_already_sold…) пробрасывается как есть — оплата не проводится, кассир видит понятный текст; прочие сбои этого запроса в журнал: продажа важнее, номера остаются в журнале кассы.</summary>
+    internal static async Task PushSerialsAsync(ISalesApiService api, string cartId, JsonElement snapshot, CancellationToken cancellationToken)
+    {
+        if (!ServerSerials.Enabled || api is not IPosSerialsApi serialsApi)
+            return;
+
+        var groups = new List<(string ProductId, string Key, List<string> Serials)>();
+        foreach (var it in CartDisplayHelper.EnumerateItems(snapshot))
+        {
+            if (PushGroupKey(it) is not { } key || CartDisplayHelper.TryProductId(it) is not { Length: > 0 } productId)
+                continue;
+            var serials = SerialJournal.ReadSerials(it);
+            var existing = groups.FindIndex(g => string.Equals(g.Key, key, StringComparison.OrdinalIgnoreCase));
+            if (existing < 0)
+                groups.Add((productId, key, ServerSerials.Distinct(serials)));
+            else
+                groups[existing] = (productId, key, ServerSerials.Merge(groups[existing].Serials, serials));
+        }
+        if (groups.All(g => g.Serials.Count == 0))
+            return;
+
+        var cartAfter = await api.PosCartGetAsync(cartId, cancellationToken).ConfigureAwait(false);
+        var serverLines = CartDisplayHelper.EnumerateItems(cartAfter).Select(l => (Id: ReturnLineCheck.RowId(l) ?? CartDisplayHelper.TryRefundLineId(l), Product: CartDisplayHelper.TryProductId(l))).ToList();
+        var ordinal = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var g in groups)
+        {
+            ordinal.TryGetValue(g.ProductId, out var n);
+            ordinal[g.ProductId] = n + 1;
+            if (g.Serials.Count == 0)
+                continue;
+            var mine = serverLines.Where(l => string.Equals(l.Product, g.ProductId, StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(l.Id)).ToList();
+            var line = n < mine.Count ? mine[n] : mine.Count == 1 ? mine[0] : default;
+            if (string.IsNullOrEmpty(line.Id))
+            {
+                PosLogger.Log($"STAGING serials: для товара {g.ProductId} нет строки в серверной корзине — номера ({g.Serials.Count}) остаются в журнале кассы.", "WARNING");
+                continue;
+            }
+            try
+            {
+                await serialsApi.PosCartItemSerialsAsync(cartId, line.Id!, g.Serials, cancellationToken).ConfigureAwait(false);
+            }
+            catch (ApiException ex) when (!ServerErrorCodes.IsSerialError(ex))
+            {
+                PosLogger.Log($"STAGING serials: номера строки {line.Id} не записаны на сервер ({ex.StatusCode}): {ex.Message}. Продажа продолжается, номера — в журнале кассы.", "WARNING");
+            }
+        }
     }
 
     /// <summary>2026-09-29: ключ «одна позиция на сервере» для строки чека с товаром: товар, цена за
@@ -217,6 +287,7 @@ public static class StagingCartService
         return productId.Trim() + "|"
                + CartDisplayHelper.FormatMoney(CartDisplayHelper.UnitPrice(it)) + "|"
                + (CartDisplayHelper.SalePackageId(it) ?? "") + "|"
+               + (ProductSaleUnits.LineKey(it) ?? "") + "|"
                + (CartDisplayHelper.ServerVariantId(it) ?? "");
     }
 

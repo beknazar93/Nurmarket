@@ -173,10 +173,13 @@ public partial class OperationsSettingsView : UserControl
         SphereServicesRadio.Content = Tr.T("Услуги", "Кызматтар", "Services", "Hizmetler", "Xizmatlar");
 
         var sphere = UserPreferences.Instance.MarketSphere;
-        SphereGroceryRadio.IsChecked = sphere == MarketSpheres.Grocery;
-        SphereClothingRadio.IsChecked = sphere == MarketSpheres.Clothing;
-        SphereServicesRadio.IsChecked = sphere == MarketSpheres.Services;
-        SphereDescription.Text = sphere switch
+        // 2026-11-12 (ХМ14): точная сфера (hardware…) — отдельная кнопка из каталога сфер; три базовые отмечаются только при совпадении профиля.
+        var profile = MarketSpheres.Profile;
+        SphereGroceryRadio.IsChecked = profile.Id == MarketSpheres.Grocery;
+        SphereClothingRadio.IsChecked = profile.Id == MarketSpheres.Clothing;
+        SphereServicesRadio.IsChecked = profile.Id == MarketSpheres.Services;
+        RefreshExtraSphereRadios(profile.Id);
+        SphereDescription.Text = profile.Id != sphere ? profile.Description.Get() : sphere switch
         {
             MarketSpheres.Clothing => Tr.T(
                 "При оплате появляется блок «Консультант»: кто помог покупателю, и процент ему с этой продажи — как на сайте.",
@@ -197,6 +200,7 @@ public partial class OperationsSettingsView : UserControl
                 "Her zamanki mağaza kasası.",
                 "Oddiy do'kon kassasi, avvalgidek."),
         };
+        RefreshHardwareUi(); // 2026-11-12 (ХМ14): размер магазина «Хозтовары» (OperationsSettingsView.Sphere.cs)
         // 2026-10-06 (О-31, О-32): правила обмена — только у одежды.
         RefreshExchangeRulesCard();
         RefreshSphereLockUi(); // 2026-11-08: замок «только через техподдержку» (OperationsSettingsView.Sphere.cs)
@@ -211,10 +215,12 @@ public partial class OperationsSettingsView : UserControl
             return;
         }
         var firstChoice = MarketSphereLock.IsFirstChoice;
-        var sphere = SphereClothingRadio.IsChecked == true ? MarketSpheres.Clothing
+        var sphere = SelectedExtraSphere() // 2026-11-12 (ХМ14): плитки сфер из каталога (Хозтовары…)
+            ?? (SphereClothingRadio.IsChecked == true ? MarketSpheres.Clothing
             : SphereServicesRadio.IsChecked == true ? MarketSpheres.Services
-            : MarketSpheres.Grocery;
+            : MarketSpheres.Grocery);
         MarketSpheres.Set(sphere);
+        OnSphereChosen(sphere, firstChoice);
         if (firstChoice)
             MarketSphereLock.NoteLocalChoice(); // первый выбор израсходован — дальше через техподдержку
         RefreshSphereUi();

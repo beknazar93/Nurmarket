@@ -36,6 +36,7 @@ public partial class ReturnSaleDialog
         catch (Exception ex)
         {
             PosLogger.Log($"Возврат по продаже {saleId}: свежий чек перед отправкой не получен ({ex.GetType().Name}) — строки проверит сервер.", "WARNING");
+            _verifiedSale = null; // 2026-11-13: номера строк для возврата с серийниками берутся из свежего чека
             return true;
         }
         if (!string.Equals(saleId, _currentSaleId, StringComparison.OrdinalIgnoreCase))
@@ -49,6 +50,7 @@ public partial class ReturnSaleDialog
         {
             // Свежий чек — точный снимок «до возврата» (по нему сверяется исход после неясного ответа сервера).
             _saleSnapshot = ReturnSnapshot.From(fresh);
+            _verifiedSale = fresh.Clone(); // 2026-11-13 (сервер sn1311): serial_numbers строк — для сверки номеров при возврате
             return true;
         }
 

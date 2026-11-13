@@ -449,7 +449,8 @@ public static class SupplierDebtRecorder
                 : d.ValueKind == JsonValueKind.Object && d.TryGetProperty("results", out var r) && r.ValueKind == JsonValueKind.Array ? r : default;
             if (rows.ValueKind != JsonValueKind.Array)
                 throw new InvalidOperationException("сервер вернул сделки не списком");
-            result.AddRange(rows.EnumerateArray().Select(SupplierApiService.ParseDeal));
+            // 2026-11-11 (сводка Умара): виртуальные строки старых долговых чеков («sale:…», is_check_debt) — не сделки поставщика, своей меткой их не ищем
+            result.AddRange(ClientCheckDebtDeals.RealDeals(rows.EnumerateArray()).Select(SupplierApiService.ParseDeal));
             if (d.ValueKind != JsonValueKind.Object || !d.TryGetProperty("next", out var next) || next.ValueKind != JsonValueKind.String)
                 return result;
         }

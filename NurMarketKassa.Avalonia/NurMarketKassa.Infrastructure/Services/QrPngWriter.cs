@@ -11,11 +11,20 @@ namespace NurMarketKassa.Services;
 /// PNG (серый, 8 бит) пишется вручную: сжатие ZLibStream, контрольная сумма CRC-32. Новых пакетов не нужно.</summary>
 internal static class QrPngWriter
 {
-    public static void Write(string payload, int sizePx, string targetPath)
+    /// <summary>2026-11-12 (жалоба тестера «не генерируется QR для кассовой стороны, сделать QR побольше»): тихая зона — 4 модуля (как требует стандарт QR;
+    /// было 1 — на тёмном фоне экрана покупателя камера телефона хуже находила код), коррекция ошибок — M (было L по умолчанию ZXing).</summary>
+    internal const int QuietZoneModules = 4;
+
+    public static void Write(string payload, int sizePx, string targetPath) =>
+        File.WriteAllBytes(targetPath, ToPng(Encode(payload, sizePx)));
+
+    /// <summary>2026-11-12: матрица QR отдельно от записи PNG — для проверки тестом (тихая зона, уровень коррекции, обратное чтение).</summary>
+    internal static BitMatrix Encode(string payload, int sizePx)
     {
         var hints = new Dictionary<EncodeHintType, object>
         {
-            [EncodeHintType.MARGIN] = 1,
+            [EncodeHintType.MARGIN] = QuietZoneModules,
+            [EncodeHintType.ERROR_CORRECTION] = ZXing.QrCode.Internal.ErrorCorrectionLevel.M,
         };
         // 2026-11-05 (ревью волн 0–3, А-12): как на Windows (BarcodeLabelService) — UTF-8 только для не-ASCII строк. Подсказка кодировки
         // добавляет в QR метку ECI, которую часть банковских приложений читает плохо; ASCII-платёжные строки идут без неё.
@@ -25,8 +34,7 @@ internal static class QrPngWriter
                 hints[EncodeHintType.CHARACTER_SET] = "UTF-8";
                 break;
             }
-        var matrix = new ZXing.QrCode.QRCodeWriter().encode(payload, BarcodeFormat.QR_CODE, sizePx, sizePx, hints);
-        File.WriteAllBytes(targetPath, ToPng(matrix));
+        return new ZXing.QrCode.QRCodeWriter().encode(payload, BarcodeFormat.QR_CODE, sizePx, sizePx, hints);
     }
 
     private static byte[] ToPng(BitMatrix matrix)

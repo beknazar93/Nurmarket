@@ -16,7 +16,8 @@
         <Style Selector="TextBlock.SettingsCardBody">
             <Setter Property="FontSize" Value="13.5"/>
             <Setter Property="LineHeight" Value="19"/>
-            <Setter Property="MaxLines" Value="3"/>
+            <!-- 2026-11-12 (аудит 12.11, С-25): без предела строк — кыргызское описание обрезалось на третьей строке, конец фразы терялся -->
+            <Setter Property="MaxLines" Value="0"/>
             <Setter Property="TextTrimming" Value="WordEllipsis"/>
             <Setter Property="ToolTip.Tip" Value="{Binding $self.Text}"/>
         </Style>
@@ -118,7 +119,7 @@
                 <!-- Заголовок страницы прижат влево — по одной вертикали с содержимым
                      карточек ниже. По центру он плавал: при переходе между вкладками название
                      прыгало из стороны в сторону вслед за длиной строки. -->
-                <Border Classes="SettingsHeaderCard" Padding="12">
+                <Border x:Name="HeaderCard" Classes="SettingsHeaderCard" Padding="12">
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Spacing="12">
                         <Border Width="36" Height="36" CornerRadius="8" Background="{DynamicResource BrushWarningSoft}"
                                 BorderBrush="{DynamicResource BrushWarning}" BorderThickness="1">
@@ -161,6 +162,8 @@
                         </RadioButton>
                     </UniformGrid>
                 </Border>
+
+                <!-- 2026-11-12: подсказка «весы переехали в программу владельца» убрана — весы остались и в кассе (решение владельца). -->
 
                 <!-- ========== 1. Весы на кассе (взвешивание) ========== -->
                 <StackPanel x:Name="WeighingSection" Spacing="10">
@@ -382,18 +385,27 @@
                 </Border>
                 </StackPanel>
 
-                <StackPanel Spacing="8" Margin="0,4,0,0" HorizontalAlignment="Stretch">
-                    <TextBlock x:Name="SaveStatusText" x:FieldModifier="public"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"
-                               Foreground="{DynamicResource BrushSuccess}"
-                               FontSize="12"/>
-                    <Button Content="{DynamicResource common.save}"
-                            Classes="btn-primary"
-                            MinWidth="150"
-                            HorizontalAlignment="Center"
-                            Click="Save_Click"/>
-                </StackPanel>
+                <!-- 2026-11-12 (аудит Д-20): «Сохранить» — в подвале карточки справа со скруглёнными углами (раньше одна по центру); пояснение слева, с переносом. -->
+                <Border x:Name="SaveBlock" Classes="SettingsCard" Padding="14" Margin="0,4,0,0">
+                    <!-- 2026-11-12: Grid.ColumnSpacing в Avalonia 11.2 нет (сборка падала AVLN2000) — промежуток 12 отступом кнопки -->
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock x:Name="SaveStatusText" x:FieldModifier="public" Grid.Column="0"
+                                   HorizontalAlignment="Left"
+                                   VerticalAlignment="Center"
+                                   TextWrapping="Wrap"
+                                   Foreground="{DynamicResource BrushSuccess}"
+                                   FontSize="13"/>
+                        <Button x:Name="SaveButton" x:FieldModifier="public" Grid.Column="1"
+                                Content="{DynamicResource common.save}"
+                                Classes="btn-primary"
+                                MinWidth="150"
+                                Margin="12,0,0,0"
+                                CornerRadius="8"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center"
+                                Click="Save_Click"/>
+                    </Grid>
+                </Border>
 
             </StackPanel>
         </ScrollViewer>

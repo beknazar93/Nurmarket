@@ -294,6 +294,8 @@
                     <TextBlock x:Name="EmptyText" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" FontSize="13"
                                Foreground="{DynamicResource BrushTextSoft}"/>
                 </StackPanel>
+                <!-- 2026-11-12 (оценка UX/UI, Д-2): сбой загрузки списка — общий блок состояния (StateBlock) по центру таблицы, а не красная полоса внизу. -->
+                <Border Grid.Row="1" x:Name="StateHost" IsVisible="False" HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Grid>
         </Border>
 
@@ -451,6 +453,8 @@
 
                             <!-- 2026-11-08 (п. 31, 35 ответа сервера): согласия на сообщения, язык и каналы клиента — ClientMessagingBlock. -->
                             <ContentControl x:Name="CardMessagingHost"/>
+                            <!-- 2026-11-12 (ХМ8): отметка «Покупает по оптовой цене (прораб)» — только в магазине «Хозтовары» (ClientForemanBlock). -->
+                            <ContentControl x:Name="CardForemanHost"/>
 
                             <TextBlock Text="{Binding CardErrorMessage}"
                                        Foreground="{DynamicResource BrushDanger}"

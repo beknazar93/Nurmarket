@@ -106,6 +106,18 @@ public partial class ReturnSaleDialog
             return;
         }
 
+        // 2026-11-13 (сервер sn1311, «Электроника»): номера, которые реально вернули (сверка сканом), и проверка срока гарантии при причине «Гарантия». Только при флаге компании.
+        var serialPlan = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        if (ElectronicsProfile.ServerEnabled && _verifiedSale is not null)
+        {
+            IsBusy = false; // окна сверки — не под индикатором ожидания
+            var plan = await CollectReturnSerialsAsync(saleId, selected, reason).ConfigureAwait(true);
+            if (plan is null)
+                return;
+            serialPlan = plan;
+            IsBusy = true;
+        }
+
         try
         {
             var requests = selected.Select(line => new PosRefundLineRequest
@@ -115,6 +127,7 @@ public partial class ReturnSaleDialog
                 Title = line.Title,
                 Quantity = line.Quantity > 0 ? line.Quantity : 1,
                 OriginalQuantity = line.OriginalQuantity > 0 ? line.OriginalQuantity : line.Quantity,
+                SerialNumbers = serialPlan.TryGetValue(line.LineId, out var returnedSerials) ? returnedSerials : null,
             }).ToList();
             sentRequests = requests;
 

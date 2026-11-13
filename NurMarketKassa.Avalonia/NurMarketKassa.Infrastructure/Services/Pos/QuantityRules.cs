@@ -25,8 +25,14 @@ public static class QuantityRules
     /// ТЗ бэкенду Б-52). Выключен — касса ведёт себя как раньше даже в «Хозтоварах». Менять только после проверки сервера.</summary>
     public static bool ServerAcceptsFractional { get; set; } = false;
 
-    /// <summary>Функция действует сейчас: флаг включён и магазин — «Хозтовары и стройматериалы».</summary>
-    public static bool Active => ServerAcceptsFractional && MarketSpheres.IsHardware;
+    /// <summary>2026-11-12 (ХМ2, решение владельца): основной переключатель — флаг сервера company_flags.hardware_2026_11 из capabilities
+    /// (<see cref="ServerCapabilities.Hardware202611"/>); местный <see cref="ServerAcceptsFractional"/> остаётся только для стенда и тестов.
+    /// Нет списка признаков / запрос не удался — false (дробное выключено, как раньше). Подмена нужна тестам.</summary>
+    public static Func<bool> ServerFlagEnabled { get; set; } = () => NurMarketKassa.Services.Api.ServerCapabilities.Has(NurMarketKassa.Services.Api.ServerCapabilities.Hardware202611);
+
+    /// <summary>Функция действует сейчас: магазин — «Хозтовары и стройматериалы» (профиль с <see cref="SphereProfile.FractionalUnits"/>) И
+    /// (флаг сервера включён ИЛИ местное включение стенда). У других сфер всегда false — до проверки флага дело не доходит.</summary>
+    public static bool Active => MarketSpheres.IsHardware && MarketSpheres.Profile.FractionalUnits && (ServerAcceptsFractional || ServerFlagEnabled());
 
     /// <summary>Правило по тексту единицы («м», «пог.м», «м2», «л»…) или null: не хозмаг, флаг выкл, единица не дробная
     /// или «кг» (весовой путь).</summary>
@@ -50,7 +56,8 @@ public static class QuantityRules
     {
         if (!Active || it.ValueKind != JsonValueKind.Object)
             return null;
-        if (CartDisplayHelper.LineMustWeigh(it) || !string.IsNullOrWhiteSpace(CartDisplayHelper.SalePackageId(it)))
+        if (CartDisplayHelper.LineMustWeigh(it) || !string.IsNullOrWhiteSpace(CartDisplayHelper.SalePackageId(it))
+            || ProductSaleUnits.LineKey(it) is not null) // 2026-11-13: строка в упаковках — целые упаковки, шага единицы нет
             return null;
         return ForUnit(LineUnitText(it));
     }

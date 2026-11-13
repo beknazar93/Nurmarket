@@ -355,6 +355,7 @@ public partial class ReturnSaleDialog
                 DebtReduced = debtReduced,
                 ServerAmount = doc,
                 ServerDocId = docId,
+                Source = SaleLedgerRefund.SourceReturn, // 2026-11-13: обычный возврат — сверка с сервером (CustomerReturnReconciler) может поправить его сумму
                 Whole = whole,
                 Lines = lines,
             });

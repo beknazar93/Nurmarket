@@ -173,6 +173,13 @@ public partial class App : Application
         EmployeeAccessGate.CurrentUserProvider = () => AppHost?.Services.GetService<NurMarketApiClient>()?.UserPayload ?? default;
         // 2026-11-09 (жалоба «все права выданы, а „Склад“ закрыт»): после возврата связи — перечитать профиль (права), а не жить на сохранённом входе.
         PermissionRecheck.Attach(() => AppHost?.Services.GetService<IAuthApiService>(), () => AppHost?.Services.GetService<IAutonomousAuthService>());
+        // 2026-11-11 (доступы и маркетплейс «с сайта»): раз в ~10 мин фоновая проверка обновляет и компанию (тариф, пакеты), и каталог купленных тем.
+        AccessSync.CompanyRefresher = async ct =>
+        {
+            if (AppHost?.Services.GetService<IAuthApiService>() is { } authApi)
+                await CompanyInfoService.RefreshAsync(authApi, ct).ConfigureAwait(false);
+        };
+        AccessSync.ThemesRefresher = ct => MarketplaceThemesClient.Shared.RefreshAsync(force: false, ct);
         // 2026-10-06: срок долга, названный клиентом, — на сервер после продажи «В долг».
         DebtDueDateSync.ApiProvider = () => AppHost?.Services.GetService<NurMarketApiClient>();
         // 2026-10-29: возврат и оплата долга без связи уходят на сервер из очереди (SalesOfflineOpsApi), кэш клиентов для «в долг» обновляется с сервера.

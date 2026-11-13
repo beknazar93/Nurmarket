@@ -72,6 +72,69 @@ public static class ShiftEventsStore
         }
     }
 
+    /// <summary>2026-11-12 (аудит К-1): возврат от клиента изменили или аннулировали на сервере — в смене записывается сторно (отрицательное событие «return» с той же разбивкой
+    /// cash/noncash/debt в примечании; положительное — если возврат увеличили). Суммы смены (X/Z, окно закрытия, «в ящике должно быть») складывают события, поэтому
+    /// сходятся с сервером. Нет смены (программа владельца) или нулевая разница — не пишем. true — записано.
+    /// Источник события — «id чека:время» (как у обычного возврата), чтобы отсечение по отменённым чекам работало одинаково.</summary>
+    /// <param name="previousShift">2026-11-13 (проверка денег 1.17.86, п. 7): возврат был оформлен в ПРОШЛОЙ смене — деньги движутся сегодня, поэтому сторно пишется в текущую смену,
+    /// но с пометкой <c>prev=1</c>: окно закрытия, X/Z и раскладка ящика показывают его отдельной строкой «Отмена возврата прошлой смены», а не прячут в минус «Возвратов».</param>
+    public static bool RecordReturnDelta(string? shiftId, string? saleId, decimal amount, decimal cash, decimal nonCash, decimal debt, bool previousShift = false)
+    {
+        if (string.IsNullOrWhiteSpace(shiftId) || Math.Abs(amount) < 0.005m)
+            return false;
+        var note = $"cash={SaleReturnLedger.Inv(cash)};noncash={SaleReturnLedger.Inv(nonCash)};debt={SaleReturnLedger.Inv(debt)};storno=1" + (previousShift ? ";prev=1" : "");
+        return TryRecord(KindReturn, shiftId, OperationKey(saleId), (double)amount, note);
+    }
+
+    /// <summary>2026-11-13: значение «ключ=число» из примечания события (так же, как CloseShiftDialog.ParseNote, но доступно ядру и тестам).</summary>
+    public static double? NoteNumber(string? note, string key)
+    {
+        if (string.IsNullOrWhiteSpace(note))
+            return null;
+        foreach (var part in note.Split(';'))
+        {
+            var kv = part.Split('=', 2);
+            if (kv.Length == 2 && string.Equals(kv[0].Trim(), key, StringComparison.Ordinal)
+                && double.TryParse(kv[1], NumberStyles.Any, CultureInfo.InvariantCulture, out var value))
+                return value;
+        }
+        return null;
+    }
+
+    /// <summary>2026-11-13 (п. 7): запись возврата — сторно возврата прошлой смены (prev=1).</summary>
+    public static bool IsPreviousShiftNote(string? note) => NoteNumber(note, "prev") is { } v && v > 0.5;
+
+    /// <summary>2026-11-13 (п. 7): возвраты смены двумя частями — обычные (этой смены и сторно её же возвратов) и «отмена возврата прошлой смены» (prev=1). Суммы со знаком: у отмены
+    /// возврата прошлой смены сумма отрицательная (деньги вернулись в ящик). Записи до 20.10 без разбивки — вся сумма «из ящика». Итог по ящику = наличные обеих частей.</summary>
+    public sealed record ShiftReturnTotals(int Count, decimal Amount, decimal Cash, decimal NonCash, decimal Debt, int PrevCount, decimal PrevAmount, decimal PrevCash, decimal PrevNonCash, decimal PrevDebt)
+    {
+        public decimal TotalCash => Cash + PrevCash;
+        public decimal TotalAmount => Amount + PrevAmount;
+    }
+
+    public static ShiftReturnTotals ReturnTotalsForShift(string? shiftId)
+    {
+        int n = 0, pn = 0;
+        decimal amount = 0, cash = 0, non = 0, debt = 0, pAmount = 0, pCash = 0, pNon = 0, pDebt = 0;
+        foreach (var (_, a, note) in ListForShift(shiftId, KindReturn))
+        {
+            var amt = (decimal)a;
+            var hasSplit = NoteNumber(note, "cash") is not null;
+            var c = (decimal)(NoteNumber(note, "cash") ?? a);
+            var nc = hasSplit ? (decimal)(NoteNumber(note, "noncash") ?? 0) : 0m;
+            var d = hasSplit ? (decimal)(NoteNumber(note, "debt") ?? 0) : 0m;
+            if (IsPreviousShiftNote(note))
+            {
+                pn++; pAmount += amt; pCash += c; pNon += nc; pDebt += d;
+            }
+            else
+            {
+                n++; amount += amt; cash += c; non += nc; debt += d;
+            }
+        }
+        return new ShiftReturnTotals(n, amount, cash, non, debt, pn, pAmount, pCash, pNon, pDebt);
+    }
+
     /// <summary>Суммы по видам событий за смену. Ключ — вид (KindReturn и т.д.).</summary>
     public static Dictionary<string, double> TotalsForShift(string? shiftId) =>
         string.IsNullOrWhiteSpace(shiftId)

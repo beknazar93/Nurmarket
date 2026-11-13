@@ -73,5 +73,12 @@ public static class MoneyText
             : raw;
     }
 
+    /// <summary>2026-11-12 (Д-5): вес/количество для показа — запятая вместо точки, без разрядов: «1,25», «0,00», «10». <paramref name="format"/> — .NET-формат числа
+    /// (по умолчанию «0.###»: до трёх знаков, целое без запятой; «0.00» — всегда два знака). Только ПОКАЗ и поля ввода, разбор (Replace(',', '.')) — как раньше.</summary>
+    public static string Weight(double value, string format = "0.###") =>
+        double.IsNaN(value) || double.IsInfinity(value) ? NotANumber : value.ToString(format, Format);
+
+    public static string Weight(decimal value, string format = "0.###") => value.ToString(format, Format);
+
     public static string Currency => Tr.T("сом", "сом", "som", "som", "so'm");
 }

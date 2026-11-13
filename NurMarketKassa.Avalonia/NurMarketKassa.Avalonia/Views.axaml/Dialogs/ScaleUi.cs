@@ -24,7 +24,23 @@ internal static partial class ScaleUi
     /// <summary>2026-11-06: весы «Штрих РС-200С2» — обмен файлами через общую папку весов (не сеть по протоколу).</summary>
     public const string BrandShtrikhPc = "shtrikhpc";
 
-    public static string L(string ru, string ky, string en, string tr, string uz) => Tr.T(ru, ky, en, tr, uz);
+    public static string L(string ru, string ky, string en, string tr, string uz) => OwnerPath(Tr.T(ru, ky, en, tr, uz));
+
+    /// <summary>2026-11-11, запрос владельца «убрать весы из кассы и поставить на владелец»: отправка товаров на весы и подключение
+    /// сетевых весов теперь в программе владельца — «Товары → Весы». В её окнах подсказка «Настройки → Весы» заменяется на путь,
+    /// который там есть (в кассе — на «Старте» и в автономном режиме, где раздел остался, — без изменений).</summary>
+    public static string OwnerPath(string text)
+    {
+        if (!AppMode.IsOwner || string.IsNullOrEmpty(text))
+            return text;
+        return text
+            .Replace("Настройки → «Весы»", "Товары → «Весы»")
+            .Replace("Настройки → Весы", "Товары → Весы")
+            .Replace("Жөндөөлөр → Тараза", "Товарлар → Тараза")
+            .Replace("Settings → Scales", "Products → Scales")
+            .Replace("Ayarlar → Tartı", "Ürünler → Tartı")
+            .Replace("Sozlamalar → Tarozi", "Mahsulotlar → Tarozi");
+    }
 
     // ------------------------------------------------------------------ блоки разметки
 

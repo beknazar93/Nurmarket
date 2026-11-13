@@ -548,15 +548,17 @@ public sealed partial class BackgroundReceivingQueue
     /// Отметка StockApplied пишется сразу: второй раз не прибавляем.</summary>
     private async Task ApplyPendingStockAsync(ReceivingJob job)
     {
-        List<JobLine> todo;
+        List<(JobLine Line, bool Restored)> todo;
         lock (_sync)
-            todo = job.Lines.Where(l => l.Outcome == ReceivingLineOutcome.Posted && !l.IsNew && !l.StockApplied && !string.IsNullOrWhiteSpace(l.ProductId)).ToList();
-        foreach (var jl in todo)
+            todo = job.Lines.Where(l => l.Outcome == ReceivingLineOutcome.Posted && !l.IsNew && !l.StockApplied && !string.IsNullOrWhiteSpace(l.ProductId))
+                .Select(l => (l, _restoredKeys.Contains(l.Key))).ToList(); // 2026-11-12 (Л-1): строка поднята с диска — остаток с сервера
+        foreach (var (jl, restored) in todo)
         {
-            await ApplyStockToTileAsync(jl).ConfigureAwait(false);
+            await ApplyStockToTileAsync(jl, restored).ConfigureAwait(false);
             lock (_sync)
             {
                 jl.StockApplied = true;
+                _restoredKeys.Remove(jl.Key);
                 Save();
             }
         }
@@ -748,8 +750,19 @@ public sealed partial class BackgroundReceivingQueue
 
     /// <summary>Остаток плитки = ТЕКУЩИЙ остаток + принятое (чтение и запись — в одном заходе UI-потока, чтобы подряд идущие
     /// приходы одного товара не потеряли друг друга).</summary>
-    private static async Task ApplyStockToTileAsync(JobLine line)
+    private static async Task ApplyStockToTileAsync(JobLine line, bool restoredFromFile = false)
     {
+        // 2026-11-11 (Д-4): «упаковка с поштучной продажей» у товара склада — приход в упаковках, а плитка до перевода в упаковки (convert-to-packages) в штуках:
+        // «остаток плитки + принятое» смешало бы единицы (100 шт + 1 упак. = 101). Остаток после прихода — с сервера: он уже учёл и перевод, и приход.
+        // 2026-11-12 (Л-1, аудит Fable): то же для строки, поднятой из queue.json после перезапуска: каталог уже загружен с сервера и мог включить её приход (ответ принят до выключения,
+        // отметка StockApplied не записана) — «плитка + принятое» задвоило бы его.
+        if (line.PackSaleSize >= 2 || restoredFromFile)
+        {
+            if (!await StockSyncService.ApplyServerStockAfterReceiptAsync(line.ProductId!).ConfigureAwait(false))
+                StockSyncService.ScheduleStockReread(line.ProductId!, TimeSpan.FromSeconds(5));
+            return;
+        }
+
         double? next = null;
         var mustWeigh = false;
         try
@@ -765,6 +778,9 @@ public sealed partial class BackgroundReceivingQueue
             }).ConfigureAwait(false);
             if (next is { } value)
                 CatalogCacheService.PersistProductStock(line.ProductId!, value, mustWeigh);
+            // 2026-11-12 (Л-6, аудит Fable): пока приход ждал, лента по товару отбрасывалась, а чужие продажи/приходы за это время (иногда часы) на плитку не попали.
+            // После прибавки товар всегда перечитывается с сервера, когда окно защиты «трогали недавно» пройдёт.
+            StockSyncService.ScheduleStockReread(line.ProductId!, FeedStockGuard.LocalTouchWindow + TimeSpan.FromSeconds(5));
         }
         catch (Exception ex)
         {

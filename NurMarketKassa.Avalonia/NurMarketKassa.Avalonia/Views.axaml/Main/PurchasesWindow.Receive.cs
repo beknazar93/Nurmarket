@@ -36,6 +36,9 @@ public sealed partial class PurchasesWindow
     /// <summary>2026-11-07 (Б-E2): ширина страницы приёма, ниже которой панель «скан / товары / наценка» идёт в два ряда (public — для проверки в UiTests).</summary>
     public const double ReceiveToolsTwoRowsBelow = 1320;
 
+    /// <summary>2026-11-11: способ приёмки («В штуках / Упаковками / Поштучная продажа») на верхней панели открытого «Приёма товара» (создаётся вместе с панелью).</summary>
+    private ReceivingPackBar? _purchasePackBar;
+
     /// <summary>Состояние открытого мастера «Приём товара».</summary>
     private sealed class ReceiveState
     {
@@ -275,23 +278,22 @@ public sealed partial class PurchasesWindow
             MarkupCommit(true);
             ReceiveApplyMarkupToAll(s);
         };
-        var fastBox = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Children = { s.FastNext, markupLabel, markupBox, applyAll } };
+        // 2026-11-11 (владелец: «упаковку тоже сделай СВЕРХУ, если поместится!»): способ приёмки («В штуках / Упаковками / Поштучная продажа») — в том же ряду, что «Сразу к скану» и «Наценка для всех».
+        // Сегменты, если помещаются, иначе кнопка «Приём: … ▾» (раскладка — ApplyToolsLayout ниже; панель на вторую строку из-за упаковки не переносится сверх прежнего).
+        var packBar = _purchasePackBar = new ReceivingPackBar(
+            lines: () => s.Lines.ToList(),
+            confirm: (message, ok) => ConfirmAsync(message, ok),
+            notify: (text, warning) => ReceiveMessage(text, warning),
+            changed: () => ReceiveRender(),
+            focusScan: () => s.Scan.Focus(),
+            makeButton: text => UiKit.Ghost(this, text));
+        packBar.Host.Margin = new Thickness(12, 0, 0, 0);
+        var fastBox = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Children = { s.FastNext, markupLabel, markupBox, applyAll, packBar.Host } };
         Grid.SetColumn(fastBox, 1);
         tools.Children.Add(fastBox);
         // 2026-11-07 (живая проверка 1.17.81, Б-E2): при ширине ~1024 всё в один ряд не помещалось — поле скана сжималось до «Штр…», «Очистить» уходила за край.
         // Теперь на узком окне (< 1320) верхний ряд — поле скана + «Товары поставщика» / «Обнулить» / «Очистить», а «Сразу к скану», наценка и «Ко всем» — второй ряд.
-        bool? toolsTwoRows = null;
-        void ApplyToolsLayout(double width)
-        {
-            var two = width < ReceiveToolsTwoRowsBelow;
-            if (two == toolsTwoRows)
-                return;
-            toolsTwoRows = two;
-            Grid.SetRow(fastBox, two ? 1 : 0);
-            Grid.SetColumn(fastBox, two ? 0 : 1);
-            Grid.SetColumnSpan(fastBox, two ? 5 : 1);
-            fastBox.Margin = two ? new Thickness(0, 8, 0, 0) : new Thickness(0);
-        }
+        // (раскладка — ApplyToolsLayout ниже, после создания кнопок: ей нужны их измеренные ширины)
         var supplierGoods = s.SupplierGoods = UiKit.Ghost(this, ReceiveGoodsButtonText(s));
         supplierGoods.Height = 44;
         supplierGoods.Margin = new Thickness(8, 0, 0, 0);
@@ -325,6 +327,49 @@ public sealed partial class PurchasesWindow
         };
         Grid.SetColumn(clear, 4);
         tools.Children.Add(clear);
+        // 2026-11-11: раскладка верхней панели «Приёма» — по ИЗМЕРЕННЫМ ширинам (надписи ky/uz длиннее ru), с запасом на гистерезис (на пороге ничего не мигает):
+        // • один ряд — пока поле скана остаётся ≥ 260 при кнопке «Приём: … ▾» (иначе второй ряд — как и раньше на окне уже 1320);
+        // • сегменты вместо кнопки — если помещаются в свой ряд (второй ряд свободен целиком, в одном — с учётом поля скана ≥ 260); не помещаются — кнопка, панель НЕ растёт.
+        bool? toolsTwoRows = null;
+        var layoutRechecks = 0;
+        void ApplyToolsLayout(double width)
+        {
+            const double padding = 24, scanMin = 260, hysteresis = 60;
+            var core = s.FastNext.DesiredSize.Width + markupLabel.DesiredSize.Width + markupBox.DesiredSize.Width + applyAll.DesiredSize.Width;
+            var others = supplierGoods.DesiredSize.Width + zero.DesiredSize.Width + clear.DesiredSize.Width;
+            var measured = core > 0 && others > 0;
+            packBar.NoteWideMeasured();
+            var compactWidth = (packBar.Compact.DesiredSize.Width > 1 ? packBar.Compact.DesiredSize.Width : 210) + 12;
+            var two = width < ReceiveToolsTwoRowsBelow
+                      || (measured && width - padding - core - others - compactWidth < scanMin + (toolsTwoRows == true ? hysteresis : 0));
+            bool wide;
+            if (packBar.WideWidth <= 0)
+                wide = true; // ещё не измеряли — сначала сегменты, ширину узнаем после раскладки и уточним
+            else if (!measured)
+                wide = false;
+            else
+            {
+                var room = two ? width - padding - core : width - padding - core - others - scanMin;
+                wide = room >= packBar.WideWidth + 12 + (packBar.IsWide ? 0 : hysteresis);
+            }
+            var changed = toolsTwoRows != two || packBar.IsWide != wide;
+            if (toolsTwoRows != two)
+            {
+                toolsTwoRows = two;
+                Grid.SetRow(fastBox, two ? 1 : 0);
+                Grid.SetColumn(fastBox, two ? 0 : 1);
+                Grid.SetColumnSpan(fastBox, two ? 5 : 1);
+                fastBox.Margin = two ? new Thickness(0, 8, 0, 0) : new Thickness(0);
+            }
+            packBar.ShowWide(wide);
+            if (!changed)
+                layoutRechecks = 0;
+            else if (layoutRechecks < 3)
+            {
+                layoutRechecks++;
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => ApplyToolsLayout(page.Bounds.Width), Avalonia.Threading.DispatcherPriority.Background); // ширины сменившихся видов известны только после раскладки
+            }
+        }
         var toolsBox = new StackPanel { Children = { tools } };
         s.SuggestBox = new Border { CornerRadius = new CornerRadius(10), BorderThickness = new Thickness(1), Padding = new Thickness(4), Margin = new Thickness(0, 0, 0, 8), IsVisible = false, Child = s.Suggest };
         Use(s.SuggestBox, Border.BackgroundProperty, "BrushPanel");
@@ -414,6 +459,7 @@ public sealed partial class PurchasesWindow
         };
         // 2026-10-24, ТЗ «Склад» (Б2): скан во время правки ячейки — как в Склад → Приёмка: правка остаётся как была, штрихкод идёт в приём.
         page.AddHandler(InputElement.KeyDownEvent, (_, e) => ReceiveFieldScanKey(s, e), RoutingStrategies.Tunnel);
+        ReceiveKeysAttach(s, page, footer, toolsBox); // 2026-11-11 (аудит «Закупки», БП-5/6/8): клавиши, «Итого приход», «Вернуть», Tab по кнопкам
         ShowSub(page);
 
         if (prefill?.SupplierId is { Length: > 0 } sid)
@@ -627,6 +673,15 @@ public sealed partial class PurchasesWindow
             // 2026-11-11: нигде не найден — только теперь код может оказаться этикеткой весов (при настроенном префиксе весов магазина).
             if (line.Source == ReceivingSource.Unknown && AddWeightLabel())
                 return;
+            // 2026-11-11 (разбор «Кыргызстанские штрихкоды», п. 9): неверная контрольная цифра у ненайденного кода — «отсканируйте ещё раз» (общий шаг, ScanMessages).
+            if (line.Source == ReceivingSource.Unknown
+                && !await ScanMessages.ConfirmUnknownCodeAsync(App.AppHost?.Services.GetService(typeof(NurMarketKassa.Core.Contracts.IUserPrompts)) as NurMarketKassa.Core.Contracts.IUserPrompts, code).ConfigureAwait(true))
+            {
+                s.Scan.Text = "";
+                return;
+            }
+            if (_receive != s)
+                return;
             var target = line;
             var added = true;
             if (line.ProductId is { Length: > 0 } && s.Lines.FirstOrDefault(x => string.Equals(x.ProductId, line.ProductId, StringComparison.OrdinalIgnoreCase)) is { } same)
@@ -820,6 +875,7 @@ public sealed partial class PurchasesWindow
         var history = ReceiveLocalHistory(line);
         ReceivingDefaults.ApplyPurchase(line, ReceiveSupplierPrice(s, line, history));
         line.EnableReceivingPricing(ReceivingDefaults.LastSalePrice(history));
+        _purchasePackBar?.ApplyToNew(line); // 2026-11-11: способ приёмки с верхней панели («В штуках / Упаковками / Поштучная продажа») — после цен: цена упаковки считается из них
     }
 
     private static List<PurchaseReceivingService.HistoryEntry> ReceiveLocalHistory(ReceivingLineVm line)

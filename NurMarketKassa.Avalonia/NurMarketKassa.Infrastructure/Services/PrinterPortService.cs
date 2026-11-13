@@ -56,6 +56,12 @@ public static class PrinterPortService
         if (!OperatingSystem.IsWindows())
             return new PortProbeResult(false, Tr.T("○ Порт не распознан (примеры: BT:адрес, USB, TCP:192.168.1.50)", "○ Порт таанылган жок (мисал: BT:дарек, USB, TCP:192.168.1.50)", "○ Port not recognised (examples: BT:address, USB, TCP:192.168.1.50)", "○ Port tanınmadı (örnek: BT:adres, USB, TCP:192.168.1.50)", "○ Port tanilmadi (misol: BT:manzil, USB, TCP:192.168.1.50)"), "unknown");
 
+        // 2026-11-13 (мастер «Подключить принтер»): USB напрямую через интерфейс usbprint «\\?\USB#VID_…» — подключено ли устройство (SetupAPI, без открытия).
+        if (port.StartsWith(@"\\?\", StringComparison.Ordinal))
+            return PrinterSetup.WindowsPrinterNative.ListUsbPrinters().Any(d => string.Equals(d.InterfacePath, port, StringComparison.OrdinalIgnoreCase))
+                ? new PortProbeResult(true, Tr.T("● Доступен (USB напрямую)", "● Жеткиликтүү (USB түз)", "● Available (USB direct)", "● Kullanılabilir (USB doğrudan)", "● Mavjud (USB to'g'ridan-to'g'ri)"), "usbdirect")
+                : new PortProbeResult(false, Tr.T("○ USB-принтер не подключён", "○ USB-принтер туташкан эмес", "○ USB printer is not connected", "○ USB yazıcı bağlı değil", "○ USB-printer ulanmagan"), "usbdirect");
+
         if (HardwarePortHelper.LooksLikeLptPort(port))
         {
             // Проверяем существование устройства через QueryDosDevice — без открытия

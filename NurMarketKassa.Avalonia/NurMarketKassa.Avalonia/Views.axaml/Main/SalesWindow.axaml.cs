@@ -105,6 +105,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 "Bu davrda chek yo'q. Boshqa davrni tanlang — yoki qidiruv qatorini tekshiring."));
 
             FullscreenHelper.Apply(this);
+            // 2026-11-12 (Д-3): низкое окно — плотнее плитки и шапка (стиль Window.short в разметке), как в «Настройках».
+            SizeChanged += (_, e) => { var low = e.NewSize.Height < 680; if (Classes.Contains("short") != low) Classes.Set("short", low); };
 
             _clockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             // 2026-10-22 (оптимизация): раздел спрятан (программа владельца прячет, а не закрывает) — часы не обновляем: секундный тик
@@ -133,6 +135,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
         private async void Window_Loaded(object sender, RoutedEventArgs e)
         {
+            // 2026-11-12 (Д-3): поиск — над таблицей, шапка без поля поиска. Не в конструкторе: «Финансы» создают окно без показа и сами перекладывают
+            // поиск и таблицу (DetachForFinance) — таблица не должна уже лежать в другой раскладке.
+            if (!OperatingSystem.IsAndroid())
+                MoveSearchIntoChecksTab();
             PosDataEvents.SalesChanged += OnSalesChangedExternally;
             // 2026-11-05 (аудит №4, Л4-12): спрятанный раздел продажи не перекачивал — раздел показали, а данные устарели → один пересчёт.
             Activated += (_, _) =>
@@ -150,6 +156,27 @@ namespace NurMarketKassa.AvaloniaHost.Views
         }
 
         private void Back_Click(object sender, RoutedEventArgs e) => Close();
+
+        private bool _searchInChecksTab;
+
+        /// <summary>2026-11-12 (оценка UX/UI, Д-3): поиск чека — над таблицей во вкладке «Чеки», а не в шапке: шапка «Продаж» теперь та же, что у «Финансов»
+        /// (заголовок, период, действия). Раньше так было только в программе владельца; один раз на окно.</summary>
+        private void MoveSearchIntoChecksTab()
+        {
+            if (_searchInChecksTab)
+                return;
+            _searchInChecksTab = true;
+            var search = (Control)SearchReceiptBox.Parent ?? SearchReceiptBox;
+            (search.Parent as Panel)?.Children.Remove(search);
+            search.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
+            search.Margin = new Thickness(0, 4, 0, 8);
+            ChecksTab.Content = null;
+            var checks = new Grid { RowDefinitions = new RowDefinitions("Auto,*") };
+            Grid.SetRow(SalesGrid, 1);
+            checks.Children.Add(SearchWithFilters(search)); // 2026-11-10: строка поиска + «Фильтры (N)» и панель фильтров
+            checks.Children.Add(SalesGrid);
+            ChecksTab.Content = checks;
+        }
 
         /// <summary>Раздел программы владельца (см. <see cref="IOwnerSection"/>): название уже над
         /// разделом, «Назад» некуда. Поиск чека, выгрузка и «Обновить» остаются строкой справа.
@@ -181,16 +208,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
                 // Поиск чека — над таблицей во вкладке «Чеки» (как в «Продажах и финансах»): с периодом в шапке на 1024 он не
                 // помещался бы.
-                var search = (Control)SearchReceiptBox.Parent ?? SearchReceiptBox;
-                (search.Parent as Panel)?.Children.Remove(search);
-                search.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
-                search.Margin = new Thickness(0, 4, 0, 8);
-                ChecksTab.Content = null;
-                var checks = new Grid { RowDefinitions = new RowDefinitions("Auto,*") };
-                Grid.SetRow(SalesGrid, 1);
-                checks.Children.Add(SearchWithFilters(search)); // 2026-11-10: строка поиска + «Фильтры (N)» и панель фильтров
-                checks.Children.Add(SalesGrid);
-                ChecksTab.Content = checks;
+                MoveSearchIntoChecksTab();
             }
 
             LowerTabs.Items.Remove(MetricsTab);

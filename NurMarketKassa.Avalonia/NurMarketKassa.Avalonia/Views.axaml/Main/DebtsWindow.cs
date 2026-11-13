@@ -529,27 +529,19 @@ public sealed class DebtsView : UserControl
         }
     }
 
-    /// <summary>2026-10-22 (аудит 1.17.59, П-З): сбой загрузки — понятное сообщение и «Повторить» (раньше только строка итога).</summary>
-    private void ShowLoadError(string reason)
+    /// <summary>2026-10-22 (аудит 1.17.59, П-З): сбой загрузки — понятное сообщение и «Повторить» (раньше только строка итога).
+    /// 2026-11-12 (оценка UX/UI, Д-2): ошибка показывается ОДИН раз — общим блоком состояния по центру списка (раньше: строка итога + фраза + причина — три раза),
+    /// без сырого текста сервера (он — в журнале и под «Подробнее»).</summary>
+    private void ShowLoadError(Exception ex)
     {
         if (_debtors.Count > 0)
             return;
         UseCards(false);
         _list.Children.Clear();
-        var box = new StackPanel { Spacing = 10, HorizontalAlignment = HorizontalAlignment.Left };
-        var text = new TextBlock
-        {
-            Text = T("Не удалось загрузить долги. Проверьте интернет и нажмите «Повторить».", "Карыздарды жүктөө мүмкүн болгон жок. Интернетти текшерип, «Кайталоо» баскычын басыңыз.",
-                "Couldn't load the debts. Check the internet connection and press “Retry”.", "Borçlar yüklenemedi. İnterneti kontrol edip «Yeniden dene»ye basın.",
-                "Qarzlarni yuklab bo'lmadi. Internetni tekshirib, «Qayta urinish»ni bosing.") + (reason.Length > 0 ? "\n" + reason : ""),
-            TextWrapping = TextWrapping.Wrap,
-        };
-        Use(text, TextBlock.ForegroundProperty, "BrushTextSoft");
-        var retry = UiKit.Ghost(this, T("Повторить", "Кайталоо", "Retry", "Yeniden dene", "Qayta urinish"));
-        retry.Click += async (_, _) => await LoadAsync().ConfigureAwait(true);
-        box.Children.Add(text);
-        box.Children.Add(retry);
-        _list.Children.Add(box);
+        _aging.Children.Clear();
+        _list.Children.Add(StateBlock.Failure(this, ex,
+            T("Не удалось загрузить долги", "Карыздарды жүктөө мүмкүн болгон жок", "Couldn't load the debts", "Borçlar yüklenemedi", "Qarzlarni yuklab bo'lmadi"),
+            () => _ = LoadAsync()));
     }
 
     private async Task LoadAsync()
@@ -608,9 +600,15 @@ public sealed class DebtsView : UserControl
                 return;
             PosLogger.Log($"Долги клиентов: не загружены ({ex.GetType().Name}: {ex.Message}).", "WARNING");
             // 2026-11-01 (В-28/В-08): вместо сырого ex.Message («An error occurred…», «mock 500») — единый понятный текст сбоя сервера.
-            var friendly = ServerOutageMonitor.FriendlyError(ex);
-            SetSummary(T("Не удалось загрузить долги: ", "Карыздарды жүктөө мүмкүн болгон жок: ", "Couldn't load debts: ", "Borçlar yüklenemedi: ", "Qarzlarni yuklab bo'lmadi: ") + friendly);
-            ShowLoadError(friendly);
+            // 2026-11-12 (Д-2): список пуст — одна ошибка блоком в списке, строка итога пустая; список уже есть — старый список остаётся, а в итоге одна строка о неудачном обновлении.
+            if (_debtors.Count > 0)
+                SetSummary(T("Не удалось обновить долги: ", "Карыздарды жаңыртуу мүмкүн болгон жок: ", "Couldn't refresh the debts: ", "Borçlar güncellenemedi: ", "Qarzlarni yangilab bo'lmadi: ")
+                    + ServerOutageMonitor.FriendlyError(ex));
+            else
+            {
+                SetSummary("");
+                ShowLoadError(ex);
+            }
         }
     }
 

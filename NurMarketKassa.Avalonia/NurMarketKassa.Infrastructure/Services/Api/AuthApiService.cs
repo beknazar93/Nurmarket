@@ -8,7 +8,7 @@ namespace NurMarketKassa.Services.Api;
 /// Реализация авторизации поверх настроенного транспорта <see cref="NurMarketApiClient"/>.
 /// Состояние токенов хранится в транспорте, так как используется всеми доменными сервисами.
 /// </summary>
-public sealed class AuthApiService : IAuthApiService
+public sealed class AuthApiService : IAuthApiService, IConditionalProfileApi
 {
     private readonly NurMarketApiClient _client;
 
@@ -28,6 +28,9 @@ public sealed class AuthApiService : IAuthApiService
     public Task<JsonElement> LoginAsync(string email, string password, CancellationToken ct = default) =>
         _client.LoginAsync(email, password, ct);
 
+    public Task<JsonElement> LoginAsync(string email, string password, bool replaceDevice, CancellationToken ct = default) =>
+        _client.LoginAsync(email, password, ct, replaceDevice);
+
     public Task<bool> RefreshAccessAsync(CancellationToken ct = default) =>
         _client.RefreshAccessAsync(ct);
 
@@ -41,6 +44,10 @@ public sealed class AuthApiService : IAuthApiService
 
     public Task<JsonElement> GetProfileAsync(CancellationToken ct = default) =>
         _client.GetProfileAsync(ct);
+
+    // 2026-11-13: профиль с If-None-Match (ETag сервера «ev1311»); 304 — права не изменились.
+    public Task<(JsonElement Body, int StatusCode, string? ETag)> GetProfileConditionalAsync(string? ifNoneMatch, CancellationToken ct = default) =>
+        _client.GetConditionalAsync("api/users/profile/", null, ifNoneMatch, ct);
 
     public Task<CompanyDto?> GetCompanyAsync(CancellationToken ct = default) =>
         _client.GetCompanyAsync(ct);

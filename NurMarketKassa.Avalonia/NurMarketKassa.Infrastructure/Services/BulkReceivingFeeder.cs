@@ -355,10 +355,11 @@ public sealed class BulkReceivingFeeder
             if (block > TimeSpan.Zero)
                 await Task.Delay(block, token).ConfigureAwait(false);
             var code = line.Barcode.Trim();
-            var found = await api.FindWarehouseProductByBarcodeAsync(code, token).ConfigureAwait(false);
+            // 2026-11-11 (разбор «Кыргызстанские штрихкоды», п. 4): строка становится приходом к найденному товару, только если у него именно этот штрихкод (основной или доп.).
+            var found = PurchaseReceivingService.OnlyIfHasCode(await api.FindWarehouseProductByBarcodeAsync(code, token).ConfigureAwait(false), code, requireField: true);
             // 12 ↔ 13 цифр (UPC-A / EAN-13 с нулём) — та же запись кода, как в приёмке.
             if (found is null && BarcodeForms.Alternate(code) is { } alternate)
-                found = await api.FindWarehouseProductByBarcodeAsync(alternate, token).ConfigureAwait(false);
+                found = PurchaseReceivingService.OnlyIfHasCode(await api.FindWarehouseProductByBarcodeAsync(alternate, token).ConfigureAwait(false), code, requireField: true);
             if (found is not { } product)
                 return;
 

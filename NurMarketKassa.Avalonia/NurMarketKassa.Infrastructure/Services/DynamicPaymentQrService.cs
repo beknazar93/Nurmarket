@@ -37,9 +37,12 @@ public static class DynamicPaymentQrService
     /// времени файла, чтобы замена картинки в настройках подхватилась сама.</summary>
     private static readonly ConcurrentDictionary<string, string?> DecodedCache = new();
 
-    /// <summary>Последний сгенерированный файл — чтобы не плодить мусор в temp на каждый чек.</summary>
-    private static string? _lastGeneratedPath;
-    private static string? _lastGeneratedKey;
+    /// <summary>Последние сгенерированные файлы — чтобы не плодить мусор в temp на каждый чек.
+    /// 2026-11-12: было одно место — теперь QR с суммой строят двое (экран покупателя и окно оплаты на кассе), и при разных суммах/размерах
+    /// они удаляли бы файл друг друга и перерисовывали QR по кругу. Держим несколько последних, старые удаляем.</summary>
+    private static readonly System.Collections.Generic.List<(string Key, string Path)> Generated = new();
+    private const int GeneratedKeep = 6;
+    private static readonly object GeneratedLock = new();
 
     private static string OutputDirectory => Path.Combine(Path.GetTempPath(), NurMarketKassa.Services.AppMode.DataFolderName, "qr");
 
@@ -170,9 +173,15 @@ public static class DynamicPaymentQrService
 
         // Один и тот же чек перерисовывается много раз (экран обновляется на каждое изменение
         // корзины) — если сумма и банк не поменялись, отдаём уже готовый файл.
-        var key = staticQrImagePath + "|" + dynamicPayload;
-        if (key == _lastGeneratedKey && _lastGeneratedPath is { } cached && File.Exists(cached))
-            return cached;
+        var key = staticQrImagePath + "|" + sizePx.ToString(CultureInfo.InvariantCulture) + "|" + dynamicPayload;
+        lock (GeneratedLock)
+        {
+            var hit = Generated.FindIndex(g => g.Key == key);
+            if (hit >= 0 && File.Exists(Generated[hit].Path))
+                return Generated[hit].Path;
+            if (hit >= 0)
+                Generated.RemoveAt(hit);
+        }
 
         try
         {
@@ -180,14 +189,18 @@ public static class DynamicPaymentQrService
             var target = Path.Combine(OutputDirectory, $"dynamic_{Guid.NewGuid():N}.png");
 
             // 2026-11-05 (аудит №4, А4-09): на Android и Linux System.Drawing нет — QR рисуется матрицей ZXing и пишется как PNG (QrPngWriter).
-            if (OperatingSystem.IsWindows())
-                RenderWindows(dynamicPayload, sizePx, target);
-            else
-                QrPngWriter.Write(dynamicPayload, sizePx, target);
+            // 2026-11-12: и на Windows тоже через QrPngWriter — тихая зона 4 модуля и коррекция M одинаковы на всех системах (через System.Drawing было поле в 1 модуль).
+            QrPngWriter.Write(dynamicPayload, sizePx, target);
 
-            DeleteQuietly(_lastGeneratedPath);
-            _lastGeneratedPath = target;
-            _lastGeneratedKey = key;
+            lock (GeneratedLock)
+            {
+                Generated.Add((key, target));
+                while (Generated.Count > GeneratedKeep)
+                {
+                    DeleteQuietly(Generated[0].Path);
+                    Generated.RemoveAt(0);
+                }
+            }
             return target;
         }
         catch (Exception ex)
@@ -195,15 +208,6 @@ public static class DynamicPaymentQrService
             PosLogger.Log($"Не удалось собрать динамический QR: {ex.GetType().Name}: {ex.Message}", "QR");
             return null;
         }
-    }
-
-    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
-    [SupportedOSPlatform("windows")]
-    private static void RenderWindows(string payload, int sizePx, string target)
-    {
-        using var bitmap = BarcodeLabelService.RenderBarcode(
-            payload, sizePx, sizePx, LabelBarcodeFormat.QrCode, margin: 1);
-        bitmap.Save(target, ImageFormat.Png);
     }
 
     private static void DeleteQuietly(string? path)

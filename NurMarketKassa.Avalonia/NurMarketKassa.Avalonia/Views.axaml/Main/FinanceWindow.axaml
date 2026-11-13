@@ -280,10 +280,12 @@
                     <!-- Заголовок с кнопкой гамбургера -->
                     <Grid Row="0" x:Name="HeaderBlock" Margin="0,0,0,16" RowDefinitions="Auto,Auto">
                     <Grid Grid.Row="0" x:Name="HeaderRow">
+                        <!-- 2026-11-12 (оценка UX/UI, Д-3): шапка как в «Продажах» — слева ☰ и заголовок (часы сразу за ним), справа Excel / Word / «Обновить» / «Назад».
+                             Раньше три равные колонки: заголовок стоял посередине, а кнопка называлась «Выйти» против «Назад» в «Продажах». -->
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition />
+                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <Button x:Name="HamburgerButton" Grid.Column="0"
                         Content="☰" Width="40" Height="40" Padding="0"
@@ -296,31 +298,33 @@
                         VerticalAlignment="Center" Margin="0,0,12,0"/>
                         <!-- 2026-10-18, доводка О4: часы кассира — в шапке рядом с ☰ (была своя строка под плитками: пустая рамка,
                              на 1024 в таблице чеков на 1–2 строки меньше). В программе владельца скрыты (AsOwnerSection). -->
-                        <Border Grid.Column="0" x:Name="ClockBadge" Classes="TimeBadge" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="52,0,12,0">
-                            <TextBlock x:Name="CurrentTimeText" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"
-                                       FontFeatures="{DynamicResource TabularNumbers}" />
-                        </Border>
-                        <TextBlock Grid.Column="1" x:Name="HeaderTitleText"
-                           Text="{DynamicResource csh.menu.finance}"
-                           FontSize="26" FontWeight="Bold"
-                           Foreground="{DynamicResource BrushText}"
-                           VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                            <TextBlock x:Name="HeaderTitleText"
+                               Text="{DynamicResource csh.menu.finance}"
+                               FontSize="26" FontWeight="Bold"
+                               Foreground="{DynamicResource BrushText}"
+                               VerticalAlignment="Center" />
+                            <Border x:Name="ClockBadge" Classes="TimeBadge" VerticalAlignment="Center">
+                                <TextBlock x:Name="CurrentTimeText" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"
+                                           FontFeatures="{DynamicResource TabularNumbers}" />
+                            </Border>
+                        </StackPanel>
                         <!-- 2026-10-18, этап О3 (правило аудита 1): одна главная кнопка — жёлтая «Обновить» (sec-primary),
                              Excel / Word / «Выход» — обводкой (sec-outline), без серой заливки. Стили — PosDialogStyles.axaml. -->
-                        <StackPanel Grid.Column="2" x:Name="HeaderActions" Orientation="Horizontal" VerticalAlignment="Center">
-                            <Button Content="Excel" Classes="sec-outline" Margin="0,0,6,0"
+                        <StackPanel Grid.Column="2" x:Name="HeaderActions" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <Button Content="Excel" Classes="sec-outline"
                                     Click="ExportExcel_Click"
                                     ToolTip.Tip="{DynamicResource loc.owner.finance.excelTip}"/>
-                            <Button Content="Word" Classes="sec-outline" Margin="0,0,6,0"
+                            <Button Content="Word" Classes="sec-outline"
                                     Click="ExportWord_Click"
                                     ToolTip.Tip="{DynamicResource loc.owner.finance.wordTip}"/>
                             <!-- 2026-11-06 (В11, Д4-25): «Обновить» — не главное действие раздела: значок 40×40 с подсказкой, без жёлтой заливки (жёлтое — только действие раздела). -->
                             <Button x:Name="RefreshButton" Classes="sec-outline" Width="40" Height="40" MinWidth="40" MinHeight="40" Padding="0"
-                                    Margin="0,0,10,0" Click="Refresh_Click"
+                                    Click="Refresh_Click"
                                     ToolTip.Tip="{DynamicResource common.refresh}" AutomationProperties.Name="{DynamicResource common.refresh}">
                                 <PathIcon Data="{StaticResource IconRefresh}" Width="18" Height="18"/>
                             </Button>
-                            <Button x:Name="ExitButton" Content="{DynamicResource common.exit}" Classes="sec-outline"
+                            <Button x:Name="ExitButton" Content="{DynamicResource common.back}" Classes="sec-outline"
             Click="Exit_Click" />
                         </StackPanel>
                     </Grid>
@@ -439,10 +443,11 @@
                         <Border Background="{DynamicResource BrushPanel}" CornerRadius="12" Padding="16"
             BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" MinWidth="400" MaxWidth="600">
                             <Grid>
+                                <!-- 2026-11-12 (аудит 12.11, Д-5): шапка и низ — по содержимому, прокручиваемый список — остаток (высота карточки ограничивается в программе владельца). -->
                                 <Grid.RowDefinitions>
-                                    <RowDefinition />
+                                    <RowDefinition Height="Auto" />
                                     <RowDefinition Height="*" />
-                                    <RowDefinition />
+                                    <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
                                 <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,10">
                                     <TextBlock Grid.Column="0" x:Name="PopupTitle" FontWeight="Bold" FontSize="16" VerticalAlignment="Center"
@@ -462,8 +467,11 @@
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
                                 </ScrollViewer>
-                                <Button Grid.Row="2" Content="{DynamicResource common.close}" Classes="sec-outline"
-                    HorizontalAlignment="Right" Margin="0,10,0,0" Click="CloseReceiptDetails_Click" />
+                                <!-- 2026-11-12 (возврат чеков в программе владельца): над «Закрыть» — «Возврат» и «Правка возвратов» (код: ShowPopupReturnActions). -->
+                                <StackPanel Grid.Row="2" x:Name="PopupFooterPanel" Margin="0,10,0,0">
+                                <Button Content="{DynamicResource common.close}" Classes="sec-outline"
+                    HorizontalAlignment="Right" Click="CloseReceiptDetails_Click" />
+                                </StackPanel>
                             </Grid>
                         </Border>
                     </Popup>
@@ -679,6 +687,17 @@
                                             <DataGridTextColumn Header="{DynamicResource common.quantity}" Width="Auto" MinWidth="90" Binding="{ReflectionBinding QuantityDisplay}" />
                                             <DataGridTextColumn Header="{DynamicResource common.amount}" Width="120" Binding="{ReflectionBinding AmountDisplay}" />
                                             <DataGridTextColumn Header="{DynamicResource common.reason}" Width="2*" MinWidth="120" Binding="{ReflectionBinding DeletedBy}" />
+                                            <!-- 2026-11-11 (сервер Умара, pos_return_edit_24h): «Правка» — окно возвратов чека (Редактировать / Удалить / История); только при признаке сервера. -->
+                                            <DataGridTemplateColumn Width="Auto">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <Button Classes="sec-outline" Padding="10,2" MinHeight="30" Margin="4,2" VerticalAlignment="Center"
+                                                                Content="{ReflectionBinding ManageText}" IsVisible="{ReflectionBinding CanManage}"
+                                                                AutomationProperties.Name="{ReflectionBinding ManageText}"
+                                                                Click="RefundManage_Click"/>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
                                         </DataGrid.Columns>
                                     </DataGrid>
                                 </Grid>

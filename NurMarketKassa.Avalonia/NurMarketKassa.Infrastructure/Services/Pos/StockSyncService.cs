@@ -165,10 +165,118 @@ public static class StockSyncService
     /// <summary>2026-11-01 (расследование «остаток не меняется», П-4): остаток товара менялся на этом ПК ПОСЛЕ указанного момента (начала загрузки каталога) —
     /// страницы, скачанные до этого, несут остаток без этой операции.</summary>
     public static bool TouchedSince(string productId, DateTime sinceUtc) =>
-        LocalTouches.TryGetValue(productId, out var at) && Environment.TickCount64 - at <= (DateTime.UtcNow - sinceUtc).TotalMilliseconds;
+        IsReceiptHeld(productId) // 2026-11-11 (Д-4): приход товара в пути — серверный остаток мог уже включать его
+        || LocalTouches.TryGetValue(productId, out var at) && Environment.TickCount64 - at <= (DateTime.UtcNow - sinceUtc).TotalMilliseconds;
+
+    /// <summary>2026-11-12 (Л-23): остаток менялся на этом ПК после <paramref name="sinceUtc"/> — только местные операции, без защиты «приход в пути».</summary>
+    internal static bool LocalTouchedSince(string productId, DateTime sinceUtc) =>
+        LocalTouches.TryGetValue(productId.Trim(), out var at) && Environment.TickCount64 - at <= (DateTime.UtcNow - sinceUtc).TotalMilliseconds;
+
+    /// <summary>2026-11-12 (Л-23): товар продан соседней кассой по LAN, сервер ещё не знает (как в FeedStockGuard.IsHeldByLocalActivity).</summary>
+    private static bool LanPending(string productId)
+    {
+        try
+        {
+            return UserPreferences.Instance.LanSyncEnabled
+                && Lan.LanStockAdjuster.PendingProductIds().Any(p => string.Equals(p, productId, StringComparison.OrdinalIgnoreCase));
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            return true;
+        }
+    }
 
     public static bool WasLocallyTouched(string productId, TimeSpan window) =>
-        LocalTouches.TryGetValue(productId, out var at) && Environment.TickCount64 - at < window.TotalMilliseconds;
+        IsReceiptHeld(productId) // 2026-11-11 (Д-4): приход товара в пути
+        || LocalTouches.TryGetValue(productId, out var at) && Environment.TickCount64 - at < window.TotalMilliseconds;
+
+    /// <summary>2026-11-13: защита остатков перед записью полной загрузки (общая для AvaloniaCatalogCacheService и запасного пути CatalogCacheService.SyncCatalogFullAsync): товар, чей остаток менялся
+    /// на этом ПК за последние 90 с или после начала загрузки (<paramref name="snapshotStartedUtc"/>), или чей приход стоит в очереди («приход в пути»), сохраняет локальный остаток вместо серверного снимка;
+    /// потом его перечитают с сервера.</summary>
+    public static void KeepLocalStockForTouched(IEnumerable<CatalogProductTileVm> list, DateTime snapshotStartedUtc)
+    {
+        foreach (var vm in list)
+        {
+            // 2026-11-01 (П-4): и всё, что менялось ПОСЛЕ начала загрузки (долгая загрузка 2–6 мин): страницы до продажи несут остаток без неё.
+            if (vm.Id is null || !(WasLocallyTouched(vm.Id, FeedStockGuard.LocalTouchWindow) || TouchedSince(vm.Id, snapshotStartedUtc)))
+                continue;
+            if (LocalProductRepository.Instance.LoadTileCopy(vm.Id) is { } keep)
+                ApplyQuantityToTile(vm, keep.Quantity, vm.MustWeigh);
+            ScheduleStockReread(vm.Id, FeedStockGuard.LocalTouchWindow + TimeSpan.FromSeconds(5)); // 2026-11-01 (С-4): оставили локальный — потом перечитаем с сервера
+        }
+    }
+
+    // 2026-11-11 (Д-4, живая проверка на NBS: приход упаковками 2 × 5 — в «Склад → Товары» 20 шт вместо 10, журнал «лента: остаток … не применён»): очередь фоновых приходов
+    // прибавляет принятое к ТЕКУЩЕМУ остатку плитки после ответа сервера (BackgroundReceivingQueue.ApplyStockToTileAsync). Между записью на сервере и этой прибавкой лента
+    // (опрос ~3 с), точечное обновление или полная загрузка успевали положить на плитку серверный остаток, УЖЕ включающий приход (0 → 10), — очередь прибавляла 10 второй раз (20),
+    // а защита «трогали недавно» (90 с) после этого не пускала верное число из ленты. Теперь товары, чей приход стоит в очереди и ещё не прибавлен к плитке, для ленты, точечного
+    // обновления, полной загрузки и перечитывания считаются «трогали сейчас» (WasLocallyTouched/TouchedSince) — с постановки в очередь до прибавки или до завершения строки без прихода.
+    // Наборы — по владельцу (очередь), после публикации не меняются: читаются без замка на каждом товаре ленты.
+    private static readonly Dictionary<object, HashSet<string>> ReceiptHoldOwners = new(ReferenceEqualityComparer.Instance);
+    private static HashSet<string>[] _receiptHolds = [];
+
+    /// <summary>2026-11-11 (Д-4): заменить набор товаров «приход в пути» владельца <paramref name="owner"/> (пустой набор — снять все его товары).</summary>
+    public static void SetReceiptHolds(object owner, IEnumerable<string?> productIds)
+    {
+        var set = new HashSet<string>(productIds.Where(id => !string.IsNullOrWhiteSpace(id)).Select(id => id!.Trim()), StringComparer.OrdinalIgnoreCase);
+        lock (ReceiptHoldOwners)
+        {
+            if (set.Count == 0)
+                ReceiptHoldOwners.Remove(owner);
+            else
+                ReceiptHoldOwners[owner] = set;
+            Volatile.Write(ref _receiptHolds, ReceiptHoldOwners.Values.ToArray());
+        }
+    }
+
+    /// <summary>2026-11-11 (Д-4): приход этого товара стоит в очереди и ещё не прибавлен к плитке.</summary>
+    public static bool IsReceiptHeld(string? productId)
+    {
+        var sets = Volatile.Read(ref _receiptHolds);
+        if (sets.Length == 0 || string.IsNullOrWhiteSpace(productId))
+            return false;
+        var id = productId.Trim();
+        foreach (var s in sets)
+            if (s.Contains(id))
+                return true;
+        return false;
+    }
+
+    /// <summary>2026-11-11 (Д-4): остаток товара после ЕГО прихода — с сервера (источник правды) на плитку и в базу, минус неотправленные чеки этого ПК. Для строк, где
+    /// «остаток плитки + принятое» посчитать нельзя: «упаковка с поштучной продажей» у товара склада — приход в упаковках, а плитка до перевода (convert-to-packages) в штуках.
+    /// Защиту «приход в пути» не спрашивает: её держит сам этот приход, а сервер его уже учёл. true — записано.</summary>
+    public static async Task<bool> ApplyServerStockAfterReceiptAsync(string productId, CancellationToken ct = default)
+    {
+        try
+        {
+            var startedUtc = DateTime.UtcNow; // 2026-11-12 (Л-23): отметка начала запроса — как в RefreshStockFromServerAsync
+            var detail = await PosApp.CatalogApi.ProductsDetailAsync(productId, ct).ConfigureAwait(false);
+            if (detail is not { } el)
+                return false;
+            var tile = CatalogCacheService.FindProductById(productId);
+            if (tile is null)
+                return false;
+            // 2026-11-12 (Л-23, аудит Fable): продажа/возврат этого товара на этой кассе за время запроса — ответ мог быть построен до неё, запись затёрла бы её. Не пишем, вызывающий
+            // поставит перечитывание (оно ждёт окно защиты «трогали недавно»). «Приход в пути» не спрашиваем: его держит сам этот приход (TouchedSince здесь не годится).
+            if (LocalTouchedSince(productId, startedUtc) || LanPending(productId))
+            {
+                PosLogger.Log($"STOCK: остаток товара {productId} менялся здесь во время запроса после прихода — серверное значение не записано, повтор позже.", "STOCK");
+                return false;
+            }
+            var server = ResolveStockQuantity(el, tile.MustWeigh);
+            var unsent = FeedStockGuard.UnsentQuantity(productId);
+            var qty = unsent > 0 ? Math.Max(0, server - unsent) : server;
+            PosLogger.Log($"STOCK: остаток товара {productId} после прихода — с сервера: {tile.Quantity:0.###} → {qty:0.###}" + (unsent > 0 ? $" (сервер {server:0.###} минус неотправленные чеки {unsent:0.###})." : "."), "STOCK");
+            UiDispatcherHolder.Post(() => ApplyQuantityCore(tile, qty, tile.MustWeigh));
+            CatalogCacheService.PersistProductStock(productId, qty, tile.MustWeigh);
+            return true;
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            PosLogger.Log($"STOCK: остаток товара {productId} после прихода не прочитан с сервера ({ex.GetType().Name}: {ex.Message}) — перечитаем позже.", "STOCK");
+            return false;
+        }
+    }
 
     public static void DecrementLocalStock(string productId, double soldQty)
     {
@@ -289,7 +397,17 @@ public static class StockSyncService
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (long Due, long Since)> RereadQueue = new(StringComparer.OrdinalIgnoreCase);
     private static readonly object RereadLoopGate = new();
     private static bool _rereadLoopRunning;
-    private static readonly long RereadMaxAgeMs = (long)TimeSpan.FromMinutes(30).TotalMilliseconds;
+    // 2026-11-12 (Л-6): срок жизни записи, шаг цикла и пауза «защита действует» — поля для тестов (по умолчанию 30 минут, 5 с и 30 с, как раньше).
+    internal static TimeSpan RereadMaxAge = TimeSpan.FromMinutes(30);
+    internal static TimeSpan RereadTick = TimeSpan.FromSeconds(5);
+    internal static TimeSpan RereadRetryDelay = TimeSpan.FromSeconds(30);
+
+    /// <summary>2026-11-12 (Л-6): товар стоит в очереди перечитывания остатка (для тестов).</summary>
+    internal static bool IsRereadScheduled(string productId) => RereadQueue.ContainsKey(productId.Trim());
+
+    /// <summary>2026-11-12 (Л-6): через сколько перечитывание товара (null — не стоит в очереди); для тестов.</summary>
+    internal static TimeSpan? RereadDueIn(string productId) =>
+        RereadQueue.TryGetValue(productId.Trim(), out var e) ? TimeSpan.FromMilliseconds(e.Due - Environment.TickCount64) : null;
 
     /// <summary>Поставить товар в очередь перечитывания остатка через <paramref name="delay"/> (если он уже в очереди — срок не сдвигается).</summary>
     public static void ScheduleStockReread(string productId, TimeSpan delay)
@@ -297,7 +415,7 @@ public static class StockSyncService
         if (string.IsNullOrWhiteSpace(productId))
             return;
         var now = Environment.TickCount64;
-        RereadQueue.AddOrUpdate(productId.Trim(), (now + (long)delay.TotalMilliseconds, now), (_, old) => old);
+        RereadQueue.AddOrUpdate(productId.Trim(), (now + (long)delay.TotalMilliseconds, now), (_, old) => (old.Due, now)); // 2026-11-12 (Л-6): срок не сдвигается, возраст считается с последнего запроса
         lock (RereadLoopGate)
         {
             if (_rereadLoopRunning)
@@ -329,7 +447,7 @@ public static class StockSyncService
         {
             while (!RereadQueue.IsEmpty)
             {
-                await Task.Delay(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+                await Task.Delay(RereadTick).ConfigureAwait(false);
                 var now = Environment.TickCount64;
                 var due = RereadQueue.Where(kv => kv.Value.Due <= now).Select(kv => kv.Key).ToList();
                 if (due.Count == 0)
@@ -339,14 +457,21 @@ public static class StockSyncService
                 {
                     if (!RereadQueue.TryGetValue(id, out var entry))
                         continue;
-                    if (now - entry.Since > RereadMaxAgeMs)
+                    // 2026-11-12 (Л-6, аудит Fable): пока приход товара ждёт в очереди (защита «приход в пути»), запись не стареет — иначе после 30 минут ожидания перечитывание
+                    // снималось, и чужие продажи за это время так и не подтягивались. Возраст отсчитывается заново с момента снятия защиты.
+                    if (IsReceiptHeld(id))
+                    {
+                        RereadQueue[id] = (now + (long)RereadRetryDelay.TotalMilliseconds, now);
+                        continue;
+                    }
+                    if (now - entry.Since > (long)RereadMaxAge.TotalMilliseconds)
                     {
                         RereadQueue.TryRemove(id, out _);
                         continue;
                     }
                     if (FeedStockGuard.IsHeldByLocalActivity(id))
                     {
-                        RereadQueue[id] = (now + 30_000, entry.Since); // защита ещё действует — позже
+                        RereadQueue[id] = (now + (long)RereadRetryDelay.TotalMilliseconds, entry.Since); // защита ещё действует — позже
                         continue;
                     }
                     RereadQueue.TryRemove(id, out _);

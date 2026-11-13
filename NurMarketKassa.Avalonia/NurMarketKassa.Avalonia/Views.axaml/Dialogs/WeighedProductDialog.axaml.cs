@@ -123,7 +123,7 @@ public partial class WeighedProductDialog : Window
             LiveScaleBlock.IsVisible = _scaleLive;
         }
 
-        WeightBox.Text = !string.IsNullOrEmpty(initialKg) ? initialKg : "0.00";
+        WeightBox.Text = !string.IsNullOrEmpty(initialKg) ? initialKg.Replace('.', ',') : "0,00"; // 2026-11-12 (Д-5): вес с запятой (разбор принимает обе)
         LiveScaleText.Text = FormatLiveScaleText();
 
         ModeTabsRow.IsVisible = _pricePerKg > 0;
@@ -141,7 +141,7 @@ public partial class WeighedProductDialog : Window
                 if (!_isAmountMode && _scale?.LastWeight is double w && w > 0)
                     // Без TrimEnd: у целого веса формат не печатает точку, и TrimEnd('0') отрезал
                     // нули самого числа — ровно 10 кг с весов подставлялись в поле как 1.
-                    WeightBox.Text = w.ToString("0.###", CultureInfo.InvariantCulture);
+                    WeightBox.Text = MoneyText.Weight(w);
             };
             Opened += (_, _) => _timer.Start();
             Closed += (_, _) => _timer.Stop();
@@ -185,7 +185,7 @@ public partial class WeighedProductDialog : Window
         }
 
         // Если весь текст выделен или поле содержит "0.00" / "0", заменяем новым вводом
-        if (selectionLength == currentText.Length || currentText == "0.00" || currentText == "0")
+        if (selectionLength == currentText.Length || currentText == "0.00" || currentText == "0,00" || currentText == "0")
         {
             if (inputChar == ",") inputChar = "0,";
             WeightBox.Text = inputChar;
@@ -284,7 +284,7 @@ public partial class WeighedProductDialog : Window
         // Поле переиспользуется под другую величину — начинаем заново, чтобы старое значение
         // веса не читалось как сумма (или наоборот).
         _suppressPreviewUpdate = true;
-        WeightBox.Text = "0.00";
+        WeightBox.Text = "0,00";
         _suppressPreviewUpdate = false;
 
         WeightBox.Focus();
@@ -333,7 +333,7 @@ public partial class WeighedProductDialog : Window
         // Показываем её до «В чек», чтобы кассир и покупатель видели итог заранее.
         var roundedKg = Math.Round(weightKg, 3, MidpointRounding.AwayFromZero);
         var lineTotal = Math.Round(roundedKg * _pricePerKg, 2, MidpointRounding.AwayFromZero);
-        ComputedPreviewText.Text = "≈ " + roundedKg.ToString("0.###", CultureInfo.InvariantCulture) + " " +
+        ComputedPreviewText.Text = "≈ " + MoneyText.Weight(roundedKg) + " " +
             Tr.T("кг", "кг", "kg", "kg", "kg")
             + (Math.Abs(lineTotal - amount) >= 0.005
                 ? " · " + Tr.T("в чеке: ", "чекте: ", "on the receipt: ", "fişte: ", "chekda: ") + MoneyText.Som(lineTotal)
@@ -359,8 +359,8 @@ public partial class WeighedProductDialog : Window
         if (!_scaleLive)
             return "—";
         return _scale?.LastWeight is double w
-            ? w.ToString("0.00", CultureInfo.InvariantCulture) + Tr.T(" кг", " кг", " kg", " kg", " kg")
-            : Tr.T("0.00 кг", "0.00 кг", "0.00 kg", "0.00 kg", "0.00 kg");
+            ? MoneyText.Weight(w, "0.00") + Tr.T(" кг", " кг", " kg", " kg", " kg")
+            : Tr.T("0,00 кг", "0,00 кг", "0,00 kg", "0,00 kg", "0,00 kg");
     }
 
     private void FromScale_Click(object? sender, RoutedEventArgs e)
@@ -378,7 +378,7 @@ public partial class WeighedProductDialog : Window
         }
 
         // Без TrimEnd — см. выше: ровно 10 кг по кнопке «С весов» давали 1.
-        WeightBox.Text = w.ToString("0.###", CultureInfo.InvariantCulture);
+        WeightBox.Text = MoneyText.Weight(w);
         WeightBox.SelectAll();
     }
 

@@ -179,6 +179,9 @@ public partial class MainWindow : Window
         CompanyInfoService.OtherCompanyDetected += OnOtherCompanyDetected;
         // 2026-10-29 (скорость синхронизации): режим окна и «есть товары в чеке» — для адаптивного опроса ленты (3 с / 8 с / 30–60 с).
         NurMarketKassa.AvaloniaHost.Services.SyncActivityWatcher.Attach(this, _viewModel.Basket, () => _viewModel.Basket.HasItems);
+        // 2026-11-11 (доступы «с сайта»): владелец поменял доступы на сайте или в программе владельца — меню кассы по новым правам без перезапуска.
+        PermissionRecheck.PermissionsChanged -= OnAccessChangedFromSite;
+        PermissionRecheck.PermissionsChanged += OnAccessChangedFromSite;
         // 2026-10-20 (живой аудит кассы, К1–К3, К6): как заплатили — для суммы возврата и «Истории чеков» после возврата.
         _viewModel.Basket.CheckoutSucceeded += RememberSaleForReturns;
         // 2026-10-20 (К12): оплата долга (в этой кассе, в программе владельца или на соседней кассе) — «Касса» в шапке сразу.
@@ -272,6 +275,9 @@ public partial class MainWindow : Window
             _ = window.ShowDialog(this);
         };
         NurMarketKassa.AvaloniaHost.Views.Main.Controls.BasketExtraActions.OpenRentals ??= _viewModel.SideMenu.NavigateRentalAction;
+        // 2026-11-13: «Ремонт и сервис» и «Trade-in / скупка» — подключаемые функции Маркетплейса (MainWindow.ServiceDesk.cs).
+        _viewModel.SideMenu.NavigateRepairAction ??= NavigateRepair;
+        _viewModel.SideMenu.NavigateTradeInAction ??= NavigateTradeIn;
         // 2026-10-17, редизайн (этап 4): журнал «Удалено из чека» — владельцу и администратору (как «Настройки»).
         _viewModel.SideMenu.NavigateCartRemovalsAction ??= () =>
         {
@@ -1126,7 +1132,7 @@ public partial class MainWindow : Window
     {
         if (_customerDisplay.IsOpen)
         {
-            _ = _customerDisplay.CloseAsync(true);
+            _ = _customerDisplay.CloseAsync(true, "Ctrl+M или кнопка «Экран покупателя» в кассе"); // 2026-11-11 (Д-6): путь — в журнал
             // 2026-10-21 (пакет 6, п. 56): без модального окна — строкой под чеком.
             _viewModel.Basket.CartMessage = Tr.T("Экран покупателя скрыт.", "Сатып алуучунун экраны жашырылды.", "Customer display hidden.", "Müşteri ekranı gizlendi.", "Xaridor ekrani yashirildi.");
             RestoreScannerFocus();
@@ -1962,10 +1968,28 @@ public partial class MainWindow : Window
         dlg.SuggestedBalance = EffectiveShiftCashBalance;
         dlg.Totals = _shiftTotals;
         _ = RefreshBalanceInBackgroundAsync(dlg);
+        _ = ReconcileReturnsForCloseAsync(dlg); // 2026-11-13 (проверка денег, п. 2/п. 3): возвраты изменили вне кассы — поправка в смену до того, как кассир пересчитает ящик
         if (await PosDialogHost.ShowAsync(dlg, this).ConfigureAwait(true) != true)
             return;
 
         await ApplyShiftClosedAsync(dlg.ClosingCash, allowWithoutShiftsRight).ConfigureAwait(true);
+    }
+
+    /// <summary>2026-11-13 (проверка денег, п. 2/п. 3): при закрытии смены один раз сверить возвраты кассы с сервером (фоном, не задерживая окно, до 8 с): возврат, изменённый или аннулированный
+    /// в программе владельца, на сайте или на другой кассе, меняет «в ящике должно быть». Появились поправки — строки операций и раскладка ящика в открытом окне перечитываются.</summary>
+    private static async Task ReconcileReturnsForCloseAsync(CloseShiftDialog dlg)
+    {
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+            var report = await Task.Run(() => ReturnJournalSync.TickAsync(force: true, cts.Token), cts.Token).ConfigureAwait(true);
+            if (report is { Any: true })
+                dlg.RefreshShiftOperations();
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            PosLogger.Log($"Закрытие смены: сверка возвратов с сервером не выполнена ({ex.GetType().Name}).", "SHIFT");
+        }
     }
 
     /// <summary>Фоновая часть исправления из CloseShiftAsync — см. её комментарий.</summary>
@@ -2038,6 +2062,21 @@ public partial class MainWindow : Window
             ShowModuleWindow<WarehouseWindow>();
     }
 
+    /// <summary>2026-11-11 (доступы «с сайта»): профиль перечитан, и доступы другие — пункты меню по новым правам, плашка «Доступы обновлены с сайта».
+    /// Приходит из фонового потока.</summary>
+    private void OnAccessChangedFromSite() => Dispatcher.UIThread.Post(() =>
+    {
+        try
+        {
+            _viewModel.SideMenu.RefreshEntitlements();
+            NurMarketKassa.AvaloniaHost.Services.AccessSyncNotice.Show();
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Права: меню кассы не обновлено после изменения доступов ({ex.Message}).", "WARNING");
+        }
+    });
+
     /// <summary>Раздел владельца из кассы (2026-09-26, разделение программ): при входе через NurCRM
     /// он в программе «NurMarket Владелец». Пункты меню скрыты, но в раздел ведут и другие пути
     /// (например, «Добавить товар» при пустом каталоге) — там кассир получает подсказку.</summary>
@@ -2101,6 +2140,14 @@ public partial class MainWindow : Window
         if (!_session.IsShiftOpen && !OfflineModeHelper.SellLocally)
         {
             _viewModel.Basket.CartMessage = Tr.T("Откройте смену, чтобы оформить возврат.", "Кайтарууну жасоо үчүн сменаны ачыңыз.", "Open a shift to make a return.", "İade yapmak için vardiya açın.", "Qaytarishni rasmiylashtirish uchun smenani oching.");
+            // 2026-11-11 (живой показ 1.17.85, Д-11: мелкую строку под чеком легко не заметить): причина — заметным предупреждением, с тем, что сделать.
+            _ = NurMarketKassa.AvaloniaHost.Views.Dialogs.PosAlertDialog.ShowAsync(this, Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"),
+                Tr.T("Смена закрыта — возврат оформляется только в открытой смене (деньги возврата должны попасть в отчёт смены).\n\nОткройте смену: меню ☰ → «Открыть смену», затем снова «Возврат».",
+                    "Смена жабык — кайтаруу ачык сменада гана жасалат (кайтаруунун акчасы сменанын отчетуна түшүшү керек).\n\nСменаны ачыңыз: меню ☰ → «Сменаны ачуу», андан кийин кайра «Кайтаруу».",
+                    "The shift is closed — a return can only be made in an open shift (the refund must go into the shift report).\n\nOpen a shift: menu ☰ → “Open shift”, then “Return” again.",
+                    "Vardiya kapalı — iade yalnızca açık vardiyada yapılır (iade parası vardiya raporuna girmelidir).\n\nVardiya açın: menü ☰ → «Vardiya aç», sonra yine «İade».",
+                    "Smena yopiq — qaytarish faqat ochiq smenada rasmiylashtiriladi (qaytarish puli smena hisobotiga tushishi kerak).\n\nSmenani oching: menyu ☰ → «Smenani ochish», keyin yana «Qaytarish»."),
+                NurMarketKassa.AvaloniaHost.Views.Dialogs.PosAlertKind.Warning);
             return;
         }
         // 2026-10-29: нет связи (авария сервера или вход без интернета) — возврат без связи по чекам, которые касса помнит (владелец разрешил).

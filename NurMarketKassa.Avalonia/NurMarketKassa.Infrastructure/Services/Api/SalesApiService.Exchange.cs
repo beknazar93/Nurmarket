@@ -107,11 +107,7 @@ public sealed partial class SalesApiService : IPosExchangeApi
         if (lines is { Count: > 0 })
         {
             body["items"] = lines
-                .Select(l => new Dictionary<string, object>
-                {
-                    ["sale_item_id"] = l.LineId.Trim(),
-                    ["quantity"] = FormatRefundQty(l.Quantity),
-                })
+                .Select(l => RefundItem(l))
                 .ToList();
         }
 

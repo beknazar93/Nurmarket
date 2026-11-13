@@ -95,6 +95,22 @@ public sealed class WindowLayerHost : Panel
         // 2026-11-11: «слабое устройство» — без анимации появления (ModalMotion.ReduceMotion).
         if (!(IsMainWindow?.Invoke(window) ?? false) && !NurMarketKassa.AvaloniaHost.Views.Dialogs.ModalMotion.ReduceMotion)
             AnimateIn(layer, modal);
+        // 2026-11-11: замер «до первого кадра» модалки — как на Windows/Linux (журнал медленных открытий и защита включённого размытия).
+        if (modal)
+        {
+            var started = System.Diagnostics.Stopwatch.GetTimestamp();
+            var name = window.GetType().Name;
+            try
+            {
+                AvTopLevel.GetTopLevel(this)?.RequestAnimationFrame(_ =>
+                    NurMarketKassa.AvaloniaHost.Views.Dialogs.ModalOpenTiming.Report(name, 0,
+                        (System.Diagnostics.Stopwatch.GetTimestamp() - started) * 1000.0 / System.Diagnostics.Stopwatch.Frequency));
+            }
+            catch
+            {
+                // нет отрисовки — без замера
+            }
+        }
         // 2026-10-04: журнал окон — чтобы по журналу Android было видно, какое окно висит сверху.
         NurMarketKassa.Services.PosLogger.Log($"Android: окно открыто {window.GetType().Name}{(modal ? " (модальное)" : "")}, слоёв {_windows.Count}.", "UI");
         // 2026-10-04, диагностика «модалка открыта, но её не видно»: через секунду — размеры и видимость слоёв.

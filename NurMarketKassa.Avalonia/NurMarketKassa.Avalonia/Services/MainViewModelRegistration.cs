@@ -165,6 +165,11 @@ internal static class MainViewModelRegistration
             + basket.GetQuantityInOtherOpenReceipts(productId);
         var availableInStockUnits = Math.Max(0, product.Quantity - reserved);
 
+        // 2026-11-13 (ответ Умара, строймаркет): строка в упаковке (sale_unit:…) считается в упаковках, остаток — в базовых единицах: предел = остаток ÷ множитель.
+        if (!string.IsNullOrWhiteSpace(salePackageId) && salePackageId.StartsWith(ProductSaleUnits.LinePrefix, StringComparison.Ordinal)
+            && ProductSaleUnits.Find(productId, salePackageId[ProductSaleUnits.LinePrefix.Length..]) is { Factor: > 0m } saleUnit)
+            return Math.Floor(availableInStockUnits / (double)saleUnit.Factor + 1e-9);
+
         if (!string.IsNullOrWhiteSpace(salePackageId)
             && product.PieceOption is { } piece
             && string.Equals(piece.Id, salePackageId, StringComparison.OrdinalIgnoreCase)

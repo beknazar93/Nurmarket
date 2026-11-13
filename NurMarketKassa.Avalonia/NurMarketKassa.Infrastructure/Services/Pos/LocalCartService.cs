@@ -46,6 +46,12 @@ public static class LocalCartService
         if (!double.IsFinite(qty) || qty <= 0)
             throw new ArgumentOutOfRangeException(nameof(quantity), "Количество должно быть больше нуля.");
 
+        // 2026-11-12 (ХМ2, риск «14,40 м² в чеке → на сервер уходит 14»): в «Хозтоварах» штучный товар без правила дробного количества
+        // (функция выключена, единица «шт»…) не должен получить в чек дробное количество — тело продажи округляет его до целого (PieceText),
+        // и сумма в кассе разошлась бы с суммой сервера. Округляем сразу при добавлении: чек и тело запроса совпадают.
+        if (!product.MustWeigh && MarketSpheres.IsHardware && QuantityRules.ForTile(product) is null && Math.Abs(qty - Math.Round(qty)) > 1e-9)
+            qty = Math.Max(1, Math.Round(qty, 0, MidpointRounding.AwayFromZero));
+
         var unitPrice = ParsePrice(product.PriceLine);
         var productId = product.Id;
 
@@ -103,6 +109,9 @@ public static class LocalCartService
         {
             var weighedTile = FindByEmbeddedCode(weighted.ProductCode);
             if (weighedTile == null)
+                return false;
+            // 2026-11-13: старый PLU (товар сменил его после архива) теперь у другого товара — молча не добавляем (диалог с вопросом — в BasketPanelViewModel).
+            if (ScalePluHistory.CheckLabel(weighted.ProductCode, weighedTile) is not null)
                 return false;
 
             var weightKg = weighted.ResolveWeightKg(ParsePrice(weighedTile.PriceLine));

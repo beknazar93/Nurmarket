@@ -66,6 +66,9 @@ public sealed partial class LocalProductRepository
         if (added == 0 && changed == 0 && deleted == 0)
             return (0, 0, 0);
 
+        // 2026-11-13: у изменённых и пропавших товаров прежний PLU → память ScalePluHistory (отпечатки PLU не хранят — читаем записи, пока их немного).
+        var pluChanges = CollectPluChanges(toUpsert, existing.ContainsKey, incoming, deletedIds);
+
         using var connection = OpenConnection();
         using var transaction = connection.BeginTransaction();
 
@@ -95,6 +98,7 @@ public sealed partial class LocalProductRepository
         }
 
         transaction.Commit();
+        NotePluChanges(pluChanges);
         // 2026-10-04, отчёт о производительности (п. 15): изменились остатки/цены нескольких товаров —
         // правим только их строки в кэше, а не пересобираем весь кэш из базы (15 000 товаров — ~0,24 с
         // чтения и разбора на каждую синхронизацию). Плитки неизменённых товаров остаются теми же
@@ -125,6 +129,7 @@ public sealed partial class LocalProductRepository
 
         if (ids.Count == 0)
             return 0;
+        var pluChanges = CollectPluChanges([], _ => true, null, ids); // 2026-11-13: пропавшие из полной загрузки (архив) освобождают PLU
         using var connection = OpenConnection();
         using var transaction = connection.BeginTransaction();
         using var deleteCmd = connection.CreateCommand();
@@ -140,8 +145,52 @@ public sealed partial class LocalProductRepository
         }
 
         transaction.Commit();
+        NotePluChanges(pluChanges);
         ResetCache();
         return ids.Count;
+    }
+
+    /// <summary>2026-11-13 (сервер «ev1311»: архив освобождает PLU, возврат из архива даёт новый): записать в ScalePluHistory смену/освобождение PLU. Не бросает.</summary>
+    private static void NotePluChanges(IReadOnlyCollection<(string Id, string Name, int? Old, int? New)>? changes)
+    {
+        if (changes is null)
+            return;
+        foreach (var (id, name, old, now) in changes)
+            ScalePluHistory.NoteChange(id, name, old, now);
+    }
+
+    /// <summary>Прежний PLU изменённых (<paramref name="changedIds"/> — новые значения в <paramref name="incoming"/>) и убранных (<paramref name="removedIds"/>) товаров.
+    /// Чтение записей по одной — только пока их немного (при массовой замене каталога память PLU не нужна и запросы лишние).</summary>
+    private static List<(string Id, string Name, int? Old, int? New)>? CollectPluChanges(
+        IEnumerable<string> upsertedIds, Func<string, bool> existedBefore, IReadOnlyDictionary<string, LocalProductRecord>? incoming, IReadOnlyCollection<string> removedIds)
+    {
+        const int Max = 400;
+        try
+        {
+            var upserted = upsertedIds.ToList();
+            var changed = upserted.Where(existedBefore).Take(Max + 1).ToList();
+            if (changed.Count > Max || removedIds.Count > Max)
+                return null;
+            List<(string Id, string Name, int? Old, int? New)>? result = null;
+            // Товар, которого в базе не было, но у него теперь PLU: мог вернуться из архива — прежние записи узнают новый номер (без чтения базы).
+            if (incoming is not null && ScalePluHistory.Any)
+                foreach (var id in upserted)
+                    if (!existedBefore(id) && incoming.TryGetValue(id, out var added) && added.Plu is > 0)
+                        (result ??= new()).Add((id, added.Name, null, added.Plu));
+            using var connection = OpenConnection();
+            foreach (var id in changed)
+                if (QuerySingleRecord(connection, id) is { Plu: > 0 } old && incoming is not null && incoming.TryGetValue(id, out var record) && record.Plu != old.Plu)
+                    (result ??= new()).Add((id, old.Name, old.Plu, record.Plu));
+            foreach (var id in removedIds)
+                if (QuerySingleRecord(connection, id) is { Plu: > 0 } gone)
+                    (result ??= new()).Add((id, gone.Name, gone.Plu, null));
+            return result;
+        }
+        catch (Exception ex) when (ex is SqliteException or IOException or InvalidOperationException)
+        {
+            PosLogger.Log($"PLU: прежние PLU изменённых товаров не прочитаны ({ex.Message}).", "WARNING");
+            return null;
+        }
     }
 
     /// <summary>Сколько строк кэша правим точечно; больше — проще и не медленнее пересобрать целиком.</summary>

@@ -49,7 +49,8 @@ public partial class LabelScaleSetupPanel : UserControl
         tileGrid.Children.Add(new Border { Classes = { "tileBadge" }, Child = new TextBlock { Classes = { "tileBadgeText" }, Text = "РС" } });
         var tileTexts = new StackPanel { VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center, Spacing = 2 };
         tileTexts.Children.Add(new TextBlock { Classes = { "tileTitle" }, Text = ScaleUi.BrandTitle(ScaleUi.BrandShtrikhPc) });
-        tileTexts.Children.Add(new TextBlock { Classes = { "tileSub" }, Text = L("Сенсорные весы, обмен файлом через папку", "Сенсордук тараза, папка аркылуу файл алмашуу", "Touch scale, file exchange via a folder", "Dokunmatik tartı, klasörle dosya alışverişi", "Sensorli tarozi, papka orqali fayl almashuv") });
+        // 2026-11-12: в подписи — модель с шильдика (ШТРИХ РС200 С2/С3) и «с экраном», чтобы владелец не выбирал плитку «Штрих-ПРИНТ (Штрих-М)» по логотипу «ШТРИХ-М».
+        tileTexts.Children.Add(new TextBlock { Classes = { "tileSub" }, Text = L("ШТРИХ РС200 С2/С3 (с экраном): обмен файлом через папку", "ШТРИХ РС200 С2/С3 (экраны бар): папка аркылуу файл алмашуу", "SHTRIH PC200 C2/C3 (with a screen): file exchange via a folder", "ŞTRİH PC200 C2/C3 (ekranlı): klasörle dosya alışverişi", "SHTRIX PC200 C2/C3 (ekranli): papka orqali fayl almashuv") });
         Grid.SetColumn(tileTexts, 1);
         tileGrid.Children.Add(tileTexts);
         var tick = new TextBlock { Classes = { "tileCheck" }, Text = "✓" };
@@ -76,7 +77,7 @@ public partial class LabelScaleSetupPanel : UserControl
         ButtonsRow.Children.Insert(ButtonsRow.Children.IndexOf(DeviceSettingsButton) + 1, _pcGuideButton);
     }
 
-    private static string L(string ru, string ky, string en, string tr, string uz) => Tr.T(ru, ky, en, tr, uz);
+    private static string L(string ru, string ky, string en, string tr, string uz) => NurMarketKassa.AvaloniaHost.Views.Dialogs.ScaleUi.OwnerPath(Tr.T(ru, ky, en, tr, uz)); // 2026-11-11: в программе владельца путь «Товары → Весы»
 
     private IBrush Brush(string key, IBrush fallback) =>
         Application.Current?.TryFindResource(key, ActualThemeVariant, out var value) == true && value is IBrush brush

@@ -196,10 +196,14 @@ public partial class OwnerShellWindow : Window, IMainShell
         Action rebuildNavigation = () => Avalonia.Threading.Dispatcher.UIThread.Post(() => { BuildNavigation(onlyIfChanged: true); _ = RefreshDebtsCardAsync(force: true); });
         TariffGate.PacksChanged += rebuildNavigation;
         SectionVisibility.Changed += rebuildNavigation;
+        // 2026-11-11 (доступы «с сайта»): доступы изменились на сайте/в программе владельца — меню по новым правам без перезапуска и плашка.
+        Action accessChanged = () => { rebuildNavigation(); Avalonia.Threading.Dispatcher.UIThread.Post(NurMarketKassa.AvaloniaHost.Services.AccessSyncNotice.Show); };
+        PermissionRecheck.PermissionsChanged += accessChanged;
         Closed += (_, _) =>
         {
             TariffGate.PacksChanged -= rebuildNavigation;
             SectionVisibility.Changed -= rebuildNavigation;
+            PermissionRecheck.PermissionsChanged -= accessChanged;
             // 2026-10-31 (стресс-тест 1.17.68, п. 8): статические ссылки ProductActionPlan на лямбды окна держали закрытое главное окно (WireNavSearch).
             if (ProductActionPlan.OpenProduct?.Target == this) ProductActionPlan.OpenProduct = null;
             if (ProductActionPlan.OpenSection?.Target == this) ProductActionPlan.OpenSection = null;
@@ -816,11 +820,20 @@ public partial class OwnerShellWindow : Window, IMainShell
         Group("products", Tr.T("Товары", "Товарлар", "Products", "Ürünler", "Mahsulotlar"));
         Add("warehouse", "WarehouseIcon", Tr.T("Склад", "Кампа", "Warehouse", "Depo", "Ombor"), true,
             () => { if (Authorize(PosPermissions.ViewProducts)) OpenSection("warehouse", () => App.GetRequiredService<WarehouseWindow>()); });
+        // 2026-11-11, запрос владельца «массовая печать ценников/штрихкодов — выведи в Склад сверху! Как в вебе!»: пункт «Штрихкоды и ценники» — тот же экран, что вкладка «Штрихкоды» в «Складе»
+        // (BarcodePrintSectionWindow). Права — как у «Склада» (плюс «Печать штрих-кодов» внутри); платность прежняя (массовая печать), скрывается в «Разделах меню».
+        Add("barcodes", "IconBarcode", Tr.T("Штрихкоды и ценники", "Штрих-коддор жана баа белгилери", "Barcodes and price tags", "Barkodlar ve fiyat etiketleri", "Shtrix-kodlar va narx yorliqlari"), true,
+            () => { if (Authorize(PosPermissions.ViewProducts)) OpenSection("barcodes", () => new BarcodePrintSectionWindow()); });
         // 2026-10-01: права разделов — как на сайте NurCRM (PosPermissions.ViewProducts/ViewAnalytics/…):
         // Склад — «Склад», Калькуляция/Финансы/Аналитика/ABC/бот — «Аналитика», Клиенты — «Клиенты»,
         // Заказы с сайта — «Заказы». Раньше Склад — по «Закупкам», остальное открывалось всем.
         Add("calculator", "CalculatorIcon", Tr.T("Калькуляция", "Калькуляция", "Pricing calculator", "Hesaplama", "Kalkulyatsiya"), true,
             () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("calculator", () => new CalculatorWindow()); });
+        // 2026-11-11, запрос владельца «убрать пункт весов из кассы и поставить на владелец»: «Весы» — отправка товаров на весы с этикетками (Штрих-М/Штрих-ПРИНТ,
+        // РС-200, Rongta, TM-30F, AI), список весов и «Штрих-код этикеток» (ScalesSectionWindow = та же страница, что была в Настройках кассы). Платный доступ — как раньше
+        // (TariffGate.CanUseScales: на «Старте» нужна покупка), право — «Настройки» (владелец — всегда; без права пункта нет); скрывается в «Разделах меню».
+        Add("scales", "IconScale", Tr.T("Весы", "Тараза", "Scales", "Tartı", "Tarozi"), TariffGate.CanUseScales && HasPermissionSafe(PosPermissions.ViewSettings),
+            () => { if (Authorize(PosPermissions.ViewSettings)) OpenSection("scales", () => new ScalesSectionWindow()); });
         Add("restock", "RestockIcon", Tr.T("Пополнение и сроки", "Толуктоо жана мөөнөттөр", "Restock & expiry", "Stok yenileme ve SKT", "To'ldirish va muddatlar"), TariffGate.CanUseRestock,
             () => { if (Authorize(PosPermissions.ViewProducts)) OpenSection("restock", () => App.GetRequiredService<RestockSuggestionsWindow>()); });
         // 2026-10-22, владелец: «Закупки как у веба» — история приходов, заказы поставщикам, рекомендуемый заказ, приём товара с оплатой
@@ -864,6 +877,12 @@ public partial class OwnerShellWindow : Window, IMainShell
         Add("rentals", "RentalIcon", Tr.T("Прокат", "Прокат", "Rentals", "Kiralama", "Prokat"),
             MarketSpheres.HasRentals,
             () => { if (Authorize(PosPermissions.ViewClients)) OpenSection("rentals", () => new RentalsWindow(null, null)); });
+        // 2026-11-13 (решение владельца: «Ремонт и trade-in — доп. услуги в маркетплейсе»): журналы «Ремонт и сервис» и «Trade-in / скупка» — только если функция подключена
+        // (ключ или сервер); деньги в программе владельца не двигаются (кассы нет) — смотреть и печатать, проводить в кассе.
+        Add("repair", "RepairIcon", Tr.T("Ремонт и сервис", "Оңдоо жана тейлөө", "Repair and service", "Tamir ve servis", "Ta'mirlash va servis"), UserPreferences.Instance.RepairUnlocked,
+            () => { if (Authorize(PosPermissions.ViewClients)) OpenSection("repair", () => new RepairOrdersWindow()); });
+        Add("tradein", "TradeInIcon", Tr.T("Trade-in / скупка", "Trade-in / сатып алуу", "Trade-in / buy-back", "Trade-in / alım", "Trade-in / sotib olish"), UserPreferences.Instance.TradeInUnlocked,
+            () => { if (Authorize(PosPermissions.ViewClients)) OpenSection("tradein", () => new TradeInWindow()); });
 
         Group("reports", Tr.T("Отчёты", "Отчёттор", "Reports", "Raporlar", "Hisobotlar"));
         // 2026-10-18: пункт «Финансы» убран — он теперь часть «Продаж и финансов» (группа «Продажи», выше).
@@ -941,6 +960,20 @@ public partial class OwnerShellWindow : Window, IMainShell
             () => OpenSection("crm", () => App.GetRequiredService<CrmWebViewWindow>()));
         Add("marketplace", "MarketplaceIcon", Tr.T("Маркетплейс", "Маркетплейс", "Marketplace", "Pazar yeri", "Marketpleys"), true,
             () => { if (Authorize(PosPermissions.ViewSettings)) OpenSection("marketplace", () => new MarketplaceWindow().AsSection()); });
+        // 2026-11-11, запрос владельца «настройки печати тоже в владельца добавь»: «Печать» — те же настройки печати (вкладка «Печать» окна «Настройки»),
+        // но отдельным пунктом: открывает «Настройки» сразу на ней; право — «Настройки» (без права пункта нет), скрывается в «Разделах меню», находится поиском.
+        // Настройки печати — этой программы (своя папка данных NurMarketOwner); принтер чеков кассы задаётся на ПК кассы (подпись в «Настройках»).
+        Add("print", "IconPrinter", Tr.T("Печать", "Басып чыгаруу", "Print", "Yazdır", "Chop etish"), HasPermissionSafe(PosPermissions.ViewSettings),
+            () =>
+            {
+                // 2026-11-12 (аудит 12.11, В-11 / С-21): раньше «Печать» открывалась через пункт «Настройки» — при скрытых «Настройках» нажатие молча ничего не делало,
+                // а при открытии подсвечивались «Настройки». Теперь свой раздел «print» (те же настройки, сразу вкладка «Печать»), права — прежние.
+                if (!Authorize(PosPermissions.ViewSettings))
+                    return;
+                OpenSection("print", () => App.GetRequiredService<PosSettingsWindow>());
+                if (_sections.FirstOrDefault(s => s.Key == "print")?.Window is PosSettingsWindow printSettings && !printSettings.SelectNavTab("print"))
+                    PosLogger.Log("Owner app: «Печать» — вкладка печати в настройках не выбрана.", "WARNING");
+            });
         Add("settings", "SettingsIcon", Tr.T("Настройки", "Жөндөөлөр", "Settings", "Ayarlar", "Sozlamalar"), true,
             () => { if (Authorize(PosPermissions.ViewSettings)) OpenSection("settings", () => App.GetRequiredService<PosSettingsWindow>()); });
 

@@ -39,6 +39,8 @@ public partial class ScaleBarcodeSetupPanel : UserControl
     public ScaleBarcodeSetupPanel()
     {
         InitializeComponent();
+        // 2026-11-11 (Д-5, живой показ 1.17.85): правила применяются и сохраняются сразу (без «Сохранить») — окно настроек не считает их «несохранёнными».
+        Classes.Add(NurMarketKassa.AvaloniaHost.Views.PosSettingsWindow.ImmediateSettingClass);
         _pcCard.Changed += () => { Refresh(); RulesChanged?.Invoke(); };
         if (Content is Panel root)
             root.Children.Add(_pcCard);
@@ -73,7 +75,7 @@ public partial class ScaleBarcodeSetupPanel : UserControl
 
     private void Panel_Loaded(object? sender, RoutedEventArgs e) => Refresh();
 
-    private static string L(string ru, string ky, string en, string tr, string uz) => Tr.T(ru, ky, en, tr, uz);
+    private static string L(string ru, string ky, string en, string tr, string uz) => NurMarketKassa.AvaloniaHost.Views.Dialogs.ScaleUi.OwnerPath(Tr.T(ru, ky, en, tr, uz)); // 2026-11-11: в программе владельца путь «Товары → Весы»
 
     private IBrush Brush(string key, IBrush fallback) =>
         Application.Current?.TryFindResource(key, ActualThemeVariant, out var value) == true && value is IBrush brush

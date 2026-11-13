@@ -61,6 +61,7 @@ public partial class MarketplaceView : UserControl
         AttachedToVisualTree += (_, _) => ServerAddons.Changed += OnServerAddonsChanged;
         DetachedFromVisualTree += (_, _) => ServerAddons.Changed -= OnServerAddonsChanged;
         _ = ServerAddons.RefreshAsync(force: true);
+        AccessSync.Kick("marketplace"); // 2026-11-11: и доступы/тариф «с сайта» — не ждать фонового такта
         InitWebPurchases(); // 2026-11-06: «Открыть Маркетплейс на сайте», «Обновить покупки», темы с сайта (MarketplaceView.WebPurchases.cs)
     }
 
@@ -120,6 +121,7 @@ public partial class MarketplaceView : UserControl
                         case "telegram": TelegramBotUnlockButton_Click(this, e); break;
                         case "shiftstats": ShiftAnalyticsUnlockButton_Click(this, e); break;
                         case "language": LanguagePackUnlockButton_Click(this, e); break;
+                        case "repair": case "trade_in": UnlockServiceDesk(id); break; // 2026-11-13
                         default:
                             if (id.StartsWith("pack:", StringComparison.Ordinal))
                             {
@@ -282,6 +284,9 @@ public partial class MarketplaceView : UserControl
         {
             case "timesheet":
                 StaffTimesheetWindow.Open(owner);
+                break;
+            case "repair": case "trade_in": // 2026-11-13
+                OpenServiceDesk(id);
                 break;
             case "analytics":
                 // Программа владельца (2026-09-27): аналитика склада — вкладка «Склад» раздела «Аналитика».

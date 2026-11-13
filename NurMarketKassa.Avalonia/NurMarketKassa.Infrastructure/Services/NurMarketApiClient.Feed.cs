@@ -49,7 +49,9 @@ public sealed partial class NurMarketApiClient
             }
 
             var text = await resp.Content.ReadAsStringAsync(linked.Token).ConfigureAwait(false);
-            if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized && string.IsNullOrEmpty(RefreshToken))
+            // 2026-11-13: 401 на необязательном «company/addons/» не выкидывает из сессии (как в SendOnceAsync, ТЗ Умара 2026-10-31).
+            if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized && string.IsNullOrEmpty(RefreshToken)
+                && !relativePath.Contains("company/addons", StringComparison.OrdinalIgnoreCase))
                 ExpireSession(relativePath); // 2026-10-30
 
             if (!resp.IsSuccessStatusCode)

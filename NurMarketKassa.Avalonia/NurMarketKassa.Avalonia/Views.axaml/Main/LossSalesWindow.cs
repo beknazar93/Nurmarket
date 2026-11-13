@@ -245,7 +245,7 @@ public sealed class LossSalesWindow : Window, IOwnerSectionRefresh, IOwnerSectio
         var records = LossSalesStore.ReadAll().Where(r => r.At >= from).ToList();
         _exportRows = records.SelectMany(r => r.Lines.Select(l => new object?[] { r.At.LocalDateTime, r.Cashier, l.Title, l.Quantity, l.UnitCost * l.Quantity, l.Net, l.Loss })).ToList();
         var total = records.Sum(r => r.Loss);
-        ShowTotals(records.Count, total);
+        ShowTotals(records.Count, total, showEmpty: !serverFailed);
         if (serverFailed)
         {
             // 2026-11-01 (В-27, аудит «10 из 10»): сервер не ответил — вместо «За этот период продаж в убыток нет» плашка «Сервер недоступен /
@@ -262,16 +262,20 @@ public sealed class LossSalesWindow : Window, IOwnerSectionRefresh, IOwnerSectio
 
     /// <summary>2026-10-18, этап О3: итог периода — плитками (число чеков и убыток всего, убыток — красным); нет чеков —
     /// строка «За этот период продаж в убыток нет.». Те же числа, что раньше были одной красной строкой.</summary>
-    private void ShowTotals(int count, double total)
+    private void ShowTotals(int count, double total, bool showEmpty = true)
     {
         _totals.Children.Clear();
         _totals.IsVisible = count > 0;
-        _summary.IsVisible = count == 0;
-        _summary.Text = count == 0
-            ? Tr.T("За этот период продаж в убыток нет.", "Бул мезгилде зыян менен сатуу жок.", "No sales at a loss for this period.", "Bu dönemde zararına satış yok.", "Bu davrda zarariga sotuv yo'q.")
-            : "";
+        // 2026-11-12 (оценка UX/UI, Д-2): «продаж в убыток нет» — общий блок «пусто» по центру списка (была серая строка в углу); сбой сервера — отдельный блок, не «пусто».
+        _summary.IsVisible = false;
+        _summary.Text = "";
         if (count == 0)
+        {
+            if (showEmpty)
+                _list.Children.Add(StateBlock.Empty(
+                    Tr.T("За этот период продаж в убыток нет.", "Бул мезгилде зыян менен сатуу жок.", "No sales at a loss for this period.", "Bu dönemde zararına satış yok.", "Bu davrda zarariga sotuv yo'q.")));
             return;
+        }
         _totals.Children.Add(UiKit.Kpi(Tr.T("Чеков в убыток", "Зыян менен чектер", "Receipts at a loss", "Zararına fişler", "Zarariga cheklar"),
             count.ToString(Ru)));
         _totals.Children.Add(UiKit.Kpi(Tr.T("Убыток всего", "Жалпы зыян", "Total loss", "Toplam zarar", "Jami zarar"), "−" + Money(total), danger: true));

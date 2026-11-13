@@ -22,6 +22,8 @@
   <x:String x:Key="csh.menu.clients">Mijozlar</x:String>
   <x:String x:Key="csh.menu.payDebt">Qarzni to'lash</x:String>
   <x:String x:Key="csh.menu.rental">Prokat</x:String>
+  <x:String x:Key="csh.menu.repair">Ta'mirlash va servis</x:String>
+  <x:String x:Key="csh.menu.tradeIn">Trade-in / sotib olish</x:String>
   <x:String x:Key="csh.menu.settings">Sozlamalar</x:String>
   <x:String x:Key="csh.menu.marketplace">Marketpleys</x:String>
   <x:String x:Key="csh.menu.crm">NurCRM</x:String>
@@ -74,7 +76,7 @@
   <x:String x:Key="csh.catalog.favoriteTooltip">Sevimlilar</x:String>
   <x:String x:Key="csh.catalog.details">Batafsil</x:String>
   <x:String x:Key="csh.catalog.detailsTooltip">Sotuvchining mahsulot tavsifi</x:String>
-  <x:String x:Key="csh.catalog.tabAll">Barcha mahsulotlar</x:String>
+  <x:String x:Key="csh.catalog.tabAll">Barchasi</x:String>
   <x:String x:Key="csh.catalog.tabWeighted">Vaznli</x:String>
   <x:String x:Key="csh.catalog.tabPiece">Donali</x:String>
   <x:String x:Key="csh.catalog.tabPieceOption">Donalab</x:String>
@@ -238,8 +240,8 @@
   <x:String x:Key="csh.login.secureSubtitle">Ma'lumotlar bulut va mahalliy audit bazasi bilan sinxronlashtiriladi.</x:String>
   <x:String x:Key="csh.login.formTitle">Kassaga kirish</x:String>
   <x:String x:Key="csh.login.formSubtitle">Nur CRM email va parolingiz</x:String>
-  <x:String x:Key="csh.login.email">Email</x:String>
-  <x:String x:Key="csh.login.emailWatermark">Login</x:String>
+  <x:String x:Key="csh.login.email">Email / login</x:String>
+  <x:String x:Key="csh.login.emailWatermark">Email / login</x:String>
   <x:String x:Key="csh.login.password">Parol</x:String>
   <x:String x:Key="csh.login.passwordWatermark">Parol</x:String>
   <x:String x:Key="csh.login.showPasswordTooltip">Parolni ko'rsatish</x:String>
@@ -445,6 +447,7 @@
   <x:String x:Key="common.cashier">Kassir</x:String>
   <x:String x:Key="cashHistory.title">Kassa operatsiyalari tarixi</x:String>
   <x:String x:Key="cashHistory.subtitle">Pul harakati va kassa ochilishlari</x:String>
+  <x:String x:Key="cashHistory.empty">Hozircha yozuvlar yo'q. Bu yerda kassaga kirim, chiqim va kassa ochilishlari ko'rinadi.</x:String>
   <x:String x:Key="cashOps.title">Kassa operatsiyalari</x:String>
   <x:String x:Key="cashOps.subtitle">Smena va kassa operatsiyalarini boshqarish</x:String>
   <x:String x:Key="newOperation.title">Yangi operatsiya</x:String>
@@ -595,6 +598,7 @@
   <x:String x:Key="payDebt.colAmountDue">To'lanadigan summa</x:String>
   <x:String x:Key="payDebt.colPaid">To'langan</x:String>
   <x:String x:Key="payDebt.changeClientButton">O'zgartirish</x:String>
+  <x:String x:Key="payDebt.pickHint">Ro'yxatdan mijozni tanlang yoki ism yoki telefon bo'yicha qidiring — uning qarz cheklari shu yerda ko'rinadi.</x:String>
   <x:String x:Key="payDebt.clientSearchWatermark">Ism yoki telefon bo'yicha qidirish…</x:String>
 
   <!-- Ekran klaviaturasi (harf bo'lmagan tugmalar) -->
@@ -1054,7 +1058,8 @@
   <x:String x:Key="shiftHistoryView.subtitle">Barcha kassa smenalari va ularning joriy holatlari ro'yxati</x:String>
   <x:String x:Key="shiftHistoryView.newOperationButton">+ Yangi operatsiya</x:String>
   <x:String x:Key="shiftHistoryView.tableTitle">Smenalar ro'yxati</x:String>
-  <x:String x:Key="shiftHistoryView.colShiftNumber">Smena №</x:String>
+  <x:String x:Key="shiftHistoryView.empty">Hozircha smenalar yo'q. Kassa birinchi marta ochilgach smena paydo bo'ladi.</x:String>
+  <x:String x:Key="shiftHistoryView.colShiftNumber">№</x:String>
   <x:String x:Key="common.revenue">Tushum</x:String>
   <x:String x:Key="shiftHistoryView.overallPlanTitle">Kassa bo'yicha umumiy ko'rinish</x:String>
   <x:String x:Key="shift.openingBalanceLabel">Boshlang'ich balans</x:String>
@@ -1409,6 +1414,8 @@
   <x:String x:Key="receiptHistory.printCopy">Nusxasini chop etish</x:String>
   <x:String x:Key="receiptHistory.return">Qaytarish…</x:String>
   <x:String x:Key="csh.cart.printLastReceipt">Oxirgi chekni chop etish</x:String>
+  <x:String x:Key="csh.cart.schoolLists">Maktab ro'yxatlari</x:String>
+  <x:String x:Key="csh.cart.invoiceFromReceipt">Shu chekdan hisob-faktura</x:String>
   <x:String x:Key="csh.cart.writeOff">Hisobdan chiqarish</x:String>
   <x:String x:Key="csh.cart.writeOffTooltip">Buzilgan, muddati o'tgan yoki o'z ehtiyoji uchun olingan mahsulotni ombordan hisobdan chiqarish</x:String>
   <x:String x:Key="csh.cart.printLastReceiptTooltip">Shu smenaning oxirgi cheki nusxasini chop etish</x:String>

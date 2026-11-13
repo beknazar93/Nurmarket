@@ -191,10 +191,45 @@ public static class OfflineOperationsService
             return new OfflineRefundPlan { Ok = false, Error = UnknownOnlineReturnText };
         var ledger = SaleReturnLedger.Get(sale.SaleRef);
         var priors = OfflineRefundPlanner.PriorRefunds(sale.SaleRef, ledger);
+        // 2026-11-13 (проверка денег): возвраты по чеку, сделанные не на этой кассе (программа владельца, сайт, другая касса), журналу неизвестны — известные с сервера (последняя сверка)
+        // вычитаются из остатка, чтобы без связи не выдать деньги за уже возвращённое.
+        var foreign = !sale.IsLocal && ledger is { ForeignReturns: > 0.004m } ? ledger.ForeignReturns : 0m;
+        if (foreign > 0m)
+            priors.Add(new OfflinePriorRefund { Id = "server-foreign", Amount = foreign });
         decimal? debt = null;
         if (sale.Debt > 0.005m && OfflineClientCache.Get(sale.ClientId) is { } rec)
             debt = OfflineClientCache.KnownDebt(rec, includeRejectedSales: false);
-        return OfflineRefundPlanner.Plan(sale, priors, requested, debt);
+        var plan = OfflineRefundPlanner.Plan(sale, priors, requested, debt);
+        if (plan.Ok)
+            plan.Warning = ForeignReturnsWarning(sale, ledger, foreign);
+        return plan;
+    }
+
+    /// <summary>2026-11-13: чек уже на сервере, а возвраты по нему «не отсюда» кассе могут быть неизвестны. Есть известные с сервера — «они вычтены»; сверки давно не было (или не было вовсе)
+    /// у чека моложе 14 дней — «не сверены». Чек ещё в очереди кассы (на сервере его нет) и старые чеки — без предупреждения.</summary>
+    internal static string? ForeignReturnsWarning(OfflineSaleSnapshot sale, SaleLedgerEntry? ledger, decimal foreign)
+    {
+        if (sale.IsLocal)
+            return null;
+        var checkedAt = ledger?.ServerReturnsCheckedAt;
+        var when = checkedAt?.LocalDateTime.ToString("dd.MM HH:mm", CultureInfo.InvariantCulture) ?? "";
+        if (foreign > 0.004m)
+        {
+            var n = MoneyText.Som(foreign);
+            return Tr.T($"По этому чеку на сервере есть возвраты на {n}, сделанные не на этой кассе (программа владельца, сайт, другая касса; сверка {when}) — они уже вычтены из остатка. Убедитесь, что клиент ещё не получил деньги.",
+                $"Бул чек боюнча серверде {n} суммасына кайтаруулар бар, алар бул кассада эмес жасалган (ээсинин программасы, сайт, башка касса; салыштыруу {when}) — алар калдыктан алынды. Кардар акчасын алган эмес экенин текшериңиз.",
+                $"The server has returns of {n} on this receipt made not on this till (owner program, website, another till; checked {when}) — they are already deducted from the remainder. Make sure the customer has not been paid yet.",
+                $"Bu fişte sunucuda bu kasada yapılmamış {n} tutarında iade var (sahip programı, site, başka kasa; kontrol {when}) — kalandan düşüldü. Müşterinin parayı henüz almadığından emin olun.",
+                $"Bu chek bo'yicha serverda shu kassada qilinmagan {n} summadagi qaytarishlar bor (egasining dasturi, sayt, boshqa kassa; solishtirish {when}) — qoldiqdan ayirildi. Mijoz hali pul olmaganiga ishonch hosil qiling.");
+        }
+        var age = DateTimeOffset.Now - sale.CreatedAt;
+        if (age < TimeSpan.FromDays(14) && (checkedAt is null || DateTimeOffset.Now - checkedAt.Value > TimeSpan.FromDays(1)))
+            return Tr.T("Возвраты по этому чеку не сверены с сервером: если чек уже возвращали в программе владельца, на сайте или на другой кассе, сервер потом откажет в этом возврате, а деньги уже будут выданы. Спросите клиента.",
+                "Бул чектин кайтаруулары сервер менен салыштырылган жок: чек ээсинин программасында, сайтта же башка кассада кайтарылган болсо, сервер бул кайтарууну кийин четке кагат, ал эми акча берилип калат. Кардардан сураңыз.",
+                "Returns on this receipt have not been checked with the server: if the receipt was already returned in the owner program, on the website or on another till, the server will later refuse this return while the money is already paid out. Ask the customer.",
+                "Bu fişin iadeleri sunucuyla karşılaştırılmadı: fiş sahip programında, sitede veya başka kasada zaten iade edildiyse sunucu bu iadeyi sonra reddeder, para ise çoktan verilmiş olur. Müşteriye sorun.",
+                "Bu chekning qaytarishlari server bilan solishtirilmagan: chek egasining dasturida, saytda yoki boshqa kassada allaqachon qaytarilgan bo'lsa, server bu qaytarishni keyin rad etadi, pul esa berilib bo'lgan bo'ladi. Mijozdan so'rang.");
+        return null;
     }
 
     /// <summary>Ставит возврат в очередь и делает всё, что кассе положено сразу: журнал возвратов, событие смены (наличные уходят из ящика), остаток.

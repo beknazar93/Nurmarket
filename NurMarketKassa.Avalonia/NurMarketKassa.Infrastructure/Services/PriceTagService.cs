@@ -24,6 +24,10 @@ public enum PriceTagKind
     /// сохранённому в PriceTagTemplateStore. Значение существует только как пункт выбора в UI —
     /// вызывающий код обязан ветвиться на Custom ДО обращения к GenerateBitmap/GetDefaultSize.</summary>
     Custom,
+
+    /// <summary>2026-11-12 (ХМ7, ТЗ хозмаг 3.5): ценник «Хозтовары» 58×40 — цена за единицу крупно («520 сом/м²») и, если у товара есть упаковка,
+    /// цена за упаковку («749 сом/уп 1,44 м²»). ДОБАВЛЕН В КОНЕЦ: числа прежних значений (UserPreferences.BulkPriceTagKind) не меняются.</summary>
+    HardwareUnitPack,
 }
 
 /// <summary>Целевое устройство печати ценника.</summary>
@@ -39,7 +43,10 @@ public sealed record PriceTagData(
     string? Sku = null,
     string? Unit = null,
     string? Category = null,
-    string? StoreName = null);
+    string? StoreName = null,
+    // 2026-11-12 (ХМ7): строка «цена за упаковку» и подпись упаковки — только у вида HardwareUnitPack; у остальных null (ценники как раньше).
+    string? PackPriceText = null,
+    string? PackLabel = null);
 
 public sealed record PriceTagPrintRequest(
     PriceTagKind Kind,
@@ -68,6 +75,7 @@ public static partial class PriceTagService
         PriceTagKind.PromotionalColored => (50, 30),
         PriceTagKind.Detailed => (60, 40),
         PriceTagKind.WithQr => (40, 30),
+        PriceTagKind.HardwareUnitPack => (58, 40),
         _ => (40, 30),
     };
 
@@ -98,6 +106,7 @@ public static partial class PriceTagService
             case PriceTagKind.PromotionalColored: DrawPromotional(g, data, widthMm, heightMm, colored: true); break;
             case PriceTagKind.Detailed: DrawDetailed(g, data, widthMm, heightMm); break;
             case PriceTagKind.WithQr: DrawWithQr(g, data, widthMm, heightMm); break;
+            case PriceTagKind.HardwareUnitPack: DrawHardware(g, data, widthMm, heightMm); break;
         }
 
         return bmp;
@@ -178,6 +187,18 @@ public static partial class PriceTagService
         DrawText(g, Frac(w, h, 0.42, 0.78, 0.53, 0.20), data.PriceText, "Arial", FontStyle.Bold, Color.Black);
     }
 
+    // 2026-11-12 (ХМ7): доли блоков ценника «Хозтовары» — те же в DrawHardware и в сцене (PriceTagService.Scene.cs).
+    private static readonly (double X, double Y, double W, double H) HardwareBarcodeBox = (0.05, 0.74, 0.9, 0.24);
+
+    private static void DrawHardware(Graphics g, PriceTagData data, double w, double h)
+    {
+        DrawText(g, Frac(w, h, 0.05, 0.03, 0.9, 0.20), data.ProductName, "Arial", FontStyle.Bold, Color.Black);
+        DrawText(g, Frac(w, h, 0.05, 0.24, 0.9, 0.30), data.PriceText, "Arial", FontStyle.Bold, Color.Black);
+        if (!string.IsNullOrWhiteSpace(data.PackPriceText))
+            DrawText(g, Frac(w, h, 0.05, 0.55, 0.9, 0.17), data.PackPriceText!, "Arial", FontStyle.Regular, Color.Black);
+        DrawBarcode(g, Frac(w, h, HardwareBarcodeBox.X, HardwareBarcodeBox.Y, HardwareBarcodeBox.W, HardwareBarcodeBox.H), data.Barcode, w, h);
+    }
+
     private static void DrawWithQr(Graphics g, PriceTagData data, double w, double h)
     {
         DrawQr(g, Frac(w, h, QrBox.X, QrBox.Y, QrBox.W, QrBox.H), data.Barcode);
@@ -243,6 +264,8 @@ public static partial class PriceTagService
             widthMm * DetailedBox.W, heightMm * DetailedBox.H, widthMm, PresetQuietModules),
         PriceTagKind.WithQr => BarcodeLabelService.DescribeBarcodeProblem(barcode, LabelBarcodeFormat.QrCode,
             widthMm * QrBox.W, heightMm * QrBox.H, widthMm, PresetQrQuietModules),
+        PriceTagKind.HardwareUnitPack => BarcodeLabelService.DescribeBarcodeProblem(barcode, LabelBarcodeFormat.Auto,
+            widthMm * HardwareBarcodeBox.W, heightMm * HardwareBarcodeBox.H, widthMm, PresetQuietModules),
         _ => null,
     };
 

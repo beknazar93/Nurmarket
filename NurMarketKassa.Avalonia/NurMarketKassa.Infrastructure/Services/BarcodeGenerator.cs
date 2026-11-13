@@ -87,20 +87,29 @@ public static class BarcodeGenerator
         return CheckDigit(code.AsSpan(0, 12)) == code[12] - '0';
     }
 
+    /// <summary>2026-11-11 (разбор кыргызстанских штрихкодов): «470» — префикс GS1 Кыргызстана; сгенерированный код не начинается с него, чтобы не выглядеть как настоящий товарный код республики
+    /// (клиенты путали «4…» от программы с «470…» с упаковок; шанс совпасть с настоящим кодом ничтожен, но 0,125 % кодов всё равно начинались бы на 470).</summary>
+    private const string ReservedPrefix = "470";
+
     private static string Create()
     {
         Span<char> chars = stackalloc char[13];
-        int first;
-        do
+        while (true)
         {
-            first = RandomNumberGenerator.GetInt32(1, 10);
+            int first;
+            do
+            {
+                first = RandomNumberGenerator.GetInt32(1, 10);
+            }
+            while (ForbiddenFirstDigits.Contains((char)('0' + first)));
+            chars[0] = (char)('0' + first);
+            for (var i = 1; i < 12; i++)
+                chars[i] = (char)('0' + RandomNumberGenerator.GetInt32(10));
+            if (chars[..3].SequenceEqual(ReservedPrefix.AsSpan()))
+                continue;
+            chars[12] = (char)('0' + CheckDigit(chars[..12]));
+            return new string(chars);
         }
-        while (ForbiddenFirstDigits.Contains((char)('0' + first)));
-        chars[0] = (char)('0' + first);
-        for (var i = 1; i < 12; i++)
-            chars[i] = (char)('0' + RandomNumberGenerator.GetInt32(10));
-        chars[12] = (char)('0' + CheckDigit(chars[..12]));
-        return new string(chars);
     }
 
     /// <summary>Контрольная цифра EAN-13: веса 1/3 по первым 12 цифрам.</summary>

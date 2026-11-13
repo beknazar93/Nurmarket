@@ -50,15 +50,24 @@
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
         </Style>
 
+        <!-- 2026-11-12 (Д-4): заголовки таблицы смен — поля уже (8 слева, справа нет), чтобы «№ Смены» / «Смена №» влезали в узкую колонку; шрифт 12,5. -->
+        <Style Selector="DataGridColumnHeader">
+            <Setter Property="Padding" Value="8,0,0,0"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
+        </Style>
+
         <!-- Метки параметров смены -->
         <Style Selector="TextBlock.ShiftFieldLabel">
-            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontSize" Value="12.5"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
         </Style>
     </UserControl.Styles>
 
-    <Grid Margin="20" RowDefinitions="Auto, *, Auto">
+    <Grid Margin="16" RowDefinitions="Auto, *, Auto">
 
         <!-- 0: Шапка страницы -->
         <Border Grid.Row="0"
@@ -71,7 +80,7 @@
                 <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
                     <TextBlock Text="{DynamicResource shiftHistory.title}" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
                     <TextBlock Text="{DynamicResource shiftHistoryView.subtitle}"
-                               FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+                               FontSize="12.5" Foreground="{DynamicResource BrushTextSoft}"/>
                 </StackPanel>
 
                 <Button Grid.Column="1"
@@ -83,7 +92,7 @@
         </Border>
 
         <!-- 1: Основная рабочая область (Таблица + Сайдбар метрик) -->
-        <Grid Grid.Row="1" ColumnDefinitions="*, 16, 340">
+        <Grid Grid.Row="1" ColumnDefinitions="*, 16, 280">
 
             <!-- Таблица смен (Левая часть) -->
             <Border Grid.Column="0"
@@ -91,7 +100,7 @@
                     CornerRadius="12"
                     Padding="16"
                     BoxShadow="0 2 6 0 #0F000000">
-                <Grid RowDefinitions="Auto, Auto, *">
+                <Grid RowDefinitions="Auto, Auto, Auto, *">
                     <TextBlock Grid.Row="0"
                                Text="{DynamicResource shiftHistoryView.tableTitle}"
                                FontWeight="Bold"
@@ -99,16 +108,21 @@
                                Foreground="{DynamicResource BrushText}"
                                Margin="0,0,0,12"/>
 
-                    <!-- 2026-10-31 (стресс-тест 1.17.68, п. 9): сервер не ответил — вместо пустой таблицы «Нет связи» и «Повторить». -->
-                    <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right" VerticalAlignment="Top"
-                                IsVisible="{ReflectionBinding ServerOffline}">
-                        <TextBlock Text="{ReflectionBinding ServerOfflineText}" Foreground="{DynamicResource BrushDanger}" FontSize="13" VerticalAlignment="Center"/>
-                        <Button Content="{ReflectionBinding RetryText}" Command="{ReflectionBinding RefreshCommand}" Classes="sec-outline" Height="36" Padding="14,0"/>
-                    </StackPanel>
+                    <!-- 2026-10-31 (стресс-тест 1.17.68, п. 9): сервер не ответил — вместо пустой таблицы «Нет связи» и «Повторить».
+                         2026-11-12 (Д-4): отдельной строкой под заголовком таблицы (раньше стояла на одной строке с ним и в ky наезжала на заголовок). -->
+                    <Border Grid.Row="1" Margin="0,0,0,12" Padding="12,8" CornerRadius="8"
+                            Background="{DynamicResource BrushDangerSoft}"
+                            IsVisible="{ReflectionBinding ServerOffline}">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{ReflectionBinding ServerOfflineText}" Foreground="{DynamicResource BrushDangerOnSoft}" FontSize="13"
+                                       TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                            <Button Grid.Column="1" Content="{ReflectionBinding RetryText}" Command="{ReflectionBinding RefreshCommand}" Classes="sec-outline" Height="40" Padding="14,0"/>
+                        </Grid>
+                    </Border>
 
-                    <Rectangle Grid.Row="1" Height="1" Fill="{DynamicResource BrushBorder}" Margin="0,0,0,12"/>
+                    <Rectangle Grid.Row="2" Height="1" Fill="{DynamicResource BrushBorder}" Margin="0,0,0,12"/>
 
-                    <DataGrid Grid.Row="2"
+                    <DataGrid Grid.Row="3"
                               x:CompileBindings="False"
                               ItemsSource="{Binding PagedShifts}"
                               SelectedItem="{Binding SelectedShift, Mode=TwoWay}"
@@ -118,15 +132,15 @@
                               HorizontalGridLinesBrush="{DynamicResource BrushBorder}"
                               RowHeight="40">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="{DynamicResource shiftHistoryView.colShiftNumber}" Binding="{ReflectionBinding ShiftNumber}" Width="115"/> <!-- 2026-10-31: «№ Смены» и даты «31.10.2026 08:00» обрезались (стресс-тест 1.17.68) -->
-                            <DataGridTextColumn Header="{DynamicResource shiftDetails.openedLabel}" Binding="{ReflectionBinding OpenedAt, StringFormat=dd.MM.yyyy HH:mm}" Width="150"/>
-                            <DataGridTextColumn Header="{DynamicResource shiftDetails.closedLabel}" Binding="{ReflectionBinding ClosedAt, StringFormat=dd.MM.yyyy HH:mm}" Width="150"/>
+                            <DataGridTextColumn Header="{DynamicResource shiftHistoryView.colShiftNumber}" Binding="{ReflectionBinding ShiftNumber}" Width="84"/> <!-- 2026-10-31: «№ Смены» и даты «31.10.2026 08:00» обрезались (стресс-тест 1.17.68) -->
+                            <DataGridTextColumn Header="{DynamicResource shiftDetails.openedLabel}" Binding="{ReflectionBinding OpenedAt, StringFormat=dd.MM.yy HH:mm}" Width="116"/>
+                            <DataGridTextColumn Header="{DynamicResource shiftDetails.closedLabel}" Binding="{ReflectionBinding ClosedAt, StringFormat=dd.MM.yy HH:mm}" Width="116"/>
                             <DataGridTextColumn Header="{DynamicResource common.cashier}" Binding="{ReflectionBinding Cashier}" Width="*"/>
-                            <DataGridTextColumn Header="{DynamicResource common.status}" Binding="{ReflectionBinding Status}" Width="110"/>
-                            <DataGridTextColumn Header="{DynamicResource common.revenue}" Binding="{ReflectionBinding Revenue, Converter={x:Static conv:CurrencyAmountConverter.Instance}}" Width="120"/>
+                            <DataGridTextColumn Header="{DynamicResource common.status}" Binding="{ReflectionBinding Status}" Width="96"/>
+                            <DataGridTextColumn Header="{DynamicResource common.revenue}" Binding="{ReflectionBinding Revenue, Converter={x:Static conv:CurrencyAmountConverter.Instance}}" Width="110"/>
 
                             <!-- Колонка действий -->
-                            <DataGridTemplateColumn Header="" Width="50">
+                            <DataGridTemplateColumn Header="" Width="48">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <Button Content="⋯"
@@ -139,11 +153,16 @@
                             </DataGridTemplateColumn>
                         </DataGrid.Columns>
                     </DataGrid>
+
+                    <!-- 2026-11-12 (Д-4): пустой список — пояснение по центру, а не пустая таблица. -->
+                    <TextBlock Grid.Row="3" Text="{DynamicResource shiftHistoryView.empty}" FontSize="14" TextWrapping="Wrap" MaxWidth="360"
+                               TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Foreground="{DynamicResource BrushTextSoft}" IsVisible="{Binding ShowEmptyShifts}"/>
                 </Grid>
             </Border>
 
             <!-- Правая панель: Аналитика кассы и операции -->
-            <Grid Grid.Column="2" RowDefinitions="*, 16, *">
+            <Grid Grid.Column="2" RowDefinitions="2*, 16, *">
 
                 <!-- 1) Карточка: Общий план по кассе -->
                 <Border Grid.Row="0"
@@ -152,11 +171,11 @@
                         Padding="16"
                         BoxShadow="0 2 6 0 #0F000000">
                     <Grid RowDefinitions="Auto, Auto, *">
-                        <TextBlock Grid.Row="0" Text="{DynamicResource shiftHistoryView.overallPlanTitle}" FontWeight="Bold" FontSize="15" Foreground="{DynamicResource BrushText}" Margin="0,0,0,10"/>
+                        <TextBlock Grid.Row="0" Text="{DynamicResource shiftHistoryView.overallPlanTitle}" FontWeight="Bold" FontSize="15" TextWrapping="Wrap" Foreground="{DynamicResource BrushText}" Margin="0,0,0,10"/>
                         <Rectangle Grid.Row="1" Height="1" Fill="{DynamicResource BrushBorder}" Margin="0,0,0,10"/>
 
                         <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
-                            <StackPanel Spacing="8">
+                            <StackPanel Spacing="8" Margin="0,0,10,0">
                                 <Grid ColumnDefinitions="1.3*, *">
                                     <TextBlock Grid.Column="0" Text="{DynamicResource shift.openingBalanceLabel}" Classes="ShiftFieldLabel" VerticalAlignment="Center"/>
                                     <TextBlock Grid.Column="1" Text="{Binding OpeningBalanceText}" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" HorizontalAlignment="Right"/>
@@ -186,7 +205,7 @@
 
                                 <Border Background="{DynamicResource BrushWarningSoft}" CornerRadius="8" Padding="10,8" BorderBrush="{DynamicResource BrushWarning}" BorderThickness="1">
                                     <Grid ColumnDefinitions="*, Auto">
-                                        <TextBlock Grid.Column="0" Text="{DynamicResource shift.actualBalanceLabel}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource BrushWarning}" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="0" Text="{DynamicResource shift.actualBalanceLabel}" FontSize="12.5" FontWeight="Bold" Foreground="{DynamicResource BrushWarning}" VerticalAlignment="Center"/>
                                         <TextBlock Grid.Column="1" Text="{Binding ActualBalanceText}" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource BrushText}" HorizontalAlignment="Right"/>
                                     </Grid>
                                 </Border>
@@ -202,9 +221,12 @@
                         Padding="16"
                         BoxShadow="0 2 6 0 #0F000000">
                     <Grid RowDefinitions="Auto, Auto, *">
-                        <TextBlock Grid.Row="0" Text="{DynamicResource shift.recentOperationsTitle}" FontWeight="Bold" FontSize="15" Foreground="{DynamicResource BrushText}" Margin="0,0,0,10"/>
+                        <TextBlock Grid.Row="0" Text="{DynamicResource shift.recentOperationsTitle}" FontWeight="Bold" FontSize="15" TextWrapping="Wrap" Foreground="{DynamicResource BrushText}" Margin="0,0,0,10"/>
                         <Rectangle Grid.Row="1" Height="1" Fill="{DynamicResource BrushBorder}" Margin="0,0,0,10"/>
 
+                        <TextBlock Grid.Row="2" Text="{DynamicResource shiftSummary.noOperations}" FontSize="13" TextWrapping="Wrap"
+                                   TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource BrushTextSoft}" IsVisible="{Binding ShowNoRecentOperations}"/>
                         <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
                             <ItemsControl ItemsSource="{Binding RecentOperations}">
                                 <ItemsControl.ItemTemplate>
@@ -219,12 +241,12 @@
                                                 <StackPanel Grid.Column="0" Spacing="2">
                                                     <TextBlock Text="{Binding Type}" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource BrushText}"/>
                                                     <!-- 2026-10-22 (статьи изъятия): статья и комментарий операции («Аренда — за октябрь»). -->
-                                                    <TextBlock Text="{Binding NoteDisplay}" IsVisible="{Binding HasNoteDisplay}" FontSize="12"
+                                                    <TextBlock Text="{Binding NoteDisplay}" IsVisible="{Binding HasNoteDisplay}" FontSize="12.5"
                                                                TextWrapping="Wrap" Foreground="{DynamicResource BrushText}"/>
                                                     <StackPanel Orientation="Horizontal" Spacing="6">
-                                                        <TextBlock Text="{Binding CreatedAt, StringFormat=dd.MM.yyyy HH:mm}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
-                                                        <TextBlock Text="•" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
-                                                        <TextBlock Text="{Binding Cashier}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+                                                        <TextBlock Text="{Binding CreatedAt, StringFormat=dd.MM.yyyy HH:mm}" FontSize="12.5" Foreground="{DynamicResource BrushTextSoft}"/>
+                                                        <TextBlock Text="•" FontSize="12.5" Foreground="{DynamicResource BrushTextSoft}"/>
+                                                        <TextBlock Text="{Binding Cashier}" FontSize="12.5" Foreground="{DynamicResource BrushTextSoft}"/>
                                                     </StackPanel>
                                                 </StackPanel>
 
@@ -253,7 +275,7 @@
                 <Button Content="◀"
                         Command="{Binding PreviousPageCommand}"
                         ToolTip.Tip="{DynamicResource common.back}"
-                        Height="36" Width="36" CornerRadius="6"
+                        Height="40" Width="40" CornerRadius="{DynamicResource SettingsButtonRadius}"
                         HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
 
                 <ItemsControl ItemsSource="{Binding ShiftPagerEntries}">
@@ -268,7 +290,7 @@
                                     Command="{ReflectionBinding $parent[UserControl].DataContext.GoToPageCommand}"
                                     CommandParameter="{Binding PageNumber}"
                                     IsEnabled="{Binding Kind}"
-                                    Height="36" MinWidth="36" CornerRadius="6"
+                                    Height="40" MinWidth="40" CornerRadius="{DynamicResource SettingsButtonRadius}"
                                     HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
@@ -277,7 +299,7 @@
                 <Button Content="▶"
                         Command="{Binding NextPageCommand}"
                         ToolTip.Tip="{DynamicResource common.forward}"
-                        Height="36" Width="36" CornerRadius="6"
+                        Height="40" Width="40" CornerRadius="{DynamicResource SettingsButtonRadius}"
                         HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
             </StackPanel>
         </Border>

@@ -18,6 +18,10 @@ public static class PosPermissions
     /// остальным — только при явном true (2026-11-06, В3 Л4-20; PermissionService.IsProductEditAllowed).</summary>
     public const string EditProducts = "can_edit_products";
     public const string DeleteCartItem = "can_view_market_delete_cart_item";
+
+    /// <summary>2026-11-13 (сервер bc1112): «Продажа ниже закупки» (can_sell_below_cost) — скидка, после которой цена ниже закупочной, проводится только при этом праве.
+    /// Владелец/админ — всегда по роли (сервер флаг им не шлёт); остальным нет поля в профиле — права нет (PermissionService.IsSellBelowCostAllowed).</summary>
+    public const string SellBelowCost = "can_sell_below_cost";
     public const string ViewProcurement = "can_view_market_procurement";
     public const string ViewSupplier = "can_view_market_supplier";
     public const string EmployeeReturn = "can_view_market_employee_return";

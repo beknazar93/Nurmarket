@@ -329,6 +329,59 @@ public sealed class ReceivingRepeatScanUiTests
         }
     }
 
+    /// <summary>2026-11-11 (Д-8, живая проверка «Склада» на NBS): скан → ручная правка «Принимаем» (набирали ~28 с) → скан того же кода молча прибавил +1.
+    /// Пауза 20 с отсчитывалась от скана и истекала во время набора. Теперь правка количества строки последнего кода — не сброс: пауза считается от конца правки,
+    /// повторный скан спрашивает «Сколько штук?». Время «набора» имитируем сдвигом момента последнего скана в охране (без ожидания 20 с).</summary>
+    [AvaloniaFact]
+    public async Task WarehouseReceiving_ManualQuantityEdit_ThenSameScan_StillAsksQuantity()
+    {
+        var (window, vm, scan) = await OpenWarehouseReceivingAsync(AppLanguage.Russian);
+        var oldPref = UserPreferences.Instance.AskQtyOnRepeatScan;
+        UserPreferences.Instance.AskQtyOnRepeatScan = true;
+        try
+        {
+            var a = Line(qty: 1);
+            vm.ReceivingLines.Add(a);
+            ScanViaField(window, scan, Code);
+            OpenDialog(window).Should().BeNull("первый скан не спрашивает");
+            a.Quantity.Should().Be(2);
+
+            // «кладовщик набирал число 25 с»: момент скана в охране — 25 с назад
+            var atField = typeof(ReceivingRepeatScanGuard).GetField("_at", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+            atField.SetValue(vm.RepeatScanGuard, DateTime.UtcNow - TimeSpan.FromSeconds(25));
+
+            var grid = UiDrive.Find<DataGrid>(window, "ReceivingGrid");
+            var qtyColumn = grid.Columns[5]; // «Принимаем» (WarehouseWindow.RcvColQty)
+            grid.SelectedItem = a;
+            grid.CurrentColumn = qtyColumn;
+            grid.BeginEdit().Should().BeTrue();
+            UiShot.Settle(8);
+            var box = TopLevel.GetTopLevel(window)!.FocusManager!.GetFocusedElement() as TextBox;
+            box.Should().NotBeNull("правка «Принимаем» — поле в фокусе");
+            box!.SelectAll();
+            window.KeyTextInput("6");
+            UiShot.Settle(4);
+            grid.CommitEdit();
+            UiShot.Settle(6);
+            a.Quantity.Should().Be(6, "ручная правка принята");
+            vm.RepeatScanGuard.LastCode.Should().Be(Code, "правка количества — не сброс «тот же код подряд»");
+
+            ScanViaField(window, scan, Code);
+            var dialog = OpenDialog(window);
+            dialog.Should().NotBeNull("Д-8: первый повтор после ручной правки спрашивает «Сколько штук?», а не прибавляет +1 молча");
+            a.Quantity.Should().Be(6, "пока окно открыто, ничего не добавлено");
+            Press(dialog!, PhysicalKey.Escape);
+            UiShot.Settle(6, 20);
+        }
+        finally
+        {
+            UserPreferences.Instance.AskQtyOnRepeatScan = oldPref;
+            vm.ReceivingLines.Clear();
+            window.Close();
+            UiShot.Pump();
+        }
+    }
+
     [AvaloniaFact]
     public async Task WarehouseReceiving_RepeatScan_PackMode_AsksPacks_AddsPacks()
     {

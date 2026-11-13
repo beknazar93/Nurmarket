@@ -200,7 +200,7 @@ public static class ProductCodeLookup
     /// <summary>Tile — найденный на сервере и записанный в базу товар; Unavailable — ответ нельзя разобрать (товар есть, плитку не собрать), «не найден» говорить рано.</summary>
     public sealed record ServerResolve(CatalogProductTileVm? Tile, bool Unavailable);
 
-    private const int MaxAlternateCardChecks = 2;
+    private const int MaxAlternateCardChecks = 5; // 2026-11-11: было 2 (см. ResolveServerResultsAsync)
     private static readonly TimeSpan CardTimeout = TimeSpan.FromSeconds(3);
 
     /// <summary>2026-11-06 (класс Б, Б-2): ответ серверного поиска по коду (<see cref="ProductDto"/>: только название, цена, штрихкод, категория, бренд, фото, единица, остаток)
@@ -214,13 +214,18 @@ public static class ProductCodeLookup
         var dto = results.FirstOrDefault(d => forms.Contains(d.Barcode?.Trim() ?? "", StringComparer.OrdinalIgnoreCase));
         if (dto is null)
         {
-            foreach (var candidate in results.Where(d => !string.IsNullOrEmpty(d.Id)).Take(MaxAlternateCardChecks))
+            // 2026-11-11 (разбор «Кыргызстанские штрихкоды», п. 6): раньше читались карточки только первых двух результатов — товар с нужным ДОП. кодом на 3–5 месте
+            // (порядок поиска сервера не наш) не находился, и касса предлагала «новый товар». Теперь до пяти (столько отдаёт поиск, limit: 5) карточек читаются
+            // ОДНОВРЕМЕННО (ожидание — как одного запроса, а не пяти подряд); выбирается первая по порядку поиска, у которой точно этот доп. штрихкод.
+            var toCheck = results.Where(d => !string.IsNullOrEmpty(d.Id)).Select(d => d.Id!).Distinct(StringComparer.OrdinalIgnoreCase).Take(MaxAlternateCardChecks).ToList();
+            var cards = await Task.WhenAll(toCheck.Select(id => ReadCardAsync(api, id, ct))).ConfigureAwait(true);
+            foreach (var card in cards)
             {
-                if (await ReadCardAsync(api, candidate.Id!, ct).ConfigureAwait(true) is not { } card
-                    || ProductCatalogMapper.TryTile(card, apiBaseUrl) is not { } byAlternate
+                if (card is not { } c
+                    || ProductCatalogMapper.TryTile(c, apiBaseUrl) is not { } byAlternate
                     || !forms.Any(f => HasAlternateBarcode(byAlternate, f)))
                     continue;
-                return new ServerResolve(StoreServerTile(byAlternate, card, null), false);
+                return new ServerResolve(StoreServerTile(byAlternate, c, null), false);
             }
 
             return new ServerResolve(null, false);
@@ -333,6 +338,10 @@ public static class ProductCodeLookup
         Add(BarcodeForms.Alternate(key));
         if (key.Length == 14 && key[0] == '0' && key.All(char.IsDigit))
             Add(key[1..]);
+        // 2026-11-11 (разбор «Кыргызстанские штрихкоды», п. 7): обратный ход — EAN-13 → GTIN-14 с нулём впереди (товар записан как «04700012060943», сканер даёт
+        // «4700012060943»). Только точное совпадение этой записи; ни укорачивания, ни других дополнений.
+        if (key.Length == 13 && key.All(char.IsDigit))
+            Add("0" + key);
         if (SwapRussianLayout(key) is { } latin)
         {
             Add(latin);

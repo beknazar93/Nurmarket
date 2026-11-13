@@ -62,7 +62,8 @@ public static class ProductCodeBackfill
             changed = true;
         }
 
-        if (target.Plu is not > 0 && fresh.Plu is > 0)
+        // 2026-11-13: PLU из только что прочитанной карточки сервера главнее (возврат товара из архива даёт новый PLU) — см. FillMissingCodes.
+        if (fresh.Plu is > 0 && target.Plu != fresh.Plu)
         {
             target.Plu = fresh.Plu;
             changed = true;

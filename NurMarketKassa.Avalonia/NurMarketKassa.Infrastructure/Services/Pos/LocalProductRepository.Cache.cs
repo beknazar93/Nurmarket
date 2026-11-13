@@ -78,6 +78,7 @@ public sealed partial class LocalProductRepository
             incoming[baseRecord.Id] = baseRecord;
         }
 
+        List<(string Id, string Name, int? Old, int? New)>? pluChanges = null; // 2026-11-13: смена/освобождение PLU → память прежних PLU (ScalePluHistory)
         foreach (var (id, record) in incoming)
         {
             var current = QuerySingleRecord(connection, id);
@@ -85,11 +86,15 @@ public sealed partial class LocalProductRepository
             {
                 added++;
                 toUpsert.Add(id);
+                if (record.Plu is > 0 && ScalePluHistory.Any)
+                    (pluChanges ??= new()).Add((id, record.Name, null, record.Plu)); // вернулся из архива с новым PLU
             }
             else if (!string.Equals(Fingerprint(current), Fingerprint(record), StringComparison.Ordinal))
             {
                 changed++;
                 toUpsert.Add(id);
+                if (current.Plu is > 0 && current.Plu != record.Plu)
+                    (pluChanges ??= new()).Add((id, current.Name, current.Plu, record.Plu));
             }
             else
             {
@@ -99,7 +104,11 @@ public sealed partial class LocalProductRepository
 
         foreach (var id in deletedIds.Distinct(StringComparer.OrdinalIgnoreCase))
             if (QuerySingleRecord(connection, id) is { } existing)
+            {
                 toDelete.Add(existing.Id);
+                if (existing.Plu is > 0)
+                    (pluChanges ??= new()).Add((existing.Id, existing.Name, existing.Plu, null)); // архив/удаление освобождает PLU
+            }
 
         if (toUpsert.Count == 0 && toDelete.Count == 0)
             return new FeedApplyResult(0, 0, 0, missing, unchanged);
@@ -129,6 +138,7 @@ public sealed partial class LocalProductRepository
         }
 
         transaction.Commit();
+        NotePluChanges(pluChanges);
         if (!TryPatchCacheAfterSync(incoming, toUpsert, added, toDelete))
             ResetCache();
         return new FeedApplyResult(added, changed, toDelete.Count, missing, unchanged);
@@ -170,8 +180,12 @@ public sealed partial class LocalProductRepository
             changed = true;
         }
 
-        if (record.Plu is null or <= 0 && fresh.Plu is > 0)
+        // 2026-11-13 (сервер «ev1311»: при возврате из архива весовой товар получает НОВЫЙ PLU): fresh — только что прочитанная карточка с сервера, её PLU главнее
+        // локального: непустой другой PLU тоже заменяется (раньше дописывался только пустой), прежний — в память ScalePluHistory.
+        if (fresh.Plu is > 0 && record.Plu != fresh.Plu)
         {
+            if (record.Plu is > 0)
+                NotePluChanges([(record.Id, record.Name, record.Plu, fresh.Plu)]);
             record.Plu = fresh.Plu;
             changed = true;
         }
@@ -282,8 +296,13 @@ public sealed partial class LocalProductRepository
             // 2026-10-03, живой случай (тестовый аккаунт): у двух товаров один штрихкод («Батончик Mars» 0138 с
             // остатком 98 и его дубль 0143 с остатком 0). Раньше скан брал последний — дубль, и приёмка падала
             // (сервер не даёт менять дубль, 500). При совпадении берём товар с остатком, затем — с меньшим кодом.
+            // 2026-11-11 (разбор кыргызстанских штрихкодов 470…): раньше основной код проигрывал ДОП. коду другого товара, если тот шёл в списке раньше
+            // (запись по доп. коду считалась «уже занятой» и заменялась только при остатке 0) — скан отдавал чужой товар, хотя у кода есть законный владелец.
+            // Теперь запись, попавшая в индекс по доп. коду, всегда уступает основному коду.
             if (!string.IsNullOrEmpty(barcode)
-                && (!barcodeCache.TryGetValue(barcode, out var already) || PreferForBarcode(tile, already)))
+                && (!barcodeCache.TryGetValue(barcode, out var already)
+                    || !string.Equals(already.Barcode?.Trim(), barcode, StringComparison.OrdinalIgnoreCase)
+                    || PreferForBarcode(tile, already)))
                 barcodeCache[barcode] = tile;
 
             // 2026-09-12: "Дополнительные штрихкоды" из карточки товара сохранялись (см.

@@ -801,6 +801,9 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
     /// <summary>Оптовая цена товара строки (за единицу строки); 0 — у товара её нет.</summary>
     private double WholesalePriceOf(CartLineItemVm line)
     {
+        // 2026-11-13: у строки в упаковке своя оптовая цена упаковки (wholesale_price единицы продажи), а не оптовая цена базовой единицы.
+        if (SaleUnitOfLine(line.ProductId, line.SalePackageId) is { } saleUnit)
+            return saleUnit.WholesalePrice is > 0m ? (double)saleUnit.WholesalePrice.Value : 0;
         if (string.IsNullOrWhiteSpace(line.ProductId) || _catalogLookup?.Invoke(line.ProductId) is not { } tile || tile.WholesalePrice <= 0)
             return 0;
         if (!string.IsNullOrWhiteSpace(line.SalePackageId) && tile.PieceOption is { QuantityInPackage: > 0 } piece
@@ -808,6 +811,12 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
             return Math.Round(tile.WholesalePrice / piece.QuantityInPackage, 2);
         return tile.WholesalePrice;
     }
+
+    /// <summary>2026-11-13: строка в единице продажи (упаковка) — единица товара по «условному id» sale_unit:… проекции строки; null — обычная строка.</summary>
+    private static ProductSaleUnits.Unit? SaleUnitOfLine(string? productId, string? salePackageId) =>
+        !string.IsNullOrWhiteSpace(salePackageId) && salePackageId.StartsWith(ProductSaleUnits.LinePrefix, StringComparison.Ordinal)
+            ? ProductSaleUnits.Find(productId, salePackageId[ProductSaleUnits.LinePrefix.Length..])
+            : null;
 
     /// <summary>Строка ↔ оптовая цена. Только у локального (ещё не отправленного) чека — серверную корзину
     /// касса так не правит.</summary>
@@ -830,6 +839,124 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         {
             PosLogger.Log($"Опт: строку не переключить ({ex.Message}).", "WARNING");
         }
+    }
+
+    // ── 2026-11-12 (ХМ8, ТЗ хозмаг): «цена прораба» — клиент, отмеченный «Покупает по оптовой цене (прораб)» (ClientPriceGroups), в чеке даёт опт по всем
+    // строкам, у которых есть оптовая цена (остальные остаются в рознице). Только «Хозтовары»; до ответа сервера по Б-55 (уровни цен) — локальная отметка.
+    private static bool ForemanPriceOn => MarketSpheres.IsHardware && MarketSpheres.Profile.ForemanPriceAvailable;
+
+    /// <summary>2026-11-13 (проверка, находка «высокая»): у кассира есть право «Изменение цены в кассе» (владелец/админ — всегда), без запроса и сообщения. Опт по ЛОКАЛЬНОЙ отметке «прораб»
+    /// меняет цену продажи, поэтому без права отметка цены не меняет — как тумблер «Оптовый» (<see cref="DemandPriceRight"/>). Цены серверного уровня (price_level) назначает владелец на сервере —
+    /// их это правило не затрагивает.</summary>
+    private bool HasPriceRightQuiet => _permissions is null || _permissions.HasPermission(PosPermissions.EditPrice);
+
+    /// <summary>Уровень цен клиента с сервера (поле price_level списка клиентов, память кассы) или null.</summary>
+    private static string? PriceLevelOf(ClientOption? client) => client is null ? null : PriceLevelPricing.LevelOf(client.Id);
+
+    /// <summary>2026-11-13 (ответ Умара, строймаркет): сначала серверный уровень цен клиента (в чеке есть строки без цены этого уровня); иначе локальная отметка «прораб» — только у кассира с правом
+    /// на цену и если есть строки с оптовой ценой, ещё не по опту (после перевода таких строк нет — повторного перевода не будет).</summary>
+    private bool ForemanRepriceNeeded(ClientOption? client)
+    {
+        if (client == null || !ForemanPriceOn)
+            return false;
+        if (PriceLevelOf(client) is { } level)
+            return ReceiptSnapshotCartEditor.HasLinesWithoutPriceLevel(_cart, level);
+        return HasPriceRightQuiet && ClientPriceGroups.IsForeman(client.Id) && Lines.Any(l => l.CanWholesale && !l.IsWholesale);
+    }
+
+    /// <summary>2026-11-13: цены клиента в чеке — по серверному уровню (quote; нет связи — последние полученные цены уровня; цены нет — обычная, с предупреждением) либо по локальной отметке (с правом на цену).</summary>
+    private async Task ApplyClientPricesAsync(ClientOption client)
+    {
+        if (PriceLevelOf(client) is { } level)
+        {
+            await ApplyPriceLevelAsync(client, level).ConfigureAwait(false);
+            return;
+        }
+        if (!HasPriceRightQuiet)
+        {
+            PosLogger.Log($"Цена прораба: клиент {client.Id} отмечен, но у кассира нет права «Изменение цены» — опт не включён.", "WARNING");
+            return;
+        }
+        await RunOnUiThreadAsync(() => ApplyForemanPrice(client)).ConfigureAwait(false);
+    }
+
+    private async Task ApplyPriceLevelAsync(ClientOption client, string level)
+    {
+        var lines = new List<PriceLevelLine>();
+        await RunOnUiThreadAsync(() =>
+        {
+            foreach (var it in CartDisplayHelper.EnumerateItems(_cart.Root))
+            {
+                var productId = CartDisplayHelper.TryProductId(it);
+                var itemId = CartDisplayHelper.TryItemId(it);
+                if (string.IsNullOrEmpty(productId) || string.IsNullOrEmpty(itemId) || CartDisplayHelper.IsCustomLine(it) || ProductSaleUnits.LineKey(it) is not null)
+                    continue;
+                if (it.TryGetProperty(ReceiptSnapshotCartEditor.PriceLevelField, out var mark) && mark.ValueKind == JsonValueKind.String && mark.GetString() == level)
+                    continue;
+                lines.Add(new PriceLevelLine(itemId, productId, CartDisplayHelper.LineQuantity(it)));
+            }
+        }).ConfigureAwait(false);
+        if (lines.Count == 0)
+            return;
+
+        var result = await PriceLevelPricing.ResolveAsync(client.Id, level, lines).ConfigureAwait(false);
+        await RunOnUiThreadAsync(() =>
+        {
+            var applied = 0;
+            foreach (var (itemId, price) in result.PriceByItem)
+                if (ReceiptSnapshotCartEditor.SetLinePriceLevel(_cart, itemId, level, price))
+                    applied++;
+            if (applied > 0)
+                RefreshFromCart();
+            PosLogger.Log($"Цена по уровню {level}: клиент {client.Id}, строк {applied}, из памяти={result.FromCache}, без цены={result.Missing}.", "CART");
+            if (result.Missing > 0 || result.FromCache)
+            {
+                var missing = result.Missing;
+                _prompts.ShowWarning(result.FromCache
+                    ? Tr.T($"Нет связи с сервером: цены уровня клиента «{client.Name}» — последние полученные. Строк без цены уровня (останутся по обычной цене): {missing}.",
+                        $"Сервер менен байланыш жок: «{client.Name}» кардарынын деңгээл баалары — акыркы алынгандар. Деңгээл баасы жок саптар (кадимки баада калат): {missing}.",
+                        $"No connection to the server: price-level prices for “{client.Name}” are the last received ones. Lines without a level price (they stay at the usual price): {missing}.",
+                        $"Sunucuyla bağlantı yok: «{client.Name}» müşterisinin seviye fiyatları son alınanlardır. Seviye fiyatı olmayan satırlar (normal fiyatta kalır): {missing}.",
+                        $"Server bilan aloqa yo'q: «{client.Name}» mijozining daraja narxlari — oxirgi olinganlar. Daraja narxi yo'q qatorlar (oddiy narxda qoladi): {missing}.")
+                    : Tr.T($"Для {missing} поз. цены уровня клиента «{client.Name}» нет — они остаются по обычной цене.",
+                        $"«{client.Name}» кардарынын деңгээл баасы {missing} саптар үчүн жок — алар кадимки баада калат.",
+                        $"There is no price-level price for {missing} lines for “{client.Name}” — they stay at the usual price.",
+                        $"«{client.Name}» müşterisi için {missing} satırın seviye fiyatı yok — normal fiyatta kalır.",
+                        $"«{client.Name}» mijozi uchun {missing} qatorning daraja narxi yo'q — oddiy narxda qoladi."));
+            }
+            else if (applied > 0)
+            {
+                CartMessage = Tr.T($"Цены клиента «{client.Name}» (уровень цен): {applied} поз.", $"«{client.Name}» кардарынын баалары (баа деңгээли): {applied} саптар.",
+                    $"Prices for “{client.Name}” (price level): {applied} lines.", $"«{client.Name}» müşterisinin fiyatları (fiyat seviyesi): {applied} satır.",
+                    $"«{client.Name}» mijozining narxlari (narx darajasi): {applied} qator.");
+            }
+        }).ConfigureAwait(false);
+    }
+
+    private void ApplyForemanPrice(ClientOption client)
+    {
+        var candidates = Lines.Where(l => l.CanWholesale && !l.IsWholesale).ToList();
+        if (candidates.Count == 0)
+            return;
+        _applyingWholesaleMode = true;
+        try
+        {
+            foreach (var line in candidates)
+                ToggleWholesale(line, refresh: false);
+            RefreshFromCart();
+        }
+        finally
+        {
+            _applyingWholesaleMode = false;
+        }
+        // Режим «Оптовый» чека включается тоже: товары, отсканированные дальше, сразу по цене прораба.
+        _isWholesaleMode = true;
+        OnPropertyChanged(nameof(IsWholesaleMode));
+        RememberWholesaleModeLines();
+        CartMessage = Tr.T($"Цена прораба: {client.Name} — опт по {candidates.Count} поз.", $"Прораб баасы: {client.Name} — {candidates.Count} позиция дүң баада.",
+            $"Foreman price: {client.Name} — wholesale on {candidates.Count} lines.", $"Usta fiyatı: {client.Name} — {candidates.Count} satır toptan.",
+            $"Prorab narxi: {client.Name} — {candidates.Count} ta qator ulgurji narxda.");
+        PosLogger.Log($"Цена прораба: клиент {client.Id} отмечен как «прораб» — опт по строкам: {candidates.Count}.", "CART");
     }
 
     /// <summary>«Опт на весь чек»: если хоть одна строка с оптовой ценой ещё в рознице — все такие на опт,
@@ -961,11 +1088,25 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
     {
         if (string.IsNullOrWhiteSpace(productId) || _catalogLookup?.Invoke(productId) is not { } tile || tile.PurchasePrice <= 0)
             return 0;
+        // 2026-11-13: закупка упаковки = закупка базовой единицы × множитель (для проверки «ниже закупки» и убытка).
+        if (SaleUnitOfLine(productId, salePackageId) is { Factor: > 0m } saleUnit)
+            return tile.PurchasePrice * (double)saleUnit.Factor;
         if (!string.IsNullOrWhiteSpace(salePackageId) && tile.PieceOption is { QuantityInPackage: > 0 } piece
             && string.Equals(piece.Id, salePackageId, StringComparison.OrdinalIgnoreCase))
             return tile.PurchasePrice / piece.QuantityInPackage;
         return tile.PurchasePrice;
     }
+
+    /// <summary>2026-11-13 (сервер bc1112): есть ли у кассира право «Продажа ниже закупки» (can_sell_below_cost). Нет сервиса прав (тесты, автономный режим) — не ограничиваем.</summary>
+    public bool CanSellBelowCost => _permissions is null || _permissions.HasPermission(PosPermissions.SellBelowCost);
+
+    private static decimal ToMoney(double v) => double.IsFinite(v) ? (decimal)v : 0m;
+
+    /// <summary>2026-11-13: строки чека, проданные после скидки (на строку и/или на чек — <paramref name="orderDiscount"/>) ниже закупки. Закупочной цены нет — не проверяем. Вызывать на UI-потоке.</summary>
+    private IReadOnlyList<BelowCostHit> FindBelowCostHits(double orderDiscount) =>
+        BelowCostGuard.Find(
+            Lines.Select(l => new BelowCostLine(l.Title, ToMoney(UnitCostOf(l)), ToMoney(l.Quantity), ToMoney(l.LineTotal), l.HasDiscount)).ToList(),
+            ToMoney(orderDiscount));
 
     /// <summary>2026-10-20 (живой аудит кассы, К5): тот же расчёт убытка, что LossWarningText, но прямо по чеку (корзине), а не по
     /// строкам экрана. Окно кассы записывает скидку в чек БЕЗ обновления экрана и экрана покупателя, спрашивает «Продажа в
@@ -1165,6 +1306,65 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         catch (Exception ex)
         {
             PosLogger.Log($"CART add (piece) failed: {ex}", "CART");
+            _prompts.ShowError(Tr.T("Не удалось добавить товар в чек.", "Товарды чекке кошуу мүмкүн болгон жок.", "Could not add the product to the receipt.", "Ürün fişe eklenemedi.", "Mahsulotni chekka qo'shib bo'lmadi."));
+        }
+    }
+
+    /// <summary>2026-11-13 (ответ Умара, строймаркет): добавить товар в единице продажи (упаковка 1,44 м²). Количество — в упаковках (поле «Количество» кассы, по умолчанию 1);
+    /// остаток проверяется в базовых единицах: чек + это добавление (qty × factor) не больше остатка за вычетом отложенных и других открытых чеков. Не хватает — предупреждение,
+    /// строка не добавляется (на сервере продажа не пройдёт). Опт — по режиму «Оптовый» чека, если у упаковки есть оптовая цена.</summary>
+    private async Task AddScannedSaleUnitAsync(CatalogProductTileVm product, ProductSaleUnits.Unit unit)
+    {
+        var qty = ParseQuantity(ManualQuantity, false);
+        if (qty > MaxLineQuantity)
+        {
+            await RunOnUiThreadAsync(() =>
+            {
+                ManualQuantity = "1";
+                ShowQuantityWarning(QuantityTooLargeMessage());
+            }).ConfigureAwait(true);
+            return;
+        }
+
+        var needed = QuantityRules.ToMoneyDecimal(qty) * unit.Factor;
+        var inCart = CartDisplayHelper.EnumerateItems(_cart.Root)
+            .Where(it => string.Equals(CartDisplayHelper.TryProductId(it), product.Id, StringComparison.OrdinalIgnoreCase))
+            .Sum(it => CartDisplayHelper.LineQuantityInStockUnits(it, product));
+        var available = _stockLimitLookup?.Invoke(product.Id, null);
+        if (available is { } free && !product.IsService && QuantityRules.ToMoneyDecimal(inCart) + needed > QuantityRules.ToMoneyDecimal(free) + 0.0005m)
+        {
+            var left = Math.Max(0d, free - inCart).ToString("0.###", CultureInfo.InvariantCulture);
+            await RunOnUiThreadAsync(() => _prompts.ShowWarning(Tr.T(
+                $"«{product.Title}»: не хватает остатка для {qty:0.###} × {unit.Label(product.Unit)}. Можно добавить ещё {left} {product.Unit}.",
+                $"«{product.Title}»: {qty:0.###} × {unit.Label(product.Unit)} үчүн калдык жетишсиз. Дагы {left} {product.Unit} кошсо болот.",
+                $"“{product.Title}”: not enough stock for {qty:0.###} × {unit.Label(product.Unit)}. You can add {left} {product.Unit} more.",
+                $"«{product.Title}»: {qty:0.###} × {unit.Label(product.Unit)} için stok yetersiz. {left} {product.Unit} daha eklenebilir.",
+                $"«{product.Title}»: {qty:0.###} × {unit.Label(product.Unit)} uchun qoldiq yetarli emas. Yana {left} {product.Unit} qo'shish mumkin."))).ConfigureAwait(false);
+            return;
+        }
+
+        await RunOnUiThreadAsync(() => AddSaleUnitFromCatalog(product, unit, qty)).ConfigureAwait(true);
+    }
+
+    /// <summary>2026-11-13: строка чека в единице продажи (см. <see cref="AddScannedSaleUnitAsync"/>); оптовая цена упаковки — в оптовом режиме чека.</summary>
+    public void AddSaleUnitFromCatalog(CatalogProductTileVm product, ProductSaleUnits.Unit unit, double quantity)
+    {
+        if (product is null || unit is null || quantity <= 0)
+            return;
+
+        try
+        {
+            EnsureCartInitialized();
+            var before = SnapshotQuantities();
+            _cart.AddSaleUnitItem(product, unit.Key, quantity, _isWholesaleMode && unit.WholesalePrice is > 0m);
+            SyncLinesAndTotals();
+            ManualQuantity = "1";
+            AfterProductAdded(before);
+            CartMessage = $"{unit.Label(product.Unit)} × {quantity:0.###}";
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"CART add (sale unit) failed: {ex}", "CART");
             _prompts.ShowError(Tr.T("Не удалось добавить товар в чек.", "Товарды чекке кошуу мүмкүн болгон жок.", "Could not add the product to the receipt.", "Ürün fişe eklenemedi.", "Mahsulotni chekka qo'shib bo'lmadi."));
         }
     }
@@ -1438,12 +1638,13 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
 
         // 2026-10-22 (модалки, пакет 1): кнопки — сами ответы: «Сумма … сом» (главная) и «Вес … кг» (вторая; Esc и ✕ — тоже
         // «вес», как прежнее «Нет»). Текст больше не называет кнопки «Да» / «Нет». Смысл ответов и запоминание — прежние.
+        // 2026-11-11: правила штрихкода задаются в программе владельца и едут в кассы через облако — подсказка «где поменять» ведёт туда.
         var isAmount = await _prompts.ConfirmAsync(Tr.T(
-            $"Этикетка весов с префиксом {prefix} ({name}). Что напечатано на этикетке — сумма или вес?\n\nСумма: {aSum} сом (вес {aKg} кг)\nВес: {wKg} кг (сумма {wSum} сом)\n\nСверьте с этикеткой. Ответ запомнится для префикса {prefix}; поменять — Настройки → Весы.",
-            $"{prefix} префикстүү тараза этикеткасы ({name}). Этикеткада эмне басылган — сумма же салмак?\n\nСумма: {aSum} сом (салмагы {aKg} кг)\nСалмак: {wKg} кг (суммасы {wSum} сом)\n\nЭтикетка менен салыштырыңыз. Жооп {prefix} префикси үчүн эсте калат; өзгөртүү — Жөндөөлөр → Таразалар.",
-            $"Scale label with prefix {prefix} ({name}). What is printed on the label — total or weight?\n\nTotal: {aSum} som (weight {aKg} kg)\nWeight: {wKg} kg (total {wSum} som)\n\nCompare with the label. The answer is remembered for prefix {prefix}; change it in Settings → Scales.",
-            $"{prefix} önekli terazi etiketi ({name}). Etikette ne basılı — tutar mı ağırlık mı?\n\nTutar: {aSum} som (ağırlık {aKg} kg)\nAğırlık: {wKg} kg (tutar {wSum} som)\n\nEtiketle karşılaştırın. Cevap {prefix} öneki için hatırlanır; değiştirmek için Ayarlar → Teraziler.",
-            $"{prefix} prefiksli tarozi yorlig'i ({name}). Yorliqda nima bosilgan — summa yoki vazn?\n\nSumma: {aSum} so'm (vazn {aKg} kg)\nVazn: {wKg} kg (summa {wSum} so'm)\n\nYorliq bilan solishtiring. Javob {prefix} prefiksi uchun eslab qolinadi; o'zgartirish — Sozlamalar → Tarozilar."),
+            $"Этикетка весов с префиксом {prefix} ({name}). Что напечатано на этикетке — сумма или вес?\n\nСумма: {aSum} сом (вес {aKg} кг)\nВес: {wKg} кг (сумма {wSum} сом)\n\nСверьте с этикеткой. Ответ запомнится для префикса {prefix}; поменять — в программе владельца: Товары → Весы.",
+            $"{prefix} префикстүү тараза этикеткасы ({name}). Этикеткада эмне басылган — сумма же салмак?\n\nСумма: {aSum} сом (салмагы {aKg} кг)\nСалмак: {wKg} кг (суммасы {wSum} сом)\n\nЭтикетка менен салыштырыңыз. Жооп {prefix} префикси үчүн эсте калат; өзгөртүү — ээсинин программасында: Товарлар → Тараза.",
+            $"Scale label with prefix {prefix} ({name}). What is printed on the label — total or weight?\n\nTotal: {aSum} som (weight {aKg} kg)\nWeight: {wKg} kg (total {wSum} som)\n\nCompare with the label. The answer is remembered for prefix {prefix}; change it in the owner's program: Products → Scales.",
+            $"{prefix} önekli terazi etiketi ({name}). Etikette ne basılı — tutar mı ağırlık mı?\n\nTutar: {aSum} som (ağırlık {aKg} kg)\nAğırlık: {wKg} kg (tutar {wSum} som)\n\nEtiketle karşılaştırın. Cevap {prefix} öneki için hatırlanır; değiştirmek için işletme sahibi programında: Ürünler → Tartılar.",
+            $"{prefix} prefiksli tarozi yorlig'i ({name}). Yorliqda nima bosilgan — summa yoki vazn?\n\nSumma: {aSum} so'm (vazn {aKg} kg)\nVazn: {wKg} kg (summa {wSum} so'm)\n\nYorliq bilan solishtiring. Javob {prefix} prefiksi uchun eslab qolinadi; o'zgartirish — egasi dasturida: Mahsulotlar → Tarozilar."),
             Tr.T($"Сумма {aSum} сом", $"Суммасы {aSum} сом", $"Total {aSum} som", $"Tutar {aSum} som", $"Summa {aSum} so'm"),
             Tr.T($"Вес {wKg} кг", $"Салмак {wKg} кг", $"Weight {wKg} kg", $"Ağırlık {wKg} kg", $"Vazn {wKg} kg")).ConfigureAwait(true);
 
@@ -1585,10 +1786,28 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
             // "успешно" срабатывала бы раньше, чем прямой поиск. Весовые же коды с весов
             // никогда не совпадают ни с одним товаром напрямую (каждое взвешивание уникально),
             // так что они всё равно корректно попадут в ветку ниже.
+            // 2026-11-13 (ответ Умара 13.11, строймаркет): штрихкод упаковки товара (sale_units[].barcode) — строка в УПАКОВКАХ по цене упаковки; проверяется раньше прочего:
+            // у упаковки свой код, а у основного товара его нет среди штрихкодов. Код, совпавший с основным штрихкодом товара, упаковкой не считается.
+            if (ProductSaleUnits.FindByBarcode(barcode) is { } saleUnitHit
+                && _catalogLookup?.Invoke(saleUnitHit.ProductId) is { } saleUnitProduct
+                && !string.Equals(saleUnitProduct.Barcode?.Trim(), barcode.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                await AddScannedSaleUnitAsync(saleUnitProduct, saleUnitHit.Unit).ConfigureAwait(true);
+                return;
+            }
+
             var product = _catalogLookup?.Invoke(barcode);
 
             if (product != null)
             {
+                // 2026-11-12 (ХМ3, ТЗ хозмаг): скан коробки (доп. штрихкод с количеством N) в «Хозтоварах» при включённой галочке добавляет N базовых единиц
+                // одной строкой, повтор — ещё N. Иначе (другая сфера, галочка выкл, N ≤ 1) — как раньше: +1 и имя варианта.
+                if (PackScanRules.Find(product, barcode, out var packQuantity) is { } packVariant)
+                {
+                    await AddScannedPackAsync(product, packVariant, packQuantity).ConfigureAwait(true);
+                    return;
+                }
+
                 await AddFoundCatalogProductAsync(product, ResolveVariantLineName(product, barcode)).ConfigureAwait(true);
                 return;
             }
@@ -1621,6 +1840,27 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
                     $"[DEBUG] Barcode parsed as weight/amount code: productCode={weighted.ProductCode}, kind={weighted.Kind}",
                     "CART");
                 var weighedProduct = LocalCartService.FindByEmbeddedCode(weighted.ProductCode);
+                // 2026-11-13 (сервер «ev1311»: архив освобождает PLU, возврат даёт новый): этикетка со старым PLU не должна молча продать другой товар.
+                // PLU свободен — понятное сообщение вместо «не найден»; PLU уже у другого товара — спросить кассира (подтверждение помнится до перезапуска).
+                if (ScalePluHistory.CheckLabel(weighted.ProductCode, weighedProduct) is { } staleLabel)
+                {
+                    if (staleLabel.Kind == ScalePluHistory.LabelProblemKind.Freed)
+                    {
+                        PosLogger.Log($"[SCALE] label {barcode}: old PLU {weighted.ProductCode} is free — not added", "CART");
+                        await RunOnUiThreadAsync(() => _prompts.ShowWarning(staleLabel.Message)).ConfigureAwait(false);
+                        return;
+                    }
+
+                    var takeNew = await _prompts.ConfirmAsync(staleLabel.Message,
+                        Tr.T("Добавить", "Кошуу", "Add", "Ekle", "Qo'shish"),
+                        Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish")).ConfigureAwait(true);
+                    if (!takeNew)
+                    {
+                        PosLogger.Log($"[SCALE] label {barcode}: old PLU {weighted.ProductCode} now belongs to another product — rejected by cashier", "CART");
+                        return;
+                    }
+                    ScalePluHistory.Accept(staleLabel);
+                }
                 if (weighedProduct is null)
                 {
                     // 2026-11-06 (весы РС-200, ТЗ Умара): для весовой этикетки — «Весовой товар с PLU N не найден. Проверьте PLU товара в NurCRM».
@@ -1677,6 +1917,11 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
                     "Shtrix-kodni serverda tekshirib bo'lmadi. Ulanishni tekshirib qayta skanerlang; hozircha yangi mahsulot yaratib bo'lmaydi."))).ConfigureAwait(false);
                 return;
             }
+
+            // 2026-11-11 (разбор «Кыргызстанские штрихкоды», п. 9): обычный EAN-13/EAN-8 с неверной контрольной цифрой — скорее всего ошибка чтения:
+            // сначала «Проверьте штрихкод… отсканируйте ещё раз» (кнопка «Всё равно добавить» ведёт к обычному «Добавить товар»).
+            if (!await ScanMessages.ConfirmUnknownCodeAsync(_prompts, barcode).ConfigureAwait(true))
+                return;
 
             if (_onBarcodeNotFound != null)
             {
@@ -1743,6 +1988,36 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
             return null;
 
         return $"{product.Title} {variant.Name}".Trim();
+    }
+
+    /// <summary>2026-11-12 (ХМ3): добавить в чек N единиц по скану коробки. Количество кладётся в поле «Количество» на время добавления
+    /// (так делают окна кассы: проверка остатка и ввод идут тем же путём) и возвращается обратно, даже если добавление отменили.
+    /// Если кассир заранее набрал количество (2 коробки) — оно умножается на N.</summary>
+    private async Task AddScannedPackAsync(CatalogProductTileVm product, AlternateBarcodeVariant variant, double packQuantity)
+    {
+        var previous = ManualQuantity;
+        var typed = double.TryParse(previous?.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var t)
+            && t >= 1d ? Math.Round(t) : 1d;
+        var total = packQuantity * typed;
+        var text = PackScanRules.QuantityText(total);
+        await RunOnUiThreadAsync(() =>
+        {
+            ManualQuantity = text;
+            CartMessage = PackScanRules.Label(variant, packQuantity) + " → +" + text + " " + (product.Unit ?? "");
+        }).ConfigureAwait(true);
+        try
+        {
+            await AddFoundCatalogProductAsync(product).ConfigureAwait(true);
+        }
+        finally
+        {
+            // Поле обычно сбрасывается само после добавления; если нет (настройка «не сбрасывать») или добавление отменено — вернуть прежнее.
+            await RunOnUiThreadAsync(() =>
+            {
+                if (ManualQuantity == text)
+                    ManualQuantity = previous ?? "1";
+            }).ConfigureAwait(true);
+        }
     }
 
     private async Task AddFoundCatalogProductAsync(CatalogProductTileVm product, string? lineNameOverride = null)
@@ -2095,6 +2370,15 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
                 }
             }
 
+            // 2026-11-12 (ХМ8): клиент чека (QR) — прораб: опт по всем строкам ДО подсчёта итога окна оплаты, иначе окно и сервер разошлись бы в цене.
+            if (receiptClient != null)
+            {
+                var repriceReceiptClient = false;
+                await RunOnUiThreadAsync(() => repriceReceiptClient = ForemanRepriceNeeded(receiptClient)).ConfigureAwait(false);
+                if (repriceReceiptClient)
+                    await ApplyClientPricesAsync(receiptClient).ConfigureAwait(false); // 2026-11-13: уровень цен сервера / локальная отметка (только с правом на цену)
+            }
+
             var totals = CartTotalsCalculator.Calculate(_cart.Root);
             PosLogger.Log(
                 $"PAY dialog open: lines={_cart.LineCount}, total={totals.TotalDue:0.00}",
@@ -2105,15 +2389,38 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
             if (preferredMethod == "transfer")
                 checkoutVm.IsTransfer = true;
             checkoutVm.PriceChangeNotice = _priceChangeNotice ?? ""; // 2026-10-27 (Д-6)
+            // 2026-11-13 (находка проверяющего п. 4): скидка на чек вводится в этом окне — проверка «ниже закупки» идёт при каждом её изменении, до приёма денег (QR/карта).
+            // Право выдали на сайте при открытом чеке — окно один раз перечитывает профиль и проверяет заново. Блок после окна (ниже) остаётся страховкой.
+            checkoutVm.BelowCostRecheck = BelowCostGuard.RecheckProfileAsync;
+            checkoutVm.BelowCostCheck = discountAndPoints =>
+                CanSellBelowCost || FindBelowCostHits(discountAndPoints) is not { Count: > 0 } hits ? null : BelowCostGuard.BlockedText(hits);
             checkoutVm.ScanSink = EnqueueBarcode; // 2026-10-27 (Д-7): скан во время оплаты — в очередь, оплата удержана (_scanGate.Hold)
             if (receiptClient != null)
                 checkoutVm.PreselectClient(receiptClient);
+            // 2026-11-12 (ХМ8): клиент-прораб выбран уже В окне оплаты — окно закрывается, чек пересчитывается по опту и окно открывается снова (см. ниже).
+            checkoutVm.ForemanRepriceCheck = ForemanRepriceNeeded;
             // 2026-10-02: после «Оформить как прокат» в чеке только строка проката — кнопку больше не показываем.
             checkoutVm.HasRentableItems = CartDisplayHelper.EnumerateItems(_cart.Root).Any(it => !CartDisplayHelper.IsCustomLine(it));
             await RunOnUiThreadAsync(() => AttachCheckoutDisplay(checkoutVm)).ConfigureAwait(false); // 2026-10-27 (В-2)
             var confirmed = await _windowService
                 .ShowDialogAsync<CheckoutViewModel, bool?>(checkoutVm)
                 .ConfigureAwait(false);
+
+            if (confirmed != true && checkoutVm.ForemanClient is { } foremanClient)
+            {
+                PosLogger.Log($"PAY: выбран клиент-прораб {foremanClient.Id} — чек пересчитан по опту, окно оплаты открывается снова.", "PAYMENT");
+                await RunOnUiThreadAsync(() =>
+                {
+                    ClearCheckoutDisplay(push: true);
+                    var session = GetActiveSession();
+                    if (session != null)
+                        session.Client = foremanClient;
+                }).ConfigureAwait(false);
+                await ApplyClientPricesAsync(foremanClient).ConfigureAwait(false); // 2026-11-13: уровень цен сервера / локальная отметка (только с правом на цену)
+                PreferredPaymentMethod = preferredMethod;
+                await PayCoreAsync(priceRetry).ConfigureAwait(false);
+                return;
+            }
 
             if (confirmed != true && checkoutVm.RentalRequested)
             {
@@ -2154,6 +2461,33 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
                 $"PAY API checkout: method={checkoutVm.PaymentMethod}, window_total={checkoutVm.EffectiveTotalDue:0.00}, cash={cashReceived}, print={checkoutVm.IsPrintReceiptEnabled}, " +
                 $"consultant={checkoutVm.ConsultantIdForApi ?? "-"}",
                 "PAYMENT");
+
+            // 2026-11-13 (сервер bc1112): скидка (на строку или на чек из окна оплаты) увела цену ниже закупочной, а права «Продажа ниже закупки» (can_sell_below_cost) нет —
+            // продажу НЕ отправляем: сервер откажет, а офлайн-очередь взяла бы деньги за чек, который потом не проведут. Закупочной цены нет — строка не проверяется.
+            var belowCostNoRight = !CanSellBelowCost;
+            if (belowCostNoRight)
+            {
+                await BelowCostGuard.RecheckProfileAsync().ConfigureAwait(false); // 2026-11-13: перед отказом — перечитать профиль (право могли выдать на сайте)
+                belowCostNoRight = !CanSellBelowCost;
+            }
+            if (belowCostNoRight)
+            {
+                IReadOnlyList<BelowCostHit>? belowCostHits = null;
+                var belowCostDiscount = checkoutVm.OrderDiscountAmount + checkoutVm.PointsRedeemed;
+                await RunOnUiThreadAsync(() => belowCostHits = FindBelowCostHits(belowCostDiscount)).ConfigureAwait(false);
+                if (belowCostHits is { Count: > 0 })
+                {
+                    PosLogger.Log($"PAY aborted: цена со скидкой ниже закупки по {belowCostHits.Count} поз., права can_sell_below_cost нет.", "WARNING");
+                    var belowCostText = BelowCostGuard.BlockedText(belowCostHits);
+                    await RunOnUiThreadAsync(() =>
+                    {
+                        ClearCheckoutDisplay(push: true);
+                        _customerDisplay.SetPaymentStatus(CustomerDisplayPaymentStatus.Idle);
+                        _prompts.ShowWarning(belowCostText);
+                    }).ConfigureAwait(false);
+                    return;
+                }
+            }
 
             // 2026-11-01 (К-08, code-review): состояние ожидания ЭТОЙ оплаты — окно «Проводим оплату…» берёт из него текст про медленный сервер.
             var paymentWait = new PaymentWaitState();

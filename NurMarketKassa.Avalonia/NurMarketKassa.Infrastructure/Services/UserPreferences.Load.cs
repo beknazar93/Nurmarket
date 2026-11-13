@@ -237,6 +237,10 @@ public sealed partial class UserPreferences
                 p.VoiceLockEnabled = fromFile.VoiceLockEnabled.Value;
             if (fromFile.StaffTimesheetUnlocked is not null)
                 p.StaffTimesheetUnlocked = fromFile.StaffTimesheetUnlocked.Value;
+            if (fromFile.RepairUnlocked is not null) // 2026-11-13: «Ремонт и сервис» из Маркетплейса
+                p.RepairUnlocked = fromFile.RepairUnlocked.Value;
+            if (fromFile.TradeInUnlocked is not null) // 2026-11-13: «Trade-in / скупка» из Маркетплейса
+                p.TradeInUnlocked = fromFile.TradeInUnlocked.Value;
             if (fromFile.ScalesUnlocked is not null)
                 p.ScalesUnlocked = fromFile.ScalesUnlocked.Value;
             else if (fromFile.ScaleEnabled == true)
@@ -396,6 +400,11 @@ public sealed partial class UserPreferences
                 p.DebtPrepaymentChooseMethod = fromFile.DebtPrepaymentChooseMethod.Value;
             if (!string.IsNullOrWhiteSpace(fromFile.AdvisorCapabilitiesJson))
                 p.AdvisorCapabilitiesJson = fromFile.AdvisorCapabilitiesJson;
+            // 2026-11-12 (ХМ15): общие настройки сфер и отметки «прораб» (пустое / слишком большое — не берём, остаются умолчания).
+            if (!string.IsNullOrWhiteSpace(fromFile.SphereSettingsJson) && System.Text.Encoding.UTF8.GetByteCount(fromFile.SphereSettingsJson) <= SphereSettings.MaxJsonBytes)
+                p.SphereSettingsJson = fromFile.SphereSettingsJson;
+            if (!string.IsNullOrWhiteSpace(fromFile.ClientPriceGroupsJson) && System.Text.Encoding.UTF8.GetByteCount(fromFile.ClientPriceGroupsJson) <= ClientPriceGroups.MaxJsonBytes)
+                p.ClientPriceGroupsJson = fromFile.ClientPriceGroupsJson;
             if (!string.IsNullOrWhiteSpace(fromFile.PurchaseEditWindow))
                 p.PurchaseEditWindow = fromFile.PurchaseEditWindow;
             if (!string.IsNullOrWhiteSpace(fromFile.StaffAutoMarkMode))
@@ -514,6 +523,10 @@ public sealed partial class UserPreferences
                 p.RongtaPricePoint = fromFile.RongtaPricePoint.Value;
             if (fromFile.RongtaBarcodeType is >= 0 and <= 99)
                 p.RongtaBarcodeType = fromFile.RongtaBarcodeType.Value;
+            if (fromFile.RongtaServerBarcodeType is >= 0 and <= 99) // 2026-11-13: тип штрихкода в записи 0110 (способ «свой сервер»)
+                p.RongtaServerBarcodeType = fromFile.RongtaServerBarcodeType.Value;
+            else if (fromFile.RongtaBarcodeType is not null)
+                p.RongtaServerBarcodeType = null; // 2026-11-13: настройки Rongta уже сохранялись, структура не выбиралась (или «Не записывать тип») — умолчание 07 не навязываем
             if (fromFile.ScaleKeyCount is >= 1 and <= 240)
                 p.ScaleKeyCount = fromFile.ScaleKeyCount.Value;
             if (fromFile.LoyaltyEarnPercent is not null)

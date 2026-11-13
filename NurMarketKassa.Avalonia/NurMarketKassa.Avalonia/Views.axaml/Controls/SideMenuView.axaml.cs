@@ -406,6 +406,8 @@ public partial class SideMenuView : UserControl
         ["MiReturn"] = "возврат вернуть refund return кайтаруу кайтар iade qaytar",
         ["MiPayDebt"] = "долг долги должник оплата погасить debt карыз qarz borç borc",
         ["MiRental"] = "прокат аренда rent rental ижара kira ijara prokat",
+        ["MiRepair"] = "ремонт сервис квитанция repair service tamir servis оңдоо ta'mir",
+        ["MiTradeIn"] = "трейд ин скупка выкуп б/у trade-in buyback used alım sotib olish сатып алуу",
         ["MiClients"] = "клиент клиенты покупатель customer client кардар müşteri musteri mijoz xaridor",
         ["MiDeferredCarts"] = "отлож отложенные корзина пауза hold held deferred калтыр кийинкиге bekle kechiktir savat",
         ["MiWarehouse"] = "склад товар товары остаток stock warehouse inventory кампа товар depo stok ombor tovar",
@@ -426,7 +428,8 @@ public partial class SideMenuView : UserControl
         ["MiTheme"] = "тема тёмная темная светлая ночь цвет theme dark light тема караңгы ачык tema koyu açık mavzu qorongi yorug",
         ["NewMenuStyleButton"] = "вид меню меню старое новое menu layout style меню көрүнүш menü görünüm menyu korinish",
         ["MiHotkeys"] = "горячие клавиши сочетание hotkeys shortcuts keys ыкчам баскыч kısayol kisayol tezkor tugma",
-        ["MiSettings"] = "настрой настройки параметры принтер печать settings options printer жөндөө ayar sozlama",
+        // 2026-11-13: «весы» ищут в меню кассы, а раздела «Весы» у кассира нет (он в программе владельца) — Настройки → Весы открывают отсюда; ключевые слова на 5 языках.
+        ["MiSettings"] = "настрой настройки параметры принтер печать весы весов этикетки ронгта rongta тм-30 штрих-м settings options printer scale scales label жөндөө ayar sozlama тараза тараздар таразалар тартылар tartı tarti tartılar tarozi tarozilar yorliq",
         ["MiMarketplace"] = "маркетплейс магазин функции тема вид кассы marketplace store shop маркет mağaza dokon",
         ["MiCrm"] = "crm nurcrm срм заявки сайт",
         ["MiLogs"] = "логи лог ошибки журнал log logs errors лог ката hata xato jurnal",

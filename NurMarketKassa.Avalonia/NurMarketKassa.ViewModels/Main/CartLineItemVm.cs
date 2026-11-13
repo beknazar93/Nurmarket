@@ -178,12 +178,12 @@ public sealed class CartLineItemVm : ViewModelBase
                 return string.Empty;
 
             if (DiscountPercent is { } percent && percent > 1e-6)
-                return $"-{percent.ToString("0.##", CultureInfo.InvariantCulture)}%";
+                return $"-{MoneyText.Weight(percent, "0.##")}%"; // 2026-11-12 (Д-5): запятая вместо точки
 
             var amount = FixedDiscountAmount is > 1e-6
                 ? FixedDiscountAmount.Value
                 : DiscountAmount;
-            return $"-{amount.ToString("0.##", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}";
+            return $"-{MoneyText.Weight(amount, "0.##")} {Tr.T("сом", "сом", "som", "som", "so'm")}";
         }
     }
 
@@ -193,8 +193,8 @@ public sealed class CartLineItemVm : ViewModelBase
     public string NumberedTitle => $"#{ItemNumber}. {Title}";
 
     public string QuantityDisplay => IsWeight
-        ? Quantity.ToString("0.000", CultureInfo.InvariantCulture)
-        : Quantity.ToString("0.###", CultureInfo.InvariantCulture);
+        ? MoneyText.Weight(Quantity, "0.000") // 2026-11-12 (Д-5): вес с запятой
+        : MoneyText.Weight(Quantity);
 
     // 2026-10-19, К1: суммы на экране — одним видом «1 234,50» (MoneyText), как у владельца; только показ.
     public string UnitPriceDisplay => MoneyText.Som(UnitPrice);

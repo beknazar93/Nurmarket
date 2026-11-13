@@ -58,6 +58,9 @@ public static class DeferredCartServerSync
             await api.PosAddItemAsync(serverCartId, productId, qtyStr, ct: cancellationToken).ConfigureAwait(false);
         }
 
+        // 2026-11-13 (сервер sn1311): серийники строк локального чека — на серверную корзину (после SetCart ниже локальных строк уже нет).
+        await StagingCartService.PushSerialsAsync(api, serverCartId, cart.Root, cancellationToken).ConfigureAwait(false);
+
         var fresh = await api.PosCartGetAsync(serverCartId, cancellationToken).ConfigureAwait(false);
         cart.SetCart(fresh);
         return true;

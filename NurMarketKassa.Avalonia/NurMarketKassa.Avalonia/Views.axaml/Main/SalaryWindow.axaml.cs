@@ -278,6 +278,7 @@ public partial class SalaryWindow : Window, IOwnerSection, IOwnerSectionRefresh,
         var to = _to;
         RowsList.ItemsSource = null;
         EmptyBox.IsVisible = false;
+        StateHost.IsVisible = false; // 2026-11-12 (Д-2)
         PayoutWarningBox.IsVisible = false;
         ResetCards();
         try
@@ -305,8 +306,11 @@ public partial class SalaryWindow : Window, IOwnerSection, IOwnerSectionRefresh,
         catch (Exception ex)
         {
             PosLogger.Log($"Salary report failed: {ex}", "WARNING");
-            ShowError(Tr.T("Не удалось загрузить зарплату", "Эмгек акыны жүктөө мүмкүн болгон жок", "Could not load salaries",
-                "Maaşlar yüklenemedi", "Ish haqini yuklab bo'lmadi") + ": " + ServerOutageMonitor.FriendlyError(ex)); // 2026-11-01 (В-28): без сырого текста .NET
+            // 2026-11-12 (оценка UX/UI, Д-2): общий блок состояния по центру таблицы с «Повторить» вместо красной полосы внизу; текст сервера — в «Подробнее» и журнал.
+            StateHost.Child = StateBlock.Failure(this, ex,
+                Tr.T("Не удалось загрузить зарплату", "Эмгек акыны жүктөө мүмкүн болгон жок", "Could not load salaries", "Maaşlar yüklenemedi", "Ish haqini yuklab bo'lmadi"),
+                () => _ = ReloadAsync());
+            StateHost.IsVisible = true;
         }
         finally
         {

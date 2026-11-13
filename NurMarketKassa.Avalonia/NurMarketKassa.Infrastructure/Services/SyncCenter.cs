@@ -204,7 +204,18 @@ public static class SyncCenter
     }
 
     /// <summary>Подсказки, которые принимаем от соседей по локальной сети и от телефонов: только тип, без данных.</summary>
-    public static bool IsKnownHint(string? kind) => kind is "sale" or "product" or "stock" or "price";
+    /// <remarks>2026-11-11: «settings» — изменились общие настройки компании (правило весовых штрихкодов): соседи сразу читают облако настроек.
+    /// Старые версии кассы такую подсказку просто пропускают.
+    /// «access» — владелец поменял доступы сотрудника (программа владельца): соседи сразу перечитывают профиль (AccessSync).</remarks>
+    public static bool IsKnownHint(string? kind) => kind is "sale" or "product" or "stock" or "price" or "settings" or "access";
+
+    /// <summary>2026-11-11: эта программа отправила в облако общие настройки (правило весовых штрихкодов) — подсказка соседям по локальной сети
+    /// (касса на этом ПК и в той же сети читает облако сейчас). Телефонам не передаётся: им эти настройки не нужны.</summary>
+    public static void NoteSettingsChanged(string kind = "settings")
+    {
+        try { Lan.LanSyncService.Instance.NotifyPeers(kind); }
+        catch (Exception ex) { PosLogger.Log($"SYNC: подсказка соседям не ушла: {ex.Message}", "WARNING"); }
+    }
 
     /// <summary>Эта программа что-то записала (продажа, правка товара/цены/прихода): быстрый опрос и подсказка соседям — другим кассам, программе
     /// владельца (локальная сеть) и подключённым телефонам. Ничего секретного не передаётся: тип события.</summary>
@@ -212,6 +223,11 @@ public static class SyncCenter
     {
         if (!IsKnownHint(kind))
             return;
+        if (kind is "settings" or "access")
+        {
+            NoteSettingsChanged(kind); // 2026-11-11: без ленты каталога и телефонов
+            return;
+        }
         // 2026-10-30 (скорость массовой загрузки): пока идёт массовая запись товаров, подсказка на каждый запрос не нужна (ускоренный опрос ленты,
         // рассылка соседям и телефонам на каждый из тысяч запросов) — одна общая подсказка уйдёт в конце (QuietScope.Dispose).
         if (Volatile.Read(ref _quietWrites) > 0)
@@ -252,6 +268,17 @@ public static class SyncCenter
     {
         if (!IsKnownHint(kind))
             return;
+        if (kind == "settings")
+        {
+            // 2026-11-11: сосед (программа владельца) отправил правило весовых штрихкодов — прочитать облако настроек сейчас; ленту каталога не трогаем.
+            SettingsCloudSync.KickCompanyPoll();
+            return;
+        }
+        if (kind == "access")
+        {
+            AccessSync.Kick("peer"); // 2026-11-11: владелец поменял доступы сотрудника — перечитать профиль сейчас
+            return;
+        }
         BoostFeed();
         FeedKick.Kick();
         if (kind != "sale")

@@ -215,7 +215,8 @@ public static class LabelPrinterSelector
             return Tr.T($"сеть (LAN) {NetworkPrinterAddress.Display(devicePath)}", $"тармак (LAN) {NetworkPrinterAddress.Display(devicePath)}", $"network (LAN) {NetworkPrinterAddress.Display(devicePath)}", $"ağ (LAN) {NetworkPrinterAddress.Display(devicePath)}", $"tarmoq (LAN) {NetworkPrinterAddress.Display(devicePath)}");
         if (WinUsbPrinterPort.IsWinUsbDevicePath(devicePath))
             return Tr.T("USB напрямую (WinUSB)", "USB түз (WinUSB)", "USB direct (WinUSB)", "USB doğrudan (WinUSB)", "USB to'g'ridan-to'g'ri (WinUSB)");
-        if (UsbRawPrinterPort.IsRawPortLabel(devicePath) || devicePath.StartsWith(@"\\.\", StringComparison.Ordinal))
+        if (UsbRawPrinterPort.IsRawPortLabel(devicePath) || devicePath.StartsWith(@"\\.\", StringComparison.Ordinal)
+            || devicePath.StartsWith(@"\\?\", StringComparison.Ordinal)) // 2026-11-13: USB напрямую из мастера «Подключить принтер»
             return Tr.T("USB без драйвера", "USB драйверсиз", "USB without driver", "USB sürücüsüz", "USB drayversiz");
         if (HardwarePortHelper.LooksLikeLptPort(devicePath))
             return Tr.T("параллельный порт (LPT)", "параллелдүү порт (LPT)", "parallel port (LPT)", "paralel port (LPT)", "parallel port (LPT)");
@@ -359,9 +360,10 @@ public static class LabelPrinterSelector
             "The selected label printer was not found — check power and cable, or choose another in Settings → Printing.",
             "Seçilen etiket yazıcısı bulunamadı — güç ve kabloyu kontrol edin veya Ayarlar → Yazdırma'dan başkasını seçin.",
             "Tanlangan yorliq printeri topilmadi — quvvat va kabelni tekshiring yoki Sozlamalar → Chop etish bo'limidan boshqasini tanlang.")
-        : Tr.T("Принтер этикеток не выбран — выберите его один раз в Настройки → Печать → «Принтер этикеток и штрихкодов».",
-            "Этикетка принтери тандалган эмес — аны Жөндөөлөр → Басып чыгаруу → «Этикетка жана штрих-код принтери» бөлүмүнөн бир жолу тандаңыз.",
-            "No label printer selected — choose it once in Settings → Printing → “Label and barcode printer”.",
-            "Etiket yazıcısı seçilmedi — Ayarlar → Yazdırma → «Etiket ve barkod yazıcısı» bölümünden bir kez seçin.",
-            "Yorliq printeri tanlanmagan — uni Sozlamalar → Chop etish → «Yorliq va shtrix-kod printeri» bo'limida bir marta tanlang.");
+        // 2026-11-13: + подсказка про мастер «Подключить принтер» (принтер без драйвера производителя, в основном Xprinter)
+        : Tr.T("Принтер этикеток не выбран — выберите его один раз в Настройки → Печать → «Принтер этикеток и штрихкодов» или нажмите там «Подключить принтер»: мастер сам найдёт принтер.",
+            "Этикетка принтери тандалган эмес — аны Жөндөөлөр → Басып чыгаруу → «Этикетка жана штрих-код принтери» бөлүмүнөн бир жолу тандаңыз же ошол жерден «Принтерди туташтыруу» баскычын басыңыз: чебер принтерди өзү табат.",
+            "No label printer selected — choose it once in Settings → Printing → “Label and barcode printer”, or press “Connect printer” there: the wizard will find the printer.",
+            "Etiket yazıcısı seçilmedi — Ayarlar → Yazdırma → «Etiket ve barkod yazıcısı» bölümünden bir kez seçin veya orada «Yazıcıyı bağla»ya basın: sihirbaz yazıcıyı kendisi bulur.",
+            "Yorliq printeri tanlanmagan — uni Sozlamalar → Chop etish → «Yorliq va shtrix-kod printeri» bo'limida bir marta tanlang yoki u yerda «Printerni ulash» tugmasini bosing: usta printerni o'zi topadi.");
 }

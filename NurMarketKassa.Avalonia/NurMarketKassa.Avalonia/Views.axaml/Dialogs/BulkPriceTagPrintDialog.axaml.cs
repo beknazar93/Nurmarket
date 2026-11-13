@@ -55,7 +55,7 @@ public partial class BulkPriceTagPrintDialog : Window
         // Акционные шаблоны не предлагаем в массовой печати — старая цена/скидка у каждого
         // товара своя, а общего поля для их ввода на весь список нет (см. PriceTagPrintDialog,
         // где это делается для одного товара).
-        var kindOptions = new[]
+        var kindOptions = new List<PriceTagKindOption>
         {
             new PriceTagKindOption(PriceTagKind.Simple, Tr.T("Простой (название + цена)", "Жөнөкөй (аталышы + баасы)", "Simple (name + price)", "Basit (ad + fiyat)", "Oddiy (nomi + narxi)")),
             new PriceTagKindOption(PriceTagKind.WithBarcode, Tr.T("Со штрих-кодом", "Штрих-код менен", "With barcode", "Barkodlu", "Shtrix-kod bilan")),
@@ -63,6 +63,9 @@ public partial class BulkPriceTagPrintDialog : Window
             new PriceTagKindOption(PriceTagKind.WithQr, Tr.T("С QR-кодом", "QR-код менен", "With QR code", "QR kodlu", "QR-kod bilan")),
             new PriceTagKindOption(PriceTagKind.Custom, Tr.T("🎨 Пользовательский шаблон", "🎨 Колдонуучунун шаблону", "🎨 Custom template", "🎨 Özel şablon", "🎨 Foydalanuvchi shabloni")),
         };
+        // 2026-11-12 (ХМ7): ценник «Хозтовары» (цена за единицу и за упаковку) — только в магазине этой сферы.
+        if (MarketSpheres.IsHardware)
+            kindOptions.Insert(kindOptions.Count - 1, new PriceTagKindOption(PriceTagKind.HardwareUnitPack, Tr.T("Хозтовары (цена за единицу и за упаковку)", "Чарба буюмдары (бирдик жана таңгак баасы)", "Hardware (unit and pack price)", "Hırdavat (birim ve paket fiyatı)", "Xo'jalik mollari (birlik va qadoq narxi)")));
         KindCombo.ItemsSource = kindOptions;
 
         // Запоминаем последние настройки печати между открытиями окна (2026-09-05, по просьбе
@@ -70,7 +73,7 @@ public partial class BulkPriceTagPrintDialog : Window
         // (Со штрих-кодом, размер шаблона, термопринтер, 1 копия).
         var prefs = UserPreferences.Instance;
         var savedKindIndex = prefs.BulkPriceTagKind is { } savedKind
-            ? Array.FindIndex(kindOptions, o => (int)o.Kind == savedKind)
+            ? kindOptions.FindIndex(o => (int)o.Kind == savedKind)
             : -1;
         KindCombo.SelectedIndex = savedKindIndex >= 0 ? savedKindIndex : 1;
 
@@ -335,14 +338,21 @@ public partial class BulkPriceTagPrintDialog : Window
             prefs.SaveToDisk();
 
             // 2026-11-01 (Н-4): цена с запятой, как в остальных окнах печати (BarcodePrintCatalog.LabelPrice).
-            var dataList = selected.Select(row => new PriceTagData(
-                ProductName: row.Product.Title,
-                Barcode: row.Product.Barcode,
-                PriceText: BarcodePrintCatalog.LabelPrice(row.Product),
-                Sku: row.Product.Article,
-                Unit: row.Product.Unit,
-                Category: row.Product.Category ?? row.Product.Brand,
-                StoreName: storeName)).ToList();
+            var dataList = selected.Select(row =>
+            {
+                // 2026-11-12 (ХМ7): ценник «Хозтовары» — цена за единицу и за упаковку; остальные виды — как раньше.
+                var hardware = option.Kind == PriceTagKind.HardwareUnitPack ? HardwarePriceTag.Build(row.Product) : (HardwarePriceTag.Texts?)null;
+                return new PriceTagData(
+                    ProductName: row.Product.Title,
+                    Barcode: row.Product.Barcode,
+                    PriceText: hardware?.UnitPrice ?? BarcodePrintCatalog.LabelPrice(row.Product),
+                    Sku: row.Product.Article,
+                    Unit: row.Product.Unit,
+                    Category: row.Product.Category ?? row.Product.Brand,
+                    StoreName: storeName,
+                    PackPriceText: hardware?.PackPrice,
+                    PackLabel: hardware?.PackLabel);
+            }).ToList();
 
             if (isA4)
             {
@@ -405,7 +415,7 @@ public partial class BulkPriceTagPrintDialog : Window
                 $"{problemCount} ta mahsulotda shtrix-kod bo'yicha eslatma bor (noto'g'ri EAN Code 128 sifatida chop etildi, kirill, juda uzun yoki zich kod) — tafsilotlar shu mahsulotning narx yorlig'ini chop etish oynasida.");
 
             // 2026-11-01 (Н-5): «Со штрих-кодом»/«Подробный»/QR — товары без штрих-кода печатаются без него; считаем их и пишем.
-            var needsCode = option.Kind is PriceTagKind.WithBarcode or PriceTagKind.Detailed or PriceTagKind.WithQr
+            var needsCode = option.Kind is PriceTagKind.WithBarcode or PriceTagKind.Detailed or PriceTagKind.WithQr or PriceTagKind.HardwareUnitPack
                 || (option.Kind == PriceTagKind.Custom && _customTemplate.Barcode.Enabled);
             var noCode = needsCode ? selected.Count(row => string.IsNullOrWhiteSpace(row.Product.Barcode)) : 0;
             if (noCode > 0)

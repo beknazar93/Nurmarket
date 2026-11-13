@@ -53,6 +53,9 @@ public sealed class SupplierCardView : UserControl
     private List<SupplierReceipt> _receipts = new();
     private List<SupplierProduct> _products = new();
     private List<SupplierReturnInfo> _returns = new();
+
+    /// <summary>2026-11-11: действующие возвраты — без аннулированных (список с ?status=all несёт их ради плашки «АННУЛИРОВАН»; в итоги и предупреждения не входят).</summary>
+    private List<SupplierReturnInfo> ActiveReturns => _returns.Where(r => !r.EditState.IsVoided).ToList();
     private readonly Dictionary<string, string> _errors = new();
     // 2026-10-20, этап П3: не записанные долги этого поставщика (очередь SupplierDebtRecorder).
     private SupplierDebtQueue _queue = new(false, null, Array.Empty<SupplierDebtEntry>());
@@ -189,7 +192,7 @@ public sealed class SupplierCardView : UserControl
             }),
             Part("receipts", async () => _receipts = (await _svc.GetReceiptsAsync(id, 200, cts.Token).ConfigureAwait(true)).Receipts),
             Part("products", async () => _products = await _svc.GetProductsAsync(id, cts.Token).ConfigureAwait(true)),
-            Part("returns", async () => _returns = await _svc.GetReturnsAsync(id, cts.Token).ConfigureAwait(true))).ConfigureAwait(true);
+            Part("returns", async () => _returns = await _svc.GetReturnsAsync(id, cts.Token, await _svc.ReturnEditFeatureAsync(cts.Token).ConfigureAwait(true)).ConfigureAwait(true))).ConfigureAwait(true); // 2026-11-11: при признаке — и аннулированные
         _loading = false;
         _queue = SupplierDebtRecorder.LoadQueue(id);
         PosLogger.Log($"Поставщик {id}: сделок {_deals.Count}, закупок {_purchases.Count}, приходов {_receipts.Count}, товаров {_products.Count}, возвратов {_returns.Count}"
@@ -621,7 +624,7 @@ public sealed class SupplierCardView : UserControl
 
         var from = PeriodStart;
         var groups = Groups.Where(g => from is null || g.At >= from).ToList();
-        var returns = _returns.Where(r => from is null || (r.CreatedAt ?? DateTime.MinValue) >= from).ToList();
+        var returns = ActiveReturns.Where(r => from is null || (r.CreatedAt ?? DateTime.MinValue) >= from).ToList(); // 2026-11-11: без аннулированных
         var kpi = new NurMarketKassa.AvaloniaHost.Views.Controls.KpiTileGrid { MinTileWidth = 180, Spacing = 8 };
         kpi.Children.Add(UiKit.Kpi(T("Мы должны", "Биз карызбыз", "We owe", "Borcumuz", "Qarzimiz"), MoneyText.Som(Debt), danger: Debt > 0.005));
         kpi.Children.Add(UiKit.Kpi(T("Просрочено", "Мөөнөтү өттү", "Overdue", "Vadesi geçmiş", "Muddati o'tgan"), MoneyText.Som(Overdue), danger: Overdue > 0.005));
@@ -678,7 +681,7 @@ public sealed class SupplierCardView : UserControl
                 $"Looks like a double entry: the debt “{d.Title}” of {MoneyText.Som(d.Amount)} was recorded twice ({d.CreatedAt:dd.MM.yyyy HH:mm}). Check it on the NurCRM website.",
                 $"Çift kayıt gibi görünüyor: «{d.Title}» borcu {MoneyText.Som(d.Amount)} iki kez kaydedilmiş ({d.CreatedAt:dd.MM.yyyy HH:mm}). NurCRM sitesinden kontrol edin.",
                 $"Ikki marta yozilganga o'xshaydi: «{d.Title}» qarzi {MoneyText.Som(d.Amount)} ikki marta yozilgan ({d.CreatedAt:dd.MM.yyyy HH:mm}). NurCRM saytida tekshiring."));
-        foreach (var r in _returns.Where(r => r.Compensation == "debt_offset"))
+        foreach (var r in ActiveReturns.Where(r => r.Compensation == "debt_offset")) // 2026-11-11: аннулированный зачёт — не предупреждение
             warnings.Add(OffsetText(r));
         if (warnings.Count > 0)
             _body.Children.Add(WarningBox(warnings));
@@ -1122,10 +1125,11 @@ public sealed class SupplierCardView : UserControl
                 "Bu yetkazib beruvchiga qaytarish bo'lmagan. Brak, ortiqcha yoki muddati o'tgan mahsulot «Yetkazib beruvchilarga qaytarishlar» bo'limida rasmiylashtiriladi.")));
             return;
         }
+        var active = ActiveReturns; // 2026-11-11: итог — без аннулированных (они видны ниже с плашкой)
         var line = new TextBlock { FontSize = 15, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap,
-            Text = T($"Возвратов {_returns.Count} на сумму {MoneyText.Som(_returns.Sum(r => r.Total))}", $"Кайтаруулар {_returns.Count}, суммасы {MoneyText.Som(_returns.Sum(r => r.Total))}",
-                $"{_returns.Count} returns worth {MoneyText.Som(_returns.Sum(r => r.Total))}", $"{_returns.Count} iade, toplam {MoneyText.Som(_returns.Sum(r => r.Total))}",
-                $"{_returns.Count} ta qaytarish, jami {MoneyText.Som(_returns.Sum(r => r.Total))}") };
+            Text = T($"Возвратов {active.Count} на сумму {MoneyText.Som(active.Sum(r => r.Total))}", $"Кайтаруулар {active.Count}, суммасы {MoneyText.Som(active.Sum(r => r.Total))}",
+                $"{active.Count} returns worth {MoneyText.Som(active.Sum(r => r.Total))}", $"{active.Count} iade, toplam {MoneyText.Som(active.Sum(r => r.Total))}",
+                $"{active.Count} ta qaytarish, jami {MoneyText.Som(active.Sum(r => r.Total))}") };
         Use(line, TextBlock.ForegroundProperty, "BrushText");
         _body.Children.Add(line);
         foreach (var r in _returns.Take(200))

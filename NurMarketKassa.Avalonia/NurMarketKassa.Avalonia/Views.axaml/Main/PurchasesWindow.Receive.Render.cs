@@ -38,10 +38,14 @@ public partial class PurchasesWindow
         ReceiveFooter();
     }
 
+    /// <summary>2026-11-12 (аудит Д-9): сумма в ячейке и в итоге не рвётся между числом и «сом» («4 800,00» / «сом» на разных строках) — пробелы внутри суммы неразрывные.</summary>
+    private static string NoWrap(string money) => money.Replace(' ', ' ');
+
     private void ReceiveRender()
     {
         if (_receive is not { } s)
             return;
+        _purchasePackBar?.AttachScanBox(s.Scan); // 2026-11-12 (Л-9): метка «УПАКОВКАМИ» в поле скана, пока способ приёма не «В штуках»
         s.Head.Children.Clear();
         s.Head.ColumnDefinitions = new ColumnDefinitions(ReceiveColumns);
         var heads = new[]
@@ -79,6 +83,9 @@ public partial class PurchasesWindow
     }
 
     private static string ReceiveNum(double v) => v > 0 ? v.ToString("0.#########", Ru) : ""; // 2026-10-31: без округления показа (было 0.###)
+
+    /// <summary>2026-11-11 (БП-4): кисть темы с учётом варианта окна (светлая/тёмная); нет ресурса — null.</summary>
+    private IBrush? ThemeBrush(string key) => this.TryFindResource(key, ActualThemeVariant, out var v) ? v as IBrush : null;
 
     /// <summary>2026-10-28: цена в ячейке «100,60» (целая — «100»), не «100,6»; пусто для нуля.</summary>
     private static string ReceiveMoney(double v) => v > 0 ? ReceivingLineVm.FormatPrice(v).Replace('.', ',') : "";
@@ -148,7 +155,8 @@ public partial class PurchasesWindow
         foreach (var unit in units)
         {
             var label = new TextBlock { Text = UnitCatalog.Display(unit), FontSize = 12.5, VerticalAlignment = VerticalAlignment.Center };
-            var box = new Border { Child = label, MinHeight = 32, MinWidth = 40, Padding = new Thickness(10, 0), Margin = new Thickness(0, 0, 6, 4), CornerRadius = new CornerRadius(8), Cursor = new Cursor(StandardCursorType.Hand) };
+            var box = new Border { Child = label, MinHeight = ReceiveTouchMin(32), MinWidth = ReceiveTouchMin(40), // 2026-11-11 (БП-9): в Touch-теме ≥ 44
+                                    Padding = new Thickness(10, 0), Margin = new Thickness(0, 0, 6, 4), CornerRadius = new CornerRadius(8), Cursor = new Cursor(StandardCursorType.Hand) };
             ToolTip.SetTip(box, unit == "кг"
                 ? T("Килограммы: товар будет весовым, количество можно дробным (например 2,5).", "Килограмм: товар салмактуу болот, саны бөлчөк болушу мүмкүн (мисалы 2,5).",
                     "Kilograms: the product will be weighed, the quantity may be fractional (e.g. 2.5).", "Kilogram: ürün tartılı olur, miktar ondalık olabilir (örn. 2,5).", "Kilogramm: mahsulot vaznli bo'ladi, miqdor kasr bo'lishi mumkin (masalan 2,5).")
@@ -204,11 +212,13 @@ public partial class PurchasesWindow
             who.Children.Add(ReceiveUnitChips(line)); // 2026-10-31: единица нового товара (кг — весовой)
         string MetaText() => (line.Barcode.Length > 0 ? line.Barcode : "—") + (line.IsNew ? " · " + T("новый товар", "жаңы товар", "new product", "yeni ürün", "yangi mahsulot") : "")
                              + (s.Narrow && !line.IsNew ? " · " + T("ост. ", "калд. ", "stock ", "stok ", "qold. ") + Q(line.StockBefore) : "");
-        var meta = Cell(MetaText(), line.IsNew ? "BrushDanger" : "BrushTextSoft", 12);
+        // 2026-11-11 (аудит «Закупки», БП-11): красным «новый товар» — только у действительно неизвестного («Неизвестно»); «База NurCRM» и «Из интернета» — нейтрально.
+        string MetaBrush() => line.Source == ReceivingSource.Unknown ? "BrushDanger" : "BrushTextSoft";
+        var meta = Cell(MetaText(), MetaBrush(), 12);
         meta.Margin = default;
         meta.VerticalAlignment = VerticalAlignment.Center;
         // 2026-11-09 (владелец: «не найден — только предложить найти в интернете, по нажатию»): у «Неизвестно» рядом со штрихкодом — кнопка; поиск идёт только по её нажатию.
-        var netButton = new Button { Content = T("Найти в интернете", "Интернеттен издөө", "Find on the internet", "İnternette bul", "Internetdan topish"), MinHeight = 32, Padding = new Thickness(10, 0), Margin = new Thickness(8, 0, 0, 0), FontSize = 12, IsVisible = false, Tag = "rcv-netlink" };
+        var netButton = new Button { Content = T("Найти в интернете", "Интернеттен издөө", "Find on the internet", "İnternette bul", "Internetdan topish"), MinHeight = ReceiveTouchMin(32), Padding = new Thickness(10, 0), Margin = new Thickness(8, 0, 0, 0), FontSize = 12, IsVisible = false, Tag = "rcv-netlink", Focusable = true }; // 2026-11-11 (БП-8/9)
         ToolTip.SetTip(netButton, T("Найти название по штрихкоду в открытых базах интернета. Выполняется только по нажатию; найденное нужно проверить.", "Штрихкод боюнча атын интернеттин ачык базаларынан издөө. Басканда гана аткарылат; табылганды текшериңиз.",
             "Look up the name by barcode in open internet databases. Runs only when you press it; check what is found.", "Adı barkoda göre internetin açık bazalarında bul. Yalnızca basınca çalışır; bulunanı kontrol edin.", "Nomini shtrix-kod bo'yicha internetning ochiq bazalaridan topish. Faqat bosganda ishlaydi; topilganini tekshiring."));
         Avalonia.Automation.AutomationProperties.SetName(netButton, T("Найти в интернете", "Интернеттен издөө", "Find on the internet", "İnternette bul", "Internetdan topish") + " " + line.Barcode);
@@ -229,7 +239,7 @@ public partial class PurchasesWindow
             }
         };
         // 2026-11-10 (владелец: «Генерация штрихкода как в вебе!»): у нового товара без штрихкода — «Сгенерировать штрихкод» (тот же генератор, что в окне товара; без дублей среди каталога и строк приёма).
-        var genButton = new Button { Content = T("Сгенерировать штрихкод", "Штрихкод түзүү", "Generate barcode", "Barkod oluştur", "Shtrix-kod yaratish"), MinHeight = 32, Padding = new Thickness(10, 0), Margin = new Thickness(8, 0, 0, 0), FontSize = 12, IsVisible = line.CanGenerateBarcode, Tag = "rcv-genbar" };
+        var genButton = new Button { Content = T("Сгенерировать штрихкод", "Штрихкод түзүү", "Generate barcode", "Barkod oluştur", "Shtrix-kod yaratish"), MinHeight = ReceiveTouchMin(32), Padding = new Thickness(10, 0), Margin = new Thickness(8, 0, 0, 0), FontSize = 12, IsVisible = line.CanGenerateBarcode, Tag = "rcv-genbar", Focusable = true }; // 2026-11-11 (БП-8/9)
         ToolTip.SetTip(genButton, T("Свой штрихкод EAN-13 для нового товара, как в окне товара и на сайте. Не повторяет товары каталога и строки этого приёма.", "Жаңы товар үчүн өз EAN-13 штрихкоду, товар терезесиндегидей жана сайттагыдай. Каталогдогу товарларды жана бул кабыл алуунун саптарын кайталабайт.",
             "An own EAN-13 barcode for the new product, as in the product window and on the website. Does not repeat catalog products or lines of this receipt.", "Yeni ürün için kendi EAN-13 barkodu, ürün penceresindeki ve sitedeki gibi. Katalog ürünlerini ve bu girişin satırlarını tekrarlamaz.",
             "Yangi mahsulot uchun o'z EAN-13 shtrix-kodi, mahsulot oynasidagi va saytdagidek. Katalog mahsulotlari va bu qabul qatorlarini takrorlamaydi."));
@@ -300,7 +310,8 @@ public partial class PurchasesWindow
                 line.PackName = packNameBox.Text ?? "";
         };
         var packNote = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Right, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 2, 10, 0), IsVisible = false };
-        var packToggle = new TextBlock { FontSize = 12, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Right, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 2, 10, 0), Cursor = new Cursor(StandardCursorType.Hand) };
+        // 2026-11-11 (владелец: «упаковку сверху»): ссылка способа в строке осталась (поменять способ только этой строки), но заметнее: подчёркнута (размер 12 прежний — в узкой колонке 1024 крупнее переносится на вторую строку).
+        var packToggle = new TextBlock { FontSize = 12, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Right, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 2, 10, 0), Cursor = new Cursor(StandardCursorType.Hand), TextDecorations = TextDecorations.Underline };
         Use(packToggle, TextBlock.ForegroundProperty, "BrushAccent");
         if (cardPack > 0)
         {
@@ -355,7 +366,7 @@ public partial class PurchasesWindow
             }
         };
         var saleSub = new StackPanel { Margin = new Thickness(0, -2, 10, 0), HorizontalAlignment = HorizontalAlignment.Stretch, Children = { autoText, profitText, lowText } };
-        var sum = Cell(MoneyText.Som(line.LineTotal), "BrushText", 13.5, FontWeight.SemiBold);
+        var sum = Cell(NoWrap(MoneyText.Som(line.LineTotal)), "BrushText", 13.5, FontWeight.SemiBold);
         sum.TextAlignment = TextAlignment.Right;
 
         // Обновление чисел строки без пересборки (курсор остаётся в поле): все поля, где сейчас не стоит курсор, показывают актуальные значения.
@@ -407,12 +418,13 @@ public partial class PurchasesWindow
                 netButton.IsVisible = line.CanSearchInternet;
                 genButton.IsVisible = line.CanGenerateBarcode; // 2026-11-10
                 meta.Text = MetaText();
+                Use(meta, TextBlock.ForegroundProperty, MetaBrush()); // 2026-11-11 (БП-11): после «Найти в интернете» источник меняется
                 netButton.IsEnabled = line.NotSearchingInternet;
                 renamedNote.IsVisible = line.NameRenamed;
                 renamedNote.Text = line.NameWasHint;
                 nameBox.FontStyle = line.NameRenamed ? FontStyle.Italic : FontStyle.Normal;
                 ToolTip.SetTip(nameBox, line.NameRenamed ? line.ProductName + "\n" + line.NameWasHint : line.ProductName.Length > 0 ? line.ProductName : null); // 2026-11-10: полное название при наведении
-                sum.Text = MoneyText.Som(line.LineTotal);
+                sum.Text = NoWrap(MoneyText.Som(line.LineTotal));
                 numText.Text = line.LineNo > 0 ? line.LineNo.ToString(CultureInfo.InvariantCulture) : "";
                 Avalonia.Automation.AutomationProperties.SetName(numText, T("Позиция", "Позиция", "Item", "Kalem", "Pozitsiya") + " " + numText.Text);
                 changeText.Text = line.PurchaseChangeText + (line.PurchaseWasText.Length > 0 ? "\n" + line.PurchaseWasText : "") // 2026-10-29 (спека Fable): «↑ дороже на 5 сом (+3 %)» + «было 145,00»
@@ -427,7 +439,8 @@ public partial class PurchasesWindow
                     : line.LowMarginText;
                 autoText.Text = line.CanReturnToAuto ? line.SaleStatusText + " · " + line.SaleButtonText : line.SaleStatusText; // «вручную · Как у всех» (нажатие возвращает)
                 ToolTip.SetTip(autoText, line.HasSaleMode ? line.SaleModeHint : null);
-                g.Background = line.IsBelowCost ? this.FindResource("BrushDangerSoft") as IBrush : line.IsLowMargin || line.IsSalePriceMissing ? this.FindResource("BrushWarningSoft") as IBrush : null; // цена ниже закупки — красная строка, маржа мало — жёлтая
+                // 2026-11-11 (аудит «Закупки», БП-4): кисть — по варианту темы окна (ловушка AI_HANDOFF §10: FindResource без варианта в тёмной теме подсветку не давал).
+                g.Background = line.IsBelowCost ? ThemeBrush("BrushDangerSoft") : line.IsLowMargin || line.IsSalePriceMissing ? ThemeBrush("BrushWarningSoft") : null; // цена ниже закупки — красная строка, маржа мало — жёлтая
                 if (parts.Box is { } rowBox)
                     rowBox.Opacity = line.Quantity <= 0 ? 0.72 : 1;
             }
@@ -456,6 +469,9 @@ public partial class PurchasesWindow
             }
             else
                 line.Quantity = v;
+            // 2026-11-11 (Д-8, как в «Склад → Приёмка»): ручная правка количества строки последнего скана — не сброс «тот же код подряд»: пауза 20 с считается заново.
+            if (s.RepeatGuard.LastCode is { } lastCode && ReferenceEquals(ReceivingRepeatScan.FindLine(s.Lines, lastCode), line))
+                s.RepeatGuard.Touch();
             // 2026-10-31 («Не округляй»): сервер принимает не больше 3 знаков после запятой. «12,3456» остаётся как набрано, строка красная
             // (ReceivingLineVm.PriceProblemText), провести нельзя, пока не исправят (в «Склад → Приёмка» то же через ReceivingLineVm.QuantityText).
             var roundedHint = RoundedQuantityHint;
@@ -626,11 +642,8 @@ public partial class PurchasesWindow
             HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, -2, 0, 0), FontSize = 15 }; // 2026-10-30: 44 px по центру линии полей (40 px)
         Use(remove, Button.ForegroundProperty, "BrushTextSoft");
         Avalonia.Automation.AutomationProperties.SetName(remove, T("Убрать строку", "Сапты алып салуу", "Remove the line", "Satırı kaldır", "Qatorni olib tashlash") + " " + line.ProductName);
-        remove.Click += (_, _) =>
-        {
-            s.Lines.Remove(line);
-            ReceiveRender();
-        };
+        remove.Focusable = true; // 2026-11-11 (БП-8): ✕ доступна с Tab; Del на ней убирает строку
+        remove.Click += (_, _) => ReceiveRemoveLine(s, line); // 2026-11-11 (БП-5): с плашкой «Вернуть» на 5 с
         Grid.SetColumn(remove, 8);
         g.Children.Add(remove);
 
@@ -720,12 +733,16 @@ public partial class PurchasesWindow
                 : T("Добавьте товары и впишите количество (шаг 2).", "Товарларды кошуп, санын жазыңыз (2-кадам).", "Add products and enter quantities (step 2).", "Ürün ekleyip miktar girin (2. adım).", "Mahsulot qo'shib, miqdorni kiriting (2-qadam).")
             // 2026-10-29: «Позиций N · штук M · закупка на X сом · продажа на Y сом · прибыль Z сом»
             : T("Позиций", "Позициялар", "Items", "Kalem", "Pozitsiyalar") + $": {active.Count} · " + T("штук", "даана", "pieces", "adet", "dona") + $": {active.Sum(l => l.Quantity).ToString("0.###", Ru)} · "
-              + T("закупка на", "сатып алуу", "purchase", "alış", "xarid") + " " + MoneyText.Som(active.Sum(l => l.LineTotal)) + " · "
-              + T("продажа на", "сатуу", "sale", "satış", "sotuv") + " " + MoneyText.Som(active.Sum(l => ReceivingPricing.LineTotal(l.Quantity, l.SalePrice))) + " · "
+              + T("закупка на", "сатып алуу", "purchase", "alış", "xarid") + " " + NoWrap(MoneyText.Som(active.Sum(l => l.LineTotal))) + " · "
+              // 2026-11-12 (Д-9): на узком окне («продажа на …» есть в карточке строки) итог — не больше двух строк
+              + (s.Narrow ? "" : T("продажа на", "сатуу", "sale", "satış", "sotuv") + " " + NoWrap(MoneyText.Som(active.Sum(l => ReceivingPricing.LineTotal(l.Quantity, l.SalePrice)))) + " · ")
               // 2026-11-05 (функция 11): прибыль считается от себестоимости (закупка + доп. расходы), как её увидит склад после прихода
-              + T("прибыль", "пайда", "profit", "kâr", "foyda") + " " + MoneyText.Som(active.Sum(l => ReceivingPricing.LineTotal(l.Quantity, l.SalePrice)) - active.Sum(l => ReceivingPricing.LineTotal(l.Quantity, l.CostPrice))) + raisedText
+              + T("прибыль", "пайда", "profit", "kâr", "foyda") + " " + NoWrap(MoneyText.Som(active.Sum(l => ReceivingPricing.LineTotal(l.Quantity, l.SalePrice)) - active.Sum(l => ReceivingPricing.LineTotal(l.Quantity, l.CostPrice)))) + raisedText
               + (active.Any(l => l.LandedExtraPerUnit > 0) ? T(" · доп. расходы ", " · кошумча чыгым ", " · extra costs ", " · ek masraf ", " · qo'shimcha xarajat ") + MoneyText.Som(LandedCost.DistributedTotal(active)) : "")
               + (s.Picker.Selected is null ? T(" — выберите поставщика (шаг 1) или оприходуйте без него.", " — жеткирүүчүнү тандаңыз (1-кадам) же жеткирүүчүсүз кабыл алыңыз.", " — choose a supplier (step 1) or post without one.", " — tedarikçi seçin (1. adım) veya tedarikçisiz kaydedin.", " — yetkazib beruvchini tanlang (1-qadam) yoki usiz kirim qiling.") : "");
+        s.Footer.MaxLines = 2; // 2026-11-12 (Д-9): итог слева не больше 2 строк; остальное — в подсказке
+        s.Footer.TextTrimming = TextTrimming.CharacterEllipsis;
+        ToolTip.SetTip(s.Footer, s.Footer.Text);
         // 2026-10-24 (Б2): «Обновить цены продажи (N)» — пока есть строки с подорожанием и непоправленной продажей.
         var raisable = PurchaseReceivingService.CountRaisableSalePrices(active);
         s.Raise.IsVisible = raisable > 0;
@@ -735,6 +752,7 @@ public partial class PurchasesWindow
             Avalonia.Automation.AutomationProperties.SetName(s.Raise, s.Raise.Content as string);
         }
         s.Post.IsEnabled = !s.Busy && active.Count > 0; // 2026-11-06: без поставщика кнопка доступна — по нажатию спросим (выбрать / без поставщика / отмена)
+        ReceiveTotalRefresh(s); // 2026-11-11 (БП-6): «Итого приход» крупно у кнопки
     }
 
     // ------------------------------------------------------------------ оприходовать
@@ -800,13 +818,14 @@ public partial class PurchasesWindow
         // 2026-11-07: «упаковка с поштучной продажей» меняет единицу остатка нового товара — явное подтверждение (как в «Склад → Приёмка»).
         if (lines.Where(l => l.PackSale).ToList() is { Count: > 0 } packSaleLines)
         {
-            var goOn = await PosConfirmDialog.ShowModalAsync(this,
-                T("Поштучная продажа из упаковки", "Таңгактан даана менен сатуу", "Single pieces from a pack", "Koliden tek tek satış", "Qadoqdan donalab sotish"),
-                ReceivingPacks.PackSaleConfirmMessage(packSaleLines),
-                T("Применить", "Колдонуу", "Apply", "Uygula", "Qo'llash"), // 2026-11-10: «Было → станет» — «Применить» / «Отмена»
-                T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"), PosConfirmAccent.Primary).ConfigureAwait(true);
+            // 2026-11-11 (convert-to-packages): свежий остаток с сервера, «Округлить?» по согласию, затем «Было → станет» (общий шаг с «Склад → Приёмка»).
+            var goOn = await ReceivingPackConvertFlow.ConfirmAsync(this, packSaleLines).ConfigureAwait(true);
             if (_receive != s || !goOn)
+            {
+                if (_receive == s)
+                    ReceiveRender(); // строку могли пересчитать в упаковку товара (already_has_packages)
                 return;
+            }
         }
         // 2026-11-06: у строк нет цены продажи — спрашиваем ДО отправки; программа сама («закупка + %») ничего не ставит. «Отмена» — вернуться к списку.
         if (ReceivingPricing.MissingSalePrice(lines).Count > 0)
@@ -889,6 +908,7 @@ public partial class PurchasesWindow
         s.LandedTotal = 0; // 2026-11-05 (функция 11): доп. расходы ушли с этим приходом (доли — в строках задачи)
         // Задача на диске — список очищаем сразу и готовимся к следующей накладной (заказ уже закрыт этой задачей — к новому приёму не привязываем).
         _bgWaiting.Add(jobId);
+        _purchasePackBar?.ResetAfterPosting(); // 2026-11-12 (Л-9, решение владельца): приход поставлен в очередь — способ приёма снова «В штуках»
         foreach (var line in lines)
             ReceivingPackSizes.Remember(line); // 2026-11-07: «штук в упаковке» запоминается локально — в следующий раз подставится (в карточку товара на сервере не пишется)
         foreach (var line in lines)
@@ -968,6 +988,10 @@ public partial class PurchasesWindow
         else if (_receive == s)
             ReceiveMessage(BackgroundResultText(job, out _), warning: true);
 
+        if (_receive != s)
+            return;
+        if (posted.Count > 0)
+            await ReceiveOfferLabelsAsync(posted).ConfigureAwait(true); // 2026-11-11 (аудит «Закупки», БП-10): «Печать этикеток (N)» после проведения
         if (_receive != s)
             return;
         // Всё принято — назад к истории (с новым приходом наверху); не всё — строки с ошибкой остаются, их можно поправить и повторить.

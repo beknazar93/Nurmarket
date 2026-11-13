@@ -40,7 +40,9 @@ public static class SectionVisibility
     {
         ("aiadvisor", Tr.T("Нур Советник", "Нур Кеңешчи", "Nur Advisor", "Nur Danışman", "Nur Maslahatchi")),
         ("warehouse", Tr.T("Склад", "Кампа", "Warehouse", "Depo", "Ombor")),
+        ("barcodes", Tr.T("Штрихкоды и ценники", "Штрих-коддор жана баа белгилери", "Barcodes and price tags", "Barkodlar ve fiyat etiketleri", "Shtrix-kodlar va narx yorliqlari")), // 2026-11-11: печать штрихкодов и ценников (как вкладка «Штрихкоды» в «Складе»)
         ("calculator", Tr.T("Калькуляция", "Калькуляция", "Pricing calculator", "Hesaplama", "Kalkulyatsiya")),
+        ("scales", Tr.T("Весы", "Тараза", "Scales", "Tartı", "Tarozi")), // 2026-11-11: переехали из кассы (Настройки → Весы)
         ("restock", Tr.T("Пополнение и сроки", "Толуктоо жана мөөнөттөр", "Restock & expiry", "Stok yenileme ve SKT", "To'ldirish va muddatlar")),
         // 2026-10-18: «Продажи» и «Финансы» — один пункт «Продажи и финансы»; ключи прежние, теперь это его части
         // (скрыта одна — пункт открывает другую, скрыты обе — пункта нет; OwnerShellWindow.SalesFinance.cs).
@@ -71,6 +73,9 @@ public static class SectionVisibility
         ("rentals", Tr.T("Прокат", "Прокат", "Rentals", "Kiralama", "Prokat")),
         ("salary", Tr.T("Зарплата", "Эмгек акы", "Salary", "Maaş", "Ish haqi")),
         ("timesheet", Tr.T("Табель", "Табель", "Timesheet", "Çizelge", "Tabel")), // 2026-11-08
+        ("repair", Tr.T("Ремонт и сервис", "Оңдоо жана тейлөө", "Repair and service", "Tamir ve servis", "Ta'mirlash va servis")), // 2026-11-13
+        ("tradein", Tr.T("Trade-in / скупка", "Trade-in / сатып алуу", "Trade-in / buy-back", "Trade-in / alım", "Trade-in / sotib olish")), // 2026-11-13
+        ("print", Tr.T("Печать", "Басып чыгаруу", "Print", "Yazdır", "Chop etish")), // 2026-11-11: настройки печати программы владельца
         ("crm", "NurCRM"),
         ("whatsapp", "WhatsApp"),
         ("funnel", Tr.T("Воронка", "Воронка", "Sales funnel", "Satış hunisi", "Savdo voronkasi")),
@@ -87,6 +92,8 @@ public static class SectionVisibility
         ("kassa.paydebt", Tr.T("Оплата долга", "Карызды төлөө", "Debt payment", "Borç ödemesi", "Qarzni to'lash")),
         ("kassa.rental", Tr.T("Прокат", "Прокат", "Rentals", "Kiralama", "Prokat")),
         ("kassa.timesheet", Tr.T("Табель сотрудников", "Кызматкерлердин табели", "Staff timesheet", "Personel puantajı", "Xodimlar tabeli")),
+        ("kassa.repair", Tr.T("Ремонт и сервис", "Оңдоо жана тейлөө", "Repair and service", "Tamir ve servis", "Ta'mirlash va servis")), // 2026-11-13
+        ("kassa.tradein", Tr.T("Trade-in / скупка", "Trade-in / сатып алуу", "Trade-in / buy-back", "Trade-in / alım", "Trade-in / sotib olish")), // 2026-11-13
         ("kassa.warehouse", Tr.T("Склад", "Кампа", "Warehouse", "Depo", "Ombor")),
         // 2026-10-22 (закупки как в вебе): «Закупки» в меню кассы.
         ("kassa.purchases", Tr.T("Закупки", "Сатып алуулар", "Purchases", "Satın alma", "Xaridlar")),

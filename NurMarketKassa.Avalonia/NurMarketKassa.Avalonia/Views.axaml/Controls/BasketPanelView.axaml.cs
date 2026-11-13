@@ -342,6 +342,14 @@ public partial class BasketPanelView : UserControl
     private void Rental_Click(object? sender, RoutedEventArgs e) =>
         BasketExtraActions.Rental(DataContext as BasketPanelViewModel);
 
+    /// <summary>2026-11-12 (КТ2): «Списки к школе» (сфера «Канцтовары»).</summary>
+    private void SchoolLists_Click(object? sender, RoutedEventArgs e) =>
+        _ = NurMarketKassa.AvaloniaHost.Views.Dialogs.SchoolListLauncher.OpenAsync(this, DataContext as BasketPanelViewModel);
+
+    /// <summary>2026-11-12 (КТ3): «Счёт из этого чека» (сфера «Канцтовары»).</summary>
+    private void InvoiceFromReceipt_Click(object? sender, RoutedEventArgs e) =>
+        NurMarketKassa.AvaloniaHost.Views.InvoiceFromReceipt.Open(this, DataContext as BasketPanelViewModel);
+
     /// <summary>«Печать последнего чека» в меню «Ещё» (2026-09-27), см. <see cref="BasketExtraActions"/>.</summary>
     private async void PrintLastReceipt_Click(object? sender, RoutedEventArgs e) =>
         await BasketExtraActions.PrintLastReceiptAsync(sender as Button, DataContext as BasketPanelViewModel).ConfigureAwait(true);

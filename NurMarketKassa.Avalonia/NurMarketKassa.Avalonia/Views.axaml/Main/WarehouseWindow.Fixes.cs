@@ -68,9 +68,8 @@ public partial class WarehouseWindow
         if (sender is not Button { Tag: ReceivingLineVm line })
             return;
         // Как «Убрать»: сначала отменить начатую правку ячейки — иначе строка вернётся при уходе с вкладки (2026-10-03).
-        ReceivingGrid.CancelEdit();
-        _viewModel.ReceivingLines.Remove(line);
-        RefreshReceivingSummary();
+        // 2026-11-11 (аудит «Закупки», БП-5): с плашкой «Вернуть» на 5 с (как Del).
+        ReceivingRemoveWithUndo(line);
     }
 
     private async void ReceivingClear_Click(object? sender, RoutedEventArgs e)

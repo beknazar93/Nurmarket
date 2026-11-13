@@ -192,6 +192,7 @@ public static class ScaleLabelCodeRegistry
                     AtomicFile.WriteAllText(path, JsonSerializer.Serialize(set.OrderBy(p => p).ToList()));
             }
             _sharedAmount.Remove(prefix);
+            ScaleBarcodeRulesSync.ForgetCloudSharedAmount(prefix); // 2026-11-11: и из пришедших из облака — иначе облачные правила вернули бы его
             _ownPrefixStamp = _siblingPrefixStamp = DateTime.MinValue;
             var current = new HashSet<string>(NurMarketKassa.Core.Application.WeightBarcodeParser.AmountPrefixes, StringComparer.Ordinal);
             if (current.Remove(prefix))
@@ -205,35 +206,59 @@ public static class ScaleLabelCodeRegistry
 
     /// <summary>Добавляет общие префиксы «сумма» (свои и соседней программы) к правилам разбора
     /// этикеток. Дёшево: файлы перечитываются, только если изменились. Вызывать перед разбором скана.</summary>
-    public static void ApplySharedAmountPrefixes()
+    /// <remarks>2026-11-11: плюс префиксы «сумма» весов с прямой отправкой, пришедшие из облака (ScaleBarcodeRulesSync — весы отправлялись с другого ПК);
+    /// <paramref name="force"/> — перечитать файлы, даже если они не менялись (правила только что пришли из облака).</remarks>
+    public static void ApplySharedAmountPrefixes(bool force = false)
     {
-        if (_persistenceDisabled)
-            return;
         try
         {
-            var root = NurMarketKassa.Services.AppPaths.Roaming;
-            var own = Path.Combine(root, AppMode.DataFolderName, AmountPrefixesFile);
-            var sibling = Path.Combine(root, SiblingFolder, AmountPrefixesFile);
-            var ownTime = File.Exists(own) ? File.GetLastWriteTimeUtc(own) : DateTime.MinValue;
-            var siblingTime = File.Exists(sibling) ? File.GetLastWriteTimeUtc(sibling) : DateTime.MinValue;
-            if (ownTime != _ownPrefixStamp || siblingTime != _siblingPrefixStamp)
+            if (!_persistenceDisabled)
             {
-                _ownPrefixStamp = ownTime;
-                _siblingPrefixStamp = siblingTime;
-                _sharedAmount = ReadPrefixes(own);
-                _sharedAmount.UnionWith(ReadPrefixes(sibling));
+                var root = NurMarketKassa.Services.AppPaths.Roaming;
+                var own = Path.Combine(root, AppMode.DataFolderName, AmountPrefixesFile);
+                var sibling = Path.Combine(root, SiblingFolder, AmountPrefixesFile);
+                var ownTime = File.Exists(own) ? File.GetLastWriteTimeUtc(own) : DateTime.MinValue;
+                var siblingTime = File.Exists(sibling) ? File.GetLastWriteTimeUtc(sibling) : DateTime.MinValue;
+                if (force || ownTime != _ownPrefixStamp || siblingTime != _siblingPrefixStamp)
+                {
+                    _ownPrefixStamp = ownTime;
+                    _siblingPrefixStamp = siblingTime;
+                    _sharedAmount = ReadPrefixes(own);
+                    _sharedAmount.UnionWith(ReadPrefixes(sibling));
+                }
             }
-            if (_sharedAmount.Count == 0 || _sharedAmount.IsSubsetOf(NurMarketKassa.Core.Application.WeightBarcodeParser.AmountPrefixes))
+            var all = new HashSet<string>(_sharedAmount, StringComparer.Ordinal);
+            all.UnionWith(ScaleBarcodeRulesSync.CloudSharedAmountPrefixes);
+            if (all.Count == 0 || all.IsSubsetOf(NurMarketKassa.Core.Application.WeightBarcodeParser.AmountPrefixes))
                 return;
             var merged = new HashSet<string>(NurMarketKassa.Core.Application.WeightBarcodeParser.AmountPrefixes, StringComparer.Ordinal);
-            merged.UnionWith(_sharedAmount);
+            merged.UnionWith(all);
             NurMarketKassa.Core.Application.WeightBarcodeParser.AmountPrefixes = merged;
-            PosLogger.Log("Весы: префиксы «сумма» от весов с прямой отправкой: " + string.Join(", ", _sharedAmount.OrderBy(p => p)), "SCALES");
+            PosLogger.Log("Весы: префиксы «сумма» от весов с прямой отправкой: " + string.Join(", ", all.OrderBy(p => p)), "SCALES");
         }
         catch (Exception ex)
         {
             PosLogger.Log($"Префиксы весов «сумма» не прочитаны: {ex.Message}", "WARNING");
         }
+    }
+
+    /// <summary>2026-11-11: префиксы «сумма» весов с прямой отправкой для облачных правил (ScaleBarcodeRulesSync): свой файл программы и пришедшие из
+    /// облака. Файл соседней программы на этом ПК не берём — соседняя программа отправит свой.</summary>
+    public static HashSet<string> SharedAmountPrefixesForCloud()
+    {
+        var set = new HashSet<string>(ScaleBarcodeRulesSync.CloudSharedAmountPrefixes, StringComparer.Ordinal);
+        if (!_persistenceDisabled)
+        {
+            try
+            {
+                set.UnionWith(ReadPrefixes(Path.Combine(NurMarketKassa.Services.AppPaths.Roaming, AppMode.DataFolderName, AmountPrefixesFile)));
+            }
+            catch (Exception)
+            {
+                // путь недоступен — только облачные
+            }
+        }
+        return set;
     }
 
     private static HashSet<string> ReadPrefixes(string path)

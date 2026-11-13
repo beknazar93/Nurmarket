@@ -22,6 +22,8 @@ public static class CompanyScopedSettings
         "ModalBackgroundBlur", "WindowsRenderMode", // 2026-11-11: размытие под модалками и режим отрисовки — свойства этого ПК
         "MarketplaceWebUrl", "AutoInstallPurchasedThemes", // 2026-11-06: настройки этого компьютера (адрес Маркетплейса на сайте, автоустановка купленных тем)
         "AutonomousModeActivated", "AutonomousModeActivationKey", "AutonomousAutoResume", "PreserveCatalogOnNextAutonomousLogin",
+        // 2026-11-11: вычисляемое свойство (правила весовых штрихкодов для облака) — сами поля правил сбрасываются по одному, как остальные правила магазина.
+        "ScaleBarcodeRulesShared",
     };
 
     /// <summary>Сбрасывает настройки в <paramref name="target"/> (в программе — <see cref="UserPreferences.Instance"/>) и возвращает

@@ -50,7 +50,9 @@ public sealed class FunnelWindow : Window, IOwnerSection
     private static readonly CultureInfo Ru = CultureInfo.GetCultureInfo("ru-RU");
     private static string T(string ru, string ky, string en, string tr, string uz) => Tr.T(ru, ky, en, tr, uz);
 
-    private static readonly (string Key, string Title, string Brush)[] Stages =
+    // 2026-11-12 (Д-5): было static readonly — названия этапов считались один раз при загрузке класса и в ky/uz оставались на языке первого запуска
+    // (и после смены языка без перезапуска). Теперь свойство: перевод берётся при каждом обращении.
+    private static (string Key, string Title, string Brush)[] Stages => new (string Key, string Title, string Brush)[]
     {
         ("new", T("Новые обращения", "Жаңы кайрылуулар", "New leads", "Yeni talepler", "Yangi murojaatlar"), "BrushAccent"),
         ("work", T("В работе", "Иште", "In progress", "Görüşülüyor", "Jarayonda"), "BrushWarning"),
@@ -59,7 +61,7 @@ public sealed class FunnelWindow : Window, IOwnerSection
         ("lost", T("Отказ", "Баш тартуу", "Lost", "Kaybedildi", "Rad etildi"), "BrushDanger"),
     };
 
-    private static readonly (string Key, string Title)[] SourceList =
+    private static (string Key, string Title)[] SourceList => new (string Key, string Title)[] // 2026-11-12 (Д-5): см. Stages — перевод при каждом обращении
     {
         ("telegram", "Telegram"),
         ("whatsapp", "WhatsApp"),
@@ -237,7 +239,11 @@ public sealed class FunnelWindow : Window, IOwnerSection
             var stack = new StackPanel { Spacing = 8 };
             var header = new StackPanel { Spacing = 2, Margin = new Thickness(2, 0, 2, 4) };
             var titleText = new TextBlock { Text = $"{title} · {cards.Count}", FontSize = 15, FontWeight = FontWeight.Bold };
-            Use(titleText, TextBlock.ForegroundProperty, brush);
+            // 2026-11-12 (Д-5): заголовок этапа — цветом текста темы (жёлтый/зелёный на сером плохо читался), цвет этапа — полоской над ним.
+            Use(titleText, TextBlock.ForegroundProperty, "BrushText");
+            var stageBar = new Border { Height = 4, Width = 32, CornerRadius = new CornerRadius(2), HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 0, 0, 4) };
+            Use(stageBar, Border.BackgroundProperty, brush);
+            header.Children.Add(stageBar);
             header.Children.Add(titleText);
             var sum = new TextBlock { Text = Money(cards.Sum(c => c.Amount)), FontSize = 12.5 };
             Use(sum, TextBlock.ForegroundProperty, "BrushTextSoft");

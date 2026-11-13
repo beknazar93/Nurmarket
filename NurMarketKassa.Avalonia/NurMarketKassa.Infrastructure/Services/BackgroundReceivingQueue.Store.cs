@@ -19,6 +19,9 @@ public sealed partial class BackgroundReceivingQueue
 
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = false };
 
+    /// <summary>2026-11-12 (Л-1): ключи строк, прочитанных из файла очереди без отметки StockApplied (под lock (_sync)). Только в памяти — в файл не пишется.</summary>
+    private readonly HashSet<string> _restoredKeys = new(StringComparer.Ordinal);
+
     private void EnsureLoaded()
     {
         lock (_sync)
@@ -77,6 +80,12 @@ public sealed partial class BackgroundReceivingQueue
                 if (list is not null)
                 {
                     _jobs = list;
+                    // 2026-11-12 (Л-1, аудит Fable): строки, поднятые с диска и ещё не прибавленные к плитке. Каталог после перезапуска уже загружен с сервера и может
+                    // включать их приход (приём был до выключения, ответ принят, а StockApplied не записан) — «плитка + принятое» задвоило бы его. Для таких строк остаток берётся с сервера.
+                    _restoredKeys.Clear();
+                    foreach (var rl in list.SelectMany(j => j.Lines).Where(l => !l.IsNew && !l.StockApplied && l.Outcome != ReceivingLineOutcome.Rejected && !string.IsNullOrWhiteSpace(l.ProductId)))
+                        _restoredKeys.Add(rl.Key);
+                    PublishReceiptHolds(); // 2026-11-11 (Д-4): незавершённые приходы с прошлого запуска держат остаток своих товаров с самого старта
                     return;
                 }
                 var badPath = Path.Combine(DataDir, $"queue.bad-{DateTime.Now:yyyyMMdd-HHmmss}.json");
@@ -116,12 +125,32 @@ public sealed partial class BackgroundReceivingQueue
             Directory.CreateDirectory(DataDir);
             // 2026-11-01 (Н2-01): запись через AtomicFile (сброс на диск + .bak) с короткими повторами, если файл на миг занят антивирусом/индексатором (М1, 2026-10-26).
             AtomicFile.WriteAllTextWithRetry(FilePath, JsonSerializer.Serialize(_jobs, Json));
+            PublishReceiptHolds(); // 2026-11-11 (Д-4): каждое изменение задач проходит через Save — набор «приход в пути» всегда свежий
             return true;
         }
         catch (Exception ex)
         {
             PosLogger.Log($"Приход в фоне: файл очереди не записан ({ex.Message}).", "ERROR");
             return false;
+        }
+    }
+
+    /// <summary>2026-11-11 (Д-4): товары склада из незавершённых приходов, чьё количество ещё не прибавлено к плитке (строка ждёт отправки, отправляется или уже принята сервером,
+    /// но ApplyStockToTileAsync ещё не прошёл), — для ленты, точечного обновления и полной загрузки «трогали сейчас» (StockSyncService.IsReceiptHeld): серверный остаток
+    /// с этим приходом не ложится на плитку раньше прибавки (иначе прибавка задваивала бы приход). Новые товары не держим — их остаток приносит лента. Вызывать под lock (_sync).</summary>
+    private void PublishReceiptHolds()
+    {
+        try
+        {
+            StockSyncService.SetReceiptHolds(this, _jobs.Where(j => !j.IsFinal)
+                .SelectMany(j => j.Lines)
+                .Where(l => !l.IsNew && !l.StockApplied && l.Outcome is ReceivingLineOutcome.Pending or ReceivingLineOutcome.Unknown or ReceivingLineOutcome.Posted)
+                .Select(l => l.ProductId)
+                .ToList());
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            PosLogger.Log($"Приход в фоне: защита остатка товаров в пути не обновлена ({ex.Message}).", "WARNING");
         }
     }
 

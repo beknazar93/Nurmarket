@@ -111,6 +111,7 @@ public sealed class ReceivingRepeatQtyDialog : Window
     private Button Step(string name, string glyph, string tip, double delta)
     {
         var b = new Button { Name = name, Content = glyph, Width = 52, Height = 52, FontSize = 24, FontWeight = FontWeight.Bold, Padding = new Thickness(0), HorizontalContentAlignment = HorizontalAlignment.Center };
+        b.Classes.Add("modal-cancel"); // 2026-11-12 (аудит Д-21): «−» и «+» выглядели отключёнными (серая заливка) — тот же белый контур, что у «Отмена»
         Avalonia.Automation.AutomationProperties.SetName(b, tip);
         ToolTip.SetTip(b, tip);
         b.Click += (_, _) => Bump(delta);

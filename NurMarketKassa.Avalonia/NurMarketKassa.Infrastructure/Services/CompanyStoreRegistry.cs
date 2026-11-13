@@ -67,12 +67,20 @@ public static class CompanyStoreRegistry
         "offline_operations.json", "offline_clients.json",
         // 2026-10-31: кэш платных функций, включённых компании на сервере (ServerAddons), — принадлежит компании.
         "server-addons.json", "server-addons.json.bak",
+        // 2026-11-13: память прежних PLU весовых товаров (ScalePluHistory: архив освобождает PLU, возврат даёт новый) — товары компании.
+        "scale-plu-history.json", "scale-plu-history.json.bak",
+        // 2026-11-13: курсор общей ленты событий компании (CompanyEventsFeed) — по компании и филиалу.
+        "company-events-cursor.json", "company-events-cursor.json.bak",
         // 2026-11-06 («темы с сайта»): кэш каталога тем/видов кассы с сервера и запись о поставленных с сайта темах (сама тема — в custom-themes.json) — принадлежат компании: покупка привязана к ней.
         "marketplace-themes.json", "marketplace-themes.json.bak", "server-themes.json", "server-themes.json.bak",
         // 2026-11-03: память поиска фото пачками (какие товары компании уже проверены) — принадлежит компании.
         "photo-search-progress.json", "photo-search-progress.json.bak",
         // 2026-11-03 (аудит №3, Т3-04): кэш списка архивных товаров (10 минут) — принадлежит компании.
         "archive-products-cache.json",
+        // 2026-11-13 (сервер sn1311): track_serials и warranty_months товаров компании (ProductSerialRules).
+        "product-serials.json", "product-serials.json.bak",
+        // 2026-11-13 (ответ Умара, строймаркет): sale_units товаров компании (ProductSaleUnits) и последние цены уровней цен для офлайна (PriceLevelCache) — данные компании.
+        "product-sale-units.json", "product-sale-units.json.bak", "price-levels-cache.json", "price-levels-cache.json.bak",
         // 2026-11-05 (аудит №4, Л4-05): хранилища, которых не было в списке; три первых — «неотправленное» (см. ProbeUnsent).
         "pending_unknown_checkout.json", "loyalty-queue.json", "loyalty-queue.json.bak", "server_prices.json",
         "telegram-inquiries.json", "telegram-inquiries.json.bak", "telegram-customers.json", "telegram-customers.json.bak", "telegram-owner.json",
@@ -96,6 +104,7 @@ public static class CompanyStoreRegistry
     public static readonly string[] CompanyLocalItems =
     [
         "loss-sales.json", "sale-returns.json", "sale-returns.json.bak", "cart-removals.jsonl",
+        "serial-journal.json", "serial-journal.json.bak", "electronics-settings.json", "electronics-settings.json.bak", // 2026-11-13 (сфера «Электроника»): местный журнал серийников и настройки категорий/гарантии — данные компании
         "pending-money-keys.json",                           // 2026-11-06: В2 Л5-14 — ключи повтора денежных POST без ответа (PendingMoneyKeys): ключ прежней компании не должен лечь на операцию новой
         // 2026-11-05 (ревью волн 0–3, п. 6): общие файлы кассы и владельца волн 2-А/2-Б (антифрод, привязки Telegram к чекам, оповещения и автоматика магазина, уведомления об аренде).
         "antifraud-settings.json", "fraud-events.jsonl", "fraud-notified.json", "telegram-receipt-links.json",
@@ -103,6 +112,8 @@ public static class CompanyStoreRegistry
         // 2026-11-06 (аудит №5, Л5-11): порог PIN ревизии и история пересчётов теперь общий файл кассы и владельца (история — товары прежней компании).
         "cycle-count.json", "cycle-count.json.bak",
         "timesheet-marks.json", "timesheet-marks.json.bak",   // 2026-11-08: отметки сотрудников в табеле (TimesheetMarksService) — общий файл кассы и владельца, данные компании
+        "repair-orders.json", "repair-orders.json.bak",       // 2026-11-13: квитанции «Ремонта и сервиса» (RepairOrderStore) — данные компании, общий файл кассы и владельца
+        "trade-in-records.json", "trade-in-records.json.bak", // 2026-11-13: выкупы «Trade-in / скупки» (TradeInStore) — данные компании (паспорт и телефоны клиентов)
         "removed-products.json", "removed-products.json.bak", // 2026-11-06: память об удалённых/архивных товарах (закупка, категория, бренд для прошлых периодов аналитики) — товары прежней компании
     ];
 

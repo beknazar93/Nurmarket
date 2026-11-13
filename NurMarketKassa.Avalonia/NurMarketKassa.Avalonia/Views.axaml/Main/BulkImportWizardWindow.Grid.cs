@@ -219,6 +219,7 @@ public partial class BulkImportWizardWindow
             IsReadOnly = readOnly,
             Width = star ? new DataGridLength(1, DataGridLengthUnitType.Star) : new DataGridLength(width),
             MinWidth = star ? 160 : width,
+            MaxWidth = star ? 460 : double.PositiveInfinity, // 2026-11-13: название — не шире 460 px (жалоба владельца «в массовой загрузке наименование очень большое»)
             CellTemplate = new FuncDataTemplate<ImportRowVm>((_, _) => new RowCell(this, vm => vm.Get(path), field, status: false), supportsRecycling: false),
             CellEditingTemplate = new FuncDataTemplate<ImportRowVm>((_, _) =>
             {

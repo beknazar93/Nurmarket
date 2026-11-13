@@ -609,10 +609,78 @@ public partial class OwnerShellWindow
             row.Children.Add(right);
 
             line.Child = row;
+            AttachRecentReturnMenu(line, sale); // 2026-11-12: меню строки — «Возврат» / «Возвраты по чеку»
             RecentList.Children.Add(line);
         }
 
         _ = LoadRecentItemCountsAsync();
+    }
+
+    /// <summary>2026-11-12 (владелец: «Возврат чеков добавь и программу владельца»): у строки «Последних продаж» — меню (правая кнопка мыши, долгое касание):
+    /// «Возврат» (то же окно возврата, что в кассе, сразу с этим чеком; права и проверки — ReturnSaleLauncher) и «Возвраты по чеку» (правка/удаление 24 ч).
+    /// После возврата «Сводка» и разделы перечитываются (сигнал «продажи изменились»).</summary>
+    private void AttachRecentReturnMenu(Border line, JsonElement sale)
+    {
+        var saleId = Str(sale, "id");
+        if (!ReceiptReturnActions.Enabled || saleId.Length == 0)
+            return;
+        var receipt = SalesWindow.TryReceiptNumber(sale) ?? "";
+        var menu = new ContextMenu();
+        if (ReturnSaleLauncher.CanReturn())
+        {
+            var full = ReturnSaleLauncher.IsFullyReturned(Str(sale, "status"), Str(sale, "return_status"));
+            var ret = new MenuItem { Header = full ? ReturnSaleLauncher.FullyReturnedHint : ReturnSaleLauncher.ButtonText + (receipt.Length > 0 ? " — " + receipt : ""), IsEnabled = !full };
+            ret.Click += async (_, _) =>
+            {
+                try
+                {
+                    if (await ReceiptReturnActions.OpenReturnAsync(this, saleId, receipt).ConfigureAwait(true))
+                        PosDataEvents.RaiseSalesChanged();
+                }
+                catch (Exception ex) when (ex is not OutOfMemoryException)
+                {
+                    PosLogger.Log($"Owner app: возврат из «Сводки» (чек {saleId}) не открылся: {ex.Message}", "WARNING");
+                }
+            };
+            menu.Items.Add(ret);
+        }
+        var list = new MenuItem { Header = ReceiptReturnActions.ReturnsListText };
+        list.Click += async (_, _) =>
+        {
+            try
+            {
+                if (await ReceiptReturnActions.OpenReturnsListAsync(this, saleId, receipt).ConfigureAwait(true))
+                    PosDataEvents.RaiseSalesChanged();
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                PosLogger.Log($"Owner app: возвраты чека {saleId} из «Сводки» не открылись: {ex.Message}", "WARNING");
+            }
+        };
+        menu.Items.Add(list);
+        line.ContextMenu = menu;
+        line.Background = Brushes.Transparent; // меню открывается и по пустому месту строки
+        // 2026-11-12 (аудит 12.11, С-19): на сенсорном экране правую кнопку и подсказку не найти — видимая кнопка «⋯» в конце строки открывает то же меню
+        if (line.Child is Grid row)
+        {
+            row.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            var more = new Button
+            {
+                Content = "⋯", Name = "RecentSaleMenuButton", Width = 36, Height = 36, MinHeight = 36, Padding = new Thickness(0), Margin = new Thickness(8, 0, 0, 0),
+                FontSize = 18, VerticalAlignment = VerticalAlignment.Top, HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center,
+            };
+            more.Classes.Add("sec-outline");
+            var tip = Tr.T("Возврат по этому чеку", "Бул чек боюнча кайтаруу", "Return on this receipt", "Bu fişte iade", "Shu chek bo'yicha qaytarish") + (receipt.Length > 0 ? " — " + receipt : "");
+            ToolTip.SetTip(more, tip);
+            Avalonia.Automation.AutomationProperties.SetName(more, tip);
+            more.Click += (_, e) =>
+            {
+                e.Handled = true;
+                menu.Open(more);
+            };
+            Grid.SetColumn(more, row.ColumnDefinitions.Count - 1);
+            row.Children.Add(more);
+        }
     }
 
     /// <summary>2026-10-05: «Долги клиентов» — из меню и по нажатию на «В долг» в «Сводке».</summary>

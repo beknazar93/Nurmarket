@@ -1504,6 +1504,7 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
             return PosCheckoutResult.Failed(PaymentErrorMessages.ForCashier(ex));
         }
         ApplyOfflineStockDecrement(cartJsonSnapshot);
+        SerialJournal.RecordSale(entry.Id, null, DateTime.Now, cartJsonSnapshot); // 2026-11-12 (ЭЛ2, «Электроника»): серийники офлайн-чека в журнал кассы
         if (isDebt)
             PosLogger.Log($"OFFLINE debt: чек {entry.Id} «в долг» без связи: клиент {entry.ClientId} ({entry.DebtClientName}), в долг {debtAmount:0.00} из {total:0.00}, " +
                           $"{debtVerdict?.DataNote}, подтверждение кассира: {(request.OfflineDebtConfirmed ? "да" : "нет")}, ключ {entry.Id}.", "PAYMENT");
@@ -1739,6 +1740,8 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
         }
         cartJsonSnapshot = WithConsultantForReceipt(cartJsonSnapshot, request);
         cartJsonSnapshot = WithDebtDueForReceipt(cartJsonSnapshot, request);
+        // 2026-11-12 (ЭЛ2, сфера «Электроника»): продажа прошла — серийники строк в журнал этой кассы (в других сферах — ничего).
+        SerialJournal.RecordSale(saleId, saleNumber?.ToString(CultureInfo.InvariantCulture), DateTime.Now, cartJsonSnapshot);
 
         // 2026-10-06: срок долга, названный клиентом, или рассрочка — на сервер (сервер при продаже ставит 1 платёж через 30 дней).
         if (request.DebtSchedule is { } debtPlan

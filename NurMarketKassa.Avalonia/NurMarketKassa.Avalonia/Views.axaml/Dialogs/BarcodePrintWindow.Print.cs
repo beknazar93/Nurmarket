@@ -20,10 +20,22 @@ using NurMarketKassa.Services;
 
 namespace NurMarketKassa.AvaloniaHost.Views.Dialogs;
 
-// 2026-11-06: В15г — часть класса BarcodePrintWindow (Print): перенесено из BarcodePrintWindow.cs без изменений логики.
-public partial class BarcodePrintWindow
+// 2026-11-06: В15г — часть класса BarcodePrintView (Print): перенесено из BarcodePrintWindow.cs без изменений логики.
+public partial class BarcodePrintView
 {
     private LabelPrinterSelector.LiveStatus? _live;
+    /// <summary>2026-11-11: окно закрылось — таймер состояния принтера больше не нужен (во встроенном виде его останавливает отсоединение от дерева).</summary>
+    internal void Shutdown()
+    {
+        _liveTimer.Stop();
+        // 2026-11-12 (аудит Fable, Л-4): закрытие раздела останавливает и печать, и массовую генерацию (раньше шла дальше без окна и без «Остановить»).
+        try { _printCts?.Cancel(); } catch (ObjectDisposedException) { }
+        try { _genCts?.Cancel(); } catch (ObjectDisposedException) { }
+    }
+
+    /// <summary>2026-11-12: идёт печать или массовая генерация — раздел нельзя закрывать молча (IOwnerSection.HasUnsavedChanges / KeepAliveWhenHidden).</summary>
+    public bool IsBusy => _busy || _printCts != null || _genCts != null || (Shell?.IsBusy ?? false);
+
     private readonly DispatcherTimer _liveTimer = new() { Interval = TimeSpan.FromSeconds(10) };
 
     private void UpdatePrinterChip()
@@ -158,7 +170,7 @@ public partial class BarcodePrintWindow
             var bigQuestion = LabelPrinterSelector.BigBatchQuestion(totalLabels, _template.HeightMm, UserPreferences.Instance.LabelGapMm, 0, printer.Label);
             var bigOk = ConfirmOverride != null
                 ? await ConfirmOverride(bigQuestion).ConfigureAwait(true)
-                : await PosConfirmDialog.ShowModalAsync(this, T("Большая печать", "Чоң басуу", "Large print job", "Büyük baskı", "Katta chop etish"), bigQuestion,
+                : await PosConfirmDialog.ShowModalAsync(Host, T("Большая печать", "Чоң басуу", "Large print job", "Büyük baskı", "Katta chop etish"), bigQuestion,
                     T($"Напечатать {totalLabels}", $"{totalLabels} басуу", $"Print {totalLabels}", $"{totalLabels} yazdır", $"{totalLabels} ta chop etish"), T("Отмена", "Жок", "Cancel", "İptal", "Bekor qilish")).ConfigureAwait(true);
             if (!bigOk)
                 return;
@@ -175,7 +187,7 @@ public partial class BarcodePrintWindow
                 }
             }
         }
-        if (!_shell.TryBeginBusy())
+        if (!TryBeginBusy())
             return;
         SaveState();
         var template = _template.Clone();
@@ -247,7 +259,7 @@ public partial class BarcodePrintWindow
             _cancelPrintButton.IsVisible = false;
             _printCts?.Dispose();
             _printCts = null;
-            _shell.EndBusy();
+            EndBusy();
             _clearButton.IsEnabled = _selectPageButton.IsEnabled = _selectFoundButton.IsEnabled = true;
             UpdateSelectionUi();
         }
@@ -313,7 +325,9 @@ public partial class BarcodePrintWindow
         // 2026-11-01 (С-1): «Копий (по умолчанию)» главного окна — общее число копий листа A4 (раньше брался отдельный A4Copies = 1).
         _settings.A4Copies = Math.Clamp(_settings.DefaultCopies, 1, 99);
         var a4 = new BarcodeA4SheetWindow(items, overrides, _settings, UserPreferences.Instance.StoreName);
-        await a4.ShowDialog(this).ConfigureAwait(true);
+        if (Host is not { } a4Owner) // 2026-11-12 (Л-27): раздел уже отсоединён — окна не открываем (раньше исключение в async void)
+            return;
+        await a4.ShowDialog(a4Owner).ConfigureAwait(true);
         if (!string.IsNullOrEmpty(a4.ResultMessage))
             SetStatus(a4.ResultMessage);
     }
@@ -333,11 +347,11 @@ public partial class BarcodePrintWindow
             $"{code} shtrix-kodini yaratib, «{p.Title}» mahsuloti kartochkasiga saqlaymizmi? O'zgarish NurCRM da va barcha kassalarda paydo bo'ladi.");
         var ok = ConfirmOverride != null
             ? await ConfirmOverride(question).ConfigureAwait(true)
-            : await PosConfirmDialog.ShowModalAsync(this, T("Создать штрих-код", "Штрих-код түзүү", "Create a barcode", "Barkod oluştur", "Shtrix-kod yaratish"), question,
+            : await PosConfirmDialog.ShowModalAsync(Host, T("Создать штрих-код", "Штрих-код түзүү", "Create a barcode", "Barkod oluştur", "Shtrix-kod yaratish"), question,
                 T("Создать и сохранить", "Түзүп сактоо", "Create and save", "Oluştur ve kaydet", "Yaratib saqlash"), T("Отмена", "Жок", "Cancel", "İptal", "Bekor qilish")).ConfigureAwait(true);
         if (!ok)
             return;
-        if (!_shell.TryBeginBusy())
+        if (!TryBeginBusy())
             return;
         string? error;
         try
@@ -349,7 +363,7 @@ public partial class BarcodePrintWindow
         }
         finally
         {
-            _shell.EndBusy();
+            EndBusy();
         }
         if (error != null)
         {

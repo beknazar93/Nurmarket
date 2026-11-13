@@ -40,7 +40,9 @@ public partial class CustomerDisplayWindow : Window
 
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Escape ||
+        // 2026-11-11 (живой показ 1.17.85, Д-6): Esc закрывает экран покупателя только в предпросмотре (там же видна ✕). В работе окно на втором мониторе
+        // могло случайно стать активным, и Esc кассира, адресованный кассе, закрывал экран покупателя «сам». Ctrl+Shift+F12 — как раньше, всегда.
+        if ((e.Key == Key.Escape && _viewModel.IsPreviewMode) ||
             (e.Key == Key.F12 &&
              e.KeyModifiers.HasFlag(KeyModifiers.Control) &&
              e.KeyModifiers.HasFlag(KeyModifiers.Shift)))

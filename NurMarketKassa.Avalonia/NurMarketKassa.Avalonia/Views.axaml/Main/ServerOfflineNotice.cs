@@ -15,21 +15,9 @@ internal static class ServerOfflineNotice
         "маалымат алынган жок. Интернетти текшерип, кайталаңыз.", "data was not received. Check the internet and retry.",
         "veri alınamadı. İnterneti kontrol edip tekrar deneyin.", "ma'lumot olinmadi. Internetni tekshirib, qayta urinib ko'ring.");
 
-    public static string RetryText => Tr.T("Повторить", "Кайталоо", "Retry", "Tekrar dene", "Qayta urinish");
+    public static string RetryText => StateBlock.RetryText;
 
-    /// <summary>Плашка: текст + «Повторить». retry вызывается по нажатию.</summary>
-    public static Control Build(Control host, Action? retry)
-    {
-        var text = new TextBlock { Text = Text, FontSize = 14, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
-        text.Bind(TextBlock.ForegroundProperty, text.GetResourceObservable("BrushDanger")); // 2026-11-01 (Н-01): от самого элемента, не от долгоживущего host
-        var panel = new StackPanel { Spacing = 10, Margin = new Thickness(0, 4) };
-        panel.Children.Add(text);
-        if (retry != null)
-        {
-            var button = UiKit.Ghost(host, RetryText);
-            button.Click += (_, _) => retry();
-            panel.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Children = { button } });
-        }
-        return panel;
-    }
+    /// <summary>Плашка «Сервер NurCRM недоступен» + «Повторить». retry вызывается по нажатию.
+    /// 2026-11-12 (оценка UX/UI, Д-2): теперь это общий <see cref="StateBlock"/> (вариант «нет связи»), а не отдельная карточка в углу.</summary>
+    public static Control Build(Control host, Action? retry) => StateBlock.Offline(host, retry);
 }

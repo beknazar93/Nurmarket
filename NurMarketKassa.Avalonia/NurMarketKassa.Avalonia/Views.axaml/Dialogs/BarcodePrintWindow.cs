@@ -28,8 +28,13 @@ namespace NurMarketKassa.AvaloniaHost.Views.Dialogs;
 /// принтер этикеток, «Печать выбранных» на термопринтер с ходом и отменой и «Печать на A4» (<see cref="BarcodeA4SheetWindow"/>) с
 /// предпросмотром листа. Печать — прежние BarcodeLabelService.Print и A4SheetService; отрисовку штрихкодов и цены окно не меняет.
 /// Товарам без штрихкода предлагается «Создать штрих-код» (BarcodeGenerator, с подтверждением, через PATCH карточки товара).
+///
+/// 2026-11-11 (владелец: «массовая печать ценников/штрихкодов — выведи в Склад сверху! Как в вебе!»): всё содержимое окна вынесено в элемент
+/// <see cref="BarcodePrintView"/> (этот файл и три соседних — прежний код без изменений логики); окно <see cref="BarcodePrintWindow"/> — тонкая оболочка
+/// с ModalShell вокруг него (вид окна прежний), а вкладка «Штрихкоды» в «Складе» и раздел «Штрихкоды и ценники» программы владельца встраивают тот же элемент
+/// (<see cref="BarcodePrintTabHost"/>): без шапки и кнопки «Закрыть», подвал — страницы и «Виды ценников…» — внизу самого элемента.
 /// </summary>
-public sealed partial class BarcodePrintWindow : Window
+public sealed partial class BarcodePrintView : UserControl
 {
     // ---- Подмена для проверочного стенда (в программе всегда null): печать — в память, принтеры — список, сохранение штрихкода — без сервера.
     public static Func<LabelPrintRequest, LabelPrintResult>? ThermalPrintOverride;
@@ -39,7 +44,8 @@ public sealed partial class BarcodePrintWindow : Window
     /// <summary>Стенд: подтверждение создания штрихкода без окна вопроса.</summary>
     public static Func<string, Task<bool>>? ConfirmOverride;
 
-    internal const int PageSize = 48;
+    // 2026-11-11: во вкладке/разделе страница — 24 карточки (в окне 48): каждый поиск и страница строят карточки заново, на 15 000 товаров это было ~0,8 с; 24 с запасом закрывают экран (до 6 колонок × 4 ряда).
+    private int PageSize => _embedded ? 24 : 48;
 
     private sealed class Sel
     {
@@ -67,11 +73,14 @@ public sealed partial class BarcodePrintWindow : Window
     private readonly List<Border> _cards = new();
     private CancellationTokenSource? _printCts;
     private Bitmap? _previewBitmap;
-    private readonly DispatcherTimer _searchTimer = new() { Interval = TimeSpan.FromMilliseconds(220) };
+    private readonly DispatcherTimer _searchTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
     private readonly DispatcherTimer _previewTimer = new() { Interval = TimeSpan.FromMilliseconds(120) };
 
     // Управление
-    private readonly ModalShell _shell;
+    // 2026-11-11: ModalShell теперь создаёт окно-оболочка (BarcodePrintWindow) и передаёт сюда — для «занято» на время печати; во встроенном виде оболочки нет, «занято» — свой флаг.
+    internal ModalShell? Shell;
+    private bool _embedded;
+    private bool _busy;
     private readonly TextBox _search;
     private readonly Dictionary<BarcodeFilter, Button> _filterButtons = new();
     private readonly ComboBox _categoryCombo;
@@ -127,61 +136,108 @@ public sealed partial class BarcodePrintWindow : Window
 
     private static string CustomSizeLabel => T("Свой размер", "Жеке өлчөм", "Custom size", "Özel boyut", "Maxsus o'lcham");
 
-    /// <summary>Открыть окно из Склада и Маркетплейса (прежняя точка входа BulkPriceTagPrintDialog.Open).</summary>
-    public static async Task Open(Window? owner)
+    /// <summary>2026-11-11: окно, в котором стоит элемент (диалог или раздел «Склад»/«Штрихкоды и ценники»); вопросы и вложенные окна открываются над ним.</summary>
+    private Window? Host => TopLevel.GetTopLevel(this) as Window;
+
+    /// <summary>2026-11-11: строка поиска (окно-оболочка отдаёт ей фокус при открытии).</summary>
+    public Control SearchBox => _search;
+
+    /// <summary>2026-11-11: подвал — страницы, ход печати, состояние; для окна кладётся в ModalShell.Hint, во встроенном виде стоит внизу элемента.</summary>
+    public Control HintBar { get; }
+
+    /// <summary>2026-11-11: «Виды ценников…» — кнопка подвала.</summary>
+    public Button LegacyButton { get; }
+
+    private bool _narrowToolbar;
+    private bool _settingsUserOpen;
+    private Grid _settingsGrid = null!;
+    private ScrollViewer _settingsScroll = null!;
+    private double _settingsMaxHeight = double.PositiveInfinity;
+
+    /// <summary>2026-11-11: во вкладке настройки этикетки (раньше открытые один раз и запомненные на диске) не должны съедать высоту: ниже 640 px высоты вкладки они сворачиваются сами
+    /// (в файл не пишется), выше — возвращаются, если владелец их открывал; открытые — не выше половины вкладки.</summary>
+    private void FitSettingsToHeight(double height)
     {
-        if (!BarcodePrintAccess.Ensure(owner)) // 2026-11-01 (П-10): право «Печать штрих-кодов»
+        if (height <= 0)
             return;
-        // 2026-10-27 (аудит редакторов, Б-2): массовая печать — платная; все входы (Склад, Маркетплейс, редактор этикеток, ценники) идут сюда.
-        if (!PaidFeatureGate.EnsureUnlocked(PaidFeature.BulkPriceTag, owner))
-            return;
-        var window = new BarcodePrintWindow();
-        if (owner is null)
-        {
-            window.Show();
-            return;
-        }
-        await window.ShowDialog(owner).ConfigureAwait(true);
+        _settingsMaxHeight = Math.Max(150, height * 0.5);
+        ApplySettingsContainer();
+        var allow = height >= 640;
+        if (!allow && _settingsBody.IsVisible)
+            SetSettingsOpen(false);
+        else if (allow && _settingsUserOpen && !_settingsBody.IsVisible)
+            SetSettingsOpen(true);
     }
 
-    /// <summary>2026-11-01 (П-4): открыть окно с отмеченными товарами и готовыми копиями (например, «Этикетки на приход»).
-    /// Платная проверка та же, что у Open. Запомненный поиск не применяется. Товары, которых нет в каталоге кассы, пропускаются с сообщением.</summary>
-    public static async Task OpenWith(Window? owner, IReadOnlyList<(string ProductId, string? Barcode, int Copies)> items)
+    /// <summary>2026-11-11: во вкладке «Штрихкоды» на 1024 точках панель «поиск · фильтры · категория · сканер» оставляла строке поиска ~70 px. Ниже 1100 px ширины элемента
+    /// подписи фильтров, «Сканер…» и ширина списка категорий короче — поиск шире 250 px. В окне «Печать штрихкодов и ценников» (1232 px) вид прежний.</summary>
+    private void ApplyToolbarWidth(bool narrow)
     {
-        if (!BarcodePrintAccess.Ensure(owner)) // 2026-11-01 (П-10): право «Печать штрих-кодов»
+        if (narrow == _narrowToolbar)
             return;
-        if (!PaidFeatureGate.EnsureUnlocked(PaidFeature.BulkPriceTag, owner))
-            return;
-        var window = new BarcodePrintWindow(false);
-        window.ApplyPreset(items);
-        if (owner is null)
-        {
-            window.Show();
-            return;
-        }
-        await window.ShowDialog(owner).ConfigureAwait(true);
+        _narrowToolbar = narrow;
+        foreach (var (f, button) in _filterButtons)
+            button.Content = narrow ? ShortFilterText(f) : FullFilterText(f);
+        _categoryCombo.MinWidth = narrow ? 130 : 190;
+        _categoryCombo.MaxWidth = narrow ? 170 : 280;
+        _scanCheck.Content = narrow
+            ? T("Сканер → в печать", "Сканер → басууга", "Scanner → print", "Tarayıcı → yazdır", "Skaner → chopga")
+            : T("Сканер: добавлять в печать", "Сканер: басууга кошуу", "Scanner: add to print", "Tarayıcı: yazdırmaya ekle", "Skaner: chopga qo'shish");
     }
 
-    public BarcodePrintWindow() : this(true)
+    private static string FullFilterText(BarcodeFilter f) => f switch
+    {
+        BarcodeFilter.WithBarcode => T("Со штрихкодом", "Штрих-коду менен", "With barcode", "Barkodlu", "Shtrix-kodli"),
+        BarcodeFilter.WithoutBarcode => T("Без штрихкода", "Штрих-коду жок", "No barcode", "Barkodsuz", "Shtrix-kodsiz"),
+        BarcodeFilter.WithProblems => T("С замечаниями", "Эскертүү менен", "With warnings", "Uyarılı", "Eslatmali"),
+        _ => T("Все", "Бардыгы", "All", "Tümü", "Hammasi"),
+    };
+
+    private static string ShortFilterText(BarcodeFilter f) => f switch
+    {
+        BarcodeFilter.WithBarcode => T("С кодом", "Коду менен", "Barcode", "Barkodlu", "Kodli"),
+        BarcodeFilter.WithoutBarcode => T("Без кода", "Коду жок", "No code", "Barkodsuz", "Kodsiz"),
+        BarcodeFilter.WithProblems => T("С замеч.", "Эскертүү", "Warnings", "Uyarılı", "Eslatma"),
+        _ => FullFilterText(f),
+    };
+
+    private bool TryBeginBusy()
+    {
+        if (Shell != null)
+            return Shell.TryBeginBusy();
+        if (_busy)
+            return false;
+        _busy = true;
+        return true;
+    }
+
+    private void EndBusy()
+    {
+        if (Shell != null)
+            Shell.EndBusy();
+        else
+            _busy = false;
+    }
+
+    /// <summary>Ширина, пока элемент ещё не измерен: как у окна прежнего вида (1264 − поля).</summary>
+    private double FallbackWidth => Bounds.Width > 64 ? Bounds.Width - 64 : 1200;
+
+    public BarcodePrintView() : this(true, false)
     {
     }
 
-    internal BarcodePrintWindow(bool restoreLast)
+    public BarcodePrintView(bool restoreLast, bool embedded)
     {
+        _embedded = embedded;
         _template = LabelTemplateStore.Load();
         _settings = BarcodePrintSettingsStore.Load();
         _barPx = LabelAutoLayout.BarcodeHeightPx(_template);
 
-        Title = T("Печать штрихкодов и ценников", "Штрих-коддорду жана баа белгилерин басып чыгаруу", "Print barcodes and price tags",
-            "Barkod ve fiyat etiketi yazdırma", "Shtrix-kod va narx yorliqlarini chop etish");
-        Width = 1264;
-        Height = 860;
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        CanResize = false;
-        SystemDecorations = SystemDecorations.None;
         FontFamily = new FontFamily("Segoe UI, Inter, Noto Sans");
-        Use(this, BackgroundProperty, "DialogWindowBackground");
-        Use(this, TransparencyLevelHintProperty, "DialogTransparencyHint");
+        HorizontalAlignment = HorizontalAlignment.Stretch; // 2026-11-11: ширину задаёт родитель, не содержимое
+        VerticalAlignment = VerticalAlignment.Stretch;
+        MinWidth = embedded ? 820 : 0; // 2026-11-12: уже 820 px вкладка срезается по краю области (без вложенной прокрутки), а не ломает раскладку
+        ClipToBounds = true; // всё, что выйдет за вкладку, обрезается по её краю, а не торчит за соседние элементы
         AddStyles();
 
         // ---- поиск, фильтры
@@ -263,7 +319,7 @@ public sealed partial class BarcodePrintWindow : Window
         // ---- настройки этикетки
         _settingsToggle = new Button { MinHeight = 44, Padding = new Thickness(14, 0), CornerRadius = new CornerRadius(10), BorderThickness = new Thickness(1), FontSize = 13.5, FontWeight = FontWeight.SemiBold, Focusable = false };
         _settingsToggle.Classes.Add("sec-outline");
-        _settingsToggle.Click += (_, _) => { SetSettingsOpen(!_settingsBody.IsVisible); _settings.SettingsOpen = _settingsBody.IsVisible; };
+        _settingsToggle.Click += (_, _) => { SetSettingsOpen(!_settingsBody.IsVisible); _settings.SettingsOpen = _settingsBody.IsVisible; _settingsUserOpen = _settingsBody.IsVisible; };
         _settingsSummary = new TextBlock { FontSize = 12.5, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(12, 0, 0, 0) };
         Use(_settingsSummary, TextBlock.ForegroundProperty, "BrushTextSoft");
 
@@ -398,10 +454,14 @@ public sealed partial class BarcodePrintWindow : Window
         _settingsBody = new StackPanel { Spacing = 2, Children = { rowA, rowB, _barHeightHint, rowC } };
         var settingsLeft = new StackPanel { Children = { _settingsSummary, _settingsBody } };
         var settingsGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        // 2026-11-11: настройки этикетки в прокручиваемой рамке с предельной высотой (во вкладке — не больше половины высоты вкладки): раскрытые настройки больше не съедают всю высоту, и список карточек остаётся
+        var settingsScroll = new ScrollViewer { HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         settingsGrid.Children.Add(settingsLeft);
         Grid.SetColumn(_previewCard, 1);
         settingsGrid.Children.Add(_previewCard);
         _settingsCard = new Border { Padding = new Thickness(12, 8), CornerRadius = new CornerRadius(12), BorderThickness = new Thickness(1), Margin = new Thickness(0, 0, 0, 8), Child = settingsGrid };
+        _settingsGrid = settingsGrid;
+        _settingsScroll = settingsScroll;
         Use(_settingsCard, Border.BackgroundProperty, "BrushPanel");
         Use(_settingsCard, Border.BorderBrushProperty, "BrushBorder");
 
@@ -421,6 +481,18 @@ public sealed partial class BarcodePrintWindow : Window
         _printButton.Classes.Add("sec-primary");
         _printButton.Click += async (_, _) => await PrintSelectedAsync().ConfigureAwait(true);
         var selButtons = new WrapPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+        // 2026-11-11: у кнопок панели постоянная наименьшая ширина — подписи «На странице» ↔ «Выбрать все на странице» не дёргают панель.
+        _selectPageButton.MinWidth = 120;
+        _selectFoundButton.MinWidth = 140;
+        _clearButton.MinWidth = 84;
+        _a4Button.MinWidth = 140;
+        _printButton.MinWidth = 150;
+        // 2026-11-12: «Сгенерировать штрихкоды (N)» (+ «Распечатать созданные», «Скопировать журнал» после прохода) — первыми на панели выбора (BarcodePrintWindow.Generate.cs)
+        foreach (var g in BuildGenerateButtons())
+        {
+            g.Margin = new Thickness(8, 0, 0, 0);
+            selButtons.Children.Add(g);
+        }
         foreach (var b in new[] { _selectPageButton, _selectFoundButton, _clearButton, _a4Button, _printButton })
         {
             b.Margin = new Thickness(8, 0, 0, 0);
@@ -441,9 +513,23 @@ public sealed partial class BarcodePrintWindow : Window
         _cardsPanel = new WrapPanel { Orientation = Orientation.Horizontal };
         _scroll = new ScrollViewer { Content = _cardsPanel, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         _scroll.SizeChanged += (_, e) => LayoutCards(e.NewSize.Width);
+        // 2026-11-11: первая раскладка: как только у списка появилась настоящая ширина — колонки по ней (до этого карточки строились по запасной ширине)
+        EventHandler? firstLayout = null;
+        firstLayout = (_, _) =>
+        {
+            if (_scroll.Bounds.Width <= 0)
+                return;
+            _scroll.LayoutUpdated -= firstLayout;
+            LayoutCards(_scroll.Bounds.Width);
+        };
+        _scroll.LayoutUpdated += firstLayout;
+        // 2026-11-11: после смены ширины самой вкладки (до или без смены ширины списка) колонки пересчитываются по ней же
+        SizeChanged += (_, e) => { if (e.WidthChanged) LayoutCards(_scroll.Bounds.Width > 0 ? _scroll.Bounds.Width : e.NewSize.Width); };
         _emptyText = new TextBlock { FontSize = 14, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, MaxWidth = 460, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(24, 60, 24, 0), IsVisible = false, IsHitTestVisible = false };
         Use(_emptyText, TextBlock.ForegroundProperty, "BrushTextSoft");
-        var gridHost = new Grid { Children = { _scroll, _emptyText } };
+        // 2026-11-11: список карточек не даёт родителю желаемой ширины (WidthFreeHost) — раньше ширина ряда карточек (колонки × ширина) становилась желаемой шириной вкладки,
+        // и обёртка масштаба раздела (LayoutTransformControl) сужала/раздувала всю область ступенями (видео «у.mp4»).
+        var gridHost = new WidthFreeHost { Child = new Grid { Children = { _scroll, _emptyText } } };
 
         _prevButton = Ghost("‹");
         _prevButton.MinWidth = 52;
@@ -460,7 +546,7 @@ public sealed partial class BarcodePrintWindow : Window
         _progress = new ProgressBar { Width = 140, Height = 8, IsVisible = false, Minimum = 0, Maximum = 1, VerticalAlignment = VerticalAlignment.Center };
         _cancelPrintButton = Ghost(T("Отмена печати", "Басууну токтотуу", "Cancel printing", "Yazdırmayı iptal et", "Chop etishni bekor qilish"));
         _cancelPrintButton.IsVisible = false;
-        _cancelPrintButton.Click += (_, _) => { _printCts?.Cancel(); _cancelPrintButton.IsEnabled = false; };
+        _cancelPrintButton.Click += (_, _) => { _printCts?.Cancel(); _genCts?.Cancel(); _cancelPrintButton.IsEnabled = false; };
 
         // Страницы и состояние — в подвале слева (на 1024×600 так больше места карточкам).
         var hint = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, MinWidth = 150 };
@@ -470,14 +556,12 @@ public sealed partial class BarcodePrintWindow : Window
         hint.Children.Add(_progress);
         hint.Children.Add(_cancelPrintButton);
         hint.Children.Add(_status);
-        var legacy = Ghost(T("Виды ценников…", "Баа белгилеринин түрлөрү…", "Price tag styles…", "Fiyat etiketi türleri…", "Narx yorliqlari turlari…"));
+        var legacy = Ghost(T("Массовая печать ценников…", "Баа белгилерин массалык басып чыгаруу…", "Bulk price tag printing…", "Toplu fiyat etiketi yazdırma…", "Narx yorliqlarini ommaviy chop etish…")); // 2026-11-12 (Д-18): подпись кнопки = название окна, которое она открывает
         ToolTip.SetTip(legacy, T("Прежнее окно: готовые виды ценников (простой, подробный, с QR)", "Мурунку терезе: даяр баа белгилеринин түрлөрү (жөнөкөй, толук, QR менен)",
             "The previous window: ready-made price tag styles (simple, detailed, with QR)", "Önceki pencere: hazır fiyat etiketi türleri (basit, ayrıntılı, QR'lı)", "Avvalgi oyna: tayyor narx yorliqlari turlari (oddiy, batafsil, QR bilan)"));
-        legacy.Click += async (_, _) => await BulkPriceTagPrintDialog.OpenLegacy(this).ConfigureAwait(true);
-        var close = new Button { IsCancel = true, MinWidth = 110, Content = T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish") };
-        close.Classes.Add("modal-cancel");
-        close.Click += (_, _) => Close();
-        var footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Children = { legacy, close } };
+        legacy.Click += async (_, _) => await BulkPriceTagPrintDialog.OpenLegacy(Host).ConfigureAwait(true);
+        HintBar = hint;
+        LegacyButton = legacy;
 
         var root = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,Auto,*") };
         Grid.SetRow(_settingsCard, 1);
@@ -488,20 +572,19 @@ public sealed partial class BarcodePrintWindow : Window
         root.Children.Add(selBar);
         root.Children.Add(gridHost);
 
-        _shell = new ModalShell
+        if (embedded)
         {
-            Margin = new Thickness(16),
-            Title = T("Печать штрихкодов и ценников", "Штрих-коддорду жана баа белгилерин басып чыгаруу", "Print barcodes and price tags", "Barkod ve fiyat etiketi yazdırma", "Shtrix-kod va narx yorliqlarini chop etish"),
-            Subtitle = T("Отметьте товары, настройте этикетку и печатайте на термопринтер или на лист A4.", "Товарларды белгилеп, этикетканы тууралап, термопринтерге же A4 барагына басыңыз.",
-                "Tick the products, set up the label and print on a thermal printer or an A4 sheet.", "Ürünleri işaretleyin, etiketi ayarlayın ve termal yazıcıya veya A4 sayfaya yazdırın.", "Mahsulotlarni belgilang, yorliqni sozlang va termoprinterda yoki A4 varaqqa chop eting."),
-            ContentScroll = ScrollBarVisibility.Disabled,
-            ScreenHeightShare = 1.0,
-            InitialFocus = _search,
-            Footer = footer,
-            Hint = hint,
-            Content = root,
-        };
-        Content = _shell;
+            // 2026-11-11: вкладка/раздел — без ModalShell: внизу строка «страницы и состояние слева, „Виды ценников…“ справа».
+            var bottom = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 8, 0, 0) };
+            bottom.Children.Add(hint);
+            legacy.Margin = new Thickness(12, 0, 0, 0);
+            Grid.SetColumn(legacy, 1);
+            bottom.Children.Add(legacy);
+            Grid.SetRow(bottom, 4);
+            root.RowDefinitions = new RowDefinitions("Auto,Auto,Auto,*,Auto");
+            root.Children.Add(bottom);
+        }
+        Content = root;
 
         // ---- обработчики настроек (после сборки всех элементов)
         _sizeCombo.SelectedIndex = FindPresetIndex();
@@ -543,25 +626,49 @@ public sealed partial class BarcodePrintWindow : Window
                 SetStatus(qrProblem);
         };
 
-        _liveTimer.Tick += (_, _) => _ = RefreshLiveStatusAsync();
-        Closed += (_, _) => _liveTimer.Stop();
-        Opened += (_, _) =>
+        _liveTimer.Tick += (_, _) => { _ = RefreshLiveStatusAsync(); UpdateGenerateUi(); }; // 2026-11-12 (Л-26): связь вернулась / право изменилось — кнопка генерации пересчитывается
+        // 2026-11-11: было Window.Opened / Closed / Closing — теперь элемент: показ = подключение к дереву, закрытие = отключение (вкладка при переключении тоже отключается).
+        var shownOnce = false;
+        AttachedToVisualTree += (_, _) =>
         {
             _liveTimer.Start();
-            _ = LoadPrintersAsync();
-            _status.Text = _presetNote ?? "";
+            if (!shownOnce || !_printersLoaded)
+                _ = LoadPrintersAsync();
+            if (!shownOnce)
+                _status.Text = _presetNote ?? "";
+            else if (_embedded)
+                ApplyFilter(keepPage: true); // вернулись на вкладку: товары и остатки могли поменяться; страница остаётся
+            var first = !shownOnce;
+            shownOnce = true;
+            if (!first)
+                return;
             // На низком экране (1024×600) настройки свёрнуты в одну строку — карточкам остаётся место; высота известна после подгонки окна под экран.
-            Dispatcher.UIThread.Post(() => SetSettingsOpen(_settings.SettingsOpen ?? ClientSize.Height >= 840));
+            Dispatcher.UIThread.Post(() =>
+            {
+                SetSettingsOpen(_settings.SettingsOpen ?? (TopLevel.GetTopLevel(this)?.ClientSize.Height ?? 0) >= 840); // 2026-11-11: по высоте окна, а не вкладки (высота вкладки на первом проходе раскладки могла быть любой)
+                _settingsUserOpen = _settingsBody.IsVisible;
+                if (_embedded)
+                    FitSettingsToHeight(Bounds.Height);
+            });
+        };
+        DetachedFromVisualTree += (_, _) =>
+        {
+            _liveTimer.Stop();
+            if (_embedded)
+                SaveState(); // окно сохраняет при закрытии само (Closing у BarcodePrintWindow)
         };
         SizeChanged += (_, e) =>
         {
-            var c = e.NewSize.Width < 1400;
+            // 2026-11-11: пороги с запасом (гистерезис): включается ниже 1100/1400, выключается выше 1180/1480 — на самом пороге режим не мигает.
+            if (_embedded && e.HeightChanged)
+                FitSettingsToHeight(e.NewSize.Height);
+            ApplyToolbarWidth(_narrowToolbar ? e.NewSize.Width < 1180 : e.NewSize.Width < 1100); // узкая вкладка «Штрихкоды» (1024) — короткие подписи, поиску остаётся место
+            var c = _compact ? e.NewSize.Width < 1480 : e.NewSize.Width < 1400;
             if (c == _compact)
                 return;
             _compact = c;
             ApplyTexts();
         };
-        Closing += (_, _) => SaveState();
         _init = false;
 
         SetSettingsOpen(true, initial: true);

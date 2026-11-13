@@ -706,6 +706,8 @@ public sealed partial class SalesApiService : ISalesApiService
     // подтверждён и может по-прежнему быть ненадёжным на стороне сервера.
     public Task<JsonElement> PosPayDebtAsync(string clientId, string dealId, string? installmentId, double? amount, CancellationToken ct = default, string? idempotencyKey = null)
     {
+        if (ClientCheckDebtDeals.RejectVirtualDealId(dealId) is { } virtualDeal) // 2026-11-11: «sale:…» — долг по чеку, не сделка: в deals/…/pay/ не уходит
+            return Task.FromException<JsonElement>(virtualDeal);
         var client = Uri.EscapeDataString(clientId.Trim());
         var deal = Uri.EscapeDataString(dealId.Trim());
         var body = new Dictionary<string, string>
@@ -730,6 +732,8 @@ public sealed partial class SalesApiService : ISalesApiService
     /// поэтому installment_id для оплаты найти было неоткуда.</summary>
     public Task<JsonElement> ClientDealGetAsync(string clientId, string dealId, CancellationToken ct = default)
     {
+        if (ClientCheckDebtDeals.RejectVirtualDealId(dealId) is { } virtualDeal) // 2026-11-11: «sale:…» — не сделка, карточки сделки у неё нет
+            return Task.FromException<JsonElement>(virtualDeal);
         var client = Uri.EscapeDataString(clientId.Trim());
         var deal = Uri.EscapeDataString(dealId.Trim());
         return _client.RequestAsync(HttpMethod.Get, $"api/main/clients/{client}/deals/{deal}/", null, null, ct);
@@ -880,11 +884,7 @@ public sealed partial class SalesApiService : ISalesApiService
         if (lines is { Count: > 0 })
         {
             body["items"] = lines
-                .Select(l => new Dictionary<string, object>
-                {
-                    ["sale_item_id"] = l.LineId.Trim(),
-                    ["quantity"] = FormatRefundQty(l.Quantity),
-                })
+                .Select(l => RefundItem(l))
                 .ToList();
         }
 

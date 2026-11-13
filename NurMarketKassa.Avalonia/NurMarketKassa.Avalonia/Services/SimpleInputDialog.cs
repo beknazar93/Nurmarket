@@ -16,7 +16,9 @@ public class SimpleInputDialog : Window
     public string Result { get; private set; } = "";
     private readonly TextBox _textBox;
 
-    public SimpleInputDialog(string title, string message, bool optional = false, string? confirmText = null)
+    /// <param name="minLength">2026-11-12 (аудит С-5): минимальная длина ввода (без пробелов по краям) — проверяется в самом окне, ошибка под полем; 0 — не проверять.</param>
+    /// <param name="maxLength">2026-11-12: максимальная длина поля; 0 — без ограничения.</param>
+    public SimpleInputDialog(string title, string message, bool optional = false, string? confirmText = null, int minLength = 0, int maxLength = 0)
     {
         Title = title;
         SectionCards.AsModal(this, 512);
@@ -24,6 +26,8 @@ public class SimpleInputDialog : Window
         var label = new TextBlock { Text = message, FontSize = 13, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap };
         label.Bind(TextBlock.ForegroundProperty, label.GetResourceObservable("BrushTextSoft"));
         _textBox = SectionCards.Field(new TextBox());
+        if (maxLength > 0)
+            _textBox.MaxLength = maxLength;
         Avalonia.Automation.AutomationProperties.SetName(_textBox, message);
         var error = SectionCards.ErrorText(this);
         _textBox.TextChanged += (_, _) => SectionCards.ShowError(error, null);
@@ -47,6 +51,11 @@ public class SimpleInputDialog : Window
             if (!optional && text.Trim().Length == 0)
             {
                 SectionCards.ShowError(error, Tr.T("Поле не заполнено", "Талаа толтурулган жок", "The field is empty", "Alan boş", "Maydon to'ldirilmagan"), _textBox);
+                return;
+            }
+            if (!optional && minLength > 0 && text.Trim().Length < minLength)
+            {
+                SectionCards.ShowError(error, Tr.T($"Нужно не меньше {minLength} знаков", $"Эң аз {minLength} белги керек", $"At least {minLength} characters are required", $"En az {minLength} karakter gerekli", $"Kamida {minLength} ta belgi kerak"), _textBox);
                 return;
             }
             Result = text;

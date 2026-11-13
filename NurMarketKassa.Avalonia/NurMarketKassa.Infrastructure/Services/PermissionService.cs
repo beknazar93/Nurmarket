@@ -52,6 +52,10 @@ public sealed class PermissionService : IPermissionService
         if (permission == PosPermissions.EditProducts)
             return IsProductEditAllowed(_authApi.UserPayload);
 
+        // 2026-11-13 (сервер bc1112, ответ Умара 13.11): «Продажа ниже закупки» — владелец/админ по роли, остальные только при явном true; поля нет — права нет.
+        if (permission == PosPermissions.SellBelowCost)
+            return IsSellBelowCostAllowed(_authApi.UserPayload);
+
         // 2026-10-18: «Интерфейс кассира», «Продажа», «Смены» — со своими правилами (не запирать
         // владельца/админа и компании, где доступы сотрудникам не выставлены).
         if (PosPermissions.CashierWork.Contains(permission, StringComparer.OrdinalIgnoreCase))
@@ -151,6 +155,11 @@ public sealed class PermissionService : IPermissionService
             return true;
         return ReadExplicitFlag(payload, PosPermissions.EditProducts, 0) == true;
     }
+
+    /// <summary>2026-11-13 (ответ Умара 13.11, п. 1): право «Продажа ниже закупки» (can_sell_below_cost). Владелец и админ — всегда по роли (сервер им флаг НЕ присылает, поле null);
+    /// остальным — только явный true в профиле (user, permissions и т. п.): нет поля, false, null — нет права.</summary>
+    public static bool IsSellBelowCostAllowed(JsonElement payload) =>
+        HasOwnerOrAdminRole(payload) || ReadExplicitFlag(payload, PosPermissions.SellBelowCost, 0) == true;
 
     // 2026-11-09: internal — строка «для поддержки» в отказе по правам (PermissionRecheck.Describe) показывает явное false.
     internal static bool? ReadExplicitFlag(JsonElement element, string name, int depth)

@@ -154,7 +154,11 @@ public partial class OwnerShellWindow
         if (OperatingSystem.IsAndroid() || window.Content is not Control content || content is LayoutTransformControl { Name: SectionScaleName })
             return;
         window.Content = null;
-        window.Content = new LayoutTransformControl { Name = SectionScaleName, Child = content };
+        // 2026-11-11 (видео «у.mp4»): обёртка явно растягивается на всё окно раздела — не центрируется и не сжимается по желаемому размеру содержимого.
+        // 2026-11-11 (живая проверка Склада, Д-1/Д-3 и «пульсация» у.mp4): LayoutTransformControl раскладывает ребёнка по его ЖЕЛАЕМОМУ размеру в обеих осях, как только желаемая высота или ширина
+        // не меньше места (ему хватает, чтобы желаемая высота вкладки превысила окно) — тогда блок вкладок встаёт по центру и по ширине вкладки с активным содержимым («прыгает» вбок, сужается).
+        // SectionFitHost сообщает обёртке желаемый размер не больше выданного места — раскладка по желаемому размеру больше не включается.
+        window.Content = new LayoutTransformControl { Name = SectionScaleName, Child = new SectionFitHost { Child = content }, HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Stretch };
     }
 
     private void ApplySectionScale(Window window)
@@ -188,6 +192,8 @@ public partial class OwnerShellWindow
         UpdateWindowChrome();
         OnShellSizeChangedForNav();
         SyncSectionBounds();
+        // 2026-11-12 (аудит Д-16): ещё один подбор плотности меню после того, как раскладка устоялась (первый шёл по размеру колонки в момент разворачивания).
+        Dispatcher.UIThread.Post(ApplyRailDensity, DispatcherPriority.Background);
     }
 
     /// <summary>2026-10-18, ревью О2: при 1366×768 и масштабе 125 % окно ~580 точек в высоту — «Управление» и «Помощь» уходили
@@ -240,6 +246,8 @@ public partial class OwnerShellWindow
         foreach (var density in RailDensities)
         {
             SetRailDensity(density);
+            // 2026-11-12 (аудит Д-16): без сброса кэш измерения мог вернуть высоту, посчитанную при ПРЕЖНЕЙ ступени, — после сворачивания выбиралась лишняя «только значки» (логотип 36→88, список 572→435).
+            NavRailDock.InvalidateMeasure();
             NavRailDock.Measure(new Size(width, double.PositiveInfinity));
             if (NavRailDock.DesiredSize.Height <= available + 0.5)
             {
@@ -543,5 +551,78 @@ public partial class OwnerShellWindow
         var la = Luminance(a);
         var lb = Luminance(b);
         return (Math.Max(la, lb) + 0.05) / (Math.Min(la, lb) + 0.05);
+    }
+}
+
+/// <summary>2026-11-11: содержимое раздела внутри обёртки масштаба (<see cref="OwnerShellWindow"/>.WrapSectionForScale): желаемый размер не больше выданного (по обеим осям),
+/// ребёнок раскладывается на выданное место и перед раскладкой измеряется заново по нему.
+/// 2026-11-12 (аудит Л-14): раньше содержимое, которое не помещалось (1024×600 при масштабе 110 %: «Склад → Приёмка» шире области), молча обрезалось —
+/// кнопки справа и снизу были недостижимы. Теперь внутри лежит ScrollViewer (полосы — только когда не помещается): ребёнка меряют по выданному месту, а если ему нужно больше
+/// (минимальные ширины и высоты), он раскладывается на нужный размер и прокручивается. Когда места хватает — всё как раньше (на всё место, без полос).
+/// Свойство Child — содержимое раздела (скрывает Decorator.Child, где теперь лежит ScrollViewer).</summary>
+public sealed class SectionFitHost : Avalonia.Controls.Decorator
+{
+    private readonly OverflowFill _fill = new();
+
+    public SectionFitHost()
+    {
+        ClipToBounds = true;
+        base.Child = new ScrollViewer
+        {
+            HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+            VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+            Content = _fill,
+        };
+    }
+
+    /// <summary>Содержимое раздела.</summary>
+    public new Control? Child
+    {
+        get => _fill.Child;
+        set => _fill.Child = value;
+    }
+
+    protected override Avalonia.Size MeasureOverride(Avalonia.Size availableSize)
+    {
+        if (base.Child is not Control scroll)
+            return default;
+        _fill.Viewport = availableSize;
+        scroll.Measure(availableSize);
+        return new Avalonia.Size(Math.Min(scroll.DesiredSize.Width, availableSize.Width), Math.Min(scroll.DesiredSize.Height, availableSize.Height));
+    }
+
+    protected override Avalonia.Size ArrangeOverride(Avalonia.Size finalSize)
+    {
+        base.Child?.Arrange(new Avalonia.Rect(finalSize));
+        return finalSize;
+    }
+
+    /// <summary>Внутренность ScrollViewer: ребёнок мерится по размеру области (а не по бесконечному), раскладывается на максимум из нужного и выданного.</summary>
+    private sealed class OverflowFill : Avalonia.Controls.Decorator
+    {
+        public Avalonia.Size Viewport { get; set; } = new(double.PositiveInfinity, double.PositiveInfinity);
+
+        protected override Avalonia.Size MeasureOverride(Avalonia.Size availableSize)
+        {
+            if (Child is null)
+                return default;
+            Child.Measure(Viewport);
+            var d = Child.DesiredSize;
+            // 2026-11-13: DesiredSize в Avalonia обрезается до выданного места, а минимальные ширина/высота ребёнка срабатывают только при раскладке (и тогда он
+            // вставал по центру с отрицательным смещением); поэтому нужный размер = максимум из желаемого и MinWidth/MinHeight — полосы прокрутки появляются по-настоящему
+            if (Child is Avalonia.Layout.Layoutable layoutable)
+                d = new Avalonia.Size(Math.Max(d.Width, layoutable.MinWidth), Math.Max(d.Height, layoutable.MinHeight));
+            // не больше «бесконечности»: если область не конечна (измерение без предела), берём желаемый размер как есть
+            return new Avalonia.Size(d.Width, d.Height);
+        }
+
+        protected override Avalonia.Size ArrangeOverride(Avalonia.Size finalSize)
+        {
+            if (Child is null)
+                return finalSize;
+            Child.Measure(finalSize);
+            Child.Arrange(new Avalonia.Rect(finalSize));
+            return finalSize;
+        }
     }
 }

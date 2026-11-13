@@ -336,7 +336,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             // 2026-11-06 (В11, Д4-30): абзац «как считается прибыль» под плитками — кнопкой «?» в шапке раздела (текст тот же, читается при открытии окошка).
             ProfitHowText.IsVisible = false;
             var hint = NurMarketKassa.AvaloniaHost.Views.Controls.HintButton.Create(() => ProfitHowText.Text);
-            hint.Margin = new Thickness(0, 0, 6, 0);
+            hint.Margin = new Thickness(0); // 2026-11-12 (Д-3): расстояние между кнопками шапки — Spacing у HeaderActions
             HeaderActions.Children.Insert(0, hint);
             DailySummaryCard.IsVisible = false;
             ClockBadge.IsVisible = false;

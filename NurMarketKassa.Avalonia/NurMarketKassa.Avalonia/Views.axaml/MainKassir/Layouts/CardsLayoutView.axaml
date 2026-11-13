@@ -410,6 +410,8 @@
                                 <MenuItem Header="{DynamicResource csh.cart.printLastReceipt}" Click="PrintLastReceipt_Click"/>
                                 <MenuItem Header="{DynamicResource csh.cart.writeOff}" Click="WriteOff_Click"/>
                                 <MenuItem Header="{DynamicResource csh.menu.rental}" Click="Rental_Click" IsVisible="{Binding Basket.ShowRental}"/>
+                                <MenuItem Header="{DynamicResource csh.cart.schoolLists}" Click="SchoolLists_Click" IsVisible="{Binding Basket.ShowSchoolLists}"/>
+                                <MenuItem Header="{DynamicResource csh.cart.invoiceFromReceipt}" Click="InvoiceFromReceipt_Click" IsVisible="{Binding Basket.ShowInvoiceFromReceipt}"/>
                                 <Separator/>
                                 <MenuItem Classes="danger" Header="{DynamicResource csh.cart.deleteReceipt}" Command="{Binding Basket.DeleteReceiptCommand}"/>
                                 <MenuItem Classes="danger" Header="{DynamicResource onecLayout.clearButton}" Command="{Binding Basket.ClearCartCommand}"/>

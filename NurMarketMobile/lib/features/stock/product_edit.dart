@@ -11,6 +11,7 @@ import '../../core/providers.dart';
 import '../../core/util/audit.dart';
 import '../../core/util/barcode_generator.dart';
 import '../../core/util/photo_cache.dart';
+import '../../core/util/price_limits.dart';
 import '../../core/util/ui.dart';
 import '../admin/admin_receive.dart';
 import '../admin/admin_screens.dart';
@@ -317,6 +318,14 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
     if (d.name.isEmpty) {
       toast(context, l.peNameNeed, error: true);
       return;
+    }
+    // 2026-11-11 (ответ Умара): цена продажи/опт ≤ 9 999 999,999, закупка ≤ 9 999 999 999,9999 — выше сервер не примет
+    if (_canPrices) {
+      final limit = PriceLimits.problem(context, sale: d.price, wholesale: d.wholesale, purchase: d.purchase);
+      if (limit != null) {
+        toast(context, limit, error: true);
+        return;
+      }
     }
     // 2026-10-29: штрихкод — 4–14 цифр
     if (!barcodeFieldOk(d.barcode) || d.alt.any((a) => !barcodeFieldOk(ProductDraft.altCode(a)))) {

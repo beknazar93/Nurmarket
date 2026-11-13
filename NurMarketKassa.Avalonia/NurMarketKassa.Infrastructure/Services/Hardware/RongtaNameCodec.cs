@@ -187,6 +187,28 @@ public static class RongtaNameCodec
         return sb.ToString();
     }
 
+    /// <summary>
+    /// 2026-11-13: имя для 64-байтной карточки PLU протокола RLS1000 (UDP 5001, «обновить plu»). Там весы хранят байты
+    /// как есть и печатают их шрифтом Windows-1251 — пары «!0V» (A1 A1 = пробел, A3 xx = латиница) печатались мусором
+    /// («Мясо Барана (мякоть)» → «МясоЎЎБаранаЎЎJЁмякотьJ®», этикетка владельца 13.11). Поэтому здесь — обычный
+    /// Windows-1251 побайтно (пробел 0x20, ASCII как есть, как у RLS1000 в эталонах), до <paramref name="maxBytes"/> байт.
+    /// «я» последней буквой (0xFF в хвосте) — заглавная, как в «!0V».
+    /// </summary>
+    public static byte[] EncodeCardBytes(string? name, int maxBytes = 36)
+    {
+        var text = DahuaTmProtocol.ReplaceUnsupportedLetters((name ?? "").Replace(' ', ' ').Replace('—', '-').Replace('–', '-').Trim());
+        var bytes = Cp1251.GetBytes(text);
+        if (bytes.Length > maxBytes)
+            bytes = bytes[..maxBytes];
+        var end = bytes.Length;
+        while (end > 0 && bytes[end - 1] == 0x20)
+            end--;
+        bytes = bytes[..end];
+        if (bytes.Length > 0 && bytes[^1] == 0xFF && SingleByte('Я') is { } ya)
+            bytes[^1] = ya;
+        return bytes;
+    }
+
     /// <summary>Что напечатают весы (для подсказки в окне и журнала).</summary>
     public static string Preview(string? name)
     {

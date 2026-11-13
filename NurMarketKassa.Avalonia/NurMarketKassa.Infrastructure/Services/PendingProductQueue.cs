@@ -949,7 +949,8 @@ public sealed class PendingProductQueue
             return null;
         try
         {
-            var found = await api.FindWarehouseProductByBarcodeAsync(barcode, ct).ConfigureAwait(false);
+            // 2026-11-11 (разбор «Кыргызстанские штрихкоды», п. 4): «наш созданный товар» — только если у ответа именно этот штрихкод (основной или доп.).
+            var found = PurchaseReceivingService.OnlyIfHasCode(await api.FindWarehouseProductByBarcodeAsync(barcode, ct).ConfigureAwait(false), barcode, requireField: true);
             if (found is not { ValueKind: JsonValueKind.Object } product)
                 return null;
             // Товар с таким штрихкодом, но другим названием — не наш (заведён раньше): не подменяем.

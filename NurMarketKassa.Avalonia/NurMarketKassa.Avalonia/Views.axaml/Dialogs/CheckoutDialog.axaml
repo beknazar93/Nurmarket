@@ -325,6 +325,19 @@
             <Setter Property="Width" Value="84"/>
             <Setter Property="Height" Value="84"/>
         </Style>
+        <!-- 2026-11-12: крупный QR при одном экране (рамка добавляет белое поле 20 с каждой стороны); compact (1366×768) — 280, tiny (1024×600) — 240. -->
+        <Style Selector="Image.pay-qr-large">
+            <Setter Property="Width" Value="300"/>
+            <Setter Property="Height" Value="300"/>
+        </Style>
+        <Style Selector=".compact Image.pay-qr-large">
+            <Setter Property="Width" Value="280"/>
+            <Setter Property="Height" Value="280"/>
+        </Style>
+        <Style Selector=".tiny Image.pay-qr-large">
+            <Setter Property="Width" Value="240"/>
+            <Setter Property="Height" Value="240"/>
+        </Style>
         <Style Selector="Button.foot-pay">
             <Setter Property="MinHeight" Value="52"/>
         </Style>
@@ -671,6 +684,12 @@
                     <TextBlock Text="{Binding PriceChangeNotice}" Foreground="{DynamicResource BrushText}"
                                FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap"/>
                 </Border>
+                <!-- 2026-11-13 (сервер bc1112): цена со скидкой ниже закупки без права «Продажа ниже закупки» — оплата заблокирована до приёма денег. -->
+                <Border IsVisible="{Binding HasBelowCostBlock}" Margin="0,8,0,0" Padding="12,8" CornerRadius="10"
+                        Background="{DynamicResource BrushWarningSoft}">
+                    <TextBlock Text="{Binding BelowCostBlockText}" Foreground="{DynamicResource BrushText}"
+                               FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                </Border>
                 <!-- 2026-10-30 (приёмка 1.17.65, «Важно» 2): список клиентов при «Сервер занят» (429) — нейтральная надпись автоповтора и кнопка «Повторить» после неудачи. -->
                 <TextBlock Text="{Binding ClientsStatusText}"
                            IsVisible="{Binding HasClientsStatus}"
@@ -859,26 +878,65 @@
                                 </ComboBox.ItemTemplate>
                             </ComboBox>
 
-                            <!-- QR загружен — карточка «QR для оплаты» (картинка, сумма, подсказка про Enter). Видимость: способ с банком (внешняя обёртка) и загруженный QR. -->
-                            <Border Classes="pay-card" IsVisible="{Binding ShowQrCard}">
+                            <!-- QR загружен — карточка «QR для оплаты» (картинка, сумма, подсказка про Enter). Видимость: способ с банком (внешняя обёртка) и загруженный QR.
+                                 2026-11-12: маленькая карточка — только когда QR видит покупатель на своём (втором) экране; картинка — QR окна оплаты (с суммой, если включено);
+                                 картинку не прочитать — вместо пустого белого квадрата текст ошибки. -->
+                            <Border Classes="pay-card" IsVisible="{Binding ShowQrCardCompact}">
                                 <Grid ColumnDefinitions="Auto,*">
                                     <Border Background="White"
                                             BorderBrush="{DynamicResource BrushBorder}"
                                             BorderThickness="1"
                                             CornerRadius="10"
                                             Padding="4"
-                                            VerticalAlignment="Center">
-                                        <Image Classes="pay-qr"
-                                               Source="{Binding QrCodePath, Converter={StaticResource PathToImageConverter}}"
+                                            VerticalAlignment="Center"
+                                            IsVisible="{Binding #QrCompactImage.Source, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                        <Image x:Name="QrCompactImage" Classes="pay-qr"
+                                               Source="{Binding CashierQrImagePath, Converter={StaticResource PathToImageConverter}, ConverterParameter=nocache}"
                                                Stretch="Uniform"/>
                                     </Border>
                                     <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" Spacing="2">
                                         <TextBlock Text="{Binding QrCardTitle}" FontSize="12.5" Foreground="{DynamicResource BrushTextMuted}" TextWrapping="Wrap"/>
                                         <!-- 2026-11-05 (Д4-12): в смешанной оплате под QR — безналичная часть, а не весь чек. -->
                                         <TextBlock Text="{Binding QrAmountDisplay}" FontSize="18" FontWeight="ExtraBold" Foreground="{DynamicResource BrushText}"/>
+                                        <TextBlock Text="{Binding QrImageErrorText}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource BrushDanger}" TextWrapping="Wrap"
+                                                   IsVisible="{Binding #QrCompactImage.Source, Converter={x:Static ObjectConverters.IsNull}}"/>
+                                        <TextBlock Text="{Binding DynamicQrErrorText}" IsVisible="{Binding HasDynamicQrError}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
                                         <TextBlock Text="{Binding QrManualHint}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
                                     </StackPanel>
                                 </Grid>
+                            </Border>
+
+                            <!-- 2026-11-12 (жалоба тестера «не генерируется QR для кассовой стороны, сделать QR побольше для тех, кто использует 1 экран»): второго экрана с QR нет —
+                                 QR крупно (300 / compact 280 / tiny 240 точек) в белой рамке с полем 20 (тихая зона), под ним сумма, банк и «Показать QR крупнее» (на всё окно
+                                 оплаты; касание или Esc — закрыть). Не помещается по ширине — Viewbox уменьшает, а не срезает; по высоте — прокрутка тела окна.
+                                 Картинку не прочитать — понятный текст вместо пустого места. -->
+                            <Border x:Name="QrLargeCard" Classes="pay-card" IsVisible="{Binding ShowQrCardLarge}">
+                                <StackPanel Spacing="6">
+                                    <Viewbox StretchDirection="DownOnly" HorizontalAlignment="Center"
+                                             IsVisible="{Binding #QrLargeImage.Source, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                        <Border x:Name="QrLargeFrame" Background="White" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                                                CornerRadius="12" Padding="20">
+                                            <Image x:Name="QrLargeImage" Classes="pay-qr-large"
+                                                   Source="{Binding CashierQrImagePath, Converter={StaticResource PathToImageConverter}, ConverterParameter=nocache}"
+                                                   Stretch="Uniform"/>
+                                        </Border>
+                                    </Viewbox>
+                                    <TextBlock x:Name="QrLargeError" Text="{Binding QrImageErrorText}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushDanger}"
+                                               TextWrapping="Wrap" IsVisible="{Binding #QrLargeImage.Source, Converter={x:Static ObjectConverters.IsNull}}"/>
+                                    <TextBlock Text="{Binding QrAmountDisplay}" FontSize="26" FontWeight="ExtraBold" Foreground="{DynamicResource BrushText}" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="{Binding QrPayMethodText}" FontSize="13" Foreground="{DynamicResource BrushTextMuted}" HorizontalAlignment="Center"
+                                               TextAlignment="Center" TextWrapping="Wrap"/>
+                                    <Border IsVisible="{Binding HasDynamicQrError}" Padding="10,6" CornerRadius="8" Background="{DynamicResource BrushWarningSoft}">
+                                        <TextBlock Text="{Binding DynamicQrErrorText}" FontSize="12" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
+                                    </Border>
+                                    <Button x:Name="ShowQrLargeButton" Classes="modal-secondary" Focusable="False" MinHeight="44"
+                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                            Content="{Binding ShowQrLargeText}" AutomationProperties.Name="{Binding ShowQrLargeText}"
+                                            IsVisible="{Binding #QrLargeImage.Source, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                            Click="ShowQrLarge_Click"/>
+                                    <TextBlock Text="{Binding QrManualHint}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"
+                                               TextAlignment="Center"/>
+                                </StackPanel>
                             </Border>
 
                             <!-- QR не загружен — подсказка, где его поставить (одна строка, полный текст — всплывающей подсказкой). -->
@@ -1360,6 +1418,22 @@
                                        TextWrapping="Wrap" FontWeight="Bold"/>
                         </DockPanel>
                     </Button>
+                </Grid>
+            </Border>
+
+            <!-- 6. 2026-11-12: «Показать QR крупнее» — QR на всё окно оплаты (окно на это время вытягивается на всю доступную высоту, CheckoutDialog.SetQrOverlay).
+                 Белый фон и тёмный текст постоянные (как бумага), не от темы — QR одинаково читается в светлой и тёмной теме. Касание или Esc — закрыть. -->
+            <Border x:Name="QrOverlay" Grid.Row="0" Grid.RowSpan="5" IsVisible="False" Background="White" Padding="16,12"
+                    PointerPressed="QrOverlay_PointerPressed">
+                <Grid RowDefinitions="Auto,*,Auto,Auto">
+                    <TextBlock Text="{Binding QrPayMethodText}" FontSize="18" FontWeight="Bold" Foreground="#1A1A1A"
+                               HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"/>
+                    <Image x:Name="QrOverlayImage" Grid.Row="1" Margin="0,12" Stretch="Uniform"
+                           Source="{Binding #QrLargeImage.Source}"/>
+                    <TextBlock Grid.Row="2" Text="{Binding QrAmountDisplay}" FontSize="34" FontWeight="ExtraBold" Foreground="#111111"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock Grid.Row="3" Text="{Binding QrLargeCloseHint}" FontSize="13" Foreground="#4A4A4A" Margin="0,6,0,0"
+                               HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"/>
                 </Grid>
             </Border>
 

@@ -280,6 +280,8 @@ public static class CatalogCacheService
 
             // 2026-09-28: акции товаров (запомнены в TryTile) — на диск, для запуска без интернета.
             PromotionRules.SaveIfDirty();
+            ProductSerialRules.SaveIfDirty(); // 2026-11-13 (сервер sn1311): track_serials / warranty_months
+            ProductSaleUnits.SaveIfDirty(); // 2026-11-13: sale_units
 
             await StockSyncService.OverlayAgentStockAsync(newList, cancellationToken).ConfigureAwait(false);
             foreach (var vm in newList)
@@ -287,6 +289,9 @@ public static class CatalogCacheService
                 if (string.IsNullOrWhiteSpace(vm.StockInfo))
                     StockSyncService.ApplyQuantityToTile(vm, vm.Quantity, vm.MustWeigh);
             }
+
+            // 2026-11-13: запасной путь (нет хостовой службы каталога) тоже держит остаток товаров, менявшихся на этом ПК, и «приход в пути» — тот же общий метод, что у AvaloniaCatalogCacheService.
+            StockSyncService.KeepLocalStockForTouched(newList, snapshotStartedUtc);
 
             // Продажи соседних касс, которых сервер ещё не знает, вычитаются из снимка до записи.
             Lan.LanStockAdjuster.AdjustSnapshot(newList, snapshotStartedUtc);

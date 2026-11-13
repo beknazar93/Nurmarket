@@ -51,7 +51,8 @@ public partial class ScreenSettingsView : UserControl
     /// Карточка «Разделы меню»: переключатель у каждого раздела (SectionVisibility); выключил — раздел пропал из меню.</summary>
     private void BuildSectionsCard()
     {
-        var card = new Border { Classes = { "SettingsCard" }, Padding = new Avalonia.Thickness(14) };
+        // 2026-11-11 (Д-5): переключатели разделов действуют сразу — в проверку «несохранённых» не входят.
+        var card = new Border { Classes = { "SettingsCard", NurMarketKassa.AvaloniaHost.Views.PosSettingsWindow.ImmediateSettingClass }, Padding = new Avalonia.Thickness(14) };
         var stack = new StackPanel { Spacing = 8 };
         stack.Children.Add(new TextBlock
         {
@@ -100,7 +101,7 @@ public partial class ScreenSettingsView : UserControl
     private void BuildOwnerMenuStyleCard(MenuStyleCatalog? catalog = null)
     {
         var kassa = catalog is not null;
-        var card = new Border { Classes = { "SettingsCard" }, Padding = new Avalonia.Thickness(14) };
+        var card = new Border { Classes = { "SettingsCard", NurMarketKassa.AvaloniaHost.Views.PosSettingsWindow.ImmediateSettingClass }, Padding = new Avalonia.Thickness(14) }; // 2026-11-11 (Д-5): меняется сразу
         var stack = new StackPanel { Spacing = 4 };
         stack.Children.Add(new TextBlock
         {
@@ -132,6 +133,10 @@ public partial class ScreenSettingsView : UserControl
     public ScreenSettingsView()
     {
         InitializeComponent();
+        // 2026-11-11 (Д-5, живой показ 1.17.85): переключатели и ползунки, которые применяются и сохраняются сразу (без «Сохранить»), — не повод
+        // спрашивать при закрытии «Есть несохранённые изменения» (PosSettingsWindow.SnapshotEditable их пропускает).
+        foreach (var immediate in new Control[] { QuickProductsCheck, UpsellCheck, PayDockBottomCheck, UiScaleSlider, TileSizeSlider, CompactAutoRadio, CompactOnRadio, CompactOffRadio })
+            immediate.Classes.Add(NurMarketKassa.AvaloniaHost.Views.PosSettingsWindow.ImmediateSettingClass);
         // 2026-11-05 (В4-10): пункт «Авто» списка касс следует за языком программы.
         AttachedToVisualTree += (_, _) =>
         {
@@ -156,6 +161,7 @@ public partial class ScreenSettingsView : UserControl
         else
             BuildOwnerMenuStyleCard(KassaMenuStyles.Catalog); // 2026-10-19: вид меню ☰ кассы (старое / новое)
         BuildSectionsCard();
+        BuildGraphicsRows(); // 2026-11-11: «Размытие фона под окнами» и «Режим отрисовки» в группе «Производительность»
         // 2026-10-22 (аудит 1.17.59, П-Г): карточка «Оплата долга» и «Предоплата при продаже в долг» переехали во вкладку «Операции» (OperationsSettingsView).
         CashboxCombo.ItemsSource =new[] { new CashboxOption(null, AutoCashboxText) };
         CashboxCombo.SelectedIndex = 0;
@@ -206,6 +212,178 @@ public partial class ScreenSettingsView : UserControl
             // масштабом обновляем, когда страница оказалась на экране.
             UpdateUiScaleValueText(UiScaleSlider.Value);
         };
+    }
+
+    // ---- 2026-11-11 (решение владельца): размытие фона под окнами и режим отрисовки Windows ----
+
+    private CheckBox? _blurCheck;
+    private TextBlock? _blurDesc;
+    private TextBlock? _renderNote;
+    private Button? _renderResetButton;
+    private RadioButton? _renderAutoRadio;
+    private bool _suppressGfx;
+
+    /// <summary>Переключатель «Размытие фона под окнами» (для тестов и окна настроек).</summary>
+    public CheckBox? BlurCheck => _blurCheck;
+
+    /// <summary>Пункт «Режим отрисовки» показан (только Windows).</summary>
+    public Control? RenderModeBlock { get; private set; }
+
+    private static TextBlock GfxText(string name, string text, double size, string brush, bool wrap = true)
+    {
+        var tb = new TextBlock
+        {
+            Name = name, Text = text, FontSize = size, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
+            TextWrapping = wrap ? Avalonia.Media.TextWrapping.Wrap : Avalonia.Media.TextWrapping.NoWrap,
+        };
+        tb.Bind(TextBlock.ForegroundProperty, tb.GetResourceObservable(brush));
+        return tb;
+    }
+
+    /// <summary>Строки в группе «Производительность» сразу после «Режима слабого устройства»: размытие (сразу, без «Сохранить») и режим
+    /// отрисовки Windows (сохраняется сразу, действует после перезапуска).</summary>
+    private void BuildGraphicsRows()
+    {
+        if (LowPerformanceModeCheck.Parent is not Control lowRow || lowRow.Parent is not Panel perfStack)
+            return;
+        var index = perfStack.Children.IndexOf(lowRow) + 1;
+        var prefs = UserPreferences.Instance;
+
+        // Размытие фона под окнами.
+        var blurRow = new Grid { Name = "GfxBlurRow", ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        // 2026-11-11 (Д-5): применяется сразу — окно настроек не спрашивает про «несохранённые изменения» после этого переключателя.
+        blurRow.Classes.Add(NurMarketKassa.AvaloniaHost.Views.PosSettingsWindow.ImmediateSettingClass);
+        var blurText = new StackPanel();
+        var blurTitle = GfxText("GfxBlurTitle", Tr.T("Размытие фона под окнами (для мощных ПК)", "Терезелердин астындагы фонду бүдөмүктөтүү (күчтүү ПК үчүн)",
+            "Blur the background under windows (for powerful PCs)", "Pencerelerin altındaki arka planı bulanıklaştır (güçlü PC'ler için)",
+            "Oynalar ostidagi fonni xiralashtirish (kuchli kompyuterlar uchun)"), 13, "BrushText");
+        _blurDesc = GfxText("GfxBlurDesc", "", 12, "BrushTextSoft");
+        _blurDesc.MaxWidth = 360;
+        blurText.Children.Add(blurTitle);
+        blurText.Children.Add(_blurDesc);
+        blurRow.Children.Add(blurText);
+        _blurCheck = new CheckBox { Name = "GfxBlurCheck", Classes = { "ToggleSwitch" }, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top };
+        Avalonia.Automation.AutomationProperties.SetName(_blurCheck, blurTitle.Text ?? "");
+        Grid.SetColumn(_blurCheck, 1);
+        blurRow.Children.Add(_blurCheck);
+        _blurCheck.IsCheckedChanged += (_, _) =>
+        {
+            if (!_suppressGfx && _blurCheck.IsEnabled)
+                UserPreferences.SetModalBackgroundBlur(_blurCheck.IsChecked == true);
+        };
+        perfStack.Children.Insert(index++, blurRow);
+
+        // Режим отрисовки — только Windows.
+        if (RenderModeSettings.IsAvailableHere)
+        {
+            var block = new StackPanel { Name = "GfxRenderBlock", Spacing = 4 };
+            block.Classes.Add(NurMarketKassa.AvaloniaHost.Views.PosSettingsWindow.ImmediateSettingClass); // 2026-11-11 (Д-5): сохраняется сразу
+            block.Children.Add(GfxText("GfxRenderTitle", Tr.T("Режим отрисовки", "Сүрөт тартуу режими", "Rendering mode", "Çizim modu", "Chizish rejimi"), 13, "BrushText"));
+            var desc = GfxText("GfxRenderDesc", Tr.T(
+                "Меняйте, только если после сворачивания окно показывается наполовину или кнопки кривые. «Совместимый» — без DirectComposition, «Программный» — без видеокарты (медленнее).",
+                "Терезени кичирейтип кайра ачканда ал жарымы гана көрүнсө же баскычтар кыйшык болсо гана өзгөртүңүз. «Шайкеш» — DirectComposition'сыз, «Программалык» — видеокартасыз (жайыраак).",
+                "Change it only if, after minimizing, the window shows only half or the buttons look broken. “Compatible” works without DirectComposition, “Software” without the graphics card (slower).",
+                "Yalnızca simge durumuna küçülttükten sonra pencere yarım görünüyorsa veya düğmeler bozuksa değiştirin. “Uyumlu” DirectComposition olmadan, “Yazılımsal” ekran kartı olmadan çalışır (daha yavaş).",
+                "Faqat oyna yig'ib qo'yilgandan keyin yarmi ko'rinsa yoki tugmalar qiyshiq bo'lsa o'zgartiring. «Mos» — DirectComposition'siz, «Dasturiy» — videokartasiz (sekinroq)."), 12, "BrushTextSoft");
+            desc.MaxWidth = 480;
+            block.Children.Add(desc);
+
+            var current = RenderModeSettings.Normalize(prefs.WindowsRenderMode);
+            var wrap = new WrapPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Margin = new Avalonia.Thickness(0, 4, 0, 0) };
+            RadioButton Radio(string name, string mode, string text)
+            {
+                var r = new RadioButton
+                {
+                    Name = name, GroupName = "GfxRenderMode", Classes = { "ClickPill" }, Content = text, Tag = mode,
+                    Margin = new Avalonia.Thickness(0, 0, 8, 8), IsChecked = current == mode,
+                };
+                r.IsCheckedChanged += (_, _) =>
+                {
+                    if (_suppressGfx || r.IsChecked != true)
+                        return;
+                    SetRenderMode(mode);
+                };
+                wrap.Children.Add(r);
+                return r;
+            }
+            _renderAutoRadio = Radio("GfxRenderAuto", RenderModeSettings.Auto,
+                Tr.T("Авто (как сейчас)", "Авто (азыркыдай)", "Auto (as now)", "Otomatik (şimdiki gibi)", "Avto (hozirgidek)"));
+            Radio("GfxRenderCompat", RenderModeSettings.Compatible, RenderModeSettings.Title(RenderModeSettings.Compatible));
+            Radio("GfxRenderSoftware", RenderModeSettings.Software,
+                Tr.T("Программный (без видеокарты)", "Программалык (видеокартасыз)", "Software (no graphics card)", "Yazılımsal (ekran kartı olmadan)", "Dasturiy (videokartasiz)"));
+            block.Children.Add(wrap);
+
+            _renderNote = GfxText("GfxRenderNote", "", 12, "BrushTextSoft");
+            _renderNote.MaxWidth = 480;
+            block.Children.Add(_renderNote);
+            _renderResetButton = new Button
+            {
+                Name = "GfxRenderReset", Classes = { "SecondaryButton" }, Padding = new Avalonia.Thickness(10, 4), FontSize = 12,
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
+                Content = Tr.T("Вернуть как было", "Мурункудай кайтаруу", "Restore the default", "Eskisine döndür", "Avvalgidek qaytarish"),
+            };
+            _renderResetButton.Click += (_, _) =>
+            {
+                if (_renderAutoRadio is not null)
+                    _renderAutoRadio.IsChecked = true; // → SetRenderMode(Auto)
+            };
+            block.Children.Add(_renderResetButton);
+            RenderModeBlock = block;
+            perfStack.Children.Insert(index, block);
+        }
+
+        LowPerformanceModeCheck.IsCheckedChanged += (_, _) => UpdateGraphicsRows();
+        UpdateGraphicsRows();
+    }
+
+    private void SetRenderMode(string mode)
+    {
+        var prefs = UserPreferences.Instance;
+        mode = RenderModeSettings.Normalize(mode);
+        if (RenderModeSettings.Normalize(prefs.WindowsRenderMode) != mode)
+        {
+            prefs.WindowsRenderMode = mode;
+            prefs.SaveToDisk();
+            PosLogger.Log($"Режим отрисовки выбран: {mode} (применится после перезапуска).", "SETTINGS");
+        }
+        UpdateGraphicsRows();
+    }
+
+    /// <summary>«Режим слабого устройства» выключает размытие (переключатель неактивен с пояснением); подпись режима отрисовки — что будет после перезапуска.</summary>
+    private void UpdateGraphicsRows()
+    {
+        var prefs = UserPreferences.Instance;
+        var low = LowPerformanceModeCheck.IsChecked == true;
+        if (_blurCheck is not null && _blurDesc is not null)
+        {
+            _suppressGfx = true;
+            _blurCheck.IsEnabled = !low;
+            _blurCheck.IsChecked = !low && prefs.ModalBackgroundBlur;
+            _suppressGfx = false;
+            _blurDesc.Text = low
+                ? Tr.T("В «режиме слабого устройства» размытие выключено.", "«Алсыз түзмөк режиминде» бүдөмүктөтүү өчүк.",
+                    "Blur is off in “Low-power device mode”.", "“Zayıf cihaz modu”nda bulanıklaştırma kapalı.", "«Zaif qurilma rejimi»da xiralashtirish o'chiq.")
+                : Tr.T("Красиво, но на слабой видеокарте окна открываются медленнее. Включается сразу.",
+                    "Кооз, бирок алсыз видеокартада терезелер жайыраак ачылат. Дароо күйөт.",
+                    "Looks nice, but windows open slower on a weak graphics card. Takes effect right away.",
+                    "Güzel görünür ama zayıf ekran kartında pencereler daha yavaş açılır. Hemen etkili olur.",
+                    "Chiroyli, lekin zaif videokartada oynalar sekinroq ochiladi. Darhol yoqiladi.");
+        }
+        if (_renderNote is not null)
+        {
+            var chosen = RenderModeSettings.Normalize(prefs.WindowsRenderMode);
+            var text = Tr.T("Применится после перезапуска программы.", "Программа кайра ачылгандан кийин күчүнө кирет.", "Takes effect after the program restarts.",
+                "Program yeniden başlatıldıktan sonra geçerli olur.", "Dastur qayta ishga tushgandan keyin kuchga kiradi.");
+            if (low)
+                text += " " + Tr.T("Сейчас включён «режим слабого устройства» — отрисовка программная, пока он включён.",
+                    "Азыр «алсыз түзмөк режими» күйүк — ал күйүк турганда сүрөт программалык түрдө тартылат.",
+                    "“Low-power device mode” is on — rendering stays software while it is on.",
+                    "“Zayıf cihaz modu” açık — açık kaldıkça çizim yazılımsal olur.",
+                    "Hozir «zaif qurilma rejimi» yoqilgan — u yoqilgan ekan, chizish dasturiy bo'ladi.");
+            _renderNote.Text = text;
+            if (_renderResetButton is not null)
+                _renderResetButton.IsEnabled = chosen != RenderModeSettings.Auto;
+        }
     }
 
     private void QuickProductsCheck_Changed(object? sender, RoutedEventArgs e) =>

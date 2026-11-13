@@ -39,6 +39,8 @@ public static class ScreenCatalog
         // 2026-11-08 (ответ Умара 08.11, п.39 и п.37): «Отзывы» и «Коллекции» витрины (разделы группы «Сайт»); сервер — заглушка «нет связи».
         new("site-reviews", ScreenKind.Window, () => new SiteReviewsWindow()),
         new("site-collections", ScreenKind.Window, () => new SiteCollectionsWindow()),
+        // 2026-11-12 (Д-4): окна старого вида в общей рамке: «История смен» (вкладки вместо боковой панели).
+        new("shifts-history", ScreenKind.Window, () => new ShiftsHistoryWindow()),
         // --- диалоги
         new("checkout", ScreenKind.Dialog, () => Svc<CheckoutDialog>()),
         new("open-shift", ScreenKind.Dialog, () => new OpenShiftDialog()),
@@ -61,6 +63,15 @@ public static class ScreenCatalog
                 "Kirish muddati tugadi. Qaytadan kiring.\n\nSotuvlar, smena va savatlar saqlangan — kirgandan keyin hammasi serverga o'zi yuboriladi."),
             Tr.T("Войти", "Кирүү", "Sign in", "Giriş yap", "Kirish"),
             Tr.T("Позже", "Кийинчерээк", "Later", "Daha sonra", "Keyinroq"))),
+        // 2026-11-13 (ответ Умара, п. 5): слоты устройств — вопрос при входе (409 device_slot_taken, LoginWindow) и окно старой кассы (401 session_revoked, SessionExpiredPrompt).
+        new("device-slot-taken", ScreenKind.Dialog, () => new PosConfirmDialog(
+            NurMarketKassa.ViewModels.DeviceSlotPrompt.Title,
+            NurMarketKassa.ViewModels.DeviceSlotPrompt.Message(new NurMarketKassa.Core.Contracts.DeviceSlotInfo("desktop_pos", "Касса у входа", "windows", "2026-11-13T08:30:00Z")),
+            NurMarketKassa.ViewModels.DeviceSlotPrompt.ConfirmText, NurMarketKassa.ViewModels.DeviceSlotPrompt.CancelText, PosConfirmAccent.Danger, enterCancels: true)),
+        new("session-revoked", ScreenKind.Dialog, () => new PosConfirmDialog(
+            NurMarketKassa.ViewModels.DeviceSlotPrompt.RevokedTitle,
+            NurMarketKassa.ViewModels.DeviceSlotPrompt.RevokedMessage("Касса 2", "2026-11-13T09:00:00Z"),
+            NurMarketKassa.ViewModels.DeviceSlotPrompt.RevokedSignIn, NurMarketKassa.ViewModels.DeviceSlotPrompt.RevokedLater)),
         new("product-edit", ScreenKind.Dialog, () => new ProductEditDialog()),
         new("barcode-print", ScreenKind.Dialog, () => new BarcodePrintWindow()),
         new("scale-shtrikh-rs200", ScreenKind.Dialog, () => new ShtrikhScaleSettingsWindow()),
@@ -71,6 +82,11 @@ public static class ScreenCatalog
         // То же в широкой панели (окно ≥ 1000): штрихкод и остаток — отдельные колонки, заголовки над значениями.
         new("catalog-list-wide", ScreenKind.Dialog, () => CatalogListFixture.Create(1000, 460).Window),
         new("unsent-outbox", ScreenKind.Dialog, () => OutboxWindow.ShowOrActivate(null)),
+        // 2026-11-12 (Д-4): «Дополнительные услуги», «Перемещение товара», «История кассовых операций», «Отложенные корзины» — в рамке ModalShell.
+        new("services", ScreenKind.Dialog, () => new ServicesWindow()),
+        new("stock-transfer", ScreenKind.Dialog, () => new StockTransferDialog()),
+        new("cash-history", ScreenKind.Dialog, () => new CashHistoryDialog()),
+        new("deferred-carts", ScreenKind.Dialog, () => new DeferredCartsDialog()),
     ];
 
     public static ScreenDef Get(string name) => All.Single(s => s.Name == name);

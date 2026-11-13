@@ -63,6 +63,32 @@ public sealed class ReceivingRepeatScanTests
         g.LastCode.Should().BeNull();
     }
 
+    // 2026-11-11 (Д-8, живая проверка «Склада»): скан → ручная правка количества (28 с) → скан того же кода молча прибавил +1 (пауза 20 с истекла во время набора).
+    [Fact]
+    public void Touch_ManualQuantityEdit_KeepsCodeLast_AndRestartsPause()
+    {
+        var clock = new Clock();
+        var g = Guard(clock);
+        g.Counted("A-1");
+        clock.Now += TimeSpan.FromSeconds(25); // набирали число дольше паузы
+        g.Touch();                              // правку закончили
+        clock.Now += TimeSpan.FromSeconds(3);
+        g.Check("A-1").Should().Be(ReceivingScanVerdict.Repeat);
+        clock.Now += ReceivingRepeatScanGuard.DefaultResetAfter + TimeSpan.FromSeconds(1);
+        g.Check("A-1").Should().Be(ReceivingScanVerdict.Fresh); // после правки пауза по-прежнему действует
+    }
+
+    [Fact]
+    public void Touch_AfterReset_DoesNotRevive()
+    {
+        var g = Guard(new Clock());
+        g.Counted("A-1");
+        g.Reset();
+        g.Touch();
+        g.LastCode.Should().BeNull();
+        g.Check("A-1").Should().Be(ReceivingScanVerdict.Fresh);
+    }
+
     [Fact]
     public void CustomPause_IsRespected()
     {

@@ -535,7 +535,101 @@ public static class ShtrikhPcConfig
                 : Tr.T($"Перезагрузка сценария (953/954): на весах {state}, имя флага «{scaleFlag}», в кассе «{kassa.ScenarioReloadFlag}» — главный экран сам не обновится.", $"Сценарийди кайра жүктөө (953/954): таразада {state}, желек аты «{scaleFlag}», кассада «{kassa.ScenarioReloadFlag}» — башкы экран өзү жаңыланбайт.",
                     $"Scenario reload (953/954): the scale has it {state}, flag name “{scaleFlag}”, the till “{kassa.ScenarioReloadFlag}” — the main screen will not refresh by itself.", $"Senaryo yeniden yükleme (953/954): tartıda {state}, bayrak adı «{scaleFlag}», kasada «{kassa.ScenarioReloadFlag}» — ana ekran kendiliğinden güncellenmez.", $"Ssenariyni qayta yuklash (953/954): tarozida {state}, bayroq nomi «{scaleFlag}», kassada «{kassa.ScenarioReloadFlag}» — bosh ekran o‘zi yangilanmaydi.")));
         }
+        list.AddRange(ScreenChecks(kassa, scale)); // 2026-11-12: имена файлов обмена, режим весов и файл сценария
         return list;
+    }
+
+    // ------------------------------------------------------------------ дойдёт ли товар до экрана весов
+
+    /// <summary>Путь из настроек весов (801/803/951) в одном виде для сравнения: «/»→«\», без пробелов и «\» по краям. Регистр не важен — папка Windows весов.</summary>
+    private static string SamePathKey(string? path) => (path ?? "").Trim().Replace('/', '\\').Trim('\\').ToUpperInvariant();
+
+    /// <summary>Относительный путь с весов, который можно подставить в кассу: не пустой, без диска, «..» и запрещённых знаков.</summary>
+    private static bool IsSafeRelative(string? path)
+    {
+        var p = (path ?? "").Trim();
+        return p.Length > 0 && p.Length <= 200 && !p.Contains("..", StringComparison.Ordinal) && p.IndexOfAny(new[] { ':', '*', '?', '"', '<', '>', '|' }) < 0 && !p.StartsWith('\\') && !p.StartsWith('/');
+    }
+
+    /// <summary>2026-11-12 (жалоба владельца «товары отправляются, но на экране весов РС200 их нет»): проверки, от которых зависит, увидит ли покупатель/продавец товар на экране весов.
+    /// По руководству администратора РС-200С2 (п. 6.3, 7.4, 7.5, 7.10, 8.1) и описанию драйвера SetRetail для РС-200 С3:
+    /// <list type="bullet">
+    /// <item>801/803 — файл импорта и флаг-файл: если весы ждут другое имя (в самом руководстве встречаются и «PCScale.txt», и «Import.txt»), они НИКОГДА не заберут файл кассы;</item>
+    /// <item>27 = 1 (самообслуживание) — главный экран строится из сценария 951\952: касса должна писать тот же файл, иначе обновляет сценарий, который весы не показывают;</item>
+    /// <item>27 = 0 (обычный режим) — главный экран это кнопки быстрого доступа 2001–2360 (по 18 на экран), сценарий не используется: без назначения кнопок (касса — «Кнопки быстрого доступа»,
+    /// весы — «Импорт конфигурации» 814 = 1) товар есть в базе весов, но находится только поиском или по коду.</item>
+    /// </list>
+    /// Строки, которых нет в прочитанном файле, не проверяются.</summary>
+    public static List<ShtrikhPcCheckItem> ScreenChecks(ShtrikhPcSettings kassa, ShtrikhPcConfigData scale)
+    {
+        var list = new List<ShtrikhPcCheckItem>();
+        void FileName(int number, string what, string? scaleValue, string kassaValue)
+        {
+            if (string.IsNullOrWhiteSpace(scaleValue))
+                return;
+            var ok = SamePathKey(scaleValue) == SamePathKey(kassaValue);
+            var sv = scaleValue.Trim();
+            list.Add(new ShtrikhPcCheckItem(ok, ok
+                ? Tr.T($"{what} (параметр {number}): {sv} — совпадает.", $"{what} ({number}-параметр): {sv} — дал келет.", $"{what} (parameter {number}): {sv} — matches.", $"{what} (parametre {number}): {sv} — aynı.", $"{what} ({number}-parametr): {sv} — mos.")
+                : Tr.T($"{what} (параметр {number}): весы ждут «{sv}», касса пишет «{kassaValue}» — весы не заберут товары. Нажмите «Подтянуть настройки кассы из весов» или поправьте в кассе «Файлы обмена».",
+                    $"{what} ({number}-параметр): тараза «{sv}» күтөт, касса «{kassaValue}» жазат — тараза товарларды албайт. «Кассанын жөндөөлөрүн таразадан алуу» басыңыз же кассада «Алмашуу файлдарын» оңдоңуз.",
+                    $"{what} (parameter {number}): the scale expects “{sv}”, the till writes “{kassaValue}” — the scale will not pick up the goods. Press “Pull the till settings from the scale” or fix “Exchange files” in the till.",
+                    $"{what} (parametre {number}): tartı «{sv}» bekliyor, kasa «{kassaValue}» yazıyor — tartı ürünleri almaz. «Kasa ayarlarını tartıdan al»a basın veya kasada «Değişim dosyaları»nı düzeltin.",
+                    $"{what} ({number}-parametr): tarozi «{sv}» kutadi, kassa «{kassaValue}» yozadi — tarozi tovarlarni olmaydi. «Kassa sozlamalarini tarozidan olish» ni bosing yoki kassada «Almashuv fayllari» ni tuzating.")));
+        }
+        FileName(801, Tr.T("Файл импорта", "Импорт файлы", "Import file", "İçe aktarma dosyası", "Import fayli"), scale.Get(801), kassa.ImportFile);
+        FileName(803, Tr.T("Флаг-файл импорта", "Импорттун желек-файлы", "Import flag file", "İçe aktarma bayrak dosyası", "Import bayroq-fayli"), scale.Get(803), kassa.FlagFile);
+
+        if (!scale.Has(27))
+            return list;
+        if (scale.GetInt(27, 0) == 1)
+        {
+            if (!kassa.UpdateScenario)
+                return list;
+            var scaleFile = (scale.Get(952) ?? "").Trim();
+            var scaleFolder = (scale.Get(951) ?? "").Trim();
+            var fileOk = scaleFile.Length > 0 && SamePathKey(scaleFile) == SamePathKey(kassa.ScenarioFile);
+            var folderOk = scaleFolder.Length == 0 || SamePathKey(scaleFolder) == SamePathKey(kassa.ScenarioFolder);
+            var ok = fileOk && folderOk;
+            var scaleShown = scaleFile.Length == 0 ? "—" : (scaleFolder.Length == 0 ? scaleFile : scaleFolder.TrimEnd('\\', '/') + "\\" + scaleFile);
+            var kassaShown = kassa.ScenarioFolder + "\\" + kassa.ScenarioFile;
+            list.Add(new ShtrikhPcCheckItem(ok, ok
+                ? Tr.T($"Самообслуживание (параметр 27): главный экран — сценарий {kassaShown}, касса пишет его же.", $"Өз алдынча тейлөө (27-параметр): башкы экран — {kassaShown} сценарийи, касса ошону жазат.",
+                    $"Self-service (parameter 27): the main screen is the scenario {kassaShown}, the till writes the same one.", $"Self servis (parametre 27): ana ekran {kassaShown} senaryosu, kasa aynısını yazıyor.", $"O‘zini-o‘zi xizmat (27-parametr): bosh ekran — {kassaShown} ssenariysi, kassa xuddi shuni yozadi.")
+                : Tr.T($"Самообслуживание (параметр 27): весы показывают сценарий «{scaleShown}» (951/952), а касса пишет «{kassaShown}» — новые товары на главный экран не попадут. Нажмите «Подтянуть настройки кассы из весов».",
+                    $"Өз алдынча тейлөө (27-параметр): тараза «{scaleShown}» сценарийин көрсөтөт (951/952), касса болсо «{kassaShown}» жазат — жаңы товарлар башкы экранга чыкпайт. «Кассанын жөндөөлөрүн таразадан алуу» басыңыз.",
+                    $"Self-service (parameter 27): the scale shows the scenario “{scaleShown}” (951/952), but the till writes “{kassaShown}” — new goods will not reach the main screen. Press “Pull the till settings from the scale”.",
+                    $"Self servis (parametre 27): tartı «{scaleShown}» senaryosunu gösteriyor (951/952), kasa ise «{kassaShown}» yazıyor — yeni ürünler ana ekrana çıkmaz. «Kasa ayarlarını tartıdan al»a basın.",
+                    $"O‘zini-o‘zi xizmat (27-parametr): tarozi «{scaleShown}» ssenariysini ko‘rsatadi (951/952), kassa esa «{kassaShown}» yozadi — yangi tovarlar bosh ekranga chiqmaydi. «Kassa sozlamalarini tarozidan olish» ni bosing.")));
+        }
+        else
+        {
+            var keysOk = kassa.QuickKeys && scale.GetInt(814, 0) == 1;
+            list.Add(new ShtrikhPcCheckItem(keysOk, keysOk
+                ? Tr.T("Обычный режим (параметр 27 = 0): главный экран — кнопки быстрого доступа, касса их назначает (814 включён).", "Кадимки режим (27 = 0): башкы экран — тез жеткиликтүүлүк баскычтары, касса аларды дайындайт (814 күйгүзүлгөн).",
+                    "Normal mode (parameter 27 = 0): the main screen is the quick-access buttons, the till assigns them (814 on).", "Normal mod (parametre 27 = 0): ana ekran hızlı erişim düğmeleri, kasa bunları atıyor (814 açık).", "Oddiy rejim (27 = 0): bosh ekran — tez kirish tugmalari, kassa ularni biriktiradi (814 yoqilgan).")
+                : Tr.T("Обычный режим (параметр 27 = 0): на главном экране весов — кнопки быстрого доступа (2001–2360), сценарий не используется. Товары загрузятся в базу весов, но найдутся только поиском или по коду. Чтобы они встали на кнопки: в кассе включите «Кнопки быстрого доступа», на весах — «Импорт конфигурации» (814).",
+                    "Кадимки режим (27 = 0): таразанын башкы экранында — тез жеткиликтүүлүк баскычтары (2001–2360), сценарий колдонулбайт. Товарлар таразанын базасына жүктөлөт, бирок издөө же код менен гана табылат. Баскычтарга чыгышы үчүн: кассада «Тез жеткиликтүүлүк баскычтарын», таразада «Конфигурацияны импорттоону» (814) күйгүзүңүз.",
+                    "Normal mode (parameter 27 = 0): the scale main screen shows quick-access buttons (2001–2360), the scenario is not used. Goods load into the scale database but are found only by search or code. To put them on buttons: turn on “Quick-access buttons” in the till and “Import configuration” (814) on the scale.",
+                    "Normal mod (parametre 27 = 0): tartının ana ekranında hızlı erişim düğmeleri (2001–2360) var, senaryo kullanılmıyor. Ürünler tartı veritabanına yüklenir ama yalnızca arama veya kodla bulunur. Düğmelere çıkmaları için: kasada «Hızlı erişim düğmeleri»ni, tartıda «Yapılandırma içe aktarma»yı (814) açın.",
+                    "Oddiy rejim (27 = 0): tarozining bosh ekranida tez kirish tugmalari (2001–2360), ssenariy ishlatilmaydi. Tovarlar tarozi bazasiga yuklanadi, lekin faqat qidiruv yoki kod bilan topiladi. Tugmalarga chiqishi uchun: kassada «Tez kirish tugmalari» ni, tarozida «Konfiguratsiyani import» (814) ni yoqing.")));
+        }
+        return list;
+    }
+
+    /// <summary>2026-11-12: только НЕпройденные проверки «товар дойдёт до экрана»: <see cref="ScreenChecks"/> плюс выключенный импорт товаров (817) и картинок (819, если касса их шлёт).
+    /// Показывается после отправки товаров на РС-200, если удалось прочитать настройки весов.</summary>
+    public static List<string> ScreenProblems(ShtrikhPcSettings kassa, ShtrikhPcConfigData scale)
+    {
+        var problems = new List<string>();
+        if (scale.Has(817) && scale.GetInt(817, 0) != 1)
+            problems.Add(Tr.T("на весах выключен «Импорт товаров» (817) — товары не загрузятся", "таразада «Товарларды импорттоо» (817) өчүк — товарлар жүктөлбөйт", "“Import goods” (817) is off on the scale — goods will not load",
+                "tartıda «Ürün içe aktarma» (817) kapalı — ürünler yüklenmez", "tarozida «Tovarlarni import» (817) o‘chiq — tovarlar yuklanmaydi"));
+        if (kassa.SendPictures && scale.Has(819) && scale.GetInt(819, 0) != 1)
+            problems.Add(Tr.T("на весах выключен «Импорт ресурсов» (819) — картинок на кнопках не будет", "таразада «Ресурстарды импорттоо» (819) өчүк — баскычтарда сүрөт болбойт", "“Import resources” (819) is off on the scale — the buttons will have no pictures",
+                "tartıda «Kaynak içe aktarma» (819) kapalı — düğmelerde resim olmaz", "tarozida «Resurslarni import» (819) o‘chiq — tugmalarda rasm bo‘lmaydi"));
+        problems.AddRange(ScreenChecks(kassa, scale).Where(c => !c.Ok).Select(c => c.Text));
+        return problems;
     }
 
     /// <summary>Подтягивает в кассу значения с весов (знаки цены, префиксы, форматы, число знаков кода, КС, имя флага перезагрузки). Возвращает, сколько полей изменилось.</summary>
@@ -587,6 +681,26 @@ public static class ShtrikhPcConfig
                 kassa.ScenarioReloadFlag = flag;
                 changed++;
             }
+        }
+        // 2026-11-12: имена файлов обмена и файл сценария главного экрана — тоже с весов (иначе касса пишет файл, который весы не ждут или не показывают).
+        void FilePath(int number, string current, Action<string> set)
+        {
+            var value = scale.Get(number)?.Trim();
+            if (IsSafeRelative(value) && SamePathKey(value) != SamePathKey(current))
+            {
+                set(value!);
+                changed++;
+            }
+        }
+        FilePath(801, kassa.ImportFile, v => kassa.ImportFile = v);
+        FilePath(803, kassa.FlagFile, v => kassa.FlagFile = v);
+        var scenarioFolder = scale.Get(951)?.Trim().TrimEnd('\\', '/');
+        FilePath(951, kassa.ScenarioFolder, _ => kassa.ScenarioFolder = scenarioFolder!);
+        var scenarioFile = scale.Get(952)?.Trim();
+        if (!string.IsNullOrEmpty(scenarioFile) && ShtrikhPcScenarioWriter.SafeFileName(scenarioFile) == scenarioFile && SamePathKey(scenarioFile) != SamePathKey(kassa.ScenarioFile))
+        {
+            kassa.ScenarioFile = scenarioFile;
+            changed++;
         }
         kassa.Normalize();
         return changed;

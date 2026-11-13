@@ -18,6 +18,13 @@ public enum ReceiptHistoryPeriod
     CurrentShift,
     Today,
     Yesterday,
+    // 2026-11-11 (владелец: «в кассе история чеков — добавь фильтр: месяц, неделя, день, специальная дата!»): правила — общие (PeriodRange).
+    /// <summary>Последние 7 дней включая сегодня.</summary>
+    Week,
+    /// <summary>С 1-го числа текущего месяца по сегодня.</summary>
+    Month,
+    /// <summary>Дата или диапазон «с — по» (оба дня включительно), задаётся отдельно.</summary>
+    Custom,
 }
 
 /// <summary>Один чек в «Истории чеков»: либо продажа с сервера, либо запись офлайн-очереди
@@ -106,6 +113,36 @@ public static class ReceiptHistoryService
 {
     private const int PageSize = 80;
     private const int MaxPages = 25;
+    /// <summary>2026-11-11: неделя, месяц и «дата…» — много чеков, страницы по 200 (сервер отдаёт до 500), а не по 80: меньше запросов.</summary>
+    private const int WidePageSize = 200;
+
+    /// <summary>2026-11-11: границы [From; ToExclusive) для периодов «Сегодня», «Вчера», «Неделя», «Месяц», «Дата…» на день <paramref name="today"/> — одни правила
+    /// с <see cref="PeriodRange"/> («Неделя» — последние 7 дней включая сегодня, «Месяц» — с 1-го числа). Для «Даты…» берутся <paramref name="customFrom"/> и
+    /// <paramref name="customTo"/> (оба дня включительно; одна дата — один день; не заданы — сегодня; перепутан порядок — меняется). «Эта смена» — null (границы
+    /// зависят от смены, см. <c>ResolvePeriod</c>).</summary>
+    public static (DateTime From, DateTime ToExclusive)? PeriodBounds(ReceiptHistoryPeriod period, DateTime today, DateTime? customFrom = null, DateTime? customTo = null)
+    {
+        today = today.Date;
+        switch (period)
+        {
+            case ReceiptHistoryPeriod.Today:
+                return (today, today.AddDays(1));
+            case ReceiptHistoryPeriod.Yesterday:
+                return (today.AddDays(-1), today);
+            case ReceiptHistoryPeriod.Week:
+                return (PeriodRange.WeekFrom(today), today.AddDays(1));
+            case ReceiptHistoryPeriod.Month:
+                return (PeriodRange.MonthFrom(today), today.AddDays(1));
+            case ReceiptHistoryPeriod.Custom:
+                var from = (customFrom ?? customTo ?? today).Date;
+                var to = (customTo ?? customFrom ?? today).Date;
+                if (from > to)
+                    (from, to) = (to, from);
+                return (from, to.AddDays(1));
+            default:
+                return null;
+        }
+    }
 
     private static readonly CultureInfo Ru = CultureInfo.GetCultureInfo("ru-RU");
 
@@ -115,10 +152,10 @@ public static class ReceiptHistoryService
     public static string Money(decimal value) => value.ToString("N2", Ru) + " " + Som;
 
     /// <summary>Загружает чеки этой кассы за период: с сервера и из офлайн-очереди.</summary>
-    public static async Task<ReceiptHistoryResult> LoadAsync(ReceiptHistoryPeriod period, CancellationToken ct = default)
+    public static async Task<ReceiptHistoryResult> LoadAsync(ReceiptHistoryPeriod period, CancellationToken ct = default, DateTime? customFrom = null, DateTime? customTo = null)
     {
         var result = new ReceiptHistoryResult();
-        var (shiftId, from, toExclusive, InPeriod) = ResolvePeriod(ref period, result);
+        var (shiftId, from, toExclusive, InPeriod) = ResolvePeriod(ref period, result, customFrom, customTo);
 
         var autonomous = IsAutonomousSession();
         var serverEntries = new List<ReceiptHistoryEntry>();
@@ -169,10 +206,10 @@ public static class ReceiptHistoryService
 
     /// <summary>2026-11-03 (Д-3): мгновенный список для окна «История чеков» — только то, что касса знает сама (очередь отправки и свои
     /// продажи из базы), без сервера. Окно показывает его сразу и заменяет ответом сервера, когда он придёт. Быстрый: чтение базы.</summary>
-    public static ReceiptHistoryResult LoadLocalQuick(ReceiptHistoryPeriod period)
+    public static ReceiptHistoryResult LoadLocalQuick(ReceiptHistoryPeriod period, DateTime? customFrom = null, DateTime? customTo = null)
     {
         var result = new ReceiptHistoryResult();
-        var (shiftId, from, toExclusive, inPeriod) = ResolvePeriod(ref period, result);
+        var (shiftId, from, toExclusive, inPeriod) = ResolvePeriod(ref period, result, customFrom, customTo);
         var autonomous = IsAutonomousSession();
         var entries = LoadLocal(period, shiftId, autonomous, inPeriod);
         if (!autonomous)
@@ -267,7 +304,7 @@ public static class ReceiptHistoryService
     }
 
     private static (string? ShiftId, DateTime From, DateTime ToExclusive, Func<DateTime, bool> InPeriod) ResolvePeriod(
-        ref ReceiptHistoryPeriod period, ReceiptHistoryResult result)
+        ref ReceiptHistoryPeriod period, ReceiptHistoryResult result, DateTime? customFrom = null, DateTime? customTo = null)
     {
         var today = DateTime.Today;
         var shiftId = CurrentShiftId();
@@ -288,12 +325,8 @@ public static class ReceiptHistoryService
         if (period == ReceiptHistoryPeriod.CurrentShift && ShiftAgeWarning.Get(shiftId) is { } shiftOpened
             && shiftOpened.Date >= today.AddDays(-1) && shiftOpened.Date <= today)
             shiftFrom = shiftOpened.Date;
-        var (from, toExclusive) = period switch
-        {
-            ReceiptHistoryPeriod.Yesterday => (today.AddDays(-1), today),
-            ReceiptHistoryPeriod.Today => (today, today.AddDays(1)),
-            _ => (shiftFrom, today.AddDays(1)),
-        };
+        // 2026-11-11: «Неделя», «Месяц», «Дата…» — границы из PeriodBounds (общие правила периода); остальное — как было.
+        var (from, toExclusive) = PeriodBounds(period, today, customFrom, customTo) ?? (shiftFrom, today.AddDays(1));
 
         var effective = period; // ref-параметр нельзя использовать в локальной функции
         bool InPeriod(DateTime at) => effective switch
@@ -317,6 +350,7 @@ public static class ReceiptHistoryService
     {
         var rows = new List<JsonElement>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var pageSize = period is ReceiptHistoryPeriod.Week or ReceiptHistoryPeriod.Month or ReceiptHistoryPeriod.Custom ? WidePageSize : PageSize; // 2026-11-11
         var startedUtc = DateTime.UtcNow;
         var lastPageTook = TimeSpan.Zero;
         for (var page = 1; page <= MaxPages; page++)
@@ -338,7 +372,7 @@ public static class ReceiptHistoryService
             try
             {
                 items = await ServerAnswerWait.ForegroundAsync("pos/sales/list", t => App.SalesApi
-                    .PosSalesListAsync(pageNo, PageSize, null, t, dateFrom: from, dateToExclusive: toExclusive), ct)
+                    .PosSalesListAsync(pageNo, pageSize, null, t, dateFrom: from, dateToExclusive: toExclusive), ct)
                     .ConfigureAwait(false);
             }
             catch (ServerNotAnsweringException) when (page > 1)
@@ -363,7 +397,7 @@ public static class ReceiptHistoryService
                 added++;
             }
 
-            if (added == 0 || items.Count < PageSize)
+            if (added == 0 || items.Count < pageSize)
                 break;
             // 2026-10-27 (С-13): последняя разрешённая страница полная — дальше есть чеки, которых мы не загрузили.
             if (page == MaxPages)

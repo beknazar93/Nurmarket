@@ -36,6 +36,8 @@ public sealed class ClosedSectionLeakTests
         ["abc"] = () => Svc<AbcAnalysisWindow>(),
         // остальные разделы меню владельца, которые поднимаются без железа и сети (WebView-разделы CRM/WhatsApp/редактор сайта не берём)
         ["calculator"] = () => new CalculatorWindow(),
+        ["scales"] = () => new ScalesSectionWindow(), // 2026-11-11
+        ["barcodes"] = () => new BarcodePrintSectionWindow(), // 2026-11-11
         ["restock"] = () => Svc<RestockSuggestionsWindow>(),
         ["branches"] = () => new BranchesWindow(),
         ["rentals"] = () => new RentalsWindow(null, null),

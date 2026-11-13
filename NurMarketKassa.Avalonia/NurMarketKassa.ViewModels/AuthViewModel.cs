@@ -221,6 +221,9 @@ public class AuthViewModel : ViewModelBase
     public ICommand CreateLocalAccountCommand { get; }
     public ICommand AutonomousLoginCommand { get; }
 
+    /// <summary>2026-11-13: окно входа подписывается и показывает «Войти здесь и отключить ту?» (<see cref="DeviceSlotPrompt"/>); true — «Войти и отключить другую». Нет подписчика — вход отклоняется с текстом причины.</summary>
+    public Func<DeviceSlotInfo?, Task<bool>>? ConfirmReplaceDevice { get; set; }
+
     public event Func<Task>? LoginSuccess;
     public event Func<Task>? LogoutSuccess;
     /// <summary>Requests wiping native UI control buffers as well as VM fields.</summary>
@@ -264,6 +267,18 @@ public class AuthViewModel : ViewModelBase
                     Password,
                     RememberMe,
                     CancellationToken.None).ConfigureAwait(true);
+            // 2026-11-13 (ответ Умара, п. 5): на логине уже работает другая касса — спрашиваем кассира; согласился — повтор входа с replace_device, отказался — вход не выполняется.
+            if (result.Failure == AuthenticationFailure.DeviceSlotTaken)
+            {
+                var replace = ConfirmReplaceDevice is { } ask && await ask(result.DeviceSlot).ConfigureAwait(true);
+                if (replace)
+                {
+                    LoadingStatus = Tr.T("Отключаю другую кассу и вхожу…", "Башка кассаны өчүрүп, кирип жатам…", "Disconnecting the other till and signing in…", "Diğer kasa kapatılıp giriş yapılıyor…", "Boshqa kassa o'chirilib, kirilmoqda…");
+                    result = await _authentication.LoginAsync(Username, Password, RememberMe, CancellationToken.None, replaceDevice: true).ConfigureAwait(true);
+                }
+                else
+                    result = AuthenticationResult.Failed(AuthenticationFailure.DeviceSlotTaken, DeviceSlotPrompt.DeclinedMessage);
+            }
             CanContinueOffline = false;
             await HandleResultAsync(result).ConfigureAwait(true);
             if (result.CanContinueOffline)

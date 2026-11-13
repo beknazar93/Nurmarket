@@ -30,9 +30,18 @@ public sealed class SaleLedgerRefund
     public decimal? ServerAmount { get; set; }
     /// <summary>id документа возврата сервера — следующий возврат не примет его за свой.</summary>
     public string? ServerDocId { get; set; }
+    /// <summary>2026-11-13 (проверка денег, риск «обмен»): откуда запись. <see cref="SourceReturn"/> — обычный возврат от клиента (документ в списке возвратов сервера, сумма = <see cref="ServerAmount"/>),
+    /// <see cref="SourceExchange"/> — возврат-часть обмена товара (сумма и деньги там считаются иначе: в ящик уходит только сдача). Сверка с сервером (CustomerReturnReconciler) трогает только
+    /// «return»; пусто — запись старше этой пометки, её происхождение неизвестно, сверка её не трогает.</summary>
+    public string? Source { get; set; }
+    public const string SourceReturn = "return";
+    public const string SourceExchange = "exchange";
     public bool Whole { get; set; }
     public List<SaleLedgerLine> Lines { get; set; } = new();
 }
+
+/// <summary>2026-11-12 (аудит К-1): итог изменения записи возврата в журнале — копии записи до и после (After = null: запись убрана).</summary>
+public sealed record LedgerRefundChange(string SaleId, SaleLedgerRefund Before, SaleLedgerRefund? After);
 
 /// <summary>2026-10-20, владелец (долг Д5): платёж графика долга — дата и сумма.</summary>
 public sealed class SaleLedgerDuePayment
@@ -78,6 +87,13 @@ public sealed class SaleLedgerEntry
     /// <summary>2026-10-30 (приёмка 1.17.66, «Важно» 6): продажа проведена ЭТОЙ кассой (запись сделана при оплате или при досылке её очереди — RememberPayment). Запись, созданная окном
     /// возврата по чужому чеку (соседняя касса, сайт — RememberFromSale), в выручку Z-отчёта этой кассы не входит, даже если продана сегодня после открытия смены.</summary>
     public bool Own { get; set; }
+
+    /// <summary>2026-11-13 (проверка денег 1.17.86, «возврат из программы владельца не виден журналу кассы»): когда касса последний раз сверила возвраты этого чека со списком возвратов
+    /// сервера; null — не сверяла. Для возврата без связи: возвраты, сделанные в программе владельца, на сайте или другой кассе, журналу кассы неизвестны.</summary>
+    public DateTimeOffset? ServerReturnsCheckedAt { get; set; }
+
+    /// <summary>2026-11-13: сумма действующих возвратов этого чека на сервере сверх записанных журналом этой кассы (сделаны не здесь), на момент <see cref="ServerReturnsCheckedAt"/>.</summary>
+    public decimal ForeignReturns { get; set; }
 
     public decimal Refunded => Refunds.Sum(r => r.Amount);
     public decimal Remaining => Math.Max(0m, Total - Refunded);
@@ -258,6 +274,110 @@ public static class SaleReturnLedger
             return;
         Update(saleId, entry => entry.Refunds.Add(refund));
     }
+
+    /// <summary>2026-11-12 (аудит К-1): возврат, уже записанный журналом, изменили или аннулировали на сервере (правка/аннулирование возврата от клиента за 24 ч).
+    /// Находит запись возврата по id документа сервера (<see cref="SaleLedgerRefund.ServerDocId"/>); у записи без id (документ не успели прочитать) — единственную
+    /// запись этого же чека без id с той же суммой документа. <paramref name="change"/> меняет запись на месте (true — убрать запись из журнала). Возвращает копии «до» и
+    /// «после» (после = null, если запись убрана) или null, если возврата в журнале нет (сделан не этой кассой) либо файл не прочитан — тогда журнал не тронут.</summary>
+    /// <param name="dryRun">2026-11-13 (проверка денег, п. 3): только посчитать «до/после» на копии записи, ничего не меняя и не сохраняя — когда смены нет (программа владельца, смена закрыта) и
+    /// запись возврата в журнале кассы поправит сверка с сервером (<see cref="CustomerReturnReconciler"/>) уже со сменой.</param>
+    public static LedgerRefundChange? ChangeRefundByDoc(string? saleId, string? docId, decimal docAmount, Func<SaleLedgerEntry, SaleLedgerRefund, bool> change, bool dryRun = false)
+    {
+        if (string.IsNullOrWhiteSpace(docId))
+            return null;
+        var doc = docId.Trim();
+        lock (Gate)
+        {
+            using var crossProcess = CrossProcessLock.Take();
+            _cache = null;
+            var all = Load(out var readOk);
+            if (!readOk)
+            {
+                PosLogger.Log($"Журнал возвратов по чекам не прочитан — изменение возврата {doc} в нём не записано (файл не тронут).", "WARNING");
+                return null;
+            }
+
+            SaleLedgerEntry? entry = null;
+            SaleLedgerRefund? refund = null;
+            if (!string.IsNullOrWhiteSpace(saleId) && all.TryGetValue(saleId.Trim(), out var known))
+            {
+                entry = known;
+                refund = FindRefund(known, doc, docAmount);
+            }
+
+            if (refund is null)
+                foreach (var other in all.Values)
+                    if (FindRefund(other, doc, 0m) is { } byId)
+                    {
+                        entry = other;
+                        refund = byId;
+                        break;
+                    }
+
+            if (entry is null || refund is null)
+                return null;
+            var before = CloneRefund(refund);
+            if (dryRun)
+            {
+                var copy = CloneRefund(refund);
+                var removed = change(entry, copy);
+                return new LedgerRefundChange(entry.SaleId, before, removed ? null : copy);
+            }
+            var remove = change(entry, refund);
+            if (remove)
+                entry.Refunds.Remove(refund);
+            else
+                refund.ServerDocId ??= doc;
+            Save(all);
+            return new LedgerRefundChange(entry.SaleId, before, remove ? null : CloneRefund(refund));
+        }
+    }
+
+    /// <summary>2026-11-13 (проверка денег, п. 2/п. 3): возвраты, сделанные этой кассой онлайн (есть id документа сервера, не «offline:…»), не старше <paramref name="within"/> — их сумму на сервере
+    /// могли изменить (правка/аннулирование за 24 ч). Копии записей с id чека; журнал не меняется.</summary>
+    public static List<(string SaleId, SaleLedgerRefund Refund)> ServerDocRefunds(TimeSpan within)
+    {
+        var since = DateTimeOffset.Now - within;
+        lock (Gate)
+            return Load().Values
+                .SelectMany(e => e.Refunds.Where(r => r.At >= since && r.Source == SaleLedgerRefund.SourceReturn && !string.IsNullOrWhiteSpace(r.ServerDocId)
+                                                      && !r.ServerDocId!.StartsWith("offline:", StringComparison.Ordinal)).Select(r => (e.SaleId, CloneRefund(r))))
+                .ToList();
+    }
+
+    /// <summary>2026-11-13: чеки, которые касса помнит (оплата записана), проданные не раньше <paramref name="since"/> — для сверки возвратов «сделанных не здесь».</summary>
+    public static List<SaleLedgerEntry> SoldSince(DateTimeOffset since)
+    {
+        lock (Gate)
+            return Load().Values.Where(e => e.Total > 0m && (e.SoldAt ?? e.RecordedAt) >= since).ToList();
+    }
+
+    /// <summary>2026-11-13 (проверка денег, «возврат из программы владельца не виден журналу кассы»): итог сверки возвратов чека с сервером — время и сумма возвратов «не отсюда». Чека в журнале нет — ничего не пишем.</summary>
+    public static void NoteServerReturns(string saleId, DateTimeOffset checkedAt, decimal foreign)
+    {
+        if (string.IsNullOrWhiteSpace(saleId) || Get(saleId) is null)
+            return;
+        Update(saleId, entry =>
+        {
+            entry.ServerReturnsCheckedAt = checkedAt;
+            entry.ForeignReturns = Math.Max(0m, foreign);
+        });
+    }
+
+    private static SaleLedgerRefund? FindRefund(SaleLedgerEntry entry, string docId, decimal docAmount)
+    {
+        var byId = entry.Refunds.FirstOrDefault(r => string.Equals(r.ServerDocId, docId, StringComparison.OrdinalIgnoreCase));
+        if (byId is not null || docAmount <= 0m)
+            return byId;
+        var candidates = entry.Refunds.Where(r => string.IsNullOrEmpty(r.ServerDocId) && Math.Abs((r.ServerAmount ?? r.Amount) - docAmount) < 0.015m).ToList();
+        return candidates.Count == 1 ? candidates[0] : null;
+    }
+
+    private static SaleLedgerRefund CloneRefund(SaleLedgerRefund r) => new()
+    {
+        At = r.At, Amount = r.Amount, Cash = r.Cash, NonCash = r.NonCash, DebtReduced = r.DebtReduced, ServerAmount = r.ServerAmount, ServerDocId = r.ServerDocId, Source = r.Source, Whole = r.Whole,
+        Lines = r.Lines.Select(l => new SaleLedgerLine { LineId = l.LineId, Name = l.Name, Quantity = l.Quantity, UnitPrice = l.UnitPrice, Total = l.Total }).ToList(),
+    };
 
     /// <summary>2026-10-29 (возврат без связи): чек очереди получил id продажи на сервере — запись журнала (оплата, возвраты), сделанная под
     /// локальным id, переезжает на серверный: «История чеков» и окно возврата найдут её по новому id. Уже есть запись под новым id — возвраты

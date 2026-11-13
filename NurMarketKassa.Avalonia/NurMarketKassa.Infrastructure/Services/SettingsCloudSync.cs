@@ -69,7 +69,7 @@ public static class SettingsCloudSync
         "ShowStoreName", "ShowAddress", "ShowInn", "ShowReceiptNumber", "ShowDate", "ShowItems", "ShowTotal", "ShowQrCode",
         "StoreName", "StoreAddress", "StoreInn", "LoyaltyEnabled", "UpsellEnabled", "UnlockedPacks", "UnlockedThemeIds",
         "VoiceControlUnlocked", "LanguagePackUnlocked", "WarehouseAnalyticsUnlocked", "PriceTagEditorUnlocked", "LabelEditorUnlocked",
-        "BulkPriceTagUnlocked", "AnalyticsExportUnlocked", "TelegramBotUnlocked", "ShiftAnalyticsUnlocked", "StaffTimesheetUnlocked",
+        "BulkPriceTagUnlocked", "AnalyticsExportUnlocked", "TelegramBotUnlocked", "ShiftAnalyticsUnlocked", "StaffTimesheetUnlocked", "RepairUnlocked", "TradeInUnlocked",
         "ScalesUnlocked", SecureCodesKey, CodesVersionKey, LegacyCodesKey, "DynamicPaymentQrEnabled", "VisibleBankNames", "CustomBankNames",
         "DebtPrepaymentChooseMethod", "OwnerPhone",
         // 2026-10-06: штрафы за просрочку проката и долга — одинаковые в чеках всех касс.
@@ -85,17 +85,25 @@ public static class SettingsCloudSync
         // 2026-10-30: тумблеры возможностей Нур Советника (AdvisorCapabilities) — правило магазина, одинаковое на всех кассах.
         // null (ничего не менялось) в облако не уходит.
         "AdvisorCapabilitiesJson",
+        // 2026-11-12 (ХМ15): общие настройки сфер (размер хозмага, скан коробки…) и отметки «прораб» — правило магазина, одинаковое на всех кассах.
+        // null (ничего не менялось) в облако не уходит.
+        SphereSettings.CloudKey, ClientPriceGroups.CloudKey,
         // 2026-10-30: окно правки накладных закупок (24 ч / 48 ч / всегда) — правило магазина, меняет владелец. null (ничего не менялось) в облако не уходит.
         "PurchaseEditWindow",
         // 2026-11-08: автоотметка сотрудников в табеле (off/shift/login) — правило магазина. null (ничего не менялось) в облако не уходит.
         "StaffAutoMarkMode",
         // 2026-11-08: выход при бездействии (минут) у кассиров с ограничением рабочего времени — правило магазина. null (не меняли = 60) в облако не уходит.
         "IdleLogoutMinutes",
+        // 2026-11-11, решение владельца: правила весовых штрихкодов (префиксы «вес/сумма», раскладка РС-200, тип ШК Rongta, единица суммы…) —
+        // одним ключом, проверяются при применении (ScaleBarcodeRulesSync). Правило, заданное у владельца, работает на всех кассах.
+        ScaleBarcodeRulesSync.CloudKey,
     };
 
     /// <summary>2026-10-27, Б-1: новые общие ключи правил (удаления, слепой пересчёт) не «заполняют пустое облако» значением по умолчанию
     /// с этого ПК — на кассах они были местными, и первый вход не должен затереть чужое включённое значение. Уходят, только когда
-    /// владелец их изменил.</summary>
+    /// владелец их изменил.
+    /// 2026-11-11: правила весовых штрихкодов — так же. 2026-11-12 (Л-3, аудит Fable): ТЗ изменено — касса с собственными правилами заполняет ими пустое облако один раз
+    /// (иначе первое же правило владельца заменяло бы всё, что у кассы настроено); для этого ключ из набора убран, а условие — в фильтре _lastCompany ниже.</summary>
     private static readonly HashSet<string> NoAutoFillKeys = new() { "AskCartRemovalReason", "CartRemovalReasonThreshold", "BlindCashCount" };
 
     private static readonly string[] AllKeys = PersonalKeys.Concat(SecretKeys).Concat(CompanyKeys).ToArray();
@@ -497,6 +505,8 @@ public static class SettingsCloudSync
                     // никто ничего не менял. Изменённый здесь ключ (грязный) по-прежнему уходит (пакет 3, п. 79).
                     _lastCompany = Snapshot(CompanyKeys)
                         .Where(kv => company is not null && (company.ContainsKey(kv.Key) || kv.Value == "null" || NoAutoFillKeys.Contains(kv.Key)
+                                                              // 2026-11-12 (Л-3): правила весов — «отправлено», пока у программы нет собственных (умолчания облако не заполняют)
+                                                              || (kv.Key == ScaleBarcodeRulesSync.CloudKey && !ScaleBarcodeRulesSync.HasLocalRules(prefs))
                                                               // 2026-10-27, ревью А-3: программа владельца не «заполняет пустое облако» своими значениями по умолчанию
                                                               // (кроме кодов сотрудников — у них свои правила): уходит только то, что владелец изменил.
                                                               || (AppMode.IsOwner && kv.Key is not (SecureCodesKey or CodesVersionKey or LegacyCodesKey)))
@@ -561,7 +571,7 @@ public static class SettingsCloudSync
                     SectionVisibility.RaiseChanged();
                 if (appliedKeys.Contains("UnlockedPacks"))
                     TariffGate.RaisePacksChanged();
-                if (appliedKeys.Contains("MarketSphereDetail"))
+                if (appliedKeys.Contains("MarketSphereDetail") || appliedKeys.Contains(SphereSettings.CloudKey))
                     MarketSpheres.RaiseChanged(); // 2026-10-26: ХМ1 — точная сфера пришла из облака
                 Applied?.Invoke();
             }
@@ -596,8 +606,22 @@ public static class SettingsCloudSync
     private static string? _companyFingerprint;
     private static bool _applyPending;
     private static int _pollStarted;
-    private static readonly SyncCenter.KickSignal PollKick = new(); // 2026-10-30: никем не будится — нужен только как таймер для WaitAdaptiveAsync
+    // 2026-10-30: нужен как таймер для WaitAdaptiveAsync. 2026-11-11: будится KickCompanyPoll — подсказка соседа «settings» (владелец сохранил правило
+    // весовых штрихкодов) и возврат в окно: облако читается сейчас, а не через такт 30/120 с.
+    private static readonly SyncCenter.KickSignal PollKick = new();
     private static int _refreshFailures;
+    private static long _lastKickTicks;
+
+    /// <summary>2026-11-11: прочитать общие настройки компании сейчас (дёшево: ETag/отпечаток — без изменений ничего не применяется).
+    /// Не чаще раза в 3 с; до первого получения облака ничего не делает (это работа PullOnceAsync).</summary>
+    public static void KickCompanyPoll()
+    {
+        var now = Environment.TickCount64;
+        if (now - Interlocked.Read(ref _lastKickTicks) < 3000)
+            return;
+        Interlocked.Exchange(ref _lastKickTicks, now);
+        PollKick.Kick();
+    }
 
     /// <summary>Запустить фоновый опрос общих настроек (один раз за запуск; вызывается после первого получения облака).</summary>
     public static void StartCompanyPolling()
@@ -683,6 +707,10 @@ public static class SettingsCloudSync
                 if (generation != _generation)
                     return;
                 var dirtyNow = new HashSet<string>(_dirty);
+                // 2026-11-11: у кассира (общие настройки менять нельзя, 403) местное правило весовых штрихкодов (ответ «сумма или вес» при скане)
+                // в облако не уйдёт — и не должно до перезапуска заслонять правило владельца: облако главнее.
+                if (_companyForbidden && _dirty.Remove(ScaleBarcodeRulesSync.CloudKey))
+                    dirtyNow.Remove(ScaleBarcodeRulesSync.CloudKey);
                 _applying = true;
                 try
                 {
@@ -735,7 +763,7 @@ public static class SettingsCloudSync
             {
                 if (applied.Contains("UnlockedPacks"))
                     TariffGate.RaisePacksChanged();
-                if (applied.Contains("MarketSphereDetail"))
+                if (applied.Contains("MarketSphereDetail") || applied.Contains(SphereSettings.CloudKey))
                     MarketSpheres.RaiseChanged();
                 Applied?.Invoke();
             }
@@ -1209,6 +1237,7 @@ public static class SettingsCloudSync
         if (_applying)
             return;
         bool ready;
+        var fast = false;
         lock (Sync)
         {
             // 2026-10-18, П2: какие ключи реально поменялись на этой кассе с последнего получения.
@@ -1217,7 +1246,11 @@ public static class SettingsCloudSync
                 foreach (var (key, json) in now)
                     if (key is not (SecureCodesKey or CodesVersionKey or LegacyCodesKey) // коды — только по версии (П1)
                         && (!_baseline.TryGetValue(key, out var before) || before != json))
+                    {
                         _dirty.Add(key);
+                        // 2026-11-11: правило весовых штрихкодов — «быстро»: отправка через 0,5 с, а не 3 с.
+                        fast |= key == ScaleBarcodeRulesSync.CloudKey;
+                    }
             _baseline = now;
             ready = _ready;
         }
@@ -1240,7 +1273,7 @@ public static class SettingsCloudSync
         {
             try
             {
-                await Task.Delay(3000, cts.Token).ConfigureAwait(false);
+                await Task.Delay(fast ? 500 : 3000, cts.Token).ConfigureAwait(false);
                 if (generation == _generation)
                     await PushAsync().ConfigureAwait(false);
             }
@@ -1316,9 +1349,86 @@ public static class SettingsCloudSync
                 company.Remove(LegacyCodesKey);
             }
             var companyChanged = company.Where(kv => !_lastCompany.TryGetValue(kv.Key, out var v) || v != kv.Value).ToList();
+            // 2026-11-12 (Л-20, аудит Fable): правила весов уходят целым куском — перед отправкой читаем облако и сливаем с ним (иначе правка владельца и ответ кассира
+            // «сумма или вес» почти одновременно затирали друг друга). Облако не прочитано — этот ключ не отправляем, уйдёт при следующей отправке.
+            string? mergedRules = null;
+            var rulesAt = companyChanged.FindIndex(kv => kv.Key == ScaleBarcodeRulesSync.CloudKey);
+            if (rulesAt >= 0)
+            {
+                mergedRules = await MergeRulesWithCloudAsync(api, companyChanged[rulesAt].Value).ConfigureAwait(false);
+                if (mergedRules is null)
+                    companyChanged.RemoveAt(rulesAt);
+                else
+                    companyChanged[rulesAt] = new KeyValuePair<string, string>(ScaleBarcodeRulesSync.CloudKey, mergedRules);
+            }
             if (companyChanged.Count > 0 && await PatchAsync(api, $"api/main/app-settings/{CompanyApp}/", companyChanged).ConfigureAwait(false) && Current())
+            {
                 foreach (var (k, v) in companyChanged)
                     _lastCompany[k] = v;
+                if (mergedRules is not null)
+                    AdoptMergedRules(mergedRules);
+                // 2026-11-11: правила весовых штрихкодов отправлены — дальше «последний записавший»: следующее правило из облака (с другой программы)
+                // применится, а не будет заслонено этим «грязным» ключом до перезапуска. И сразу подсказка соседям по сети (касса на том же ПК или
+                // в той же сети читает облако сейчас, а не через свой такт 30 с).
+                if (companyChanged.Any(kv => kv.Key == ScaleBarcodeRulesSync.CloudKey))
+                {
+                    lock (Sync)
+                        _dirty.Remove(ScaleBarcodeRulesSync.CloudKey);
+                    SyncCenter.NoteSettingsChanged();
+                }
+            }
+        }
+    }
+
+    /// <summary>2026-11-12 (Л-20): значение правил весов для отправки = своё, слитое с текущим облачным (<see cref="ScaleBarcodeRulesSync.MergeForPush"/>). Вход и выход — JSON-строка
+    /// значения, как в Snapshot. null — облако не прочитано (отправку этого ключа отложить).</summary>
+    private static async Task<string?> MergeRulesWithCloudAsync(NurMarketApiClient api, string localValueJson)
+    {
+        try
+        {
+            var local = JsonSerializer.Deserialize<string>(localValueJson);
+            if (string.IsNullOrEmpty(local))
+                return localValueJson;
+            var cloud = await GetAsync(api, $"api/main/app-settings/{CompanyApp}/").ConfigureAwait(false);
+            var cloudRules = cloud[ScaleBarcodeRulesSync.CloudKey] is JsonValue v && v.TryGetValue<string>(out var s) ? s : null;
+            return JsonSerializer.Serialize(ScaleBarcodeRulesSync.MergeForPush(local, cloudRules));
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            PosLogger.Log($"Настройки на сервере: правила весов не отправлены — облако не прочитано для слияния ({ex.Message}); повтор при следующей отправке.", "WARNING");
+            return null;
+        }
+    }
+
+    /// <summary>2026-11-12 (Л-20): слитое значение отправлено — программа берёт его себе (в нём и её префиксы, и облачные), «отправленное» = её значение (иначе оно уходило бы снова и снова).</summary>
+    private static void AdoptMergedRules(string mergedValueJson)
+    {
+        try
+        {
+            var merged = JsonSerializer.Deserialize<string>(mergedValueJson);
+            lock (Sync)
+            {
+                var prefs = UserPreferences.Instance;
+                if (Snapshot(new[] { ScaleBarcodeRulesSync.CloudKey }).TryGetValue(ScaleBarcodeRulesSync.CloudKey, out var before) && before == mergedValueJson)
+                    return;
+                _applying = true;
+                try
+                {
+                    prefs.ScaleBarcodeRulesShared = merged; // сеттер применяет слитое и обновляет разбор этикеток
+                    prefs.SaveToDisk();
+                }
+                finally
+                {
+                    _applying = false;
+                }
+                if (Snapshot(new[] { ScaleBarcodeRulesSync.CloudKey }).TryGetValue(ScaleBarcodeRulesSync.CloudKey, out var now))
+                    _lastCompany[ScaleBarcodeRulesSync.CloudKey] = now;
+                _baseline = Snapshot(AllKeys);
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            PosLogger.Log($"Настройки: слитые правила весов не применены ({ex.Message}).", "WARNING");
         }
     }
 

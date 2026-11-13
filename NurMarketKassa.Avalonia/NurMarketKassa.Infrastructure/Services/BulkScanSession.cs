@@ -651,6 +651,13 @@ public sealed class BulkScanSession : INotifyPropertyChanged, IDisposable
         try
         {
             var product = await api.FindWarehouseProductByBarcodeAsync(code, ct).ConfigureAwait(true);
+            // 2026-11-11 (разбор кыргызстанских штрихкодов 470…): как в приёмке (PurchaseReceivingService.LookupAsync) — товар склада принимаем, только если именно у него этот штрихкод
+            // (основной или дополнительный); ответ про другой код (сосед, чужой товар) отбрасываем и ищем в общей базе.
+            if (product is { } foreign && !PurchaseReceivingService.ServerAnswerHasCode(foreign, ProductCodeLookup.Candidates(code), requireField: true))
+            {
+                PurchaseReceivingService.LogScan(code, "массовое: склад на сервере", $"отброшен товар {JStr(foreign, "id") ?? "?"} — у него другой штрихкод");
+                product = null;
+            }
             if (product is { } p)
             {
                 var price = JNum(p, "price");
@@ -680,6 +687,9 @@ public sealed class BulkScanSession : INotifyPropertyChanged, IDisposable
             // 2026-10-03: UPC-A из сканера (12 цифр) ↔ EAN-13 с нулём в общей базе — см. BarcodeForms.
             if (global is null && BarcodeForms.Alternate(code) is { } alternate)
                 global = await api.FindGlobalProductByBarcodeAsync(alternate, ct).ConfigureAwait(true);
+            // 2026-11-11: и из общей базы — только ответ про этот код (поля штрихкода нет — ответ на точный запрос принимаем), как в приёмке.
+            if (global is { } foreignGlobal && !PurchaseReceivingService.ServerAnswerHasCode(foreignGlobal, ProductCodeLookup.Candidates(code), requireField: false))
+                global = null;
             if (global is { } g)
                 return (new ReceivingLineVm
                 {

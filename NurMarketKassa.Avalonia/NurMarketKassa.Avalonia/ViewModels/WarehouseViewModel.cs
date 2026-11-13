@@ -948,6 +948,11 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
             return;
         }
 
+        // 2026-11-11 (разбор «Кыргызстанские штрихкоды», п. 9): товар нигде не найден, а контрольная цифра EAN-13/EAN-8 не сходится — сначала «отсканируйте ещё раз»
+        // (общий шаг кассы и приёмки, ScanMessages.ConfirmUnknownCodeAsync); «Всё равно добавить» — строка нового товара как раньше.
+        if (line.Source == ReceivingSource.Unknown && !await ScanMessages.ConfirmUnknownCodeAsync(_prompts, trimmed).ConfigureAwait(true))
+            return;
+
         // Пока шёл запрос, тот же товар могли отсканировать ещё раз.
         var raced = ReceivingLines.FirstOrDefault(l =>
             string.Equals(l.Barcode, line.Barcode, StringComparison.OrdinalIgnoreCase)
@@ -964,6 +969,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
 
         // 2026-10-24, ТЗ «Склад» Б1: новая строка встаёт сверху — у кладовщика перед глазами последний скан, а не конец длинной накладной.
         line.EnableReceivingPricing(); // 2026-10-28: ручной скан; 2026-11-06: у товара с ценой в карточке общая наценка её не меняет (только «Как у всех» / «Применить ко всем»)
+        ApplyNewLineDefaults(line); // 2026-11-11: способ приёмки с верхней панели («В штуках / Упаковками / Поштучная продажа»)
         ReceivingLines.Insert(0, line);
         RepeatScanGuard.Counted(trimmed);
         ReceivingLineAdded?.Invoke(line);
@@ -971,6 +977,14 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
 
     /// <summary>2026-11-09: «тот же код подряд» для окна «Сколько штук?» (одна общая настройка UserPreferences.AskQtyOnRepeatScan).</summary>
     public ReceivingRepeatScanGuard RepeatScanGuard { get; } = new();
+
+    /// <summary>2026-11-11 (Д-8): количество строки поправили руками — если это строка последнего отсканированного кода, код остаётся «последним»
+    /// (пауза 20 с считается заново), и следующий скан того же товара спросит «Сколько штук?». Правка другой строки отсчёт не трогает.</summary>
+    public void OnReceivingQuantityEdited(ReceivingLineVm line)
+    {
+        if (RepeatScanGuard.LastCode is { } last && ReferenceEquals(ReceivingRepeatScan.FindLine(ReceivingLines, last), line))
+            RepeatScanGuard.Touch();
+    }
 
     /// <summary>2026-11-09: «Сколько штук?» — окно приёмки (строка, число по умолчанию → сколько добавить; null — «Отмена»). Без обработчика повторный скан добавляет, как раньше.</summary>
     public Func<ReceivingLineVm, double, Task<double?>>? AskRepeatQuantity { get; set; }
@@ -1063,6 +1077,23 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
     /// <summary>2026-10-06 (О-70): строки приёмки проведены (для этикеток на принятые размеры).</summary>
     public event Action<IReadOnlyList<ReceivingLineVm>>? ReceivingPosted;
 
+    /// <summary>2026-11-11 (владелец: «упаковку тоже сделай СВЕРХУ»): способ приёмки по умолчанию для НОВОЙ строки (скан, выбор из списка, «+ Новый товар») — задаёт окно
+    /// (верхняя панель). Вызывается до вставки в список, поэтому строка рисуется сразу в нужном способе. Повторный скан, черновик, «Вернуть» сюда не попадают.</summary>
+    public Action<ReceivingLineVm>? NewLineDefaults { get; set; }
+
+    /// <summary>Применить <see cref="NewLineDefaults"/>; сбой способа не должен ронять скан.</summary>
+    public void ApplyNewLineDefaults(ReceivingLineVm line)
+    {
+        try
+        {
+            NewLineDefaults?.Invoke(line);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Приёмка: способ приёмки по умолчанию не применён ({ex.GetType().Name}: {ex.Message}).", "WARNING");
+        }
+    }
+
     /// <summary>Добавить товар в приёмку из списка, а не сканом.</summary>
     public ReceivingLineVm AddReceivingProduct(CatalogProductTileVm product, double quantity)
     {
@@ -1080,6 +1111,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         // 2026-10-24, ТЗ «Склад» Б1: сверху (возвращаем строку — окно ставит в неё курсор).
         var line = PurchaseReceivingService.FromTile(product, quantity);
         line.EnableReceivingPricing(); // 2026-10-28: ручной выбор из списка; 2026-11-06: цена из карточки остаётся
+        ApplyNewLineDefaults(line); // 2026-11-11: способ приёмки с верхней панели
         ReceivingLines.Insert(0, line);
         return line;
     }

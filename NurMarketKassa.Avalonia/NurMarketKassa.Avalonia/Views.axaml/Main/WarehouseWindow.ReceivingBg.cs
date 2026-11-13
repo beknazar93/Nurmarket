@@ -29,6 +29,7 @@ public partial class WarehouseWindow
         BackgroundReceivingQueue.Instance.JobFinished += OnReceivingQueueJobFinished;
         BackgroundReceivingQueue.Instance.CatalogRefreshed += OnReceivingQueueCatalogRefreshed;
         ReceivingCommitBusyText.Text = Tr.T("Оприходую…", "Кабыл алып жатам…", "Receiving…", "Stoğa alıyorum…", "Kirim qilyapman…");
+        InitReceivingKeys(); // 2026-11-11 (аудит «Закупки», БП-5/6): клавиши, «Итого приход», «Вернуть», «Подробнее ▸»
         _viewModel.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(_viewModel.IsReceivingPosting) && _viewModel.IsReceivingPosting)

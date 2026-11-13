@@ -123,6 +123,7 @@ public partial class ReturnSaleDialog
             OriginalQuantity = l.OriginalQuantity,
             RemainingQuantity = l.Quantity,
             AllowFractionalQuantity = l.AllowFractionalQuantity,
+            Unit = l.Unit, // 2026-11-12 (С-17): единица строки остаётся и в копии для оформления
             RefundPerUnit = l.RefundPerUnit,
             CanReturn = l.CanReturn,
             RefundReason = l.RefundReason,

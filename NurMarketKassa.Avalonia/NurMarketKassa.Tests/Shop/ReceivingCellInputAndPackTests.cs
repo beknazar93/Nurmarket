@@ -296,7 +296,9 @@ public sealed class ReceivingExistingPackSaleTests : IDisposable
         l.SetPackSale(true, 24);
 
         l.ConvertedStock.Should().BeNull("50 ÷ 24 — не целое: округление исказило бы склад");
-        PurchaseReceivingService.Validate(new[] { l }).Should().Contain(p => p.Contains("не делится"));
+        // 2026-11-11 (convert-to-packages): заранее не блокируем — перед подтверждением окно читает свежий остаток и предлагает «Округлить» только по согласию;
+        // без согласия сервер ответит not_divisible (ReceivingConvertToPackagesTests).
+        PurchaseReceivingService.Validate(new[] { l }).Should().NotContain(p => p.Contains("не делится"));
         ReceivingPacks.TryConvertStock(0, 0, 24, out var zero).Should().BeTrue();
         zero.Should().Be(0, "нулевой остаток — пересчитывать нечего");
         ReceivingPacks.TryConvertStock(5, 10, 25, out var repacked).Should().BeTrue("5 упаковок по 10 = 50 шт = 2 по 25");

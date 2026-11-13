@@ -599,13 +599,15 @@ public partial class ScalesPluWindow : Window
                 Price = NurMarketKassa.Services.LocalCartService.ParsePrice(p.PriceLine),
                 DefaultCode = DefaultBarcodeCode(p),
                 // 2026-09-29: «Код в ШК», исправленный владельцем для этих весов, не теряется.
-                BarcodeCode = profile.BarcodeCodes.TryGetValue(p.Id, out var savedCode) ? savedCode : DefaultBarcodeCode(p),
+                // 2026-11-13: закреплённый «Код в ШК» — старый PLU этого же товара (PLU сменился на сервере: архив → возврат) не держим, берём текущий код карточки.
+                BarcodeCode = profile.BarcodeCodes.TryGetValue(p.Id, out var savedCode) && !ScalePluHistory.IsRetiredCodeOf(p.Id, savedCode) ? savedCode : DefaultBarcodeCode(p),
                 HotkeyText = profile.Hotkeys.TryGetValue(p.Id, out var key) ? key.ToString(CultureInfo.InvariantCulture) : "",
                 IsSelected = true,
             })
             .ToList();
 
         _allRows = rows;
+        MarkChangedPlu(rows, profile);
         foreach (var row in rows)
             row.PropertyChanged += (_, e) =>
             {
@@ -621,6 +623,22 @@ public partial class ScalesPluWindow : Window
         ApplySearch();
         StatusText.Text = "";
         UpdateBarcodeExample();
+    }
+
+    /// <summary>2026-11-13 (сервер «ev1311»: архив освобождает PLU, возврат даёт новый): товар уже отправлялся на эти весы со старым кодом, а PLU в карточке с тех пор
+    /// сменился — в колонке «Результат» «PLU изменился — отправьте на весы» (весы печатают старый код, этикетки на полках устарели). После отправки отметка уходит сама
+    /// (в записи весов — уже новый код).</summary>
+    private static void MarkChangedPlu(List<ScalePluRowVm> rows, LabelScaleProfile profile)
+    {
+        foreach (var row in rows)
+        {
+            if (!profile.SentPlus.TryGetValue(row.Id, out var sent) || string.IsNullOrWhiteSpace(sent.Code) || !ScalePluHistory.HasChange(row.Id))
+                continue;
+            if (string.Equals(sent.Code.Trim().TrimStart('0'), (row.BarcodeCode ?? "").Trim().TrimStart('0'), StringComparison.Ordinal))
+                continue;
+            row.SetStatus(Tr.T("⚠ PLU изменился — отправьте на весы", "⚠ PLU өзгөрдү — таразага жөнөтүңүз", "⚠ PLU changed — send to the scale",
+                "⚠ PLU değişti — teraziye gönderin", "⚠ PLU o'zgardi — taroziga yuboring"), RowState.Warning);
+        }
     }
 
     /// <summary>Все весовые товары. Таблица показывает только найденные поиском, а отправка,
@@ -924,12 +942,14 @@ public partial class ScalesPluWindow : Window
             SetProgress(1, 1);
             foreach (var row in selectedRows)
                 row.SetStatus(Tr.T("✓ передано серверу", "✓ серверге берилди", "✓ passed to the server", "✓ sunucuya iletildi", "✓ serverga uzatildi"), RowState.Ok);
+            // 2026-11-12 (жалоба «отправил на весы ШТРИХ РС200 — на экране ничего»): это только передача серверу NurCRM, до весов Штрих-ПРИНТ товары довозит сервер.
+            // Весы с экраном РС200 (С2/С3) так товары не получают — у них обмен файлом через общую папку (марка «Штрих РС-200»). Пишем честно и подсказываем.
             StatusText.Text = Tr.T(
-                $"Отправлено на весы: {selectedIds.Count}.",
-                $"Таразага жиберилди: {selectedIds.Count}.",
-                $"Sent to the scale: {selectedIds.Count}.",
-                $"Tartıya gönderildi: {selectedIds.Count}.",
-                $"Taroziga yuborildi: {selectedIds.Count}.");
+                $"Передано серверу NurCRM: {selectedIds.Count} — сервер сам отправит их на весы Штрих-ПРИНТ. Весы с экраном ШТРИХ РС200 (С2/С3) так товары не получают: выберите марку «Штрих РС-200» в Настройки → Весы.",
+                $"NurCRM серверине берилди: {selectedIds.Count} — сервер аларды Штрих-ПРИНТ таразасына өзү жөнөтөт. Экраны бар ШТРИХ РС200 (С2/С3) таразасы товарларды мындай албайт: Жөндөөлөр → Таразалар ичинен «Штрих РС-200» маркасын тандаңыз.",
+                $"Passed to the NurCRM server: {selectedIds.Count} — the server will send them to the Shtrih-PRINT scale itself. A SHTRIH PC200 scale with a screen (C2/C3) does not receive goods this way: choose the “Shtrih RS-200” brand in Settings → Scales.",
+                $"NurCRM sunucusuna iletildi: {selectedIds.Count} — sunucu bunları Shtrih-PRINT tartıya kendisi gönderir. Ekranlı ŞTRİH PC200 (C2/C3) tartı ürünleri bu yolla almaz: Ayarlar → Tartılar'da «Shtrih RS-200» markasını seçin.",
+                $"NurCRM serveriga uzatildi: {selectedIds.Count} — server ularni Shtrix-PRINT taroziga o‘zi yuboradi. Ekranli SHTRIX PC200 (C2/C3) tarozi tovarlarni bu yo‘l bilan olmaydi: Sozlamalar → Tarozilar bo‘limida «Shtrix RS-200» markasini tanlang.");
         }
         catch (System.Exception ex)
         {
@@ -1194,13 +1214,20 @@ public partial class ScalesPluWindow : Window
         var code = row is not null && long.TryParse(row.BarcodeCode, NumberStyles.Integer, CultureInfo.InvariantCulture, out var c) && c > 0 ? c : 1;
         const int grams = 392;
         var amount = Math.Round((decimal)(row?.Price ?? 100) * grams / 1000m, 2, MidpointRounding.AwayFromZero);
-        var sample = RongtaBarcodeFormat.BuildSample(type, prefs.RongtaLanBarcodePrefix, code, grams, amount);
+        var pricePoint = Math.Clamp(prefs.RongtaPricePoint, 0, 3); // 2026-11-12: единица суммы в штрихкоде — по «Price point» весов
+        var sample = RongtaBarcodeFormat.BuildSample(type, prefs.RongtaLanBarcodePrefix, code, grams, amount, pricePoint);
         var name = row is null ? "" : RongtaNameCodec.Preview(row.Name);
         var head = Tr.T($"Этикетка Rongta для «{name}» (0,392 кг): {sample ?? "—"} — тип {type.Type:00} ({type.Pattern}), отдел {prefs.RongtaLanBarcodePrefix:00}. ",
             $"«{name}» үчүн Rongta этикеткасы (0,392 кг): {sample ?? "—"} — {type.Type:00} түрү ({type.Pattern}), бөлүм {prefs.RongtaLanBarcodePrefix:00}. ",
             $"Rongta label for “{name}” (0.392 kg): {sample ?? "—"} — type {type.Type:00} ({type.Pattern}), department {prefs.RongtaLanBarcodePrefix:00}. ",
             $"“{name}” için Rongta etiketi (0,392 kg): {sample ?? "—"} — tür {type.Type:00} ({type.Pattern}), reyon {prefs.RongtaLanBarcodePrefix:00}. ",
             $"«{name}» uchun Rongta yorlig‘i (0,392 kg): {sample ?? "—"} — {type.Type:00} turi ({type.Pattern}), bo‘lim {prefs.RongtaLanBarcodePrefix:00}. ");
+        if (sample is null && !RongtaBarcodeFormat.AmountFits(type, amount, pricePoint))
+        {
+            // 2026-11-12: сумма не помещается в поле — весы напечатают этикетку без штрихкода (этикетка клиента «Бука лакым» 1265,00).
+            BarcodeExampleText.Text = head + "⚠ " + RongtaBarcodeFormat.CeilingText(type, pricePoint);
+            return;
+        }
         if (sample is null || type.Value == RongtaBarcodeFormat.ValueKind.None)
         {
             BarcodeExampleText.Text = head + "⚠ " + Tr.T("в этом типе нет веса/суммы, которые касса может прочесть — выберите другой тип на весах.",
@@ -1214,14 +1241,10 @@ public partial class ScalesPluWindow : Window
         BarcodeExampleText.Text = head + (ok ? "✓ " : "⚠ ") + verdict;
         if (type.Value == RongtaBarcodeFormat.ValueKind.Price && type.ValueDigits > 0)
         {
-            // 2026-11-06: в штрих-код помещается сумма (в сотых) только до N сом — дороже чек получит неверную сумму.
-            var maxAmount = ((decimal)Math.Pow(10, type.ValueDigits) - 1) / 100m;
-            var maxText = maxAmount.ToString("N2", CultureInfo.GetCultureInfo("ru-RU"));
-            BarcodeExampleText.Text += " ⚠ " + Tr.T($"Сумма в штрих-коде — только до {maxText} сом: на более дорогих этикетках касса прочтёт неверную сумму (тип по весу такого предела не имеет).",
-                $"Штрих-коддогу сумма {maxText} сомго чейин гана: кымбат этикеткаларда касса туура эмес сумманы окуйт (салмак боюнча түрдө мындай чек жок).",
-                $"The amount in the barcode is only up to {maxText} som: on more expensive labels the till will read a wrong amount (a weight type has no such limit).",
-                $"Barkoddaki tutar yalnızca {maxText} som’a kadar: daha pahalı etiketlerde kasa yanlış tutar okur (ağırlık türünde bu sınır yok).",
-                $"Shtrix-koddagi summa faqat {maxText} so‘mgacha: qimmatroq yorliqlarda kassa noto‘g‘ri summani o‘qiydi (vazn turida bunday chegara yo‘q).");
+            // 2026-11-06: в штрих-код помещается сумма только до N сом.
+            // 2026-11-12: дороже весы печатают этикетку БЕЗ штрихкода (не «неверную сумму», как думали 06.11) — текст из RongtaBarcodeFormat.CeilingText.
+            BarcodeExampleText.Text += " ⚠ " + RongtaBarcodeFormat.CeilingText(type, pricePoint) + " " + Tr.T("Тип по весу такого предела не имеет.",
+                "Салмак боюнча түрдө мындай чек жок.", "A weight type has no such limit.", "Ağırlık türünde bu sınır yok.", "Vazn turida bunday chegara yo‘q.");
         }
     }
 
@@ -1405,6 +1428,7 @@ public partial class ScalesPluWindow : Window
             UpdateBarcodeExample();
 
         _tmCts = new CancellationTokenSource();
+        RongtaCheckBanner.IsVisible = false; // 2026-11-13: плашка прошлой отправки Rongta — убрать
         SendButton.Content = Tr.T("Остановить", "Токтотуу", "Stop", "Durdur", "To‘xtatish");
         StatusText.Text = Tr.T($"Подключение к весам {scale.Host}:{scale.Port}…", $"{scale.Host}:{scale.Port} таразасына туташуу…", $"Connecting to the scale {scale.Host}:{scale.Port}…", $"{scale.Host}:{scale.Port} tartısına bağlanılıyor…", $"{scale.Host}:{scale.Port} taroziga ulanilmoqda…");
         SetProgress(0, records.Count);
@@ -1417,6 +1441,8 @@ public partial class ScalesPluWindow : Window
                 StatusText.Text = Tr.T($"Отправка на весы: {p.Done} из {p.Total}…", $"Таразага жөнөтүү: {p.Total} ичинен {p.Done}…", $"Sending to the scale: {p.Done} of {p.Total}…", $"Tartıya gönderiliyor: {p.Done} / {p.Total}…", $"Taroziga yuborilmoqda: {p.Total} dan {p.Done}…");
             });
             var result = await scale.UploadPlusAsync(records, DahuaPricePoint, mode, progress, _tmCts.Token).ConfigureAwait(true);
+            // 2026-11-12: автоотправки на весы нет — в журнал явно, что товары переотправлены по кнопке.
+            PosLogger.Log($"{brandLog}: товары переотправлены на весы вручную (кнопка «Отправить на весы»)", "SCALES");
             PosLogger.Log($"{brandLog}: выгрузка PLU {scale.Host}:{scale.Port}: всего {result.Total}, отправлено {result.Sent}, ответов {result.Acknowledged}, без маркера {result.UnframedReplies}, повторов {result.Retries}, ошибка {result.Error} {result.Detail}", "SCALES");
 
             // Результат по строкам: принятые — ✓, строка, на которой остановились, — ✗, остальные — не отправлены.
@@ -1519,6 +1545,27 @@ public partial class ScalesPluWindow : Window
                         var prefix = Math.Clamp(prefs.RongtaLanBarcodePrefix, 0, 99).ToString("00", CultureInfo.InvariantCulture);
                         ScaleBarcodeRules.ApplyAndSave(prefix, NurMarketKassa.Core.Domain.WeightBarcodeValueKind.Amount);
                         ScaleLabelCodeRegistry.PublishAmountPrefix(prefix);
+                    }
+                    // 2026-11-12 (этикетка «Бука лакым» 1,150 кг × 1100 = 1265,00 вышла без штрихкода): при структуре по сумме честно называем товары и вес,
+                    // после которого весы перестанут печатать штрихкод (сумма не помещается в поле). Тип штрихкода на весах касса не меняет.
+                    if (rongtaType is not null)
+                    {
+                        var ceilingWarning = RongtaBarcodeFormat.SendWarning(rongtaType,
+                            records.Where(r => r.WeighMode == DahuaTmWeighMode.Weighed).Select(r => (r.Name, r.Price)), DahuaPricePoint);
+                        if (ceilingWarning.Length > 0)
+                        {
+                            StatusText.Text += " ⚠ " + ceilingWarning;
+                            PosLogger.Log($"{brandLog}: {ceilingWarning}", "SCALES");
+                        }
+                    }
+                    // 2026-11-13: в «!0V» поля типа штрихкода нет — тип уходит «родной» командой весов (UDP 5001), только если структура выбрана в «Настройках весов Rongta».
+                    if (RongtaBarcodeTypeWriter.ChosenType is int chosenType)
+                    {
+                        var (typeOk, typeNote) = await RongtaBarcodeTypeWriter.WriteAsync(prefs.RongtaScaleIp, records, DahuaPricePoint, chosenType, _tmCts.Token).ConfigureAwait(true);
+                        StatusText.Text += " " + typeNote;
+                        // 2026-11-13: плашка — что проверить на весах (тип записан) или запасной путь с весов и журнал обмена (весы не ответили по 5001).
+                        RongtaCheckText.Text = typeOk ? RongtaBarcodeTypeWriter.CheckHint(chosenType) : RongtaBarcodeTypeWriter.NoReplyHint(chosenType);
+                        RongtaCheckBanner.IsVisible = records.Any(r => r.WeighMode == DahuaTmWeighMode.Weighed); // весовых нет — писать было нечего, плашка не нужна
                     }
                 }
                 if (rongta)

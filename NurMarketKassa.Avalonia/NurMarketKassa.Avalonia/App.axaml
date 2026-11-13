@@ -107,6 +107,10 @@
     <Style Selector="TextBlock.num">
       <Setter Property="FontFeatures" Value="{DynamicResource TabularNumbers}"/>
     </Style>
+    <!-- 2026-11-11 (аудит «Закупки», БП-3): у полей-чисел (класс num — ячейки приёмки) цифры тоже одинаковой ширины: разряды не «скачут» по строкам. -->
+    <Style Selector="TextBox.num">
+      <Setter Property="FontFeatures" Value="{DynamicResource TabularNumbers}"/>
+    </Style>
 
     <Style Selector="Window">
       <Setter Property="Icon" Value="avares://NurMarketKassa.Avalonia/Assets/app-icon.ico"/>

@@ -53,6 +53,9 @@ public static class CustomerReturnEdit
                 unit = FirstStr(sale, "unit", "unit_display", "product_unit");
             var price = UnitPriceOf(item, qty) is { } p && p > 0 ? p : hasSale ? CartDisplayHelper.UnitPrice(sale) : 0;
             var max = hasSale ? CartDisplayHelper.RefundableQuantity(sale) + qty : qty;
+            // 2026-11-12 (аудит Н-1): сервер не прислал ни returnable_qty, ни «возвращено» — потолок был «в чеке + в возврате» (больше проданного); ограничиваем количеством строки чека
+            if (hasSale && Num(sale, "quantity") is { } sold && sold > 1e-9)
+                max = Math.Min(max, Math.Max(sold, qty));
             var same = list.FindIndex(l => sid.Length > 0 && string.Equals(l.SaleItemId, sid, StringComparison.OrdinalIgnoreCase));
             if (same >= 0)
             {
@@ -95,14 +98,21 @@ public static class CustomerReturnEdit
     public static double Total(IEnumerable<CustomerReturnEditLine> lines) => ReturnLineMath.Total(lines.Select(l => (l.Qty, l.UnitPrice, 0d)));
 
     /// <summary>Проверка перед сохранением; null — всё в порядке, иначе текст ошибки (5 языков).</summary>
-    public static string? Validate(IReadOnlyList<CustomerReturnEditLine> lines, string reason)
+    /// <param name="original">2026-11-12 (аудит В-5): исходные строки окна — нетронутая строка не проверяется на «штучное — целое» (раньше строка без единицы в ответе сервера считалась штучной, и дробное
+    /// исходное количество 1,255 блокировало сохранение всего документа); у строки без единицы с дробным исходным количеством штучной проверки нет и при правке. null — все строки считаются изменёнными.</param>
+    public static string? Validate(IReadOnlyList<CustomerReturnEditLine> lines, string reason, IReadOnlyList<CustomerReturnEditLine>? original = null)
     {
-        foreach (var l in lines)
+        for (var i = 0; i < lines.Count; i++)
         {
+            var l = lines[i];
+            var was = original is null ? null : original.Count == lines.Count ? original[i] : original.FirstOrDefault(o => o.SaleItemId.Length > 0 && string.Equals(o.SaleItemId, l.SaleItemId, StringComparison.OrdinalIgnoreCase));
+            if (was is not null && Math.Abs(was.Qty - l.Qty) <= 0.0005 && l.Qty >= 0 && (l.Qty == 0 || l.SaleItemId.Length > 0))
+                continue; // строка не тронута — не проверяем (проверять изменения, а не исходные данные сервера)
+            var wholeOnly = l.IsPiece && !(l.Unit.Trim().Length == 0 && was is not null && Math.Abs(was.Qty - Math.Round(was.Qty)) > 0.0001);
             var name = l.Name.Length > 0 ? l.Name : "—";
             var max = l.Max.ToString("0.###", CultureInfo.CurrentCulture);
             string? problem = l.Qty < 0 ? Tr.T("количество не может быть меньше 0", "саны 0дөн аз болбойт", "the quantity cannot be below 0", "miktar 0'dan az olamaz", "miqdor 0 dan kam bo'lmaydi")
-                : l.Qty > 0 && l.IsPiece && Math.Abs(l.Qty - Math.Round(l.Qty)) > 0.0001 ? Tr.T("для штучного товара — целое число", "даана товар үчүн — бүтүн сан", "a whole number for piece goods", "adetli ürün için tam sayı", "donali mahsulot uchun — butun son")
+                : l.Qty > 0 && wholeOnly && Math.Abs(l.Qty - Math.Round(l.Qty)) > 0.0001 ? Tr.T("для штучного товара — целое число", "даана товар үчүн — бүтүн сан", "a whole number for piece goods", "adetli ürün için tam sayı", "donali mahsulot uchun — butun son")
                 : l.Qty > l.Max + 0.0005 ? Tr.T($"больше, чем можно вернуть по чеку (не больше {max})", $"чек боюнча кайтарууга мүмкүн болгондон көп ({max} ашпашы керек)",
                     $"more than can be returned under the receipt (at most {max})", $"fişe göre iade edilebilecekten fazla (en çok {max})", $"chek bo'yicha qaytarish mumkin bo'lganidan ko'p ({max} dan oshmasin)")
                 : l.Qty > 0 && l.SaleItemId.Length == 0 ? Tr.T("сервер не прислал строку чека — правка невозможна, обновите список", "сервер чектин сабын жөнөткөн жок — оңдоо мүмкүн эмес, тизмени жаңыртыңыз",
@@ -135,6 +145,29 @@ public static class CustomerReturnEdit
             if (Math.Abs(original[i].Qty - edited[i].Qty) > 0.0005)
                 return true;
         return false;
+    }
+
+    /// <summary>2026-11-12 (аудит В-2, В-3): состав возврата на сервере (свежая карточка) совпадает с тем, что отправило окно (строки с количеством 0 не считаются) — значит, наша правка
+    /// дошла; иначе версию изменил кто-то другой.</summary>
+    public static bool SameComposition(IReadOnlyList<CustomerReturnEditLine> server, IReadOnlyList<CustomerReturnEditLine> sent)
+    {
+        var a = server.Where(l => l.Qty > 0.0005).OrderBy(l => l.SaleItemId, StringComparer.OrdinalIgnoreCase).ToList();
+        var b = sent.Where(l => l.Qty > 0.0005).OrderBy(l => l.SaleItemId, StringComparer.OrdinalIgnoreCase).ToList();
+        if (a.Count != b.Count)
+            return false;
+        for (var i = 0; i < a.Count; i++)
+            if (!string.Equals(a[i].SaleItemId, b[i].SaleItemId, StringComparison.OrdinalIgnoreCase) || Math.Abs(a[i].Qty - b[i].Qty) > 0.0005)
+                return false;
+        return true;
+    }
+
+    /// <summary>Сумма документа возврата из карточки/ответа сервера (amount, иначе total_amount / total); null — не прислана.</summary>
+    public static decimal? DocAmount(JsonElement card)
+    {
+        foreach (var name in new[] { "amount", "total_amount", "total" })
+            if (ServerErrorCodes.Number(card, name) is { } v && v >= 0m)
+                return v;
+        return null;
     }
 
     /// <summary>Тело PATCH pos/returns/{id}/ (версия добавляется в ReturnEditApi.PatchAsync): ровно {edit_reason, items:[{sale_item_id, quantity}]}.</summary>

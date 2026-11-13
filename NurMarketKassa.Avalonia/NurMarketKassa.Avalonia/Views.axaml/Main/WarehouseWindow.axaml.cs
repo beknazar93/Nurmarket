@@ -74,6 +74,8 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         InitO9Look();
         // 2026-10-23: вкладка «Массовое добавление» — скан подряд, новые товары и приход (WarehouseWindow.BulkScan.cs).
         InitBulkScan();
+        // 2026-11-11, запрос владельца «массовую печать ценников — в Склад сверху, как в вебе»: вкладка «Штрихкоды» после «Приёмки» (WarehouseWindow.Barcodes.cs).
+        InitBarcodesTab();
         // 2026-10-24, ТЗ «Склад», пакеты Б1 и В: приёмка «скан → строка», панель товаров поставщика, «＋ поставщик» (WarehouseWindow.ReceivingScan.cs).
         InitReceivingScan();
         // 2026-10-27: «Загрузить накладную» (Excel/CSV/XML) в приёмке (WarehouseWindow.InvoiceImport.cs).
@@ -82,6 +84,8 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         InitRevision();
         WarehouseTabs.SelectionChanged += WarehouseTabs_SelectionChanged;
         RefreshPaidFeatureVisibility();
+        // 2026-11-11 (Д-3): раскладка склада — с первого кадра и после смены вкладки/размера/окна (WarehouseWindow.LayoutRefresh.cs).
+        InitLayoutRefresh();
     }
 
     /// <summary>Аналитика склада и массовая печать ценников — платные доп. услуги (2026-09-04,
@@ -99,6 +103,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         AnalyticsTabItem.IsVisible = (!_isOwnerSection || !TariffGate.CanUseSalesAnalytics)
                                      && UserPreferences.Instance.WarehouseAnalyticsUnlocked;
         BulkPriceTagButton.IsVisible = UserPreferences.Instance.BulkPriceTagUnlocked;
+        UpdatePrintPickButton(); // 2026-11-11: с отмеченными товарами кнопка «Печать ценников (N)» видна и без покупки (нажатие спросит серийный номер)
     }
 
     /// <summary>Аналитика считается только когда кассир реально открыл эту вкладку — сразу
@@ -350,6 +355,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         };
         ReceivingGrid.CommitEdit();
         line.EnableAutoSale(); // 2026-10-28: новый товар вручную — цена продажи сразу по наценке, как только введена закупка
+        _viewModel.ApplyNewLineDefaults(line); // 2026-11-11: способ приёмки с верхней панели (новый товар вручную — тоже)
         _viewModel.ReceivingLines.Insert(0, line); // 2026-10-24, ТЗ «Склад» (Б1): новая строка сверху
         ReceivingQuantityBox.Text = "1";
         RefreshReceivingSummary();
@@ -378,6 +384,9 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
                 line.CancelCellEdit();
             else
                 line.EndCellEdit();
+            // 2026-11-11 (Д-8): ручная правка «Принимаем» у строки последнего скана — не сброс «тот же код подряд» (следующий скан спросит «Сколько штук?»).
+            if (e.EditAction != DataGridEditAction.Cancel && rejectedCode is null && ReferenceEquals(e.Column, RcvColQty))
+                _viewModel.OnReceivingQuantityEdited(line);
             if (e.Row is { } editedRow)
                 ApplyReceivingRowHeight(editedRow, line); // 2026-11-11 (Б-5): правку названия закончили — обычная высота строки
             // 2026-11-09: пустое название нельзя — у товара склада возвращается прежнее (у нового проведение попросит ввести).
@@ -467,6 +476,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         SumPos.Text = t.Positions.ToString(System.Globalization.CultureInfo.InvariantCulture);
         SumQty.Text = t.Quantity.ToString("0.###", RuCulture);
         SumPurchase.Text = MoneyText.Amount(t.Purchase) + som;
+        RefreshReceivingTotal(t.Purchase); // 2026-11-11 (БП-6): «Итого приход» крупно у кнопки
         SumSale.Text = MoneyText.Amount(t.Sale) + som;
         SumProfit.Text = (t.Profit >= 0 ? "+" : "−") + MoneyText.Amount(Math.Abs(t.Profit)) + som;
         SumProfit.Classes.Set("ok", t.Profit >= 0);

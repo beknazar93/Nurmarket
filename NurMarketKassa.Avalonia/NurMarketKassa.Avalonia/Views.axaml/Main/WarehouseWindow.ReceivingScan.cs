@@ -271,7 +271,34 @@ public partial class WarehouseWindow
         // 2026-10-26, приёмка (Д-2): в программе владельца в пустой приёмке видели «строку-призрак» («Новый · шт · 0 · 1 …») поверх «Накладная пока
         // пустая», хотя в списке 0 позиций. Причину в стенде воспроизвести не удалось, поэтому — защита от симптома: после каждого изменения
         // списка, если таблица показывает строк больше, чем в списке, она получает источник заново (лишние строки пропадают).
-        _viewModel.ReceivingLines.CollectionChanged += (_, _) => Dispatcher.UIThread.Post(SweepStaleReceivingRows, DispatcherPriority.Background);
+        _viewModel.ReceivingLines.CollectionChanged += (_, e) =>
+        {
+            // 2026-11-11 (Д-6, живая проверка «Склада»: WARN «4 при 1 в списке» после проведения). Причина найдена: строку, ячейка которой в правке, DataGrid
+            // (Avalonia 11.2.5) при удалении из списка не отдаёт в переработку — она остаётся спрятанной в таблице и снова видна после смены вкладки
+            // (воспроизведено в Headless: правка ячейки → проведение/удаление строк → «Товары» → «Приёмка» = 1 строка при 0 в списке). Проведение по F9 из ячейки
+            // убирает именно такие строки. Теперь: строка в правке ушла из списка (и не вернулась — перестановка наверх её возвращает сразу) — таблица получает
+            // источник заново, строк-призраков не остаётся.
+            if (_receivingEditingItem is ReceivingLineVm editing
+                && (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset || e.OldItems?.Contains(editing) == true))
+            {
+                Dispatcher.UIThread.Post(() =>
+                {
+                    if (_viewModel.ReceivingLines.Contains(editing))
+                        return;
+                    _receivingEditingItem = null;
+                    ResetReceivingGridSource("строка в правке убрана из списка");
+                }, DispatcherPriority.Background);
+            }
+            Dispatcher.UIThread.Post(SweepStaleReceivingRows, DispatcherPriority.Background);
+        };
+        // 2026-11-11 (Д-6): какая строка сейчас в правке ячейки (для обработчика выше).
+        ReceivingGrid.PreparingCellForEdit += (_, e) => _receivingEditingItem = e.Row?.DataContext;
+        // Правка закончилась у строки, которая ещё в списке, — забываем; у уже убранной строки (DataGrid заканчивает правку при удалении) — помним до обработчика выше.
+        ReceivingGrid.CellEditEnded += (_, e) =>
+        {
+            if (e.Row?.DataContext is ReceivingLineVm ended && _viewModel.ReceivingLines.Contains(ended))
+                _receivingEditingItem = null;
+        };
 
         // Открыли вкладку — курсор в поле скана. e.Source: SelectionChanged всплывает от вложенных списков (замечание к Р2).
         WarehouseTabs.SelectionChanged += (_, e) =>
@@ -303,6 +330,26 @@ public partial class WarehouseWindow
             _receivingSummaryQueued = false;
             RefreshReceivingSummary();
         }, DispatcherPriority.Background);
+    }
+
+    private object? _receivingEditingItem;
+
+    /// <summary>2026-11-11 (Д-6): правку ячейки отменить и дать таблице источник заново — DataGrid выбрасывает все строки, включая «зависшую» строку правки.</summary>
+    private void ResetReceivingGridSource(string why)
+    {
+        try
+        {
+            try { ReceivingGrid.CancelEdit(); }
+            catch (Exception) { /* строки уже нет в списке — отменять нечего */ }
+            var source = ReceivingGrid.ItemsSource;
+            ReceivingGrid.ItemsSource = null;
+            ReceivingGrid.ItemsSource = source;
+            PosLogger.Log($"Приёмка: {why} — таблица пересобрана (без строк-призраков), строк в списке {_viewModel.ReceivingLines.Count}.", "UI");
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Приёмка: пересборка таблицы не удалась: {ex.Message}", "DEBUG");
+        }
     }
 
     /// <summary>2026-10-26 (Д-2): таблица приёмки показывает больше строк, чем в списке, — переустановить источник (см. InitReceivingScan).

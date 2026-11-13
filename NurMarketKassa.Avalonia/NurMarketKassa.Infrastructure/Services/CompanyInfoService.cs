@@ -188,6 +188,11 @@ public static class CompanyInfoService
             SettingsCloudSync.StartCompanyPolling();
             // 2026-10-29: и пульс чужих продаж (один лёгкий запрос раз в ~20 с) — «Сводка», «Продажи», остатки не ждут минуту-другую.
             RemoteSalesPulse.Start();
+            // 2026-11-11, владелец: «доступы даются из сайта и из программы владельца — синхронизацию с сайтом, и маркетплейс тоже»: доступы и купленные
+            // функции перечитываются фоном (раз в ~90 с, по возврату в окно) и применяются без перезапуска.
+            AccessSync.Start();
+            // 2026-11-13 (проверка денег 1.17.86, п. 2/п. 3): возвраты кассы сверяются с сервером — правка/аннулирование вне окна кассы (сайт, программа владельца, обрыв связи) попадает в журнал и смену.
+            ReturnJournalSync.Start();
             // 2026-10-18: общие настройки «Оплата долга» (облако кассы, и у владельца тоже) — сразу и затем раз в 2 минуты.
             _ = DebtPaymentSettings.RefreshAsync();
             DebtPaymentSettings.StartAutoRefresh();
@@ -406,8 +411,9 @@ public static class CompanyInfoService
 
     /// <summary>Прокидывает текущие (сохранённые или дефолтные) scale_barcode_layout/mode
     /// в статические Layout/Mode парсера — Core не может сам читать UserPreferences
-    /// (Infrastructure ссылается на Core, а не наоборот).</summary>
-    private static void SyncWeightBarcodeParserSettings()
+    /// (Infrastructure ссылается на Core, а не наоборот).
+    /// 2026-11-11: internal — правила штрихкода, пришедшие из облака (ScaleBarcodeRulesSync), применяются этим же путём без перезапуска.</summary>
+    internal static void SyncWeightBarcodeParserSettings()
     {
         var prefs = UserPreferences.Instance;
         NurMarketKassa.Core.Application.WeightBarcodeParser.Layout = prefs.ScaleBarcodeLayout;

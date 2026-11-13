@@ -74,6 +74,12 @@ public static partial class PriceTagService
                 Text(0.05, 0.80, 0.35, 0.18, data.Unit, false, SceneDimGray);
                 Text(0.42, 0.78, 0.53, 0.20, data.PriceText, true, SceneBlack);
                 break;
+            case PriceTagKind.HardwareUnitPack:
+                Text(0.05, 0.03, 0.9, 0.20, data.ProductName, true, SceneBlack);
+                Text(0.05, 0.24, 0.9, 0.30, data.PriceText, true, SceneBlack);
+                Text(0.05, 0.55, 0.9, 0.17, data.PackPriceText, false, SceneBlack);
+                Linear(HardwareBarcodeBox, data.Barcode);
+                break;
             case PriceTagKind.WithQr:
                 if (!string.IsNullOrWhiteSpace(data.Barcode))
                     BarcodeLabelService.AddQrScene(items, (float)(QrBox.X * wPx), (float)(QrBox.Y * hPx), (float)(QrBox.W * wPx), (float)(QrBox.H * hPx),

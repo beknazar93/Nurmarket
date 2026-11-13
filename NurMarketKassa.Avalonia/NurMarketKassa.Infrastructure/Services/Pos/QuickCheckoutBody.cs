@@ -88,6 +88,10 @@ public static class QuickCheckoutBody
                     if (byProductAndPrice.TryGetValue(key, out var first))
                     {
                         first["qty"] = SumDecimalText(first["qty"], line["qty"]);
+                        // 2026-11-13 (сервер sn1311): одинаковые строки склеиваются — серийники тоже, без повторов (как у сервера).
+                        if (line["serial_numbers"] is JsonArray mergedSerials)
+                            first["serial_numbers"] = ServerSerials.ToJson(
+                                ServerSerials.Merge(ReadSerialNodes(first["serial_numbers"]), ReadSerialNodes(mergedSerials)));
                         if (line["discount"] is not null)
                             first["discount"] = SumDecimalText(first["discount"], line["discount"], money: true);
                         continue;
@@ -181,6 +185,9 @@ public static class QuickCheckoutBody
 
     private static readonly string[] DeviceFieldNames = { "device_key", "device_name", "branch" };
 
+    private static IEnumerable<string?> ReadSerialNodes(JsonNode? node) =>
+        node is JsonArray arr ? arr.Select(n => n is JsonValue v && v.TryGetValue<string>(out var s) ? s : null) : Enumerable.Empty<string?>();
+
     /// <summary>2026-11-06 (аудит №5, Л5-01): «отпечаток» тела для ключа повтора — тело БЕЗ device_key / device_name / branch. Эти поля зависят от признака сервера checkout_branch и имени кассы,
     /// а признак мог «мигнуть» между первой оплатой с неясным исходом и повтором: тогда отпечаток менялся, ключ становился новым, и оплата «в долг» могла пройти дважды. Состав чека,
     /// суммы и способ оплаты в отпечатке остаются. Принимает текст тела (в том числе записанный на диск до этого изменения).</summary>
@@ -192,6 +199,11 @@ public static class QuickCheckoutBody
             {
                 foreach (var name in DeviceFieldNames)
                     o.Remove(name);
+                // 2026-11-13 (сервер sn1311): серийники в отпечаток не входят — флаг electronics_2026_11 мог «мигнуть» между первой попыткой и повтором, ключ повтора от него не зависит.
+                if (o["items"] is JsonArray items)
+                    foreach (var item in items)
+                        if (item is JsonObject line)
+                            line.Remove("serial_numbers");
                 return o.ToJsonString();
             }
         }
@@ -278,6 +290,13 @@ public static class QuickCheckoutBody
             return null;
         }
 
+        // 2026-11-13 (ответ Умара, строймаркет): единица продажи (sale_unit) быстрый путь продажи не знает — такой чек идёт обычным путём (add-item с sale_unit).
+        if (ProductSaleUnits.LineKey(it) is not null)
+        {
+            unsupportedReason = $"«{name}»: единица продажи (упаковка)";
+            return null;
+        }
+
         var line = new JsonObject
         {
             ["product"] = productId.Trim(),
@@ -299,6 +318,10 @@ public static class QuickCheckoutBody
         // Скидка строки и чека сюда НЕ входят: цена товара прежняя, скидка уходит отдельно (discount / order_discount_*).
         if (IsIntentionalPrice(it))
             line["price_override"] = true;
+        // 2026-11-13 (сервер sn1311, «Электроника»): серийники строки (поле serials строки чека кассы) уходят как serial_numbers — только при флаге компании electronics_2026_11.
+        // Без флага (и у других сфер, где номеров нет) тело прежнее байт в байт: номера остаются в местном журнале.
+        if (ServerSerials.Enabled && ServerSerials.ToJson(SerialJournal.ReadSerials(it)) is { } serialNumbers)
+            line["serial_numbers"] = serialNumbers;
         return line;
     }
 

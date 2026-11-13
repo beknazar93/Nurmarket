@@ -86,7 +86,8 @@
                 <DataGridTextColumn Width="50" Binding="{Binding RowNumber}">
                     <DataGridTextColumn.Header><TextBlock Text="№"/></DataGridTextColumn.Header>
                 </DataGridTextColumn>
-                <DataGridTextColumn Width="2*" Binding="{Binding Name}">
+                <!-- 2026-11-13 (жалоба владельца «в массовой загрузке наименование очень большое»): колонка названия была 2* на всю ширину окна (~550 px на 1366) — теперь не шире 420, остаток отдаётся «Статусу». -->
+                <DataGridTextColumn Width="2*" MaxWidth="420" Binding="{Binding Name}">
                     <DataGridTextColumn.Header><TextBlock Text="{DynamicResource bulkImport.colName}"/></DataGridTextColumn.Header>
                 </DataGridTextColumn>
                 <DataGridTextColumn Width="140" Binding="{Binding Barcode}">

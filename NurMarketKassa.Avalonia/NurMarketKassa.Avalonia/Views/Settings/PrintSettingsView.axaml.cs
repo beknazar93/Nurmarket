@@ -11,6 +11,13 @@ public partial class PrintSettingsView : UserControl
     public NetworkPrinterPanel ReceiptNetPanel { get; } = new(showUseButton: false);
     public NetworkPrinterPanel LabelNetPanel { get; } = new(showUseButton: true);
 
+    /// <summary>2026-11-13: кнопки мастера/диагностики/драйвера для принтера чеков и принтера этикеток.</summary>
+    public PrinterSetupBar ReceiptSetupBar { get; }
+    public PrinterSetupBar LabelSetupBar { get; }
+
+    /// <summary>2026-11-13: мастер «Подключить принтер» сохранил настройки — поля страницы надо перечитать.</summary>
+    public event EventHandler<PrinterWizardResult>? PrinterWizardApplied;
+
     public PrintSettingsView()
     {
         InitializeComponent();
@@ -27,6 +34,14 @@ public partial class PrintSettingsView : UserControl
             "Chop etishning asosiy kaliti: usiz chek chop etilmaydi. To'lov oynasidagi «Chekni chop etish» kassirning oxirgi tanlovini eslab qoladi; bu yerda yoqish uni qayta yoqadi. Qaytarish va kirim/chiqim cheklari shu kalit bo'yicha chop etiladi.");
         ReceiptNetHost.Content = ReceiptNetPanel;
         LabelNetHost.Content = LabelNetPanel;
+        // 2026-11-13: мастер «Подключить принтер», «Принтер не печатает?», «Скачать драйвер Xprinter» (окно настроек обновляет поля по PrinterWizardApplied).
+        ReceiptSetupBar = new PrinterSetupBar(NurMarketKassa.Services.PrinterSetup.PrinterRole.Receipt, () => ReceiptLptBox.Text);
+        LabelSetupBar = new PrinterSetupBar(NurMarketKassa.Services.PrinterSetup.PrinterRole.Label,
+            () => (LabelPrinterCombo.SelectedItem as NurMarketKassa.Services.DiscoveredPrinter)?.DevicePath is { Length: > 0 } p ? p : NurMarketKassa.Services.UserPreferences.Instance.LabelPrinterDevicePath);
+        ReceiptSetupBar.Applied += (_, r) => PrinterWizardApplied?.Invoke(this, r);
+        LabelSetupBar.Applied += (_, r) => PrinterWizardApplied?.Invoke(this, r);
+        ReceiptSetupHost.Content = ReceiptSetupBar;
+        LabelSetupHost.Content = LabelSetupBar;
         // 2026-11-01 (просьба владельца: два принтера разной модели одновременно): подписи карточки «Принтер этикеток и штрихкодов».
         LabelPrinterTitleText.Text = NurMarketKassa.Services.Tr.T(
             "Принтер этикеток и штрихкодов",

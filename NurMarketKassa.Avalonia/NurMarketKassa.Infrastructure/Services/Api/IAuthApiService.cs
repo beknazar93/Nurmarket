@@ -27,6 +27,10 @@ public interface IAuthApiService
     /// <summary>Вход кассира (POST /api/users/auth/login/).</summary>
     Task<JsonElement> LoginAsync(string email, string password, CancellationToken ct = default);
 
+    /// <summary>2026-11-13 (ответ Умара, п. 5): вход с заменой устройства («Войти и отключить другую», replace_device в теле). По умолчанию — обычный вход (заглушки в тестах не обязаны это знать).</summary>
+    Task<JsonElement> LoginAsync(string email, string password, bool replaceDevice, CancellationToken ct = default) =>
+        replaceDevice ? throw new NotSupportedException("replace_device") : LoginAsync(email, password, ct);
+
     /// <summary>Ручное обновление access-токена по refresh-токену.</summary>
     Task<bool> RefreshAccessAsync(CancellationToken ct = default);
 

@@ -32,6 +32,9 @@ public sealed class ProfitCashReconcileWindow : Window, IOwnerSectionRefresh, IO
     private readonly StackPanel _cash = new() { Spacing = 6 };
     private readonly StackPanel _checks = new() { Spacing = 6 };
     private readonly TextBlock _status = new() { FontSize = 12.5, TextWrapping = TextWrapping.Wrap };
+    // 2026-11-12 (оценка UX/UI, Д-2): «сервер недоступен» — один блок на всю страницу вместо блока в левой колонке из трёх (две другие оставались пустыми) и повтора в строке состояния.
+    private readonly Border _stateHost = new() { IsVisible = false };
+    private Grid _columnsGrid = null!;
     private string _period = "month";
     /// <summary>2026-10-22 (зарплата: источник, статьи): расходы периода по названию статьи (salaries/rent/taxes/utilities); null — не получены.</summary>
     private Dictionary<string, double>? _named;
@@ -93,6 +96,9 @@ public sealed class ProfitCashReconcileWindow : Window, IOwnerSectionRefresh, IO
         columns.Children.Add(Card(Tr.T("Сверка отчётов", "Отчёттарды салыштыруу", "Report reconciliation", "Rapor mutabakatı", "Hisobotlarni solishtirish"), _checks, 4));
         Grid.SetRow(columns, 1);
         root.Children.Add(columns);
+        _columnsGrid = columns;
+        Grid.SetRow(_stateHost, 1);
+        root.Children.Add(_stateHost);
         Content = root;
 
         BuildPeriods();
@@ -193,6 +199,9 @@ public sealed class ProfitCashReconcileWindow : Window, IOwnerSectionRefresh, IO
         _cts = new CancellationTokenSource();
         var ct = _cts.Token;
         var (from, to) = Range();
+        _stateHost.IsVisible = false;
+        _stateHost.Child = null;
+        _columnsGrid.IsVisible = true;
         _status.Text = Tr.T("Загрузка с сервера NurCRM…", "NurCRM серверинен жүктөлүүдө…", "Loading from the NurCRM server…", "NurCRM sunucusundan yükleniyor…", "NurCRM serveridan yuklanmoqda…");
         var query = new Dictionary<string, string>
         {
@@ -251,8 +260,10 @@ public sealed class ProfitCashReconcileWindow : Window, IOwnerSectionRefresh, IO
                 _pnl.Children.Clear();
                 _cash.Children.Clear();
                 _checks.Children.Clear();
-                _pnl.Children.Add(ServerOfflineNotice.Build(this, () => _ = LoadAsync()));
-                _status.Text = ServerOfflineNotice.Text;
+                _columnsGrid.IsVisible = false;
+                _stateHost.Child = ServerOfflineNotice.Build(this, () => _ = LoadAsync());
+                _stateHost.IsVisible = true;
+                _status.Text = "";
                 return;
             }
             RenderPnl(pnl);

@@ -19,7 +19,7 @@
   <Window.Styles>
     <!-- Сегменты периода — на всю высоту поля поиска. -->
     <Style Selector="RadioButton.sec-seg">
-      <Setter Property="MinHeight" Value="36"/>
+      <Setter Property="MinHeight" Value="44"/> <!-- 2026-11-11: цель нажатия ≥44 (было 36): сегментов стало шесть, в Touch-теме они же — главные кнопки периода -->
       <Setter Property="FontSize" Value="14"/>
     </Style>
     <Style Selector="Button.sec-primary, Button.sec-outline">
@@ -183,7 +183,9 @@
                 Click="Close_Click"/>
       </Grid>
 
-      <!-- 1: период, поиск, обновить -->
+      <!-- 1: период, поиск, обновить. 2026-11-11 (владелец: «в кассе история чеков — добавь фильтр: месяц, неделя, день, специальная дата!»):
+           сегменты «Эта смена · Сегодня · Вчера · Неделя · Месяц · Дата…» — отдельным рядом (в узком окне переносятся), ниже — поиск; под ними строка
+           «с — по» (только у «Даты…»), подпись периода и «Найдено чеков: N». Правила периода — общие (PeriodRange). -->
       <Grid x:Name="ToolbarGrid" Classes="no-reflow" Grid.Row="1" Margin="0,14,0,0">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="Auto"/>
@@ -191,27 +193,53 @@
           <ColumnDefinition Width="*"/>
           <ColumnDefinition Width="Auto"/>
         </Grid.ColumnDefinitions>
-        <Border x:Name="PeriodChips" Grid.Column="0" Classes="sec-segment">
-          <StackPanel Orientation="Horizontal" Spacing="2">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="8"/>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Border x:Name="PeriodChips" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3" Classes="sec-segment">
+          <WrapPanel Orientation="Horizontal">
             <RadioButton Classes="sec-seg" GroupName="ReceiptPeriod" Tag="shift" IsChecked="True"
                          Content="{DynamicResource receiptHistory.periodShift}" Click="Period_Click"/>
             <RadioButton Classes="sec-seg" GroupName="ReceiptPeriod" Tag="today"
                          Content="{DynamicResource common.today}" Click="Period_Click"/>
             <RadioButton Classes="sec-seg" GroupName="ReceiptPeriod" Tag="yesterday"
                          Content="{DynamicResource sales.yesterday}" Click="Period_Click"/>
-          </StackPanel>
+            <RadioButton x:Name="WeekChip" Classes="sec-seg" GroupName="ReceiptPeriod" Tag="week" Click="Period_Click"/>
+            <RadioButton x:Name="MonthChip" Classes="sec-seg" GroupName="ReceiptPeriod" Tag="month" Click="Period_Click"/>
+            <RadioButton x:Name="DateChip" Classes="sec-seg" GroupName="ReceiptPeriod" Tag="date" Click="Period_Click"/>
+          </WrapPanel>
         </Border>
-        <TextBox x:Name="SearchBox" Grid.Column="1"
+        <Button x:Name="RefreshButton" Grid.Row="0" Grid.Column="3"
+                Content="{DynamicResource common.refresh}"
+                Classes="sec-outline"
+                VerticalAlignment="Center"
+                MinHeight="44" MinWidth="110"
+                Click="Refresh_Click"/>
+        <TextBox x:Name="SearchBox" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
                  Classes="ModernInput"
-                 Margin="12,0"
                  HorizontalAlignment="Stretch"
                  Watermark="{DynamicResource receiptHistory.searchWatermark}"
                  TextChanged="SearchBox_TextChanged"/>
-        <Button x:Name="RefreshButton" Grid.Column="3"
-                Content="{DynamicResource common.refresh}"
-                Classes="sec-outline"
-                MinHeight="42" MinWidth="110"
-                Click="Refresh_Click"/>
+        <!-- «с — по» (только у «Даты…») применяется сразу, без кнопки; одна дата — один день. Подпись периода и счётчик — всегда. -->
+        <WrapPanel x:Name="PeriodInfoRow" Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="4" Margin="0,8,0,0" IsVisible="False" Orientation="Horizontal">
+          <WrapPanel x:Name="CustomDatesPanel" Orientation="Horizontal" IsVisible="False" Margin="0,0,16,0" VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,12,0">
+              <TextBlock x:Name="DateFromLabel" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushTextSoft}"/>
+              <CalendarDatePicker x:Name="DateFromPicker" MinHeight="44" Width="150" SelectedDateFormat="Short"
+                                  SelectedDateChanged="CustomDate_Changed"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock x:Name="DateToLabel" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushTextSoft}"/>
+              <CalendarDatePicker x:Name="DateToPicker" MinHeight="44" Width="150" SelectedDateFormat="Short"
+                                  SelectedDateChanged="CustomDate_Changed"/>
+            </StackPanel>
+          </WrapPanel>
+          <TextBlock x:Name="PeriodInfoText" VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold"
+                     TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+        </WrapPanel>
       </Grid>
 
       <!-- 2: загрузка и предупреждения (нет связи, смена не открыта) -->

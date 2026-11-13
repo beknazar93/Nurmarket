@@ -72,6 +72,15 @@ public partial class CheckoutDialog : Window
             if (propertyName is nameof(CheckoutViewModel.HasSelectedClient) or nameof(CheckoutViewModel.IsDebtMode)
                 && _viewModel.IsDebtMode && _viewModel.HasSelectedClient)
                 Dispatcher.UIThread.Post(() => this.FindControl<Control>("DebtSection")?.BringIntoView(), DispatcherPriority.Background);
+            // 2026-11-12: крупный QR (один экран) появился — прокручиваем к нему (на 1024×600 он ниже выбора банка); пропал (другой способ оплаты, «Карта») — закрываем «QR крупнее».
+            if (propertyName == nameof(CheckoutViewModel.ShowQrCardLarge) && _viewModel.ShowQrCardLarge != _lastShowQrLarge)
+            {
+                _lastShowQrLarge = _viewModel.ShowQrCardLarge;
+                if (_lastShowQrLarge)
+                    Dispatcher.UIThread.Post(() => QrLargeCard.BringIntoView(), DispatcherPriority.Background);
+                else
+                    SetQrOverlay(false);
+            }
         }
         _viewModel.PropertyChanged += (_, e) =>
         {
@@ -115,6 +124,7 @@ public partial class CheckoutDialog : Window
             _offlineTimer?.Stop();
             _viewModel.FlushPrintReceiptPreference();
             _viewModel.FlushCardPayPreference(); // 2026-11-06 (Д4-15)
+            _viewModel.ResetCustomerDisplayQr(); // 2026-11-12: Esc/✕/оплата не оставляют экрану покупателя сумму QR прошлого чека
         };
         Deactivated += (_, _) => _heldFunctionKeys.Clear();
         AddHandler(GotFocusEvent, (_, e) =>
@@ -313,6 +323,13 @@ public partial class CheckoutDialog : Window
     /// раскрытый список банков клавиши получают как раньше.</summary>
     private void OnPaymentKeyTunnel(object? sender, KeyEventArgs e)
     {
+        // 2026-11-12: открыт «QR крупнее» — Esc закрывает только его, окно оплаты остаётся (Enter по-прежнему «Оплатить»).
+        if (_qrOverlayOpen && e.Key == Key.Escape)
+        {
+            e.Handled = true;
+            SetQrOverlay(false);
+            return;
+        }
         if (e.KeyModifiers != KeyModifiers.None || BankComboBox.IsDropDownOpen)
             return;
 
@@ -612,6 +629,48 @@ public partial class CheckoutDialog : Window
     /// <summary>2026-10-30: «Списать N F6» — списать столько бонусов, сколько можно (или снять списание); то же, что ввести число в поле бонусов.</summary>
     private void RedeemPoints_Click(object? sender, RoutedEventArgs e) => _viewModel.ToggleRedeemAllPoints();
 
+    // ------------------------------------------------------------------ 2026-11-12: «Показать QR крупнее» (один экран)
+    private bool _qrOverlayOpen;
+    private bool _lastShowQrLarge;
+    private double? _minHeightBeforeQr;
+
+    /// <summary>Открыт ли «QR крупнее» (для стенда проверки).</summary>
+    internal bool IsQrOverlayOpen => _qrOverlayOpen;
+
+    private void ShowQrLarge_Click(object? sender, RoutedEventArgs e) => SetQrOverlay(true);
+
+    private void QrOverlay_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        e.Handled = true;
+        SetQrOverlay(false);
+    }
+
+    /// <summary>QR на всё окно оплаты: на это время окно вытягивается на всю доступную высоту (прилипшее — через ApplyDock, иначе — до MaxHeight),
+    /// после закрытия высота прежняя.</summary>
+    internal void SetQrOverlay(bool open)
+    {
+        if (_qrOverlayOpen == open)
+            return;
+        _qrOverlayOpen = open;
+        QrOverlay.IsVisible = open;
+        if (_dockOwner is { } dockOwner)
+        {
+            ApplyDock(dockOwner);
+            return;
+        }
+        if (open)
+        {
+            _minHeightBeforeQr = MinHeight;
+            if (double.IsFinite(MaxHeight) && MaxHeight > MinHeight)
+                MinHeight = MaxHeight;
+        }
+        else if (_minHeightBeforeQr is { } previous)
+        {
+            MinHeight = previous;
+            _minHeightBeforeQr = null;
+        }
+    }
+
     private async void ChooseClient_Click(object? sender, RoutedEventArgs e)
     {
         await ClientPickerDialog.Open(this, _viewModel).ConfigureAwait(true);
@@ -810,7 +869,7 @@ public partial class CheckoutDialog : Window
             SizeToContent = SizeToContent.Height;
             WindowStartupLocation = WindowStartupLocation.Manual;
             MinWidth = 0;
-            MinHeight = fixedHeight; // 2026-11-06 (Д4-14): постоянная высота
+            MinHeight = _qrOverlayOpen ? maxHeight : fixedHeight; // 2026-11-06 (Д4-14): постоянная высота; 2026-11-12: «QR крупнее» — вся доступная высота
             MaxWidth = width;
             MaxHeight = maxHeight;
             if (double.IsNaN(Width) || Math.Abs(Width - width) > 0.5)

@@ -62,6 +62,9 @@ public interface ICartService
     void AddItem(CatalogProductTileVm product, double quantity, double unitPriceOverride, string? salePackageId);
     /// <summary>2026-10-01, магазин одежды: вариант товара (размер/цвет) — своя строка с ценой варианта,
     /// на сервер уходит variant_id (см. ReceiptSnapshotCartEditor.AddVariant).</summary>
+    /// <summary>2026-11-13 (ответ Умара, строймаркет): товар в единице продажи (упаковка 1,44 м²), количество — в упаковках; на сервер уходит sale_unit, остаток списывается qty × factor.
+    /// unitKey — ключ единицы (id или код, см. ProductSaleUnits.Unit.Key), factor и цены — из карточки; сама логика — ReceiptSnapshotCartEditor.AddSaleUnit.</summary>
+    void AddSaleUnitItem(CatalogProductTileVm product, string unitKey, double quantity, bool wholesale);
     void AddVariantItem(CatalogProductTileVm product, double quantity, double unitPrice, string variantId, string label, string? size, string? color);
     /// <summary>«Доп. услуга» (2026-09-07): строка чека без товара — название, цена за единицу
     /// (отрицательная = «Расход», вычитается из чека) и количество. См. ReceiptSnapshotCartEditor.AddCustomItem.</summary>

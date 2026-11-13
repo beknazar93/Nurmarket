@@ -114,8 +114,10 @@ public static class ReceivingPacks
             // 2026-11-10 (упаковка у товара склада): «Было: N шт → станет: M упак. по K шт; остаток …; приход …; продажа поштучно: цена штуки …».
             if (l.PackSaleConvertsExisting)
             {
-                var stock = N(l.StockBefore);
-                var after = l.ConvertedStock is { } a ? N(a) : "?";
+                // 2026-11-11 (convert-to-packages): остаток — из свежей карточки (подтверждённый), с округлением по согласию — «≈» (точное число скажет сервер).
+                var stock = N(l.PackConvertStockSeen);
+                var after = l.ConvertedStock is { } a ? N(a)
+                    : l.PackConvertAllowRounding ? "≈" + N(ReceivingPackConvert.RoundingPreview(l.PackConvertStockSeen * (l.CardPackSize > 0 ? l.CardPackSize : 1), l.PiecesPerPack).Rounded) : "?";
                 var packPrice = N(l.PurchasePrice);
                 var was = l.CardPackSize > 0
                     ? Tr.T($"упаковка по {N(l.CardPackSize)} шт, остаток {stock} упак.", $"таңгак {N(l.CardPackSize)} даанадан, калдык {stock} таңгак", $"a pack of {N(l.CardPackSize)} pcs, stock {stock} packs", $"{N(l.CardPackSize)} adetlik koli, stok {stock} koli", $"{N(l.CardPackSize)} donalik qadoq, qoldiq {stock} qadoq")

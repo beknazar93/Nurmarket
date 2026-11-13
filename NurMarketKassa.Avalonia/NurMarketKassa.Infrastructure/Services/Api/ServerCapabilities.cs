@@ -48,6 +48,13 @@ public static class ServerCapabilities
     public const string SupplierReturnEdit24h = "supplier_return_edit_24h";
     /// <summary>2026-11-10: то же для возврата от клиента (pos/returns).</summary>
     public const string PosReturnEdit24h = "pos_return_edit_24h";
+    /// <summary>2026-11-12 (ХМ2, ТЗ бэкенду Б-52): флаг компании company_flags.hardware_2026_11 — сервер принимает дробное quantity у обычного (не весового) товара и проверяет шаг/минимум.
+    /// Включает дробное количество в «Хозтоварах» (QuantityRules.Active); без флага касса ведёт себя как раньше.</summary>
+    public const string Hardware202611 = "hardware_2026_11";
+    /// <summary>2026-11-13 (сервер apl1311+sn1311, «Сервер 13.11 — серийные номера, гарантия, Электроника»): флаг компании company_flags.electronics_2026_11 — сервер проверяет серийные номера в продаже
+    /// (serial_already_sold / serial_count_mismatch / serial_duplicate_in_line / serial_too_long), отдаёт serial_numbers и warranty_until в чеке и поиск serials/. Включается компании в company/addons/ (как hardware_2026_11);
+    /// без флага касса серийники на сервер не шлёт (они остаются в местном журнале), как раньше.</summary>
+    public const string Electronics202611 = "electronics_2026_11";
 
     /// <summary>2026-11-05: синхронная проверка признака для мест, где ждать сеть нельзя (расчёт «Касса:», тело чека). true — признак есть у ЭТОГО аккаунта; нет списка, он устарел
     /// или запрос не удался — false (поведение «как раньше»). Если список не получен или старше срока, в фоне просит его заново (ServerAddons.Api — тот же клиент, что у бонусов).</summary>
@@ -269,6 +276,9 @@ public static class ServerCapabilities
                     recognized = true;
                 }
             Collect(d, set); // и признаки прямо в объекте: {"receipt_edit": true}
+            // 2026-11-12 (ХМ2, ТЗ хозмаг): флаги компании — {"company_flags": {"hardware_2026_11": true}}; выключенные (false) в список не попадают.
+            if (d.TryGetProperty("company_flags", out var flags) && flags.ValueKind == JsonValueKind.Object)
+                Collect(flags, set);
             recognized |= set.Count > 0;
         }
         if ((!recognized || set.Count == 0) && !_shapeWarned)

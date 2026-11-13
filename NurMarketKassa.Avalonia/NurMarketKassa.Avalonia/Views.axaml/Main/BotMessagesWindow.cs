@@ -300,6 +300,35 @@ public sealed class BotMessagesWindow : Window
             _rows.Children.Add(Row(m));
     }
 
+    /// <summary>2026-11-12 (Д-5): статусы журнала приходят с сервера английскими словами (receipt, sent, deferred, skipped…) — на экране они на языке программы.
+    /// Неизвестное слово сервера показываем как есть (формат полей сервер не расписал).</summary>
+    private static string StatusText(string status) => Norm(status) switch
+    {
+        "sent" or "delivered" => T("Отправлено", "Жөнөтүлдү", "Sent", "Gönderildi", "Yuborildi"),
+        "queued" or "pending" or "new" => T("В очереди", "Кезекте", "Queued", "Sırada", "Navbatda"),
+        "deferred" or "scheduled" => T("Отложено", "Кечиктирилди", "Deferred", "Ertelendi", "Kechiktirildi"),
+        "skipped" => T("Пропущено", "Өткөрүлүп жиберилди", "Skipped", "Atlandı", "O'tkazib yuborildi"),
+        "failed" or "error" => T("Не отправлено", "Жөнөтүлгөн жок", "Failed", "Gönderilemedi", "Yuborilmadi"),
+        "cancelled" or "canceled" => T("Отменено", "Жокко чыгарылды", "Cancelled", "İptal edildi", "Bekor qilindi"),
+        "read" => T("Прочитано", "Окулду", "Read", "Okundu", "O'qildi"),
+        _ => status,
+    };
+
+    private static string KindText(string kind) => Norm(kind) switch
+    {
+        "receipt" or "check" => T("Чек", "Чек", "Receipt", "Fiş", "Chek"),
+        "debt" or "debt_reminder" => T("Напоминание о долге", "Карыз эскертүүсү", "Debt reminder", "Borç hatırlatması", "Qarz eslatmasi"),
+        "promo" or "marketing" or "campaign" => T("Акция", "Акция", "Promotion", "Kampanya", "Aksiya"),
+        "birthday" => T("День рождения", "Туулган күн", "Birthday", "Doğum günü", "Tug'ilgan kun"),
+        "order" => T("Заказ", "Заказ", "Order", "Sipariş", "Buyurtma"),
+        "welcome" => T("Приветствие", "Саламдашуу", "Welcome", "Karşılama", "Salomlashish"),
+        "review" => T("Отзыв", "Пикир", "Review", "Yorum", "Sharh"),
+        "bonus" or "bonuses" => T("Бонусы", "Бонустар", "Bonuses", "Bonuslar", "Bonuslar"),
+        _ => kind,
+    };
+
+    private static string Norm(string? v) => (v ?? "").Trim().ToLowerInvariant().Replace('-', '_').Replace(' ', '_');
+
     private static Border Row(OutboxMessage m)
     {
         var detail = m.Text;
@@ -310,7 +339,7 @@ public sealed class BotMessagesWindow : Window
         var cells = new[]
         {
             m.At is { } at ? at.LocalDateTime.ToString("dd.MM HH:mm", CultureInfo.InvariantCulture) : "",
-            m.ClientName, m.Kind, m.Status, detail,
+            m.ClientName, KindText(m.Kind), StatusText(m.Status), detail,
         };
         var g = new Grid { ColumnDefinitions = new ColumnDefinitions(Cols) };
         for (var i = 0; i < cells.Length; i++)

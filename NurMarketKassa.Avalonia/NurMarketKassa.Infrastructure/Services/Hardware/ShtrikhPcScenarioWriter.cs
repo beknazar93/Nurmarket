@@ -80,6 +80,35 @@ public static class ShtrikhPcScenarioWriter
         return n;
     }
 
+    /// <summary>2026-11-12 (жалоба «отправил товар — на экране весов пропали остальные»): какие коды ставить на главный экран (сценарий и кнопки быстрого доступа). Раньше экран
+    /// пересобирался ТОЛЬКО из товаров текущей отправки: отправка одного товара (без очистки базы весов) оставляла на экране один этот товар, остальные — в базе весов, но не на экране.
+    /// Теперь: если вызывающий передал <paramref name="screenOrder"/> (все коды, которые должны быть на экране, в порядке списка «Весы»: эта отправка + отправленные раньше),
+    /// берутся коды из него — товар этой отправки только если принят (<paramref name="accepted"/>), прежний товар — как есть; принятые, которых нет в порядке, — в конец.
+    /// Без <paramref name="screenOrder"/> (полная выгрузка с очисткой) — как раньше, только принятые.</summary>
+    /// <param name="accepted">Коды этой отправки, которые идут на экран (записаны и прошли фильтр «только с картинкой»).</param>
+    /// <param name="batch">Все коды этой отправки (в том числе не записанные) — чтобы отличить «прежний» товар от отброшенного.</param>
+    public static List<long> ScreenCodes(IReadOnlyList<long> accepted, IReadOnlyCollection<long> batch, IReadOnlyList<long>? screenOrder)
+    {
+        var result = new List<long>();
+        var seen = new HashSet<long>();
+        if (screenOrder is not null)
+        {
+            var acceptedSet = new HashSet<long>(accepted);
+            var batchSet = new HashSet<long>(batch);
+            foreach (var code in screenOrder)
+            {
+                if (code > 0 && (acceptedSet.Contains(code) || !batchSet.Contains(code)) && seen.Add(code))
+                    result.Add(code);
+            }
+        }
+        foreach (var code in accepted)
+        {
+            if (seen.Add(code))
+                result.Add(code);
+        }
+        return result;
+    }
+
     /// <summary>Сколько товаров на каждом экране: один экран — до 30 без кнопок перехода; иначе первый — 29, средние — 28, последний — до 29 (кнопки перехода занимают места).</summary>
     public static List<int> ScreenSizes(int products)
     {

@@ -139,6 +139,10 @@ public static class CartReceiptTextBuilder
                     foreach (var itemLine in ReceiptLineLayout.FormatItemBlock($"{qtyStr} x {unitStr}", totalStr, W))
                         Line(itemLine);
 
+                    // 2026-11-12 (ЭЛ3, сфера «Электроника»): серийный номер / IMEI и «Гарантия до» под строкой товара; у других сфер — ничего.
+                    foreach (var serialLine in WarrantyCard.ItemLines(it, receiptTime ?? DateTime.Now, W))
+                        Line(serialLine);
+
                     // 2026-10-02: вариант по акции — обычная цена и сумма скидки (цену считает сервер).
                     if (CartDisplayHelper.VariantBasePrice(it) is { } promoBase)
                         AppendStackedAmountLine(sb, $"АКЦИЯ, было {FormatMoney(promoBase)}:", "-" + FormatMoney((promoBase - unitPrice) * qty));

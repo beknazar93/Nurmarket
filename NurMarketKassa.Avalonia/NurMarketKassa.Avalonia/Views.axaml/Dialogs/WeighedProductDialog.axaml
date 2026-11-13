@@ -133,7 +133,7 @@
                         Padding="16,12">
                     <StackPanel Spacing="4">
                         <TextBlock x:Name="LiveScaleLabel" Text="{DynamicResource weigh.currentScaleLabel}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" FontWeight="Medium"/>
-                        <TextBlock x:Name="LiveScaleText" Text="0.00 кг" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+                        <TextBlock x:Name="LiveScaleText" Text="0,00" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
                     </StackPanel>
                 </Border>
 
@@ -159,7 +159,7 @@
                         <StackPanel Spacing="6">
                             <TextBlock x:Name="WeightLabel" Text="{DynamicResource weigh.weightKgLabel}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSoft}"/>
                             <TextBox x:Name="WeightBox"
-                                     Text="0.00"
+                                     Text="0,00"
                                      Classes="WeightInput"
                                      KeyDown="WeightBox_KeyDown"
                                      TextChanged="WeightBox_TextChanged"/>

@@ -233,7 +233,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
             if (NurMarketKassa.Services.AppMode.IsOwner)
             {
                 NavScales.IsVisible = false;
-                NavPrint.IsVisible = false;
+                // 2026-11-11, запрос владельца «настройки печати тоже в владельца добавь»: вкладка «Печать» видна и в программе владельца
+                // (принтер этикеток/ценников/накладных ЭТОЙ программы; настройки принтера чеков кассы задаются на ПК кассы — подпись сверху).
                 NavMonitor.IsVisible = false;
                 Classes.Add("owner-mode");
                 OwnerHardwareHint.IsVisible = true;
@@ -529,6 +530,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             _printView.LoadGraphicQrButton.Click += LoadGraphicQrCode_Click;
             _printView.DeleteGraphicQrButton.Click += DeleteGraphicQrCode_Click;
             _printView.SaveRequested += PrintSaveRequested;
+            WirePrinterWizard(); // 2026-11-13: мастер «Подключить принтер» и диагностика (PosSettingsWindow.PrinterWizard.cs)
             GraphicFontSizeCombo.SelectionChanged += (_, _) => SyncFontSizeCombo(GraphicFontSizeCombo, TextFontSizeCombo);
             TextFontSizeCombo.SelectionChanged += (_, _) => SyncFontSizeCombo(TextFontSizeCombo, GraphicFontSizeCombo);
 
@@ -658,12 +660,13 @@ namespace NurMarketKassa.AvaloniaHost.Views
             if (!NurMarketKassa.Services.AppMode.IsOwner)
                 return;
             Title = Tr.T("Настройки", "Жөндөөлөр", "Settings", "Ayarlar", "Sozlamalar");
+            // 2026-11-11: «Печать» теперь и здесь; весы с этикетками — раздел «Товары → Весы». Принтер чеков кассы и COM-весы — на ПК кассы.
             OwnerHardwareHint.Text = Tr.T(
-                "Настройки железа кассы (весы, принтер, экран покупателя) меняются в самой кассе.",
-                "Кассанын жабдууларынын жөндөөлөрү (тараза, принтер, сатып алуучунун экраны) кассанын өзүндө өзгөртүлөт.",
-                "Till hardware settings (scales, printer, customer display) are changed in the till itself.",
-                "Kasa donanımı ayarları (terazi, yazıcı, müşteri ekranı) kasanın kendisinde değiştirilir.",
-                "Kassa uskunalari sozlamalari (tarozi, printer, xaridor ekrani) kassaning o'zida o'zgartiriladi.");
+                "Вкладка «Печать» меняет настройки печати этой программы (этикетки, ценники, накладные). Принтер чеков кассы, весы по COM и экран покупателя задаются на ПК кассы.",
+                "«Басып чыгаруу» өтмөгү ушул программанын басып чыгаруу жөндөөлөрүн өзгөртөт (этикеткалар, баа жазгычтар, накладныйлар). Кассанын чек принтери, COM тараза жана сатып алуучунун экраны кассанын компьютеринде коюлат.",
+                "The “Print” tab changes this program's print settings (labels, price tags, invoices). The till's receipt printer, COM scales and customer display are set on the till PC.",
+                "«Yazdır» sekmesi bu programın yazdırma ayarlarını değiştirir (etiket, fiyat etiketi, fatura). Kasanın fiş yazıcısı, COM tartı ve müşteri ekranı kasa bilgisayarında ayarlanır.",
+                "«Chop etish» varag'i ushbu dasturning chop etish sozlamalarini o'zgartiradi (yorliq, narx teglari, nakladnoylar). Kassaning chek printeri, COM tarozi va xaridor ekrani kassa kompyuterida sozlanadi.");
         }
 
         /// <summary>2026-11-01 («дизайн верхних кнопок»): вкладки настроек — ВСЕГДА один ровный ряд (раньше при нехватке ширины — два неровных
@@ -687,15 +690,23 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
             // Запас на полужирную подпись выбранной вкладки — она чуть шире обычной.
             widest += 4;
+            // 2026-11-12 (оценка UX/UI, Д-6): на 1024 девять вкладок уходили под стрелки ‹ › — часть разделов не видна. Не помещаются в один ряд —
+            // два ровных ряда (половина и половина, у нечётного числа последняя ячейка пуста); стрелки остаются запасом только для очень узкого окна.
             double need = widest * visible.Count;
+            bool twoRows = visible.Count > 3 && need > full + 0.5;
+            int columns = twoRows ? (visible.Count + 1) / 2 : visible.Count;
+            need = widest * columns;
             bool scroll = need > full + 0.5;
             const double arrowsWidth = 64; // две стрелки по 32
             double viewport = scroll ? full - arrowsWidth : full;
-            if (NavTabsGrid.Rows != 1 || NavTabsGrid.Columns != visible.Count)
+            int rows = twoRows ? 2 : 1;
+            if (NavTabsGrid.Rows != rows || NavTabsGrid.Columns != columns)
             {
-                NavTabsGrid.Rows = 1;
-                NavTabsGrid.Columns = visible.Count;
+                NavTabsGrid.Rows = rows;
+                NavTabsGrid.Columns = columns;
             }
+            if (Classes.Contains("nav2") != twoRows)
+                Classes.Set("nav2", twoRows); // низкое окно: в два ряда подписи без значков (см. стиль Window.short.nav2)
             NavTabsGrid.MinWidth = Math.Max(viewport, need);
             NavScrollLeft.IsVisible = scroll;
             NavScrollRight.IsVisible = scroll;
@@ -761,6 +772,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
         /// <summary>2026-10-27 (С-22): значения редактируемых полей страниц с кнопкой «Сохранить» (Весы, Печать, Экран).
         /// Язык (применяется сразу) не входит.</summary>
+        /// <remarks>2026-11-11 (Д-5, живой показ 1.17.85): «Есть несохранённые изменения» появлялось после простого переключения вкладок «Весов»
+        /// (вкладки — тоже переключатели) и после переключателей, которые применяются и сохраняются сразу (правила штрихкода, размытие, режим
+        /// отрисовки). Теперь в сравнение входят только поля, которые сохраняет кнопка «Сохранить»: вкладки разделов (класс SectionTab) и всё,
+        /// что помечено <see cref="ImmediateSettingClass"/> (сам элемент или его предок), пропускается.</remarks>
         private string SnapshotEditable()
         {
             var languageRadios = LanguageRadios().Select(r => r.Radio).ToList();
@@ -768,6 +783,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
             foreach (var page in new Control[] { _scaleView, _printView, _screenView })
                 foreach (var c in page.GetLogicalDescendants())
                 {
+                    if (IsImmediateSetting(c, page))
+                        continue;
                     switch (c)
                     {
                         case TextBox { IsReadOnly: false } tb: sb.Append(tb.Text); break;
@@ -780,6 +797,23 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 }
             return sb.ToString();
         }
+
+        /// <summary>2026-11-11 (Д-5): класс элемента настроек, который применяется и сохраняется сразу (без «Сохранить») — в проверку
+        /// «несохранённых изменений» не входит вместе со всем содержимым.</summary>
+        public const string ImmediateSettingClass = "ImmediateSetting";
+
+        private static bool IsImmediateSetting(Avalonia.LogicalTree.ILogical c, Control page)
+        {
+            if (c is RadioButton { Classes: var tabClasses } && tabClasses.Contains("SectionTab"))
+                return true; // вкладка раздела — переход, а не значение
+            for (var node = c; node is not null && !ReferenceEquals(node, page); node = node.LogicalParent)
+                if (node is StyledElement { Classes: var classes } && classes.Contains(ImmediateSettingClass))
+                    return true;
+            return false;
+        }
+
+        /// <summary>2026-11-11 (Д-5): только для тестов окна — есть ли сейчас «несохранённые изменения» (то, о чём спросит закрытие).</summary>
+        internal bool HasPendingEditsForTests => _dirtyBaseline is not null && SnapshotEditable() != _dirtyBaseline;
 
         private void OnSettingsClosing(object? sender, WindowClosingEventArgs e)
         {
@@ -840,6 +874,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
         {
             var (index, button) = tab switch
             {
+                "print" => (1, NavPrint), // 2026-11-11: «Печать» в программе владельца
                 "screen" => (2, NavScreen),
                 "updates" => (4, NavUpdates),
                 "operations" => (5, (Button?)_navButtons[5]),
@@ -1081,12 +1116,14 @@ namespace NurMarketKassa.AvaloniaHost.Views
             var receiptName = (DiscoveredPrintersCombo.ItemsSource as IEnumerable<DiscoveredPrinter>)
                 ?.FirstOrDefault(p => LabelPrinterSelector.SamePrinter(p.DevicePath, receiptPath))?.Label ?? receiptPath;
             var receiptKind = LabelPrinterSelector.DescribeKind(receiptPath);
+            // 2026-11-11 (Д-13, живой показ 1.17.85): блока «Оборудование» на странице нет — он называется «Оборудование и подключение»
+            // (posSettings.print.equipmentTitle) и виден только при включённом «Печатать чек после оплаты». Текст — по настоящим названиям.
             _printView.ReceiptPrinterSummaryText.Text = Tr.T(
-                $"Принтер чеков: {receiptName} — {receiptKind} (меняется ниже, в блоке «Оборудование»).",
-                $"Чек принтери: {receiptName} — {receiptKind} (төмөндө, «Жабдуулар» блогунда өзгөртүлөт).",
-                $"Receipt printer: {receiptName} — {receiptKind} (change it below, in the “Equipment” block).",
-                $"Fiş yazıcısı: {receiptName} — {receiptKind} (aşağıdaki «Donanım» bölümünden değiştirilir).",
-                $"Chek printeri: {receiptName} — {receiptKind} (pastda, «Uskunalar» blokida o'zgartiriladi).");
+                $"Принтер чеков: {receiptName} — {receiptKind}. Меняется ниже, в блоке «Оборудование и подключение» (он виден, когда включено «Печатать чек после оплаты»).",
+                $"Чек принтери: {receiptName} — {receiptKind}. Төмөндө, «Жабдуулар жана туташуу» блогунда өзгөртүлөт (ал «Төлөмдөн кийин чекти басып чыгаруу» күйгүзүлгөндө көрүнөт).",
+                $"Receipt printer: {receiptName} — {receiptKind}. Change it below, in the “Equipment and connection” block (it is shown when “Print receipt after payment” is on).",
+                $"Fiş yazıcısı: {receiptName} — {receiptKind}. Aşağıdaki «Donanım ve bağlantı» bölümünden değiştirilir («Ödemeden sonra fişi yazdır» açıkken görünür).",
+                $"Chek printeri: {receiptName} — {receiptKind}. Pastda, «Uskuna va ulanish» blokida o'zgartiriladi («To'lovdan keyin chekni chop etish» yoqilganda ko'rinadi).");
 
             var selected = LabelPrinterCombo.SelectedItem as DiscoveredPrinter;
             if (selected is { DevicePath.Length: 0 })

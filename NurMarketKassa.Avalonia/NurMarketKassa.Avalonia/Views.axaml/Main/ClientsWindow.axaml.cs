@@ -84,9 +84,11 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
         InitDocs();
         // 2026-11-08: блок «Согласия на сообщения» и «Каналы» в карточке клиента (п. 31, 35).
         CardMessagingHost.Content = _messaging = new ClientMessagingBlock();
+        CardForemanHost.Content = _foreman = new ClientForemanBlock(); // 2026-11-12: ХМ8, цена прораба
     }
 
     private ClientMessagingBlock? _messaging;
+    private ClientForemanBlock? _foreman;
 
     private void CloseCardButton_Click(object? sender, RoutedEventArgs e) => SelectedClient = null;
 
@@ -201,6 +203,7 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
                 TelegramInviteHint.IsVisible = false;
             _ = LoadClientPurchasesAsync(value);
             _messaging?.SetClient(value?.Id); // 2026-11-08: согласия и каналы выбранного клиента
+            _foreman?.SetClient(value?.Id); // 2026-11-12: ХМ8, отметка «прораб»
         }
     }
 
@@ -421,6 +424,7 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
         if (RefreshButton != null)
             RefreshButton.IsEnabled = false;
         ErrorMessage = "";
+        StateHost.IsVisible = false; // 2026-11-12 (Д-2)
         UpdateEmptyState();
         // 2026-10-19, этап О8: долги грузятся параллельно со списком (один запрос, как у «Сводки»), а не по клиенту.
         _ = LoadDebtsAsync();
@@ -454,14 +458,10 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
         {
             // superseded by a newer refresh
         }
-        catch (ApiException ex)
-        {
-            ErrorMessage = ServerOutageMonitor.FriendlyError(ex); // 2026-11-01 (В-28): вместо сырого «An error occurred…»
-        }
         catch (Exception ex)
         {
-            ErrorMessage = Tr.T("Не удалось загрузить клиентов: ", "Клиенттерди жүктөө мүмкүн болгон жок: ", "Could not load clients: ", "Müşteriler yüklenemedi: ", "Mijozlarni yuklab bo'lmadi: ") + ServerOutageMonitor.FriendlyError(ex);
             PosLogger.Log($"Clients load failed: {ex}", "WARNING");
+            ShowLoadFailure(ex);
         }
         finally
         {
@@ -471,6 +471,23 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
                 RefreshButton.IsEnabled = true;
             UpdateEmptyState();
         }
+    }
+
+    /// <summary>2026-11-12 (оценка UX/UI, Д-2): сбой загрузки клиентов. Списка нет — общий блок состояния по центру таблицы с «Повторить» (раньше — красная полоса внизу, далеко от места,
+    /// и пустая таблица); список уже есть — остаётся, внизу одна понятная строка. Сырой ответ сервера — в «Подробнее» и журнал.</summary>
+    private void ShowLoadFailure(Exception ex)
+    {
+        if (_allClients.Count == 0)
+        {
+            StateHost.Child = StateBlock.Failure(this, ex,
+                Tr.T("Не удалось загрузить клиентов", "Клиенттерди жүктөө мүмкүн болгон жок", "Could not load clients", "Müşteriler yüklenemedi", "Mijozlarni yuklab bo'lmadi"),
+                () => _ = LoadClientsAsync());
+            StateHost.IsVisible = true;
+            ErrorMessage = "";
+        }
+        else
+            ErrorMessage = Tr.T("Не удалось обновить клиентов: ", "Клиенттерди жаңыртуу мүмкүн болгон жок: ", "Could not refresh clients: ", "Müşteriler güncellenemedi: ", "Mijozlarni yangilab bo'lmadi: ")
+                + ServerOutageMonitor.FriendlyError(ex);
     }
 
     /// <summary>2026-10-19, этап О8: окно «Новый клиент» (ModalShell). Сохранение — прежний запрос CreateClientAsync.</summary>

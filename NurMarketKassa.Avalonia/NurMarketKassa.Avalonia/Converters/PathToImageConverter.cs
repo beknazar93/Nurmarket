@@ -15,7 +15,10 @@ public class PathToImageConverter : IValueConverter
     {
         if (value is string rawPath && !string.IsNullOrWhiteSpace(rawPath))
         {
-            if (_cache.TryGetValue(rawPath, out var cached))
+            // 2026-11-12: ConverterParameter=nocache — QR окна оплаты: файл QR с суммой новый на каждую сумму, кэш держал бы все картинки в памяти,
+            // а замена картинки банка в настройках под тем же именем не подхватывалась бы.
+            var noCache = parameter is string p && string.Equals(p, "nocache", StringComparison.OrdinalIgnoreCase);
+            if (!noCache && _cache.TryGetValue(rawPath, out var cached))
                 return cached;
 
             Bitmap? result = null;
@@ -43,7 +46,8 @@ public class PathToImageConverter : IValueConverter
                 result = null;
             }
 
-            _cache[rawPath] = result;
+            if (!noCache)
+                _cache[rawPath] = result;
             return result;
         }
 

@@ -960,7 +960,8 @@ public sealed partial class CatalogApiService : ICatalogApiService
         // 2026-10-03, владелец: «очень медленно». Сервер NurCRM отвечал по 40–60 с на запрос. Найденное в общей
         // базе запоминаем на компьютере (общая база — справочник, меняется редко): повторный скан — мгновенно.
         var key = barcode.Trim();
-        if (GlobalBarcodeCache.TryGet(key) is { } cached)
+        // 2026-11-11: запись кэша, сделанная раньше под чужим кодом (до сверки), не отдаём.
+        if (GlobalBarcodeCache.TryGet(key) is { } cached && PurchaseReceivingService.ServerAnswerHasCode(cached, ProductCodeLookup.Candidates(key), requireField: false))
             return cached;
         // 2026-10-27, владелец: «встрой справочник готовых наименований и обновляй из сервера». Сначала локальная копия справочника
         // (128 тыс. товаров, мгновенно и без интернета), сервер — только если кода там нет и о нём не отвечали «нет» за 24 часа;
@@ -979,7 +980,12 @@ public sealed partial class CatalogApiService : ICatalogApiService
             if (data.ValueKind != JsonValueKind.Object)
                 return null;
             var found = data.Clone();
-            GlobalBarcodeCache.Put(key, found);
+            // 2026-11-11 (разбор «Кыргызстанские штрихкоды», п. 5): под отсканированным кодом кэшируем только ответ ИМЕННО про этот код (поля штрихкода нет — ответ на точный
+            // запрос принимаем, как в приёмке); ответ про другой код в кэш не кладём — потребители его отбросят сами (ServerAnswerHasCode).
+            if (PurchaseReceivingService.ServerAnswerHasCode(found, ProductCodeLookup.Candidates(key), requireField: false))
+                GlobalBarcodeCache.Put(key, found);
+            else
+                PosLogger.Log($"Общая база: ответ по штрихкоду {PurchaseReceivingService.MaskCode(key)} — про другой код, в кэш не записан.", "CATALOG");
             return found;
         }
         catch (ApiException ex) when (ex.StatusCode == 404)
@@ -1173,6 +1179,11 @@ public sealed partial class CatalogApiService : ICatalogApiService
         // 2026-10-11: минимальный остаток — только если окно товара его прочитало или вписали (null — не трогаем на сервере).
         if (r.MinimumQuantity is { } minimum)
             body["minimum_quantity"] = minimum.ToString("0.###", CultureInfo.InvariantCulture);
+        // 2026-11-13 (сервер sn1311, «Электроника»): серийные номера и гарантия товара — только то, что владелец менял в карточке (null / не отмечено — поля не шлём).
+        if (r.TrackSerials is { } trackSerials)
+            body["track_serials"] = trackSerials;
+        if (r.SendWarrantyMonths)
+            body["warranty_months"] = r.WarrantyMonths is > 0 ? r.WarrantyMonths : null;
         // 2026-10-20: поставщик товара — «client» (id поставщика или null), как в buildProductPayload сайта; только если выбран в окне.
         if (r.SupplierId is { } supplierId)
             body["client"] = supplierId.Trim().Length == 0 ? null : supplierId.Trim();

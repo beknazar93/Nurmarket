@@ -55,6 +55,22 @@ public sealed record SphereProfile
     public bool ShowVariants { get; init; }
     /// <summary>Кнопка «Подробнее» у товара включена профилем (для hardware; у одежды и услуг — прежней веткой).</summary>
     public bool ShowProductDetails { get; init; }
+
+    // 2026-11-12 (СФ4, ТЗ хозмаг): признаки возможностей профиля. По умолчанию ВСЕ выключены — grocery / clothing / services
+    // ведут себя как раньше; включает только профиль (hardware…). Проверки «IsHardware» в новых местах заменяются этими признаками.
+    /// <summary>Дробное количество по единице профиля (м, м², л…) — ХМ2. Фактически включается ещё флагом сервера.</summary>
+    public bool FractionalUnits { get; init; }
+    /// <summary>Скан коробки = N штук — ХМ3 (дополнительно нужна галочка владельца).</summary>
+    public bool PackScan { get; init; }
+    /// <summary>Окно «Количество / длина / Д×Ш» — ХМ6.</summary>
+    public bool QuantityPad { get; init; }
+    /// <summary>Калькулятор расхода «Сколько нужно?» — ХМ5.</summary>
+    public bool ConsumptionCalc { get; init; }
+    /// <summary>Цена прораба (опт для отмеченных клиентов) — ХМ8: возможность профиля (включение — по размеру магазина).</summary>
+    public bool ForemanPriceAvailable { get; init; }
+    /// <summary>Плитка сферы показывается в окне первого запуска и в Настройках. По умолчанию ВЫКЛ: профиль сам объявляет, что готов к выбору
+    /// (три базовые и hardware — да); у скрытых выбор только через техподдержку (MarketSphereLock).</summary>
+    public bool ChoiceVisible { get; init; }
 }
 
 /// <summary>
@@ -84,6 +100,7 @@ public static class SphereCatalog
                 "Market, süpermarket: teraziler ve tartılı ürünler, hızlı satış.",
                 "Oziq-ovqat do'koni, supermarket: tarozilar va tortiladigan mahsulotlar, tez sotuv."),
             Icon = "🛒",
+            ChoiceVisible = true,
         });
         Add(new SphereProfile
         {
@@ -97,6 +114,7 @@ public static class SphereCatalog
                 "Beden ve renkler, beden etiketleri, yasal değişim, danışman, kiralama.",
                 "O'lcham va ranglar, o'lcham yorliqlari, qonun bo'yicha almashtirish, maslahatchi, prokat."),
             Icon = "👕",
+            ChoiceVisible = true,
             ShowVariants = true,
         });
         Add(new SphereProfile
@@ -111,11 +129,24 @@ public static class SphereCatalog
                 "Salon, tamir, kiralama: stoksuz hizmetler, eşya kiralama.",
                 "Salon, ta'mirlash, prokat: omborda qoldiqsiz xizmatlar, buyumlarni prokatga berish."),
             Icon = "🛠",
+            ChoiceVisible = true,
         });
 
         // ХМ1: профиль «Хозтовары и стройматериалы» — одна строка регистрации.
         Add(HardwareProfile.Create());
+        Add(StationeryProfile.Create()); // 2026-11-12: КТ1 — «Канцтовары и книги»
+        Add(ElectronicsProfile.Create()); // 2026-11-12: ЭЛ1 — «Электроника и техника»
         return map;
+    }
+
+    /// <summary>2026-11-12 (ХМ14): профили для плиток выбора (окно первого запуска и Настройки): сначала три базовые в прежнем порядке,
+    /// потом остальные с <see cref="SphereProfile.ChoiceVisible"/> по id.</summary>
+    public static IReadOnlyList<SphereProfile> ChoiceList()
+    {
+        var baseIds = new[] { MarketSpheres.Grocery, MarketSpheres.Clothing, MarketSpheres.Services };
+        var list = baseIds.Select(Get).ToList();
+        list.AddRange(ById.Values.Where(p => p.ChoiceVisible && !baseIds.Contains(p.Id)).OrderBy(p => p.Id, StringComparer.Ordinal));
+        return list;
     }
 
     /// <summary>Все известные профили (порядок не гарантируется).</summary>

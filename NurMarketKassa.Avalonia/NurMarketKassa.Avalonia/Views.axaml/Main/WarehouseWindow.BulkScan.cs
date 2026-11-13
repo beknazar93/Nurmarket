@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Input;
@@ -180,14 +181,23 @@ public partial class WarehouseWindow
         _bulkSummaryBox.Bind(Visual.IsVisibleProperty, new Binding(nameof(BulkScanSession.HasSummary)) { Source = _bulk });
 
         // Список строк.
+        // 2026-11-12 (аудит У-3): список строк — с виртуализацией. Раньше ItemsControl внутри ScrollViewer строил ВСЕ строки сразу (≈ 30 элементов на строку): 1000 сканов подряд
+        // = 30 тысяч элементов и секунды на каждый скан. Теперь шаблон ItemsControl сам несёт ScrollViewer и VirtualizingStackPanel — создаются только видимые строки.
         _bulkList = new ItemsControl { ItemsSource = _bulk.Rows };
         _bulkList.ItemTemplate = new FuncDataTemplate<BulkScanRow>((row, _) => row is null ? new Control() : BuildBulkRow(row));
-        var listScroll = new ScrollViewer
+        _bulkList.ItemsPanel = new FuncTemplate<Panel?>(() => new VirtualizingStackPanel());
+        _bulkList.Template = new FuncControlTemplate<ItemsControl>((_, scope) =>
         {
-            Content = _bulkList,
-            VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
-            HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
-        };
+            var presenter = new ItemsPresenter { Name = "PART_ItemsPresenter", ItemsPanel = new FuncTemplate<Panel?>(() => new VirtualizingStackPanel()) }.RegisterInNameScope(scope);
+            return new ScrollViewer
+            {
+                Name = "BulkListScroll",
+                Content = presenter,
+                VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+            };
+        });
+        var listScroll = _bulkList;
         _bulkEmpty = new TextBlock
         {
             Text = TrB("Список пуст. Отсканируйте первый штрихкод.", "Тизме бош. Биринчи штрихкодду сканерлеңиз.",
@@ -276,14 +286,32 @@ public partial class WarehouseWindow
             Grid.SetColumn(t, col);
             return t;
         }
-        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("36,150,*,172,52"), Margin = new Thickness(11, 0, 11, 4) };
+        var grid = BulkLine1Columns(new Grid { Margin = new Thickness(11, 0, 11, 4) });
         grid.Children.Add(Cap(TrB("Штрихкод", "Штрихкод", "Barcode", "Barkod", "Shtrix-kod"), 1));
         var nameCap = Cap(TrB("Название", "Аталышы", "Name", "Ad", "Nomi"), 2);
         nameCap.Margin = new Thickness(8, 0, 0, 0);
         grid.Children.Add(nameCap);
-        var qtyCap = Cap(TrB("Кол-во", "Саны", "Qty", "Adet", "Soni"), 3, HorizontalAlignment.Center);
+        var qtyCap = Cap(TrB("Кол-во", "Саны", "Qty", "Adet", "Soni"), 4, HorizontalAlignment.Center);
         qtyCap.Margin = new Thickness(8, 0, 0, 0);
         grid.Children.Add(qtyCap);
+        return grid;
+    }
+
+    /// <summary>2026-11-11 (жалоба владельца «наименование огромное»): колонки первой строки — одни и те же у шапки и у строки.
+    /// 36 галочка | штрихкод и сведения (звезда, 170…300) | название (звезда, 200…608 = 600 поле + 8 отступ) | 92 «Цены ▾» | 172 количество | 52 «✕» | свободное место.
+    /// Раньше название стояло в колонке «*» без предела и растягивалось на весь экран; свободное место теперь справа, а не внутри поля.</summary>
+    private static Grid BulkLine1Columns(Grid grid)
+    {
+        // 2026-11-12 (аудит Д-11): жёстких 300 + название «что осталось» не было: на узком окне владельца (1024–1280) названию доставались десятки пикселей. Теперь «код и сведения» и «название» —
+        // две равные звезды с пределами: код 170…300, название 200…608 — на узком окне делят место поровну (название не уже 200), на широком упираются в пределы, остаток — в свободную колонку справа.
+        // 2026-11-13: жалоба «в массовой загрузке наименование очень большое» — поле названия теперь не шире 440 px (колонка 448 с отступом 8), было 600.
+        grid.ColumnDefinitions.Add(new ColumnDefinition(36, GridUnitType.Pixel));
+        grid.ColumnDefinitions.Add(new ColumnDefinition(1000, GridUnitType.Star) { MinWidth = 170, MaxWidth = 300 });
+        grid.ColumnDefinitions.Add(new ColumnDefinition(1000, GridUnitType.Star) { MinWidth = 200, MaxWidth = 448 });
+        grid.ColumnDefinitions.Add(new ColumnDefinition(92, GridUnitType.Pixel));
+        grid.ColumnDefinitions.Add(new ColumnDefinition(172, GridUnitType.Pixel));
+        grid.ColumnDefinitions.Add(new ColumnDefinition(52, GridUnitType.Pixel));
+        grid.ColumnDefinitions.Add(new ColumnDefinition(1, GridUnitType.Star));
         return grid;
     }
 
@@ -561,47 +589,59 @@ public partial class WarehouseWindow
         // Строка 1: галочка | код/вид | название | количество | ✕.
         var barcode = new TextBlock { Text = row.Line.Barcode, FontSize = 13, FontWeight = FontWeight.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis };
         barcode.Bind(TextBlock.ForegroundProperty, barcode.GetResourceObservable("BrushText"));
+        // 2026-11-11 (жалоба владельца «наименование огромное»): сведения о товаре — одним текстом в 1–2 строки рядом со штрихкодом
+        // («На складе · остаток 10 → 12 · цена 110 · ед.: шт.»), а не стопкой из четырёх строк и кнопки: стопка делала строку ~100 px,
+        // и поле названия тянулось на эту высоту.
         var kind = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap };
         kind.Bind(TextBlock.ForegroundProperty, kind.GetResourceObservable("BrushTextSoft"));
         kind.Bind(TextBlock.TextProperty, new MultiBinding
         {
-            Bindings = { new Binding(nameof(BulkScanRow.KindText)), new Binding(nameof(BulkScanRow.StockInfo)) },
-            Converter = new JoinConverter(),
+            Bindings =
+            {
+                new Binding(nameof(BulkScanRow.KindText)), new Binding(nameof(BulkScanRow.StockInfo)), new Binding(nameof(BulkScanRow.IsKnown)),
+                new Binding("Line.SalePriceText"), new Binding("Line.Unit"),
+            },
+            Converter = new Avalonia.Data.Converters.FuncMultiValueConverter<object?, string>(v =>
+            {
+                var items = v.ToList();
+                var parts = new List<string> { items.ElementAtOrDefault(0) as string ?? "", items.ElementAtOrDefault(1) as string ?? "" };
+                // 2026-10-29: у товара склада цена и единица видны в строке (единицу задаёт карточка товара).
+                if (items.ElementAtOrDefault(2) is true)
+                {
+                    parts.Add(TrB($"цена {items.ElementAtOrDefault(3)}", $"баасы {items.ElementAtOrDefault(3)}", $"price {items.ElementAtOrDefault(3)}", $"fiyat {items.ElementAtOrDefault(3)}", $"narxi {items.ElementAtOrDefault(3)}"));
+                    var u = UnitCatalog.Display(items.ElementAtOrDefault(4) as string ?? row.Line.Unit);
+                    parts.Add(TrB($"ед.: {u}", $"бирдик: {u}", $"unit: {u}", $"birim: {u}", $"birlik: {u}"));
+                }
+                return string.Join(" · ", parts.Where(x => x.Length > 0));
+            }),
         });
-        var price = new TextBlock { FontSize = 12 };
-        price.Bind(TextBlock.ForegroundProperty, price.GetResourceObservable("BrushTextSoft"));
-        price.Bind(TextBlock.TextProperty, new Binding("Line.SalePriceText")
-        {
-            StringFormat = TrB("цена {0}", "баасы {0}", "price {0}", "fiyat {0}", "narxi {0}"),
-        });
-        price.Bind(Visual.IsVisibleProperty, new Binding(nameof(BulkScanRow.IsKnown)));
-        // 2026-10-29: у товара склада единица видна в строке (задаётся карточкой товара).
-        var unitInfo = new TextBlock { FontSize = 12 };
-        unitInfo.Bind(TextBlock.ForegroundProperty, unitInfo.GetResourceObservable("BrushTextSoft"));
-        unitInfo.Bind(Visual.IsVisibleProperty, new Binding(nameof(BulkScanRow.IsKnown)));
-        void UnitInfoText() => unitInfo.Text = TrB($"ед.: {UnitCatalog.Display(row.Line.Unit)}", $"бирдик: {UnitCatalog.Display(row.Line.Unit)}",
-            $"unit: {UnitCatalog.Display(row.Line.Unit)}", $"birim: {UnitCatalog.Display(row.Line.Unit)}", $"birlik: {UnitCatalog.Display(row.Line.Unit)}");
-        UnitInfoText();
         var priceToggle = BulkButton(TrB("Цены ▾", "Баалар ▾", "Prices ▾", "Fiyatlar ▾", "Narxlar ▾"), primary: false);
-        priceToggle.MinHeight = 32;
+        priceToggle.MinHeight = 36;
+        priceToggle.Width = 84;
         priceToggle.Padding = new Thickness(8, 2);
         priceToggle.HorizontalAlignment = HorizontalAlignment.Left;
+        priceToggle.VerticalAlignment = VerticalAlignment.Center;
         priceToggle.Bind(Visual.IsVisibleProperty, new Binding(nameof(BulkScanRow.IsKnown)));
-        var codeCol = new StackPanel { Spacing = 1, VerticalAlignment = VerticalAlignment.Center, Width = 150 };
+        var codeCol = new StackPanel { Spacing = 1, VerticalAlignment = VerticalAlignment.Center };
         codeCol.Children.Add(barcode);
         codeCol.Children.Add(kind);
-        codeCol.Children.Add(price);
-        codeCol.Children.Add(unitInfo);
-        codeCol.Children.Add(priceToggle);
 
+        // 2026-11-11: поле названия — одна строка высотой 40, по центру строки (раньше растягивалось на высоту левой колонки ~100 px
+        // и на всю ширину колонки «*»; ширину теперь ограничивает колонка, BulkLine1Columns). Длинное название не переносится и не раздувает
+        // строку (поле прокручивает текст), полное — в подсказке.
         var name = new TextBox
         {
-            Watermark = TrB("Название *", "Аталышы *", "Name *", "Ad *", "Nomi *"),
-            MinHeight = 44,
+            Watermark = TrB("Название товара *", "Товардын аталышы *", "Product name *", "Ürün adı *", "Mahsulot nomi *"), // 2026-11-12 (У-7): «*» — название обязательное (у нового товара); была потеряна
+            Height = 40,
+            MinHeight = 40, // стиль окна задаёт MinHeight 44 всем полям — для названия снимаем, иначе Height 40 не действует
+            VerticalAlignment = VerticalAlignment.Center,
             VerticalContentAlignment = VerticalAlignment.Center,
+            AcceptsReturn = false,
+            TextWrapping = TextWrapping.NoWrap,
             Tag = "name",
         };
         name.Bind(TextBox.TextProperty, new Binding("Line.ProductName") { Mode = BindingMode.TwoWay });
+        name.Bind(ToolTip.TipProperty, new Binding("Line.ProductName"));
         name.Bind(TextBox.IsReadOnlyProperty, new Binding(nameof(BulkScanRow.IsKnown)));
         // 2026-10-24 (приёмка, ПР-11): у известного товара название не правится — серый фон и приглушённый текст (IsReadOnly уже стоит).
         void NameLook()
@@ -646,18 +686,21 @@ public partial class WarehouseWindow
         remove.Click += (_, _) => _bulk.Remove(row);
         ToolTip.SetTip(remove, TrB("Убрать строку", "Сапты өчүрүү", "Remove the row", "Satırı kaldır", "Qatorni olib tashlash"));
 
-        var line1 = new Grid { ColumnDefinitions = new ColumnDefinitions("36,150,*,Auto,52") };
+        var line1 = BulkLine1Columns(new Grid());
         name.Margin = new Thickness(8, 0, 0, 0);
+        priceToggle.Margin = new Thickness(8, 0, 0, 0);
         qtyBox.Margin = new Thickness(8, 0, 0, 0);
         remove.Margin = new Thickness(8, 0, 0, 0);
         Grid.SetColumn(pick, 0);
         Grid.SetColumn(codeCol, 1);
         Grid.SetColumn(name, 2);
-        Grid.SetColumn(qtyBox, 3);
-        Grid.SetColumn(remove, 4);
+        Grid.SetColumn(priceToggle, 3);
+        Grid.SetColumn(qtyBox, 4);
+        Grid.SetColumn(remove, 5);
         line1.Children.Add(pick);
         line1.Children.Add(codeCol);
         line1.Children.Add(name);
+        line1.Children.Add(priceToggle);
         line1.Children.Add(qtyBox);
         line1.Children.Add(remove);
 
@@ -704,13 +747,13 @@ public partial class WarehouseWindow
         var markupHost = Labeled(TrB("Наценка, %", "Үстөк, %", "Markup, %", "Kâr, %", "Ustama, %"), markup);
         var saleHost = Labeled(TrB("Цена продажи *", "Сатуу баасы *", "Sale price *", "Satış fiyatı *", "Sotuv narxi *"), sale);
         var categoryHost = Labeled(TrB("Категория", "Категория", "Category", "Kategori", "Kategoriya"), category);
-        var line2 = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(194, 6, 52, 0) };
+        var line2 = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(44, 6, 52, 0) }; // 2026-11-11: слева — под галочкой (раньше 194 = под названием; при узком окне поля цен рвались по одному в строку)
         foreach (var c in new Control[] { unitHost, purchaseHost, markupHost, saleHost, autoHost, categoryHost })
         {
             c.Margin = new Thickness(0, 0, 8, 6);
             line2.Children.Add(c);
         }
-        chips.Margin = new Thickness(194, 0, 52, 0);
+        chips.Margin = new Thickness(44, 0, 52, 0);
 
         void RebuildChips()
         {
@@ -741,7 +784,7 @@ public partial class WarehouseWindow
         category.LostFocus += (_, _) => chips.IsVisible = false;
         category.TextChanged += (_, _) => RebuildChips();
 
-        var error = new TextBlock { FontSize = 12.5, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(194, 4, 0, 0) };
+        var error = new TextBlock { FontSize = 12.5, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(44, 4, 0, 0) };
         error.Bind(TextBlock.ForegroundProperty, error.GetResourceObservable("BrushDanger"));
         error.Bind(TextBlock.TextProperty, new Binding(nameof(BulkScanRow.Error)));
         error.Bind(Visual.IsVisibleProperty, new Binding(nameof(BulkScanRow.HasError)));
@@ -777,7 +820,6 @@ public partial class WarehouseWindow
             border.Bind(Border.BackgroundProperty, border.GetResourceObservable(key));
             if (!string.Equals(unitPicker.Value, row.Line.Unit, StringComparison.Ordinal))
                 unitPicker.Value = row.Line.Unit;
-            UnitInfoText();
             var prices = row.ShowPrices || pricesOpen;
             // Строка автонаценки: новая строка и строка без цен считаются по закупке сами (пока цену не вписали руками).
             // У товара склада с готовой ценой продажи автоматика не включается (цену не меняем молча), у нового и у товара без цены — включается.
@@ -922,6 +964,7 @@ public partial class WarehouseWindow
             var index = _bulk.Rows.IndexOf(row);
             if (index < 0)
                 return;
+            _bulkList.ScrollIntoView(index); // 2026-11-12 (У-3): со списком с виртуализацией строки вне окна не существуют — сначала подвести к ней
             if (_bulkList.ContainerFromIndex(index) is { } container
                 && container.GetVisualDescendants().OfType<TextBox>().FirstOrDefault(t => Equals(t.Tag, "name")) is { } box)
             {

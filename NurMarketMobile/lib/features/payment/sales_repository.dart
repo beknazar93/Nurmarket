@@ -750,6 +750,8 @@ class SalesRepository {
           if (str(deal, 'sale') != saleId && str(deal, 'sale_id') != saleId) continue;
           final dealId = str(deal, 'id');
           if (dealId == null) continue;
+          // 2026-11-11 (сводка Умара): виртуальная строка старого долгового чека («sale:<uuid>», is_check_debt) — не сделка, PATCH ей не шлём
+          if (isCheckDebtRow(deal)) continue;
           await api.patch('api/main/clients/$clientId/deals/$dealId/', body: body);
           return true;
         }

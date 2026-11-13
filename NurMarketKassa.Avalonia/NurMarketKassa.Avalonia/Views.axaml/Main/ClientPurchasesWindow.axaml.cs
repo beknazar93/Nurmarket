@@ -59,6 +59,8 @@ public sealed class ClientPurchasesWindow : Window
 
     // 2026-11-10, владелец: «возврат добавь в клиентов которые брали в долг» — «Возврат» по выбранному чеку (то же окно возврата, ReturnSaleLauncher).
     private readonly Button _returnButton = new() { IsVisible = false };
+    // 2026-11-11 (сервер Умара, pos_return_edit_24h): «Правка возвратов» у чека с возвратом (Редактировать / Удалить / История; у долгового — пояснение)
+    private readonly NurMarketKassa.AvaloniaHost.Services.CustomerReturnsEntry _returnsEdit = new();
     private readonly string _clientName;
 
     public ClientPurchasesWindow(string clientId, string clientName)
@@ -105,7 +107,7 @@ public sealed class ClientPurchasesWindow : Window
         _bar.Margin = new Avalonia.Thickness(0, 10, 0, 0);
         var receiptScroll = new ScrollViewer
         {
-            Content = new StackPanel { Children = { _receiptNote, _paper, _bar } },
+            Content = new StackPanel { Children = { _receiptNote, _paper, _bar, _returnsEdit.View } }, // 2026-11-11: + «Правка возвратов»
             MinHeight = 160,
             HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
         };
@@ -151,6 +153,7 @@ public sealed class ClientPurchasesWindow : Window
                 await LoadAsync().ConfigureAwait(true); // статус чеков и долг после возврата — с сервера
         };
         right.Children.Add(_returnButton);
+        _returnsEdit.Changed = LoadAsync; // 2026-11-11: после правки/аннулирования возврата — статусы чеков и долг клиента с сервера
 
         var body = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), RowDefinitions = new RowDefinitions("Auto,*") };
         body.Children.Add(top);
@@ -228,12 +231,15 @@ public sealed class ClientPurchasesWindow : Window
 
     private void BuildColumns()
     {
+        // 2026-11-12 (Д-5): ширины колонок — долями (раньше фиксированные 150+130+120+130+130 = 660 px и справа чек 372 px: на 1024 появлялась горизонтальная
+        // прокрутка и колонка «Возврат» обрезалась). Теперь таблица делит доступную ширину; в узком окне длинный текст ячейки сокращается многоточием.
         void Add(string header, string path, double width)
         {
             _grid.Columns.Add(new DataGridTextColumn
             {
                 Header = header,
-                Width = new DataGridLength(width),
+                Width = new DataGridLength(width / 100, DataGridLengthUnitType.Star),
+                MinWidth = 72,
                 Binding = new Avalonia.Data.Binding(path),
             });
         }
@@ -392,6 +398,7 @@ public sealed class ClientPurchasesWindow : Window
             _currentSale = null;
             _waybillButton.IsVisible = false;
             _returnButton.IsVisible = false;
+            _returnsEdit.Hide(); // 2026-11-11
             _card = null;
             _paper.Content = null;
             _bar.IsVisible = false;
@@ -400,6 +407,9 @@ public sealed class ClientPurchasesWindow : Window
         }
 
         UpdateReturnButton(row);
+        _returnsEdit.Hide(); // 2026-11-11: у чека с возвратом — «Правка возвратов» по списку сервера
+        if (row.ReturnMark.Length > 0)
+            _ = _returnsEdit.LoadForAsync(row.SaleId, row.ReceiptText == "—" ? "" : row.ReceiptText);
         try
         {
             var sale = await App.SalesApi.PosSaleGetAsync(row.SaleId).ConfigureAwait(true);

@@ -14,7 +14,9 @@ public partial class OperationsSettingsView
 {
     private void RefreshExchangeRulesCard()
     {
-        ExchangeRulesCard.IsVisible = MarketSpheres.IsClothing;
+        // 2026-11-12 (ЭЛ5): карточка «Обмен и возврат» (срок, дней) есть и в сфере «Электроника»; список категорий «без обмена» — только у «Одежды».
+        var electronics = ElectronicsProfile.IsActive;
+        ExchangeRulesCard.IsVisible = MarketSpheres.IsClothing || electronics;
         ExchangeRulesPanel.Children.Clear();
         if (!ExchangeRulesCard.IsVisible)
             return;
@@ -46,6 +48,11 @@ public partial class OperationsSettingsView
         daysRow.Children.Add(daysLabel);
         daysRow.Children.Add(daysBox);
         ExchangeRulesPanel.Children.Add(daysRow);
+        if (electronics)
+        {
+            AddElectronicsSettings(); // 2026-11-12 (ЭЛ5, ЭЛ6): у электроники срок + серийники и гарантия; категории «без обмена» — прежняя логика «Одежды»
+            return;
+        }
 
         var catTitle = new TextBlock { FontSize = 13, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 0),
             Text = Tr.T("Категории, которые без брака не обменивают и не возвращают", "Бузук болбосо алмаштырылбаган жана кайтарылбаган категориялар",

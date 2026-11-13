@@ -303,7 +303,8 @@ class OpsRepository {
     }
     final dealId = str(sale, 'deal_id');
     final clientId = str(sale, 'client');
-    if (dealId == null) return own == null ? null : (own < 0 ? 0 : own);
+    // 2026-11-11 (сводка Умара): «sale:…» — долг по чеку, не сделка: карточку сделки не запрашиваем, остаток — из самого чека
+    if (dealId == null || isCheckDebtId(dealId)) return own == null ? null : (own < 0 ? 0 : own);
     if (clientId == null) return null;
     try {
       final deal = await api.get('api/main/clients/$clientId/deals/$dealId/', timeout: const Duration(seconds: 8));

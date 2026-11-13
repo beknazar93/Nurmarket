@@ -205,6 +205,8 @@ public partial class OwnerShellWindow
     {
         // 2026-10-18, вид «Бургер ☰»: переход в раздел закрывает выехавшее меню и убирает снимок раздела под ним.
         CloseBurgerQuietly();
+        // 2026-11-11 (снимок владельца: подсказка «Товары» висела поверх рейки после перехода в раздел): подсказки меню закрываем при смене раздела.
+        NurMarketKassa.AvaloniaHost.Services.InputStateReset.CloseToolTips(this);
         _activeSection = section;
         UpdateSectionExcelButton(section);
         var returning = section is { LastShown: > 0 };
@@ -332,6 +334,20 @@ public partial class OwnerShellWindow
         {
             _positioningSection = false;
         }
+        // 2026-11-11 (живой показ 1.17.85, Д-3: «Склад» уезжал вниз до следующей смены окна): после того как раздел положен на место — пересчёт его раскладки
+        // по уже настоящему размеру окна (отложенно, после прохода раскладки); иначе содержимое могло остаться посчитанным по прежнему размеру.
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!ReferenceEquals(_activeSection?.Window, window) || !window.IsVisible)
+                return;
+            if (window is WarehouseWindow warehouse)
+                warehouse.PostRelayout();
+            else if (window.Content is Control sectionContent)
+            {
+                sectionContent.InvalidateMeasure();
+                window.InvalidateMeasure();
+            }
+        }, DispatcherPriority.Loaded);
     }
 
     /// <summary>Раздел закрылся сам (своя кнопка «закрыть», Esc) — возвращаемся к сводке.</summary>
@@ -777,12 +793,13 @@ public partial class OwnerShellWindow
         PosLogger.Log($"Owner app: отказ по правам — {diagnostics}", "WARNING");
         // 2026-10-01: подсказка, какую галочку включить на сайте (названия — как на сайте NurCRM).
         var siteRight = SiteRightName(permission);
+        // 2026-11-11 (доступы «с сайта»): перезапуск больше не нужен — программа сама перечитывает доступы (AccessSync, раз в ~1,5 мин и при возврате в окно).
         var hint = siteRight is null ? "" : Environment.NewLine + Environment.NewLine + Tr.T(
-            $"Доступ даёт владелец на сайте NurCRM: Сотрудники → сотрудник → доступ «{siteRight}». После изменения перезапустите программу.",
-            $"Уруксатты ээси NurCRM сайтында берет: Кызматкерлер → кызматкер → «{siteRight}» уруксаты. Өзгөрткөндөн кийин программаны кайра ачыңыз.",
-            $"The owner grants it on the NurCRM website: Employees → employee → “{siteRight}” access. Restart the program after the change.",
-            $"Erişimi işletme sahibi NurCRM sitesinde verir: Çalışanlar → çalışan → «{siteRight}» erişimi. Değişiklikten sonra programı yeniden başlatın.",
-            $"Ruxsatni ega NurCRM saytida beradi: Xodimlar → xodim → «{siteRight}» ruxsati. O'zgartirgandan keyin dasturni qayta ishga tushiring.");
+            $"Доступ даёт владелец на сайте NurCRM: Сотрудники → сотрудник → доступ «{siteRight}». После изменения программа подхватит доступ сама в течение 1–2 минут.",
+            $"Уруксатты ээси NurCRM сайтында берет: Кызматкерлер → кызматкер → «{siteRight}» уруксаты. Өзгөрткөндөн кийин программа уруксатты 1–2 мүнөттө өзү алат.",
+            $"The owner grants it on the NurCRM website: Employees → employee → “{siteRight}” access. After the change the program picks it up by itself within 1–2 minutes.",
+            $"Erişimi işletme sahibi NurCRM sitesinde verir: Çalışanlar → çalışan → «{siteRight}» erişimi. Değişiklikten sonra program erişimi 1–2 dakika içinde kendisi alır.",
+            $"Ruxsatni ega NurCRM saytida beradi: Xodimlar → xodim → «{siteRight}» ruxsati. O'zgartirgandan keyin dastur ruxsatni 1–2 daqiqada o'zi oladi.");
         PosMessageBox.Show(this,
             Tr.T("Недостаточно прав для этого раздела.", "Бул бөлүм үчүн укук жетишсиз.", "You don't have permission to open this section.",
                 "Bu bölüm için yetkiniz yetersiz.", "Bu bo'lim uchun huquq yetarli emas.") + hint + Environment.NewLine + Environment.NewLine + diagnostics,

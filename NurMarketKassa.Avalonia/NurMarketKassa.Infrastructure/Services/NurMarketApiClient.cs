@@ -106,14 +106,18 @@ public sealed partial class NurMarketApiClient : IDisposable
         _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         // 2026-11-05 (аудит №4, п. 4): сервер видит, какая версия кассы пришла (поддержка, будущие проверки совместимости).
         // 2026-11-06: В3 А5-19 — сервер и поддержка отличают платформу: у Android и Linux после версии добавляется «(android)» / «(linux)»; у Windows заголовок прежний.
-        var platformTail = OperatingSystem.IsAndroid() ? " (android)" : OperatingSystem.IsLinux() ? " (linux)" : "";
-        try { _http.DefaultRequestHeaders.TryAddWithoutValidation("X-NurMarket-Client", "kassa/" + AppVersionInfo.CurrentVersionLabel + platformTail); }
+        try { _http.DefaultRequestHeaders.TryAddWithoutValidation("X-NurMarket-Client", BuildClientHeader(OperatingSystem.IsAndroid(), OperatingSystem.IsLinux(), AppVersionInfo.CurrentVersionLabel)); }
         catch (Exception ex) when (ex is not OutOfMemoryException) { PosLogger.Log($"Заголовок X-NurMarket-Client не добавлен: {ex.GetType().Name}", "WARNING"); }
         UserPayload = default;
         // 2026-09-29: этим клиентом ServerOutageMonitor проверяет, ожил ли сервер после аварии.
         ServerOutageMonitor.HealthProbe = ProbeServerHealthAsync;
         ServerOutageMonitor.StateChanged += OnServerLinkStateChanged;
     }
+
+    /// <summary>2026-11-13 (ответ Умара 13.11, п. 5): Android-касса шлёт «android-pos/версия» (сервер по заголовку выбирает слот устройства), остальные — «kassa/версия» (Linux с пометкой « (linux)»,
+    /// как с 1.17.6x). Раньше Android слал «kassa/версия (android)».</summary>
+    internal static string BuildClientHeader(bool isAndroid, bool isLinux, string version) =>
+        isAndroid ? "android-pos/" + version : "kassa/" + version + (isLinux ? " (linux)" : "");
 
     /// <summary>2026-10-04, стенд «сбои сервера»: запросы, ушедшие ДО объявления аварии, при аварии
     /// отменяются сразу, а не висят до таймаута HttpClient (55 с). При «чёрной дыре» фоновые загрузки
@@ -350,12 +354,23 @@ public sealed partial class NurMarketApiClient : IDisposable
     public Task<bool> SetProductFavoriteAsync(string productId, bool isFavorite, CancellationToken ct = default) =>
         Catalog.SetProductFavoriteAsync(productId, isFavorite, ct);
 
-    public async Task<JsonElement> LoginAsync(string email, string password, CancellationToken ct = default)
+    /// <summary>2026-11-13: тип устройства для слотов входа (ТЗ Умару 06.11): Android-касса — android_pos, программа владельца — desktop_owner, остальное (Windows/Linux) — desktop_pos.</summary>
+    internal static string ClientTypeForLogin() =>
+        OperatingSystem.IsAndroid() ? "android_pos" : AppMode.IsOwner ? "desktop_owner" : "desktop_pos";
+
+    public async Task<JsonElement> LoginAsync(string email, string password, CancellationToken ct = default, bool replaceDevice = false)
     {
         await _loginMutex.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            var body = new LoginRequest { Email = email.Trim(), Password = password };
+            // 2026-11-13: слоты устройств — тип, стабильный ключ установки и имя кассы (чтобы свой же повторный вход не считался «другой кассой»).
+            // replace_device шлём только после явного согласия кассира («Войти и отключить другую»).
+            var body = new LoginRequest
+            {
+                Email = email.Trim(), Password = password,
+                ClientType = ClientTypeForLogin(), DeviceKey = DeviceIdentity.Key, DeviceName = DeviceIdentity.Name,
+                ReplaceDevice = replaceDevice ? true : null,
+            };
             using var content = new StringContent(JsonSerializer.Serialize(body, _jsonWrite), Encoding.UTF8, "application/json");
             using var resp = await _http.PostAsync("api/users/auth/login/", content, ct).ConfigureAwait(false);
             var text = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);

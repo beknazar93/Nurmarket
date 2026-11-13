@@ -74,6 +74,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
             DataContext = _viewModel;
             _viewModel.LoginSuccess += OnLoginSuccess;
             _viewModel.CredentialsClearRequested += ClearCredentialControls;
+            // 2026-11-13 (ответ Умара, п. 5): 409 device_slot_taken — «На этом логине уже работает другая касса… Войти здесь и отключить ту?». Enter = «Отмена» (чужую кассу не отключаем случайно).
+            _viewModel.ConfirmReplaceDevice = info => PosConfirmDialog.ShowModalAsync(this, DeviceSlotPrompt.Title, DeviceSlotPrompt.Message(info),
+                DeviceSlotPrompt.ConfirmText, DeviceSlotPrompt.CancelText, PosConfirmAccent.Danger, enterCancels: true);
 
             // auth.dat is consumed by the background service. UI inputs always
             // start empty and are not involved in automatic authentication.
@@ -128,6 +131,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             _viewModel.ClearCredentialInputs();
             _viewModel.LoginSuccess -= OnLoginSuccess;
             _viewModel.CredentialsClearRequested -= ClearCredentialControls;
+            _viewModel.ConfirmReplaceDevice = null;
         }
 
         private async Task OnLoginSuccess()

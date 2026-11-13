@@ -221,6 +221,24 @@ public sealed partial class PosCheckoutService
                         "Mahsulot narxi chekka qo'shilganidan beri o'zgardi. Sotuv O'TKAZILMADI — chek joriy narxlar bo'yicha yangilanmoqda."),
                     changes);
             }
+            catch (ApiException ex) when (BelowCostGuard.IsServerDenial(ex))
+            {
+                // 2026-11-13 (сервер bc1112): скидка ниже закупки без права can_sell_below_cost — отказ ДО записи продажи (даже на повтор ключа: проведённая продажа вернулась бы 200).
+                // Ни старым путём, ни очередью это не лечится: чек остаётся в кассе, кассиру — понятный текст (уменьшить скидку / позвать старшего).
+                ForgetQuickKey();
+                ClearInFlight(key);
+                PosLogger.Log($"PAY quick: сервер отказал — продажа ниже закупки без права can_sell_below_cost ({ex.StatusCode}). {DescribeQuickError(ex)}", "WARNING");
+                return PosCheckoutResult.Failed(BelowCostGuard.ServerDeniedText(ex, cartJson));
+            }
+            catch (ApiException ex) when (ServerErrorCodes.IsSerialError(ex))
+            {
+                // 2026-11-13 (сервер sn1311, «Электроника»): серийный номер не принят (уже продан / больше, чем штук / повтор в строке / слишком длинный) — отказ ДО записи продажи
+                // (проведённая продажа с этим ключом вернулась бы 200). Ни старым путём, ни очередью это не лечится: чек остаётся в кассе, кассиру — понятный текст.
+                ForgetQuickKey();
+                ClearInFlight(key);
+                PosLogger.Log($"PAY quick: сервер отказал по серийному номеру ({ex.StatusCode}). {DescribeQuickError(ex)}", "WARNING");
+                return PosCheckoutResult.Failed(ServerErrorCodes.SerialFriendly(ex) ?? PaymentErrorMessages.ForCashier(ex));
+            }
             catch (ApiException ex) when (ex.StatusCode == 500)
             {
                 transient = ex;

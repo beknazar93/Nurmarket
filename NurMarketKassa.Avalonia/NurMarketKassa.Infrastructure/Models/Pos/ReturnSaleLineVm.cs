@@ -97,13 +97,22 @@ public sealed class ReturnSaleLineVm : INotifyPropertyChanged
     /// <summary>Сумма справа в строке: вся строка — прежний текст, часть — пересчитанная.</summary>
     public string ReturnSumText => IsPartialReturn ? MoneyText.Som(ReturnRefundSum) : LineSumText;
 
-    public string ReturnQtyLabel => Tr.T("Вернуть, шт.:", "Кайтаруу, даана:", "Return qty:", "İade adedi:", "Qaytarish, dona:");
+    /// <summary>2026-11-12 (аудит Fable, С-17): единица измерения строки чека («кг», «л», «м»); пусто — не известна, подпись по умолчанию «шт.».</summary>
+    public string Unit { get; init; } = "";
+
+    /// <summary>2026-11-12 (С-17): у весового товара подпись «Вернуть, кг:» (раньше везде «Вернуть, шт.:» — при 2,5 кг выглядело как 2,5 штуки).</summary>
+    public string ReturnQtyLabel => Unit.Trim() is { Length: > 0 } u
+        ? Tr.T($"Вернуть, {u}:", $"Кайтаруу, {u}:", $"Return, {u}:", $"İade, {u}:", $"Qaytarish, {u}:")
+        : Tr.T("Вернуть, шт.:", "Кайтаруу, даана:", "Return qty:", "İade adedi:", "Qaytarish, dona:");
 
     public string ReturnQtyLessName => Tr.T("Вернуть меньше", "Азыраак кайтаруу", "Return fewer", "Daha az iade et", "Kamroq qaytarish");
 
     public string ReturnQtyMoreName => Tr.T("Вернуть больше", "Көбүрөөк кайтаруу", "Return more", "Daha çok iade et", "Ko'proq qaytarish");
 
     public string ReturnQtyBoxName => Tr.T("Сколько вернуть", "Канча кайтаруу", "How many to return", "Kaç tane iade", "Nechta qaytarish");
+
+    /// <summary>2026-11-11 (живой показ 1.17.85, Д-12: у флажков строк в окне возврата пустое имя): имя флажка для программ чтения с экрана — «Вернуть: товар».</summary>
+    public string SelectCheckName => Tr.T($"Вернуть: {Title}", $"Кайтаруу: {Title}", $"Return: {Title}", $"İade: {Title}", $"Qaytarish: {Title}");
 
     /// <summary>Шаг кнопок «−»/«+»: 1 — штучный, 0,1 — весовой.</summary>
     public double ReturnQuantityStep => AllowFractionalQuantity ? 0.1 : 1.0;

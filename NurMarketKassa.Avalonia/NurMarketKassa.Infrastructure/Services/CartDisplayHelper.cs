@@ -720,6 +720,10 @@ public static class CartDisplayHelper
     public static double LineQuantityInStockUnits(JsonElement it, CatalogProductTileVm? tile)
     {
         var qty = LineQuantity(it);
+        // 2026-11-13 (ответ Умара, строймаркет): строка в единице продажи (sale_unit: упаковка 1,44 м²) — количество в УПАКОВКАХ, остаток товара в базовых единицах (м²):
+        // списывается qty × factor — как на сервере. Одна точка пересчёта на списание, резерв, возврат и офлайн-очередь.
+        if (ProductSaleUnits.LineKey(it) is not null)
+            return (double)(QuantityRules.ToMoneyDecimal(qty) * ProductSaleUnits.LineFactor(it, tile?.Id ?? TryProductId(it)));
         var packageId = SalePackageId(it);
         if (string.IsNullOrEmpty(packageId) || tile?.PieceOption is not { } piece)
             return qty;

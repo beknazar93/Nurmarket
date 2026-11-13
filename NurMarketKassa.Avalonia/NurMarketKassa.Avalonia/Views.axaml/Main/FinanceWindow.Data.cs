@@ -1088,6 +1088,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     item.DiscountTotal = ParseDecimal(discProp);
                 if (el.TryGetProperty("first_item_name", out var firstItem) && firstItem.ValueKind == JsonValueKind.String)
                     item.FirstItemName = firstItem.GetString() ?? "";
+                // 2026-11-12 (возврат чеков в программе владельца): те же поля, что читает список «Продаж» (SalesWindow) — пометки возврата и фильтры во «Чеках».
+                if (el.TryGetProperty("return_status", out var retProp) && retProp.ValueKind == JsonValueKind.String)
+                    item.ReturnStatus = retProp.GetString();
+                item.Cashier = CartDisplayHelper.TryCashierName(el);
+                if (el.TryGetProperty("client_name", out var cnProp) && cnProp.ValueKind == JsonValueKind.String)
+                    item.ClientName = cnProp.GetString();
                 // ReceiptNumber остаётся пустым, если сервер не прислал ни одного из известных полей —
                 // UpdateCollections подставит читаемый порядковый номер вместо «сырого» GUID.
                 result.Add(item);

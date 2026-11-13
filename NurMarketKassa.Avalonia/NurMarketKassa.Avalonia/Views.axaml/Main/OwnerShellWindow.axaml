@@ -68,6 +68,8 @@
         <StreamGeometry x:Key="CloseIcon">M6,6 L18,18 M18,6 L6,18</StreamGeometry>
         <!-- 2026-10-02: прокат (вешалка) — пункт меню и уведомление о сроках. -->
         <StreamGeometry x:Key="RentalIcon">M12,6 A2,2 0 1 1 14,8 C14,9 12,9.5 12,11 L3,18 H21 L12,11</StreamGeometry>
+        <StreamGeometry x:Key="RepairIcon">M14.7,6.3 A4,4 0 0 0 9.2,11.8 L3,18 L6,21 L12.2,14.8 A4,4 0 0 0 17.7,9.3 L15,12 L12,9 Z</StreamGeometry>
+        <StreamGeometry x:Key="TradeInIcon">M4,8 H17 M14,5 L17,8 L14,11 M20,16 H7 M10,13 L7,16 L10,19</StreamGeometry>
         <!-- 2026-09-29, раздел «Сайт»: заказы — лоток входящих, настройки — глобус. -->
         <StreamGeometry x:Key="SiteOrdersIcon">M3,13 L6,4 H18 L21,13 V20 H3 Z M3,13 H8 L9.5,16 H14.5 L16,13 H21</StreamGeometry>
         <!-- 2026-10-06, редизайн меню: свои значки у пунктов, которые делили чужие (Прибыль/Финансы, Размеры/Аналитика,

@@ -52,6 +52,9 @@ public static class InputStateReset
         {
             try
             {
+                // 2026-11-11 (снимок владельца: подсказка «Товары» залипла поверх левой рейки после перехода в раздел): у окна, потерявшего активность,
+                // открытые подсказки закрываем всегда — и когда активным стало другое окно программы (раздел владельца, модалка).
+                CloseToolTips(window);
                 if (Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
                 {
                     if (desktop.Windows.Any(w => w.IsActive))
@@ -77,11 +80,26 @@ public static class InputStateReset
         TouchGuard.ResetFromPlatform();
     }
 
+    /// <summary>2026-11-11: закрыть открытые всплывающие подсказки (ToolTip) окна — подсказка пункта меню не должна висеть после ухода курсора в другое окно.</summary>
+    public static void CloseToolTips(Window window)
+    {
+        try
+        {
+            foreach (var control in window.GetVisualDescendants().OfType<Control>().Where(ToolTip.GetIsOpen).ToList())
+                ToolTip.SetIsOpen(control, false);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Окно {window.GetType().Name}: закрыть подсказки не удалось: {ex.Message}", "WARNING");
+        }
+    }
+
     /// <summary>Полный сброс «залипших» состояний ввода окна: захват указателя, палец сенсора, правка ячеек таблиц.</summary>
     public static void Reset(Window window, string reason)
     {
         ResetCount++;
         TouchGuard.ResetFromPlatform();
+        CloseToolTips(window); // 2026-11-11
         try
         {
             if (LastPointer.TryGetValue(window, out var weak) && weak.TryGetTarget(out var pointer) && pointer.Captured is not null)

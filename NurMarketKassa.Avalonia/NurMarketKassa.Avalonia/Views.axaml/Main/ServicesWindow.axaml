@@ -1,64 +1,65 @@
 <Window x:Class="NurMarketKassa.AvaloniaHost.Views.ServicesWindow"
         xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
         Title="{DynamicResource services.title}"
-        Height="800" Width="950"
+        Width="912" Height="500"
         WindowStartupLocation="CenterOwner"
-        Background="{DynamicResource BrushPanelSoft}">
+        CanResize="False"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
+        Background="{DynamicResource DialogWindowBackground}">
 
-    <ScrollViewer >
-        <Grid Margin="24">
-            <Grid.RowDefinitions>
-                <RowDefinition/>
-                <RowDefinition/>
-                <RowDefinition/>
-                <RowDefinition Height="*"/>
-            </Grid.RowDefinitions>
+    <!-- 2026-11-12 (Д-4): окно в общей рамке ModalShell (заголовок, ✕, «Закрыть» внизу), карточки на токенах темы, одна главная кнопка —
+         «Перейти»; «Подключить» — вторичная. Раньше: серые кнопки, коричневая «Перейти», большие пустые поля, свой крестик слева.
+         (Окно пока нигде не открывается — зарегистрировано в App.axaml.cs; вид готов к подключению.) -->
+    <dlg:ModalShell x:Name="Shell" Margin="16"
+                    Title="{DynamicResource services.title}"
+                    Subtitle="{DynamicResource services.subtitle}">
+        <dlg:ModalShell.Footer>
+            <Button IsCancel="True" Content="{DynamicResource common.close}" Classes="modal-cancel" MaxWidth="200"
+                    Click="CloseButton_Click"/>
+        </dlg:ModalShell.Footer>
 
-            <Grid Grid.Row="0" Margin="0,0,0,4">
-                <Button IsCancel="True" Content="✕" HorizontalAlignment="Left" Background="Transparent"
-                        BorderThickness="0" FontSize="20" Click="CloseButton_Click"/>
-                <TextBlock Text="{DynamicResource services.title}" FontSize="28" FontWeight="Bold"
-                           Foreground="{DynamicResource BrushText}" HorizontalAlignment="Center"/>
-            </Grid>
-
-            <TextBlock Grid.Row="1" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}" FontSize="14"
-                       HorizontalAlignment="Center" TextAlignment="Center" Margin="0,0,0,24" MaxWidth="600"
-                       Text="{DynamicResource services.subtitle}"/>
-
-            <TextBlock Grid.Row="2" Text="{DynamicResource services.integrationsLabel}" FontSize="14" Foreground="{DynamicResource BrushTextMuted}" Margin="6,0,6,6"/>
-
-            <UniformGrid Grid.Row="3" Columns="3" Margin="0,8,0,0">
-                <Border Background="{DynamicResource BrushPanel}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" CornerRadius="12"
-                        Padding="24" Margin="6" Height="220">
-                    <StackPanel>
-                        <TextBlock Text="WhatsApp" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,8"/>
-                        <TextBlock Text="{DynamicResource services.whatsappDesc}"
-                                   TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}" FontSize="13" TextAlignment="Center" Height="60"/>
-                        <Button Content="{DynamicResource services.connectButton}" HorizontalAlignment="Center" Margin="0,16,0,0" Height="36" Click="WhatsAppConnect_Click"/>
-                    </StackPanel>
+        <StackPanel Spacing="10">
+            <TextBlock Text="{DynamicResource services.integrationsLabel}" FontSize="13" FontWeight="SemiBold"
+                       Foreground="{DynamicResource BrushTextSoft}"/>
+            <UniformGrid Columns="3" Margin="-4,0">
+                <Border Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                        CornerRadius="{DynamicResource SettingsCardRadius}" Padding="20" Margin="4">
+                    <Grid RowDefinitions="Auto,*,Auto" MinHeight="170">
+                        <TextBlock Text="WhatsApp" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource BrushText}"
+                                   TextWrapping="Wrap" Margin="0,0,0,8"/>
+                        <TextBlock Grid.Row="1" Text="{DynamicResource services.whatsappDesc}" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource BrushTextSoft}" FontSize="13"/>
+                        <Button Grid.Row="2" Content="{DynamicResource services.connectButton}" Classes="modal-secondary" HorizontalAlignment="Left"
+                                Margin="0,16,0,0" Click="WhatsAppConnect_Click"/>
+                    </Grid>
                 </Border>
-                <Border Background="{DynamicResource BrushPanel}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" CornerRadius="12"
-                        Padding="24" Margin="6" Height="220">
-                    <StackPanel>
-                        <TextBlock Text="Telegram" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,8"/>
-                        <TextBlock Text="{DynamicResource services.telegramDesc}"
-                                   TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}" FontSize="13" TextAlignment="Center" Height="60"/>
-                        <Button Content="{DynamicResource services.connectButton}" HorizontalAlignment="Center" Margin="0,16,0,0" Height="36" Click="TelegramConnect_Click"/>
-                    </StackPanel>
+                <Border Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                        CornerRadius="{DynamicResource SettingsCardRadius}" Padding="20" Margin="4">
+                    <Grid RowDefinitions="Auto,*,Auto" MinHeight="170">
+                        <TextBlock Text="Telegram" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource BrushText}"
+                                   TextWrapping="Wrap" Margin="0,0,0,8"/>
+                        <TextBlock Grid.Row="1" Text="{DynamicResource services.telegramDesc}" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource BrushTextSoft}" FontSize="13"/>
+                        <Button Grid.Row="2" Content="{DynamicResource services.connectButton}" Classes="modal-secondary" HorizontalAlignment="Left"
+                                Margin="0,16,0,0" Click="TelegramConnect_Click"/>
+                    </Grid>
                 </Border>
-                <Border Background="{DynamicResource BrushPanel}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" CornerRadius="12"
-                        Padding="24" Margin="6" Height="220">
-                    <StackPanel>
-                        <TextBlock Text="{DynamicResource services.cashierInterfaceTitle}" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,8"/>
-                        <TextBlock Text="{DynamicResource services.cashierInterfaceDesc}"
-                                   TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}" FontSize="13" TextAlignment="Center" Height="60"/>
-                        <Button Content="{DynamicResource services.goButton}" HorizontalAlignment="Center" Margin="0,16,0,0" Height="36"
-                                Background="{DynamicResource BrushWarning}" Foreground="{DynamicResource BrushOnWarning}" Click="CashierInterface_Click"/>
-                        <!-- 2026-10-27: белый текст на золотом BrushWarning (#D7BA7D) в тёмной теме — 1,9:1; теперь BrushOnWarning (тёмный на золотом, белый на коричневом светлой). -->
-                    </StackPanel>
+                <Border Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                        CornerRadius="{DynamicResource SettingsCardRadius}" Padding="20" Margin="4">
+                    <Grid RowDefinitions="Auto,*,Auto" MinHeight="170">
+                        <TextBlock Text="{DynamicResource services.cashierInterfaceTitle}" FontSize="16" FontWeight="Bold"
+                                   Foreground="{DynamicResource BrushText}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                        <TextBlock Grid.Row="1" Text="{DynamicResource services.cashierInterfaceDesc}" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource BrushTextSoft}" FontSize="13"/>
+                        <Button Grid.Row="2" Content="{DynamicResource services.goButton}" Classes="modal-primary" HorizontalAlignment="Left"
+                                Margin="0,16,0,0" Click="CashierInterface_Click"/>
+                    </Grid>
                 </Border>
             </UniformGrid>
-        </Grid>
-    </ScrollViewer>
+        </StackPanel>
+    </dlg:ModalShell>
 </Window>

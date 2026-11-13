@@ -106,6 +106,72 @@ public static class ReceiptSnapshotCartEditor
         ApplyRoot(cart, root);
     }
 
+    /// <summary>2026-11-13 (ответ Умара, строймаркет): добавить товар в единице продажи (упаковка 1,44 м²). Количество — в УПАКОВКАХ; цена — цена упаковки
+    /// (опт — <c>wholesale_price</c> упаковки). В строке: <c>sale_unit</c> (id/код — уходит на сервер), <c>sale_unit_factor</c> (сколько базовых единиц; по нему остаток
+    /// списывается qty × factor, см. CartDisplayHelper.LineQuantityInStockUnits), метка piece_sale (цену не сверять с карточкой товара). Сливается только со строкой той же единицы.
+    /// Цены упаковки нет в карточке — берём цену товара × множитель (как посчитал бы сервер).</summary>
+    public static void AddSaleUnit(ICartService cart, CatalogProductTileVm product, ProductSaleUnits.Unit unit, double qty, bool wholesale = false)
+    {
+        ArgumentNullException.ThrowIfNull(product);
+        ArgumentNullException.ThrowIfNull(unit);
+        if (!double.IsFinite(qty) || qty <= 0)
+            throw new ArgumentOutOfRangeException(nameof(qty), "Количество должно быть больше нуля.");
+        if (unit.Factor <= 0m)
+            throw new ArgumentOutOfRangeException(nameof(unit), "Множитель единицы продажи должен быть больше нуля.");
+
+        EnsureCart(cart);
+        var root = ParseRoot(cart);
+        var items = root["items"] as JsonArray ?? new JsonArray();
+        root["items"] = items;
+        RepairMissingProductIds(items);
+
+        var retail = unit.Price is > 0m
+            ? (double)unit.Price.Value
+            : (double)QuantityRules.RoundMoney(QuantityRules.ToMoneyDecimal(ParsePrice(product.PriceLine)) * unit.Factor);
+        var useWholesale = wholesale && unit.WholesalePrice is > 0m;
+        var unitPrice = useWholesale ? (double)unit.WholesalePrice!.Value : retail;
+        var key = unit.Key;
+
+        JsonObject? existing = null;
+        foreach (var node in items)
+        {
+            if (node is JsonObject obj && string.Equals(ExtractId(obj["product_id"]) ?? (obj["product"] is JsonObject po ? ExtractId(po["id"]) : null), product.Id, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(LineSaleUnitKey(obj), key, StringComparison.OrdinalIgnoreCase))
+            {
+                existing = obj;
+                break;
+            }
+        }
+
+        if (existing != null)
+        {
+            existing["quantity"] = JsonNumericReader.ToDouble(existing["quantity"]) + qty;
+            RecalcLine(existing);
+        }
+        else
+        {
+            var title = $"{product.Title} · {unit.Label(product.Unit)}";
+            var line = BuildLine(product.Id, title, string.IsNullOrWhiteSpace(unit.Barcode) ? product.Barcode : unit.Barcode, unitPrice, qty, false, null, product.ServerIsWeight);
+            line["sale_unit"] = key;
+            line["sale_unit_factor"] = (double)unit.Factor;
+            line["unit"] = string.IsNullOrWhiteSpace(unit.Name) ? Tr.T("Упаковка", "Таңгак", "Pack", "Paket", "Qadoq") : unit.Name.Trim();
+            line[PieceSaleField] = true;
+            if (useWholesale)
+            {
+                line["retail_price"] = retail;
+                line["is_wholesale"] = true;
+            }
+            items.Add(line);
+        }
+
+        RecalcCartTotals(root);
+        ApplyRoot(cart, root);
+    }
+
+    /// <summary>Ключ единицы продажи строки (поле <c>sale_unit</c>), null — строка в базовой единице.</summary>
+    private static string? LineSaleUnitKey(JsonObject line) =>
+        line["sale_unit"] is JsonValue v && v.TryGetValue<string>(out var s) && !string.IsNullOrWhiteSpace(s) ? s.Trim() : null;
+
     /// <summary>«Доп. услуга» (2026-09-07): строка чека без товара — product_id/product отсутствуют,
     /// is_custom = true (по нему StagingCartService при оплате отправляет её на сервер запросом
     /// custom-item, а не add-item). Каждая услуга — отдельная строка, с другими не сливается.
@@ -172,9 +238,49 @@ public static class ReceiptSnapshotCartEditor
         // Скидка суммой была выставлена под прежний gross: после смены количества
         // её нужно переклампить, иначе «лишняя» скидка утечёт на другие строки чека.
         ClampLineDiscountToGross(line);
+        TrimLineSerials(line); // 2026-11-12 (ЭЛ2): номеров не больше, чем штук в строке (только у строк с серийниками — «Электроника»)
         RecalcLine(line);
         RecalcCartTotals(root);
         ApplyRoot(cart, root);
+    }
+
+    /// <summary>2026-11-12 (ЭЛ2, сфера «Электроника»): после уменьшения количества лишние серийные номера строки отбрасываются (остаются первые N).
+    /// У строки без серийников ничего не меняется.</summary>
+    private static void TrimLineSerials(JsonObject line)
+    {
+        if (line[ElectronicsProfile.SerialsField] is not JsonArray serials || serials.Count == 0)
+            return;
+        var qty = (int)Math.Floor(JsonNumericReader.ToDouble(line["quantity"]) + 1e-9);
+        while (serials.Count > Math.Max(0, qty))
+            serials.RemoveAt(serials.Count - 1);
+        if (serials.Count == 0)
+            line.Remove(ElectronicsProfile.SerialsField);
+    }
+
+    /// <summary>2026-11-12 (ЭЛ2, сфера «Электроника»): дописать серийные номера в строку чека (поле serials) и поставить срок гарантии
+    /// (warranty_months, 0 — убрать). Поля только для кассы: на сервер не уходят (тело продажи собирается по отдельным полям).
+    /// false — строки с таким id нет.</summary>
+    public static bool AddLineSerials(ICartService cart, string itemId, IReadOnlyCollection<string> serials, int warrantyMonths)
+    {
+        if (string.IsNullOrEmpty(itemId) || !cart.HasCart)
+            return false;
+        var root = ParseRoot(cart);
+        var items = root["items"] as JsonArray;
+        var line = FindLineByItemId(items, itemId);
+        if (line == null)
+            return false;
+        var list = line[ElectronicsProfile.SerialsField] as JsonArray ?? new JsonArray();
+        foreach (var s in serials)
+            if (!string.IsNullOrWhiteSpace(s))
+                list.Add(s);
+        if (list.Count > 0)
+            line[ElectronicsProfile.SerialsField] = list;
+        if (warrantyMonths > 0)
+            line[ElectronicsProfile.WarrantyMonthsField] = warrantyMonths;
+        else
+            line.Remove(ElectronicsProfile.WarrantyMonthsField);
+        ApplyRoot(cart, root);
+        return true;
     }
 
     private static void ClampLineDiscountToGross(JsonObject line)
@@ -217,6 +323,56 @@ public static class ReceiptSnapshotCartEditor
     /// <summary>2026-10-03, клиент: «облегчить продажу оптового и розничного: опт не только на весь чек, но и на сам
     /// товар — переключатель». Строка переходит на оптовую цену товара (wholesale_price) или обратно на розничную
     /// (запоминается в retail_price строки). Скидка суммой переклампливается под новую сумму строки.</summary>
+    /// <summary>Метка строки: цена поставлена по уровню цен клиента (значение — id уровня).</summary>
+    public const string PriceLevelField = "price_level";
+
+    /// <summary>2026-11-13 (ответ Умара, строймаркет): цена строки по уровню цен клиента («цена прораба»). Строка получает цену уровня как явную цену (признак <c>is_wholesale</c> —
+    /// сервер не считает её устаревшей, снятие опта возвращает обычную цену из <c>retail_price</c>) и метку <see cref="PriceLevelField"/>. Строки в упаковках, «Доп. услуги» и строки
+    /// с уже стоящей меткой этого уровня не трогаются. false — строка не найдена или цена не годится.</summary>
+    public static bool SetLinePriceLevel(ICartService cart, string itemId, string levelId, decimal price)
+    {
+        if (price <= 0m || string.IsNullOrWhiteSpace(levelId))
+            return false;
+        EnsureCart(cart);
+        var root = ParseRoot(cart);
+        var items = root["items"] as JsonArray ?? new JsonArray();
+        RepairMissingProductIds(items);
+        root["items"] = items;
+        var line = FindLineByItemId(items, itemId);
+        if (line == null || LineSaleUnitKey(line) is not null || (line["is_custom"] is JsonValue c && c.TryGetValue<bool>(out var custom) && custom))
+            return false;
+        if (line[PriceLevelField] is JsonValue marked && marked.TryGetValue<string>(out var current) && string.Equals(current, levelId, StringComparison.Ordinal))
+            return false;
+
+        var wasWholesale = line["is_wholesale"] is JsonValue w && w.TryGetValue<bool>(out var was) && was;
+        if (!wasWholesale)
+            line["retail_price"] = JsonNumericReader.ToDouble(line["unit_price"]);
+        line["unit_price"] = (double)price;
+        line["is_wholesale"] = true;
+        line[PriceLevelField] = levelId;
+        ClampLineDiscountToGross(line);
+        RecalcLine(line);
+        RecalcCartTotals(root);
+        ApplyRoot(cart, root);
+        return true;
+    }
+
+    /// <summary>В чеке есть строки, которым ещё не поставлена цена этого уровня (без упаковок и «Доп. услуг»).</summary>
+    public static bool HasLinesWithoutPriceLevel(ICartService cart, string levelId)
+    {
+        if (!cart.HasCart)
+            return false;
+        foreach (var it in CartDisplayHelper.EnumerateItems(cart.Root))
+        {
+            if (CartDisplayHelper.IsCustomLine(it) || ProductSaleUnits.LineKey(it) is not null || string.IsNullOrEmpty(CartDisplayHelper.TryProductId(it)))
+                continue;
+            if (!(it.TryGetProperty(PriceLevelField, out var m) && m.ValueKind == JsonValueKind.String
+                  && string.Equals(m.GetString(), levelId, StringComparison.Ordinal)))
+                return true;
+        }
+        return false;
+    }
+
     public static bool SetLineWholesale(ICartService cart, string itemId, bool wholesale, double wholesalePrice)
     {
         EnsureCart(cart);
@@ -394,6 +550,7 @@ public static class ReceiptSnapshotCartEditor
                 pid = ExtractId(productObj["id"]);
 
             if (string.Equals(pid?.Trim(), normalizedSearchId, StringComparison.OrdinalIgnoreCase)
+                && LineSaleUnitKey(obj) is null // 2026-11-13: строка в упаковке (sale_unit) с обычной не сливается, даже при одинаковой цене
                 && PriceMatches(obj, unitPrice)
                 && (!matchVariant || string.Equals(LineVariantName(obj), variantName, StringComparison.Ordinal)))
                 return obj;

@@ -78,6 +78,13 @@ public static class HardwareProfile
         CategoryHints = CategoryList,
         ShowVariants = false,
         ShowProductDetails = true,
+        // 2026-11-12 (СФ4): возможности профиля (ТЗ хозмаг 3.2) — только у hardware.
+        FractionalUnits = true,
+        PackScan = true,
+        QuantityPad = true,
+        ConsumptionCalc = true,
+        ForemanPriceAvailable = true,
+        ChoiceVisible = true, // 2026-11-12 (ХМ14): плитка «Хозтовары» в окне первого запуска и в Настройках
     };
 
     /// <summary>Включения по размеру (ТЗ 3.2). Хозмаг у дома: без цены прораба, без срока долга 14 дней, КП не на виду.

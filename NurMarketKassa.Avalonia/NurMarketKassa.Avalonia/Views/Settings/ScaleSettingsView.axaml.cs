@@ -46,15 +46,32 @@ public partial class ScaleSettingsView : UserControl
 
     private bool _narrowTabs;
 
-    /// <summary>Вкладки разделов: на компьютере — одним рядом (3 или 4), на телефоне — по две в ряд.</summary>
+    /// <summary>2026-11-11, запрос владельца «убрать пункт весов из кассы и поставить на владелец»: страница стоит в разделе программы
+    /// владельца «Товары → Весы» (ScalesSectionWindow). 2026-11-11 (запрос «добавь и весы в программу владельца КАК В КАССЕ»): здесь ПОЛНЫЙ набор —
+    /// «Весы на кассе» (COM), «Весы с этикетками», «Штрих-код: вес / сумма» и «Табло цены».
+    /// 2026-11-12, решение владельца (аудит, пакет 3): в программе владельца ТОЛЬКО две вкладки — «Весы с этикетками» и «Штрих-код: вес / сумма»
+    /// (настройка и отправка товаров на весы). «Весы на кассе» (COM) и «Табло цены» остались только в кассе: COM-порты держит касса, а настройки,
+    /// сохранённые в программе владельца, на кассу не влияли (аудит Л-11…Л-13). Выставляется до показа.</summary>
+    public bool OwnerSectionMode { get; set; }
+
+    private int _ownerSection = -1;
+
+    /// <summary>2026-11-12, решение владельца («где настройки весов в кассе и в программе владельца?! оставь их»; отменяет 11.11 «убрать из кассы»):
+    /// «Весы с этикетками» (список весов, «Настройки весов Rongta/TM/Штрих», отправка товаров, проверка связи) — и в кассе, и в программе владельца.</summary>
+    private bool LabelScalesHere => true;
+
+    /// <summary>2026-11-12: «Штрих-код: вес / сумма» — и в кассе (как в 1.17.85), и в программе владельца (правила едут через облако ScaleBarcodeRulesSync).</summary>
+    private bool BarcodeRulesHere => true;
+
+    /// <summary>Вкладки разделов: на компьютере — одним рядом (2–4), на телефоне — по две в ряд.</summary>
     private void ArrangeSectionTabs()
     {
-        var count = TabLabelButton.IsVisible ? 4 : 3;
+        var count = (TabWeighingButton.IsVisible ? 1 : 0) + (TabLabelButton.IsVisible ? 1 : 0) + (TabBarcodeButton.IsVisible ? 1 : 0) + (TabDisplayButton.IsVisible ? 1 : 0);
         SectionTabsGrid.Columns = _narrowTabs ? 2 : count;
         SectionTabsGrid.Rows = _narrowTabs ? (count + 1) / 2 : 1;
     }
 
-    private static string L(string ru, string ky, string en, string tr, string uz) => Tr.T(ru, ky, en, tr, uz);
+    private static string L(string ru, string ky, string en, string tr, string uz) => NurMarketKassa.AvaloniaHost.Views.Dialogs.ScaleUi.OwnerPath(Tr.T(ru, ky, en, tr, uz)); // 2026-11-11: в программе владельца путь «Товары → Весы»
 
     private IBrush Brush(string key, IBrush fallback) =>
         Application.Current?.TryFindResource(key, ActualThemeVariant, out var value) == true && value is IBrush brush
@@ -73,15 +90,32 @@ public partial class ScaleSettingsView : UserControl
     /// RefreshPaidFeatureVisibility в WarehouseWindow).</summary>
     public void RefreshPluCardVisibility()
     {
-        var allowed = TariffGate.CanUseScales;
+        var allowed = TariffGate.CanUseScales && LabelScalesHere;
         TabLabelButton.IsVisible = allowed;
+        // 2026-11-12: в кассе все вкладки, как в 1.17.85. В программе владельца «Весы на кассе» и «Табло цены» убраны (решение владельца).
+        TabWeighingButton.IsVisible = !OwnerSectionMode;
+        TabDisplayButton.IsVisible = !OwnerSectionMode;
+        TabBarcodeButton.IsVisible = BarcodeRulesHere;
+        HeaderCard.IsVisible = !OwnerSectionMode;
+        SaveBlock.IsVisible = !OwnerSectionMode; // 2026-11-12: у владельца сохранять нечего — у вкладок свои кнопки («Настроить…», запись правил)
         ArrangeSectionTabs();
         // Первый заход: весы у кассы не включены, а этикеточные доступны — открываем их (там же
         // «вес или сумма в штрихкоде»); иначе — весы на кассе.
-        if (_lastSection < 0)
-            _lastSection = allowed && !UserPreferences.Instance.ScaleEnabled ? 1 : 0;
-        if (!allowed && _lastSection == 1)
-            _lastSection = 0;
+        if (OwnerSectionMode)
+        {
+            // 2026-11-11: программа владельца открывается на «Весах с этикетками» (главное здесь); дальше — вкладка, выбранная на ЭТОЙ странице
+            // (общий _lastSection кассы не трогаем: он статический и тянул бы вкладку из другого окна).
+            if (_ownerSection is not (1 or 2) || (!allowed && _ownerSection == 1))
+                _ownerSection = allowed ? 1 : 2;
+            _lastSection = _ownerSection;
+        }
+        else
+        {
+            if (_lastSection < 0)
+                _lastSection = allowed && !UserPreferences.Instance.ScaleEnabled ? 1 : 0;
+            if ((!allowed && _lastSection == 1) || (!BarcodeRulesHere && _lastSection == 2))
+                _lastSection = 0;
+        }
         ShowSection(_lastSection);
     }
 
@@ -97,9 +131,15 @@ public partial class ScaleSettingsView : UserControl
     /// <summary>Показывает один раздел страницы.</summary>
     public void ShowSection(int index)
     {
-        if (index == 1 && !TariffGate.CanUseScales)
-            index = 0;
+        if (OwnerSectionMode && index is 0 or 3)
+            index = 1; // 2026-11-12: у владельца вкладок «Весы на кассе» и «Табло цены» нет
+        if (index == 1 && !(TariffGate.CanUseScales && LabelScalesHere))
+            index = OwnerSectionMode ? 2 : 0;
+        if (index == 2 && !BarcodeRulesHere)
+            index = 0; // 2026-11-12: сейчас правила штрихкода есть везде (запасной переход)
         _lastSection = index;
+        if (OwnerSectionMode)
+            _ownerSection = index;
         TabWeighingButton.IsChecked = index == 0;
         TabLabelButton.IsChecked = index == 1;
         TabBarcodeButton.IsChecked = index == 2;
@@ -180,6 +220,10 @@ public partial class ScaleSettingsView : UserControl
             else if (isActive)
                 texts.Children.Add(Line(ScaleUi.LastCheckText(profile.Brand), "BrushTextSoft"));
         }
+
+        // 2026-11-13: после записи типа штрихкода в весы Rongta — плашка в строке: что проверить на весах или запасной путь, если весы не ответили по 5001.
+        if (profile.Brand == ScaleUi.BrandRongta && isActive && RongtaBarcodeTypeWriter.LastOutcome is { } written)
+            texts.Children.Add(Line(written.Ok ? "ℹ " + RongtaBarcodeTypeWriter.CheckHint(written.Type) : "⚠ " + RongtaBarcodeTypeWriter.NoReplyHint(written.Type), written.Ok ? "BrushText" : "BrushWarning"));
 
         var setup = RowButton(L("Настроить…", "Жөндөө…", "Configure…", "Ayarla…", "Sozlash…"), false);
         setup.Click += async (_, _) =>

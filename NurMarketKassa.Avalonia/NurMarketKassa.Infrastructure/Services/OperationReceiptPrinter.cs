@@ -28,6 +28,8 @@ public static class OperationReceiptPrinter
         bool isWholeSale,
         string? cashierName)
     {
+        if (OwnerSkipsPrint("возврата"))
+            return null;
         return Print(() => ReturnReceiptTextBuilder.Build(
             originalReceiptNumber, lines, refundTotal, reason, isWholeSale, cashierName), "возврата");
     }
@@ -46,6 +48,8 @@ public static class OperationReceiptPrinter
         string? reason,
         string? cashierName)
     {
+        if (OwnerSkipsPrint("обмена"))
+            return null;
         return Print(() => ExchangeReceiptTextBuilder.Build(originalReceiptNumber, originalDate, newReceiptNumber, returned, issued,
             returnedAmount, newAmount, difference, paymentMethod, reason, cashierName), "обмена");
     }
@@ -59,6 +63,16 @@ public static class OperationReceiptPrinter
     {
         return Print(() => BuildCashOperation(isWithdrawal, amount, reason, cashierName),
             isWithdrawal ? "расхода" : "прихода");
+    }
+
+    /// <summary>2026-11-12 (владелец: «Возврат чеков добавь и программу владельца»): программа владельца (--owner) работает без кассовой смены и ящика —
+    /// чек возврата/обмена на принтер чеков не печатается (печать чека по ESC/POS открывала бы и ящик). Касса — как раньше.</summary>
+    internal static bool OwnerSkipsPrint(string what)
+    {
+        if (!AppMode.IsOwner)
+            return false;
+        PosLogger.Log($"Чек {what} не печатается: программа владельца (без кассовой смены и ящика).", "PRINTER");
+        return true;
     }
 
     private static string? Print(Func<string> buildText, string what)

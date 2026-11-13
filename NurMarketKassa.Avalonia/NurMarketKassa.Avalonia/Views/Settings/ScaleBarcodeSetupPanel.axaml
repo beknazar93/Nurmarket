@@ -19,7 +19,8 @@
         <Style Selector="TextBlock.SettingsCardBody">
             <Setter Property="FontSize" Value="13.5"/>
             <Setter Property="LineHeight" Value="19"/>
-            <Setter Property="MaxLines" Value="3"/>
+            <!-- 2026-11-12 (аудит 12.11, С-25): без предела строк — кыргызское описание обрезалось на третьей строке, конец фразы терялся -->
+            <Setter Property="MaxLines" Value="0"/>
             <Setter Property="TextTrimming" Value="WordEllipsis"/>
             <Setter Property="ToolTip.Tip" Value="{Binding $self.Text}"/>
         </Style>

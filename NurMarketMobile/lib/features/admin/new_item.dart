@@ -17,6 +17,7 @@ import '../../core/theme/tokens.dart';
 import '../../core/units.dart';
 import '../../core/util/barcode_generator.dart';
 import '../../core/util/photo_finder.dart';
+import '../../core/util/price_limits.dart';
 import '../../core/util/ui.dart';
 import '../scan/code_lookup.dart';
 import '../scan/scan_screen.dart';
@@ -556,6 +557,13 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
       setState(() => _submitted = true);
       toast(context, name.isEmpty ? l.peNameNeed : l.nuPriceNeed, error: true);
       _aiSink.report(HandleOutcome.clarifyKey(name.isEmpty ? 'needProduct' : 'needPriceValue'));
+      return;
+    }
+    // 2026-11-11 (ответ Умара): цена продажи/опт ≤ 9 999 999,999, закупка ≤ 9 999 999 999,9999 — выше сервер не примет
+    final limit = PriceLimits.problem(context, sale: price, wholesale: parseNum(_wholesale.text), purchase: cost);
+    if (limit != null) {
+      toast(context, limit, error: true);
+      _aiSink.report(HandleOutcome.error(limit));
       return;
     }
     if (_busy) return;

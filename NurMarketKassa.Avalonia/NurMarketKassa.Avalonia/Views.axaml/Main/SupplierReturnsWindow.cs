@@ -225,7 +225,30 @@ public sealed class SupplierReturnsWindow : Window, IOwnerSection
                 return;
             var rows = data.ValueKind == JsonValueKind.Array ? data : data.TryGetProperty("results", out var r) ? r : default;
             var count = data.ValueKind == JsonValueKind.Object && data.TryGetProperty("count", out var c) && c.TryGetInt32(out var n) ? n : rows.ValueKind == JsonValueKind.Array ? rows.GetArrayLength() : 0;
-            var total = data.ValueKind == JsonValueKind.Object && data.TryGetProperty("meta", out var meta) ? Num(meta, "total_amount") : 0;
+            // 2026-11-12 (аудит С-11): грузилась одна страница в 200 строк, а плитки и итоги считались по ней как по всему списку — дочитываем следующие страницы (до 3, 600 возвратов);
+            // не поместилось — честная пометка «показаны первые N из M» и итоги по показанным
+            var shownCount = rows.ValueKind == JsonValueKind.Array ? rows.GetArrayLength() : 0;
+            if (rows.ValueKind == JsonValueKind.Array && count > shownCount)
+            {
+                var all = rows.EnumerateArray().Select(x => x.GetRawText()).ToList();
+                for (var page = 2; page <= 3 && all.Count < count; page++)
+                {
+                    query["page"] = page.ToString(CultureInfo.InvariantCulture);
+                    var more = await _api.RequestAsync(HttpMethod.Get, "api/main/suppliers/returns/", null, query, CancellationToken.None, TimeSpan.FromSeconds(30)).ConfigureAwait(true);
+                    if (gen != _loadGen)
+                        return;
+                    var moreRows = more.ValueKind == JsonValueKind.Array ? more : more.ValueKind == JsonValueKind.Object && more.TryGetProperty("results", out var mr) ? mr : default;
+                    if (moreRows.ValueKind != JsonValueKind.Array || moreRows.GetArrayLength() == 0)
+                        break;
+                    all.AddRange(moreRows.EnumerateArray().Select(x => x.GetRawText()));
+                }
+                if (all.Count > shownCount)
+                {
+                    rows = JsonDocument.Parse("[" + string.Join(",", all) + "]").RootElement;
+                    shownCount = all.Count;
+                }
+            }
+            var truncated = rows.ValueKind == JsonValueKind.Array && count > shownCount;
             _list.Children.Clear();
             _summary.IsVisible = false;
             if (rows.ValueKind != JsonValueKind.Array || rows.GetArrayLength() == 0)
@@ -243,9 +266,18 @@ public sealed class SupplierReturnsWindow : Window, IOwnerSection
                         "Bu davrda yetkazib beruvchilarga qaytarish yo'q. Brak, ortiqcha yoki muddati o'tgan mahsulotni «＋ Yangi qaytarish» tugmasi bilan rasmiylashtiring — qoldiq kamayadi, pul kassaga yoki yetkazib beruvchi qarzi hisobiga qaytadi.")));
                 return;
             }
-            if (total <= 0)
-                total = rows.EnumerateArray().Where(x => !IsVoided(x)).Sum(x => Num(x, "total_amount")); // 2026-11-10: аннулированные — не в итоге
-            RenderKpi(count, total, rows);
+            // 2026-11-12 (аудит 12.11, Л-8/Д-13): «На сумму» раньше бралась из meta.total_amount сервера — при status=all она включала аннулированные, а «в кассу»
+            // и «в счёт долга» считались без них (и в double — расхождение на копейку). Теперь все плитки — одним проходом по строкам, в decimal, без аннулированных.
+            RenderKpi(KpiTotals(rows, truncated ? shownCount : count));
+            if (truncated)
+            {
+                _summary.IsVisible = true;
+                _summary.Text = T($"Показаны первые {shownCount} из {count} возвратов — итоги выше посчитаны по показанным. Сузьте период или найдите возврат поиском.",
+                    $"{count} кайтаруунун алгачкы {shownCount} көрсөтүлдү — жогорудагы жыйынтыктар көрсөтүлгөндөр боюнча эсептелди. Мезгилди кыскартыңыз же кайтарууну издөө менен табыңыз.",
+                    $"Showing the first {shownCount} of {count} returns — the totals above are for the shown ones. Narrow the period or find a return with search.",
+                    $"{count} iadenin ilk {shownCount} tanesi gösteriliyor — yukarıdaki toplamlar gösterilenlere göredir. Dönemi daraltın veya iadeyi aramayla bulun.",
+                    $"{count} ta qaytarishdan dastlabki {shownCount} tasi ko'rsatilgan — yuqoridagi jami ko'rsatilganlar bo'yicha. Davrni toraytiring yoki qaytarishni qidiruv bilan toping.");
+            }
             foreach (var row in rows.EnumerateArray())
                 _list.Children.Add(BuildCard(row));
             PosLogger.Log($"Возвраты поставщикам: {count} шт.", "INFO");
@@ -265,18 +297,49 @@ public sealed class SupplierReturnsWindow : Window, IOwnerSection
 
     /// <summary>2026-10-20, этап О9б: итоги плитками (суммы не обрезаются — Viewbox в UiKit.Kpi): сколько возвратов, на какую сумму,
     /// сколько из них вернули деньгами в кассу и сколько ушло в счёт долга поставщику (по загруженным строкам).</summary>
-    private void RenderKpi(int count, double total, JsonElement rows)
+    private void RenderKpi(SupplierReturnKpi k)
     {
-        string Comp(JsonElement x) => Str(x, "compensation") is { Length: > 0 } c ? c : Str(x, "compensation_type");
-        var cash = rows.EnumerateArray().Where(x => Comp(x) == "cash" && !IsVoided(x)).Sum(x => Num(x, "total_amount"));
-        var debt = rows.EnumerateArray().Where(x => Comp(x) == "debt_offset" && !IsVoided(x)).Sum(x => Num(x, "total_amount"));
         _kpi.Children.Clear();
-        _kpi.Children.Add(UiKit.Kpi(T("Возвратов", "Кайтаруулар", "Returns", "İadeler", "Qaytarishlar"), count.ToString(CultureInfo.InvariantCulture)));
-        _kpi.Children.Add(UiKit.Kpi(T("На сумму", "Суммасы", "Total", "Toplam", "Jami summa"), Money(total)));
-        _kpi.Children.Add(UiKit.Kpi(T("Деньги вернули в кассу", "Кассага кайтарылды", "Money back to the till", "Kasaya iade edilen", "Kassaga qaytarildi"), Money(cash)));
-        _kpi.Children.Add(UiKit.Kpi(T("В счёт долга поставщику", "Жеткирүүчүнүн карызынын эсебине", "Against the supplier debt", "Tedarikçi borcuna", "Yetkazib beruvchi qarzi hisobiga"), Money(debt)));
+        _kpi.Children.Add(UiKit.Kpi(T("Возвратов", "Кайтаруулар", "Returns", "İadeler", "Qaytarishlar"), k.Count.ToString(CultureInfo.InvariantCulture)));
+        _kpi.Children.Add(UiKit.Kpi(T("На сумму", "Суммасы", "Total", "Toplam", "Jami summa"), Money(k.Total)));
+        _kpi.Children.Add(UiKit.Kpi(T("Деньги вернули в кассу", "Кассага кайтарылды", "Money back to the till", "Kasaya iade edilen", "Kassaga qaytarildi"), Money(k.Cash)));
+        _kpi.Children.Add(UiKit.Kpi(T("В счёт долга поставщику", "Карыздын эсебине", "Against the supplier debt", "Tedarikçi borcuna", "Qarz hisobiga") /* 2026-11-12 (UX): ky/uz короче — подпись в две строки сдвигала сумму плитки ниже соседних */, Money(k.Debt)));
         _kpi.IsVisible = true;
     }
+
+    /// <summary>2026-11-12 (аудит 12.11, Л-8/Д-13): итоги плиток одним проходом по загруженным строкам, в decimal (копейки не теряются), без аннулированных.
+    /// <paramref name="serverCount"/> — count сервера (при status=all — со всеми): в «Возвратов» — без аннулированных. «На сумму» = сумма действующих строк,
+    /// при способах только «в кассу»/«в счёт долга» — ровно их сумма.</summary>
+    public static SupplierReturnKpi KpiTotals(JsonElement rows, int serverCount)
+    {
+        string Comp(JsonElement x) => Str(x, "compensation") is { Length: > 0 } c ? c : Str(x, "compensation_type");
+        decimal total = 0m, cash = 0m, debt = 0m;
+        var voided = 0;
+        if (rows.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var x in rows.EnumerateArray())
+            {
+                if (IsVoided(x))
+                {
+                    voided++;
+                    continue;
+                }
+                var sum = Dec(x, "total_amount");
+                total += sum;
+                switch (Comp(x))
+                {
+                    case "cash": cash += sum; break;
+                    case "debt_offset": debt += sum; break;
+                }
+            }
+        }
+        return new SupplierReturnKpi(Math.Max(0, serverCount - voided), total, cash, debt);
+    }
+
+    internal static decimal Dec(JsonElement e, string name) =>
+        decimal.TryParse(Str(e, name), NumberStyles.Number, CultureInfo.InvariantCulture, out var d) ? d : 0m;
+
+    internal static string Money(decimal v) => v.ToString("N2", Ru) + " " + T("сом", "сом", "som", "som", "so'm");
 
     private Control BuildCard(JsonElement row)
     {
@@ -305,6 +368,7 @@ public sealed class SupplierReturnsWindow : Window, IOwnerSection
         {
             Text = string.Join(" · ", new[]
             {
+                info.NumberDisplay.Length > 0 ? "№ " + info.NumberDisplay : "", // 2026-11-12 (UX): номер накладной в карточке — по нему её ищут в бумагах и называют в окне правки
                 at == default ? "" : at.ToLocalTime().ToString("dd.MM.yyyy HH:mm", Ru),
                 CompensationName(Str(row, "compensation") is { Length: > 0 } comp ? comp : Str(row, "compensation_type")),
                 Str(row, "created_by_name"),
@@ -380,6 +444,9 @@ public sealed class SupplierReturnsWindow : Window, IOwnerSection
         target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 }
 
+/// <summary>2026-11-12 (аудит 12.11, Л-8): итоги плиток «Возвратов поставщикам» (без аннулированных, в decimal).</summary>
+public sealed record SupplierReturnKpi(int Count, decimal Total, decimal Cash, decimal Debt);
+
 /// <summary>«Новый возврат поставщику»: поставщик → приход или склад → количество по строкам → причина, деньги, комментарий.
 /// Результат ShowDialog — true, если возврат оформлен на сервере.</summary>
 public sealed class SupplierReturnDialog : Window
@@ -410,6 +477,7 @@ public sealed class SupplierReturnDialog : Window
     private readonly TextBlock _error = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap, IsVisible = false };
     private readonly Button _save;
     private readonly Button _cancel;
+    private readonly Button _edit; // 2026-11-12: «Править накладную» после оформления
     private readonly StackPanel _form;
     // 2026-11-05: после оформления окно остаётся открытым — главная кнопка становится «Распечатать накладную возврата», «Готово» закрывает окно.
     private bool _saved;
@@ -492,13 +560,21 @@ public sealed class SupplierReturnDialog : Window
                 await SaveAsync().ConfigureAwait(true);
         };
 
+        // 2026-11-12 (владелец: «редактирование накладной возврата поставщику»): после оформления — «Править накладную» (то же окно правки 24 ч, что в списках);
+        // до оформления кнопки нет: строки правятся прямо в форме.
+        _edit = SectionCards.Secondary(ReturnEditFlows.SupplierEditButtonText());
+        _edit.IsVisible = false;
+        _edit.HorizontalAlignment = HorizontalAlignment.Left; // под итогом, а не третьей кнопкой подвала: на 1024 кнопка «Распечатать…» обрезалась справа
+        Avalonia.Automation.AutomationProperties.SetName(_edit, ReturnEditFlows.SupplierEditButtonText());
+        _edit.Click += async (_, _) => await EditSavedAsync().ConfigureAwait(true);
+
         // 2026-10-22 (модалки, пакет 4): оболочка запоминается — на время запроса окно занято (IsBusy): ✕, Esc и «Отмена»
         // выключены, окно не закрыть посреди оформления (иначе не узнать, оформлен ли возврат); чипы и поля — 44 px.
         Content = _shell = SectionCards.Shell(Title,
             T("Товар уйдёт со склада поставщику. Цена — закупочная.", "Товар кампадан жеткирүүчүгө кетет. Баасы — сатып алуу баасы.",
                 "The goods leave the stock back to the supplier. Price — the purchase price.", "Ürün stoktan tedarikçiye gider. Fiyat — alış fiyatı.",
                 "Mahsulot ombordan yetkazib beruvchiga ketadi. Narx — xarid narxi."),
-            panel, SectionCards.Buttons(cancel, _save), _total);
+            panel, SectionCards.Buttons(cancel, _save), new StackPanel { Spacing = 6, MinWidth = 140, Children = { _total, _edit } });
         BuildChips();
         UpdateTotal();
         Opened += async (_, _) => await LoadSuppliersAsync().ConfigureAwait(true);
@@ -729,7 +805,9 @@ public sealed class SupplierReturnDialog : Window
         info.Children.Add(title);
         info.Children.Add(meta);
         row.Children.Add(info);
-        var qty = new TextBox { Width = 110, MinHeight = 44, Watermark = "0", IsEnabled = max > 0, HorizontalContentAlignment = HorizontalAlignment.Right };
+        // 2026-11-12 (UX): число — по центру высоты поля (было прижато к верхнему краю), поле — по центру строки с длинным названием, отступ от текста 12
+        var qty = new TextBox { Width = 110, MinHeight = 44, Watermark = "0", IsEnabled = max > 0, HorizontalContentAlignment = HorizontalAlignment.Right,
+            VerticalContentAlignment = VerticalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0) };
         qty.TextChanged += (_, _) => UpdateTotal();
         // 2026-11-06 (В12, ДС-3): имя поля количества — товар (иначе диктор читает просто «0»).
         Avalonia.Automation.AutomationProperties.SetName(qty, T("Количество к возврату: ", "Кайтарылуучу саны: ", "Quantity to return: ", "İade adedi: ", "Qaytariladigan miqdor: ") + (name.Length > 0 ? name : "—"));
@@ -767,9 +845,10 @@ public sealed class SupplierReturnDialog : Window
         foreach (var r in _rows)
         {
             var qty = ParseQty(r.Qty.Text);
-            if (qty == 0 && string.IsNullOrWhiteSpace(r.Qty.Text))
+            // 2026-11-12 (правка до проведения): «0» в строке = «эту строку не возвращаем» (как пустое поле), а не ошибка, мешавшая оформить остальные строки
+            if (qty == 0 && (string.IsNullOrWhiteSpace(r.Qty.Text) || SupplierReturnEdit.ParseNumber(r.Qty.Text) == 0))
                 continue;
-            var piece = r.Unit is "шт" or "даана" or "pcs" or "adet" or "dona" or "";
+            var piece = r.Unit is "шт" or "шт." or "даана" or "pcs" or "adet" or "dona" or ""; // 2026-11-12: «шт.» с точкой — тоже штучный (как SupplierReturnEditLine.IsPiece)
             string? problem = qty <= 0 ? T("укажите количество больше 0", "0дөн көп санды жазыңыз", "enter a quantity above 0", "0'dan büyük adet girin", "0 dan katta miqdor kiriting")
                 : piece && Math.Abs(qty - Math.Round(qty)) > 0.0001 ? T("для штучного товара — целое число", "даана товар үчүн — бүтүн сан", "a whole number for piece goods", "adetli ürün için tam sayı", "donali mahsulot uchun — butun son")
                 : qty > r.Max + 0.0001 ? T($"нельзя вернуть больше {r.Max:0.###}", $"{r.Max:0.###} ашык кайтарууга болбойт", $"cannot return more than {r.Max:0.###}", $"{r.Max:0.###} fazlası iade edilemez", $"{r.Max:0.###} dan ko'p qaytarib bo'lmaydi")
@@ -842,14 +921,36 @@ public sealed class SupplierReturnDialog : Window
             DateTime.Now, _reason, _compensation, lines.Sum(l => l.Total), "", (_comment.Text ?? "").Trim(), lines);
         _form.IsEnabled = false;
         _save.IsEnabled = true;
+        _edit.IsVisible = true; // 2026-11-12: ошиблись в количестве/цене — «Править накладную» сразу здесь
         _save.Content = T("Распечатать накладную возврата", "Кайтаруу накладнойун басып чыгаруу", "Print the return waybill", "İade irsaliyesini yazdır", "Qaytarish yuk xatini chop etish");
         _cancel.Content = T("Готово", "Даяр", "Done", "Tamam", "Tayyor");
         // 2026-11-06 (В12, ДС-3): имена кнопок после «Возврат оформлен» — для экранного диктора.
         Avalonia.Automation.AutomationProperties.SetName(_save, _save.Content as string);
         Avalonia.Automation.AutomationProperties.SetName(_cancel, _cancel.Content as string);
-        _total.Text = T($"Возврат оформлен ({lineCount} поз.). Накладную можно распечатать.", $"Кайтаруу тариздалды ({lineCount} поз.). Накладнойду басып чыгарса болот.",
-            $"The return is registered ({lineCount} items). You can print the waybill.", $"İade kaydedildi ({lineCount} kalem). İrsaliye yazdırılabilir.", $"Qaytarish rasmiylashtirildi ({lineCount} ta). Yuk xatini chop etish mumkin.");
+        // 2026-11-12 (UX): коротко — «…Накладную можно распечатать» рядом с кнопкой «Распечатать накладную возврата» ломалось в подвале на 4 строки по два слова
+        _total.Text = T($"✓ Возврат оформлен · {lineCount} поз.", $"✓ Кайтаруу тариздалды · {lineCount} поз.",
+            $"✓ The return is registered · {lineCount} items", $"✓ İade kaydedildi · {lineCount} kalem", $"✓ Qaytarish rasmiylashtirildi · {lineCount} ta");
     }
+
+    /// <summary>2026-11-12: для тестов окна — состояние «возврат оформлен» (кнопки «Готово», «Править накладную», «Распечатать накладную возврата»).</summary>
+    public void ShowSavedForTests(string supplierId, string? newId, int lineCount) => ShowSaved(supplierId, newId, lineCount);
+
+    /// <summary>2026-11-12 (аудит 12.11, Л-22): «Править накладную» не открылась (нет связи, ошибка) — что видит пользователь.</summary>
+    public static string EditOpenFailedText => T(
+        "Править накладную не удалось открыть: нет связи с сервером или ошибка. Проверьте интернет и нажмите «Править накладную» ещё раз. Возврат уже оформлен — повторно оформлять не нужно.",
+        "Накладнойду оңдоону ачуу мүмкүн болгон жок: сервер менен байланыш жок же ката. Интернетти текшерип, «Накладнойду оңдоо» дагы басыңыз. Кайтаруу мурунтан таризделген — кайра тариздөөнүн кереги жок.",
+        "Could not open waybill editing: no connection to the server or an error. Check the internet and press “Edit waybill” again. The return is already registered — do not register it again.",
+        "İrsaliye düzenleme açılamadı: sunucu bağlantısı yok veya hata. İnterneti kontrol edip «İrsaliyeyi düzenle»ye tekrar basın. İade zaten kaydedildi — tekrar kaydetmeyin.",
+        "Yuk xatini tahrirlashni ochib bo'lmadi: server bilan aloqa yo'q yoki xato. Internetni tekshirib, «Yuk xatini tahrirlash»ni yana bosing. Qaytarish allaqachon rasmiylashtirilgan — qayta rasmiylashtirmang.");
+
+    /// <summary>2026-11-12 (аудит 12.11, Л-22): подмена открытия правки в тестах (null — настоящее ReturnEditFlows.EditSupplierReturnAsync).</summary>
+    public static Func<Window, SupplierReturnInfo, string, ReturnEditApi?, Task<bool>>? EditOpenerForTests { get; set; }
+
+    /// <summary>2026-11-12 (аудит 12.11, Л-22): для тестов — нажатие «Править накладную» после оформления.</summary>
+    public Task EditSavedForTestsAsync() => EditSavedAsync();
+
+    /// <summary>2026-11-12 (аудит 12.11, Л-22): для тестов — текст красной строки ошибки окна (пусто, если скрыта).</summary>
+    public string ErrorTextForTests => _error.IsVisible ? _error.Text ?? "" : "";
 
     private async Task PrintSavedAsync()
     {
@@ -862,6 +963,47 @@ public sealed class SupplierReturnDialog : Window
         }
         finally
         {
+            _save.IsEnabled = true;
+        }
+    }
+
+    /// <summary>2026-11-12: «Править накладную» только что оформленного возврата — общий шаг ReturnEditFlows.EditSupplierReturnAsync (свежая карточка, PIN, 24 ч по серверу);
+    /// печать после правки берёт состав с сервера (SupplierReturnDocUi сливает карточку).</summary>
+    private async Task EditSavedAsync()
+    {
+        if (_savedInfo is not { } info)
+            return;
+        _edit.IsEnabled = false;
+        _save.IsEnabled = false;
+        try
+        {
+            // 2026-11-12 (аудит С-10): править можно только по id из ответа сервера — раньше при пустом id возврат искался «тот же поставщик, та же сумма, не старше 30 минут» и мог найтись другой
+            // документ (два одинаковых возврата подряд). Нет id — отправляем в список, где у каждого возврата своя кнопка «Править накладную».
+            if (info.Id.Length == 0)
+            {
+                ShowError(T("Сервер не сообщил номер оформленного возврата, поэтому править его отсюда нельзя. Закройте окно и нажмите «Править накладную» у этого возврата в списке «Возвраты поставщикам».",
+                    "Сервер тариздалган кайтаруунун номерин билдирген жок, ошондуктан муну бул жерден оңдоого болбойт. Терезени жаап, «Жеткирүүчүлөргө кайтаруулар» тизмесинен ушул кайтарууга «Накладнойду оңдоо» басыңыз.",
+                    "The server did not report the number of the registered return, so it cannot be edited from here. Close the window and press “Edit waybill” for this return in the “Returns to suppliers” list.",
+                    "Sunucu kaydedilen iadenin numarasını bildirmedi, bu yüzden buradan düzenlenemez. Pencereyi kapatın ve «Tedarikçilere iadeler» listesinde bu iade için «İrsaliyeyi düzenle»ye basın.",
+                    "Server rasmiylashtirilgan qaytarish raqamini bildirmadi, shuning uchun uni bu yerdan tahrirlab bo'lmaydi. Oynani yoping va «Yetkazib beruvchilarga qaytarishlar» ro'yxatida shu qaytarish uchun «Yuk xatini tahrirlash»ni bosing."));
+                return;
+            }
+            var found = info;
+            var open = EditOpenerForTests ?? ReturnEditFlows.EditSupplierReturnAsync; // 2026-11-12 (Л-22): тесты подменяют открытие правки (сбой без окон)
+            if (await open(this, found, ReturnEditFlows.SupplierNumber(found), null).ConfigureAwait(true))
+                _total.Text = T("Накладная возврата изменена — при печати возьмётся новый состав.", "Кайтаруу накладнойу өзгөртүлдү — басып чыгарганда жаңы курамы алынат.",
+                    "The return waybill was changed — printing will use the new contents.", "İade irsaliyesi değiştirildi — yazdırmada yeni içerik kullanılacak.",
+                    "Qaytarish yuk xati o'zgartirildi — chop etishda yangi tarkib olinadi.");
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            PosLogger.Log($"Возврат поставщику: правка после оформления не открылась ({ex.GetType().Name}: {ex.Message}).", "WARNING");
+            // 2026-11-12 (аудит 12.11, Л-22): раньше ошибка была только в журнале — на экране ничего; теперь красной строкой ошибки окна (без сырого текста исключения)
+            ShowError(EditOpenFailedText);
+        }
+        finally
+        {
+            _edit.IsEnabled = true;
             _save.IsEnabled = true;
         }
     }

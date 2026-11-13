@@ -108,11 +108,20 @@ public sealed class AppShopWindow : Window, IOwnerSection
             _data = await _api.RequestAsync(HttpMethod.Get, Path, null, null, CancellationToken.None, TimeSpan.FromSeconds(25)).ConfigureAwait(true);
             Render();
             _status.Text = "";
+            _save.IsVisible = true;
         }
         catch (Exception ex)
         {
-            _status.Text = T("Не удалось загрузить: ", "Жүктөө мүмкүн болгон жок: ", "Couldn't load: ", "Yüklenemedi: ", "Yuklab bo'lmadi: ") + ServerTelegramBotApi.DescribeFields(ex);
+            // 2026-11-12 (оценка UX/UI, Д-2): без связи был пустой лист и красная строка внизу рядом с «Сохранить» — теперь общий блок с «Повторить» по центру,
+            // «Сохранить» скрыта (сохранять нечего); текст сервера — в «Подробнее» и журнал.
+            _body.Children.Clear();
+            _body.Children.Add(StateBlock.Failure(this, ex,
+                T("Не удалось загрузить настройки магазина", "Дүкөндүн жөндөөлөрүн жүктөө мүмкүн болгон жок", "Couldn't load the shop settings", "Mağaza ayarları yüklenemedi", "Do'kon sozlamalarini yuklab bo'lmadi"),
+                () => _ = LoadAsync()));
+            _status.Text = "";
+            _save.IsVisible = false;
             PosLogger.Log($"Магазин в приложении: не загружено ({ex.Message}).", "WARNING");
+            return;
         }
     }
 

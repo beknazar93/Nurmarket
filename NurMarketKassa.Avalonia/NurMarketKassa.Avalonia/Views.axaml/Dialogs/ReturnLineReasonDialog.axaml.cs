@@ -90,6 +90,9 @@ public partial class ReturnLineReasonDialog : Window
                          Tr.T("Не тот товар", "Башка товар", "Wrong item", "Yanlış ürün", "Boshqa mahsulot"),
                      })
                 QuickReasonsWrap.Children.Add(MakeReasonChip(text, defect: false));
+            // 2026-11-13 (сервер sn1311, «Электроника»): «Гарантия» — гарантийный случай; текст уходит в reason, срок гарантии касса сверяет по номеру (warranty_active).
+            if (ElectronicsProfile.IsActive)
+                QuickReasonsWrap.Children.Add(MakeReasonChip(ElectronicsProfile.WarrantyReason, defect: false));
             return;
         }
         DefectCheck.Content = Tr.T("Брак — товар не вернётся в продажу (на склад не возвращается)",

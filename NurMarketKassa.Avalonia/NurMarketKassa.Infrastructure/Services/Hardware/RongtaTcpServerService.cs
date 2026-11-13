@@ -107,6 +107,9 @@ public static class RongtaTcpServerService
 
         var sent = 0;
         var skipped = new List<string>();
+        // 2026-11-13: тип штрихкода и отдел в каждой записи — выбранная в «Настройках весов Rongta» структура; не выбиралась — как раньше 05 / 21.
+        var (barcodeType, department) = ServerBarcode(UserPreferences.Instance);
+        PosLogger.Log($"Rongta TCP: тип штрихкода в записях {barcodeType:00}, отдел {department:00}.", "SCALES");
         foreach (var product in products)
         {
             // 2026-11-06: цена выше предела поля — не загружаем и не обрезаем молча.
@@ -116,13 +119,20 @@ public static class RongtaTcpServerService
                 skipped.Add($"«{product.Name}»: " + ScalePriceLimits.DoesNotFitText((decimal)product.PriceSom, ScalePriceLimits.RongtaRlsMaxUnits, pricePoint));
                 continue;
             }
-            var packet = RongtaTcpProtocol.BuildPluRecord(product.Plu, product.Name, product.PriceSom, '4', pricePoint);
+            var packet = RongtaTcpProtocol.BuildPluRecord(product.Plu, product.Name, product.PriceSom, '4', pricePoint, barcodeType, department);
             await WriteAsync(stream, packet, ct).ConfigureAwait(false);
             sent++;
         }
 
         return RongtaTcpServerResult.Sent(sent, skipped);
     }
+
+    /// <summary>2026-11-13: тип штрихкода и отдел для записей 0110. Структура не выбиралась (<see cref="UserPreferences.RongtaServerBarcodeType"/> = null) —
+    /// 05 и 21, как было всегда. Выбрана — её тип и «Отдел / префикс товара (DD)» из той же вкладки; у типов 10–19 префикс задаёт сам тип, отдел не важен.</summary>
+    internal static (int BarcodeType, int Department) ServerBarcode(UserPreferences prefs) =>
+        prefs.RongtaServerBarcodeType is int type and >= 0 and <= 99
+            ? (type, Math.Clamp(prefs.RongtaLanBarcodePrefix, 0, 99))
+            : (5, 21);
 
     private static async Task<(string Command, string Data)?> ReadPacketAsync(
         NetworkStream stream, StringBuilder buffer, byte[] readBuf, CancellationToken ct)

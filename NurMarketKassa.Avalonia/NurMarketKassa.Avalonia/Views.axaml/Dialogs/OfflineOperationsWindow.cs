@@ -273,6 +273,8 @@ internal sealed class OfflineOperationsWindow : Window
         if (plan.NonCash > 0.005m && plan.SplitKnown)
             text += "\n" + T("На карту/перевод — вернуть через банк, не из кассы.", "Картага/которуу — банк аркылуу кайтарыңыз, кассадан эмес.",
                 "Card/transfer part — refund through the bank, not from the till.", "Kart/havale kısmı — kasadan değil, banka üzerinden iade edin.", "Karta/o'tkazma qismi — kassadan emas, bank orqali qaytaring.");
+        if (!string.IsNullOrWhiteSpace(plan.Warning)) // 2026-11-13: возвраты «не отсюда» (программа владельца, сайт, другая касса) / чек не сверен с сервером
+            text += "\n⚠ " + plan.Warning;
         return text;
     }
 

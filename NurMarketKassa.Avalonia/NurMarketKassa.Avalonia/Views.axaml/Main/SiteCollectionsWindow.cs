@@ -118,7 +118,7 @@ public sealed class SiteCollectionsWindow : Window, IOwnerSection
         if (_lifetime.IsCancellationRequested)
             return;
         _loading.IsVisible = true;
-        string? error = null;
+        Exception? error = null;
         try
         {
             _items = (await _api.ListCollectionsAsync(_lifetime.Token).ConfigureAwait(true)).ToList();
@@ -132,7 +132,7 @@ public sealed class SiteCollectionsWindow : Window, IOwnerSection
         catch (Exception ex)
         {
             _offline = SiteOrdersWindow.IsNoConnection(ex);
-            error = SiteReviewsWindow.ErrorText(ex);
+            error = ex;
             PosLogger.Log($"Коллекции витрины: не загружены: {ex.Message}", "SHOWCASE");
         }
         finally
@@ -146,26 +146,27 @@ public sealed class SiteCollectionsWindow : Window, IOwnerSection
 
     private static string Lang => Tr.T("ru", "ky", "en", "tr", "uz");
 
-    private void RenderList(string? error)
+    private void RenderList(Exception? error)
     {
         _body.Children.Clear();
         _create.IsVisible = true;
         _create.IsEnabled = !_offline && error == null || _loadedOnce && !_offline;
         if (_offline)
             ToolTip.SetTip(_create, Tr.T("Нет связи с сервером", "Сервер менен байланыш жок", "No connection to the server", "Sunucuyla bağlantı yok", "Server bilan aloqa yo'q"));
-        _status.Text = error ?? "";
-        if (error != null && !_offline)
+        // 2026-11-12 (оценка UX/UI, Д-2): сбой загрузки — общий блок состояния с «Повторить»; прежний список при обрыве связи остаётся, в строке состояния одна фраза.
+        if (error != null && !(_offline && _items.Count > 0))
+        {
+            _status.Text = "";
+            _body.Children.Add(StateBlock.Failure(this, error,
+                Tr.T("Не удалось загрузить коллекции", "Коллекцияларды жүктөө мүмкүн болгон жок", "Couldn't load the collections", "Koleksiyonlar yüklenemedi", "Kolleksiyalarni yuklab bo'lmadi"),
+                () => _ = ReloadAsync(), SiteReviewsWindow.ErrorText(error)));
             return;
+        }
+        _status.Text = error != null ? SiteReviewsWindow.ErrorText(error) : "";
         if (_items.Count == 0 && error == null)
         {
-            var empty = new TextBlock
-            {
-                Text = Tr.T("Коллекций пока нет. Нажмите «Создать коллекцию».", "Азырынча коллекциялар жок. «Коллекция түзүү» баскычын басыңыз.",
-                    "No collections yet. Press “New collection”.", "Henüz koleksiyon yok. «Yeni koleksiyon»a basın.", "Hozircha kolleksiyalar yo'q. «Kolleksiya yaratish»ni bosing."),
-                FontSize = 14, Margin = new Thickness(0, 24, 0, 0), HorizontalAlignment = HorizontalAlignment.Center,
-            };
-            empty.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
-            _body.Children.Add(empty);
+            _body.Children.Add(StateBlock.Empty(Tr.T("Коллекций пока нет. Нажмите «Создать коллекцию».", "Азырынча коллекциялар жок. «Коллекция түзүү» баскычын басыңыз.",
+                "No collections yet. Press “New collection”.", "Henüz koleksiyon yok. «Yeni koleksiyon»a basın.", "Hozircha kolleksiyalar yo'q. «Kolleksiya yaratish»ni bosing.")));
             return;
         }
 

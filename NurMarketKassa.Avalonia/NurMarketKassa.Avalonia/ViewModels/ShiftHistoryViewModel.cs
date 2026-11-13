@@ -78,14 +78,20 @@ public sealed class ShiftHistoryViewModel : INotifyPropertyChanged
     public bool IsLoading
     {
         get => _isLoading;
-        private set { _isLoading = value; OnPropertyChanged(); }
+        private set { _isLoading = value; OnPropertyChanged(); OnPropertyChanged(nameof(ShowEmptyShifts)); }
     }
+
+    /// <summary>2026-11-12 (Д-4): список смен пуст, сервер ответил и загрузка закончилась — показать пояснение вместо пустой таблицы.</summary>
+    public bool ShowEmptyShifts => !IsLoading && !ServerOffline && PagedShifts.Count == 0;
+
+    /// <summary>2026-11-12 (Д-4): у карточки «Последние операции» нет записей — пояснение по центру.</summary>
+    public bool ShowNoRecentOperations => RecentOperations.Count == 0;
 
     /// <summary>2026-10-31 (стресс-тест 1.17.68, п. 9): сервер не ответил — над таблицей «Нет связи с сервером» и «Повторить» (RefreshCommand).</summary>
     public bool ServerOffline
     {
         get => _serverOffline;
-        private set { _serverOffline = value; OnPropertyChanged(); }
+        private set { _serverOffline = value; OnPropertyChanged(); OnPropertyChanged(nameof(ShowEmptyShifts)); }
     }
 
     private bool _serverOffline;
@@ -256,6 +262,7 @@ public sealed class ShiftHistoryViewModel : INotifyPropertyChanged
         RecentOperations.Clear();
         foreach (var op in ops.Take(6))
             RecentOperations.Add(op);
+        OnPropertyChanged(nameof(ShowNoRecentOperations));
 
         CashierFilterOptions.Clear();
         CashierFilterOptions.Add("Все кассиры");
@@ -272,6 +279,7 @@ public sealed class ShiftHistoryViewModel : INotifyPropertyChanged
         foreach (var shift in AllShifts.Skip((CurrentPage - 1) * ShiftPageSize).Take(ShiftPageSize))
             PagedShifts.Add(shift);
         OnPropertyChanged(nameof(TotalPages));
+        OnPropertyChanged(nameof(ShowEmptyShifts));
     }
 
     private void RebuildSummaryPagination()

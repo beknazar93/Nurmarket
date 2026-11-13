@@ -62,7 +62,11 @@ namespace NurMarketKassa.AvaloniaHost.Views
             button.Bind(ToolTip.TipProperty, new Binding(nameof(SaleItem.ReturnTip)));
             button.Bind(Avalonia.Automation.AutomationProperties.NameProperty, new Binding(nameof(SaleItem.ReturnButtonName)));
             button.Click += SalesReturn_Click;
-            var panel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(6, 2), VerticalAlignment = VerticalAlignment.Center };
+            // 2026-11-11 (живой показ 1.17.85, Д-8: кнопки «Возврат» в колонке не на одной вертикали — у чека без пометки кнопка левее): пометка слева
+            // в своей колонке, кнопка — всегда у правого края ячейки.
+            mark.HorizontalAlignment = HorizontalAlignment.Right;
+            var panel = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(6, 2), VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Stretch };
+            Grid.SetColumn(button, 1);
             panel.Children.Add(mark);
             panel.Children.Add(button);
             return panel;
@@ -81,13 +85,50 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 var opened = await ReturnSaleLauncher.OpenAsync(owner, item.Id, item.ReceiptNumber, productQuery: product,
                     status: null).ConfigureAwait(true);
                 if (opened)
-                    await LoadDataAsync(_historyFrom, _historyTo).ConfigureAwait(true); // список, итоги и пометки — после возврата с сервера
+                    await ReloadAfterReturnAsync().ConfigureAwait(true); // список, итоги и пометки — после возврата с сервера
             }
             catch (Exception ex)
             {
                 PosLogger.Log($"Продажи: возврат не открылся: {ex}", "WARNING");
             }
         }
+
+        /// <summary>2026-11-12 (владелец: «Возврат чеков добавь и программу владельца»): во «Продажах и финансах» список чеков, плитки и вкладку
+        /// «Возвраты» грузит окно «Финансов» — после возврата перечитывает оно (свежими данными сервера); отдельные «Продажи» — сами, как раньше.</summary>
+        internal Func<Task> HostReload { get; set; }
+
+        private Task ReloadAfterReturnAsync() => HostReload is { } host ? host() : LoadDataAsync(_historyFrom, _historyTo);
+
+        private ReceiptReturnActions _popupReturn;
+
+        /// <summary>2026-11-12: под карточкой чека в программе владельца — «Возврат» (то же окно возврата, что в кассе, с этим чеком) и «Правка возвратов»
+        /// (список возвратов чека с правкой/удалением 24 ч). Касса — без изменений (ReceiptReturnActions.Enabled).</summary>
+        private void ShowPopupReturnActions(string saleId, string receiptNumber, System.Text.Json.JsonElement json)
+        {
+            if (!ReceiptReturnActions.Enabled)
+                return;
+            if (_popupReturn == null)
+            {
+                _popupReturn = new ReceiptReturnActions
+                {
+                    OwnerWindow = () => TopLevel.GetTopLevel(SalesGrid) as Window ?? this,
+                    BeforeOpen = () => ReceiptDetailsPopup.IsOpen = false,
+                    Changed = ReloadAfterReturnAsync,
+                };
+                if (PopupActionBarHost.Parent is Panel panel)
+                    panel.Children.Insert(panel.Children.IndexOf(PopupActionBarHost) + 1, _popupReturn.View);
+            }
+            // 2026-11-12 (аудит 12.11, Д-5): с кнопками возврата карточка на 1024×600 занимала всю высоту и закрывала итог чека — высота карточки
+            // ограничена окном с отступом, чек внутри прокручивается (строка «*» сетки карточки).
+            if (ReceiptDetailsPopup.Child is Border card && (TopLevel.GetTopLevel(SalesGrid) ?? this) is { Bounds.Height: > 200 } top)
+                card.MaxHeight = top.Bounds.Height - 24;
+            var row = _sales.FirstOrDefault(s => string.Equals(s.Id, saleId, StringComparison.OrdinalIgnoreCase));
+            _popupReturn.ShowFor(saleId, receiptNumber, row?.Status is { Length: > 0 } st ? st : JsonText(json, "status"),
+                row?.ReturnStatus is { Length: > 0 } rs ? rs : JsonText(json, "return_status"));
+        }
+
+        private static string JsonText(System.Text.Json.JsonElement json, string name) =>
+            json.ValueKind == System.Text.Json.JsonValueKind.Object && json.TryGetProperty(name, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.String ? v.GetString() : null;
 
         /// <summary>Строка поиска + «Фильтры (N)» и панель фильтров под ней (в обоих видах «Продаж» — отдельном и во «Продажах и финансах»).</summary>
         private Control SearchWithFilters(Control search)

@@ -12,6 +12,7 @@ using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.AvaloniaHost.Views.Dialogs;
 using NurMarketKassa.Core.Contracts;
 using NurMarketKassa.Services;
+using NurMarketKassa.Services.Api; // 2026-11-11: правка/аннулирование возвратов (ReturnEditGate)
 
 namespace NurMarketKassa.AvaloniaHost.Views;
 
@@ -26,6 +27,10 @@ public partial class ReceiptHistoryWindow : Window
     private static readonly CultureInfo Ru = CultureInfo.GetCultureInfo("ru-RU");
 
     private ReceiptHistoryPeriod _period = ReceiptHistoryPeriod.CurrentShift;
+    // 2026-11-11: «Дата…» — дни «с» и «по» (включительно); запоминаются на время жизни окна, как и выбранный период.
+    private DateTime? _customFrom;
+    private DateTime? _customTo;
+    private bool _datesSilent;
     private List<RowVm> _rows = new();
     private CancellationTokenSource? _loadCts;
 
@@ -80,6 +85,7 @@ public partial class ReceiptHistoryWindow : Window
     /// <summary>2026-10-27: общий контрол чека «как в мобилке» — модель на экране и панель действий под ним.</summary>
     private SaleReceiptCardData? _card;
     private readonly ReceiptActionBar _bar;
+    private readonly CustomerReturnsEntry _returnsEdit = new(); // 2026-11-11: «Правка возвратов» (правка/аннулирование возврата 24 ч)
 
     /// <summary>Кассир открывал возврат — главное окно после закрытия пересчитает остаток смены.</summary>
     public bool ReturnWasOpened { get; private set; }
@@ -97,11 +103,20 @@ public partial class ReceiptHistoryWindow : Window
     {
         InitializeComponent();
         _canReturn = CanReturn();
-        EmptyHintText.Text = Tr.T("Выберите другой период — «Сегодня» или «Вчера», или нажмите «Обновить».",
-            "Башка мезгилди тандаңыз — «Бүгүн» же «Кечээ», же «Жаңылоо» баскычын басыңыз.",
-            "Choose another period — “Today” or “Yesterday”, or press “Refresh”.",
-            "Başka bir dönem seçin — «Bugün» veya «Dün» ya da «Yenile»ye basın.",
-            "Boshqa davrni tanlang — «Bugun» yoki «Kecha», yoki «Yangilash»ni bosing.");
+        EmptyHintText.Text = Tr.T("Выберите другой период — «Сегодня», «Вчера», «Неделя», «Месяц» или «Дата…», или нажмите «Обновить».",
+            "Башка мезгилди тандаңыз — «Бүгүн», «Кечээ», «Апта», «Ай» же «Күн…», же «Жаңылоо» баскычын басыңыз.",
+            "Choose another period — “Today”, “Yesterday”, “Week”, “Month” or “Date…”, or press “Refresh”.",
+            "Başka bir dönem seçin — «Bugün», «Dün», «Hafta», «Ay» veya «Tarih…» ya da «Yenile»ye basın.",
+            "Boshqa davrni tanlang — «Bugun», «Kecha», «Hafta», «Oy» yoki «Sana…», yoki «Yangilash»ni bosing.");
+        // 2026-11-11 (владелец: «добавь фильтр: месяц, неделя, день, специальная дата!»): надписи новых сегментов и полей «с — по».
+        WeekChip.Content = Tr.T("Неделя", "Апта", "Week", "Hafta", "Hafta");
+        MonthChip.Content = Tr.T("Месяц", "Ай", "Month", "Ay", "Oy");
+        DateChip.Content = Tr.T("Дата…", "Күн…", "Date…", "Tarih…", "Sana…");
+        DateFromLabel.Text = Tr.T("С даты", "Башталган күн", "From", "Başlangıç", "Boshlanish");
+        DateToLabel.Text = Tr.T("По дату", "Аякталган күн", "To", "Bitiş", "Tugash");
+        Avalonia.Automation.AutomationProperties.SetName(DateFromPicker, Tr.T("Период: с даты", "Мезгил: башталган күн", "Period: from date", "Dönem: başlangıç tarihi", "Davr: boshlanish sanasi"));
+        Avalonia.Automation.AutomationProperties.SetName(DateToPicker, Tr.T("Период: по дату", "Мезгил: аякталган күн", "Period: to date", "Dönem: bitiş tarihi", "Davr: tugash sanasi"));
+        DateFromPicker.DisplayDateEnd = DateToPicker.DisplayDateEnd = DateTime.Today; // будущих чеков нет
         SendButtonText.Text = SendLabel;
         // 2026-10-27, владелец: «вид чека как в мобилке» — панель действий под чеком (общая ReceiptActionBar); «Печать» и «Вернуть» — прежние обработчики окна.
         _bar = new ReceiptActionBar
@@ -113,6 +128,19 @@ public partial class ReceiptHistoryWindow : Window
             Notify = (text, ok) => ShowAction(text, ok),
         };
         ActionBarHost.Content = _bar;
+        // 2026-11-11 (сервер Умара, pos_return_edit_24h): «Правка возвратов» под чеком с возвратом — окно возвратов чека (Редактировать / Удалить / История);
+        // у долгового чека кнопок нет — только пояснение. После изменения чек, его статус и долг перечитываются.
+        if (ActionBarHost.Parent is Panel actions)
+            actions.Children.Insert(actions.Children.IndexOf(ActionBarHost) + 1, _returnsEdit.View);
+        if (ActionBarHost.Parent is Panel actionsElectronics)
+            InitElectronics(actionsElectronics); // 2026-11-12 (ЭЛ3): кнопка «Гарантийный талон» (только сфера «Электроника»)
+        _returnsEdit.Changed = async () =>
+        {
+            ReturnWasOpened = true; // главное окно пересчитает остаток смены
+            _shownDetailId = null;
+            _selectedDetail = null;
+            await LoadAsync(_selected?.Entry.Id).ConfigureAwait(true);
+        };
         // Досылка идёт сама (раз в 45 с) — кнопка «Отправить на сервер» показывает «Отправляется…», пока она идёт.
         try
         {
@@ -133,28 +161,27 @@ public partial class ReceiptHistoryWindow : Window
     {
         RootCard.Padding = new Avalonia.Thickness(narrow ? 12 : 20);
         RootCard.Margin = new Avalonia.Thickness(narrow ? 6 : 12);
+        // 2026-11-11: строки панели — сегменты периода (0), поиск (2), «с — по» и «Найдено» (3); телефон — «Обновить» рядом с поиском, строка с датами на всю ширину.
         if (narrow)
         {
             ToolbarGrid.ColumnDefinitions = new ColumnDefinitions("*,Auto");
-            ToolbarGrid.RowDefinitions = new RowDefinitions("Auto,8,Auto");
             Grid.SetColumnSpan(PeriodChips, 2);
-            Grid.SetRow(SearchBox, 2);
-            Grid.SetColumn(SearchBox, 0);
+            Grid.SetColumnSpan(SearchBox, 1);
             SearchBox.Margin = new Avalonia.Thickness(0, 0, 8, 0);
             Grid.SetRow(RefreshButton, 2);
             Grid.SetColumn(RefreshButton, 1);
+            Grid.SetColumnSpan(PeriodInfoRow, 2);
         }
         else
         {
             ToolbarGrid.ColumnDefinitions = new ColumnDefinitions("Auto,3*,*,Auto");
             ToolbarGrid.ColumnDefinitions[1].MaxWidth = 480;
-            ToolbarGrid.RowDefinitions = new RowDefinitions();
-            Grid.SetColumnSpan(PeriodChips, 1);
-            Grid.SetRow(SearchBox, 0);
-            Grid.SetColumn(SearchBox, 1);
-            SearchBox.Margin = new Avalonia.Thickness(12, 0);
+            Grid.SetColumnSpan(PeriodChips, 3);
+            Grid.SetColumnSpan(SearchBox, 2);
+            SearchBox.Margin = new Avalonia.Thickness(0);
             Grid.SetRow(RefreshButton, 0);
             Grid.SetColumn(RefreshButton, 3);
+            Grid.SetColumnSpan(PeriodInfoRow, 4);
         }
     }
 
@@ -234,11 +261,40 @@ public partial class ReceiptHistoryWindow : Window
             var size = root.ClientSize;
             if (WindowState != WindowState.Normal || Math.Abs(ClientSize.Width - size.Width) > 2 || Math.Abs(ClientSize.Height - size.Height) > 2)
                 ApplyOwnerGeometry(root);
+            // 2026-11-11 (живой показ 1.17.85, Д-10: окно 1904×1016 стояло в левом верхнем углу, справа и снизу полосы по 16 px): размер окна ограничен экраном
+            // (поля 16 px), а место бралось от угла окна кассы — теперь окно ставится по центру окна кассы.
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => CenterOnRoot(root), Avalonia.Threading.DispatcherPriority.Background);
         }
         catch (Exception ex)
         {
             PosLogger.Log($"История чеков: повтор размера по окну кассы: {ex.Message}", "WARNING");
         }
+    }
+
+    /// <summary>2026-11-11 (Д-10): окно (обычное, не развёрнутое) — по центру клиентской области окна кассы.</summary>
+    public void CenterOnRoot(Window root)
+    {
+#if !NURANDROID
+        try
+        {
+            if (WindowState != WindowState.Normal || !root.IsVisible || root.ClientSize.Width <= 0)
+                return;
+            var scale = root.RenderScaling > 0 ? root.RenderScaling : 1.0;
+            var origin = Avalonia.VisualExtensions.PointToScreen(root, new Avalonia.Point(0, 0));
+            var width = Bounds.Width > 0 ? Bounds.Width : Width;
+            var height = Bounds.Height > 0 ? Bounds.Height : Height;
+            if (double.IsNaN(width) || double.IsNaN(height))
+                return;
+            var x = origin.X + (int)(Math.Max(0, root.ClientSize.Width - width) * scale / 2); // целые точки экрана (не деньги)
+            var y = origin.Y + (int)(Math.Max(0, root.ClientSize.Height - height) * scale / 2);
+            if (Position.X != x || Position.Y != y)
+                Position = new Avalonia.PixelPoint(x, y);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"История чеков: по центру окна кассы: {ex.Message}", "WARNING");
+        }
+#endif
     }
 
     private async void OnFirstOpened(object? sender, EventArgs e)
@@ -303,6 +359,9 @@ public partial class ReceiptHistoryWindow : Window
         {
             "today" => ReceiptHistoryPeriod.Today,
             "yesterday" => ReceiptHistoryPeriod.Yesterday,
+            "week" => ReceiptHistoryPeriod.Week,
+            "month" => ReceiptHistoryPeriod.Month,
+            "date" => ReceiptHistoryPeriod.Custom,
             _ => ReceiptHistoryPeriod.CurrentShift,
         };
         if (period == _period && _rows.Count > 0)
@@ -310,7 +369,59 @@ public partial class ReceiptHistoryWindow : Window
 
         _period = period;
         _shownDetailId = null;
+        CustomDatesPanel.IsVisible = period == ReceiptHistoryPeriod.Custom;
+        if (period == ReceiptHistoryPeriod.Custom)
+            ShowCustomDates();
         await LoadAsync().ConfigureAwait(true);
+    }
+
+    /// <summary>2026-11-11: «Дата…» — показать поля «с — по»; первый раз стоят на сегодня (один день), дальше — как выбрал кассир.</summary>
+    private void ShowCustomDates()
+    {
+        _customFrom ??= DateTime.Today;
+        _customTo ??= _customFrom;
+        _datesSilent = true;
+        DateFromPicker.SelectedDate = _customFrom;
+        DateToPicker.SelectedDate = _customTo;
+        _datesSilent = false;
+    }
+
+    /// <summary>2026-11-11: выбрана дата в «с» или «по» — применяется сразу, без кнопки. «С» позже «по» (или наоборот) — второе поле подтягивается к первому
+    /// (один день), чтобы период не вышел перевёрнутым; перечитываются только чеки нужного периода.</summary>
+    private async void CustomDate_Changed(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_datesSilent || _period != ReceiptHistoryPeriod.Custom)
+            return;
+        var from = DateFromPicker.SelectedDate ?? _customFrom ?? DateTime.Today;
+        var to = DateToPicker.SelectedDate ?? _customTo ?? from;
+        if (ReferenceEquals(sender, DateFromPicker) && to < from)
+            to = from;
+        else if (ReferenceEquals(sender, DateToPicker) && from > to)
+            from = to;
+        if (from == _customFrom && to == _customTo && DateFromPicker.SelectedDate == from && DateToPicker.SelectedDate == to)
+            return;
+        _customFrom = from.Date;
+        _customTo = to.Date;
+        _datesSilent = true;
+        DateFromPicker.SelectedDate = _customFrom;
+        DateToPicker.SelectedDate = _customTo;
+        _datesSilent = false;
+        _shownDetailId = null;
+        await LoadAsync().ConfigureAwait(true);
+    }
+
+    /// <summary>2026-11-11: подпись периода («09.11–11.11», «11.11») и «Найдено чеков: N» (при поиске — «N из M»); у «Этой смены» подписи периода нет. Те же
+    /// границы, что уходят на сервер (<see cref="ReceiptHistoryService.PeriodBounds"/>).</summary>
+    private void UpdatePeriodInfo(int found, int total)
+    {
+        var bounds = ReceiptHistoryService.PeriodBounds(_period, DateTime.Today, _customFrom, _customTo);
+        var label = bounds is { } b ? PeriodRange.Label(b.From, b.ToExclusive.AddDays(-1)) : "";
+        var count = found == total
+            ? Tr.T($"Найдено чеков: {found}", $"Табылган чектер: {found}", $"Receipts found: {found}", $"Bulunan fiş: {found}", $"Topilgan cheklar: {found}")
+            : Tr.T($"Найдено чеков: {found} из {total}", $"Табылган чектер: {found} / {total}", $"Receipts found: {found} of {total}", $"Bulunan fiş: {found} / {total}", $"Topilgan cheklar: {found} / {total}");
+        PeriodInfoText.Text = (label.Length > 0 ? label + " · " : "") + count;
+        CustomDatesPanel.IsVisible = _period == ReceiptHistoryPeriod.Custom;
+        PeriodInfoRow.IsVisible = true;
     }
 
     // 2026-11-06 (В11, шаг 7, п. 26.3): история чеков (до 2000) фильтруется после паузы 200 мс с последней буквы, а не на каждую.
@@ -334,18 +445,22 @@ public partial class ReceiptHistoryWindow : Window
                 EnsureServerWait().OnSlow(true);
         }, ServerAnswerWait.SlowNoticeAfter);
         _historyPending = true; // 2026-11-03 (Д-3): пока сервер не ответил, «чеков нет» не пишем
+        // 2026-11-11: период и дни «с — по» фиксируются на начало загрузки — смена периода посреди запроса не смешает чеки двух периодов.
+        var period = _period;
+        var (customFrom, customTo) = (_customFrom, _customTo);
+        var rowsKey = PeriodKey();
         try
         {
             // 2026-11-03 (Д-3, живая проверка 1.17.73): при медленном сервере окно 8 с было пустым, потом писало «нет связи» и «чеков нет», хотя продажи
             // этой кассы есть в её базе. Теперь первым делом — чеки, которые касса знает сама (очередь и свои продажи), с пометкой «данные сервера
             // обновляются»; ответ сервера заменяет список. Уже показанный список того же периода не трогаем (кассир мог открыть чек).
-            if (_rowsPeriod != _period || _rows.Count == 0)
+            if (_rowsKey != rowsKey || _rows.Count == 0)
             {
-                var quick = await Task.Run(() => ReceiptHistoryService.LoadLocalQuick(_period)).ConfigureAwait(true);
+                var quick = await Task.Run(() => ReceiptHistoryService.LoadLocalQuick(period, customFrom, customTo)).ConfigureAwait(true);
                 if (cts.IsCancellationRequested)
                     return;
                 _rows = quick.Entries.Select(entry => new RowVm(entry)).ToList();
-                _rowsPeriod = _period;
+                _rowsKey = rowsKey;
                 _serverUnavailable = false;
                 NoticeText.Text = _rows.Count > 0
                     ? Tr.T("Показаны чеки этой кассы. Данные сервера обновляются…", "Ушул кассанын чектери көрсөтүлдү. Сервердин маалыматы жаңыртылууда…",
@@ -356,14 +471,14 @@ public partial class ReceiptHistoryWindow : Window
                 ApplyFilter(keepSelectedId);
             }
 
-            var result = await ReceiptHistoryService.LoadAsync(_period, cts.Token).ConfigureAwait(true);
+            var result = await ReceiptHistoryService.LoadAsync(period, cts.Token, customFrom, customTo).ConfigureAwait(true);
             if (cts.IsCancellationRequested)
                 return;
 
             _historyPending = false;
             _serverUnavailable = result.ServerUnavailable;
             _rows = result.Entries.Select(entry => new RowVm(entry)).ToList();
-            _rowsPeriod = _period;
+            _rowsKey = rowsKey;
             _serverWait?.OnSlow(false); // 2026-11-05: ответ пришёл — «Ждём ответ сервера…» убрана до показа итогового сообщения
             ShowNotice(result);
             ApplyFilter(keepSelectedId);
@@ -395,7 +510,12 @@ public partial class ReceiptHistoryWindow : Window
     // 2026-11-03 (Д-3): сервер ещё не ответил / не ответил вовсе — надпись «чеков нет» была бы неправдой.
     private bool _historyPending;
     private bool _serverUnavailable;
-    private ReceiptHistoryPeriod? _rowsPeriod;
+    private string? _rowsKey;
+
+    /// <summary>2026-11-11: ключ показанного списка — период и (у «Даты…») дни «с — по»: смена дат тоже требует перечитать чеки.</summary>
+    private string PeriodKey() => _period == ReceiptHistoryPeriod.Custom
+        ? $"{_period}|{_customFrom:yyyyMMdd}|{_customTo:yyyyMMdd}"
+        : _period.ToString();
 
     private void ShowNotice(ReceiptHistoryResult result)
     {
@@ -434,14 +554,18 @@ public partial class ReceiptHistoryWindow : Window
     private void ApplyFilter(string? keepSelectedId = null)
     {
         var query = (SearchBox.Text ?? "").Trim().TrimStart('№', '#').Trim();
+        // 2026-11-12 (ЭЛ4): в сфере «Электроника» чек находится и по серийному номеру / IMEI (журнал этой кассы); в других сферах hits пусто.
+        var serialHits = query.Length == 0 ? new List<SerialRecord>() : SerialHitsFor(query);
         var visible = query.Length == 0
             ? _rows
-            : _rows.Where(r => SearchMatch.Matches(query, r.Entry.SearchText)).ToList(); // 2026-10-29: единый поиск
+            : _rows.Where(r => SearchMatch.Matches(query, r.Entry.SearchText) || SerialHit(serialHits, r.Entry)).ToList(); // 2026-10-29: единый поиск
+        UpdateNoMatchText(query, visible.Count);
 
         var selectId = keepSelectedId ?? _selected?.Entry.Id;
         ReceiptsList.ItemsSource = visible;
         EmptyText.IsVisible = _rows.Count == 0 && !_historyPending && !_serverUnavailable; // 2026-11-03 (Д-3)
         NoMatchText.IsVisible = _rows.Count > 0 && visible.Count == 0;
+        UpdatePeriodInfo(visible.Count, _rows.Count); // 2026-11-11: подпись периода и «Найдено чеков: N»
 
         var again = selectId == null
             ? null
@@ -477,6 +601,7 @@ public partial class ReceiptHistoryWindow : Window
         _shownDetailId = null;
         DetailsPanel.IsVisible = false;
         SelectHintText.IsVisible = true;
+        UpdateWarrantyButton(null); // 2026-11-12 (ЭЛ3)
     }
 
     private async Task ShowDetailsAsync(RowVm row)
@@ -492,11 +617,13 @@ public partial class ReceiptHistoryWindow : Window
         SelectHintText.IsVisible = false;
         DetailsPanel.IsVisible = true;
         FillHeader(row);
+        UpdateWarrantyButton(row); // 2026-11-12 (ЭЛ3): талон — у чека с серийными номерами (сфера «Электроника»)
         ReceiptPaperHost.IsVisible = false;
         ReceiptPaperHost.Content = null;
         _card = null;
         // 2026-10-20 (К6): блок возвратов прежнего чека — не показываем у нового.
         _returnsCts?.Cancel();
+        _returnsEdit.Hide(); // 2026-11-11: и кнопку «Правка возвратов»
         DetailErrorText.IsVisible = false;
         ActionMessage.IsVisible = false;
         _bar.IsReady = false;
@@ -512,6 +639,7 @@ public partial class ReceiptHistoryWindow : Window
             _selectedDetail = detail;
             _shownDetailId = row.Entry.Id;
             FillDetails(row, detail);
+            UpdateWarrantyButton(row); // 2026-11-13 (сервер sn1311): карточка чека с serial_numbers / warranty_until загружена — талон по ней
             _bar.IsReady = _card != null;
             DocReceiptButton.IsEnabled = DocWaybillButton.IsEnabled = true;
         }
@@ -1004,6 +1132,7 @@ public partial class ReceiptHistoryWindow : Window
     private void ShowReturns(ReceiptHistoryEntry entry, SaleLedgerEntry? ledger, bool hasReturns)
     {
         _returnsCts?.Cancel();
+        _returnsEdit.Hide(); // 2026-11-11
         if (_card is null || !hasReturns)
             return;
         // 2026-10-27: блок идёт в модель общего контрола чека (под оплатой).
@@ -1033,6 +1162,8 @@ public partial class ReceiptHistoryWindow : Window
                 "−" + SaleReceiptCardData.Fmt(ledger.Refunded)));
             foreach (var r in rows)
                 _card.Returns.Add(new SaleReceiptCardData.Row(r.Label, r.Value));
+            if (!entry.IsLocal) // 2026-11-11: кнопка «Правка возвратов» — по списку возвратов сервера (can_edit/can_void)
+                _ = _returnsEdit.LoadForAsync(entry.Id, entry.ReceiptNumber ?? "");
             return;
         }
 
@@ -1047,18 +1178,22 @@ public partial class ReceiptHistoryWindow : Window
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cts.Token);
             timeout.CancelAfter(TimeSpan.FromSeconds(8));
-            var list = await NurMarketKassa.Services.Api.NurCrmReportsApi.ListReturnsAsync(null, null, saleId: saleId, ct: timeout.Token).ConfigureAwait(true);
+            // 2026-11-11: при признаке pos_return_edit_24h — и аннулированные (status=all): строка с меткой «АННУЛИРОВАН», без суммы
+            var list = await NurMarketKassa.Services.Api.NurCrmReportsApi.ListReturnsAsync(null, null, saleId: saleId, ct: timeout.Token,
+                includeVoided: ReturnEditGate.FeatureOn(ReturnDocKind.Customer)).ConfigureAwait(true);
             if (cts.IsCancellationRequested || list is null || !string.Equals(_selected?.Entry.Id, saleId, StringComparison.OrdinalIgnoreCase))
                 return;
             var mine = list.Where(r => string.Equals(r.SaleId, saleId, StringComparison.OrdinalIgnoreCase)).OrderBy(r => r.CreatedAt).ToList();
             if (mine.Count == 0)
                 return;
+            _returnsEdit.ShowFor(saleId, _selected?.Entry.ReceiptNumber ?? "", mine);
             var rows = mine.Select(r => new SummaryVm(
                     (r.CreatedAt?.LocalDateTime.ToString("dd.MM HH:mm", CultureInfo.InvariantCulture) ?? "—")
                     + (string.IsNullOrWhiteSpace(r.ItemsText)
                         ? (r.IsFull ? " · " + Tr.T("весь чек", "бүт чек", "whole receipt", "tüm fiş", "butun chek") : "")
-                        : " · " + r.ItemsText),
-                    "−" + SaleReceiptCardData.Fmt(r.Amount)))
+                        : " · " + r.ItemsText)
+                    + (NurMarketKassa.Services.Api.NurCrmReportsApi.IsVoided(r) ? " · " + ReturnEditErrors.VoidedMark() : ""),
+                    NurMarketKassa.Services.Api.NurCrmReportsApi.IsVoided(r) ? "" : "−" + SaleReceiptCardData.Fmt(r.Amount)))
                 .ToList();
             rows.Add(new SummaryVm(Tr.T("По данным сервера", "Сервердин маалыматы боюнча", "According to the server", "Sunucu verilerine göre", "Server ma'lumotlariga ko'ra"), ""));
             if (_card is null || !string.Equals(_selected?.Entry.Id, saleId, StringComparison.OrdinalIgnoreCase))

@@ -60,6 +60,8 @@ public static class DebtDueDateSync
                     {
                         if (Str(deal, "sale") != saleId && Str(deal, "sale_id") != saleId)
                             continue;
+                        if (ClientCheckDebtDeals.IsVirtual(deal)) // 2026-11-11: виртуальная строка чека («sale:…») — не сделка, PATCH сделки ей не шлём
+                            continue;
                         await api.RequestAsync(new HttpMethod("PATCH"),
                             $"api/main/clients/{Uri.EscapeDataString(clientId)}/deals/{Uri.EscapeDataString(Str(deal, "id"))}/",
                             body, null, CancellationToken.None, TimeSpan.FromSeconds(20)).ConfigureAwait(false);

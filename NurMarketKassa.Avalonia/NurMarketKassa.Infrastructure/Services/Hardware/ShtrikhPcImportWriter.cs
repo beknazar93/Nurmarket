@@ -42,6 +42,17 @@ public enum ShtrikhPcFolderCheck
     Failed,
 }
 
+/// <summary>2026-11-12: итог ожидания приёма файла весами.</summary>
+public enum ShtrikhPcAcceptStatus
+{
+    Accepted,
+    Timeout,
+    FlagGoneNotMarked,
+    Unavailable,
+}
+
+public sealed record ShtrikhPcAcceptResult(ShtrikhPcAcceptStatus Status, TimeSpan Waited, string? Detail = null);
+
 public sealed record ShtrikhPcBuildResult(string Text, int Written, IReadOnlyList<string> Warnings, int QuickKeys = 0, IReadOnlyList<ShtrikhPcItem>? Items = null);
 
 public sealed record ShtrikhPcWriteResult(ShtrikhPcWriteStatus Status, int Written, IReadOnlyList<string> Warnings, string ImportPath, string FlagPath, string? Detail,
@@ -89,8 +100,21 @@ public static class ShtrikhPcImportWriter
         // В Windows-1251 нет киргизских и узбекских букв — заменяем близкими, иначе на весах будет «?».
         ['ү'] = "у", ['Ү'] = "У", ['ө'] = "о", ['Ө'] = "О", ['ң'] = "н", ['Ң'] = "Н",
         ['ў'] = "у", ['Ў'] = "У", ['қ'] = "к", ['Қ'] = "К", ['ғ'] = "г", ['Ғ'] = "Г", ['ҳ'] = "х", ['Ҳ'] = "Х",
+        ['ә'] = "а", ['Ә'] = "А", ['ұ'] = "у", ['Ұ'] = "У", ['һ'] = "х", ['Һ'] = "Х", // 2026-11-12: казахские (ТЗ PC-200, прокол 7)
         ['«'] = "\"", ['»'] = "\"", ['“'] = "\"", ['”'] = "\"", ['‘'] = "'", ['’'] = "'", ['№'] = "N",
     };
+
+    /// <summary>2026-11-12: знак есть в Windows-1251 (иначе кодировщик заменил бы его на «?»).</summary>
+    private static bool FitsCp1251(char c)
+    {
+        if (c < 128 || c == '?')
+            return true;
+        Span<char> one = stackalloc char[1];
+        one[0] = c;
+        Span<byte> bytes = stackalloc byte[4];
+        var n = Cp1251.GetBytes(one, bytes);
+        return !(n == 1 && bytes[0] == (byte)'?');
+    }
 
     /// <summary>Название для поля 3: без «;» (разделитель) и переводов строки, не длиннее 255 знаков, без букв вне Windows-1251.</summary>
     public static string CleanName(string? name)
@@ -104,10 +128,12 @@ public static class ShtrikhPcImportWriter
                 sb.Append(' ');
             else if (Transliteration.TryGetValue(c, out var replacement))
                 sb.Append(replacement);
+            else if (char.IsSurrogate(c) || !FitsCp1251(c))
+                continue; // 2026-11-12 (ТЗ PC-200, прокол 7): эмодзи и прочие знаки вне Windows-1251 — убираем, а не «?» на экране весов
             else
                 sb.Append(c);
         }
-        var text = sb.ToString().Trim();
+        var text = System.Text.RegularExpressions.Regex.Replace(sb.ToString(), " {2,}", " ").Trim();
         return text.Length > MaxNameLength ? text[..MaxNameLength].TrimEnd() : text;
     }
 
@@ -127,17 +153,18 @@ public static class ShtrikhPcImportWriter
     public static string BuildLine(ShtrikhPcItem item, ShtrikhPcSettings settings, string priceText)
     {
         var f = new string[FieldCount];
-        // Незаполненные (резервные) поля пишутся одиночным пробелом, как в примере руководства (п. 8.1.3) и в файле Умара; поле 2 без штрихкода — «0».
-        Array.Fill(f, " ");
+        // 2026-11-12 (ТЗ «Весы Штрих PC-200 — как всё устроено», п. 3.1, строка, принятая живыми весами 12.11): незаполненные поля — ПУСТЫЕ, поле 2 без штрихкода — пусто.
+        // Было (06.11): пробел и «0» — тоже принималось, но эталон теперь — строка из ТЗ, байт в байт.
+        Array.Fill(f, "");
         f[0] = item.Code.ToString(CultureInfo.InvariantCulture);          // 1 код товара
-        f[1] = item.Barcode is { Length: 13 } bc && bc.All(char.IsDigit) ? bc : "0"; // 2 штрих-код (только для поиска; печатается рассчитанный весами)
+        f[1] = item.Barcode is { Length: 13 } bc && bc.All(char.IsDigit) ? bc : ""; // 2 штрих-код (только для поиска; печатается рассчитанный весами)
         f[2] = CleanName(item.Name);                                       // 3 наименование
         f[3] = item.IsPiece ? "1" : "0";                                   // 4 тип: 0 весовой, 1 штучный
         f[4] = priceText;                                                  // 5 цена
         for (var i = 5; i <= 8; i++)                                       // 6–9 группы-владельцы 1–4 уровня: 0 — нет
             f[i] = "0";
         f[11] = Math.Clamp(item.ShelfLifeDays, 0, 99_999).ToString(CultureInfo.InvariantCulture); // 12 срок годности, суток
-        f[13] = "0";                                                       // 14 формат этикетки: 0 — по умолчанию
+        f[13] = Math.Clamp(settings.LabelFormat, 0, ShtrikhPcSettings.MaxLabelFormat).ToString(CultureInfo.InvariantCulture); // 14 формат этикетки: 0 — выбранный на весах (2026-11-12: 13 = 58x40, 14 = 58x30)
         f[14] = "0";                                                       // 15 блокировка продажи: 0 — нет
         f[15] = "0";                                                       // 16 разрешение менять цену: 0 — нет
         for (var i = 22; i <= 24; i++)                                     // 23–25 масса тары 1–3
@@ -186,9 +213,13 @@ public static class ShtrikhPcImportWriter
         return head + parameter.ToString(CultureInfo.InvariantCulture) + ";" + value.ToString(CultureInfo.InvariantCulture);
     }
 
-    /// <summary>Собирает весь текст файла. Повторные коды и коды вне 1…<paramref name="maxCode"/> отбрасываются с предупреждением.</summary>
-    public static ShtrikhPcBuildResult Build(IEnumerable<ShtrikhPcItem> items, ShtrikhPcSettings settings, long maxCode = MaxCode)
+    /// <summary>Собирает весь текст файла. Повторные коды и коды вне 1…<paramref name="maxCode"/> отбрасываются с предупреждением.
+    /// 2026-11-12: <paramref name="screenOrder"/> — коды главного экрана (эта отправка + отправленные раньше), см. <see cref="ShtrikhPcScenarioWriter.ScreenCodes"/>: по ним назначаются кнопки
+    /// быстрого доступа, чтобы частичная отправка не очищала кнопки прежних товаров.</summary>
+    public static ShtrikhPcBuildResult Build(IEnumerable<ShtrikhPcItem> items, ShtrikhPcSettings settings, long maxCode = MaxCode, IReadOnlyList<long>? screenOrder = null)
     {
+        var itemList = items as IReadOnlyList<ShtrikhPcItem> ?? items.ToList();
+        items = itemList;
         settings.Normalize();
         maxCode = Math.Clamp(maxCode, 1, MaxCode);
         var warnings = new List<string>();
@@ -248,9 +279,10 @@ public static class ShtrikhPcImportWriter
         var quickKeys = 0;
         if (settings.QuickKeys && writtenCodes.Count > 0)
         {
-            quickKeys = Math.Min(writtenCodes.Count, settings.QuickKeyCount);
+            var keyCodes = ShtrikhPcScenarioWriter.ScreenCodes(writtenCodes, itemList.Select(i => i.Code).ToList(), screenOrder); // 2026-11-12: с прежними товарами
+            quickKeys = Math.Min(keyCodes.Count, settings.QuickKeyCount);
             for (var key = 0; key < settings.QuickKeyCount; key++)
-                sb.Append(BuildConfigLine(ShtrikhPcSettings.QuickKeyFirstParam + key, key < writtenCodes.Count ? writtenCodes[key] : 0, settings)).Append("\r\n");
+                sb.Append(BuildConfigLine(ShtrikhPcSettings.QuickKeyFirstParam + key, key < keyCodes.Count ? keyCodes[key] : 0, settings)).Append("\r\n");
         }
         // Команды — строго в последних строках; весы выполняют их ДО загрузки данных (руководство, п. 8.1.1).
         if (settings.ClearBase)
@@ -388,8 +420,9 @@ public static class ShtrikhPcImportWriter
 
     /// <summary>Записывает файл импорта в общую папку весов и создаёт флаг-файл. Если прежняя загрузка не принята —
     /// <see cref="ShtrikhPcWriteStatus.PendingNotAccepted"/> и ничего не меняется, пока вызывающий не повторит с <paramref name="overwritePending"/> = true.</summary>
+    // 2026-11-12: screenOrder — коды главного экрана весов (эта отправка + отправленные раньше, в порядке списка); null — только эта отправка (полная выгрузка).
     public static async Task<ShtrikhPcWriteResult> WriteAsync(IEnumerable<ShtrikhPcItem> items, ShtrikhPcSettings settings, bool overwritePending = false,
-        long maxCode = MaxCode, CancellationToken ct = default, ShtrikhPcPictureStep? pictures = null)
+        long maxCode = MaxCode, CancellationToken ct = default, ShtrikhPcPictureStep? pictures = null, IReadOnlyList<long>? screenOrder = null)
     {
         settings.Normalize();
         var itemList = items as IReadOnlyList<ShtrikhPcItem> ?? items.ToList();
@@ -398,7 +431,7 @@ public static class ShtrikhPcImportWriter
         if (settings.Folder.Length == 0)
             return new ShtrikhPcWriteResult(ShtrikhPcWriteStatus.NoFolder, 0, Array.Empty<string>(), importPath, flagPath, null);
 
-        var build = Build(itemList, settings, maxCode);
+        var build = Build(itemList, settings, maxCode, screenOrder);
         if (build.Written == 0)
             return new ShtrikhPcWriteResult(ShtrikhPcWriteStatus.NothingToWrite, 0, build.Warnings, importPath, flagPath, null);
 
@@ -430,7 +463,7 @@ public static class ShtrikhPcImportWriter
             {
                 var outcome = await pictures(itemList, settings, ct).ConfigureAwait(false);
                 pictureStats = outcome.Stats;
-                build = Build(outcome.Items, settings, maxCode);
+                build = Build(outcome.Items, settings, maxCode, screenOrder);
             }
             catch (OperationCanceledException)
             {
@@ -452,9 +485,11 @@ public static class ShtrikhPcImportWriter
             if (settings.UpdateScenario && build.Items is { Count: > 0 } accepted)
             {
                 var onScreen = settings.ScenarioOnlyWithPicture ? accepted.Where(i => i.PictureResource > 0) : accepted;
+                // 2026-11-12: прежние товары остаются на экране (раньше частичная отправка оставляла на главном экране только себя).
+                var screenCodes = ShtrikhPcScenarioWriter.ScreenCodes(onScreen.Select(i => i.Code).ToList(), itemList.Select(i => i.Code).ToList(), screenOrder);
                 try
                 {
-                    scenario = await ShtrikhPcScenarioWriter.WriteAsync(onScreen.Select(i => i.Code).ToList(), settings, null, ct).ConfigureAwait(false);
+                    scenario = await ShtrikhPcScenarioWriter.WriteAsync(screenCodes, settings, null, ct).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
                 {
@@ -502,6 +537,84 @@ public static class ShtrikhPcImportWriter
         catch (Exception ex)
         {
             return new ShtrikhPcWriteResult(ShtrikhPcWriteStatus.Failed, 0, build.Warnings, importPath, flagPath, ex.Message);
+        }
+    }
+
+    // ------------------------------------------------------------------ 2026-11-12: ожидание приёма весами
+
+    /// <summary>ТЗ PC-200, п. 3: «Ждать, пока весы удалят .flz и поменяют строку 2 на @. Если за 5 минут флаг не исчез — ошибка».</summary>
+    public static readonly TimeSpan AcceptTimeout = TimeSpan.FromMinutes(5);
+
+    /// <summary>Ждёт, пока весы примут файл импорта: флаг-файл удалён И во 2-й строке файла «@» (п. 8.1.1 руководства, п. 3 ТЗ PC-200). Сетевая папка весов отваливается
+    /// (ТЗ, прокол 3) — ошибки чтения не прерывают ожидание: подключение открывается заново на следующем опросе. Только чтение: в папку весов ничего не пишется.
+    /// <see cref="ShtrikhPcAcceptStatus.Timeout"/> — флаг так и не исчез (весы выключены, программа весов закрыта, весы ждут другое имя файла);
+    /// <see cref="ShtrikhPcAcceptStatus.FlagGoneNotMarked"/> — флаг исчез, а «@» нет (флаг удалил кто-то другой или файл подменили);
+    /// <see cref="ShtrikhPcAcceptStatus.Unavailable"/> — весь срок папка не читалась.</summary>
+    public static async Task<ShtrikhPcAcceptResult> WaitForAcceptanceAsync(ShtrikhPcSettings settings, TimeSpan? timeout = null, TimeSpan? poll = null, CancellationToken ct = default)
+    {
+        settings.Normalize();
+        var limit = timeout ?? AcceptTimeout;
+        var step = poll ?? TimeSpan.FromSeconds(3);
+        var importPath = ImportPath(settings);
+        var flagPath = FlagPath(settings);
+        var started = DateTime.UtcNow;
+        string? lastError = null;
+        var everRead = false;
+        var flagGoneSince = (DateTime?)null;
+        while (true)
+        {
+            ct.ThrowIfCancellationRequested();
+            var (net, netCode, lease) = await ShtrikhPcShare.OpenAsync(settings, ct).ConfigureAwait(false);
+            if (net != ShtrikhPcNetStatus.Ok)
+                lastError = net + " " + netCode.ToString(CultureInfo.InvariantCulture);
+            else
+            {
+                using (lease)
+                {
+                    var (done, state) = await RunWithTimeoutAsync(() => ReadAcceptState(importPath, flagPath), AvailabilityTimeout, ct).ConfigureAwait(false);
+                    if (!done)
+                        lastError = "timeout";
+                    else if (state.Error is not null)
+                        lastError = state.Error;
+                    else
+                    {
+                        everRead = true;
+                        lastError = null;
+                        if (!state.FlagExists && state.SecondLine == "@")
+                            return new ShtrikhPcAcceptResult(ShtrikhPcAcceptStatus.Accepted, DateTime.UtcNow - started);
+                        // Флаг исчез, а «@» ещё нет: весы могли удалить флаг чуть раньше, чем дописали файл, — даём ещё два опроса.
+                        if (!state.FlagExists)
+                        {
+                            flagGoneSince ??= DateTime.UtcNow;
+                            if (DateTime.UtcNow - flagGoneSince.Value >= step + step)
+                                return new ShtrikhPcAcceptResult(ShtrikhPcAcceptStatus.FlagGoneNotMarked, DateTime.UtcNow - started, state.SecondLine);
+                        }
+                        else
+                            flagGoneSince = null;
+                    }
+                }
+            }
+            if (DateTime.UtcNow - started >= limit)
+                return new ShtrikhPcAcceptResult(everRead && lastError is null ? ShtrikhPcAcceptStatus.Timeout : ShtrikhPcAcceptStatus.Unavailable, DateTime.UtcNow - started, lastError);
+            await Task.Delay(step, ct).ConfigureAwait(false);
+        }
+    }
+
+    private static (bool FlagExists, string? SecondLine, string? Error) ReadAcceptState(string importPath, string flagPath)
+    {
+        try
+        {
+            var flag = File.Exists(flagPath);
+            if (!File.Exists(importPath))
+                return (flag, null, "no import file");
+            using var stream = new FileStream(importPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            using var reader = new StreamReader(stream, Cp1251);
+            reader.ReadLine();
+            return (flag, reader.ReadLine()?.Trim(), null);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return (false, null, ex.Message);
         }
     }
 

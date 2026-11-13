@@ -168,7 +168,7 @@ public sealed class LocalMarketplaceCatalogSource : IMarketplaceCatalogSource
 
     public LocalMarketplaceCatalogSource(Action<string> run) => _run = run;
 
-    private static string T(string ru, string ky, string en, string tr, string uz) => Tr.T(ru, ky, en, tr, uz);
+    private static string T(string ru, string ky, string en, string tr, string uz) => NurMarketKassa.AvaloniaHost.Views.Dialogs.ScaleUi.OwnerPath(Tr.T(ru, ky, en, tr, uz)); // 2026-11-11: в программе владельца «Настройки → Весы» = «Товары → Весы»
 
     private static readonly string AppVersion = typeof(MarketplaceItem).Assembly.GetName().Version is { } v
         ? $"{v.Major}.{v.Minor}.{v.Build}" : "";
@@ -231,6 +231,51 @@ public sealed class LocalMarketplaceCatalogSource : IMarketplaceCatalogSource
             prefs.StaffTimesheetUnlocked, new MarketplacePrice(1500),
             openLabel: T("Открыть табель", "Табелди ачуу", "Open timesheet", "Çizelgeyi aç", "Tabelni ochish"),
             tags: [TagStaff, TagAnalytics], related: ["analytics", "shiftstats"]));
+
+        // --- 2026-11-13 (решение владельца: «Ремонт и trade-in — как доп. услуги в маркетплейсе, чтобы желающие могли подключить»): «Ремонт и сервис» и
+        // «Trade-in / скупка» — подключаемые функции любой сферы (не часть «Электроники»). Данные хранятся на кассе локально (сервер их пока не умеет),
+        // деньги — только путями кассы. Цены 1200 и 1000 сом (решение владельца 13.11); подключает поддержка или ключ; коды сервера «kassa-repair» / «kassa-trade_in».
+        items.Add(Gated("repair", "🛠", "#EA580C",
+            T("Ремонт и сервис", "Оңдоо жана тейлөө", "Repair and service", "Tamir ve servis", "Ta'mirlash va servis"),
+            T("Приём в ремонт: квитанция, статусы, выдача", "Оңдоого кабыл алуу: квитанция, статустар, берүү", "Repair intake: receipt, statuses, hand-over", "Tamire kabul: makbuz, durumlar, teslim", "Ta'mirlashga qabul: kvitansiya, statuslar, topshirish"),
+            T("Приём техники, обуви, часов и другого в ремонт: квитанция с номером, клиент и телефон, устройство, серийный номер или IMEI, неисправность, комплектация, предоплата, срок. Статусы «принят → в работе → готов → выдан», печать квитанции и акта выдачи, сообщение клиенту «готово» в WhatsApp. Оплата работ — обычной продажей услуги при выдаче.",
+              "Техниканы, бут кийимди, саатты жана башкаларды оңдоого кабыл алуу: номери бар квитанция, кардар жана телефон, түзмөк, сериялык номер же IMEI, бузулуу, комплектация, алдын ала төлөм, мөөнөт. «Кабыл алынды → иште → даяр → берилди» статустары, квитанцияны жана берүү актысын басуу, кардарга WhatsApp'та «даяр» билдирүүсү. Иштин төлөмү — берүүдө кадимки кызмат сатуусу менен.",
+              "Take electronics, shoes, watches and more in for repair: a numbered receipt, customer and phone, device, serial number or IMEI, fault, included items, prepayment, due date. Statuses “accepted → in progress → ready → handed over”, printing of the receipt and hand-over act, a “ready” message to the customer on WhatsApp. The work is paid as an ordinary service sale at hand-over.",
+              "Elektronik, ayakkabı, saat vb. tamire kabul: numaralı makbuz, müşteri ve telefon, cihaz, seri numarası veya IMEI, arıza, teslim edilenler, ön ödeme, süre. «Kabul → işlemde → hazır → teslim» durumları, makbuz ve teslim tutanağı baskısı, müşteriye WhatsApp'ta «hazır» mesajı. İş ücreti teslimde sıradan hizmet satışı olarak alınır.",
+              "Texnika, poyabzal, soat va boshqalarni ta'mirlashga qabul qilish: raqamli kvitansiya, mijoz va telefon, qurilma, seriya raqami yoki IMEI, nosozlik, komplektatsiya, oldindan to'lov, muddat. «Qabul → ishda → tayyor → topshirildi» statuslari, kvitansiya va topshirish dalolatnomasini chop etish, mijozga WhatsApp'da «tayyor» xabari. Ish to'lovi — topshirishda oddiy xizmat sotuvi bilan."),
+            [T("Квитанция приёма с номером Р-0001 и печатью", "Р-0001 номерлүү кабыл алуу квитанциясы жана басуу", "Intake receipt with a number R-0001 and printing", "R-0001 numaralı kabul makbuzu ve baskı", "R-0001 raqamli qabul kvitansiyasi va chop etish"),
+             T("Статусы: принят, в работе, готов, выдан", "Статустар: кабыл алынды, иште, даяр, берилди", "Statuses: accepted, in progress, ready, handed over", "Durumlar: kabul, işlemde, hazır, teslim", "Statuslar: qabul, ishda, tayyor, topshirildi"),
+             T("Предоплата и возврат — через внесение и изъятие кассы", "Алдын ала төлөм жана кайтаруу — касса салуу жана алуу аркылуу", "Prepayment and refund go through the till cash in and out", "Ön ödeme ve iade kasa giriş ve çıkışı üzerinden", "Oldindan to'lov va qaytarish — kassa kirim va chiqimi orqali"),
+             T("Журнал ремонтов — и в программе владельца", "Оңдоолор журналы — ээсинин программасында да", "The repair journal is in the owner's program too", "Tamir günlüğü sahibin programında da", "Ta'mirlar jurnali — egasining dasturida ham")],
+            [T("Данные хранятся на этой кассе и не передаются между компьютерами (сервер ремонт пока не поддерживает)", "Маалымат ушул кассада сакталат жана компьютерлердин ортосунда берилбейт (сервер оңдоону азырынча колдобойт)", "Data is stored on this till and is not shared between computers (the server does not support repairs yet)", "Veriler bu kasada saklanır ve bilgisayarlar arasında paylaşılmaz (sunucu henüz tamiri desteklemiyor)", "Ma'lumotlar shu kassada saqlanadi va kompyuterlar o'rtasida uzatilmaydi (server ta'mirni hali qo'llamaydi)")],
+            prefs.RepairUnlocked, new MarketplacePrice(1200), // 2026-11-13: цена владельца — 1200 сом
+            openLabel: T("Открыть ремонт", "Оңдоону ачуу", "Open repairs", "Tamirleri aç", "Ta'mirlarni ochish"),
+            hint: T("Раздел «Ремонт и сервис» — в меню кассы и в программе владельца.", "«Оңдоо жана тейлөө» бөлүмү — касса менюсунда жана ээсинин программасында.", "The “Repair and service” section is in the till menu and in the owner's program.", "«Tamir ve servis» bölümü kasa menüsünde ve sahip programında.", "«Ta'mirlash va servis» bo'limi — kassa menyusida va egasining dasturida."),
+            tags: [TagSales, T("Сервис", "Тейлөө", "Service", "Servis", "Servis")],
+            isNew: true,
+            related: ["trade_in"],
+            note: T("Подойдёт любому магазину: электроника, телефоны, бытовая техника, часы, обувь. Пока сервер ремонт не умеет, квитанции ведутся на кассе; деньги идут только обычными путями кассы.", "Ар бир дүкөнгө ылайыктуу: электроника, телефон, тиричилик техникасы, саат, бут кийим. Сервер оңдоону азырынча колдобогондуктан, квитанциялар кассада жүргүзүлөт; акча кассанын кадимки жолдору менен гана өтөт.", "Suits any shop: electronics, phones, appliances, watches, shoes. Until the server supports repairs, receipts are kept on the till; money moves only through the till's ordinary paths.", "Her mağazaya uygun: elektronik, telefon, beyaz eşya, saat, ayakkabı. Sunucu tamiri desteklemeyene kadar makbuzlar kasada tutulur; para yalnızca kasanın olağan yollarıyla hareket eder.", "Har qanday do'konga mos: elektronika, telefonlar, maishiy texnika, soat, poyabzal. Server ta'mirni qo'llamaguncha kvitansiyalar kassada yuritiladi; pul faqat kassaning oddiy yo'llari orqali o'tadi.")));
+
+        items.Add(Gated("trade_in", "🔄", "#0891B2",
+            T("Trade-in / скупка", "Trade-in / сатып алуу", "Trade-in / buy-back", "Trade-in / alım", "Trade-in / sotib olish"),
+            T("Приём б/у у клиента: оценка, выплата или зачёт", "Кардардан б/у кабыл алуу: баалоо, төлөө же эсептөө", "Taking used items from customers: appraisal, payout or credit", "Müşteriden ikinci el alım: değerleme, ödeme veya mahsup", "Mijozdan b/u qabul qilish: baholash, to'lov yoki hisobga olish"),
+            T("Приём б/у устройства у клиента: оценка, паспорт и телефон, серийный номер или IMEI, фото по желанию, сумма выкупа. Расчёт — выплатой из кассы или зачётом в покупку (отрицательная строка в чеке). Принятое оприходуется на склад как б/у, закупка равна сумме выкупа. Печать акта приёма.",
+              "Кардардан б/у түзмөктү кабыл алуу: баалоо, паспорт жана телефон, сериялык номер же IMEI, каалоо боюнча сүрөт, сатып алуу суммасы. Эсептешүү — кассадан төлөө же сатып алууга эсептөө (чектеги терс сап). Кабыл алынган б/у катары кампага кирет, сатып алуу баасы сатып алуу суммасына барабар. Кабыл алуу актысын басуу.",
+              "Taking a used device from a customer: appraisal, passport and phone, serial number or IMEI, optional photos, buy-back amount. Settlement is a payout from the till or a credit to a purchase (a negative line in the receipt). The item goes into stock as used, purchase price equals the buy-back amount. Printing of the acceptance act.",
+              "Müşteriden ikinci el cihaz alımı: değerleme, pasaport ve telefon, seri numarası veya IMEI, isteğe bağlı fotoğraf, alım tutarı. Ödeme kasadan verilir veya alışverişe mahsup edilir (fişte negatif satır). Alınan ürün ikinci el olarak depoya girer, alış fiyatı alım tutarına eşittir. Kabul tutanağı baskısı.",
+              "Mijozdan b/u qurilma qabul qilish: baholash, pasport va telefon, seriya raqami yoki IMEI, ixtiyoriy rasm, sotib olish summasi. Hisob-kitob — kassadan to'lov yoki xaridga hisobga olish (chekdagi manfiy qator). Qabul qilingan narsa b/u sifatida omborga kiradi, xarid narxi sotib olish summasiga teng. Qabul dalolatnomasini chop etish."),
+            [T("Оценка, паспорт, серийный номер / IMEI, фото", "Баа, паспорт, сериялык номер / IMEI, сүрөт", "Appraisal, passport, serial number / IMEI, photos", "Değerleme, pasaport, seri numarası / IMEI, fotoğraf", "Baho, pasport, seriya raqami / IMEI, rasm"),
+             T("Выплата из кассы или зачёт в покупку", "Кассадан төлөө же сатып алууга эсептөө", "Payout from the till or credit to a purchase", "Kasadan ödeme veya alışverişe mahsup", "Kassadan to'lov yoki xaridga hisobga olish"),
+             T("Оприходование на склад как б/у, закупка = сумма выкупа", "Кампага б/у катары кирүү, сатып алуу = сатып алуу суммасы", "Received into stock as used, purchase price = buy-back amount", "İkinci el olarak depoya giriş, alış = alım tutarı", "Omborga b/u sifatida kirim, xarid = sotib olish summasi"),
+             T("Печать акта приёма, журнал выкупов — и в программе владельца", "Кабыл алуу актысын басуу, сатып алуулар журналы — ээсинин программасында да", "Printing of the acceptance act, buy-back journal in the owner's program too", "Kabul tutanağı baskısı, alım günlüğü sahip programında da", "Qabul dalolatnomasini chop etish, sotib olishlar jurnali — egasining dasturida ham")],
+            [T("Данные хранятся на этой кассе и не передаются между компьютерами (сервер trade-in пока не поддерживает)", "Маалымат ушул кассада сакталат жана компьютерлердин ортосунда берилбейт (сервер trade-in'ди азырынча колдобойт)", "Data is stored on this till and is not shared between computers (the server does not support trade-in yet)", "Veriler bu kasada saklanır ve bilgisayarlar arasında paylaşılmaz (sunucu henüz trade-in'i desteklemiyor)", "Ma'lumotlar shu kassada saqlanadi va kompyuterlar o'rtasida uzatilmaydi (server trade-in ni hali qo'llamaydi)")],
+            prefs.TradeInUnlocked, new MarketplacePrice(1000), // 2026-11-13: цена владельца — 1000 сом
+            openLabel: T("Открыть trade-in", "Trade-in ачуу", "Open trade-in", "Trade-in'i aç", "Trade-in ni ochish"),
+            hint: T("Раздел «Trade-in / скупка» — в меню кассы и в программе владельца.", "«Trade-in / сатып алуу» бөлүмү — касса менюсунда жана ээсинин программасында.", "The “Trade-in / buy-back” section is in the till menu and in the owner's program.", "«Trade-in / alım» bölümü kasa menüsünde ve sahip programında.", "«Trade-in / sotib olish» bo'limi — kassa menyusida va egasining dasturida."),
+            tags: [TagSales, TagWarehouse],
+            isNew: true,
+            related: ["repair"],
+            note: T("Подойдёт магазинам электроники, телефонов и техники. Деньги — только путями кассы: выплата — изъятие с основанием, зачёт — строка в чеке; зачёт засчитывается после «чек оплачен».", "Электроника, телефон жана техника дүкөндөрүнө ылайыктуу. Акча — кассанын жолдору менен гана: төлөө — негиздемеси бар алуу, эсептөө — чектеги сап; эсептөө «чек төлөндү» болгондон кийин эсептелет.", "Suits electronics, phone and appliance shops. Money moves only through the till: a payout is a cash withdrawal with a reason, a credit is a line in the receipt; a credit counts after “receipt paid”.", "Elektronik, telefon ve teknik mağazalarına uygun. Para yalnızca kasa yollarıyla: ödeme gerekçeli çekim, mahsup fişte satır; mahsup «fiş ödendi»den sonra geçerli olur.", "Elektronika, telefon va texnika do'konlariga mos. Pul faqat kassa yo'llari orqali: to'lov — asosli chiqim, hisobga olish — chekdagi qator; hisobga olish «chek to'landi» dan keyin hisoblanadi.")));
 
         // --- Весы (только «Старт»)
         if (start)
@@ -622,7 +667,12 @@ public sealed class LocalMarketplaceCatalogSource : IMarketplaceCatalogSource
         // 2026-10-31 (ТЗ Умара): включено сервером без ключа — «Подключено» (функции, входящие в тариф «Стандарт», остаются «Входит в тариф»).
         var byServer = unlocked && ServerAddons.IsServerOnly(id) && !(id is "export" or "telegram" or "shiftstats" && !TariffGate.IsStartTariff);
         if (byServer)
+        {
             statusText = T("Подключено", "Туташтырылды", "Connected", "Bağlandı", "Ulandi");
+            // 2026-11-13 (сервер «ev1311», addons.source): «Подключено · по ключу / пробный период / включено поддержкой»; неизвестный источник — без подписи.
+            if (ServerAddons.SourceLabel(ServerAddons.GrantedSource(id)) is { Length: > 0 } sourceLabel)
+                statusText += " · " + sourceLabel;
+        }
         MarketplaceAction? primary;
         if (unlocked)
             primary = openLabel is null ? null : new MarketplaceAction(openLabel, () => _run("open:" + slug));

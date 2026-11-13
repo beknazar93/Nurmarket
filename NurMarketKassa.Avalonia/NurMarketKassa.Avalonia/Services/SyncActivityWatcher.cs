@@ -42,8 +42,25 @@ public static class SyncActivityWatcher
 #endif
                 Update();
         };
-        window.Activated += (_, _) => Update();
-        window.Deactivated += (_, _) => Update();
+        // 2026-11-11 (синхронизация правил весов, доступов и маркетплейса с сайтом): окно вернулось после отлучки (другая программа, сайт NurCRM в
+        // браузере) дольше 20 с — сразу прочитать общие настройки и доступы/покупки, а не ждать такта. Короткие переключения (закрыли своё модальное
+        // окно) запросов не вызывают.
+        long deactivatedAt = 0;
+        window.Activated += (_, _) =>
+        {
+            Update();
+            if (deactivatedAt != 0 && Environment.TickCount64 - deactivatedAt >= 20_000)
+            {
+                SettingsCloudSync.KickCompanyPoll();
+                AccessSync.Kick("focus");
+            }
+            deactivatedAt = 0;
+        };
+        window.Deactivated += (_, _) =>
+        {
+            Update();
+            deactivatedAt = Environment.TickCount64;
+        };
         window.Opened += (_, _) => Update();
         if (basket is not null && hasItems is not null)
             basket.PropertyChanged += (_, e) =>

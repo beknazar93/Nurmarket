@@ -164,6 +164,14 @@ public sealed class CartService : ICartService, IDisposable
             ReceiptSnapshotCartEditor.AddProduct(this, product, quantity, unitPriceOverride, salePackageId);
     }
 
+    public void AddSaleUnitItem(CatalogProductTileVm product, string unitKey, double quantity, bool wholesale)
+    {
+        ArgumentNullException.ThrowIfNull(product);
+        var unit = ProductSaleUnits.Find(product.Id, unitKey) ?? throw new ArgumentException("У товара нет такой единицы продажи.", nameof(unitKey));
+        lock (_sync)
+            ReceiptSnapshotCartEditor.AddSaleUnit(this, product, unit, quantity, wholesale);
+    }
+
     public void AddVariantItem(CatalogProductTileVm product, double quantity, double unitPrice, string variantId, string label, string? size, string? color)
     {
         ArgumentNullException.ThrowIfNull(product);
@@ -227,7 +235,9 @@ public sealed class CartService : ICartService, IDisposable
             MustWeigh: CartDisplayHelper.LineMustWeigh(line),
             DiscountPercent: discountPercent,
             FixedDiscountAmount: fixedDiscountAmount,
-            SalePackageId: CartDisplayHelper.SalePackageId(line),
+            // 2026-11-13: строка в упаковке (sale_unit) видна как «условная упаковка» sale_unit:<ключ> — без дробного шага, пределы остатка через множитель (см. ProductSaleUnits.LinePrefix).
+            SalePackageId: CartDisplayHelper.SalePackageId(line)
+                ?? (ProductSaleUnits.LineKey(line) is { } saleUnitKey ? ProductSaleUnits.LinePrefix + saleUnitKey : null),
             PromoBasePrice: CartDisplayHelper.VariantBasePrice(line),
             VariantId: CartDisplayHelper.ServerVariantId(line));
     }

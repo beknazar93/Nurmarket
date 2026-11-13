@@ -38,7 +38,7 @@ namespace NurMarketKassa.AvaloniaHost.Views.Dialogs;
 /// </summary>
 public partial class ShtrikhScaleSettingsWindow : Window
 {
-    private static string L(string ru, string ky, string en, string tr, string uz) => Tr.T(ru, ky, en, tr, uz);
+    private static string L(string ru, string ky, string en, string tr, string uz) => NurMarketKassa.AvaloniaHost.Views.Dialogs.ScaleUi.OwnerPath(Tr.T(ru, ky, en, tr, uz)); // 2026-11-11: в программе владельца путь «Товары → Весы»
 
     private enum Kind { Toggle, Choice, Number, Text, Bits }
 

@@ -10,7 +10,7 @@ public partial class ServicesWindow : Window
     public ServicesWindow()
     {
         InitializeComponent();
-        FullscreenHelper.Apply(this);
+        // 2026-11-12 (Д-4): окно стало карточкой ModalShell — на весь экран его не разворачиваем (FullscreenHelper.Apply убран).
     }
 
     private void CloseButton_Click(object? sender, RoutedEventArgs e) => Close();

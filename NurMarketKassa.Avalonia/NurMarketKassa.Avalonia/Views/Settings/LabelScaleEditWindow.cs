@@ -27,7 +27,7 @@ public sealed class LabelScaleEditWindow : Window
     /// <summary>Сохранили (а не закрыли/отменили).</summary>
     public bool Saved => _saved;
 
-    private static string L(string ru, string ky, string en, string tr, string uz) => Tr.T(ru, ky, en, tr, uz);
+    private static string L(string ru, string ky, string en, string tr, string uz) => NurMarketKassa.AvaloniaHost.Views.Dialogs.ScaleUi.OwnerPath(Tr.T(ru, ky, en, tr, uz)); // 2026-11-11: в программе владельца путь «Товары → Весы»
 
     public LabelScaleEditWindow() : this(LabelScaleStore.Active)
     {

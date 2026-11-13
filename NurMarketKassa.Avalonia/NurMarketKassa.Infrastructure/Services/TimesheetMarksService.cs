@@ -276,18 +276,24 @@ public sealed class TimesheetMarksService
         return !string.IsNullOrWhiteSpace(employeeName) && string.Equals(employeeName.Trim(), shift.Cashier?.Trim(), StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>Часы по закрытым сменам сотрудника по дням открытия смены (тот же день, что в <see cref="StaffTimesheetService"/>).</summary>
-    public static Dictionary<DateOnly, double> ShiftHoursByDay(IEnumerable<ShiftHistoryEntry> shifts, string employeeKey, string employeeName)
+    /// <summary>Часы по закрытым сменам сотрудника по календарным дням.
+    /// 2026-11-11 (живой показ 1.17.85, Д-2: в клетках «~28,1», «~41,6» ч): раньше многодневная смена целиком записывалась на день открытия. Теперь смена делится по
+    /// календарным дням (время смен — местное время ПК кассы, оно же часовой пояс магазина): в каждый день — только его часть, не больше 24 ч в день (и при наложении смен).</summary>
+    public static Dictionary<DateOnly, double> ShiftHoursByDay(IEnumerable<ShiftHistoryEntry> shifts, string employeeKey, string employeeName) =>
+        StaffTimesheetService.SplitByDay(shifts.Where(s => ShiftBelongsTo(s, employeeKey, employeeName)));
+
+    /// <summary>2026-11-11 (Д-2): дни, которых касается закрытая смена длиннее 16 ч (вероятно, забыли закрыть) — клетка табеля показывает предупреждение.</summary>
+    public static HashSet<DateOnly> LongShiftDays(IEnumerable<ShiftHistoryEntry> shifts, string employeeKey, string employeeName)
     {
-        var map = new Dictionary<DateOnly, double>();
+        var days = new HashSet<DateOnly>();
         foreach (var s in shifts)
         {
-            if (s.OpenedAt is not { } o || s.ClosedAt is not { } c || c <= o || !ShiftBelongsTo(s, employeeKey, employeeName))
+            if (s.OpenedAt is not { } o || s.ClosedAt is not { } c || c - o <= StaffTimesheetService.LongShift || !ShiftBelongsTo(s, employeeKey, employeeName))
                 continue;
-            var day = DateOnly.FromDateTime(o);
-            map[day] = map.GetValueOrDefault(day) + (c - o).TotalHours;
+            for (var d = o.Date; d < c; d = d.AddDays(1))
+                days.Add(DateOnly.FromDateTime(d));
         }
-        return map;
+        return days;
     }
 
     /// <summary>Часы по умолчанию при ручной отметке «Был»: по сменам этого дня (до 0,25 ч), иначе 8 ч.</summary>

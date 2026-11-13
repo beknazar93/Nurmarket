@@ -73,12 +73,28 @@
                 </StackPanel>
               </Grid>
             </Border>
-            <WrapPanel Orientation="Horizontal">
+            <WrapPanel x:Name="SphereRadioPanel" Orientation="Horizontal">
               <RadioButton x:Name="SphereGroceryRadio" GroupName="MarketSphere" Classes="DatePill SphereLockable" Margin="0,0,8,8" Click="Sphere_Click"/>
               <RadioButton x:Name="SphereClothingRadio" GroupName="MarketSphere" Classes="DatePill SphereLockable" Margin="0,0,8,8" Click="Sphere_Click"/>
               <RadioButton x:Name="SphereServicesRadio" GroupName="MarketSphere" Classes="DatePill SphereLockable" Margin="0,0,8,8" Click="Sphere_Click"/>
             </WrapPanel>
             <TextBlock x:Name="SphereDescription" FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource BrushText}"/>
+            <!-- 2026-11-12 (ХМ14, ТЗ хозмаг): размер магазина «Хозтовары» (хозмаг у дома / строительный маркет), галочка «скан коробки» и
+                 «что изменится». Видно только при сфере hardware. Размер — не смена сферы: замок вида магазина его не блокирует. Тексты — в коде. -->
+            <StackPanel x:Name="HardwarePanel" Spacing="8" IsVisible="False">
+              <TextBlock x:Name="HardwareSizeTitle" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
+              <WrapPanel Orientation="Horizontal">
+                <RadioButton x:Name="HardwareShopRadio" GroupName="HardwareSize" Classes="DatePill" Margin="0,0,8,8" Click="HardwareSize_Click"/>
+                <RadioButton x:Name="HardwareMarketRadio" GroupName="HardwareSize" Classes="DatePill" Margin="0,0,8,8" Click="HardwareSize_Click"/>
+              </WrapPanel>
+              <TextBlock x:Name="HardwareSizeHint" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock x:Name="HardwarePackScanText" FontSize="13" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{DynamicResource BrushText}"/>
+                <CheckBox Grid.Column="1" x:Name="HardwarePackScanCheck" Classes="ToggleSwitch" VerticalAlignment="Center" IsCheckedChanged="HardwarePackScan_Changed"/>
+              </Grid>
+              <Button x:Name="HardwareNormsButton" Classes="btn-secondary" HorizontalAlignment="Left" Click="HardwareNorms_Click"/>
+              <TextBlock x:Name="HardwareChangesText" FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+            </StackPanel>
             <!-- 2026-09-28: итог сохранения вида магазина на сервере (market_sphere, BE-18). Текст — в коде. -->
             <TextBlock x:Name="SphereServerStatus" FontSize="12" TextWrapping="Wrap" IsVisible="False"
                        Foreground="{DynamicResource BrushTextSoft}"/>

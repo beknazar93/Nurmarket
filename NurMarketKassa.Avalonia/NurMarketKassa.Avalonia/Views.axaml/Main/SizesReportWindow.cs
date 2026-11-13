@@ -134,7 +134,15 @@ public sealed class SizesReportWindow : Window
         }
         catch (Exception ex)
         {
-            _status.Text = Tr.T("Отчёт не построен: ", "Отчёт түзүлгөн жок: ", "The report was not built: ", "Rapor oluşturulamadı: ", "Hisobot tuzilmadi: ") + ServerOutageMonitor.FriendlyError(ex);
+            // 2026-11-12 (оценка UX/UI, Д-2): ничего не нарисовано — общий блок с «Повторить» (сервер недоступен / не удалось); часть таблиц уже есть — остаются, в строке состояния одна фраза.
+            if (_body.Children.Count == 0)
+            {
+                _status.Text = "";
+                _body.Children.Add(StateBlock.Failure(this, ex,
+                    Tr.T("Отчёт не построен", "Отчёт түзүлгөн жок", "The report was not built", "Rapor oluşturulamadı", "Hisobot tuzilmadi"), () => _ = LoadAsync()));
+            }
+            else
+                _status.Text = Tr.T("Отчёт не построен: ", "Отчёт түзүлгөн жок: ", "The report was not built: ", "Rapor oluşturulamadı: ", "Hisobot tuzilmadi: ") + ServerOutageMonitor.FriendlyError(ex);
             PosLogger.Log($"Размеры и цвета: отчёт не построен ({ex.Message}).", "WARNING");
         }
     }

@@ -16,6 +16,11 @@ public static class ServerErrorCodes
     public const string ReadOnly = "read_only";
     public const string PinInvalid = "pin_invalid";
     public const string PinLocked = "pin_locked";
+    // 2026-11-13 (сервер sn1311, электроника): проверки серийных номеров в строках продажи — только с флагом компании electronics_2026_11, ошибки «в формате строки» (code, index).
+    public const string SerialAlreadySold = "serial_already_sold";
+    public const string SerialCountMismatch = "serial_count_mismatch";
+    public const string SerialDuplicateInLine = "serial_duplicate_in_line";
+    public const string SerialTooLong = "serial_too_long";
 
     /// <summary>Код из тела ответа (<c>code</c>, иначе <c>error</c>), строчными; null — нет.</summary>
     public static string? Code(Exception? ex) => ex is ApiException { Payload: { } p } ? Code(p) : null;
@@ -111,8 +116,84 @@ public static class ServerErrorCodes
             $"The PIN is locked after wrong attempts. Try again in {m} min.", $"PIN yanlış denemelerden sonra kilitlendi. {m} dk sonra tekrar deneyin.", $"PIN noto'g'ri urinishlardan keyin bloklandi. {m} daqiqadan keyin takrorlang.");
     }
 
+    /// <summary>2026-11-13 (сервер sn1311): ошибка серийного номера строки — (код, объект ошибки). Код ищется в теле ответа и, если там нет, в первом элементе массива
+    /// errors / items / lines (сервер отдаёт ошибки строк с полями code, index, serial…). null — это не ошибка серийника.</summary>
+    public static (string Code, JsonElement Error)? SerialError(Exception? ex)
+    {
+        if (ex is not ApiException { Payload: { } payload } || payload.ValueKind != JsonValueKind.Object)
+            return null;
+        if (SerialCodeOf(payload) is { } top)
+            return (top, payload);
+        foreach (var name in new[] { "errors", "items", "lines" })
+            if (payload.TryGetProperty(name, out var arr) && arr.ValueKind == JsonValueKind.Array)
+                foreach (var el in arr.EnumerateArray())
+                    if (el.ValueKind == JsonValueKind.Object && SerialCodeOf(el) is { } nested)
+                        return (nested, el);
+        return null;
+    }
+
+    private static string? SerialCodeOf(JsonElement obj) => Code(obj) is { } c && c is SerialAlreadySold or SerialCountMismatch or SerialDuplicateInLine or SerialTooLong ? c : null;
+
+    public static bool IsSerialError(Exception? ex) => SerialError(ex) is not null;
+
+    private static string? Text(JsonElement obj, string name) =>
+        obj.ValueKind == JsonValueKind.Object && obj.TryGetProperty(name, out var v)
+            ? v.ValueKind == JsonValueKind.String ? v.GetString() : v.ValueKind == JsonValueKind.Number ? v.GetRawText() : null
+            : null;
+
+    /// <summary>«Строка 2: » — номер строки чека по полю index (с нуля); без поля — пусто.</summary>
+    private static string LinePrefix(JsonElement error) =>
+        Number(error, "index") is { } i && i >= 0
+            ? Tr.T($"Строка {(int)i + 1}: ", $"{(int)i + 1}-сап: ", $"Line {(int)i + 1}: ", $"Satır {(int)i + 1}: ", $"{(int)i + 1}-qator: ")
+            : "";
+
+    /// <summary>Понятный кассиру текст ошибки серийного номера (5 языков); чек остаётся в кассе, оплата не проведена. null — не ошибка серийника.</summary>
+    public static string? SerialFriendly(Exception? ex)
+    {
+        if (SerialError(ex) is not { } e)
+            return null;
+        var prefix = LinePrefix(e.Error);
+        var serial = Text(e.Error, "serial");
+        var shown = string.IsNullOrWhiteSpace(serial) ? "" : " " + serial.Trim();
+        var tail = Tr.T(" Чек остаётся в кассе — исправьте номера и повторите оплату.",
+            " Чек кассада калат — номерлерди оңдоп, төлөмдү кайталаңыз.",
+            " The receipt stays in the till — fix the numbers and repeat the payment.",
+            " Fiş kasada kalır — numaraları düzeltip ödemeyi tekrarlayın.",
+            " Chek kassada qoladi — raqamlarni tuzatib, to'lovni takrorlang.");
+        var body = e.Code switch
+        {
+            SerialAlreadySold => Tr.T($"Серийный номер{shown} уже продан в другом чеке и не возвращён. Проверьте номер на упаковке или сначала оформите возврат прежней продажи.",
+                $"Сериялык номер{shown} башка чекте сатылып кеткен жана кайтарылган эмес. Номерди таңгактан текшериңиз же адегенде мурунку сатууну кайтарыңыз.",
+                $"The serial number{shown} has already been sold in another receipt and not returned. Check the number on the box or first return the earlier sale.",
+                $"Seri numarası{shown} başka bir fişte zaten satıldı ve iade edilmedi. Kutudaki numarayı kontrol edin veya önce önceki satışı iade edin.",
+                $"Seriya raqami{shown} boshqa chekda allaqachon sotilgan va qaytarilmagan. Qutidagi raqamni tekshiring yoki avval oldingi sotuvni qaytaring."),
+            SerialCountMismatch => Tr.T($"Серийных номеров больше, чем штук в строке{CountPair(e.Error)}. Уберите лишние номера или увеличьте количество.",
+                $"Сериялык номерлер саптагы даанадан көп{CountPair(e.Error)}. Ашыкчаларын алып салыңыз же санын көбөйтүңүз.",
+                $"There are more serial numbers than units in the line{CountPair(e.Error)}. Remove the extra numbers or increase the quantity.",
+                $"Satırdaki adetten fazla seri numarası var{CountPair(e.Error)}. Fazla numaraları kaldırın veya miktarı artırın.",
+                $"Qatordagi donadan ko'p seriya raqami bor{CountPair(e.Error)}. Ortiqcha raqamlarni olib tashlang yoki sonini oshiring."),
+            SerialDuplicateInLine => Tr.T($"Один и тот же серийный номер{shown} указан в строке дважды. Уберите повтор.",
+                $"Бир эле сериялык номер{shown} сапта эки жолу көрсөтүлгөн. Кайталоону алып салыңыз.",
+                $"The same serial number{shown} appears twice in the line. Remove the duplicate.",
+                $"Aynı seri numarası{shown} satırda iki kez yazılmış. Tekrarı kaldırın.",
+                $"Bir xil seriya raqami{shown} qatorda ikki marta ko'rsatilgan. Takrorini olib tashlang."),
+            SerialTooLong => Tr.T($"Серийный номер{shown} слишком длинный (не больше 64 знаков). Проверьте, что номер введён верно.",
+                $"Сериялык номер{shown} өтө узун (64 белгиден көп эмес). Номер туура киргизилгенин текшериңиз.",
+                $"The serial number{shown} is too long (up to 64 characters). Check that it was entered correctly.",
+                $"Seri numarası{shown} çok uzun (en fazla 64 karakter). Doğru girildiğini kontrol edin.",
+                $"Seriya raqami{shown} juda uzun (64 belgigacha). To'g'ri kiritilganini tekshiring."),
+            _ => null,
+        };
+        return body is null ? null : prefix + body + tail;
+    }
+
+    private static string CountPair(JsonElement error) =>
+        Number(error, "count") is { } c && Number(error, "quantity") is { } q
+            ? $" ({c.ToString("0.###", CultureInfo.InvariantCulture)} / {q.ToString("0.###", CultureInfo.InvariantCulture)})"
+            : "";
+
     /// <summary>Понятный текст по коду ошибки; null — код не известен (показывается слово сервера).</summary>
-    public static string? Friendly(Exception? ex) => Code(ex) switch
+    public static string? Friendly(Exception? ex) => BelowCostGuard.IsServerDenial(ex) ? BelowCostGuard.ServerDeniedText(ex, null) : SerialFriendly(ex) ?? Code(ex) switch // 2026-11-13: отказ «ниже закупки» (can_sell_below_cost); ошибки серийных номеров (sn1311)
     {
         DuplicateLine => DuplicateLineText(),
         NegativeStock when ex is ApiException { StatusCode: 409 } => NegativeStockText(),

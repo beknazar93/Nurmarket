@@ -13,15 +13,19 @@ using System;
 
 // 2026-11-10 (ТЗ «правка и аннулирование возвратных накладных 24 ч», возврат от клиента): у выбранного чека — его прошлые возвраты (refunds[] карточки чека)
 // с кнопками «Удалить» / «История» и плашкой «АННУЛИРОВАН» из общих ReturnEditFlows. Всё только при признаке сервера pos_return_edit_24h и разрешении
-// в самом документе (can_void / can_edit); без признака панель пустая и скрытая — касса ведёт себя как раньше. Окна правки возврата от клиента пока нет (edit: null).
+// в самом документе (can_void / can_edit); без признака панель пустая и скрытая — касса ведёт себя как раньше.
+// 2026-11-11 (сервер Умара): возвраты чека берутся из GET pos/returns/?sale=…&status=all (там can_edit/can_void/edit_block_reason; в refunds[] чека их может не быть),
+// добавлена кнопка «Редактировать» (CustomerReturnEditDialog) и пояснение, почему кнопок нет (чек в долг, 24 ч, смена закрыта…). После правки/удаления — чек перечитывается.
 namespace NurMarketKassa.AvaloniaHost.Views.Dialogs;
 
 public partial class ReturnSaleDialog
 {
     private StackPanel? _returnDocsPanel;
+    private int _returnDocsGen;
 
     private void UpdateReturnDocs(JsonElement sale)
     {
+        var gen = ++_returnDocsGen;
         if (!ReturnEditGate.FeatureOn(ReturnDocKind.Customer))
         {
             if (_returnDocsPanel is not null)
@@ -35,35 +39,48 @@ public partial class ReturnSaleDialog
                 bar.Children.Add(_returnDocsPanel);
         }
         _returnDocsPanel.Children.Clear();
-        if (sale.ValueKind != JsonValueKind.Object || !sale.TryGetProperty("refunds", out var refunds) || refunds.ValueKind != JsonValueKind.Array)
+        _returnDocsPanel.IsVisible = false;
+        var saleId = _currentSaleId;
+        // у чека без возвратов (нет refunds[] и статуса возврата) — запроса нет
+        var hasRefunds = sale.ValueKind == JsonValueKind.Object && sale.TryGetProperty("refunds", out var refunds) && refunds.ValueKind == JsonValueKind.Array && refunds.GetArrayLength() > 0;
+        var returnStatus = DocStr(sale, "return_status");
+        if (string.IsNullOrWhiteSpace(saleId) || (!hasRefunds && returnStatus is "" or "none"))
+            return;
+        _ = LoadReturnDocsAsync(saleId, gen);
+    }
+
+    private async System.Threading.Tasks.Task LoadReturnDocsAsync(string saleId, int gen)
+    {
+        System.Collections.Generic.List<NurCrmReportsApi.PosReturn>? list;
+        try
         {
-            _returnDocsPanel.IsVisible = false;
+            using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(8));
+            list = await ReturnEditFlows.LoadSaleReturnsAsync(saleId, cts.Token).ConfigureAwait(true);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            PosLogger.Log($"Возврат: возвраты чека {saleId} для правки не загружены ({ex.GetType().Name}).", "WARNING");
             return;
         }
-        var received = DateTime.UtcNow;
-        var saleId = _currentSaleId;
-        foreach (var r in refunds.EnumerateArray())
+        if (gen != _returnDocsGen || _returnDocsPanel is null || list is null || !string.Equals(_currentSaleId, saleId, StringComparison.OrdinalIgnoreCase))
+            return;
+        _returnDocsPanel.Children.Clear();
+        foreach (var r in list)
         {
-            var id = DocStr(r, "id");
-            if (id.Length == 0)
-                continue;
-            var state = ReturnEditState.Parse(r, received);
-            var number = DocStr(r, "number") is { Length: > 0 } n ? n : (id.Length > 8 ? id[..8] : id);
-            var total = (double.TryParse(DocStr(r, "amount"), NumberStyles.Any, CultureInfo.InvariantCulture, out var amt) ? amt : 0);
+            var doc = ReturnEditFlows.CustomerDoc(r);
             var head = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
             var caption = new TextBlock
             {
-                Text = Tr.T($"Возврат №{number} · {MoneyText.Som((decimal)total)}", $"Кайтаруу №{number} · {MoneyText.Som((decimal)total)}", $"Return No. {number} · {MoneyText.Som((decimal)total)}",
-                    $"İade No. {number} · {MoneyText.Som((decimal)total)}", $"Qaytarish №{number} · {MoneyText.Som((decimal)total)}"),
+                Text = Tr.T($"Возврат {doc.Number} · {MoneyText.Som(r.Amount)}", $"Кайтаруу {doc.Number} · {MoneyText.Som(r.Amount)}", $"Return {doc.Number} · {MoneyText.Som(r.Amount)}",
+                    $"İade {doc.Number} · {MoneyText.Som(r.Amount)}", $"Qaytarish {doc.Number} · {MoneyText.Som(r.Amount)}"),
                 FontSize = 12.5, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap,
             };
             caption.Bind(TextBlock.ForegroundProperty, caption.GetResourceObservable("BrushText"));
             head.Children.Add(caption);
-            if (ReturnEditFlows.VoidedPill(this, state) is { } pill)
+            if (ReturnEditFlows.VoidedPill(this, doc.State) is { } pill)
                 head.Children.Add(pill);
             _returnDocsPanel.Children.Add(head);
-            var doc = new ReturnDocRef(ReturnDocKind.Customer, id, number, total, state);
-            _returnDocsPanel.Children.Add(ReturnEditFlows.Bar(this, doc, edit: null, reload: () => RefreshCurrentSaleAsync(saleId)));
+            _returnDocsPanel.Children.Add(ReturnEditFlows.CustomerBar(this, doc, reload: () => RefreshCurrentSaleAsync(saleId)));
         }
         _returnDocsPanel.IsVisible = _returnDocsPanel.Children.Count > 0;
     }

@@ -98,7 +98,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
                             {
                                 foreach (var line in items.EnumerateArray())
                                 {
-                                    string name = line.TryGetProperty("product_name", out var n) ? n.GetString() ?? "?" : "?";
+                                    // 2026-11-12 (аудит 12.11, Д-14): название строки — общим разбором (product_name, name, product{…}…), а не «?»
+                                    var name = CartDisplayHelper.ItemName(line);
+                                    if (string.IsNullOrWhiteSpace(name))
+                                        name = Tr.T("Товар без названия", "Аталышы жок товар", "Unnamed item", "Adsız ürün", "Nomsiz mahsulot");
                                     decimal qty = line.TryGetProperty("quantity", out var q) ? ParseDecimal(q) : 0;
                                     summary.Add(qty == 1m ? name : $"{name} ×{qty.ToString("0.###", CultureInfo.InvariantCulture)}");
                                 }
@@ -639,6 +642,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 _receiptCard = card;
                 PopupReceiptHost.Content = SaleReceiptCardView.Build(card);
                 EnsurePopupActionBar();
+                ShowPopupReturnActions(receiptId, receiptNumber, json); // 2026-11-12: «Возврат» и «Правка возвратов» — только в программе владельца
 
                 PopupTitle.Text = Tr.T("Чек ", "Чек ", "Receipt ", "Fiş ", "Chek ") + receiptNumber;
                 _currentReceiptJson = json;

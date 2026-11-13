@@ -85,6 +85,23 @@ public sealed partial class SyncService
                 OfflinePendingSalesStore.Update(entry.Id, e => { e.ReviewNeeded = true; e.TooOldForServer = true; }); // 2026-11-01: признак для кнопки «Провести по PIN владельца»
                 throw new ReplayDeferredException(TooOldReviewText(entry)) { NeedsReview = true };
             }
+            // 2026-11-13 (сервер bc1112): отказ «скидка ниже закупки без права can_sell_below_cost» — отказ до записи, повтор и старый путь дадут то же самое.
+            // Чек не висит в очереди бесконечно и не «ждёт сервер» (403 иначе считался бы «подождём прав»): «Требует проверки» с причиной, владельцу — оповещение.
+            // Кнопка «Повторить отправку» вернёт чек в очередь, когда владелец выдаст право.
+            catch (ApiException ex) when (BelowCostGuard.IsServerDenial(ex))
+            {
+                PosLogger.Log($"OFFLINE replay quick: чек {entry.Id} — отказ {ex.StatusCode}, продажа ниже закупки без права can_sell_below_cost: {ex.Message}. На проверку.", "WARNING");
+                OfflinePendingSalesStore.Update(entry.Id, e => e.ReviewNeeded = true);
+                throw new ReplayDeferredException(BelowCostGuard.ReplayRejectedText(ex, entry.CartJson)) { NeedsReview = true };
+            }
+            // 2026-11-13 (сервер sn1311): офлайн-чек сервер по серийнику не отклоняет (повтор помечает duplicate), но если отказ всё же пришёл (чек старше срока офлайна,
+            // проверки включены) — продажи нет; старым путём не идём: чек на проверку с понятным текстом, деньги и номера сохранены.
+            catch (ApiException ex) when (ServerErrorCodes.IsSerialError(ex))
+            {
+                PosLogger.Log($"OFFLINE replay quick: чек {entry.Id} — отказ {ex.StatusCode} по серийному номеру: {ex.Message}. На проверку.", "WARNING");
+                OfflinePendingSalesStore.Update(entry.Id, e => e.ReviewNeeded = true);
+                throw new ReplayDeferredException(ServerErrorCodes.SerialFriendly(ex) ?? ex.Message) { NeedsReview = true };
+            }
             // 2026-10-29 (аварийный аудит, п. 3): второй 500 подряд и 4xx на ключ, который МОГ уже дойти до сервера (keyMaybeSent), больше не
             // отправляют чек старым путём без ключа — сервер мог записать продажу до сбоя, и старый путь создал бы дубль. Исключение уходит
             // в SyncBatchAsync: 500 — чек остаётся в очереди и досылается тем же ключом, 4xx — «Некорректные чеки» (решает человек).

@@ -22,6 +22,9 @@ public sealed class OfflineClientRecord
     /// <summary>Клиент заблокирован / неактивен по данным сервера.</summary>
     public bool Blocked { get; set; }
 
+    /// <summary>2026-11-13 (ответ Умара, строймаркет): уровень цен клиента с сервера (поле price_level списка клиентов: id уровня); null — уровня нет. «Цена прораба» = этот уровень.</summary>
+    public string? PriceLevel { get; set; }
+
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.Now;
 
     /// <summary>Операции очереди, уже учтённые в Debt после отправки (чтобы не посчитать дважды); хвост ограничен.</summary>
@@ -175,7 +178,7 @@ public static class OfflineClientCache
     private static OfflineClientRecord Clone(OfflineClientRecord r) => new()
     {
         Id = r.Id, Name = r.Name, Phone = r.Phone, Debt = r.Debt, DebtAt = r.DebtAt, DebtLimit = r.DebtLimit,
-        Blocked = r.Blocked, UpdatedAt = r.UpdatedAt, AppliedOps = new List<string>(r.AppliedOps),
+        Blocked = r.Blocked, PriceLevel = r.PriceLevel, UpdatedAt = r.UpdatedAt, AppliedOps = new List<string>(r.AppliedOps),
     };
 
     /// <summary>Список клиентов с сервера (GET clients/). Поставщики и подрядчики (type не client) не нужны. Долг и лимит старой записи
@@ -207,6 +210,16 @@ public static class OfflineClientCache
                     var limit = Dec(row, "debt_limit") ?? Dec(row, "credit_limit");
                     if (row.TryGetProperty("debt_limit", out _) || row.TryGetProperty("credit_limit", out _))
                         rec.DebtLimit = limit is > 0m ? limit : null;
+                    // 2026-11-13: price_level — строка/число (id) или объект {id,…}; ключ есть и пуст — уровень снят.
+                    if (row.TryGetProperty("price_level", out var level))
+                        rec.PriceLevel = level.ValueKind switch
+                        {
+                            JsonValueKind.String when !string.IsNullOrWhiteSpace(level.GetString()) => level.GetString()!.Trim(),
+                            JsonValueKind.Number => level.GetRawText(),
+                            JsonValueKind.Object when level.TryGetProperty("id", out var lid) && lid.ValueKind is JsonValueKind.String or JsonValueKind.Number
+                                => lid.ValueKind == JsonValueKind.Number ? lid.GetRawText() : lid.GetString(),
+                            _ => null,
+                        };
                     rec.Blocked = Bool(row, "is_blocked") || Bool(row, "blocked") || (row.TryGetProperty("is_active", out var act) && act.ValueKind == JsonValueKind.False);
                     rec.UpdatedAt = now;
                     changed = true;

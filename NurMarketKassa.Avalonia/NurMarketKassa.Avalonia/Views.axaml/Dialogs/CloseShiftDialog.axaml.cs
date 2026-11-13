@@ -248,6 +248,9 @@ public partial class CloseShiftDialog : Window
     /// <summary>2026-10-20 (живой аудит кассы, К16): окно закрытия смены показывало только продажи («Продажи всего 0,00» при
     /// возвратах, оплате долга, внесении и изъятии). Теперь — и эти операции смены из журнала кассы (ShiftEventsStore,
     /// внесения/изъятия — ShiftCashOperationsStore); у возвратов — чем вернули (наличными / на карту / в счёт долга).</summary>
+    /// <summary>2026-11-13 (проверка денег): сверка возвратов с сервером дописала поправки в смену, пока окно открыто, — перечитать строки операций и раскладку ящика.</summary>
+    public void RefreshShiftOperations() => ApplyShiftOperations();
+
     private void ApplyShiftOperations()
     {
         try
@@ -256,7 +259,10 @@ public partial class CloseShiftDialog : Window
             var rows = new List<ShiftOpRow>();
             if (!string.IsNullOrWhiteSpace(shiftId))
             {
-                var returns = ShiftEventsStore.ListForShift(shiftId, ShiftEventsStore.KindReturn);
+                // 2026-11-13 (проверка денег, п. 7): сторно возврата ПРОШЛОЙ смены (prev=1) — отдельной строкой ниже, а не минусом в «Возвратах» (раньше строка при сумме < 0 пряталась)
+                var allReturns = ShiftEventsStore.ListForShift(shiftId, ShiftEventsStore.KindReturn);
+                var returns = allReturns.Where(r => !ShiftEventsStore.IsPreviousShiftNote(r.Note)).ToList();
+                var prevReturns = allReturns.Where(r => ShiftEventsStore.IsPreviousShiftNote(r.Note)).ToList();
                 var returnsSum = returns.Sum(r => r.Amount);
                 if (returnsSum > 0.005)
                 {
@@ -301,6 +307,34 @@ public partial class CloseShiftDialog : Window
                                 "“As system” may be lower than the drawer by this amount (the server ignored the receipt discount on return). Do not adjust the drawer — see “Irregular receipts”.",
                                 "«Sisteme göre» tutar çekmeceden bu kadar az olabilir (sunucu iadede fiş indirimini dikkate almadı). Çekmeceyi ayarlamayın — «Sorunlu fişler» bölümüne bakın.",
                                 "«Tizim bo'yicha» tortmadagidan shu summaga kam bo'lishi mumkin (server qaytarishda chek chegirmasini hisobga olmadi). Tortmani moslamang — «Noto'g'ri cheklar»ni ko'ring.")));
+                }
+
+                // 2026-11-13 (п. 7): сторно сверх возвратов этой смены (возврат аннулирован/уменьшен, сумма по обычным возвратам ушла в минус) — показываем, а не прячем
+                if (returnsSum < -0.005)
+                    rows.Add(new ShiftOpRow(
+                        Tr.T("Отмена возврата", "Кайтарууну жокко чыгаруу", "Return reversal", "İade iptali", "Qaytarishni bekor qilish"),
+                        "+" + MoneyText.Som(-returnsSum),
+                        Tr.T("деньги вернулись в ящик (возврат изменён или удалён)", "акча кутуга кайтты (кайтаруу өзгөртүлдү же өчүрүлдү)", "the money came back to the drawer (the return was changed or deleted)",
+                            "para çekmeceye döndü (iade değiştirildi veya silindi)", "pul tortmaga qaytdi (qaytarish o'zgartirildi yoki o'chirildi)")));
+                var prevSum = prevReturns.Sum(r => r.Amount);
+                if (Math.Abs(prevSum) > 0.005)
+                {
+                    var prevCash = prevReturns.Sum(r => ParseNote(r.Note, "cash") ?? r.Amount);
+                    var prevNon = prevReturns.Sum(r => ParseNote(r.Note, "noncash") ?? 0);
+                    var prevDetail = new List<string>();
+                    if (Math.Abs(prevCash) > 0.005)
+                        prevDetail.Add(Tr.T(prevCash < 0 ? "наличными вернулись в ящик " : "наличными выдано из ящика ", prevCash < 0 ? "накталай кутуга кайтты " : "накталай кутудан берилди ",
+                            prevCash < 0 ? "cash came back to the drawer " : "cash paid out of the drawer ", prevCash < 0 ? "nakit çekmeceye döndü " : "nakit çekmeceden verildi ",
+                            prevCash < 0 ? "naqd tortmaga qaytdi " : "naqd tortmadan berildi ") + MoneyText.Som(Math.Abs(prevCash)));
+                    if (Math.Abs(prevNon) > 0.005)
+                        prevDetail.Add(Tr.T("безнал ", "накталай эмес ", "non-cash ", "nakitsiz ", "naqd emas ") + MoneyText.Som(Math.Abs(prevNon)));
+                    prevDetail.Add(Tr.T("возврат был в прошлой смене", "кайтаруу өткөн сменада болгон", "the return was in a previous shift", "iade önceki vardiyadaydı", "qaytarish o'tgan smenada bo'lgan"));
+                    rows.Add(new ShiftOpRow(
+                        prevSum < 0
+                            ? Tr.T("Отмена возврата прошлой смены", "Өткөн сменанын кайтарууну жокко чыгаруу", "Reversal of a previous shift's return", "Önceki vardiya iadesinin iptali", "O'tgan smena qaytarishini bekor qilish")
+                            : Tr.T("Доплата по возврату прошлой смены", "Өткөн сменанын кайтаруусу боюнча кошумча төлөм", "Extra payout on a previous shift's return", "Önceki vardiya iadesi için ek ödeme", "O'tgan smena qaytarishi bo'yicha qo'shimcha to'lov"),
+                        (prevSum < 0 ? "+" : "−") + MoneyText.Som(Math.Abs(prevSum)),
+                        string.Join(" · ", prevDetail)));
                 }
 
                 var totals = ShiftEventsStore.TotalsForShift(shiftId);
@@ -370,7 +404,11 @@ public partial class CloseShiftDialog : Window
                 ? returnEvents.Sum(r => (decimal)(ParseNote(r.Note, "cash") ?? r.Amount))
                 : _report?.ReturnsTotal ?? 0m;
             var (deposits, withdrawals) = _report is { } depReport ? (depReport.Deposits, depReport.Withdrawals) : ShiftCashOperationsStore.SumsForShift(shiftId);
-            DrawerBreakdownBuilder.Fill(this, DrawerBreakdown, opening, Totals.CashSales ?? 0m, debtCash, deposits, withdrawals, returns, expected);
+            // 2026-11-13 (п. 7): наличная часть сторно возврата прошлой смены — отдельной строкой раскладки (суммы ящика те же: returns уже включает её)
+            var prevReturnsCash = returnEvents.Count > 0
+                ? returnEvents.Where(r => ShiftEventsStore.IsPreviousShiftNote(r.Note)).Sum(r => (decimal)(ParseNote(r.Note, "cash") ?? r.Amount))
+                : 0m;
+            DrawerBreakdownBuilder.Fill(this, DrawerBreakdown, opening, Totals.CashSales ?? 0m, debtCash, deposits, withdrawals, returns, expected, prevReturnsCash);
             DrawerBreakdownBorder.IsVisible = true;
         }
         catch (Exception ex)

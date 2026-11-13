@@ -214,6 +214,8 @@
                     <TextBlock x:Name="EmptyText" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" FontSize="13"
                                Foreground="{DynamicResource BrushTextSoft}"/>
                 </StackPanel>
+                <!-- 2026-11-12 (оценка UX/UI, Д-2): сбой загрузки — общий блок состояния (StateBlock) по центру таблицы, а не красная полоса внизу. -->
+                <Border Grid.Row="1" x:Name="StateHost" IsVisible="False" HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Grid>
         </Border>
 

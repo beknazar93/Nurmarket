@@ -46,6 +46,34 @@ public sealed class ModalDimAndMinimizeTests
         WindowRestoreGuard.IsDegenerate(new PixelPoint(0, 0), new Size(1366, 728)).Should().BeFalse();
     }
 
+    // 2026-11-11 (Д-3, живая проверка «Склада»): после второго сворачивания окно владельца «FullScreen», но 1936×1040 в (−8,0) — края за экраном, снизу панель задач.
+    [Fact]
+    public void Fullscreen_geometry_after_restore_is_checked_against_screen()
+    {
+        var screen = new PixelRect(0, 0, 1920, 1080);
+        var work = new PixelRect(0, 0, 1920, 1040);
+
+        var full = FullscreenHelper.ExpectedRect(WindowState.FullScreen, borderless: false, screen, work);
+        full.Should().Be(screen, "полный экран — весь экран, с панелью задач");
+        FullscreenHelper.NeedsGeometryFix(new PixelRect(-8, 0, 1936, 1040), full).Should().BeTrue("живой случай NBS: на 8 px за краями, высота рабочей области");
+        FullscreenHelper.NeedsGeometryFix(new PixelRect(0, 0, 1920, 1080), full).Should().BeFalse("правильный полный экран");
+        FullscreenHelper.NeedsGeometryFix(new PixelRect(1, 0, 1921, 1080), full).Should().BeFalse("округление масштаба — не ошибка");
+
+        var max = FullscreenHelper.ExpectedRect(WindowState.Maximized, borderless: true, screen, work);
+        max.Should().Be(work, "развёрнутое без рамки — рабочая область без панели задач");
+        FullscreenHelper.NeedsGeometryFix(new PixelRect(0, 0, 1920, 1040), max, FullscreenHelper.MaximizedTolerance).Should().BeFalse();
+        FullscreenHelper.NeedsGeometryFix(new PixelRect(-8, -8, 1936, 1056), max, FullscreenHelper.MaximizedTolerance).Should().BeFalse("невидимая рамка Windows 8 px — не дёргаем окно");
+        FullscreenHelper.NeedsGeometryFix(new PixelRect(0, 0, 1920, 1080), max, FullscreenHelper.MaximizedTolerance).Should().BeTrue("развёрнутое залезло под панель задач");
+
+        FullscreenHelper.ExpectedRect(WindowState.Maximized, borderless: false, screen, work).Should().BeNull("с рамкой ОС место задаёт Windows");
+        FullscreenHelper.ExpectedRect(WindowState.Normal, borderless: true, screen, work).Should().BeNull();
+        FullscreenHelper.NeedsGeometryFix(new PixelRect(-8, 0, 1936, 1040), null).Should().BeFalse();
+
+        // второй монитор слева (отрицательные координаты)
+        var left = new PixelRect(-1366, 0, 1366, 768);
+        FullscreenHelper.NeedsGeometryFix(new PixelRect(-1366, 0, 1366, 768), FullscreenHelper.ExpectedRect(WindowState.FullScreen, false, left, left)).Should().BeFalse();
+    }
+
     [Fact]
     public void Slow_modal_open_is_logged_only_when_slow_and_throttled()
     {

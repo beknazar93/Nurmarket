@@ -159,6 +159,14 @@ public class KassaLayoutBase : UserControl, ICatalogKeyboardSurface
     protected void Rental_Click(object? sender, RoutedEventArgs e) =>
         BasketExtraActions.Rental(Vm?.Basket);
 
+    /// <summary>2026-11-12 (КТ2): «Списки к школе» — только в сфере «Канцтовары» (пункт скрыт привязкой ShowSchoolLists).</summary>
+    protected void SchoolLists_Click(object? sender, RoutedEventArgs e) =>
+        _ = NurMarketKassa.AvaloniaHost.Views.Dialogs.SchoolListLauncher.OpenAsync(this, Vm?.Basket);
+
+    /// <summary>2026-11-12 (КТ3): «Счёт из этого чека» — только в сфере «Канцтовары».</summary>
+    protected void InvoiceFromReceipt_Click(object? sender, RoutedEventArgs e) =>
+        NurMarketKassa.AvaloniaHost.Views.InvoiceFromReceipt.Open(this, Vm?.Basket);
+
     /// <summary>Количество в строке чека применяется и при уходе из поля, не только по Enter —
     /// кассир часто сразу жмёт «Оплатить» (то же, что BasketPanelView в «Классике», 2026-09-28).</summary>
     protected void QuantityInput_LostFocus(object? sender, RoutedEventArgs e)

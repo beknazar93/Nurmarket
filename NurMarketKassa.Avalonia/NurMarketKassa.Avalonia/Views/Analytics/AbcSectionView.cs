@@ -207,16 +207,11 @@ public sealed class AbcSectionView : UserControl
                     NurMarketKassa.AvaloniaHost.Views.ServerOfflineNotice.Build(this, RetryRequested == null ? null : () => RetryRequested?.Invoke()));
             else if (message)
             {
+                // 2026-11-12 (оценка UX/UI, Д-2): «считать не на чем» — общий блок «пусто» по центру, а не серая строка в углу.
                 AddPage(Tr.T("ABC-анализ", "ABC-анализ", "ABC analysis", "ABC analizi", "ABC tahlili"),
-                    new TextBlock
-                    {
-                        Text = wantsSales
+                    NurMarketKassa.AvaloniaHost.Views.StateBlock.Empty(wantsSales
                             ? Tr.T("Продаж за выбранный период нет — считать ABC не на чем.", "Тандалган мезгилде сатуу жок — ABC эсептөө үчүн маалымат жок.", "No sales in the selected period — nothing to run ABC analysis on.", "Seçilen dönemde satış yok — ABC analizi yapılamıyor.", "Tanlangan davrda sotuv yo'q — ABC tahlili uchun ma'lumot yo'q.")
-                            : Tr.T("На складе нет товаров с остатком и закупочной ценой — считать ABC не на чем.", "Кампада калдыгы жана сатып алуу баасы бар товар жок — ABC эсептөө үчүн маалымат жок.", "No products in stock with a purchase price — nothing to run ABC analysis on.", "Depoda stoğu ve alış fiyatı olan ürün yok — ABC analizi yapılamıyor.", "Omborda qoldig'i va xarid narxi bor mahsulot yo'q — ABC tahlili uchun ma'lumot yo'q."),
-                        Margin = new Thickness(12),
-                        TextWrapping = TextWrapping.Wrap,
-                        Foreground = ThemeInk.Soft,
-                    });
+                            : Tr.T("На складе нет товаров с остатком и закупочной ценой — считать ABC не на чем.", "Кампада калдыгы жана сатып алуу баасы бар товар жок — ABC эсептөө үчүн маалымат жок.", "No products in stock with a purchase price — nothing to run ABC analysis on.", "Depoda stoğu ve alış fiyatı olan ürün yok — ABC analizi yapılamıyor.", "Omborda qoldig'i va xarid narxi bor mahsulot yo'q — ABC tahlili uchun ma'lumot yo'q.")));
             }
 
             foreach (var slice in slices)

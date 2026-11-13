@@ -94,6 +94,9 @@ public static class AdvisorNavRouter
         "перемещение|перемещения|перемещении|переместить|перемещать|трансфер|жылдыруу|которуу|transfer|transfers|kochirish|kochirmoq|aktarma|move goods");
     private static readonly NavTarget WhLabels = Sub(Warehouse, "warehouse.labels", "labels", null, "Редактор этикетки", "Этикетка редактору", "Label editor", "Etiket editörü", "Yorliq muharriri",
         "этикетка|этикетки|этикетку|этикеток|ценник|ценники|ценников|редактор этикетки|печать ценников|печать этикеток|label|labels|label editor|price tag|price tags|barcode label|etiket|etiketler|etiket editoru|fiyat etiketi|yorliq|yorliqlar|narx yorligi|баа этикеткасы|этикетка редактору");
+    // 2026-11-11: вкладка «Штрихкоды» (массовая печать штрихкодов и ценников) — как «Штрихкоды» в вебе.
+    private static readonly NavTarget WhBarcodes = Sub(Warehouse, "warehouse.barcodes", "barcodes", null, "Штрихкоды", "Штрих-коддор", "Barcodes", "Barkodlar", "Shtrix-kodlar",
+        "штрихкоды|штрихкод|штрих коды|штрих код|массовая печать|массовая печать ценников|массовая печать штрихкодов|печать штрихкодов|ценники и штрихкоды|штрих коддор|штрих коддорду басуу|barcodes|barcode|bulk print|bulk label print|mass print labels|barkodlar|barkod|toplu barkod yazdirma|toplu etiket yazdirma|shtrix kodlar|shtrix kod|ommaviy chop etish|shtrix kodlarni chop etish");
     private static readonly NavTarget WhBulk = Sub(Warehouse, "warehouse.bulk", "bulk", null, "Массовое добавление", "Массалык кошуу", "Bulk add", "Toplu ekleme", "Ommaviy qo'shish",
         "массовое добавление|массовая загрузка|массовое добавить|добавить много товаров|массалык кошуу|bulk add|bulk upload|bulk import|toplu ekleme|toplu yukleme|ommaviy qoshish|ommaviy qoshish");
     private static readonly NavTarget WhLow = Sub(Warehouse, "warehouse.low", "products", "low", "Заканчивается", "Түгөнүп баратат", "Running low", "Tükenmek üzere", "Tugab bormoqda",
@@ -118,6 +121,9 @@ public static class AdvisorNavRouter
 
     private static readonly NavTarget SetScreen = Sub(Settings, "settings.screen", "screen", null, "Экран", "Экран", "Screen", "Ekran", "Ekran",
         "экран|настройки экрана|язык|языка|тема|тему|темы|масштаб|вид меню|оформление|screen|display settings|language|theme|ekran|ekran ayarlari|dil|tema|til|mavzu");
+    // 2026-11-11: «Печать» в программе владельца (вкладка настроек и пункт меню «Печать»).
+    private static readonly NavTarget SetPrint = Sub(Settings, "settings.print", "print", null, "Печать", "Басып чыгаруу", "Print", "Yazdır", "Chop etish",
+        "печать|настройки печати|принтер|принтера|настройки принтера|принтер чеков|принтер этикеток|басма|басма жөндөөлөрү|принтер жөндөөлөрү|print|print settings|printer|printer settings|yazdirma|yazici|yazici ayarlari|chop etish|printer sozlamalari");
     private static readonly NavTarget SetUpdates = Sub(Settings, "settings.updates", "updates", null, "Обновления", "Жаңыртуулар", "Updates", "Güncellemeler", "Yangilanishlar",
         "обновления|обновление|обновить программу|жаңыртуулар|жаңыртуу|updates|update|guncellemeler|guncelleme|yangilanishlar|yangilanish");
     private static readonly NavTarget SetOperations = Sub(Settings, "settings.operations", "operations", null, "Операции", "Операциялар", "Operations", "İşlemler", "Operatsiyalar",
@@ -137,9 +143,12 @@ public static class AdvisorNavRouter
             "сводка|сводку|сводки|главная|главную|главной|главная страница|главный экран|обзор|домой|начало|жыйынтык|башкы бет|башкы|home|overview|dashboard|main page|ozet|ana sayfa|genel bakis|bosh sahifa|umumiy korinish|umumiy"),
         S("aiadvisor", "aiadvisor", "Нур Советник", "Нур Кеңешчи", "Nur Advisor", "Nur Danışman", "Nur Maslahatchi",
             "нур советник|советник|советника|кенешчи|нур кенешчи|ии|чат с ии|ии чат|advisor|ai advisor|ai chat|danisman|nur danisman|maslahatchi|nur maslahatchi"),
-        Warehouse, WhReceiving, WhRevision, WhWriteOff, WhMovements, WhLabels, WhBulk, WhLow, WhOut, WhExpiry,
+        Warehouse, WhReceiving, WhRevision, WhWriteOff, WhMovements, WhLabels, WhBarcodes, WhBulk, WhLow, WhOut, WhExpiry,
         S("calculator", "calculator", "Калькуляция", "Калькуляция", "Pricing calculator", "Hesaplama", "Kalkulyatsiya",
             "калькуляция|калькуляцию|калькулятор|расчет цены|расчет наценки|pricing calculator|calculator|hesaplama|hesap makinesi|kalkulyatsiya|kalkulyator"),
+        // 2026-11-11: «Весы» переехали из кассы (Настройки → Весы) в программу владельца — Товары → Весы.
+        S("scales", "scales", "Весы", "Тараза", "Scales", "Tartı", "Tarozi",
+            "весы|весов|весам|весы с этикетками|отправка на весы|отправить товары на весы|товары на весы|тараза|таразалар|таразага|scales|scale|label scales|send to scales|tarti|tartilar|tartiya|tarozi|tarozilar|tarozilarga"),
         S("restock", "restock", "Пополнение и сроки", "Толуктоо жана мөөнөттөр", "Restock & expiry", "Stok yenileme ve SKT", "To'ldirish va muddatlar",
             "пополнение|пополнения|пополнить|пополнение и сроки|сроки|срок|толуктоо|толуктоо жана мөөнөттөр|мөөнөттөр|мөөнөт|restock|replenish|replenishment|restock and expiry|stok yenileme|yenileme|skt|toldirish|toldirish va muddatlar|muddatlar"),
         Purchases, PurOrders, PurReceive,
@@ -186,7 +195,7 @@ public static class AdvisorNavRouter
             "nurcrm|нурсрм|нур срм|срм|crm|nur crm|сайт нурсрм"),
         S("marketplace", "marketplace", "Маркетплейс", "Маркетплейс", "Marketplace", "Pazar yeri", "Marketpleys",
             "маркетплейс|маркетплейса|магазин функций|купить функцию|marketplace|market place|pazar yeri|marketpleys|marketpleysi"),
-        Settings, SetScreen, SetUpdates, SetOperations, SetCustom, SetAccount, SetEmployees, SetKeys,
+        Settings, SetScreen, SetPrint, SetUpdates, SetOperations, SetCustom, SetAccount, SetEmployees, SetKeys,
         S("kb", "kb", "База знаний", "Билим базасы", "Knowledge base", "Bilgi bankası", "Bilimlar bazasi",
             "база знаний|базу знаний|знания|инструкция|инструкции|помощь|справка|билим базасы|жардам|knowledge base|help|manual|guide|bilgi bankasi|yardim|bilimlar bazasi|yordam"),
         S("support", "support", "Тех. поддержка", "Тех колдоо", "Support", "Destek", "Texnik yordam",

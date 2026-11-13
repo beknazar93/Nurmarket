@@ -20,8 +20,8 @@ using NurMarketKassa.Services;
 
 namespace NurMarketKassa.AvaloniaHost.Views.Dialogs;
 
-// 2026-11-06: В15г — часть класса BarcodePrintWindow (Settings): перенесено из BarcodePrintWindow.cs без изменений логики.
-public partial class BarcodePrintWindow
+// 2026-11-06: В15г — часть класса BarcodePrintView (Settings): перенесено из BarcodePrintWindow.cs без изменений логики.
+public partial class BarcodePrintView
 {
     // ------------------------------------------------------------------ сканер «скан → в печать» (П-5)
 
@@ -127,6 +127,8 @@ public partial class BarcodePrintWindow
         return n;
     }
 
+    private string? _printButtonText;
+
     private void UpdateSelectionUi()
     {
         var labels = TotalLabels();
@@ -134,14 +136,21 @@ public partial class BarcodePrintWindow
             + (_selectedCount > 0 ? T($" · этикеток: {labels}", $" · этикетка: {labels}", $" · labels: {labels}", $" · etiket: {labels}", $" · yorliq: {labels}") : "");
         // 2026-11-01 (П-1): «Печать выбранных (N · M эт.)», если этикеток больше, чем товаров
         var nm = labels > _selectedCount ? $"{_selectedCount} · {labels} " + T("эт.", "эт.", "lbl.", "et.", "yor.") : _selectedCount.ToString();
-        _printButton.Content = ButtonWithIcon("printer-outline", _compact
+        // 2026-11-11: подпись и значок кнопки заменяются, только если текст поменялся (раньше новый значок создавался на каждый пересчёт — кнопки на кадр становились пустыми рамками, подсказка сбрасывалась).
+        var printText = _compact
             ? T($"Печать ({nm})", $"Басуу ({nm})", $"Print ({nm})", $"Yazdır ({nm})", $"Chop etish ({nm})")
-            : T($"Печать выбранных ({nm})", $"Тандалгандарды басуу ({nm})", $"Print selected ({nm})", $"Seçilenleri yazdır ({nm})", $"Tanlanganlarni chop etish ({nm})"));
-        ToolTip.SetTip(_printButton, T("Печать выбранных на термопринтер этикеток", "Тандалгандарды этикетка термопринтерине басуу", "Print the selected on the label thermal printer", "Seçilenleri etiket termal yazıcısında yazdır", "Tanlanganlarni yorliq termoprinterida chop etish"));
+            : T($"Печать выбранных ({nm})", $"Тандалгандарды басуу ({nm})", $"Print selected ({nm})", $"Seçilenleri yazdır ({nm})", $"Tanlanganlarni chop etish ({nm})");
+        if (_printButtonText != printText)
+        {
+            _printButtonText = printText;
+            _printButton.Content = ButtonWithIcon("printer-outline", printText);
+            ToolTip.SetTip(_printButton, T("Печать выбранных на термопринтер этикеток", "Тандалгандарды этикетка термопринтерине басуу", "Print the selected on the label thermal printer", "Seçilenleri etiket termal yazıcısında yazdır", "Tanlanganlarni yorliq termoprinterida chop etish"));
+        }
         _printButton.IsEnabled = _selectedCount > 0;
         _resetCopiesButton.IsVisible = _sel.Values.Any(s => s.Copies != null);
         _a4Button.IsEnabled = _selectedCount > 0;
         _clearButton.IsEnabled = _selectedCount > 0;
+        UpdateGenerateUi(); // 2026-11-12: «Сгенерировать штрихкоды (N)»
     }
 
     /// <summary>Выбранные товары в порядке каталога: товар, штрихкод (выбранный на карточке) и число копий.</summary>
@@ -173,11 +182,34 @@ public partial class BarcodePrintWindow
         return SizePresets.Length;
     }
 
+    /// <summary>2026-11-12 (аудит Fable, Д-2: полоса «40×30 мм · …» растянута в пустой блок ~215 px): прокручиваемая рамка и предельная высота — только у ОТКРЫТЫХ настроек во вкладке;
+    /// свёрнутые — обычная одна строка по содержимому.</summary>
+    private void ApplySettingsContainer()
+    {
+        if (!_embedded)
+            return;
+        var open = _settingsBody.IsVisible;
+        if (open && !ReferenceEquals(_settingsCard.Child, _settingsScroll))
+        {
+            _settingsCard.Child = null;
+            _settingsScroll.Content = _settingsGrid;
+            _settingsCard.Child = _settingsScroll;
+        }
+        else if (!open && !ReferenceEquals(_settingsCard.Child, _settingsGrid))
+        {
+            _settingsCard.Child = null;
+            _settingsScroll.Content = null;
+            _settingsCard.Child = _settingsGrid;
+        }
+        _settingsCard.MaxHeight = open ? _settingsMaxHeight : double.PositiveInfinity;
+    }
+
     private void SetSettingsOpen(bool open, bool initial = false)
     {
         _settingsBody.IsVisible = open;
         _previewCard.IsVisible = open;
         _settingsSummary.IsVisible = !open;
+        ApplySettingsContainer();
         UpdateToggleText();
         _customSizePanel.IsVisible = _sizeCombo.SelectedIndex == SizePresets.Length;
     }
@@ -185,16 +217,25 @@ public partial class BarcodePrintWindow
     private void UpdateToggleText()
     {
         var open = _settingsBody.IsVisible;
-        _settingsToggle.Content = (open ? "▴  " : "▾  ") + (_compact ? T("Настройки", "Жөндөөлөр", "Settings", "Ayarlar", "Sozlamalar")
+        var text = (open ? "▴  " : "▾  ") + (_compact ? T("Настройки", "Жөндөөлөр", "Settings", "Ayarlar", "Sozlamalar")
             : T("Настройки этикетки", "Этикетка жөндөөлөрү", "Label settings", "Etiket ayarları", "Yorliq sozlamalari"));
+        if (!Equals(_settingsToggle.Content, text))
+            _settingsToggle.Content = text;
     }
 
     /// <summary>Подписи кнопок выбора: на узком окне (1024) — короткие, на широком — как на сайте.</summary>
+    private string? _textsKey;
+
     private void ApplyTexts()
     {
         UpdateToggleText();
         UpdateSelectionUi();
         var n = _found.Count.ToString("N0");
+        // 2026-11-11: подписи и подсказки переписываются, только если режим или число найденных изменились.
+        var key = (_compact ? "c" : "w") + n;
+        if (key == _textsKey)
+            return;
+        _textsKey = key;
         _selectPageButton.Content = _compact ? T("На странице", "Баракта", "On page", "Sayfada", "Sahifada")
             : T("Выбрать все на странице", "Баракта бардыгын тандоо", "Select all on page", "Sayfadakilerin tümünü seç", "Sahifadagilarni tanlash");
         _selectFoundButton.Content = _compact ? T($"Все найденные ({n})", $"Баары ({n})", $"All found ({n})", $"Tümü ({n})", $"Hammasi ({n})")
@@ -405,17 +446,19 @@ public partial class BarcodePrintWindow
 
     private async Task OpenEditorAsync()
     {
-        if (!BarcodePrintAccess.Ensure(this)) // 2026-11-01 (П-10)
+        if (!BarcodePrintAccess.Ensure(Host)) // 2026-11-01 (П-10)
             return;
         // 2026-10-27 (аудит редакторов, Б-2): редактор этикеток — отдельная покупка, из массовой печати он открывался без проверки.
-        if (!PaidFeatureGate.EnsureUnlocked(PaidFeature.LabelEditor, this))
+        if (!PaidFeatureGate.EnsureUnlocked(PaidFeature.LabelEditor, Host))
             return;
         SaveState();
         var sample = BuildItems().FirstOrDefault() ?? (_found.Count > 0 ? new BarcodePrintItem(_found[0], BarcodePrintCatalog.Choices(_found[0]).FirstOrDefault()?.Code, 1) : null);
         var editor = new LabelTemplateEditorDialog(_template, sample?.Product.Title ?? T("Образец товара", "Товардын үлгүсү", "Sample product", "Örnek ürün", "Mahsulot namunasi"),
             sample?.Barcode ?? "4870145004807", sample != null ? BarcodePrintCatalog.LabelPrice(sample.Product) : "85,00 сом",
             LabelTemplateStore.Save); // со своим saveAction — кнопки «Печать штрихкодов…» в редакторе нет (мы уже в этом окне)
-        await editor.ShowDialog(this).ConfigureAwait(true);
+        if (Host is not { } editorOwner) // 2026-11-12 (Л-27)
+            return;
+        await editor.ShowDialog(editorOwner).ConfigureAwait(true);
         if (!editor.Saved)
             return;
         _template = LabelTemplateStore.Load();
@@ -443,14 +486,15 @@ public partial class BarcodePrintWindow
     }
 
     /// <summary>Шаблон этикетки и настройки — на диск, если менялись.</summary>
-    private void SaveState()
+    internal void SaveState()
     {
         if (_templateDirty)
         {
             LabelTemplateStore.Save(_template);
             _templateDirty = false;
         }
-        if (_onlyIds == null)
+        // 2026-11-11: во вкладке/разделе поиск, фильтр и страница не запоминаются между запусками (вкладка открывалась с забытым поиском — «всего 1 товар»).
+        if (_onlyIds == null && !_embedded)
         {
             // 2026-11-01 (П-9): запоминаем поиск, фильтр, категорию и страницу (не копии и не выбор).
             var q = _search.Text ?? "";

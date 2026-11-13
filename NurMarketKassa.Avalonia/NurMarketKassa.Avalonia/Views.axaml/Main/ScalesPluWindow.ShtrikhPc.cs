@@ -130,7 +130,13 @@ public partial class ScalesPluWindow
             $"Башкы экран: {r.Screens} экранда {r.Products} товар (файл {r.Path}).{backupKy} {ReloadKy(reloadFlagCreated)}",
             $"Main screen: {r.Products} products on {r.Screens} screens (file {r.Path}).{backupEn} {ReloadEn(reloadFlagCreated)}",
             $"Ana ekran: {r.Screens} ekranda {r.Products} ürün (dosya {r.Path}).{backupTr} {ReloadTr(reloadFlagCreated)}",
-            $"Bosh ekran: {r.Screens} ta ekranda {r.Products} ta tovar (fayl {r.Path}).{backupUz} {ReloadUz(reloadFlagCreated)}");
+            $"Bosh ekran: {r.Screens} ta ekranda {r.Products} ta tovar (fayl {r.Path}).{backupUz} {ReloadUz(reloadFlagCreated)}")
+            // 2026-11-12 (ТЗ PC-200, п. 1 и 4.3): самый надёжный способ показать новый экран — выйти из самообслуживания и войти снова.
+            + " " + Tr.T("Надёжнее всего: выйдите из самообслуживания (нажать «Вес», затем «Стоимость» — оба за 1 секунду) и войдите снова.",
+                "Эң ишенимдүүсү: өз алдынча тейлөөдөн чыгыңыз («Вес», анан «Стоимость» — экөө тең 1 секундда) жана кайра кириңиз.",
+                "Most reliable: leave self-service (tap “Вес”, then “Стоимость”, both within 1 second) and enter it again.",
+                "En güveniliri: self servisten çıkın («Вес», sonra «Стоимость» — ikisi de 1 saniye içinde) ve yeniden girin.",
+                "Eng ishonchlisi: o‘zini-o‘zi xizmatdan chiqing («Вес», so‘ng «Стоимость» — ikkalasi 1 soniyada) va qayta kiring.");
     }
 
     // 2026-11-06 (Паспорт версий 2.1.3.7, параметры 953/954): с флагом перезагрузки весы сами перечитывают главный экран после загрузки.
@@ -226,7 +232,9 @@ public partial class ScalesPluWindow
                             settings.PlaceholderShowPrice ? ShtrikhPcImportWriter.FormatPrice(item.Price, settings.PriceDecimals, ".") : null), settings.PlaceholderShowPrice)
                         : null)
                 : null;
-            var result = await ShtrikhPcImportWriter.WriteAsync(items, settings, overwritePending: false, settings.MaxProductCode, CancellationToken.None, pictureStep).ConfigureAwait(true);
+            // 2026-11-12: коды главного экрана — эта отправка + отправленные раньше (при полной выгрузке с очисткой — только эта).
+            var screenOrder = ShtrikhPcScreenOrder(written, full);
+            var result = await ShtrikhPcImportWriter.WriteAsync(items, settings, overwritePending: false, settings.MaxProductCode, CancellationToken.None, pictureStep, screenOrder).ConfigureAwait(true);
             if (result.Status == ShtrikhPcWriteStatus.PendingNotAccepted)
             {
                 // Прежний файл весы ещё не приняли: без подтверждения не затираем.
@@ -250,7 +258,7 @@ public partial class ScalesPluWindow
                         row.SetStatus(NotSentText(), RowState.Warning);
                     return;
                 }
-                result = await ShtrikhPcImportWriter.WriteAsync(items, settings, overwritePending: true, settings.MaxProductCode, CancellationToken.None, pictureStep).ConfigureAwait(true);
+                result = await ShtrikhPcImportWriter.WriteAsync(items, settings, overwritePending: true, settings.MaxProductCode, CancellationToken.None, pictureStep, screenOrder).ConfigureAwait(true);
             }
 
             var rowsById = _allRows.ToDictionary(r => r.Id);
@@ -267,11 +275,11 @@ public partial class ScalesPluWindow
                     PosLogger.Log($"Весы Штрих РС: картинки: с картинкой {ps.WithPicture} из {ps.Total} (записано {ps.Written}, не менялись {ps.Unchanged}), без фото {ps.NoPhoto}, не получились {ps.Failed}, не успели {ps.TimedOut}", "SCALES");
                 foreach (var warning in result.Warnings)
                     PosLogger.Log($"Весы Штрих РС: {warning}", "SCALES");
-                StatusText.Text = Tr.T($"Записано в папку весов: {result.Written} (файл {result.ImportPath}). Весы загрузят товары в течение нескольких минут (по настройке весов «Обновление», у вас 2) или сразу — «Система и печать» → «Импорт данных».",
-                        $"Таразанын папкасына жазылды: {result.Written} (файл {result.ImportPath}). Тараза товарларды бир нече мүнөттө жүктөйт (таразадагы «Обновление» жөндөөсү боюнча, сизде 2) же дароо — «Система и печать» → «Импорт данных».",
-                        $"Written to the scale folder: {result.Written} (file {result.ImportPath}). The scale will load the goods within a few minutes (per the scale's “Update” setting, yours is 2) or right away — “System and printing” → “Import data”.",
-                        $"Tartı klasörüne yazıldı: {result.Written} (dosya {result.ImportPath}). Tartı ürünleri birkaç dakika içinde yükler (tartının «Обновление» ayarına göre, sizde 2) ya da hemen — «Система и печать» → «Импорт данных».",
-                        $"Tarozi papkasiga yozildi: {result.Written} (fayl {result.ImportPath}). Tarozi tovarlarni bir necha daqiqada yuklaydi (tarozidagi «Обновление» sozlamasiga ko‘ra, sizda 2) yoki darhol — «Система и печать» → «Импорт данных».")
+                StatusText.Text = Tr.T($"Записано в папку весов: {result.Written} (файл {result.ImportPath}). Весы загрузят товары в течение нескольких минут (по настройке весов «Обновление», параметр 11; на заводе 10 минут) или сразу — «Система и печать» → «Импорт данных».",
+                        $"Таразанын папкасына жазылды: {result.Written} (файл {result.ImportPath}). Тараза товарларды бир нече мүнөттө жүктөйт (таразадагы «Обновление» жөндөөсү боюнча, 11-параметр; заводдо 10 мүнөт) же дароо — «Система и печать» → «Импорт данных».",
+                        $"Written to the scale folder: {result.Written} (file {result.ImportPath}). The scale will load the goods within a few minutes (per the scale's “Update” setting, parameter 11; 10 minutes from the factory) or right away — “System and printing” → “Import data”.",
+                        $"Tartı klasörüne yazıldı: {result.Written} (dosya {result.ImportPath}). Tartı ürünleri birkaç dakika içinde yükler (tartının «Обновление» ayarına göre, parametre 11; fabrikada 10 dakika) ya da hemen — «Система и печать» → «Импорт данных».",
+                        $"Tarozi papkasiga yozildi: {result.Written} (fayl {result.ImportPath}). Tarozi tovarlarni bir necha daqiqada yuklaydi (tarozidagi «Обновление» sozlamasiga ko‘ra, 11-parametr; zavodda 10 daqiqa) yoki darhol — «Система и печать» → «Импорт данных».")
                     + PictureSummary(result.Pictures)
                     + ScenarioSummary(result.Scenario, result.ReloadFlags is { Count: > 0 })
                     + (settings.QuickKeys && result.Written > 0 ? Tr.T($" Кнопки быстрого доступа: назначено {Math.Min(result.Written, settings.QuickKeyCount)} (применятся, если на весах в «Импорт» стоит галочка «Конфигурация»).",
@@ -283,6 +291,10 @@ public partial class ScalesPluWindow
                     + (_codeReplaceNote.Length > 0 ? _codeReplaceNote : "")
                     + (result.Warnings.Count > 0 ? " ⚠ " + string.Join(" · ", result.Warnings.Take(3)) + (result.Warnings.Count > 3 ? $" (+{result.Warnings.Count - 3})" : "") : "")
                     + (problemCount > 0 ? Tr.T($" Не записано (⚠ в строках): {problemCount}.", $" Жазылган жок (саптарда ⚠): {problemCount}.", $" Not written (⚠ in rows): {problemCount}.", $" Yazılmadı (satırlarda ⚠): {problemCount}.", $" Yozilmadi (qatorlarda ⚠): {problemCount}.") : "");
+                // 2026-11-12: файл записан — но покажут ли весы товары? Читаем их настройки (только чтение, до ~3 с) и говорим, что мешает.
+                StatusText.Text += await ShtrikhPcScreenWarningAsync(settings).ConfigureAwait(true);
+                // 2026-11-12 (ТЗ PC-200, п. 3): ждём, пока весы удалят флаг и поставят «@» (до 5 минут), — в фоне, окно и кнопки свободны.
+                _ = WaitForShtrikhPcAcceptanceAsync(settings, StatusText.Text ?? "");
                 return;
             }
 
@@ -313,6 +325,111 @@ public partial class ScalesPluWindow
         {
             HideProgress();
             SendButton.IsEnabled = true;
+        }
+    }
+
+    /// <summary>2026-11-12 (жалоба «отправил — на экране весов не видно»): коды главного экрана весов в порядке списка окна — товары этой отправки (их код в файле) и отправленные
+    /// на эти весы раньше (код из «отправлено», если товар ещё в списке). Полная выгрузка с очисткой — null: на экране только эта отправка.</summary>
+    private List<long>? ShtrikhPcScreenOrder(IReadOnlyDictionary<string, ScaleSentPlu> written, bool full)
+    {
+        if (full)
+            return null;
+        var sent = LabelScaleStore.Active.SentPlus;
+        var order = new List<long>();
+        foreach (var row in _allRows)
+        {
+            var code = written.TryGetValue(row.Id, out var now) ? now.Code : sent.TryGetValue(row.Id, out var before) ? before.Code : null;
+            if (long.TryParse(code, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) && value > 0)
+                order.Add(value);
+        }
+        return order;
+    }
+
+    private CancellationTokenSource? _pcWaitCts;
+    private bool _pcWaitHooked;
+
+    /// <summary>2026-11-12 (ТЗ PC-200, п. 3 и прокол 1): ждёт, пока весы примут файл (флаг удалён, во 2-й строке «@»), не дольше 5 минут, и дописывает итог к строке состояния.
+    /// Новая отправка или закрытие окна прерывают прежнее ожидание. Только чтение папки весов.</summary>
+    private async Task WaitForShtrikhPcAcceptanceAsync(ShtrikhPcSettings settings, string baseText)
+    {
+        _pcWaitCts?.Cancel();
+        var cts = new CancellationTokenSource();
+        _pcWaitCts = cts;
+        if (!_pcWaitHooked)
+        {
+            _pcWaitHooked = true;
+            Closed += (_, _) => _pcWaitCts?.Cancel();
+        }
+        StatusText.Text = baseText + " ⏳ " + Tr.T("Ждём, пока весы примут файл (до 5 минут)…", "Тараза файлды кабыл алганча күтөбүз (5 мүнөткө чейин)…", "Waiting for the scale to accept the file (up to 5 minutes)…",
+            "Tartının dosyayı kabul etmesi bekleniyor (en fazla 5 dakika)…", "Tarozi faylni qabul qilishini kutyapmiz (5 daqiqagacha)…");
+        ShtrikhPcAcceptResult result;
+        try
+        {
+            result = await ShtrikhPcImportWriter.WaitForAcceptanceAsync(settings, ct: cts.Token).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Весы Штрих РС: ожидание приёма не удалось: {ex.GetType().Name}: {ex.Message}", "SCALES");
+            return;
+        }
+        if (!ReferenceEquals(_pcWaitCts, cts))
+            return; // уже идёт новая отправка
+        var seconds = ((int)result.Waited.TotalSeconds).ToString(CultureInfo.InvariantCulture);
+        PosLogger.Log($"Весы Штрих РС: приём файла — {result.Status} за {seconds} с {result.Detail}", "SCALES");
+        var tail = result.Status switch
+        {
+            ShtrikhPcAcceptStatus.Accepted => " ✓ " + Tr.T($"Весы приняли файл за {seconds} с. Проверьте на весах товар по коду; если его нет — на весах выключен «Импорт товаров» (817): такие строки весы пропускают молча.",
+                $"Тараза файлды {seconds} с ичинде кабыл алды. Таразада товарды код менен текшериңиз; жок болсо — таразада «Товарларды импорттоо» (817) өчүк: андай саптарды тараза унчукпай өткөрүп жиберет.",
+                $"The scale accepted the file in {seconds} s. Check the product by code on the scale; if it is not there, “Import goods” (817) is off on the scale: the scale silently skips such lines.",
+                $"Tartı dosyayı {seconds} sn'de kabul etti. Tartıda ürünü kodla kontrol edin; yoksa tartıda «Ürün içe aktarma» (817) kapalı: tartı bu satırları sessizce atlar.",
+                $"Tarozi faylni {seconds} soniyada qabul qildi. Tarozida tovarni kod bo‘yicha tekshiring; bo‘lmasa — tarozida «Tovarlarni import» (817) o‘chiq: tarozi bunday qatorlarni jimgina o‘tkazib yuboradi."),
+            ShtrikhPcAcceptStatus.Timeout => " ⚠ " + Tr.T("Весы не забрали файл за 5 минут (флаг-файл на месте): весы выключены, программа весов закрыта или весы ждут другое имя файла импорта. Нажмите на весах «Система и печать» → «Импорт данных» или проверьте «Настройки весов…».",
+                "Тараза файлды 5 мүнөттө алган жок (желек-файл ордунда): тараза өчүк, таразанын программасы жабык же тараза импорттун башка файл атын күтөт. Таразада «Система и печать» → «Импорт данных» басыңыз же «Тараза жөндөөлөрүн…» текшериңиз.",
+                "The scale did not pick up the file within 5 minutes (the flag file is still there): the scale is off, its program is closed or it expects another import file name. Press “System and printing” → “Import data” on the scale or check “Scale settings…”.",
+                "Tartı dosyayı 5 dakikada almadı (bayrak dosyası duruyor): tartı kapalı, tartı programı kapalı ya da tartı başka bir içe aktarma dosya adı bekliyor. Tartıda «Система и печать» → «Импорт данных»a basın veya «Tartı ayarları…»nı kontrol edin.",
+                "Tarozi faylni 5 daqiqada olmadi (bayroq-fayl joyida): tarozi o‘chiq, tarozi dasturi yopiq yoki tarozi boshqa import fayl nomini kutyapti. Tarozida «Система и печать» → «Импорт данных» ni bosing yoki «Tarozi sozlamalari…» ni tekshiring."),
+            ShtrikhPcAcceptStatus.FlagGoneNotMarked => " ⚠ " + Tr.T("Флаг-файл исчез, но весы не отметили файл как обработанный («@»): возможно, файл забрал кто-то другой. Повторите отправку.",
+                "Желек-файл жоголду, бирок тараза файлды иштетилди деп белгилеген жок («@»): балким, файлды башка бирөө алгандыр. Кайра жөнөтүңүз.",
+                "The flag file disappeared but the scale did not mark the file as processed (“@”): someone else may have taken it. Send again.",
+                "Bayrak dosyası kayboldu ama tartı dosyayı işlendi olarak işaretlemedi («@»): dosyayı başka biri almış olabilir. Yeniden gönderin.",
+                "Bayroq-fayl yo‘qoldi, lekin tarozi faylni qayta ishlangan deb belgilamadi («@»): balki faylni boshqa birov olgandir. Qayta yuboring."),
+            _ => " ⚠ " + Tr.T("Не удалось проверить, приняли ли весы файл: папка весов не отвечала (весы перезагружались или пропала сеть). Проверьте товар на весах.",
+                "Тараза файлды кабыл алганын текшерүү мүмкүн болгон жок: таразанын папкасы жооп берген жок (тараза кайра жүктөлдү же тармак жоголду). Товарды таразада текшериңиз.",
+                "Could not check whether the scale accepted the file: the scale folder did not answer (the scale restarted or the network dropped). Check the product on the scale.",
+                "Tartının dosyayı kabul edip etmediği kontrol edilemedi: tartı klasörü yanıt vermedi (tartı yeniden başladı veya ağ koptu). Ürünü tartıda kontrol edin.",
+                "Tarozi faylni qabul qilganini tekshirib bo‘lmadi: tarozi papkasi javob bermadi (tarozi qayta ishga tushdi yoki tarmoq uzildi). Tovarni tarozida tekshiring."),
+        };
+        StatusText.Text = baseText + tail;
+    }
+
+    /// <summary>2026-11-12: после записи файла читает настройки весов (Config.txt / Export.txt, только чтение) и возвращает « ⚠ …», если весы не заберут файл или не покажут товары
+    /// на главном экране (<see cref="ShtrikhPcConfig.ScreenProblems"/>). Не прочитались — пусто (пишется в журнал).</summary>
+    private static async Task<string> ShtrikhPcScreenWarningAsync(ShtrikhPcSettings settings)
+    {
+        try
+        {
+            var read = await ShtrikhPcConfigIo.ReadFromFolderAsync(settings).ConfigureAwait(true);
+            if (read.Status != ShtrikhPcConfigIoStatus.Ok || read.Data is null)
+            {
+                PosLogger.Log($"Весы Штрих РС: настройки весов для проверки экрана не прочитаны ({read.Status}).", "SCALES");
+                return "";
+            }
+            var problems = ShtrikhPcConfig.ScreenProblems(settings, read.Data);
+            foreach (var problem in problems)
+                PosLogger.Log($"Весы Штрих РС: экран весов: {problem} (по файлу {read.Path})", "SCALES");
+            if (problems.Count == 0)
+                return "";
+            return " ⚠ " + Tr.T("Товары могут не появиться на экране весов: ", "Товарлар таразанын экранында чыкпашы мүмкүн: ", "The goods may not appear on the scale screen: ", "Ürünler tartı ekranında görünmeyebilir: ", "Tovarlar tarozi ekranida chiqmasligi mumkin: ")
+                + string.Join(" · ", problems);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            PosLogger.Log($"Весы Штрих РС: проверка настроек весов не удалась: {ex.GetType().Name}: {ex.Message}", "SCALES");
+            return "";
         }
     }
 

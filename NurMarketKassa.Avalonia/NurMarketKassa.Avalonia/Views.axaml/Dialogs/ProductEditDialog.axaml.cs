@@ -305,6 +305,7 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
             ? Tr.T("Количество *", "Саны *", "Quantity *", "Miktar *", "Miqdor *")
             : Tr.T("Остаток *", "Калдык *", "Stock *", "Stok *", "Qoldiq *");
         SalePriceFieldLabel.Text = Tr.T("Цена продажи *", "Сатуу баасы *", "Sale price *", "Satış fiyatı *", "Sotuv narxi *");
+        InitSerialsBlock(existing); // 2026-11-13 (сервер sn1311): серийники и гарантия товара — только сфера «Электроника»
         Opened += (_, _) => _ = LoadMinimumQuantityAsync();
         // 2026-10-07, владелец: «если наименование есть — поставь штрихкод из barcode-list.ru, но дай проверить и сверить».
         NameBox.LostFocus += (_, _) => _ = BarcodeSuggestAsync();
@@ -660,7 +661,10 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
                 GlobalStatus = Tr.T("Сервер NurCRM отвечает медленно, жду…", "NurCRM сервери жай жооп берип жатат, күтүп жатам…", "The NurCRM server is slow, waiting…",
                     "NurCRM sunucusu yavaş yanıt veriyor, bekleniyor…", "NurCRM serveri sekin javob bermoqda, kutilmoqda…");
             await all.ConfigureAwait(true);
-            var own = ownTask.Result ?? ownAltTask.Result;
+            // 2026-11-11 (разбор «Кыргызстанские штрихкоды», п. 4): «уже есть на складе» и подстановка из общей базы — только если в ответе ИМЕННО этот код
+            // (основной или доп.); ответ сервера про другой товар/код отбрасываем, как в приёмке.
+            var own = PurchaseReceivingService.OnlyIfHasCode(ownTask.Result, code, requireField: true)
+                      ?? PurchaseReceivingService.OnlyIfHasCode(ownAltTask.Result, code, requireField: true);
             if (ambiguousBarcode && own is null)
             {
                 ErrorMessage = AmbiguousBarcodeException.FriendlyText;
@@ -679,7 +683,8 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
                 return;
             }
 
-            var global = globalTask.Result ?? globalAltTask.Result;
+            var global = PurchaseReceivingService.OnlyIfHasCode(globalTask.Result, code, requireField: false)
+                         ?? PurchaseReceivingService.OnlyIfHasCode(globalAltTask.Result, code, requireField: false);
             if (!string.Equals(Barcode?.Trim(), code, StringComparison.Ordinal))
                 return; // штрихкод уже сменили — ответ устарел
             if (global is { } globalProduct && GlobalText(globalProduct, "name") is { } globalName)

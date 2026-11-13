@@ -79,6 +79,10 @@
     <Style Selector="Button.mp-tile:pressed /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="Transparent"/>
     </Style>
+    <!-- 2026-11-13: общий Button:pointerover растягивал плитку на 1,2 % (188→190 px) при прокрутке под курсором — наведение у плитки только цветом карточки -->
+    <Style Selector="Button.mp-tile:pointerover">
+      <Setter Property="RenderTransform" Value="scale(1)"/>
+    </Style>
     <Style Selector="Border.mp-tile-card">
       <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>

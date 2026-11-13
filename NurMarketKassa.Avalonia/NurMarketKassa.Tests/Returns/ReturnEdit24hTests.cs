@@ -143,7 +143,7 @@ public sealed class ReturnEdit24hTests : IDisposable
         r.ApprovedBy.Should().Be("Айбек");
         var body = J(server.LogEntries.Last(e => e.RequestMessage.Path == "/api/users/auth/pin/verify/").RequestMessage.Body!);
         body.GetProperty("scope").GetString().Should().Be("return_edit");
-        body.GetProperty("object_type").GetString().Should().Be("supplier_return");
+        body.GetProperty("object_type").GetString().Should().Be("supplier"); // 2026-11-11: как в сводке Умара 11.11 (прежнее "supplier_return" — запасной вариант)
         body.GetProperty("object_id").GetString().Should().Be("r1");
         body.GetProperty("version").GetInt32().Should().Be(3);
     }
@@ -355,21 +355,24 @@ public sealed class ReturnEdit24hTests : IDisposable
     // ───────────── правка возврата поставщику: расчёт и проверки ─────────────
 
     [Fact]
-    public void SupplierEdit_RecalculatesTotal_WithDiscount_AndDropsZeroLines()
+    public void SupplierEdit_RecalculatesTotal_NoLineDiscount_BodyIsIdQtyPrice_AndDropsZeroLines()
     {
+        // 2026-11-11 (реальный контракт Умара): скидку и примечание строки сервер не хранит — в сумму и в тело они не входят
         var lines = new List<SupplierReturnEditLine>
         {
             new("l1", "p1", "Молоко", "шт", 2, 150, 10, "мятая"),
             new("l2", "p2", "Сыр", "кг", 0.125, 1, 0, ""),
             new("l3", "p3", "Хлеб", "шт", 0, 30, 0, ""),
         };
-        SupplierReturnEdit.Total(lines).Should().Be(290.13, "2×150−10 = 290; 0,125×1 = 0,13 (до копейки от нуля); строка с 0 — 0");
+        SupplierReturnEdit.Total(lines).Should().Be(300.13, "2×150 = 300 (скидка строки не хранится); 0,125×1 = 0,13 (до копейки от нуля); строка с 0 — 0");
         SupplierReturnEdit.Validate(lines, "ошиблись количеством").Should().BeNull();
         var body = SupplierReturnEdit.BuildPatchBody(lines, " ошиблись количеством ", " коммент ");
         var items = (List<Dictionary<string, object?>>)body["items"]!;
-        items.Should().HaveCount(2, "строка с количеством 0 убирается из возврата");
-        items[0]["discount"].Should().Be("10.00");
-        items[0]["note"].Should().Be("мятая");
+        items.Should().HaveCount(2, "строка с количеством 0 убирается из возврата (сервер удаляет отсутствующие)");
+        items[0].Keys.Should().BeEquivalentTo(new[] { "id", "qty", "purchase_price" }, "ровно поля контракта: без discount, note, product_id");
+        items[0]["id"].Should().Be("l1");
+        items[0]["qty"].Should().Be("2");
+        items[0]["purchase_price"].Should().Be("150");
         body["edit_reason"].Should().Be("ошиблись количеством");
         body["comment"].Should().Be("коммент");
     }
@@ -378,7 +381,8 @@ public sealed class ReturnEdit24hTests : IDisposable
     public void SupplierEdit_Validation()
     {
         SupplierReturnEdit.Validate(new[] { new SupplierReturnEditLine("l1", "p1", "Молоко", "шт", 1.5, 150, 0, "") }, "причина правки").Should().Contain("целое");
-        SupplierReturnEdit.Validate(new[] { new SupplierReturnEditLine("l1", "p1", "Молоко", "шт", 1, 150, 200, "") }, "причина правки").Should().Contain("скидка");
+        SupplierReturnEdit.Validate(new[] { new SupplierReturnEditLine("l1", "p1", "Молоко", "шт", 1, 150, 200, "") }, "причина правки").Should().BeNull("скидку строки сервер не хранит — не проверяется");
+        SupplierReturnEdit.Validate(new[] { new SupplierReturnEditLine("", "p1", "Молоко", "шт", 1, 150, 0, "") }, "причина правки").Should().Contain("id строки", "без id строки сервер ответит new_lines_not_allowed");
         SupplierReturnEdit.Validate(new[] { new SupplierReturnEditLine("l1", "p1", "Молоко", "шт", 0, 150, 0, "") }, "причина правки").Should().Contain("Удалить возврат");
         SupplierReturnEdit.Validate(new[] { new SupplierReturnEditLine("l1", "p1", "Молоко", "шт", 1, 150, 0, "") }, "абв").Should().Contain("причину");
         SupplierReturnEdit.Validate(new[] { new SupplierReturnEditLine("", "", "Молоко", "шт", 1, 150, 0, "") }, "причина правки").Should().Contain("id строки");

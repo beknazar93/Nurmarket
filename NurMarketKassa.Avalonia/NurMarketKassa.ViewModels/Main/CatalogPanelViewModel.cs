@@ -442,7 +442,8 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
 
     /// <summary>Кнопка «Подробнее» (описание товара от продавца) — в сферах «Одежда» и «Услуги»;
     /// в продуктовом магазине её нет: там описания почти не заполняют, а кассе важна скорость.</summary>
-    public bool ShowProductDetails => MarketSpheres.IsClothing || MarketSpheres.IsServices;
+    // 2026-11-12 (ХМ5, ТЗ хозмаг): + профиль сферы (hardware: «i» и «Сколько нужно?» у любого товара, не только с описанием).
+    public bool ShowProductDetails => MarketSpheres.IsClothing || MarketSpheres.IsServices || MarketSpheres.Profile.ShowProductDetails;
 
     public bool IsCardView => ViewMode == CatalogViewMode.Cards;
     public bool IsTableView => ViewMode == CatalogViewMode.Table;

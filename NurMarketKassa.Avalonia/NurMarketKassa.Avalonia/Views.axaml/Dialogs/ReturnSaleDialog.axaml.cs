@@ -279,7 +279,9 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         // 2026-10-06, исследование «Кассы для одежды» (О-30): обмен одним документом — в сфере «Одежда».
         ExchangeSelectedButton.Content = Tr.T("⇄  Обменять выбранное на другой товар", "⇄  Тандалганды башка товарга алмаштыруу",
             "⇄  Exchange selected for another item", "⇄  Seçileni başka ürünle değiştir", "⇄  Tanlanganini boshqa mahsulotga almashtirish");
-        ExchangeSelectedButton.IsVisible = MarketSpheres.IsClothing;
+        // 2026-11-12 (владелец: «Возврат чеков добавь и программу владельца»): обмен — это новая продажа с доплатой в ящик кассы; в программе владельца
+        // кассовой смены и ящика нет — обмен оформляется на кассе, здесь только возврат.
+        ExchangeSelectedButton.IsVisible = MarketSpheres.IsClothing && !AppMode.IsOwner;
 
         UpdateReceiptChrome();
         UpdateWindowStateUI();

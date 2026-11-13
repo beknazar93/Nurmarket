@@ -102,7 +102,8 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
         string username,
         string password,
         bool rememberMe,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool replaceDevice = false)
     {
         username = username.Trim();
         if (username.Length == 0 || password.Length == 0)
@@ -122,7 +123,9 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
         serverBudget.CancelAfter(ManualLoginServerBudget);
         try
         {
-            var loginPayload = await _api.LoginAsync(username, password, serverBudget.Token)
+            var loginPayload = await (replaceDevice
+                    ? _api.LoginAsync(username, password, true, serverBudget.Token)
+                    : _api.LoginAsync(username, password, serverBudget.Token))
                 .ConfigureAwait(false);
             serverBudget.CancelAfter(ManualLoginServerBudget);
             var profile = await LoadAndApplyProfileAsync(serverBudget.Token).ConfigureAwait(false);
@@ -139,6 +142,19 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
                 await _storage.ClearSessionAsync(cancellationToken).ConfigureAwait(false);
 
             return AuthenticationResult.Success(session, AuthenticationMode.Online);
+        }
+        catch (ApiException ex) when (TryReadDeviceSlot(ex, out var slotInfo))
+        {
+            // 2026-11-13 (ответ Умара, п. 5): место устройства занято — вход НЕ выполнен, токенов нет. Окно входа спросит «Войти и отключить другую?» и повторит с replace_device.
+            _api.ClearSession();
+            PosLogger.Log($"Вход: на логине уже работает другая касса (слот {slotInfo!.Slot ?? "?"}) — спрашиваем, отключить ли её.", "AUTH");
+            return new AuthenticationResult
+            {
+                Failure = AuthenticationFailure.DeviceSlotTaken,
+                DeviceSlot = slotInfo,
+                ErrorMessage = Tr.T("На этом логине уже работает другая касса.", "Бул логинде башка касса иштеп жатат.",
+                    "Another till is already signed in on this login.", "Bu kullanıcı adında başka bir kasa zaten çalışıyor.", "Bu loginda boshqa kassa allaqachon ishlayapti."),
+            };
         }
         catch (ApiException ex) when (ex.StatusCode is 400 or 401 or 403)
         {
@@ -180,6 +196,23 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
                     "Server vaqtincha mavjud emas. Keyinroq qayta urinib ko'ring."),
             };
         }
+    }
+
+    /// <summary>2026-11-13: ответ входа — 409 с кодом device_slot_taken (тело: slot и, если сервер прислал, device {id, name, platform, last_seen_at}). Любой другой 409 сюда не попадает.</summary>
+    internal static bool TryReadDeviceSlot(ApiException ex, out DeviceSlotInfo? info)
+    {
+        info = null;
+        if (ex.StatusCode != 409 || ex.Payload is not { ValueKind: System.Text.Json.JsonValueKind.Object } root)
+            return false;
+        if (!root.TryGetProperty("code", out var code) || code.ValueKind != System.Text.Json.JsonValueKind.String
+            || !string.Equals(code.GetString(), "device_slot_taken", StringComparison.Ordinal))
+            return false;
+        static string? Str(System.Text.Json.JsonElement obj, string name) =>
+            obj.ValueKind == System.Text.Json.JsonValueKind.Object && obj.TryGetProperty(name, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.String
+                && !string.IsNullOrWhiteSpace(v.GetString()) ? v.GetString()!.Trim() : null;
+        var device = root.TryGetProperty("device", out var d) ? d : default;
+        info = new DeviceSlotInfo(Str(root, "slot"), Str(device, "name") ?? Str(root, "device_name"), Str(device, "platform"), Str(device, "last_seen_at"));
+        return true;
     }
 
     /// <summary>2026-10-04: сколько ручной вход по паролю ждёт сервер на каждом шаге (вход, затем

@@ -52,6 +52,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
             var sales = new SalesWindow(); // как NavigateToSale_Click; в DI — тот же AddTransient без зависимостей
             var parts = sales.DetachForFinance();
             _mergedSales = sales;
+            // 2026-11-12 (владелец: «Возврат чеков добавь и программу владельца»): после возврата из «Чеков» — свежий список, плитки и «Возвраты» этого окна.
+            sales.HostReload = () => LoadDataAsync(_historyFrom, _historyTo, forceRefresh: true);
 
             Title = SalesAndFinanceTitle;
             HeaderTitleText.Text = SalesAndFinanceTitle;
@@ -183,6 +185,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
             IsRefund = s.IsRefund,
             RefundReason = s.RefundReason,
             ItemsSummary = s.FirstItemName,
+            // 2026-11-12: пометка «↩ частично/возвращён», неактивный «Возврат» у возвращённого целиком и фильтры «Кассир»/«Клиент» — как в отдельных «Продажах»
+            ReturnStatus = s.ReturnStatus,
+            Cashier = s.Cashier,
+            ClientName = s.ClientName,
         }).ToList();
 
         /// <summary>Нет связи с сервером — «Чеки» по данным кассы, прежним запасным путём «Продаж» (без сети).</summary>

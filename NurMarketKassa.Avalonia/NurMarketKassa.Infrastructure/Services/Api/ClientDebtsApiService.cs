@@ -178,7 +178,11 @@ public sealed class ClientDebtsApiService : IDisposable
             && !shiftId.StartsWith("offline-", StringComparison.OrdinalIgnoreCase))
             body["shift"] = shiftId.Trim();
 
-        var id = Uri.EscapeDataString(saleId.Trim());
+        // 2026-11-11 (сводка Умара): id виртуальной строки сделок «sale:<uuid>» — это чек <uuid>; в адрес чека — без префикса
+        var trimmed = saleId.Trim();
+        if (ClientCheckDebtDeals.IsVirtualId(trimmed))
+            trimmed = trimmed[ClientCheckDebtDeals.IdPrefix.Length..].Trim();
+        var id = Uri.EscapeDataString(trimmed);
         var data = await SendWithIdempotencyKeyAsync(
                 HttpMethod.Post, $"api/main/pos/sales/{id}/pay-debt/", body, idempotencyKey, ct)
             .ConfigureAwait(false);

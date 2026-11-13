@@ -537,6 +537,13 @@ public partial class ProductEditDialog
         {
             var pack = TryParseNumber(_price) ?? 0;
             var price = pack > 0 ? Money(pack) : "—";
+            // 2026-11-12 (аудит Д-19): у обычного штучного товара упаковки нет — цена выше «за штуку», а не «за целую упаковку»; прежний текст остаётся, только когда штук в упаковке уже указано.
+            if ((TryParseNumber(_packageQuantity) ?? 0) < 2)
+                return Tr.T($"У товара нет упаковки: он продаётся штуками по {price} сом. Включите — и его можно будет продавать упаковкой и поштучно из неё.",
+                    $"Товардын таңгагы жок: ал даана менен {price} сомдон сатылат. Күйгүзүңүз — анан таңгак менен да, андан даана менен да сатууга болот.",
+                    $"The product has no pack: it is sold by the piece at {price} som. Turn it on to sell it by the pack and by single pieces from it.",
+                    $"Ürünün paketi yok: adet olarak {price} som'a satılıyor. Açın — paket olarak ve içinden adet olarak da satılabilsin.",
+                    $"Mahsulotning qadoqi yo'q: u donalab {price} so'mdan sotiladi. Yoqing — qadoq bilan ham, undan donalab ham sotish mumkin bo'ladi.");
             return Tr.T($"Сейчас товар продаётся только целой упаковкой за {price} сом. Включите — и его можно будет продавать ещё и поштучно.",
                 $"Азыр товар бүтүн таңгак катары {price} сомго гана сатылат. Күйгүзүңүз — анан дарасын да сатууга болот.",
                 $"Right now the product is sold only as a whole pack for {price} som. Turn it on to sell single pieces too.",
@@ -569,6 +576,7 @@ public partial class ProductEditDialog
                 return;
             // 2026-10-20: из той же карточки — поставщик товара (client / client_name), без второго запроса.
             ApplySupplierFromDetail(el);
+            ApplySerialsFromDetail(el); // 2026-11-13 (сервер sn1311): track_serials / warranty_months той же карточки
             if (el.TryGetProperty("minimum_quantity", out var v) && !_minimumQuantityKnown
                 && double.TryParse(v.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var min))
             {

@@ -136,6 +136,16 @@
     <Style Selector="Window.short Border.SettingsHeaderCard">
       <Setter Property="IsVisible" Value="False"/>
     </Style>
+    <!-- 2026-11-12 (оценка UX/UI, Д-6): низкое окно и вкладки в два ряда (UpdateNavColumns) — без значков, ряд ниже: на сами настройки остаётся место. -->
+    <Style Selector="Window.short.nav2 Button.SettingsTab PathIcon">
+      <Setter Property="IsVisible" Value="False"/>
+    </Style>
+    <Style Selector="Window.short.nav2 Button.SettingsTab Path">
+      <Setter Property="IsVisible" Value="False"/>
+    </Style>
+    <Style Selector="Window.short.nav2 Button.SettingsTab /template/ Border#seg">
+      <Setter Property="MinHeight" Value="40"/>
+    </Style>
   </Window.Styles>
 
   <!-- Масштаб интерфейса (Настройки → Экран → "Масштаб") применяется и к самому окну настроек,

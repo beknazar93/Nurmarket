@@ -704,7 +704,11 @@ public static partial class BarcodeLabelService
         WinUsbPrinterPort.IsWinUsbDevicePath(printerName) ||
         HardwarePortHelper.LooksLikeComPort(printerName) ||
         HardwarePortHelper.LooksLikeLptPort(printerName) ||
-        printerName.StartsWith(@"\\.\", StringComparison.Ordinal);
+        printerName.StartsWith(@"\\.\", StringComparison.Ordinal) ||
+        // 2026-11-13 (мастер «Подключить принтер»): USB напрямую через интерфейс «\\?\usb#vid_…» и очередь «NurCRM …» на встроенном «Generic / Text Only»
+        // (картинку драйвер «Text Only» не печатает — этикетка уходит командами TSPL/ESC/POS в очередь как RAW).
+        printerName.StartsWith(@"\\?\", StringComparison.Ordinal) ||
+        PrinterSetup.PrinterQueueInstaller.IsRawTextOnlyQueue(printerName);
 
     // 2026-11-01: своя очередь на каждый принтер этикеток (LabelPrinterSelector.RunQueued) — не общая с чеками.
     public static LabelPrintResult Print(LabelPrintRequest request) =>

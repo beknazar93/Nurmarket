@@ -240,11 +240,16 @@ public sealed class BonusAnalyticsWindow : Window, IOwnerSectionRefresh
             _body.Children.Clear();
             if (data is null)
             {
-                _status.Text = Tr.T("Сервер NurCRM недоступен — аналитика бонусов считается только по серверу, чтобы цифры совпадали со «Сводкой». Проверьте интернет и нажмите «Обновить».",
-                    "NurCRM сервери жеткиликсиз — бонустар аналитикасы «Жыйынтык» менен дал келиши үчүн сервер боюнча гана эсептелет. Интернетти текшериңиз да «Жаңыртуу» басыңыз.",
-                    "The NurCRM server is unavailable — bonus analytics is calculated from the server only, so the figures match “Summary”. Check the internet and press “Refresh”.",
-                    "NurCRM sunucusu kullanılamıyor — bonus analizi yalnızca sunucudan hesaplanır, böylece rakamlar «Özet» ile aynı olur. İnterneti kontrol edip «Yenile»ye basın.",
-                    "NurCRM serveri mavjud emas — bonuslar tahlili «Xulosa» bilan mos bo'lishi uchun faqat serverdan hisoblanadi. Internetni tekshirib, «Yangilash»ni bosing.");
+                // 2026-11-12 (оценка UX/UI, Д-2): вместо длинной серой фразы в строке состояния — общий блок «Сервер недоступен» с «Повторить» по центру отчёта.
+                // Пояснение «считается только по серверу, чтобы цифры совпадали со «Сводкой»» — в подсказке блока.
+                _status.Text = "";
+                var offline = StateBlock.Offline(this, () => _ = ReloadAsync(force: true));
+                ToolTip.SetTip(offline, Tr.T("Аналитика бонусов считается только по серверу, чтобы цифры совпадали со «Сводкой».",
+                    "Бонустар аналитикасы «Жыйынтык» менен дал келиши үчүн сервер боюнча гана эсептелет.",
+                    "Bonus analytics is calculated from the server only, so the figures match “Summary”.",
+                    "Bonus analizi yalnızca sunucudan hesaplanır, böylece rakamlar «Özet» ile aynı olur.",
+                    "Bonuslar tahlili «Xulosa» bilan mos bo'lishi uchun faqat serverdan hisoblanadi."));
+                _body.Children.Add(offline);
                 return;
             }
             _status.Text = "";
@@ -260,7 +265,16 @@ public sealed class BonusAnalyticsWindow : Window, IOwnerSectionRefresh
         catch (Exception ex)
         {
             PosLogger.Log($"Аналитика бонусов: {ex}", "WARNING");
-            _status.Text = Tr.T("Не удалось посчитать: ", "Эсептөө мүмкүн болгон жок: ", "Could not calculate: ", "Hesaplanamadı: ", "Hisoblab bo'lmadi: ") + ServerOutageMonitor.FriendlyError(ex); // 2026-11-01 (В-28)
+            // 2026-11-12 (Д-2): нет прежнего отчёта — общий блок с «Повторить»; отчёт уже на экране — остаётся, в строке состояния одна фраза.
+            if (cachedShown)
+                _status.Text = Tr.T("Не удалось обновить: ", "Жаңыртуу мүмкүн болгон жок: ", "Could not update: ", "Güncellenemedi: ", "Yangilab bo'lmadi: ") + ServerOutageMonitor.FriendlyError(ex);
+            else
+            {
+                _status.Text = "";
+                _body.Children.Clear();
+                _body.Children.Add(StateBlock.Failure(this, ex,
+                    Tr.T("Не удалось посчитать", "Эсептөө мүмкүн болгон жок", "Could not calculate", "Hesaplanamadı", "Hisoblab bo'lmadi"), () => _ = ReloadAsync(force: true)));
+            }
         }
         finally
         {

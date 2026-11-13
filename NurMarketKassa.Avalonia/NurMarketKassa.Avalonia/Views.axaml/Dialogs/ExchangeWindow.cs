@@ -636,6 +636,7 @@ public sealed class ExchangeWindow : Window
                 DebtReduced = 0m,
                 ServerAmount = serverAmount,
                 ServerDocId = serverDocId,
+                Source = SaleLedgerRefund.SourceExchange, // 2026-11-13: сверка возвратов с сервером обмен не трогает (CustomerReturnReconciler)
                 Whole = false,
                 Lines = returns.Select(r => new SaleLedgerLine { LineId = r.Line.LineId, Name = r.Line.Title, Quantity = r.Qty, Total = r.Sum }).ToList(),
             });

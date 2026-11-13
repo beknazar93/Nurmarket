@@ -58,10 +58,11 @@ public static class StaffTimesheetService
                 return new StaffTimesheetRow
                 {
                     Cashier = list.Select(s => s.Cashier).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n) && n != "—") ?? "—",
-                    LongShiftCount = list.Count(s => s.ClosedAt!.Value - s.OpenedAt!.Value > TimeSpan.FromHours(16)),
+                    LongShiftCount = list.Count(s => s.ClosedAt!.Value - s.OpenedAt!.Value > LongShift),
                     ShiftCount = list.Count,
                     DaysWorked = list.Select(s => s.OpenedAt!.Value.Date).Distinct().Count(),
-                    TotalWorked = list.Aggregate(TimeSpan.Zero, (sum, s) => sum + (s.ClosedAt!.Value - s.OpenedAt!.Value)),
+                    // 2026-11-11 (Д-2): часы — по календарным дням, не больше 24 ч в день (наложившиеся смены одного кассира не дают «28 ч в сутки»).
+                    TotalWorked = TimeSpan.FromHours(SplitByDay(list).Values.Sum()),
                     TotalRevenue = list.Sum(s => s.Revenue),
                     FirstShift = list.Min(s => s.OpenedAt),
                     LastShift = list.Max(s => s.OpenedAt),
@@ -69,5 +70,32 @@ public static class StaffTimesheetService
             })
             .OrderByDescending(r => r.TotalWorked)
             .ToList();
+    }
+
+    /// <summary>2026-11-11: смена дольше этого — «возможно, забыли закрыть» (как было: 16 ч).</summary>
+    public static readonly TimeSpan LongShift = TimeSpan.FromHours(16);
+
+    /// <summary>2026-11-11 (живой показ 1.17.85, Д-2): часы закрытых смен по календарным дням (местное время): смена через полночь и многодневная делятся по дням,
+    /// в каждом дне — не больше 24 ч. Открытые смены (без ClosedAt) не считаются.</summary>
+    public static Dictionary<DateOnly, double> SplitByDay(IEnumerable<ShiftHistoryEntry> shifts)
+    {
+        var map = new Dictionary<DateOnly, double>();
+        foreach (var s in shifts)
+        {
+            if (s.OpenedAt is not { } o || s.ClosedAt is not { } c || c <= o)
+                continue;
+            var start = o;
+            while (start < c)
+            {
+                var dayEnd = start.Date.AddDays(1);
+                var end = c < dayEnd ? c : dayEnd;
+                var day = DateOnly.FromDateTime(start);
+                map[day] = map.GetValueOrDefault(day) + (end - start).TotalHours;
+                start = end;
+            }
+        }
+        foreach (var day in map.Keys.ToList())
+            map[day] = Math.Min(24, map[day]);
+        return map;
     }
 }

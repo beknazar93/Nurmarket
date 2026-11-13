@@ -29,6 +29,7 @@ internal sealed class ShtrikhPcFieldsView : StackPanel
     private readonly ComboBox _decimals = new() { Height = 36, Width = 100, ItemsSource = new[] { "0", "1", "2", "3" } };
     private readonly ComboBox _lineStyle = new() { Height = 36, MinWidth = 220 };
     private readonly ComboBox _separator = new() { Height = 36, MinWidth = 220 };
+    private readonly ComboBox _labelFormat = new() { Height = 36, MinWidth = 220 }; // 2026-11-12: формат этикетки (поле 14 товара)
     private readonly CheckBox _sendPictures = new();
     private readonly CheckBox _placeholder = new();
     private readonly CheckBox _showPrice = new();
@@ -195,6 +196,20 @@ internal sealed class ShtrikhPcFieldsView : StackPanel
             "The exact shape of the “<D…” line and the price separator are not fully described in the manual. If the scale accepted the file but there are no goods or the prices are wrong — switch these two items and send again.",
             "«<D…» satırının tam biçimi ve fiyat ayıracı kılavuzda tam anlatılmamış. Tartı dosyayı kabul etti ama ürün yok ya da fiyatlar yanlışsa — bu iki öğeyi değiştirip tekrar gönderin.",
             "«<D…» qatorining aniq shakli va narx ajratgichi qo‘llanmada to‘liq tavsiflanmagan. Tarozi faylni qabul qilsa-yu, tovar yo‘q yoki narxlar noto‘g‘ri bo‘lsa — shu ikki bandni almashtirib, qayta yuboring.")));
+        // 2026-11-12 (ТЗ PC-200, п. 3.1 поле 14 и п. 6.3): формат этикетки для выгружаемых товаров.
+        inner.Children.Add(Label(Tr.T("Формат этикетки товаров", "Товарлардын этикетка форматы", "Product label format", "Ürün etiket biçimi", "Tovarlar yorlig‘i formati")));
+        _labelFormat.ItemsSource = new[]
+        {
+            Tr.T("Выбранный на весах", "Таразада тандалганы", "The one selected on the scale", "Tartıda seçili olan", "Tarozida tanlangani"),
+            Tr.T("58x40 (код 13)", "58x40 (код 13)", "58x40 (code 13)", "58x40 (kod 13)", "58x40 (kod 13)"),
+            Tr.T("58x30 (код 14)", "58x30 (код 14)", "58x30 (code 14)", "58x30 (kod 14)", "58x30 (kod 14)"),
+        };
+        inner.Children.Add(_labelFormat);
+        inner.Children.Add(Hint(Tr.T("Код формата пишется у каждого товара (поле 14). Формат с таким кодом должен уже быть на весах («Система и печать» → список форматов), иначе весы напечатают формат по умолчанию.",
+            "Формат коду ар бир товарга жазылат (14-талаа). Мындай коддуу формат таразада болушу керек («Система и печать» → форматтар тизмеси), болбосо тараза демейки форматты басат.",
+            "The format code is written for every product (field 14). A format with this code must already exist on the scale (“System and printing” → format list), otherwise the scale prints the default format.",
+            "Biçim kodu her ürüne yazılır (alan 14). Bu kodlu biçim tartıda zaten olmalı («Система и печать» → biçim listesi), yoksa tartı varsayılan biçimi basar.",
+            "Format kodi har bir tovarga yoziladi (14-maydon). Shu kodli format tarozida bo‘lishi kerak («Система и печать» → formatlar ro‘yxati), aks holda tarozi standart formatni bosadi.")));
         inner.Children.Add(Label(Tr.T("Файл сценария главного экрана", "Башкы экрандын сценарий файлы", "Main-screen scenario file", "Ana ekran senaryo dosyası", "Bosh ekran ssenariy fayli")));
         inner.Children.Add(_scenarioFile);
         inner.Children.Add(Hint(Tr.T("По умолчанию Semya.ssc — этот файл уже выбран на весах (параметр 952). Другое имя (например NurCRM.ssc) нужно выбрать на весах: «Конфигурация → Самообслуживание → Файл сценария».",
@@ -244,6 +259,7 @@ internal sealed class ShtrikhPcFieldsView : StackPanel
         _decimals.SelectionChanged += (_, _) => Save();
         _lineStyle.SelectionChanged += (_, _) => Save();
         _separator.SelectionChanged += (_, _) => Save();
+        _labelFormat.SelectionChanged += (_, _) => Save();
         _sendPictures.IsCheckedChanged += (_, _) => Save();
         _placeholder.IsCheckedChanged += (_, _) => Save();
         _showPrice.IsCheckedChanged += (_, _) => Save();
@@ -279,6 +295,7 @@ internal sealed class ShtrikhPcFieldsView : StackPanel
             _pictureOffset.Text = s.PictureOffset.ToString(CultureInfo.InvariantCulture);
             _lineStyle.SelectedIndex = s.LineStyle switch { ShtrikhPcSettings.LineGlued => 1, ShtrikhPcSettings.LineSemicolon => 2, _ => 0 };
             _separator.SelectedIndex = s.DecimalSeparator == "." ? 1 : 0;
+            _labelFormat.SelectedIndex = s.LabelFormat switch { ShtrikhPcSettings.LabelFormat58x40 => 1, ShtrikhPcSettings.LabelFormat58x30 => 2, _ => 0 };
         }
         finally
         {
@@ -312,6 +329,7 @@ internal sealed class ShtrikhPcFieldsView : StackPanel
         s.PictureOffset = int.TryParse((_pictureOffset.Text ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var off) ? off : 100_000;
         s.LineStyle = _lineStyle.SelectedIndex switch { 1 => ShtrikhPcSettings.LineGlued, 2 => ShtrikhPcSettings.LineSemicolon, _ => ShtrikhPcSettings.LineSpace };
         s.DecimalSeparator = _separator.SelectedIndex == 1 ? "." : ",";
+        s.LabelFormat = _labelFormat.SelectedIndex switch { 1 => ShtrikhPcSettings.LabelFormat58x40, 2 => ShtrikhPcSettings.LabelFormat58x30, _ => 0 };
         Store(s);
     }
 

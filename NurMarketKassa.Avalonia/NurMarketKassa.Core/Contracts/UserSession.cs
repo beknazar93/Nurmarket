@@ -49,7 +49,12 @@ public enum AuthenticationFailure
     SessionExpired,
     NetworkUnavailable,
     ServerError,
+    /// <summary>2026-11-13: сервер ответил 409 device_slot_taken — на этом логине уже работает другая касса такого же типа (см. <see cref="AuthenticationResult.DeviceSlot"/>).</summary>
+    DeviceSlotTaken,
 }
+
+/// <summary>2026-11-13 (ответ Умара, п. 5): что сервер сообщил про занявшее слот устройство (409 device_slot_taken). Все поля необязательные: сервер мог ничего не прислать.</summary>
+public sealed record DeviceSlotInfo(string? Slot, string? DeviceName, string? Platform, string? LastSeenAt);
 
 public sealed class AuthenticationResult
 {
@@ -63,6 +68,9 @@ public sealed class AuthenticationResult
     /// этим логином — окно входа может предложить «Войти автономно»
     /// (<see cref="IOnlineOfflineAuthenticationService.ContinueOfflineAsync"/>).</summary>
     public bool CanContinueOffline { get; init; }
+
+    /// <summary>2026-11-13: заполнено при <see cref="AuthenticationFailure.DeviceSlotTaken"/> — окно входа спрашивает «Войти здесь и отключить ту?».</summary>
+    public DeviceSlotInfo? DeviceSlot { get; init; }
 
     public static AuthenticationResult Success(UserSession session, AuthenticationMode mode) =>
         new() { IsSuccess = true, Session = session, Mode = mode };
@@ -78,7 +86,8 @@ public interface IOnlineOfflineAuthenticationService
         string username,
         string password,
         bool rememberMe,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        bool replaceDevice = false); // 2026-11-13: повтор входа после «Войти и отключить другую» (replace_device в теле входа)
 
     Task<AuthenticationResult> AutoLoginAsync(CancellationToken cancellationToken = default);
     Task LogoutAsync(CancellationToken cancellationToken = default);

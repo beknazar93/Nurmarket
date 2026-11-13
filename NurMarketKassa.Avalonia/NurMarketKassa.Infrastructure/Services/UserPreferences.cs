@@ -210,8 +210,18 @@ public sealed partial class UserPreferences
     public int RongtaPricePoint { get; set; } = 2;
 
     /// <summary>Тип штрих-кода, выбранный на весах Rongta (Appendix II, RongtaBarcodeFormat). На весах
-    /// владельца 30.09 — 02: «DD IIIII PPPPP C» (этикетка 2034567002908).</summary>
-    public int RongtaBarcodeType { get; set; } = 2;
+    /// владельца 30.09 — 02: «DD IIIII PPPPP C» (этикетка 2034567002908).
+    /// 2026-11-13: для НОВЫХ настроек по умолчанию 07 («DD IIIII WW.WWW C», префикс 20) — проверено вживую на RLS1000: штрихкод есть при любой сумме (тип 02 терял его от 1000 сом).
+    /// Тем, у кого настройки уже сохранены (в файле есть тип), значение не меняется — см. UserPreferences.Load.</summary>
+    public int RongtaBarcodeType { get; set; } = 7;
+
+    /// <summary>2026-11-13 (руководство RLS1000, команда 0110: поле «Barcode type», 2 цифры): тип штрихкода, который касса пишет в каждую запись товара
+    /// в способе «свой сервер» (через программу RLS1000). null — структура в «Настройках весов Rongta» → «Штрих-код» ещё не выбиралась: как раньше
+    /// тип 05 и отдел 21. Задаётся выбором структуры там же (и кнопкой «Выбрать структуру без ограничения суммы»). В прямом режиме (порт 4001)
+    /// тип карточки кассой не задаётся — поле madv4 проверено на весах владельца 12.11, не влияет.
+    /// 2026-11-13: у НОВЫХ настроек выбрана структура 07 (рекомендуемая, проверена вживую) — касса пишет её в весовые карточки по UDP 5001 при «Отправить на весы»;
+    /// у уже сохранённых настроек, где структура не выбиралась, остаётся null (см. UserPreferences.Load) — молча ничего не меняем.</summary>
+    public int? RongtaServerBarcodeType { get; set; } = 7;
 
     /// <summary>2026-09-30: сколько кнопок быстрого вызова на весах (окно «Кнопки весов»).</summary>
     public int ScaleKeyCount { get; set; } = 70;
@@ -554,6 +564,16 @@ public sealed partial class UserPreferences
     public bool StaffTimesheetUnlocked { get => _keyStaffTimesheetUnlocked || ServerAddons.IsGranted("timesheet", LastDataAccountKey); set => _keyStaffTimesheetUnlocked = value; }
     private bool _keyStaffTimesheetUnlocked;
 
+    /// <summary>2026-11-13 (решение владельца: «ремонт и trade-in — как доп. услуги в маркетплейсе, чтобы желающие могли подключить»): «Ремонт и сервис» —
+    /// приём техники в ремонт с квитанцией, статусами и выдачей. Отдельная подключаемая функция любой сферы (не часть «Электроники»).
+    /// Включается ключом или сервером (addon «kassa-repair»); данные — локальный файл repair-orders.json (RepairOrderStore).</summary>
+    public bool RepairUnlocked { get => _keyRepairUnlocked || ServerAddons.IsGranted("repair", LastDataAccountKey); set => _keyRepairUnlocked = value; }
+    private bool _keyRepairUnlocked;
+
+    /// <summary>2026-11-13: «Trade-in / скупка» — приём б/у у клиента с выплатой или зачётом в покупку (addon «kassa-trade_in»); данные — trade-in-records.json (TradeInStore).</summary>
+    public bool TradeInUnlocked { get => _keyTradeInUnlocked || ServerAddons.IsGranted("trade_in", LastDataAccountKey); set => _keyTradeInUnlocked = value; }
+    private bool _keyTradeInUnlocked;
+
     /// <summary>Доп. услуга "Весы" (2026-09-21, по просьбе владельца — "весы надо добавить в
     /// доп услуги в тарифе старт") — на тарифе «Старт» отправка PLU на весы (Штрих-М/Rongta,
     /// экран Настройки → Весы) требует серийного номера, как остальные карточки в Маркетплейс →
@@ -652,6 +672,13 @@ public sealed partial class UserPreferences
     /// отличия от значений по умолчанию (все возможности включены, null = ничего не менялось). Общее для магазина: меняет владелец
     /// или администратор, на все кассы идёт через SettingsCloudSync (CompanyKeys). См. AdvisorCapabilities.</summary>
     public string? AdvisorCapabilitiesJson { get; set; }
+
+    /// <summary>2026-11-12 (ХМ15, ТЗ хозмаг): общие настройки сфер магазина — JSON-объект «раздел → значение» (hardware: размер, скан коробки…), ≤ 16 КБ.
+    /// Общее для магазина, идёт через SettingsCloudSync (CompanyKeys); null — ничего не менялось. Разбор и запись — <see cref="SphereSettings"/>.</summary>
+    public string? SphereSettingsJson { get; set; }
+
+    /// <summary>2026-11-12 (ХМ15 / ХМ8): отметки клиентов «Покупает по оптовой цене (прораб)» — JSON-массив id, ≤ 16 КБ; null — отметок нет. См. <see cref="ClientPriceGroups"/>.</summary>
+    public string? ClientPriceGroupsJson { get; set; }
 
     /// <summary>2026-10-30, редактор накладных закупок: окно правки проведённой накладной — "24" (по умолчанию) / "48" / "always". Общее для магазина:
     /// меняет владелец (Настройки → Операции), на все кассы идёт через SettingsCloudSync (CompanyKeys). null — ничего не меняли (24 ч). См. ReceiptEditPolicy.</summary>
@@ -879,6 +906,16 @@ public sealed partial class UserPreferences
     /// <summary>2026-11-05: предел суммы на весовой этикетке, сом (выше — «сумма выглядит нереально»). По умолчанию 20 000.</summary>
     public double ScaleMaxLabelAmountSom { get; set; } = 20000;
 
+    /// <summary>2026-11-11, решение владельца «правила префиксов — синхронизацию через облако, быструю»: все правила разбора весовой этикетки
+    /// одной строкой JSON для общих настроек компании (SettingsCloudSync.CompanyKeys). Вычисляемое: на диск не пишется (поля выше пишутся сами),
+    /// сеттер проверяет значение и применяет только целое и допустимое (см. <see cref="ScaleBarcodeRulesSync"/>).</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string? ScaleBarcodeRulesShared
+    {
+        get => ScaleBarcodeRulesSync.Build(this);
+        set => ScaleBarcodeRulesSync.TryApply(this, value);
+    }
+
     /// <summary>2026-11-05: единица суммы, которой касса реально пользуется: локальная ?? серверная.</summary>
     public string EffectiveScaleAmountUnit =>
         NurMarketKassa.Core.Application.WeightBarcodeParser.ResolveAmountUnit(ScaleBarcodeAmountUnitLocal, ScaleBarcodeAmountUnit);
@@ -1002,6 +1039,8 @@ public sealed partial class UserPreferences
     {
         "loyalty" => _keyLoyaltyEnabled,
         "timesheet" => _keyStaffTimesheetUnlocked,
+        "repair" => _keyRepairUnlocked,     // 2026-11-13
+        "trade_in" => _keyTradeInUnlocked,  // 2026-11-13
         "analytics" => _keyWarehouseAnalyticsUnlocked,
         "pricetag" => _keyPriceTagEditorUnlocked,
         "bulktag" => _keyBulkPriceTagUnlocked,
@@ -1221,6 +1260,9 @@ public static class MarketSpheres
     /// <summary>2026-10-26 (ХМ1): магазин «Хозтовары и стройматериалы». Для других сфер всегда false — их поведение не меняется.</summary>
     public static bool IsHardware => Profile.Id == Hardware;
 
+    /// <summary>2026-11-12 (КТ1): магазин «Канцтовары и книги». Для других сфер всегда false — их поведение не меняется.</summary>
+    public static bool IsStationery => Profile.Id == StationeryProfile.Id;
+
     /// <summary>2026-10-20, владелец: «добавь возможность проката во всех видах магазина» — прокат есть в любой сфере
     /// (было только «Одежда» и «Услуги»). Убрать — галочкой в «Показывать разделы» (kassa.rental / rentals).</summary>
     public static bool HasRentals => true;
@@ -1241,9 +1283,12 @@ public static class MarketSpheres
             : prefs.MarketSphereDetail is null ? null : normalized;
         if (prefs.MarketSphere == normalized && prefs.MarketSphereDetail == detail)
             return;
+        var becameStationery = detail == StationeryProfile.Id && prefs.MarketSphereDetail != detail; // 2026-11-12: КТ1
         prefs.MarketSphere = normalized;
         prefs.MarketSphereDetail = detail;
         prefs.SaveToDisk();
+        if (becameStationery)
+            StationeryProfile.ApplyDefaultsOnSelect(); // раздел «Весы» скрыт по умолчанию только в этой сфере
         Changed?.Invoke();
     }
 

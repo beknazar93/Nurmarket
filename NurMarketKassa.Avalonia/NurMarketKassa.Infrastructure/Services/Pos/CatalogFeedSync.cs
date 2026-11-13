@@ -589,6 +589,8 @@ public sealed class CatalogFeedSync
         }
 
         PromotionRules.SaveIfDirty();
+        ProductSerialRules.SaveIfDirty(); // 2026-11-13 (сервер sn1311): track_serials / warranty_months
+        ProductSaleUnits.SaveIfDirty(); // 2026-11-13: sale_units
         var result = repo.ApplyFeedChanges(tiles, patches, archivedIds is null ? page.DeletedIds : page.DeletedIds.Concat(archivedIds).ToList());
         // 2026-11-06 (жалоба «Код / штрихкод пустой»): товар, которого в базе не было, лента принесла без штрихкода/артикула/кода — полную карточку читаем в фоне и дописываем пустое.
         if (newWithoutCodes is { Count: > 0 })

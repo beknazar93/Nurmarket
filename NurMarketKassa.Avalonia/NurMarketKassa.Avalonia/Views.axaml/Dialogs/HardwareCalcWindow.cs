@@ -25,9 +25,10 @@ internal sealed class HardwareCalcWindow : Window
 
     /// <summary>2026-10-26: можно ли добавить в чек ДРОБНОЕ количество этого товара (14,4 м²). Корзина сейчас округляет
     /// количество до целого, если товар не весовой (BasketPanelViewModel.ParseQuantity), — молча положить 14 вместо 14,4
-    /// нельзя. Пока дробное только у весового; когда ХМ2 (QuantityRules) включит дробное количество по единице, достаточно
-    /// заменить эту проверку, например на <c>p =&gt; QuantityRules.For(p).Fractional</c>. Целые упаковки идут всегда.</summary>
-    internal static Func<CatalogProductTileVm, bool> SupportsFractionalCart { get; set; } = p => p.MustWeigh;
+    /// нельзя. Целые упаковки идут всегда.
+    /// 2026-11-12 (ХМ5): дробное количество в корзину кладётся, если оно включено (<see cref="QuantityRules.ForTile"/> — «Хозтовары» + флаг сервера
+    /// + дробная единица товара) либо товар весовой. Иначе «В чек» доступно только при целом количестве (целые упаковки), а дробное — подписью.</summary>
+    internal static Func<CatalogProductTileVm, bool> SupportsFractionalCart { get; set; } = p => p.MustWeigh || QuantityRules.ForTile(p) is not null;
 
     private readonly CatalogProductTileVm _product;
     private readonly Func<double, Task> _addToCart;
@@ -586,12 +587,14 @@ internal sealed class HardwareCalcWindow : Window
         // Дробное количество в чек — только если корзина его не округлит (см. SupportsFractionalCart).
         string? cartProblem = null;
         if (_plan.CanAdd && _plan.IsFractional && _plan.Quantity != Math.Truncate(_plan.Quantity) && !SupportsFractionalCart(_product))
+            // 2026-11-12 (ХМ5): честная подпись вместо молчаливого округления: целое число упаковок в чек кладётся (единица «уп», «мешок»…),
+            // а м²/л/кг с дробной частью — только когда включено дробное количество.
             cartProblem = T(
-                $"Дробное количество ({Fmt2(_plan.Quantity)} {_product.Unit}) в этой кассе пока нельзя добавить в чек — впишите его в чеке вручную.",
-                $"Бөлчөк сан ({Fmt2(_plan.Quantity)} {_product.Unit}) бул кассада чекке азырынча кошулбайт — чекте кол менен жазыңыз.",
-                $"A fractional quantity ({Fmt2(_plan.Quantity)} {_product.Unit}) can't be added to the receipt yet — enter it in the receipt by hand.",
-                $"Kesirli miktar ({Fmt2(_plan.Quantity)} {_product.Unit}) henüz fişe eklenemiyor — fişte elle girin.",
-                $"Kasrli miqdor ({Fmt2(_plan.Quantity)} {_product.Unit}) hozircha chekka qo'shilmaydi — chekda qo'lda kiriting.");
+                $"Дробное количество ({Fmt2(_plan.Quantity)} {_product.Unit}) пока выключено. Продавайте товар упаковками (единица «уп») или попросите включить дробное количество; пока впишите целое количество в чеке вручную.",
+                $"Бөлчөк сан ({Fmt2(_plan.Quantity)} {_product.Unit}) азырынча өчүк. Товарды таңгак менен сатыңыз (бирдик «уп») же бөлчөк санды күйгүзүүнү сураныңыз; азырынча чекте бүтүн санды кол менен жазыңыз.",
+                $"Fractional quantity ({Fmt2(_plan.Quantity)} {_product.Unit}) is switched off. Sell the product in packs (unit “pack”) or ask to turn fractional quantities on; for now enter a whole quantity in the receipt by hand.",
+                $"Kesirli miktar ({Fmt2(_plan.Quantity)} {_product.Unit}) kapalı. Ürünü paketle satın (birim “paket”) veya kesirli miktarın açılmasını isteyin; şimdilik fişe tam sayı elle girin.",
+                $"Kasrli miqdor ({Fmt2(_plan.Quantity)} {_product.Unit}) o'chirilgan. Mahsulotni qadoqlab soting (birlik «qadoq») yoki kasrli miqdorni yoqishni so'rang; hozircha chekka butun sonni qo'lda kiriting.");
         else if (r.IsValid && _plan.Problem == CartPlanProblem.UnitMismatch)
         {
             var expected = CalcCartPlanner.ExpectedBaseUnit(r.Kind);

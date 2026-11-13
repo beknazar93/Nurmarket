@@ -13,8 +13,11 @@ public static class DrawerBreakdownBuilder
     private static string Som => Tr.T("сом", "сом", "som", "som", "so'm");
 
     public static void Fill(Control host, Panel panel, decimal opening, decimal cashSales, decimal debtPaidCash, decimal deposits,
-        decimal withdrawals, decimal returns, decimal expected)
+        decimal withdrawals, decimal returns, decimal expected, decimal previousShiftReturns = 0m)
     {
+        // 2026-11-13 (проверка денег, п. 7): returns — все наличные возвраты смены со знаком (в итоге ящика), previousShiftReturns — их часть, сторно возвратов ПРОШЛОЙ смены (отрицательная: деньги вернулись
+        // в ящик). Раньше сумма уходила в минус, строка «Возвраты» пряталась (returns > 0), а разница висела «Корректировкой». Теперь строка своя, итог тот же.
+        var thisShiftReturns = returns - previousShiftReturns;
         panel.Children.Clear();
         void Row(string label, decimal value, string sign, bool bold = false, string? tip = null)
         {
@@ -35,7 +38,7 @@ public static class DrawerBreakdownBuilder
         // объясняют наличные возвраты, возвращается в строку «Наличные продажи» (валовые, с вернувшимися чеками); итог не меняется. Остаток — по-прежнему «Корректировка».
         var sumBefore = opening + cashSales + debtPaidCash + deposits - withdrawals - returns;
         var gap = expected - sumBefore;
-        var returnedSalesCash = gap >= 0.01m && returns > 0m ? Math.Min(gap, returns) : 0m;
+        var returnedSalesCash = gap >= 0.01m && thisShiftReturns > 0m ? Math.Min(gap, thisShiftReturns) : 0m;
         cashSales += returnedSalesCash;
         Row(Tr.T("Начальная сумма", "Баштапкы сумма", "Opening amount", "Başlangıç tutarı", "Boshlang'ich summa"), opening, "");
         Row(returnedSalesCash > 0m
@@ -49,9 +52,21 @@ public static class DrawerBreakdownBuilder
             Row(Tr.T("Внесения", "Киргизүүлөр", "Deposits", "Para girişleri", "Kiritishlar"), deposits, "+");
         if (withdrawals > 0m)
             Row(Tr.T("Изъятия", "Алуулар", "Withdrawals", "Para çıkışları", "Olishlar"), withdrawals, "−");
-        if (returns > 0m)
+        if (thisShiftReturns > 0m)
             // 2026-11-01 (Ж-07): в ящик влияет только наличная часть возврата (безнал и списание долга денег из ящика не берут).
-            Row(Tr.T("Возвраты наличными", "Накталай кайтаруулар", "Cash returns", "Nakit iadeler", "Naqd qaytarishlar"), returns, "−");
+            Row(Tr.T("Возвраты наличными", "Накталай кайтаруулар", "Cash returns", "Nakit iadeler", "Naqd qaytarishlar"), thisShiftReturns, "−");
+        else if (thisShiftReturns < 0m)
+            Row(Tr.T("Отмена возврата", "Кайтарууну жокко чыгаруу", "Return reversal", "İade iptali", "Qaytarishni bekor qilish"), -thisShiftReturns, "+");
+        if (previousShiftReturns != 0m)
+            Row(previousShiftReturns < 0m
+                    ? Tr.T("Отмена возврата прошлой смены", "Өткөн сменанын кайтарууну жокко чыгаруу", "Reversal of a previous shift's return", "Önceki vardiya iadesinin iptali", "O'tgan smena qaytarishini bekor qilish")
+                    : Tr.T("Доплата по возврату прошлой смены", "Өткөн сменанын кайтаруусу боюнча кошумча төлөм", "Extra payout on a previous shift's return", "Önceki vardiya iadesi için ek ödeme", "O'tgan smena qaytarishi bo'yicha qo'shimcha to'lov"),
+                Math.Abs(previousShiftReturns), previousShiftReturns < 0m ? "+" : "−", tip: Tr.T(
+                    "Возврат был оформлен в прошлой смене и изменён/аннулирован сегодня: деньги движутся в этой смене.",
+                    "Кайтаруу өткөн сменада жасалган, бүгүн өзгөртүлдү/жокко чыгарылды: акча ушул сменада кыймылдайт.",
+                    "The return was made in a previous shift and changed/voided today: the money moves in this shift.",
+                    "İade önceki vardiyada yapıldı ve bugün değiştirildi/iptal edildi: para bu vardiyada hareket eder.",
+                    "Qaytarish o'tgan smenada rasmiylashtirilgan va bugun o'zgartirilgan/bekor qilingan: pul shu smenada harakatlanadi."));
         var sum = opening + cashSales + debtPaidCash + deposits - withdrawals - returns;
         var rest = expected - sum;
         // 2026-10-23 (аудит, круг 8, В-7): строка «Корректировка» — только если |остаток| ≥ 0,01 (копеечный хвост округления не показываем).

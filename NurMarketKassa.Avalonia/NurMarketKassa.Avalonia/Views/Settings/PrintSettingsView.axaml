@@ -98,6 +98,8 @@
             <!-- 2026-10-20 (живой аудит кассы, К7): как этот выключатель связан с «Напечатать чек» в окне оплаты (текст — в коде, 5 языков). -->
             <TextBlock x:Name="PrintSwitchHint" x:FieldModifier="public" FontSize="12" TextWrapping="Wrap" MaxWidth="640"
                        HorizontalAlignment="Left" Foreground="{DynamicResource BrushTextSoft}"/>
+            <!-- 2026-11-13: «Подключить принтер» / «Принтер не печатает?» / «Скачать драйвер Xprinter» для принтера чеков (видно и при выключенной печати). -->
+            <ContentControl x:Name="ReceiptSetupHost" x:FieldModifier="public"/>
           </StackPanel>
         </Border>
 
@@ -121,6 +123,8 @@
             </Grid>
             <!-- 2026-11-01: принтер этикеток по сети (LAN, TCP 9100) -->
             <ContentControl x:Name="LabelNetHost" x:FieldModifier="public" Margin="0,4,0,0"/>
+            <!-- 2026-11-13: мастер, диагностика и драйвер — для принтера этикеток. -->
+            <ContentControl x:Name="LabelSetupHost" x:FieldModifier="public"/>
             <TextBlock x:Name="LabelPrinterKindText" x:FieldModifier="public" FontSize="12" TextWrapping="Wrap"
                        Foreground="{DynamicResource BrushTextSoft}"/>
             <TextBlock x:Name="LabelPrinterWarnText" x:FieldModifier="public" FontSize="12" TextWrapping="Wrap"

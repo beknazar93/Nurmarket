@@ -84,6 +84,10 @@ public sealed class JobLine
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public double PackSaleSize { get; set; } // 0 в файл не пишется — обычные задачи остаются как были
     /// <summary>2026-11-10: название упаковки («Пачка»); null — «упаковка».</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? PackName { get; set; }
+    /// <summary>2026-11-11 (convert-to-packages): остаток из подтверждения «было → станет», согласие на округление и ключ повтора перевода (тот же при повторе задачи). Не заданы — в файл не пишутся.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public double? PackConvertExpected { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public bool PackConvertAllowRounding { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? PackConvertKey { get; set; }
     public Dictionary<string, double>? VariantQuantities { get; set; }
     public Dictionary<string, string>? VariantLabels { get; set; }
     public string Outcome { get; set; } = ReceivingLineOutcome.Pending;
@@ -117,6 +121,9 @@ public sealed class JobLine
         IsWeight = l.IsWeight,
         PackSaleSize = l.PackSaleSize,
         PackName = string.IsNullOrEmpty(l.PackName) ? null : l.PackName,
+        PackConvertExpected = l.PackConvertExpected,
+        PackConvertAllowRounding = l.PackConvertAllowRounding,
+        PackConvertKey = l.PackConvertKey,
         VariantQuantities = l.VariantQuantities is { Count: > 0 } vq ? new Dictionary<string, double>(vq) : null,
         VariantLabels = l.VariantLabels is { Count: > 0 } vl ? new Dictionary<string, string>(vl) : null,
     };
@@ -148,6 +155,9 @@ public sealed class JobLine
         if (PackSaleSize >= 2)
             vm.SetPackSale(true, PackSaleSize, keepNumbers: true); // 2026-11-07: строка снова «упаковка с поштучной продажей» (возврат в приёмку, повтор задачи); числа уже в упаковках — не пересчитываются (2026-11-10: и цены товара склада из штучных тоже)
         vm.PackName = PackName ?? "";
+        vm.PackConvertExpected = PackConvertExpected; // 2026-11-11: повтор задачи — тот же остаток из подтверждения и тот же ключ перевода
+        vm.PackConvertAllowRounding = PackConvertAllowRounding;
+        vm.PackConvertKey = PackConvertKey;
         return vm;
     }
 }

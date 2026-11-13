@@ -35,7 +35,7 @@ public partial class PriceTagPrintDialog : Window
 
         ProductNameText.Text = _product.Title;
 
-        KindCombo.ItemsSource = new[]
+        var kindOptions = new List<PriceTagKindOption>
         {
             new PriceTagKindOption(PriceTagKind.Simple, Tr.T("Простой (название + цена)", "Жөнөкөй (аталышы + баасы)", "Simple (name + price)", "Basit (ad + fiyat)", "Oddiy (nomi + narxi)")),
             new PriceTagKindOption(PriceTagKind.WithBarcode, Tr.T("Со штрих-кодом", "Штрих-код менен", "With barcode", "Barkodlu", "Shtrix-kod bilan")),
@@ -45,6 +45,10 @@ public partial class PriceTagPrintDialog : Window
             new PriceTagKindOption(PriceTagKind.WithQr, Tr.T("С QR-кодом", "QR-код менен", "With QR code", "QR kodlu", "QR-kod bilan")),
             new PriceTagKindOption(PriceTagKind.Custom, Tr.T("🎨 Пользовательский шаблон", "🎨 Колдонуучунун шаблону", "🎨 Custom template", "🎨 Özel şablon", "🎨 Foydalanuvchi shabloni")),
         };
+        // 2026-11-12 (ХМ7): ценник «Хозтовары» — только в магазине этой сферы; список остальных сфер прежний.
+        if (MarketSpheres.IsHardware)
+            kindOptions.Insert(kindOptions.Count - 1, new PriceTagKindOption(PriceTagKind.HardwareUnitPack, Tr.T("Хозтовары (цена за единицу и за упаковку)", "Чарба буюмдары (бирдик жана таңгак баасы)", "Hardware (unit and pack price)", "Hırdavat (birim ve paket fiyatı)", "Xo'jalik mollari (birlik va qadoq narxi)")));
+        KindCombo.ItemsSource = kindOptions;
 
         var hasBarcode = !string.IsNullOrWhiteSpace(_product.Barcode);
         KindCombo.SelectedIndex = hasBarcode ? 1 : 0;
@@ -183,10 +187,14 @@ public partial class PriceTagPrintDialog : Window
             discount = string.IsNullOrWhiteSpace(DiscountBox.Text) ? null : DiscountBox.Text;
         }
 
+        // 2026-11-12 (ХМ7): ценник «Хозтовары» — цена за единицу и за упаковку (HardwarePriceTag); остальные виды — как раньше.
+        var hardware = kind == PriceTagKind.HardwareUnitPack ? HardwarePriceTag.Build(_product) : (HardwarePriceTag.Texts?)null;
         return new PriceTagData(
             ProductName: _product.Title,
             Barcode: _product.Barcode,
-            PriceText: PriceDisplay,
+            PriceText: hardware?.UnitPrice ?? PriceDisplay,
+            PackPriceText: hardware?.PackPrice,
+            PackLabel: hardware?.PackLabel,
             OldPriceText: oldPrice,
             DiscountText: discount,
             Sku: _product.Article,

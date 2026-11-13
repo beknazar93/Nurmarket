@@ -434,7 +434,8 @@ public partial class ShiftDetailsDialog : Window
             // возврате строки не давали итог (лишняя «Корректировка»). Без суммы сервера в раскладку идёт та же наличная часть, что и в итог.
             DrawerBreakdownBuilder.Fill(this, DrawerBreakdown, drawerOpening, shift.CashSales ?? 0m, _report?.DebtPaymentsCash ?? 0m, deposits, withdrawals,
                 // 2026-11-01 (Ж-07): и с суммой сервера в раскладку — наличная часть возвратов (раньше все способы: «Возвраты −12 / Корректировка +12»).
-                cashReturnsForExpected, drawerExpected);
+                cashReturnsForExpected, drawerExpected,
+                previousShiftReturns: ShiftEventsStore.ReturnTotalsForShift(shift.Id).PrevCash); // 2026-11-13 (проверка денег, п. 7): сторно возврата прошлой смены — отдельной строкой
             AppendNotOnServerRow(shift, drawerExpected);
             if (shift.ClosingCash is { } drawerActual)
             {
@@ -543,7 +544,9 @@ public partial class ShiftDetailsDialog : Window
         var events = ShiftEventsStore.TotalsForShift(shiftId);
         double Get(string kind) => events.TryGetValue(kind, out var value) ? value : 0;
 
-        var returns = Get(ShiftEventsStore.KindReturn);
+        // 2026-11-13 (проверка денег, п. 7): сторно возврата прошлой смены — отдельная строка под плиткой, в «Возвраты» смены оно не входит (раньше уводило сумму в минус)
+        var returnTotals = ShiftEventsStore.ReturnTotalsForShift(shiftId);
+        var returns = (double)returnTotals.Amount;
         // 2026-09-28 (BE-09/BE-10): возвраты — с сервера: из отчёта смены, а пока он их не считает
         // (returns_total = 0, у возвратов нет смены) — по списку возвратов сервера. Локальный
         // журнал — только если сервера нет.
@@ -586,17 +589,31 @@ public partial class ShiftDetailsDialog : Window
             debtPaid = Math.Max(debtPaid, (double)withDebtPayments.DebtPaymentsCash!.Value);
 
         // 2026-11-06: В6 Д4-18 — возврат уменьшает выручку, поэтому со знаком «−» (обычным цветом: красный — только долг и недостача).
-        ReturnsText.Text = returns > 0.005 ? "−" + Money(returns) : "—";
+        ReturnsText.Text = returns > 0.005 ? "−" + Money(returns) : returns < -0.005 ? "+" + Money(-returns) : "—"; // 2026-11-13: сторно сверх возвратов смены не прячем
         // 2026-10-22 (аудит 1.17.59, П-Д): сервер списывает при возврате больше, чем касса выдала (скидка на чек, ТЗ 19.9) —
         // та же строка-пояснение, что в окне закрытия смены (CloseShiftDialog, server_over в записи возврата).
         var serverOver = ShiftEventsStore.ListForShift(shiftId, ShiftEventsStore.KindReturn)
             .Sum(r => CloseShiftDialog.ParseNote(r.Note, "server_over") ?? 0);
-        ReturnsOverText.IsVisible = serverOver > 0.005;
-        ReturnsOverText.Text = Tr.T($"Сервер записал возвраты больше выданного — {Money(serverOver)}",
-            $"Сервер кайтарууларды берилгенден көп жазды — {Money(serverOver)}",
-            $"The server recorded returns above what was paid out — {Money(serverOver)}",
-            $"Sunucu iadeleri verilenden fazla kaydetti — {Money(serverOver)}",
-            $"Server qaytarishlarni berilganidan ko'p yozdi — {Money(serverOver)}");
+        // 2026-11-13 (п. 7): под плиткой — и «Отмена возврата прошлой смены» (наличные вернулись в ящик / выданы), если она была
+        var prevLine = "";
+        if (Math.Abs(returnTotals.PrevAmount) > 0.005m)
+            prevLine = returnTotals.PrevAmount < 0m
+                ? Tr.T($"Отмена возврата прошлой смены: +{Money((double)-returnTotals.PrevAmount)} (наличными в ящик {Money((double)Math.Max(0m, -returnTotals.PrevCash))})",
+                    $"Өткөн сменанын кайтарууну жокко чыгаруу: +{Money((double)-returnTotals.PrevAmount)} (накталай кутуга {Money((double)Math.Max(0m, -returnTotals.PrevCash))})",
+                    $"Reversal of a previous shift's return: +{Money((double)-returnTotals.PrevAmount)} (cash to the drawer {Money((double)Math.Max(0m, -returnTotals.PrevCash))})",
+                    $"Önceki vardiya iadesinin iptali: +{Money((double)-returnTotals.PrevAmount)} (nakit çekmeceye {Money((double)Math.Max(0m, -returnTotals.PrevCash))})",
+                    $"O'tgan smena qaytarishini bekor qilish: +{Money((double)-returnTotals.PrevAmount)} (naqd tortmaga {Money((double)Math.Max(0m, -returnTotals.PrevCash))})")
+                : Tr.T($"Доплата по возврату прошлой смены: −{Money((double)returnTotals.PrevAmount)}", $"Өткөн сменанын кайтаруусу боюнча кошумча төлөм: −{Money((double)returnTotals.PrevAmount)}",
+                    $"Extra payout on a previous shift's return: −{Money((double)returnTotals.PrevAmount)}", $"Önceki vardiya iadesi için ek ödeme: −{Money((double)returnTotals.PrevAmount)}",
+                    $"O'tgan smena qaytarishi bo'yicha qo'shimcha to'lov: −{Money((double)returnTotals.PrevAmount)}");
+        ReturnsOverText.IsVisible = serverOver > 0.005 || prevLine.Length > 0;
+        ReturnsOverText.Text = (serverOver > 0.005
+            ? Tr.T($"Сервер записал возвраты больше выданного — {Money(serverOver)}",
+                $"Сервер кайтарууларды берилгенден көп жазды — {Money(serverOver)}",
+                $"The server recorded returns above what was paid out — {Money(serverOver)}",
+                $"Sunucu iadeleri verilenden fazla kaydetti — {Money(serverOver)}",
+                $"Server qaytarishlarni berilganidan ko'p yozdi — {Money(serverOver)}")
+            : "") + (serverOver > 0.005 && prevLine.Length > 0 ? "\n" : "") + prevLine;
         WriteOffsText.Text = writeOffs > 0.005 ? Money(writeOffs) : "—";
         ExpenseText.Text = expenses > 0.005 ? Money(expenses) : "—";
         DebtPaidText.Text = debtPaid > 0.005 ? Money(debtPaid) : "—";

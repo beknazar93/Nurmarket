@@ -436,6 +436,23 @@ public sealed class ReceivingDraftSession : IDisposable
 
     public DateTime? LastSavedAt { get; private set; }
 
+    /// <summary>2026-11-11 (Д-5, живая проверка «Склада»): последняя попытка записи не удалась (снимок строк, диск, слишком много строк / большой файл) —
+    /// набранное НЕ сохранится, «Закрыть склад?» предупреждает по-старому («строки пропадут»).</summary>
+    public bool LastWriteFailed { get; private set; }
+
+    /// <summary>2026-11-11 (Д-5): записать сейчас (с ожиданием) и ответить, лежит ли набранное в черновике — для текста вопроса при закрытии окна.
+    /// false — автосохранение ещё не включено (не ответили «Продолжить / Начать заново»), окно закрыто или запись не удалась. Вызывать в потоке UI.</summary>
+    public bool SaveNowAndCheck()
+    {
+        Flush(wait: true);
+        lock (_gate)
+        {
+            if (_disposed || !_armed)
+                return false;
+        }
+        return !LastWriteFailed && LastSavedAt is not null;
+    }
+
     public ReceivingDraftSession(string slot, Func<ReceivingDraftFile?> capture, TimeSpan? debounce = null, TimeSpan? maxWait = null)
     {
         _slot = slot;
@@ -531,6 +548,7 @@ public sealed class ReceivingDraftSession : IDisposable
         catch (Exception ex)
         {
             PosLogger.Log($"Черновик приёмки ({_slot}): снимок строк не снят ({ex.GetType().Name}: {ex.Message}) — повторим.", "WARNING");
+            LastWriteFailed = true; // 2026-11-11 (Д-5)
             Touch();
             return;
         }
@@ -558,6 +576,7 @@ public sealed class ReceivingDraftSession : IDisposable
         if (f.Lines.Count > ReceivingDraftStore.MaxLines)
         {
             PosLogger.Log($"Черновик приёмки ({_slot}): строк {f.Lines.Count} — больше {ReceivingDraftStore.MaxLines}, черновик не пишется.", "WARNING");
+            LastWriteFailed = true; // 2026-11-11 (Д-5)
             return;
         }
         string compare;
@@ -580,6 +599,7 @@ public sealed class ReceivingDraftSession : IDisposable
             PosLogger.Log($"Черновик приёмки ({_slot}): файл слишком большой ({text.Length} знаков) — не пишется.", "WARNING");
             lock (_gate)
                 _lastJson = null;
+            LastWriteFailed = true; // 2026-11-11 (Д-5)
             return;
         }
 
@@ -591,8 +611,11 @@ public sealed class ReceivingDraftSession : IDisposable
                 if (ReceivingDraftStore.Save(_slot, text, seq))
                     OnSaved(now);
                 else
+                {
+                    LastWriteFailed = true; // 2026-11-11 (Д-5): набранное не сохранилось — при закрытии прежнее предупреждение
                     lock (_gate)
                         _lastJson = null; // не записалось — следующая попытка не пропустит «без изменений»
+                }
             }
             finally
             {
@@ -610,6 +633,7 @@ public sealed class ReceivingDraftSession : IDisposable
     private void OnSaved(DateTime at)
     {
         LastSavedAt = at;
+        LastWriteFailed = false; // 2026-11-11 (Д-5)
         var handler = Saved;
         if (handler is null)
             return;

@@ -105,6 +105,7 @@ public static class ReturnSaleLauncher
             dialog.InitialClientId = clientId;
             dialog.InitialClientName = clientName;
             dialog.InitialStatus = status;
+            AddOwnerNoShiftNote(dialog);
             dialog.FitToOwnerWindow(owner);
             await PosDialogHost.ShowAsync(dialog, owner).ConfigureAwait(true);
             return true;
@@ -118,6 +119,42 @@ public static class ReturnSaleLauncher
             return false;
         }
     }
+
+    /// <summary>2026-11-12 (аудит 12.11, С-30): «возврат без смены» подтверждается раз за сеанс — дальше напоминания не было. Теперь в шапке окна возврата
+    /// программы владельца (без кассовой смены) — постоянная строка: деньги выдаёт сам, в смену и Z-отчёт не попадёт, чек не печатается. Окно возврата не меняется
+    /// (строка добавляется под заголовок по имени InstructionsText); в кассе строки нет.</summary>
+    private static void AddOwnerNoShiftNote(ReturnSaleDialog dialog)
+    {
+        if (!AppMode.IsOwner || !string.IsNullOrEmpty(PosApp.ActiveShiftId))
+            return;
+        try
+        {
+            if (dialog.FindControl<Avalonia.Controls.TextBlock>("InstructionsText")?.Parent is not Avalonia.Controls.Panel header)
+                return;
+            var note = new Avalonia.Controls.TextBlock
+            {
+                Name = "OwnerNoShiftNote",
+                Text = "ⓘ " + OwnerNoShiftNoteText,
+                TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                FontSize = 13,
+                Margin = new Avalonia.Thickness(0, 4, 0, 0),
+            };
+            note.Bind(Avalonia.Controls.TextBlock.ForegroundProperty, note.GetResourceObservable("BrushTextSoft"));
+            header.Children.Add(note);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            PosLogger.Log($"Возврат (владелец): строка-напоминание «без смены» не добавлена ({ex.GetType().Name}).", "WARNING");
+        }
+    }
+
+    /// <summary>2026-11-12 (С-30): напоминание в окне возврата программы владельца.</summary>
+    public static string OwnerNoShiftNoteText => T(
+        "Программа владельца, смены кассы нет: деньги покупателю выдаёте сами, в смену и Z-отчёт кассы возврат не попадёт; чек на принтер не печатается. Долговой чек уменьшает долг клиента.",
+        "Ээсинин программасы, кассанын сменасы жок: акчаны сатып алуучуга өзүңүз бересиз, кайтаруу кассанын сменасына жана Z-отчётко кирбейт; чек принтерге басылбайт. Карыз чек кардардын карызын азайтат.",
+        "Owner app, no till shift: you pay the customer yourself, the return does not go into a till shift or Z report; no receipt is printed. A credit receipt reduces the customer's debt.",
+        "Sahip programı, kasa vardiyası yok: müşteriye parayı siz verirsiniz, iade kasa vardiyasına ve Z raporuna girmez; fiş yazdırılmaz. Veresiye fiş müşterinin borcunu azaltır.",
+        "Egasi dasturi, kassa smenasi yo'q: pulni xaridorga o'zingiz berasiz, qaytarish kassa smenasiga va Z-hisobotga kirmaydi; chek chop etilmaydi. Qarz chek mijoz qarzini kamaytiradi.");
 
     /// <summary>Текст подтверждения «возврат без смены» в программе владельца.</summary>
     public static string OwnerNoShiftText => T(
