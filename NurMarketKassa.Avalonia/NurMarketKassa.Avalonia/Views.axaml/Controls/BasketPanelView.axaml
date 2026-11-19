@@ -357,9 +357,20 @@
             <Setter Property="Background" Value="{DynamicResource BrushPanelElevated}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
         </Style>
+        <!-- 2026-11-19 (редизайн вида кассы 2.0): чек — одна «квитанция»: строки идут вплотную и разделены тонкой чертой (раньше каждая строка была
+             отдельной карточкой с рамкой и промежутком — на 1366×768 помещалось 4 строки). Подсветка новой строки (fresh) работает как раньше. -->
         <Style Selector="Border.cart-line">
-            <Setter Property="Padding" Value="10,8"/>
-            <Setter Property="Margin" Value="0,0,0,8"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="CornerRadius" Value="0"/>
+        </Style>
+        <Style Selector="ListBox.cart-list">
+            <Setter Property="Background" Value="{DynamicResource BrushCatalogTileBg}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushCatalogTileBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource NurRadiusCard}"/>
+            <Setter Property="ClipToBounds" Value="True"/>
         </Style>
         <!-- Место суммы и кнопок в сетке строки задаётся только здесь (не на самих элементах), иначе
              компактный вид не смог бы его поменять: значение на элементе сильнее стиля. -->
@@ -419,7 +430,6 @@
         </Style>
         <Style Selector=".compact Border.cart-line">
             <Setter Property="Padding" Value="10,6"/>
-            <Setter Property="Margin" Value="0,0,0,6"/>
         </Style>
         <!-- Кнопки строки — вторым рядом на всю ширину строки, слева от них «цена × количество». -->
         <Style Selector=".compact Grid.line-controls">
@@ -488,7 +498,6 @@
         </Style>
         <Style Selector=".shortscreen Border.cart-line">
             <Setter Property="Padding" Value="8,4"/>
-            <Setter Property="Margin" Value="0,0,0,3"/>
         </Style>
         <Style Selector=".shortscreen Grid.line-controls">
             <Setter Property="Margin" Value="0,2,0,0"/>
@@ -761,8 +770,6 @@
                                 <Border Classes="cart-line"
                                         Classes.longtitle="{Binding HasLongTitle}"
                                         BorderBrush="{DynamicResource BrushCatalogTileBorder}"
-                                        BorderThickness="1"
-                                        CornerRadius="8"
                                         HorizontalAlignment="Stretch">
                                     <Grid RowDefinitions="Auto,Auto,Auto"
                                           ColumnDefinitions="*,Auto,Auto"

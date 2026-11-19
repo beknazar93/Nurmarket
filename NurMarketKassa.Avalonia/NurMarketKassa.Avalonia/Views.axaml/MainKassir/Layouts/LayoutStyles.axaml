@@ -15,11 +15,13 @@
          иначе тема Fluent поверх любого своего фона рисует серый ButtonBackgroundPointerOver. -->
 
     <!-- ============================ поверхности ============================ -->
+    <!-- 2026-11-19 (редизайн вида кассы 2.0): радиусы карточек, полей, кнопок и чипов всех видов кассы («Табличная», «Карточки», «Минимал», «Профи») — по единой шкале Д-8
+         (NurRadiusCard / NurRadiusControl), как в «Классике» и окне оплаты; раньше — свои ключи и число 18 у чипов. -->
     <Style Selector="Border.lx-card">
         <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="{DynamicResource SettingsCardRadius}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource NurRadiusCard}"/>
         <Setter Property="BoxShadow" Value="0 1 2 0 #0F101828"/>
     </Style>
 
@@ -33,7 +35,7 @@
         <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource NurRadiusControl}"/>
         <Setter Property="Padding" Value="12,0"/>
         <Setter Property="MinHeight" Value="44"/>
     </Style>
@@ -106,7 +108,7 @@
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="HorizontalContentAlignment" Value="Center"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
-        <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource NurRadiusControl}"/>
     </Style>
     <!-- 2026-10-27: прозрачность выключенной 0.45 → 0,75: в тёмной теме надпись выключенной кнопки была 1,5–2,5:1 (нужно ≥3:1). -->
     <Style Selector="Button.lx-btn:disabled, Button.lx-accent:disabled, Button.lx-success:disabled, Button.lx-ghost:disabled, Button.lx-chip:disabled, Button.lx-step:disabled, Button.lx-soft-success:disabled, Button.lx-soft-warning:disabled, Button.lx-soft-danger:disabled, Button.lx-soft-accent:disabled">
@@ -289,7 +291,7 @@
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Padding" Value="14,0"/>
         <Setter Property="Height" Value="40"/> <!-- 2026-11-06: В6 цель нажатия 40 (было 36) -->
-        <Setter Property="CornerRadius" Value="18"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource NurRadiusControl}"/>
     </Style>
     <Style Selector="Button.lx-chip:pointerover /template/ ContentPresenter#PART_ContentPresenter">
         <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
@@ -390,11 +392,11 @@
         <Setter Property="Margin" Value="0"/>
         <Setter Property="MinHeight" Value="0"/>
         <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="CornerRadius" Value="{DynamicResource SettingsCardRadius}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource NurRadiusCard}"/>
         <!-- 2026-11-06, А-2: рамка фокуса — FocusAdorner поверх плитки (раньше :focus-visible ставил BorderThickness 0 → 2, плитка росла на 4×4 px). -->
         <Setter Property="FocusAdorner">
             <FocusAdornerTemplate>
-                <Border BorderThickness="2" BorderBrush="{DynamicResource BrushFocusRing}" CornerRadius="{DynamicResource SettingsCardRadius}"/>
+                <Border BorderThickness="2" BorderBrush="{DynamicResource BrushFocusRing}" CornerRadius="{DynamicResource NurRadiusCard}"/>
             </FocusAdornerTemplate>
         </Setter>
         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
@@ -426,7 +428,7 @@
     <Style Selector="MenuFlyoutPresenter">
         <Setter Property="Background" Value="{DynamicResource BrushPanelElevated}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
-        <Setter Property="CornerRadius" Value="{DynamicResource SettingsCardRadius}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource NurRadiusCard}"/>
     </Style>
     <Style Selector="MenuFlyoutPresenter MenuItem">
         <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>

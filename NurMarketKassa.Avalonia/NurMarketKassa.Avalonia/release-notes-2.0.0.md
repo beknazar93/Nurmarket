@@ -16,6 +16,8 @@
 ### Что нового
 
 - **Новый главный экран кассы.** Одно поле ввода для кода, названия и количества («3*код»), крупная кнопка «Оплатить»; учебный режим и мастер первого запуска.
+- **Новый вид кассы.** Окно оплаты (крупный итог, сдача рядом с суммой, ровные кнопки), плитки каталога с фото или цветными буквами, чек карточкой.
+- **Маркетплейс.** Кнопка «Открыть на сайте» открывает раздел Маркетплейса.
 - **Единый дизайн.** Единые кнопки и шкала размеров во всех окнах; окна весов — «Быстрая настройка».
 - **Понятные ошибки и удобство.** Вместо сырого текста ошибки — понятные сообщения; запятая в числах; лучше контраст и крупные кнопки для сенсорного экрана.
 - **Весы CAS и Масса-К.** Добавлена поддержка весов CAS и Масса-К. Протокол на реальных весах пока не проверен — перед отправкой касса просит подтверждение.
@@ -40,6 +42,8 @@
 ### Эмнелер жаңы
 
 - **Кассанын жаңы башкы экраны.** Код, аталыш жана санды киргизүү үчүн бир талаа («3*код»), чоң «Төлөө» баскычы; окутуу режими жана биринчи ишке киргизүү устасы.
+- **Кассанын жаңы көрүнүшү.** Төлөм терезеси (чоң жыйынтык, кайтарым сумманын жанында, тегиз баскычтар), каталог плиткалары сүрөт же түстүү тамгалар менен, чек карточка түрүндө.
+- **Маркетплейс.** «Сайтта ачуу» баскычы Маркетплейс бөлүмүн ачат.
 - **Бирдиктүү дизайн.** Бардык терезелерде бирдей баскычтар жана өлчөмдөр шкаласы; тараза терезелери — «Тез жөндөө».
 - **Түшүнүктүү каталар жана ыңгайлуулук.** Ката текстинин ордуна түшүнүктүү билдирүүлөр; сандарда үтүр; контраст жакшырды, сенсордук экран үчүн чоң баскычтар.
 - **CAS жана Масса-К таразалары.** CAS жана Масса-К таразаларына колдоо кошулду. Протокол чыныгы таразаларда али текшерилген жок — жөнөтүү алдында касса ырастоону суранат.
@@ -64,6 +68,8 @@
 ### What's new
 
 - **New main till screen.** One input field for the code, name and quantity (“3*code”), a large “Pay” button; a training mode and a first-run wizard.
+- **New till look.** Payment window (large total, change next to the amount, even buttons), catalog tiles with a photo or colored letters, receipt as a card.
+- **Marketplace.** The “Open on the site” button opens the Marketplace section.
 - **Unified design.** The same buttons and size scale in all windows; scale windows now have “Quick setup”.
 - **Clear errors and comfort.** Clear messages instead of raw error text; a comma in numbers; better contrast and large buttons for touch screens.
 - **CAS and Massa-K scales.** Support for CAS and Massa-K scales was added. The protocol has not yet been tested on real scales — the till asks for confirmation before sending.
@@ -88,6 +94,8 @@
 ### Yenilikler
 
 - **Yeni kasa ana ekranı.** Kod, ad ve miktar için tek giriş alanı («3*kod»), büyük «Öde» düğmesi; eğitim modu ve ilk çalıştırma sihirbazı.
+- **Yeni kasa görünümü.** Ödeme penceresi (büyük toplam, para üstü tutarın yanında, düzgün düğmeler), fotoğraflı veya renkli harfli katalog kutucukları, kart şeklinde fiş.
+- **Pazar yeri.** «Siteyi aç» düğmesi Pazar yeri bölümünü açar.
 - **Ortak tasarım.** Tüm pencerelerde aynı düğmeler ve boyut ölçeği; terazi pencerelerinde «Hızlı kurulum».
 - **Anlaşılır hatalar ve kolaylık.** Ham hata metni yerine anlaşılır mesajlar; sayılarda virgül; daha iyi kontrast ve dokunmatik ekran için büyük düğmeler.
 - **CAS ve Massa-K terazileri.** CAS ve Massa-K terazileri için destek eklendi. Protokol henüz gerçek terazilerde denenmedi — göndermeden önce kasa onay ister.
@@ -112,6 +120,8 @@
 ### Yangiliklar
 
 - **Kassaning yangi bosh ekrani.** Kod, nom va miqdor uchun bitta kiritish maydoni («3*kod»), katta «To'lash» tugmasi; o'quv rejimi va birinchi ishga tushirish ustasi.
+- **Kassaning yangi ko'rinishi.** To'lov oynasi (katta jami, qaytim summa yonida, tekis tugmalar), rasm yoki rangli harfli katalog plitkalari, chek karta shaklida.
+- **Marketplace.** «Saytda ochish» tugmasi Marketplace bo'limini ochadi.
 - **Yagona dizayn.** Barcha oynalarda bir xil tugmalar va o'lchamlar shkalasi; tarozi oynalari — «Tez sozlash».
 - **Tushunarli xatolar va qulaylik.** Xatoning xom matni o'rniga tushunarli xabarlar; sonlarda vergul; kontrast yaxshilandi, sensorli ekran uchun katta tugmalar.
 - **CAS va Massa-K tarozilari.** CAS va Massa-K tarozilari qo'llab-quvvatlanadi. Protokol haqiqiy tarozilarda hali tekshirilmagan — yuborishdan oldin kassa tasdiqlashni so'raydi.

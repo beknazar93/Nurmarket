@@ -317,7 +317,7 @@ public sealed partial class UserPreferences
             if (fromFile.ShowCatalogPhotos is not null)
                 p.ShowCatalogPhotos = fromFile.ShowCatalogPhotos.Value;
             if (!string.IsNullOrWhiteSpace(fromFile.MarketplaceWebUrl))
-                p.MarketplaceWebUrl = fromFile.MarketplaceWebUrl.Trim(); // 2026-11-06: адрес Маркетплейса на сайте
+                p.MarketplaceWebUrl = MarketplaceWebLink.MigrateSaved(fromFile.MarketplaceWebUrl); // 2026-11-06: адрес Маркетплейса на сайте; 2026-11-19: старый /crm/marketplace → /marketplace
             if (fromFile.AutoInstallPurchasedThemes is not null)
                 p.AutoInstallPurchasedThemes = fromFile.AutoInstallPurchasedThemes.Value;
             if (fromFile.Language is not null)

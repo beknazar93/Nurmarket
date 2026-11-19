@@ -433,7 +433,9 @@ public sealed class MarketplaceThemesTests : IDisposable
     [Fact]
     public void Web_link_default_custom_and_item_without_secrets()
     {
-        MarketplaceWebLink.Build(null).Should().Be("https://market.nurcrm.kg/crm/marketplace");
+        MarketplaceWebLink.Build(null).Should().Be("https://market.nurcrm.kg/marketplace");
+        MarketplaceWebLink.MigrateSaved("https://market.nurcrm.kg/crm/marketplace/").Should().Be("https://market.nurcrm.kg/marketplace", "прежний адрес по умолчанию открывал сводку");
+        MarketplaceWebLink.MigrateSaved("https://front-market.vercel.app/crm/marketplace").Should().Be("https://front-market.vercel.app/crm/marketplace", "свой адрес не трогаем");
         MarketplaceWebLink.Build("https://front-market.vercel.app/crm/marketplace", "kassa-loyalty").Should().Be("https://front-market.vercel.app/crm/marketplace?item=kassa-loyalty");
         MarketplaceWebLink.Build("https://market.nurcrm.kg/crm/marketplace?lang=ru", "theme-sunset").Should().Be("https://market.nurcrm.kg/crm/marketplace?lang=ru&item=theme-sunset");
         MarketplaceWebLink.Build("https://market.nurcrm.kg/crm/marketplace", "a b&token=1").Should().Be("https://market.nurcrm.kg/crm/marketplace", "небезопасный код не добавляется");

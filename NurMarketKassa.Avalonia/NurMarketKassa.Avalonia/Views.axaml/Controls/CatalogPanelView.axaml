@@ -176,25 +176,53 @@
         <Style Selector="TabControl.catalog-tabs TabItem:selected">
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
         </Style>
-        <Style Selector="TabControl.catalog-tabs TabItem:pointerover /template/ Border#PART_LayoutRoot">
+        <Style Selector="TabControl.catalog-tabs TabItem:not(:selected):pointerover /template/ Border#PART_LayoutRoot">
             <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
         </Style>
-        <Style Selector="TabControl.catalog-tabs TabItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Style Selector="TabControl.catalog-tabs TabItem:not(:selected):pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
         </Style>
-        <Style Selector="TabControl.catalog-tabs TabItem:selected /template/ Border#PART_SelectedPipe">
-            <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+        <!-- 2026-11-19 (редизайн вида кассы 2.0): вкладки каталога — «чипы»: мягкая подложка, выбранная залита цветом выбора (как выбранная страница
+             и способ оплаты), полоса-подчёркивание убрана. Высота цели касания прежняя (44), радиус — по шкале Д-8. -->
+        <Style Selector="TabControl.catalog-tabs TabItem">
+            <Setter Property="Margin" Value="0,0,6,0"/>
+        </Style>
+        <Style Selector="TabControl.catalog-tabs TabItem /template/ Border#PART_LayoutRoot">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource NurRadiusControl}"/>
+            <Setter Property="Margin" Value="0,2"/>
+        </Style>
+        <Style Selector="TabControl.catalog-tabs TabItem:selected /template/ Border#PART_LayoutRoot">
+            <Setter Property="Background" Value="{DynamicResource BrushSelectedBg}"/>
+        </Style>
+        <Style Selector="TabControl.catalog-tabs TabItem:selected, TabControl.catalog-tabs TabItem:selected:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource BrushSelectedFg}"/>
+        </Style>
+        <Style Selector="TabControl.catalog-tabs TabItem:selected /template/ ContentPresenter#PART_ContentPresenter, TabControl.catalog-tabs TabItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Foreground" Value="{DynamicResource BrushSelectedFg}"/>
+        </Style>
+        <Style Selector="TabControl.catalog-tabs TabItem /template/ Border#PART_SelectedPipe">
+            <Setter Property="IsVisible" Value="False"/>
         </Style>
 
         <!-- 2026-11-06 (В7, п. 15 в плана скорости): место под фото плитки занято сразу (по адресу картинки), а не когда картинка скачалась и расшифровалась, —
              плитки не «подпрыгивают» при первом показе страницы. Пока картинки нет — мягкая подложка; в тесном окне фото ниже. -->
-        <Style Selector="Border.tile-photo">
+        <!-- 2026-11-19 (редизайн вида кассы 2.0): «обложка» есть у каждой плитки (Panel.tile-media): фото, а без фото — буквы названия на мягком цвете категории.
+             Высота обложки — прежний ключ темы CatalogTilePhotoHeight (в тесном окне 40), поэтому высота плитки и сетка не изменились. -->
+        <Style Selector="Panel.tile-media">
             <Setter Property="Height" Value="{DynamicResource CatalogTilePhotoHeight}"/>
+        </Style>
+        <Style Selector="Border.tile-photo">
             <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
         </Style>
-        <Style Selector=".compact Border.tile-photo, .shortscreen Border.tile-photo">
+        <Style Selector=".compact Panel.tile-media, .shortscreen Panel.tile-media">
             <Setter Property="Height" Value="40"/>
-            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+        <Style Selector="TextBlock.tile-mono">
+            <Setter Property="FontSize" Value="{DynamicResource NurFontTitle}"/>
+        </Style>
+        <Style Selector=".compact TextBlock.tile-mono, .shortscreen TextBlock.tile-mono">
+            <Setter Property="FontSize" Value="{DynamicResource NurFontSubtitle}"/>
         </Style>
         <!-- 2026-11-06 (В7, Д4-08): значок типа («Весовой», «Комплект») — только во вкладке «Все товары» и при поиске; на вкладке «Весовые» он повторял фильтр на каждой плитке.
              Скрывает класс hide-type-badge у корня (ставит CatalogPanelView.UpdateTypeBadgeVisibility); сам значок привязан к ShowTypeBadge, поэтому прячем его обёртку. -->
@@ -303,6 +331,7 @@
         <Style Selector=".compact TabControl.catalog-tabs TabItem">
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="Padding" Value="8,0"/>
+            <Setter Property="Margin" Value="0,0,4,0"/>
             <Setter Property="MinWidth" Value="0"/>
         </Style>
         <Style Selector=".compact Grid.catalog-search-row">
@@ -313,6 +342,7 @@
         <Style Selector=".headernarrow TabControl.catalog-tabs TabItem">
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="Padding" Value="8,0"/>
+            <Setter Property="Margin" Value="0,0,4,0"/>
             <Setter Property="MinWidth" Value="0"/>
         </Style>
         <Style Selector=".headernarrow Button.catalog-pager">
@@ -637,7 +667,7 @@
                                                     BorderBrush="{DynamicResource BrushCatalogTileBorder}"
                                                     BorderThickness="1"
                                                     CornerRadius="{DynamicResource SettingsCardRadius}"
-                                                    Padding="14,12"
+                                                    Padding="0"
                                                     ClipToBounds="True"
                                                     Cursor="Hand">
                                                 <!-- Карточка держит три вещи: что это, сколько стоит и
@@ -653,58 +683,63 @@
                                                        карточке он занимал строку и утяжелял её.
                                                      • Плашка «Штучный» стояла почти на каждом товаре —
                                                        см. CatalogProductTileVm.ShowTypeBadge. -->
-                                                <Grid RowDefinitions="Auto,*,Auto,Auto">
+                                                <!-- 2026-11-19 (редизайн вида кассы 2.0, решение владельца «в 2.0 вид должен измениться заметно»): плитка «фото сверху».
+                                                     Сверху обложка на всю ширину (фото; без фото — две буквы названия на мягком цвете категории, TileTintConverter),
+                                                     на ней значок типа («Весовой», «Комплект»); ниже слева название (две строки), крупная цена табличными цифрами и остаток.
+                                                     Высота плитки и ключи темы прежние; тени и анимаций нет — отрисовка списка не тяжелее прежней. -->
+                                                <Grid RowDefinitions="Auto,*,Auto">
+                                                    <Panel Grid.Row="0" Classes="tile-media">
+                                                        <Border Background="{Binding ., Converter={x:Static conv:TileTintConverter.Instance}}"/>
+                                                        <TextBlock Classes="tile-mono"
+                                                                   Text="{Binding Title, Converter={x:Static conv:MonogramConverter.Instance}}"
+                                                                   Foreground="{Binding ., Converter={x:Static conv:TileTintConverter.Instance}, ConverterParameter=fg}"
+                                                                   FontWeight="Bold"
+                                                                   HorizontalAlignment="Center"
+                                                                   VerticalAlignment="Center"/>
+                                                        <!-- 2026-11-06 (В7): слот занят по ImageUrl (адрес картинки известен сразу), а не по ProductImagePath (путь появляется после загрузки). -->
+                                                        <Border Classes="tile-photo"
+                                                                ClipToBounds="True"
+                                                                IsVisible="{Binding ImageUrl, Converter={x:Static conv:ShowProductPhotoConverter.Instance}}">
+                                                            <Image Source="{Binding ProductImagePath, Converter={x:Static conv:AssetPathToBitmapConverter.Instance}, ConverterParameter=thumb}"
+                                                                   Stretch="UniformToFill"/>
+                                                        </Border>
+                                                        <Panel Classes="type-badge-host" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="6,0,0,4">
+                                                            <Border Padding="6,1"
+                                                                    CornerRadius="{DynamicResource NurRadiusSmall}"
+                                                                    IsVisible="{Binding ShowTypeBadge}"
+                                                                    Classes.badge-weighted="{Binding IsWeighted}"
+                                                                    Classes.badge-bundle="{Binding IsBundle}"
+                                                                    Background="{DynamicResource BrushBadgePieceBg}">
+                                                                <TextBlock Text="{Binding , Converter={x:Static conv:TypeBadgeTextConverter.Instance}}"
+                                                                           FontSize="12"
+                                                                           FontWeight="SemiBold"
+                                                                           Classes.badge-weighted="{Binding IsWeighted}"
+                                                                           Classes.badge-bundle="{Binding IsBundle}"
+                                                                           Foreground="{DynamicResource BrushBadgePieceFg}"
+                                                                           VerticalAlignment="Center"/>
+                                                            </Border>
+                                                        </Panel>
+                                                    </Panel>
 
-                                                    <!-- 2026-10-21: у товара с фото название было в одну строку («Макарон…», «Патроны д…»):
-                                                         фото 64 + цена + остаток съедали место второй строки (пакет 6, п. 15). Фото и
-                                                         название — в одной сетке по центру: название берёт свои две строки, фото
-                                                         ужимается под остаток (не выше CatalogTilePhotoHeight). Без фото — как было. -->
-                                                    <Grid Grid.Row="0" Grid.RowSpan="2" RowDefinitions="*,Auto" VerticalAlignment="Center">
-                                                    <!-- Фотография, когда она есть: крупно, сверху,
-                                                         по центру карточки. Строка схлопывается у
-                                                         товаров без фото, поэтому пустых серых
-                                                         прямоугольников, как было раньше, не
-                                                         появляется, а высота плитки у всех одна. -->
-                                                    <!-- 2026-11-06 (В7): слот занят по ImageUrl (адрес картинки известен сразу), а не по ProductImagePath (путь появляется после загрузки). -->
-                                                    <Border Grid.Row="0"
-                                                            Classes="tile-photo"
-                                                            MaxWidth="140"
-                                                            Margin="0,0,0,8"
-                                                            CornerRadius="10"
-                                                            ClipToBounds="True"
-                                                            HorizontalAlignment="Stretch"
-                                                            IsVisible="{Binding ImageUrl, Converter={x:Static conv:ShowProductPhotoConverter.Instance}}">
-                                                        <Image Source="{Binding ProductImagePath, Converter={x:Static conv:AssetPathToBitmapConverter.Instance}, ConverterParameter=thumb}"
-                                                               Stretch="UniformToFill"/>
-                                                    </Border>
-
-                                                    <!-- Название занимает всю ширину карточки: оно и есть
-                                                         то, по чему товар узнают. Миниатюра ушла в нижний
-                                                         угол — когда она стояла слева от названия, у неё
-                                                         уходило 54 px из 162, и «Патроны для Степлера»
-                                                         обрезалось на первом слове. -->
-                                                    <!-- Название занимает всё свободное место и стоит
-                                                         по центру. У товара с фотографией это место под
-                                                         ней, у товара без фотографии — вся карточка:
-                                                         текст оказывается посередине, а не приклеен к
-                                                         верхнему краю над пустотой. -->
                                                     <TextBlock Grid.Row="1"
                                                                Text="{Binding Title}"
-                                                               Margin="4,0,4,8"
+                                                               Margin="10,6,10,0"
                                                                FontSize="{DynamicResource CatalogTileNameSize}"
                                                                FontWeight="SemiBold"
                                                                Foreground="{DynamicResource BrushText}"
                                                                TextWrapping="Wrap"
-                                                               MaxLines="3"
-                                                               TextAlignment="Center"
-                                                               HorizontalAlignment="Center"
-                                                               VerticalAlignment="Center"
+                                                               MaxLines="2"
+                                                               TextAlignment="Left"
+                                                               HorizontalAlignment="Left"
+                                                               VerticalAlignment="Top"
                                                                TextTrimming="CharacterEllipsis"/>
-                                                    </Grid>
 
-                                                    <StackPanel Grid.Row="2" VerticalAlignment="Bottom" HorizontalAlignment="Center" Spacing="2">
-                                                        <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center">
+                                                    <StackPanel Grid.Row="2" VerticalAlignment="Bottom" HorizontalAlignment="Stretch" Margin="10,2,10,8">
+                                                        <!-- Длинная цена («12 500,00 сом») на узкой плитке сжимается по ширине, а не обрезается краем. -->
+                                                        <Viewbox StretchDirection="DownOnly" HorizontalAlignment="Left">
+                                                        <StackPanel Orientation="Horizontal" Spacing="4">
                                                             <TextBlock Text="{Binding PriceLine, Converter={StaticResource PriceAmountConverter}}"
+                                                                       Classes="num"
                                                                        FontSize="{DynamicResource CatalogTilePriceSize}"
                                                                        FontWeight="Bold"
                                                                        Foreground="{DynamicResource BrushCatalogPrice}"
@@ -715,35 +750,15 @@
                                                                        Margin="0,0,0,4"
                                                                        VerticalAlignment="Bottom"/>
                                                         </StackPanel>
+                                                        </Viewbox>
 
                                                         <TextBlock Text="{Binding StockInfo}"
                                                                    IsVisible="{Binding !IsService}"
                                                                    FontSize="{DynamicResource CatalogTileStockSize}"
-                                                                   HorizontalAlignment="Center"
                                                                    Classes.stock-low="{Binding IsLowStock}"
                                                                    Classes.stock-out="{Binding Quantity, Converter={x:Static mainViews:WarehouseWindow.IsOutOfStock}}"
                                                                    Foreground="{DynamicResource BrushCatalogStock}"/>
                                                     </StackPanel>
-
-
-                                                    <Panel Grid.Row="3" Classes="type-badge-host">
-                                                    <Border Margin="0,8,0,0"
-                                                            Padding="8,3"
-                                                            CornerRadius="4"
-                                                            HorizontalAlignment="Center"
-                                                            IsVisible="{Binding ShowTypeBadge}"
-                                                            Classes.badge-weighted="{Binding IsWeighted}"
-                                                            Classes.badge-bundle="{Binding IsBundle}"
-                                                            Background="{DynamicResource BrushBadgePieceBg}">
-                                                        <TextBlock Text="{Binding , Converter={x:Static conv:TypeBadgeTextConverter.Instance}}"
-                                                                   FontSize="12"
-                                                                   FontWeight="SemiBold"
-                                                                   Classes.badge-weighted="{Binding IsWeighted}"
-                                                                   Classes.badge-bundle="{Binding IsBundle}"
-                                                                   Foreground="{DynamicResource BrushBadgePieceFg}"
-                                                                   VerticalAlignment="Center"/>
-                                                    </Border>
-                                                    </Panel>
                                                 </Grid>
                                             </Border>
                                         </Button>
@@ -853,7 +868,16 @@
                                                  «i» и звезда — рядом справа, а не друг над другом (пакет 6, п. 15). -->
                                             <Grid Classes="tbl-row" ColumnDefinitions="56,*,Auto,Auto,Auto,96"
                                                   Margin="14,0">
-                                                <Border Grid.Column="0" Classes="tbl-photo" CornerRadius="10"
+                                                <!-- 2026-11-19 (редизайн вида кассы 2.0): в списке у товара без фото — те же буквы на мягком цвете категории, что на плитке (раньше — пустое место). -->
+                                                <Border Grid.Column="0" Classes="tbl-photo" CornerRadius="{DynamicResource NurRadiusControl}"
+                                                        VerticalAlignment="Center" Margin="0,0,10,0"
+                                                        Background="{Binding ., Converter={x:Static conv:TileTintConverter.Instance}}">
+                                                    <TextBlock Text="{Binding Title, Converter={x:Static conv:MonogramConverter.Instance}}"
+                                                               Foreground="{Binding ., Converter={x:Static conv:TileTintConverter.Instance}, ConverterParameter=fg}"
+                                                               FontSize="{DynamicResource NurFontBody}" FontWeight="Bold"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <Border Grid.Column="0" Classes="tbl-photo" CornerRadius="{DynamicResource NurRadiusControl}"
                                                         ClipToBounds="True" VerticalAlignment="Center"
                                                         Margin="0,0,10,0"
                                                         IsVisible="{Binding ProductImagePath, Converter={x:Static conv:ShowProductPhotoConverter.Instance}}">

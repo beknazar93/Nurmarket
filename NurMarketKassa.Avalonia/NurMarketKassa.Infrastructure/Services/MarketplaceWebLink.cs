@@ -7,7 +7,18 @@ namespace NurMarketKassa.Services;
 /// вход на сайте делает сам клиент. Допустим только https (http — лишь для localhost при проверке); адрес с логином/паролем (user:pass@host) отвергается.</summary>
 public static class MarketplaceWebLink
 {
-    public const string DefaultUrl = "https://market.nurcrm.kg/crm/marketplace";
+    // 2026-11-19 (владелец: «Открыть на сайте» открывало сводку): настоящий адрес раздела — https://market.nurcrm.kg/marketplace, а не /crm/marketplace.
+    public const string DefaultUrl = "https://market.nurcrm.kg/marketplace";
+
+    /// <summary>Прежний адрес по умолчанию (до 19.11.2026), который открывал сводку; сохранённый в настройках — заменяется новым.</summary>
+    public const string OldDefaultUrl = "https://market.nurcrm.kg/crm/marketplace";
+
+    /// <summary>Настройка из файла: прежний адрес по умолчанию (в т.ч. с «/» на конце) → новый; свой адрес владельца не трогаем.</summary>
+    public static string MigrateSaved(string saved)
+    {
+        var t = saved.Trim();
+        return t.TrimEnd('/').Equals(OldDefaultUrl, StringComparison.OrdinalIgnoreCase) ? DefaultUrl : t;
+    }
 
     private static readonly Regex SafeItem = new("^[a-zA-Z0-9:_.-]{1,64}$", RegexOptions.Compiled);
 

@@ -14,6 +14,8 @@ public static class AppChangelog
     public static readonly string[] Latest =
     [
         "Новый главный экран кассы: Одно поле ввода для кода, названия и количества («3*код»), крупная кнопка «Оплатить»; учебный режим и мастер первого запуска.",
+        "Новый вид кассы: Окно оплаты (крупный итог, сдача рядом с суммой, ровные кнопки), плитки каталога с фото или цветными буквами, чек карточкой.",
+        "Маркетплейс: Кнопка «Открыть на сайте» открывает раздел Маркетплейса.",
         "Единый дизайн: Единые кнопки и шкала размеров во всех окнах; окна весов — «Быстрая настройка».",
         "Понятные ошибки и удобство: Вместо сырого текста ошибки — понятные сообщения; запятая в числах; лучше контраст и крупные кнопки для сенсорного экрана.",
         "Весы CAS и Масса-К: Добавлена поддержка весов CAS и Масса-К. Протокол на реальных весах пока не проверен — перед отправкой касса просит подтверждение.",
@@ -268,6 +270,8 @@ public static class AppChangelog
     public static readonly string[] LatestKy =
     [
         "Кассанын жаңы башкы экраны: Код, аталыш жана санды киргизүү үчүн бир талаа («3*код»), чоң «Төлөө» баскычы; окутуу режими жана биринчи ишке киргизүү устасы.",
+        "Кассанын жаңы көрүнүшү: Төлөм терезеси (чоң жыйынтык, кайтарым сумманын жанында, тегиз баскычтар), каталог плиткалары сүрөт же түстүү тамгалар менен, чек карточка түрүндө.",
+        "Маркетплейс: «Сайтта ачуу» баскычы Маркетплейс бөлүмүн ачат.",
         "Бирдиктүү дизайн: Бардык терезелерде бирдей баскычтар жана өлчөмдөр шкаласы; тараза терезелери — «Тез жөндөө».",
         "Түшүнүктүү каталар жана ыңгайлуулук: Ката текстинин ордуна түшүнүктүү билдирүүлөр; сандарда үтүр; контраст жакшырды, сенсордук экран үчүн чоң баскычтар.",
         "CAS жана Масса-К таразалары: CAS жана Масса-К таразаларына колдоо кошулду. Протокол чыныгы таразаларда али текшерилген жок — жөнөтүү алдында касса ырастоону суранат.",
@@ -520,6 +524,8 @@ public static class AppChangelog
     public static readonly string[] LatestEn =
     [
         "New main till screen: One input field for the code, name and quantity (“3*code”), a large “Pay” button; a training mode and a first-run wizard.",
+        "New till look: Payment window (large total, change next to the amount, even buttons), catalog tiles with a photo or colored letters, receipt as a card.",
+        "Marketplace: The “Open on the site” button opens the Marketplace section.",
         "Unified design: The same buttons and size scale in all windows; scale windows now have “Quick setup”.",
         "Clear errors and comfort: Clear messages instead of raw error text; a comma in numbers; better contrast and large buttons for touch screens.",
         "CAS and Massa-K scales: Support for CAS and Massa-K scales was added. The protocol has not yet been tested on real scales — the till asks for confirmation before sending.",
@@ -772,6 +778,8 @@ public static class AppChangelog
     public static readonly string[] LatestTr =
     [
         "Yeni kasa ana ekranı: Kod, ad ve miktar için tek giriş alanı («3*kod»), büyük «Öde» düğmesi; eğitim modu ve ilk çalıştırma sihirbazı.",
+        "Yeni kasa görünümü: Ödeme penceresi (büyük toplam, para üstü tutarın yanında, düzgün düğmeler), fotoğraflı veya renkli harfli katalog kutucukları, kart şeklinde fiş.",
+        "Pazar yeri: «Siteyi aç» düğmesi Pazar yeri bölümünü açar.",
         "Ortak tasarım: Tüm pencerelerde aynı düğmeler ve boyut ölçeği; terazi pencerelerinde «Hızlı kurulum».",
         "Anlaşılır hatalar ve kolaylık: Ham hata metni yerine anlaşılır mesajlar; sayılarda virgül; daha iyi kontrast ve dokunmatik ekran için büyük düğmeler.",
         "CAS ve Massa-K terazileri: CAS ve Massa-K terazileri için destek eklendi. Protokol henüz gerçek terazilerde denenmedi — göndermeden önce kasa onay ister.",
@@ -1024,6 +1032,8 @@ public static class AppChangelog
     public static readonly string[] LatestUz =
     [
         "Kassaning yangi bosh ekrani: Kod, nom va miqdor uchun bitta kiritish maydoni («3*kod»), katta «To'lash» tugmasi; o'quv rejimi va birinchi ishga tushirish ustasi.",
+        "Kassaning yangi ko'rinishi: To'lov oynasi (katta jami, qaytim summa yonida, tekis tugmalar), rasm yoki rangli harfli katalog plitkalari, chek karta shaklida.",
+        "Marketplace: «Saytda ochish» tugmasi Marketplace bo'limini ochadi.",
         "Yagona dizayn: Barcha oynalarda bir xil tugmalar va o'lchamlar shkalasi; tarozi oynalari — «Tez sozlash».",
         "Tushunarli xatolar va qulaylik: Xatoning xom matni o'rniga tushunarli xabarlar; sonlarda vergul; kontrast yaxshilandi, sensorli ekran uchun katta tugmalar.",
         "CAS va Massa-K tarozilari: CAS va Massa-K tarozilari qo'llab-quvvatlanadi. Protokol haqiqiy tarozilarda hali tekshirilmagan — yuborishdan oldin kassa tasdiqlashni so'raydi.",
@@ -1280,6 +1290,7 @@ public static class AppChangelog
     // 2026-11-05: 1.17.76 (добавка) — сверху всех Latest* пункты «Весы: единица суммы в штрихкоде» и «Внешние сервисы», сверху AndroidLatest* — «Внешние сервисы».
     // 2026-11-06: 1.17.77 (добавка) — первым пунктом всех Latest* и AndroidLatest* «Загрузка каталога» (срочный фикс Б-1).
     // 2026-11-06: 1.17.77 (добавка 3, тестовый канал) — после пункта «Загрузка каталога» в Latest*: приёмка без связи, «Неотправленное», защита входа, возврат долгового чека, окно оплаты, быстрее запуск, картинки/ИИ, наценка приёмки, программа владельца; в AndroidLatest* — первые шесть.
+    // 2026-11-19: 2.0.0 (добавка) — вторым пунктом всех Latest* «Новый вид кассы» и «Маркетплейс» (окно оплаты, плитки, чек; ссылка «Открыть на сайте»).
     // 2026-11-19: 2.0.0 (тестовый канал) — сверху всех Latest* 16 пунктов (главный экран, дизайн, ошибки, весы CAS/Масса-К, автоотправка, перенос из 1С и др., офлайн, возвраты, отчёты, eKassa, доступы, слоты, поддержка, Ремонт/Trade-in, Электроника/строймаркет, Xprinter), сверху AndroidLatest* — 10 общих.
     // 2026-11-13: 1.17.86 (тестовый канал) — сверху всех Latest* 17 пунктов (остаток «приход в пути», карточки и счётчик штрихкодов, названия и тип 07 Rongta, весы Rongta/Штрих РС-200, продажа ниже закупки, лента main/changes и ETag, серийные номера и гарантия, упаковки строймаркета, слоты устройств, Ремонт и Trade-in, мастер Xprinter, возвраты и журнал смены, внешний вид, массовая загрузка, сферы), сверху AndroidLatest* — 8 общих.
     // 2026-11-11: 1.17.85 — срочное исправление: сверху всех Latest* 7 пунктов (приём товара: ошибка 1.17.82–1.17.84, ввод и скан, повторный скан и черновик, возвраты, окна, правка штрихкода, филиал), сверху AndroidLatest* — 3 общих.

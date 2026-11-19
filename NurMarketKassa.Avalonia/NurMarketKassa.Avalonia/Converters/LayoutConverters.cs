@@ -68,6 +68,42 @@ public sealed class TileColorConverter : IValueConverter
         throw new NotSupportedException();
 }
 
+/// <summary>2026-11-19 (редизайн вида кассы 2.0): цвет «обложки» плитки товара без фото в «Классике» — по категории товара (нет категории — по названию),
+/// из постоянной палитры средних тонов: один товар/категория всегда одного цвета. Без параметра — мягкая подложка (тот же цвет, 18 % плотности — годится
+/// и для светлой, и для тёмной темы), с параметром "fg" — сам цвет для букв. Кисти готовые и общие: на плитку не создаётся ни одного объекта.</summary>
+public sealed class TileTintConverter : IValueConverter
+{
+    public static readonly TileTintConverter Instance = new();
+
+    private static readonly string[] Tones =
+    [
+        "#3B82F6", "#14B8A6", "#8B5CF6", "#F59E0B", "#F43F5E", "#22C55E",
+        "#0EA5E9", "#D946EF", "#84CC16", "#F97316", "#64748B", "#EC4899",
+    ];
+
+    private static readonly IBrush[] Solid = Tones.Select(t => (IBrush)new SolidColorBrush(Color.Parse(t)).ToImmutable()).ToArray();
+    private static readonly IBrush[] Soft = Tones.Select(t => (IBrush)new SolidColorBrush(Color.Parse(t), 0.18).ToImmutable()).ToArray();
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        var text = value switch
+        {
+            NurMarketKassa.Models.Pos.CatalogProductTileVm p => string.IsNullOrWhiteSpace(p.Category) ? p.Title : p.Category!,
+            string s => s,
+            _ => "",
+        };
+        // Свой устойчивый хеш: string.GetHashCode меняется от запуска к запуску.
+        uint hash = 2166136261;
+        foreach (var ch in text)
+            hash = (hash ^ ch) * 16777619;
+        var i = (int)(hash % (uint)Tones.Length);
+        return parameter as string == "fg" ? Solid[i] : Soft[i];
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
 /// <summary>Сумма для таблиц и итогов раскладок: «1 234,50» (MoneyText — 2026-10-19, К1: как у владельца и в
 /// «Классике»; было «1 234.50»). Принимает число или строку-число ("1234.50").</summary>
 public sealed class MoneyConverter : IValueConverter
