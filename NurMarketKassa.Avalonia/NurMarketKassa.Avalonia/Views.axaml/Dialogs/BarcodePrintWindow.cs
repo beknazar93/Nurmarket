@@ -713,7 +713,8 @@ public sealed partial class BarcodePrintView : UserControl
 
     private void HostSizeChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
     {
-        if (e.Property != TopLevel.ClientSizeProperty || Bounds.Width <= 0)
+        // 2026-11-19: по имени — в Android-оболочке окна нет ClientSizeProperty (CS0117)
+        if (e.Property.Name is not "ClientSize" || Bounds.Width <= 0)
             return;
         ApplySideLayout(Bounds.Width);
         ApplyListModes(Bounds.Width);
