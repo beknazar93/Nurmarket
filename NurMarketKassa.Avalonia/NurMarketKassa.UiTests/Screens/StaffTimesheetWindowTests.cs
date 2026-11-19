@@ -139,6 +139,53 @@ public sealed class StaffTimesheetWindowTests
         }
     }
 
+    /// <summary>2026-11-19 (живой обход владельца): смены не возвращаются никогда — окно сразу показывает сетку и подпись месяца, по лимиту — ошибка и «Повторить», без вечной «Загрузки…».</summary>
+    [AvaloniaFact]
+    public async Task HungShifts_ShowsGridAtOnce_ThenErrorAndRetry()
+    {
+        await TestHost.WarmAsync();
+        UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
+        var (basic, dir) = MakeDeps();
+        var tcs = new TaskCompletionSource<IReadOnlyList<ShiftHistoryEntry>>();
+        var calls = 0;
+        var deps = new TimesheetDeps
+        {
+            Shifts = _ => { calls++; return tcs.Task; },
+            Employees = basic.Employees,
+            Marks = basic.Marks,
+            Today = basic.Today,
+            CanEdit = true,
+            LoadTimeout = TimeSpan.FromSeconds(1.5),
+        };
+        var window = new StaffTimesheetWindow(deps);
+        try
+        {
+            using var _ = UiShot.Render(window, new UiSize(1366, 768));
+            var load = window.LoadAsync();
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            while (sw.Elapsed < TimeSpan.FromSeconds(1) && Cells(window).Count == 0)
+            {
+                UiShot.Settle(1);
+                await Task.Delay(30);
+            }
+            Cells(window).Should().HaveCount(3 * 30, "сетка и сотрудники видны сразу, пока смены не пришли");
+            UiDrive.Find<TextBlock>(window, "MonthText").Text.Should().NotBeNullOrWhiteSpace();
+            UiDrive.Find<Button>(window, "RetryButton").IsVisible.Should().BeFalse();
+
+            await load.WaitAsync(TimeSpan.FromSeconds(10));
+            UiShot.Settle(4);
+            UiDrive.Find<Button>(window, "RetryButton").IsVisible.Should().BeTrue("по лимиту — «Повторить»");
+            UiDrive.Find<TextBlock>(window, "StatusText").Text.Should().Contain("Не удалось загрузить смены").And.NotContain("Загрузка");
+            calls.Should().BeGreaterThan(0, "Loaded мог запустить загрузку ещё раз — важно лишь, что смены запрашивались");
+        }
+        finally
+        {
+            window.Close();
+            UiShot.Pump();
+            try { Directory.Delete(dir, true); } catch (IOException) { }
+        }
+    }
+
     [AvaloniaFact]
     public async Task Month_Switch_And_Tabs_Work_And_ExportHasRows()
     {

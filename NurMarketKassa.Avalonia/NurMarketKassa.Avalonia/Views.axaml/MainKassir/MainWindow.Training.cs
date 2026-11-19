@@ -1,6 +1,9 @@
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
+using NurMarketKassa.AvaloniaHost.Views.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.AvaloniaHost.Views.Dialogs;
@@ -195,16 +198,25 @@ public partial class MainWindow
 
     internal void NavigateTrainingSale() => EnterTrainingMode();
 
-    // ───────────── мастер первого запуска (Н-1) ─────────────
+    // ───────────── интерактивное обучение (2026-11-19, владелец п. 6): слой CoachMark поверх кассы вместо окна «Первый запуск» ─────────────
 
-    private bool _firstRunWizardOpen;
+    private CoachTourEngine? _coachEngine;
+    private CoachMarkOverlay? _coachOverlay;
+    private readonly Dictionary<string, Control> _coachTargets = new();
 
-    /// <summary>Сам при запуске — только новому магазину: мастер ещё не показывали, каталог пуст, есть право «Настройки». Ждёт вопрос о виде магазина и первую загрузку каталога.</summary>
+    /// <summary>Обучение идёт сейчас (для тестов и защиты от повторного запуска).</summary>
+    public bool CoachTourActive => _coachEngine is not null;
+
+    public CoachMarkOverlay? CoachOverlay => _coachOverlay;
+
+    public CoachTourEngine? CoachEngine => _coachEngine;
+
+    /// <summary>Сам при запуске — только новому магазину: обучение ещё не показывали, каталог пуст, есть право «Настройки». Ждёт вопрос о виде магазина и первую загрузку каталога.</summary>
     private async Task MaybeOfferFirstRunWizardAsync()
     {
         try
         {
-            if (FirstRunWizardWindow.IsDone())
+            if (FirstRunWizardWindow.IsDone() || CoachTour.IsCompleted())
                 return;
             await Task.Delay(TimeSpan.FromSeconds(3)).ConfigureAwait(true); // каталог после входа ещё догружается
             for (var i = 0; i < 40 && (_viewModel.Catalog.IsLoading || OwnedWindows.Count > 0); i++)
@@ -215,14 +227,15 @@ public partial class MainWindow
             if (!FirstRunWizardWindow.ShouldOfferAtStartup(FirstRunWizardWindow.IsDone(), count, _permissions.HasPermission(PosPermissions.ViewSettings)))
             {
                 if (count > 0)
-                    FirstRunWizardWindow.MarkDone(); // магазин уже с товарами — мастер сам не нужен (из меню «Помощь» доступен)
+                    FirstRunWizardWindow.MarkDone(); // магазин уже с товарами — обучение само не нужно (из меню «Помощь» доступно)
                 return;
             }
-            await ShowFirstRunWizardAsync().ConfigureAwait(true);
+            FirstRunWizardWindow.MarkDone(); // само предлагаем один раз, даже если кассир закроет обучение
+            StartCoachTour();
         }
         catch (Exception ex)
         {
-            PosLogger.Log($"Мастер первого запуска не показан: {ex.Message}", "WARNING");
+            PosLogger.Log($"Обучение не показано: {ex.Message}", "WARNING");
         }
     }
 
@@ -238,89 +251,183 @@ public partial class MainWindow
         }
     }
 
-    internal void NavigateFirstRunWizard() => _ = ShowFirstRunWizardAsync();
+    internal void NavigateFirstRunWizard() => StartCoachTour();
 
-    internal async Task ShowFirstRunWizardAsync()
+    private CoachSnapshot CoachSnapshotNow() => new(_viewModel.IsSideMenuOpen, _viewModel.Basket.Lines.Count, TrainingMode.SalesDone);
+
+    /// <summary>Запустить обучение с первого шага (из меню «Помощь» и при первом запуске).</summary>
+    internal void StartCoachTour()
     {
-        if (_firstRunWizardOpen)
+        if (_coachEngine is not null || Content is not Grid root)
             return;
-        if (!Authorize(PosPermissions.ViewSettings))
+        HookTrainingMode(); // 2026-11-19: обучение доступно любому кассиру; права «Настройки» проверяют только кнопки мастеров (RunCoachActionAsync)
+        _viewModel.CloseSideMenu();
+        _coachEngine = new CoachTourEngine(CoachTour.DefaultSteps(), CoachSnapshotNow());
+        _coachTargets.Clear();
+        _coachOverlay = new CoachMarkOverlay(_coachEngine, ResolveCoachTarget);
+        Grid.SetRowSpan(_coachOverlay, 2);
+        _coachOverlay.ActionRequested += key => _ = RunCoachActionAsync(key);
+        _coachOverlay.QuitRequested += () => StopCoachTour();
+        _coachOverlay.StartWorkRequested += () => StopCoachTour();
+        _coachOverlay.OpenHelpRequested += () =>
+        {
+            StopCoachTour();
+            NavigateKnowledgeBase();
+        };
+        _coachEngine.Changed += OnCoachStepChanged;
+        _viewModel.PropertyChanged += OnCoachViewModelChanged;
+        _viewModel.Basket.Lines.CollectionChanged += OnCoachBasketChanged;
+        TrainingMode.Changed += OnCoachTrainingChanged;
+        root.Children.Add(_coachOverlay);
+        PosLogger.Log("[UI] Обучение: открыто.", "SETTINGS");
+        EnterCoachStep();
+    }
+
+    private void StopCoachTour()
+    {
+        var engine = _coachEngine;
+        if (engine is null)
             return;
-        _firstRunWizardOpen = true;
+        _coachEngine = null;
+        engine.Changed -= OnCoachStepChanged;
+        _viewModel.PropertyChanged -= OnCoachViewModelChanged;
+        _viewModel.Basket.Lines.CollectionChanged -= OnCoachBasketChanged;
+        TrainingMode.Changed -= OnCoachTrainingChanged;
+        if (_coachOverlay is not null && Content is Grid root)
+            root.Children.Remove(_coachOverlay);
+        _coachOverlay = null;
+        _coachTargets.Clear();
+        ExitTrainingMode(); // учебный режим живёт только внутри обучения (жёлтая полоса исчезает)
+        PosLogger.Log($"[UI] Обучение: закрыто (пройдено шагов: {engine.CompletedCount}, {(engine.IsFinished ? "до конца" : "раньше конца")}).", "SETTINGS");
+        RestoreScannerFocus();
+    }
+
+    private void OnCoachViewModelChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(_viewModel.IsSideMenuOpen))
+            Dispatcher.UIThread.Post(UpdateCoachSnapshot);
+    }
+
+    private void OnCoachBasketChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e) => Dispatcher.UIThread.Post(UpdateCoachSnapshot);
+
+    private void OnCoachTrainingChanged() => Dispatcher.UIThread.Post(UpdateCoachSnapshot);
+
+    private void UpdateCoachSnapshot() => _coachEngine?.Update(CoachSnapshotNow());
+
+    /// <summary>Шаг сменился: включить учебный режим там, где он нужен, выключить, если вернулись до него; конец — «Обучение пройдено» и без жёлтой полосы.</summary>
+    private void OnCoachStepChanged()
+    {
+        var engine = _coachEngine;
+        if (engine is null)
+            return;
+        if (engine.IsFinished)
+        {
+            CoachTour.MarkCompleted();
+            if (TrainingMode.IsActive)
+                ExitTrainingMode();
+            return;
+        }
+        EnterCoachStep();
+    }
+
+    private void EnterCoachStep()
+    {
+        var engine = _coachEngine;
+        if (engine is null || engine.IsFinished)
+            return;
+        var firstTraining = -1;
+        for (var i = 0; i < engine.Count; i++)
+        {
+            if (engine.Steps[i].EnterTraining)
+            {
+                firstTraining = i;
+                break;
+            }
+        }
+        if (firstTraining >= 0 && engine.Index >= firstTraining)
+        {
+            // В чеке настоящие товары: учебная оплата стёрла бы их. Тогда обучение закрываем (предупреждение показывает EnterTrainingMode).
+            if (!TrainingMode.IsActive && !EnterTrainingMode())
+                StopCoachTour();
+        }
+        else if (TrainingMode.IsActive)
+        {
+            ExitTrainingMode();
+        }
+    }
+
+    /// <summary>Элемент кассы, на который указывает шаг. Находим по команде кнопки или по x:Name (раскладки у кассы разные); найденное запоминаем, пока оно на экране.</summary>
+    internal Control? ResolveCoachTarget(string key)
+    {
+        if (_coachTargets.TryGetValue(key, out var cached) && cached.IsEffectivelyVisible && cached.GetVisualRoot() is not null)
+            return cached;
+        _coachTargets.Remove(key);
+        Control? found = key switch
+        {
+            "menu" => FindVisibleButton(b => ReferenceEquals(b.Command, _viewModel.Toolbar.ToggleSideMenuCommand)),
+            "menuPanel" => FindVisibleByName("NewMenuRoot", "OldMenuRoot"),
+            "input" => FindVisibleByName("ProductSearchBox", "BarcodeInputBox", "LayoutBarcodeInput"),
+            "cart" => FindVisibleByName("CartPanelView", "AltLayoutHost", "OneCLayout"),
+            "pay" => FindVisibleButton(b => ReferenceEquals(b.Command, _viewModel.Basket.PayCommand)),
+            "shift" => FindVisibleByName("OpenShiftButton", "ShiftPillButton"),
+            _ => null,
+        };
+        if (found is not null)
+            _coachTargets[key] = found;
+        return found;
+    }
+
+    private Control? FindVisibleByName(params string[] names)
+    {
+        foreach (var name in names)
+        {
+            var hit = this.GetVisualDescendants().OfType<Control>().FirstOrDefault(c => c.Name == name && c.IsEffectivelyVisible && c.Bounds.Width > 1);
+            if (hit is not null)
+                return hit;
+        }
+        return null;
+    }
+
+    private Control? FindVisibleButton(Func<Button, bool> match) =>
+        this.GetVisualDescendants().OfType<Button>().FirstOrDefault(b => b.IsEffectivelyVisible && b.Bounds.Width > 1 && match(b));
+
+    /// <summary>Кнопки действий на шагах «вид магазина» и «принтер/весы»: те же мастера, что и раньше, но как отдельные шаги, а не вместо обучения.</summary>
+    private async Task RunCoachActionAsync(string key)
+    {
         try
         {
-            _viewModel.CloseSideMenu();
-            FirstRunWizardWindow? wizard = null;
-            var actions = new FirstRunWizardWindow.Actions
+            if (!Authorize(PosPermissions.ViewSettings))
+                return;
+            string? result = null;
+            switch (key)
             {
-                SphereText = () => MarketSpheres.Profile.Title.Get(),
-                ChooseSphere = !MarketSphereLock.CanChangeNow
-                    ? null
-                    : async () => await MarketSphereChoiceWindow.ShowAndApplyAsync(wizard!).ConfigureAwait(true) is null
+                case "sphere":
+                    if (!MarketSphereLock.CanChangeNow)
+                    {
+                        result = Tr.T("Вид магазина уже задан: ", "Дүкөндүн түрү мурунтан берилген: ", "The store type is already set: ", "Mağaza türü zaten belirlenmiş: ", "Do'kon turi allaqachon belgilangan: ") + MarketSpheres.Profile.Title.Get();
+                        break;
+                    }
+                    result = await MarketSphereChoiceWindow.ShowAndApplyAsync(this).ConfigureAwait(true) is null
                         ? null
-                        : Tr.T("Вид магазина: ", "Дүкөндүн түрү: ", "Store type: ", "Mağaza türü: ", "Do'kon turi: ") + MarketSpheres.Profile.Title.Get(),
-                SetupPrinter = async () =>
-                {
-                    var result = await PrinterSetupWizardWindow.ShowAsync(wizard, PrinterRole.Receipt).ConfigureAwait(true);
-                    return result is null ? null : Tr.T("Принтер чеков подключён.", "Чек принтери туташтырылды.", "The receipt printer is connected.", "Fiş yazıcısı bağlandı.", "Chek printeri ulandi.");
-                },
-                SetupScale = async () =>
-                {
-                    var settings = App.GetRequiredService<NurMarketKassa.AvaloniaHost.Views.PosSettingsWindow>();
-                    await settings.ShowDialog(wizard!).ConfigureAwait(true);
-                    return Tr.T("Настройки весов открывались. Вернуться к ним: меню ☰ → «Настройки» → «Весы».", "Тараза жөндөөлөрү ачылды. Аларга кайтуу: ☰ меню → «Жөндөөлөр» → «Тараза».",
-                        "Scale settings were opened. To return: menu ☰ → “Settings” → “Scales”.", "Terazi ayarları açıldı. Geri dönmek için: ☰ menü → «Ayarlar» → «Terazi».",
-                        "Tarozi sozlamalari ochildi. Qaytish: ☰ menyu → «Sozlamalar» → «Tarozi».");
-                },
-                AddProducts = async () =>
-                {
-                    var catalogApi = App.AppHost?.Services.GetService<ICatalogApiService>();
-                    if (catalogApi is null)
-                        return null;
-                    var dialog = new ProductEditDialog(catalogApi, null, quickAddMode: true);
-                    if (!await dialog.ShowDialog<bool>(wizard!).ConfigureAwait(true))
-                        return null;
-                    try
-                    {
-                        await ServerAnswerWait.ForegroundAsync("catalog/refresh", t => CatalogCacheService.RefreshProductsAsync([dialog.SavedProductId], t)).ConfigureAwait(true);
-                    }
-                    catch (ServerNotAnsweringException)
-                    {
-                        _ = CatalogCacheService.RefreshProductsAsync([dialog.SavedProductId]);
-                    }
-                    await _viewModel.Catalog.RepublishFromLocalAsync().ConfigureAwait(true);
-                    return FirstRunWizardWindow.ProductCountText(SafeProductCount());
-                },
-                ImportProducts = async () =>
-                {
-                    // 2026-11-13 (Л-10): новый мастер «Массовая загрузка товаров». «Попробовать продажу на примере» — демо-набор товаров (только в памяти,
-                    // только пока включён учебный режим): мастер первого запуска закрывается и сразу начинается учебная продажа.
-                    var import = await NurMarketKassa.AvaloniaHost.Views.BulkImportWizardWindow.ShowForOnboardingAsync(wizard!).ConfigureAwait(true);
-                    if (import.DemoRequested)
-                    {
-                        wizard!.Close(true);
-                        return null;
-                    }
-                    await _viewModel.Catalog.RepublishFromLocalAsync().ConfigureAwait(true);
-                    return FirstRunWizardWindow.ProductCountText(SafeProductCount());
-                },
-                ProductCount = SafeProductCount,
-            };
-            wizard = new FirstRunWizardWindow(actions);
-            var startTraining = await wizard.ShowDialog<bool>(PosDialogHost.ResolveOwner(this)).ConfigureAwait(true);
-            FirstRunWizardWindow.MarkDone();
-            PosLogger.Log($"[UI] Мастер первого запуска: закрыт ({(startTraining ? "учебная продажа" : "без учебной продажи")}).", "SETTINGS");
-            if (startTraining)
-                EnterTrainingMode();
+                        : Tr.T("Вид магазина: ", "Дүкөндүн түрү: ", "Store type: ", "Mağaza türü: ", "Do'kon turi: ") + MarketSpheres.Profile.Title.Get();
+                    break;
+                case "printer":
+                    result = await PrinterSetupWizardWindow.ShowAsync(this, PrinterRole.Receipt).ConfigureAwait(true) is null
+                        ? null
+                        : Tr.T("Принтер чеков подключён.", "Чек принтери туташтырылды.", "The receipt printer is connected.", "Fiş yazıcısı bağlandı.", "Chek printeri ulandi.");
+                    break;
+                case "scales":
+                    await App.GetRequiredService<NurMarketKassa.AvaloniaHost.Views.PosSettingsWindow>().ShowDialog(this).ConfigureAwait(true);
+                    result = Tr.T("Настройки весов открывались. Вернуться: меню ☰ → «Настройки» → «Весы» → «Быстрая настройка».", "Тараза жөндөөлөрү ачылды. Кайтуу: ☰ меню → «Жөндөөлөр» → «Тараза» → «Тез жөндөө».",
+                        "Scale settings were opened. To return: menu ☰ → “Settings” → “Scales” → “Quick setup”.", "Terazi ayarları açıldı. Geri dönmek için: ☰ menü → «Ayarlar» → «Terazi» → «Hızlı kurulum».",
+                        "Tarozi sozlamalari ochildi. Qaytish: ☰ menyu → «Sozlamalar» → «Tarozi» → «Tez sozlash».");
+                    break;
+            }
+            _coachOverlay?.SetNote(result);
         }
         catch (Exception ex)
         {
-            PosLogger.Log($"Мастер первого запуска: ошибка: {ex.GetType().Name}: {ex.Message}", "WARNING");
-        }
-        finally
-        {
-            _firstRunWizardOpen = false;
-            RestoreScannerFocus();
+            PosLogger.Log($"Обучение: действие «{key}» не выполнено: {ex.GetType().Name}: {ex.Message}", "WARNING");
         }
     }
 }

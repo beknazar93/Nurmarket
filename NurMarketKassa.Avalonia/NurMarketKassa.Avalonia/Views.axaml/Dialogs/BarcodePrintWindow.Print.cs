@@ -47,6 +47,7 @@ public partial class BarcodePrintView
             : T("Принтер не подключён", "Принтер туташкан эмес", "Printer not connected", "Yazıcı bağlı değil", "Printer ulanmagan");
         var bad = connected && _live is LabelPrinterSelector.LiveStatus.NoAnswer or LabelPrinterSelector.LiveStatus.Offline or LabelPrinterSelector.LiveStatus.PaperOut or LabelPrinterSelector.LiveStatus.Error;
         Use(_printerDot, Shape.FillProperty, !connected || bad ? "BrushDanger" : _live is LabelPrinterSelector.LiveStatus.Unknown ? "BrushWarning" : "BrushSuccess");
+        UpdatePrinterSetupVisibility(); // 2026-11-19: параметры TSPL в «Настройках принтера» — только при принтере без драйвера на TSPL
     }
 
     /// <summary>Раз в 10 с (и при выборе принтера), в фоне и не во время печати.</summary>

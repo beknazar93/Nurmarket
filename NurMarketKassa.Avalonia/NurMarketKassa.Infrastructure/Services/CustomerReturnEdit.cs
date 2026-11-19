@@ -11,7 +11,8 @@ namespace NurMarketKassa.Services;
 // Расчёт и проверки — здесь (не во view), окно — CustomerReturnEditDialog.
 
 /// <summary>Строка возврата от клиента в окне правки. <see cref="Max"/> — потолок количества (в чеке − возвращено другими возвратами).</summary>
-public sealed record CustomerReturnEditLine(string SaleItemId, string Name, string Unit, double Qty, double Max, double UnitPrice)
+// 2026-11-19: ProductId — id товара (из строки возврата или чека): по нему в тексте отказа 409 (negative_stock, exceeds_returnable) называется товар.
+public sealed record CustomerReturnEditLine(string SaleItemId, string Name, string Unit, double Qty, double Max, double UnitPrice, string ProductId = "")
 {
     /// <summary>Сумма строки ориентировочно (точную считает сервер).</summary>
     public double Total => ReturnLineMath.LineTotal(Qty, UnitPrice, 0);
@@ -63,7 +64,10 @@ public static class CustomerReturnEdit
                 list[same] = prev with { Qty = prev.Qty + qty, Max = hasSale ? max + prev.Qty : prev.Max + qty };
                 continue;
             }
-            list.Add(new CustomerReturnEditLine(sid, name, unit, qty, Math.Max(max, qty), price));
+            var productId = FirstStr(item, "product_id", "product");
+            if (productId.Length == 0 && hasSale)
+                productId = FirstStr(sale, "product_id", "product");
+            list.Add(new CustomerReturnEditLine(sid, name, unit, qty, Math.Max(max, qty), price, productId));
         }
         return list;
     }

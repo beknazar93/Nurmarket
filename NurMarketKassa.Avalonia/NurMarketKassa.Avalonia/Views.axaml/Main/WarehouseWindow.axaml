@@ -139,17 +139,67 @@
             <Setter Property="FontSize" Value="14"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
-            <Setter Property="Padding" Value="14,10"/>
-            <Setter Property="Margin" Value="0,0,4,0"/>
-            <Setter Property="CornerRadius" Value="10,10,0,0"/>
+            <!-- 2026-11-19 («Неудобства от владельца», п. 10): вкладки склада — чипы (скруглённые плашки с рамкой, выбранная — цветом акцента),
+                 а не «ушки» папки; полоска выбора Fluent под подписью убрана. -->
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="MinHeight" Value="40"/>
+            <Setter Property="Margin" Value="0,0,4,8"/>
+            <Setter Property="CornerRadius" Value="20"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <!-- 2026-11-19: низкое окно (ниже 660 px, класс ставит ApplyProductsCompact) — чипы ниже, таблице остаются её строки (Д-4: на 1024×600 не меньше 4 строк). -->
+        <Style Selector="TabControl.tabs-low TabItem">
+            <Setter Property="MinHeight" Value="32"/>
+            <Setter Property="Margin" Value="0,0,4,4"/>
+        </Style>
+        <!-- 2026-11-19: в правке «Принимаем» в режиме упаковок (два поля по 36 + подпись) ячейка строится до того, как строка вырастает до высоты упаковок, и стопка, выровненная по центру,
+             получала урезанную высоту и свешивалась ниже строки — в этом режиме стопка прижата к верху ячейки. -->
+        <Style Selector="StackPanel.rcv-edit-stack">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="StackPanel.rcv-edit-stack.rcv-pack-edit">
+            <Setter Property="VerticalAlignment" Value="Top"/>
+            <Setter Property="Margin" Value="0,2,0,0"/>
+        </Style>
+        <Style Selector="TabItem /template/ Border#PART_SelectedPipe, TabItem:selected /template/ Border#PART_SelectedPipe">
+            <Setter Property="IsVisible" Value="False"/>
+            <Setter Property="Opacity" Value="0"/>
         </Style>
         <Style Selector="TabItem:pointerover">
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
             <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
         </Style>
         <Style Selector="TabItem:selected">
-            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentStrong}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+        </Style>
+        <!-- 2026-11-19: остаток в строке — кнопка (нажатие открывает «Остаток»: приход, списание, точное количество); без рамки, отклик — мягкий фон. -->
+        <Style Selector="Button.stock-btn">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="4,0"/>
+            <Setter Property="MinHeight" Value="44"/>
+            <Setter Property="MinWidth" Value="64"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.stock-btn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+        </Style>
+        <!-- 2026-11-19: панель массовых действий (видна, пока отмечены товары) — на месте строки фильтров. -->
+        <Style Selector="Border.bulk-bar">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource NurRadiusControl}"/>
+            <Setter Property="Padding" Value="12,4"/>
         </Style>
 
         <!-- Единый стиль полей ввода TextBox / ComboBox -->
@@ -844,6 +894,16 @@
                             </StackPanel>
                         </Border>
                         </Grid>
+                        <!-- 2026-11-19 («Неудобства от владельца», п. 10): панель массовых действий — видна, пока отмечены товары (галочки в строках и «выбрать все» в шапке);
+                             стоит на месте строки фильтров (та на это время прозрачна — высота не прыгает). Логика — WarehouseWindow.BulkBar.cs. -->
+                        <Border x:Name="BulkBar" Grid.Row="2" Classes="bulk-bar" IsVisible="False" Margin="0,0,0,12" VerticalAlignment="Stretch">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <TextBlock x:Name="BulkBarCount" Grid.Column="0" VerticalAlignment="Center" FontWeight="Bold"
+                                           FontSize="{DynamicResource NurFontBody}" Foreground="{DynamicResource BrushText}" Margin="0,0,14,0"/>
+                                <WrapPanel x:Name="BulkBarActions" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"/>
+                                <Button x:Name="BulkBarClearButton" Grid.Column="2" Classes="SecondaryButton" VerticalAlignment="Center" Margin="8,0,0,0" Click="BulkBarClear_Click"/>
+                            </Grid>
+                        </Border>
 
                         <!-- Таблица товаров (2026-09-07, перестроена по образцу Shopify Polaris IndexTable:
                              миниатюра 36px + название крупнее и с усечением, ОДНА колонка "Код" (это Article —
@@ -862,7 +922,10 @@
                                   AutoGenerateColumns="False"
                                   IsReadOnly="True"
                                   RowHeight="52"
+                                  GridLinesVisibility="Horizontal"
+                                  HorizontalGridLinesBrush="{DynamicResource BrushBorder}"
                                   SizeChanged="ProductsGrid_SizeChanged">
+                            <!-- 2026-11-19: ровная сетка — тонкие горизонтальные линии между строками (раньше строки отделялись только отступом). -->
                             <DataGrid.Columns>
                                 <!-- Сумма ширин НЕ должна превышать окно, иначе появляется горизонтальная прокрутка
                                      и последняя кнопка в «Действиях» обрезается по краю. Сейчас
@@ -871,6 +934,7 @@
                                      единица переехала в плашку остатка — «93 шт». Прибавку заголовкам «Скидка» и «Остаток» (они
                                      обрезались при крупном шрифте) оплатили «Действия»: иконки стали
                                      32 px вместо 36, и колонка ужалась с 210 до 184. -->
+                                <!-- 2026-11-19: в шапке этой колонки — галочка «выбрать все на странице»; её ставит код (WarehouseWindow.BulkBar.cs, SelectAllHeader), потому что заголовки пересобирает InitProductSort. -->
                                 <DataGridTemplateColumn Header="{DynamicResource common.name}" Width="*" MinWidth="200" SortMemberPath="Title">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
@@ -1001,18 +1065,23 @@
                                     </DataGridTemplateColumn.Header>
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <Border Classes="stock" CornerRadius="6" Padding="10,3"
-                                                    HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                    Classes.low="{ReflectionBinding IsLowStock}"
-                                                    Classes.out="{ReflectionBinding Quantity, Converter={x:Static views:WarehouseWindow.IsOutOfStock}}">
-                                                <TextBlock Text="{ReflectionBinding StockWithUnitText}"
-                                                           FontSize="13" FontWeight="Bold"/>
-                                            </Border>
+                                            <!-- 2026-11-19 (п. 10): «Остаток» убран из кнопок строки — остаток меняют нажатием на саму плашку (тот же StockAdjust_Click) или из «⋯». -->
+                                            <Button Classes="stock-btn" Click="StockAdjust_Click" Tag="{Binding}"
+                                                    AutomationProperties.Name="{x:Static views:WarehouseWindow.RowStockName}"
+                                                    ToolTip.Tip="{ReflectionBinding Title, Converter={x:Static conv:StockAdjustTipConverter.Instance}}">
+                                                <Border Classes="stock" CornerRadius="6" Padding="10,3"
+                                                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                        Classes.low="{ReflectionBinding IsLowStock}"
+                                                        Classes.out="{ReflectionBinding Quantity, Converter={x:Static views:WarehouseWindow.IsOutOfStock}}">
+                                                    <TextBlock Text="{ReflectionBinding StockWithUnitText}"
+                                                               FontSize="13" FontWeight="Bold"/>
+                                                </Border>
+                                            </Button>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
                                 <!-- 2026-10-18: ширину колонки (300 с подписями / 156 значками) ставит ProductsGrid_SizeChanged. -->
-                                <DataGridTemplateColumn Width="350">
+                                <DataGridTemplateColumn Width="200" CanUserSort="False">
                                     <DataGridTemplateColumn.Header>
                                         <TextBlock Text="{DynamicResource warehouse.colActions}" TextAlignment="Center"/>
                                     </DataGridTemplateColumn.Header>
@@ -1022,15 +1091,8 @@
                                                  корзина). Видны два главных действия с подписью, остальное — в «⋯» (меню с подписями,
                                                  «Удалить» последним, красным, под чертой). Обработчики прежние. -->
                                             <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,20,0"> <!-- 2026-10-29: отступ справа 12 → 20 (Android: «⋯» у края экрана) -->
-                                                <!-- 2026-10-06, редизайн склада: «±» — приход, списание или точное количество прямо из строки. -->
-                                                <Button Classes="sec-outline row-act" Click="StockAdjust_Click" Tag="{Binding}"
-                                                        AutomationProperties.Name="{x:Static views:WarehouseWindow.RowStockName}"
-                                                        ToolTip.Tip="{ReflectionBinding Title, Converter={x:Static conv:StockAdjustTipConverter.Instance}}">
-                                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                                        <PathIcon Data="M11,3 H13 V8 H18 V10 H13 V15 H11 V10 H6 V8 H11 Z M6,18 H18 V20 H6 Z"/>
-                                                        <TextBlock Classes="row-act-text" VerticalAlignment="Center" Text="{x:Static views:WarehouseWindow.RowStockText}"/>
-                                                    </StackPanel>
-                                                </Button>
+                                                <!-- 2026-11-19 («Неудобства от владельца», п. 10: «плотные ряды с кучей кнопок Остаток / Изменить / …»): в строке — одно основное действие
+                                                     «Изменить» и «⋯». «Остаток» — нажатием на плашку остатка и первым пунктом «⋯»; «Печать этикетки» — в «⋯». -->
                                                 <Button Classes="sec-outline row-act" Click="EditProduct_Click" Tag="{Binding}"
                                                         AutomationProperties.Name="{x:Static views:WarehouseWindow.RowEditName}"
                                                         ToolTip.Tip="{x:Static views:WarehouseWindow.RowEditName}">
@@ -1038,12 +1100,6 @@
                                                         <PathIcon Data="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/>
                                                         <TextBlock Classes="row-act-text" VerticalAlignment="Center" Text="{DynamicResource product.editRowButton}"/>
                                                     </StackPanel>
-                                                </Button>
-                                                <!-- 2026-11-01: «🏷» — печать этикетки одной кнопкой, без окна (QuickLabelPrint); «Этикетка…» с предпросмотром — в «⋯». -->
-                                                <Button Classes="sec-outline row-act" Click="QuickLabel_Click" Tag="{Binding}"
-                                                        AutomationProperties.Name="{x:Static views:WarehouseWindow.RowLabelText}"
-                                                        ToolTip.Tip="{x:Static views:WarehouseWindow.RowLabelText}">
-                                                    <PathIcon Data="M5.5,7A1.5,1.5 0 0,1 4,5.5A1.5,1.5 0 0,1 5.5,4A1.5,1.5 0 0,1 7,5.5A1.5,1.5 0 0,1 5.5,7M21.41,11.58L12.41,2.58C12.05,2.22 11.55,2 11,2H4C2.89,2 2,2.89 2,4V11C2,11.55 2.22,12.05 2.59,12.41L11.58,21.41C11.95,21.77 12.45,22 13,22C13.55,22 14.05,21.77 14.41,21.41L21.41,14.41C21.78,14.05 22,13.55 22,13C22,12.44 21.77,11.94 21.41,11.58Z"/>
                                                 </Button>
                                                 <Button Classes="sec-outline row-act row-more" Click="RowMore_Click" Tag="{Binding}"
                                                         AutomationProperties.Name="{x:Static views:WarehouseWindow.RowMoreText}"
@@ -1139,10 +1195,10 @@
                             </ItemsControl>
                         </ScrollViewer>
                         <!-- 2026-11-11 (жалоба «пустота»): при 0 строк — не голая шапка таблицы, а подсказка (текст ставит WarehouseWindow.Redesign.cs, SyncProductsEmpty). -->
-                        <TextBlock Grid.Row="3" x:Name="ProductsEmptyHint" IsVisible="False" IsHitTestVisible="False"
-                                   HorizontalAlignment="Center" VerticalAlignment="Top" Margin="24,72,24,0"
-                                   TextAlignment="Center" TextWrapping="Wrap" MaxWidth="520" FontSize="14"
-                                   Foreground="{DynamicResource BrushTextSoft}"/>
+                        <!-- 2026-11-19 (п. 10): блок пустого состояния с понятным действием («Загрузите товары» → «Создать товар» / «Массовая загрузка»; при поиске — «Сбросить поиск и фильтры»);
+                             содержимое собирает SyncProductsEmpty. -->
+                        <ContentControl Grid.Row="3" x:Name="ProductsEmptyHint" IsVisible="False"
+                                        HorizontalAlignment="Center" VerticalAlignment="Top" Margin="24,52,24,0" MaxWidth="560"/>
 
                         <!-- Итог по складу — то же, что в нижней строке «Остатков товаров»: сколько
                              позиций, сколько единиц лежит и на какую сумму, по закупке и по продаже.
@@ -1195,7 +1251,7 @@
                  принятое сразу уходит на склад. До этого прибавить остаток можно было только
                  через ревизию, вручную пересчитав и вписав новое количество целиком. -->
             <TabItem x:Name="ReceivingTabItem" Header="{DynamicResource warehouse.tabReceiving}">
-                <Border Background="{DynamicResource BrushPanel}" CornerRadius="0,14,14,14" Padding="16" BoxShadow="0 4 12 0 #0D000000">
+                <Border x:Name="ReceivingTabBorder" Background="{DynamicResource BrushPanel}" CornerRadius="0,14,14,14" Padding="16" BoxShadow="0 4 12 0 #0D000000">
                     <!-- 2026-10-24, ТЗ «Склад» (Б1): наверху поле скана, ниже поставщик (необязателен, выбирается в любой момент до «Оприходовать»).
                          Подсказка вкладки — в коде (WarehouseWindow.ReceivingScan.cs). -->
                     <Grid RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto">
@@ -1298,7 +1354,7 @@
                              системного хрома, и всплывающий список ComboBox в нём не открывается
                              (так же не работал фильтр статусов перемещений). Поставщик — кнопка с
                              раскрывающимся прямо в окне списком, оплата — два переключателя. -->
-                        <StackPanel Grid.Row="3" Spacing="6" Margin="0,0,0,10" x:CompileBindings="False">
+                        <StackPanel Grid.Row="3" x:Name="ReceivingSupplierBlock" Spacing="6" Margin="0,0,0,10" x:CompileBindings="False">
                             <!-- 2026-11-12 (аудит Д-4): на узком окне сюда же приезжает «Приём: … ▾» (WarehouseWindow.ReceivingPack.cs) — отдельный ряд кнопок отнимал у таблицы 52 px. -->
                             <WrapPanel x:Name="ReceivingSupplierWrap">
                                 <WrapPanel.Styles>
@@ -1526,7 +1582,7 @@
                                     </DataGridTemplateColumn.CellTemplate>
                                     <DataGridTemplateColumn.CellEditingTemplate>
                                         <DataTemplate>
-                                            <StackPanel VerticalAlignment="Center" Spacing="2">
+                                            <StackPanel Classes="rcv-edit-stack" Spacing="2" Classes.rcv-pack-edit="{ReflectionBinding PackMode}">
                                                 <TextBox Text="{ReflectionBinding QtyInputText, Mode=TwoWay, Converter={x:Static views:WarehouseWindow.CommaDecimal}}" Height="{DynamicResource ReceivingCellHeight}" MinHeight="0" Padding="6,0"
                                                          VerticalContentAlignment="Center" HorizontalContentAlignment="Right" FontSize="14"/>
                                                 <TextBox Classes="rcv-pieces" IsVisible="{ReflectionBinding PackMode}" Height="{DynamicResource ReceivingCellHeight}" MinHeight="0" Padding="6,0" FontSize="13"

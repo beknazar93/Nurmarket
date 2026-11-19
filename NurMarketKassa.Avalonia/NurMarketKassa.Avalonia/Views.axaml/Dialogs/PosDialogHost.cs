@@ -198,6 +198,11 @@ public static class PosDialogHost
     /// Если окно не открылось — затемнение снимается.</summary>
     private static Task<T> ShowDialogDimmed<T>(Window dialog, Window owner)
     {
+        // 2026-11-19 (список владельца, п. 7): двойное нажатие на кнопку открывало второй такой же диалог (ShowModalAsync ждёт кадр перед
+        // показом) — слои затемнения накапливались. Повтор того же типа в течение 0,7 с = двойное нажатие: открытый диалог выводится вперёд,
+        // а повтор завершается как «отмена» (результат по умолчанию).
+        if (IsDuplicateOpen(dialog, owner))
+            return Task.FromResult(default(T)!);
 #if NURANDROID
         return dialog.ShowDialog<T>(owner);
 #else
@@ -214,6 +219,47 @@ public static class PosDialogHost
         }
 #endif
     }
+
+    private static readonly Dictionary<Type, (WeakReference<Window> Window, long At, WeakReference<Window>? Owner)> RecentOpens = new();
+    private const double DuplicateWindowSeconds = 0.7;
+
+    /// <summary>true — диалог такого же типа уже открыт и был запрошен меньше 0,7 с назад. Простые сообщения/вопросы не считаются
+    /// (их несколько подряд — норма: ошибка за ошибкой).</summary>
+    public static bool IsDuplicateOpen(Window dialog) => IsDuplicateOpen(dialog, null);
+
+    /// <summary>2026-11-19: с владельцем — двойным нажатием считается только повтор у того же окна-владельца (если владелец известен у обоих запросов);
+    /// диалог того же типа у другого владельца (другое окно, следующий сценарий подряд) — не дубль и не «отмена».</summary>
+    public static bool IsDuplicateOpen(Window dialog, Window? owner)
+    {
+        try
+        {
+            var type = dialog.GetType();
+            if (type.Name is "PosAlertDialog" or "PosConfirmDialog" or "PasswordPromptDialog")
+                return false;
+            var now = System.Diagnostics.Stopwatch.GetTimestamp();
+            if (RecentOpens.TryGetValue(type, out var prev) && prev.Window.TryGetTarget(out var open)
+                && !ReferenceEquals(open, dialog) && open.IsVisible
+                && SameOwner(prev.Owner, owner)
+                && (now - prev.At) < DuplicateWindowSeconds * System.Diagnostics.Stopwatch.Frequency)
+            {
+                NurMarketKassa.Services.PosLogger.Log($"Повторное открытие {type.Name} (двойное нажатие) — второе окно не создаётся.", "UI");
+                open.Activate();
+                return true;
+            }
+            RecentOpens[type] = (new WeakReference<Window>(dialog), now, owner is null ? null : new WeakReference<Window>(owner));
+        }
+        catch
+        {
+            // защита — удобство; без неё диалог откроется как раньше
+        }
+        return false;
+    }
+
+    private static bool SameOwner(WeakReference<Window>? prevOwner, Window? owner)
+        => prevOwner is null || owner is null || (prevOwner.TryGetTarget(out var p) && ReferenceEquals(p, owner));
+
+    /// <summary>Только для тестов (2026-11-19): забыть недавние открытия, чтобы диалог предыдущего сценария не считался «двойным нажатием».</summary>
+    public static void ResetDuplicateGuardForTests() => RecentOpens.Clear();
 
     public static Task<bool?> ShowAsync(Window dialog, Window? owner)
     {

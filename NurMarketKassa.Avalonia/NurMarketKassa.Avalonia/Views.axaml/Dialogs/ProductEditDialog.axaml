@@ -253,7 +253,9 @@
                 <TabItem Header="{DynamicResource product.tabMain}">
                     <!-- 2026-10-06, моноблок клиента: поля цены уходили под край, прокрутку пальцем не найти — полоса видна всегда,
                          на невысоком экране поля плотнее (ProductEditDialog.CompactForShortScreen). -->
-                    <ScrollViewer x:Name="MainTabScroll" Padding="0,10,16,6" AllowAutoHide="False">
+                    <!-- 2026-11-19 (список владельца, п. 5): полоса больше не «видна всегда» — она резервировала место справа и мешала; прокрутка колесом/пальцем
+                         как была, полосы в окне нет (hide-scrollbar). Правый отступ 16 → 4: место под полосу не нужно. -->
+                    <ScrollViewer x:Name="MainTabScroll" Classes="hide-scrollbar" Padding="0,10,4,6">
                         <StackPanel x:Name="MainTabStack" Spacing="20" Margin="0,0,0,240">
                             <!-- 2026-10-03, владелец: «изучи веб — при скане, если товар есть в базе готовых наименований,
                                  сразу всё подставляется». Подсказка и результат поиска в базе NurCRM (только новый товар). -->
@@ -424,7 +426,7 @@
                     </ScrollViewer>
                 </TabItem>
                 <TabItem x:Name="AltBarcodesTab" Header="{DynamicResource product.tabCategory}" IsVisible="{Binding !IsQuickAddMode}">
-                    <ScrollViewer Padding="0,14,16,6">
+                    <ScrollViewer Classes="hide-scrollbar" Padding="0,14,4,6">
                         <StackPanel Spacing="20" Margin="0,0,0,240">
                             <StackPanel Spacing="22" HorizontalAlignment="Stretch">
                                 <StackPanel Spacing="8" IsVisible="{Binding !IsQuickAddMode}">
@@ -497,7 +499,7 @@
                     </ScrollViewer>
                 </TabItem>
                 <TabItem Header="{DynamicResource product.tabPackage}" IsVisible="{Binding !IsQuickAddMode}">
-                    <ScrollViewer Padding="0,14,16,6">
+                    <ScrollViewer Classes="hide-scrollbar" Padding="0,14,4,6">
                         <StackPanel Spacing="20" Margin="0,0,0,240">
                             <StackPanel Spacing="14" IsVisible="{Binding !IsQuickAddMode}">
                                 <CheckBox Content="{DynamicResource product.enablePieceSale}" IsChecked="{Binding EnablePieceSale}"/>
@@ -639,7 +641,7 @@
                     </ScrollViewer>
                 </TabItem>
                 <TabItem Header="{DynamicResource product.tabVariants}" IsVisible="{Binding !IsQuickAddMode}">
-                    <ScrollViewer Padding="0,14,16,6">
+                    <ScrollViewer Classes="hide-scrollbar" Padding="0,14,4,6">
                         <StackPanel Spacing="20" Margin="0,0,0,240">
                             <!-- 2026-10-01, магазин одежды: размеры и цвета товара (варианты NurCRM — своя цена,
                                  остаток, штрихкод). На сайте NurCRM редактора вариантов нет — он здесь. -->
@@ -658,7 +660,7 @@
                     </ScrollViewer>
                 </TabItem>
                 <TabItem Header="{DynamicResource product.tabMore}" IsVisible="{Binding !IsQuickAddMode}">
-                    <ScrollViewer Padding="0,14,16,6">
+                    <ScrollViewer Classes="hide-scrollbar" Padding="0,14,4,6">
                         <StackPanel Spacing="20" Margin="0,0,0,240">
                             <StackPanel Spacing="22" HorizontalAlignment="Stretch">
 

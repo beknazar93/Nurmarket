@@ -600,7 +600,21 @@ public sealed class SectionFitHost : Avalonia.Controls.Decorator
     /// <summary>Внутренность ScrollViewer: ребёнок мерится по размеру области (а не по бесконечному), раскладывается на максимум из нужного и выданного.</summary>
     private sealed class OverflowFill : Avalonia.Controls.Decorator
     {
-        public Avalonia.Size Viewport { get; set; } = new(double.PositiveInfinity, double.PositiveInfinity);
+        private Avalonia.Size _viewport = new(double.PositiveInfinity, double.PositiveInfinity);
+
+        // 2026-11-19: при смене области ребёнок обязан измеряться заново — раньше свойство было простым и кэш измерения Avalonia (то же ограничение — пропуск) оставлял раскладку по прежней, большей области:
+        // раздел «Весы» на окне 1024 держал ширину 1270 и вкладки уходили за правый край (ScalesOwnerFullSet 1024×600).
+        public Avalonia.Size Viewport
+        {
+            get => _viewport;
+            set
+            {
+                if (_viewport == value)
+                    return;
+                _viewport = value;
+                InvalidateMeasure();
+            }
+        }
 
         protected override Avalonia.Size MeasureOverride(Avalonia.Size availableSize)
         {
@@ -620,7 +634,11 @@ public sealed class SectionFitHost : Avalonia.Controls.Decorator
         {
             if (Child is null)
                 return finalSize;
-            Child.Measure(finalSize);
+            // 2026-11-19: при масштабе 0,9 Viewport (из Measure) и finalSize (после округления раскладки) расходятся на ~1 px (1304,0000000000002 и 1305).
+            // Перемер ребёнка по такому «дрожащему» размеру менял его желаемую высоту (плитки склада 95 ↔ 89), и это бесконечно инвалидировало Measure:
+            // 10 проходов раскладки без Arrange, KpiTileGrid.Bounds = 0. Расхождение < 2 px — мерим по тому же Viewport, что и в Measure; заметно другой размер — по finalSize.
+            static bool Near(double a, double b) => !double.IsInfinity(a) && !double.IsInfinity(b) && Math.Abs(a - b) < 2;
+            Child.Measure(Near(finalSize.Width, Viewport.Width) && Near(finalSize.Height, Viewport.Height) ? Viewport : finalSize);
             Child.Arrange(new Avalonia.Rect(finalSize));
             return finalSize;
         }

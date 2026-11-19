@@ -69,7 +69,7 @@ public static class SettingsCloudSync
         "ShowStoreName", "ShowAddress", "ShowInn", "ShowReceiptNumber", "ShowDate", "ShowItems", "ShowTotal", "ShowQrCode",
         "StoreName", "StoreAddress", "StoreInn", "LoyaltyEnabled", "UpsellEnabled", "UnlockedPacks", "UnlockedThemeIds",
         "VoiceControlUnlocked", "LanguagePackUnlocked", "WarehouseAnalyticsUnlocked", "PriceTagEditorUnlocked", "LabelEditorUnlocked",
-        "BulkPriceTagUnlocked", "AnalyticsExportUnlocked", "TelegramBotUnlocked", "ShiftAnalyticsUnlocked", "StaffTimesheetUnlocked", "RepairUnlocked", "TradeInUnlocked",
+        "BulkPriceTagUnlocked", "AnalyticsExportUnlocked", "TelegramBotUnlocked", "ShiftAnalyticsUnlocked", "StaffTimesheetUnlocked", "RepairUnlocked", "TradeInUnlocked", "EstimateEnabled",
         "ScalesUnlocked", SecureCodesKey, CodesVersionKey, LegacyCodesKey, "DynamicPaymentQrEnabled", "VisibleBankNames", "CustomBankNames",
         "DebtPrepaymentChooseMethod", "OwnerPhone",
         // 2026-10-06: штрафы за просрочку проката и долга — одинаковые в чеках всех касс.

@@ -115,7 +115,8 @@
               </Border>
               <!-- 2026-10-17, этап 3: окна со своим списком на всю высоту (выбор клиента, отложенные чеки)
                    ставят ContentScroll="Disabled" — список прокручивается сам, поле поиска над ним на месте. -->
-              <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="{TemplateBinding ContentScroll}">
+              <!-- 2026-11-19 (список владельца, п. 5): в модальных окнах полоса прокрутки скрыта совсем (hide-scrollbar, AppControlStyles). -->
+              <ScrollViewer Classes="hide-scrollbar" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="{TemplateBinding ContentScroll}">
                 <ContentPresenter Name="PART_ContentPresenter"
                                   Content="{TemplateBinding Content}"
                                   ContentTemplate="{TemplateBinding ContentTemplate}"

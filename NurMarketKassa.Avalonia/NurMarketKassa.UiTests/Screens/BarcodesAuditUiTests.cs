@@ -278,7 +278,17 @@ public sealed class BarcodesAuditUiTests : IDisposable
             var card = (Border)typeof(BarcodePrintView).GetField("_settingsCard", fl)!.GetValue(view)!;
             var body = (Control)typeof(BarcodePrintView).GetField("_settingsBody", fl)!.GetValue(view)!;
             var scroll = view.GetVisualDescendants().OfType<ScrollViewer>().First(x => x.Content is WrapPanel);
-            if (!body.IsVisible)
+            // 2026-11-19 («Неудобства от владельца», п. 11): на вкладке шириной от 1000 px настройки — постоянная панель справа (340 px, во всю высоту), список слева.
+            var side = (bool)typeof(BarcodePrintView).GetField("_sideMode", fl)!.GetValue(view)!;
+            side.Should().Be(view.Bounds.Width >= 1000 && section.ClientSize.Height >= 690, $"панель «Настройка ценника» справа — на вкладке от 1000 px в окне не ниже 690 px (сейчас {view.Bounds.Width:0}, окно {section.ClientSize.Height:0})");
+            if (side)
+            {
+                body.IsVisible.Should().BeTrue("в боковой панели настройки всегда раскрыты");
+                card.Bounds.Width.Should().BeApproximately(340, 1);
+                card.Bounds.X.Should().BeGreaterThan(scroll.Bounds.Right - 1, "панель настроек правее списка карточек");
+                card.Bounds.Bottom.Should().BeLessThanOrEqualTo(view.Bounds.Height + 1, "панель не выходит за вкладку");
+            }
+            else if (!body.IsVisible)
                 card.Bounds.Height.Should().BeLessThan(80, "свёрнутая полоса «40×30 мм · …» — одна строка по содержимому, а не пустой блок");
             else
                 card.Bounds.Height.Should().BeLessThanOrEqualTo(view.Bounds.Height * 0.5 + 1);

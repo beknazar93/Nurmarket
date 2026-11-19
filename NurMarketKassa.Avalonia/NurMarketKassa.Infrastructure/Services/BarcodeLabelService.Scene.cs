@@ -66,6 +66,13 @@ public static partial class BarcodeLabelService
             AddTextScene(items, template.StoreName, storeName!, false, template);
         if (!string.IsNullOrWhiteSpace(variantText) && variantElement is { Enabled: true })
             AddTextScene(items, variantElement, variantText!.Trim(), true, template);
+        if (template.Frame) // 2026-11-19: «Рамка» по контуру этикетки — четыре линии в 1 точку (как в GenerateLabelBitmap)
+        {
+            items.Add(new LabelSceneRect(0, 0, widthPx, 1, Black));
+            items.Add(new LabelSceneRect(0, heightPx - 1, widthPx, 1, Black));
+            items.Add(new LabelSceneRect(0, 0, 1, heightPx, Black));
+            items.Add(new LabelSceneRect(widthPx - 1, 0, 1, heightPx, Black));
+        }
         return new LabelScene(widthPx, heightPx, items);
     }
 

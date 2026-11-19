@@ -37,10 +37,23 @@ public static class UiDrive
         UiShot.Pump();
         var p = c.TranslatePoint(new Point(c.Bounds.Width / 2, c.Bounds.Height / 2), w)
             ?? throw new InvalidOperationException("Элемент вне окна");
+        // 2026-11-19: человек не успевает нажать быстрее, чем гаснет затемнение только что закрытого окна (до 2 с в Headless, где окна не регистрируются у ModalWindowManager);
+        // клик по слою затемнения терялся (тесты «Остаться» → «Отмена»). Ждём, пока в точке нажатия окажется сама кнопка (не дольше 3 с), и только потом нажимаем.
+        var until = DateTime.UtcNow.AddSeconds(3);
+        while (DateTime.UtcNow < until && !(w.GetVisualAt(p) is { } hit && hit.GetSelfAndVisualAncestors().Contains(c)))
+        {
+            SweepStrayDims(); // в Headless сторожа затемнения нет — «осиротевший» слой снимаем сами (как сторож в программе)
+            UiShot.Settle(1, 20);
+        }
         w.MouseDown(p, MouseButton.Left);
         w.MouseUp(p, MouseButton.Left);
         UiShot.Pump();
     }
+
+    /// <summary>2026-11-19: ModalWindowManager.SweepStrayDims (internal) — через отражение: слой затемнения без модалки.</summary>
+    private static void SweepStrayDims() =>
+        typeof(NurMarketKassa.AvaloniaHost.Views.Dialogs.PosDialogHost).Assembly.GetType("NurMarketKassa.AvaloniaHost.Views.Dialogs.ModalWindowManager")
+            ?.GetMethod("SweepStrayDims", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)?.Invoke(null, null);
 
     /// <summary>Фокус в поле, выделить всё и напечатать текст с клавиатуры.</summary>
     public static void Type(Window w, TextBox box, string text)

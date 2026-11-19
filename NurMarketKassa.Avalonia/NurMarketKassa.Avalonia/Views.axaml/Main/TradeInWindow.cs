@@ -76,11 +76,8 @@ public sealed class TradeInWindow : Window, IOwnerSection
 
     public static void Open(Window? owner)
     {
-        var w = new TradeInWindow();
-        if (owner != null)
-            w.Show(owner);
-        else
-            w.Show();
+        // 2026-11-19 (список владельца, п. 7): одно окно на программу.
+        NurMarketKassa.AvaloniaHost.Views.Dialogs.WindowSingleton.ShowOnce(owner, () => new TradeInWindow());
     }
 
     public void AsOwnerSection()

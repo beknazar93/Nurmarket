@@ -1,5 +1,5 @@
 {
- "version": "2026-09-26",
+ "version": "2026-11-19",
  "language": "tr",
  "sections": [
   {
@@ -11,7 +11,7 @@
       {
        "id": "продажи-как-создать-продажу",
        "title": "Satış nasıl yapılır",
-       "text": "Шаг 1. Üst paneldeki «Vardiyayı aç» düğmesiyle vardiyayı açın (vardiya zaten açıksa aynı yerde «Vardiyayı kapat» düğmesi görünür).\nШаг 2. Soldaki katalogda istediğiniz ürünün kutucuğuna basın — ürün sağdaki «Ana fiş» adlı fişe eklenir.\nШаг 3. Ya da ürünün barkodunu barkod okuyucuyla okutun — ürün fişe kendiliğinden eklenir, hiçbir şeye basmanız gerekmez.\nШаг 4. Ya da fişin altındaki «Ürün kodu veya adı» alanına kodu veya adı yazın, gerekirse − ve + düğmeleriyle miktarı belirleyin ve «Ekle» düğmesine basın.\nШаг 5. Fişteki ürünleri ve «Toplam» satırındaki tutarı kontrol edin.\nШаг 6. «Öde» düğmesine (veya Enter tuşuna) basın, ödeme yöntemini seçin ve onaylayın.\nВажно: Vardiya açık değilse ilk ürünü eklediğinizde kasa vardiyayı açmayı kendisi önerir.",
+       "text": "Шаг 1. Üst paneldeki «Vardiyayı aç» düğmesiyle vardiyayı açın (vardiya zaten açıksa aynı yerde «Vardiyayı kapat» düğmesi görünür).\nШаг 2. Soldaki katalogda istediğiniz ürünün kutucuğuna basın — ürün sağdaki «Ana fiş» adlı fişe eklenir.\nШаг 3. Ya da ürünün barkodunu barkod okuyucuyla okutun — ürün fişe kendiliğinden eklenir, hiçbir şeye basmanız gerekmez.\nШаг 4. Ya da katalogun üstündeki «Tara, kod veya ad» alanına kod veya ad yazıp Enter'a basın. Miktar — «3*kod» (hemen 3 adet).\nШаг 5. Fişteki ürünleri ve «Toplam» satırındaki tutarı kontrol edin.\nШаг 6. «Öde» düğmesine (veya Enter tuşuna) basın, ödeme yöntemini seçin ve onaylayın.\nВажно: Vardiya açık değilse ilk ürünü eklediğinizde kasa vardiyayı açmayı kendisi önerir.",
        "keywords": [
         "satış",
         "fiş kesmek",
@@ -64,7 +64,7 @@
       {
        "id": "продажи-как-изменить-количество-товара-в-чеке",
        "title": "Fişteki ürün miktarı nasıl değiştirilir",
-       "text": "Шаг 1. Sağdaki fişte istediğiniz satırı bulun.\nШаг 2. Miktarı 1 artırmak için «+», 1 azaltmak için «−» düğmesine basın.\nШаг 3. Miktarı elle girmek için «−» ile «+» arasındaki sayıya basın ve değeri yazın.\nШаг 4. Tartılı ürün için satırdaki tartı simgesine basın — yeniden tartmak için «Ürünü tart» penceresi açılır.\nШаг 5. «Toplam» tutarı otomatik olarak yeniden hesaplanır.\nВажно: Depodaki stoktan fazlası eklenemez — kasa «Stok sınırına ulaşıldı» mesajını gösterir.",
+       "text": "Шаг 1. Sağdaki fişte istediğiniz satırı bulun.\nШаг 2. Miktarı 1 artırmak için «+», 1 azaltmak için «−» düğmesine basın.\nШаг 3. Miktarı elle girmek için «−» ile «+» arasındaki sayıya basın ve değeri yazın.\nШаг 4. Tartılı ürün için satırdaki tartı simgesine basın — yeniden tartmak için «Ürünü tart» penceresi açılır.\nШаг 5. «Toplam» tutarı otomatik olarak yeniden hesaplanır.\nШаг 6. Daha hızlı: «Tara, kod veya ad» alanına «3*kod» yazın (veya «3*» yazıp ürünü okutun) — hemen 3 adet olarak eklenir.\nВажно: Depodaki stoktan fazlası eklenemez — kasa «Stok sınırına ulaşıldı» mesajını gösterir.",
        "keywords": [
         "miktar",
         "miktarı değiştir",
@@ -462,6 +462,291 @@
    ]
   },
   {
+   "title": "Yenilikler",
+   "groups": [
+    {
+     "title": "Ana ekran ve eğitim",
+     "articles": [
+      {
+       "id": "в2-главный-экран-одно-поле-ввода",
+       "title": "Yeni ana ekran: tek «Tara, kod veya ad» alanı, «3*kod» ve «Öde»",
+       "text": "Kasanın ana ekranı sadeleşti: ürün tek alanla, fazladan düğme olmadan eklenir.\nШаг 1. Katalogun üstünde «Tara, kod veya ad» alanı var. Ürünü buraya okutun ya da kod veya ad yazıp Enter'a basın. Barkod okuyucu ekranın her yerinde çalışır. Ctrl+F imleci bu alana getirir.\nШаг 2. Miktar: «3*kod» yazın ya da «3*» yazıp ürünü okutun — ürün fişe hemen 3 adet olarak eklenir.\nШаг 3. Fişte ürün varken büyük «Öde» düğmesine veya Enter tuşuna basın — ödeme penceresi açılır.\nШаг 4. Boş fiş «Ürünü okutun» der ve «Hızlı ürünler»i gösterir — favorileriniz (katalogda ★). Ürüne basın, hemen fişe girer. Blok Ayarlar → «Ekran» bölümünde açılır («Boş fişte hızlı ürünler»).\nШаг 5. Ekran görünümünü ☰ → «Marketplace» → «Kasa görünümleri» bölümünden seçin: «Klasik», «Tablo», «Kartlar», «Minimal», «Profesyonel» veya «1C». Karta basınca kasa hemen yeniden düzenlenir. Menü görünümü (eski / yeni ☰) — ☰ menüsündeki ve Ayarlar → «Ekran» içindeki «Menü görünümü» düğmesi.\nВажно: Eski yollar yerinde: katalogdaki kutucuk, barkod okuyucu, F1–F12 tuşları.",
+       "keywords": [
+        "ana ekran",
+        "tek alan",
+        "3*kod",
+        "miktar",
+        "öde",
+        "hızlı ürünler",
+        "kasa görünümü"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-обучение-экскурсия-и-учебная-продажа",
+       "title": "Eğitim: kasa turu ve «Eğitim satışı»",
+       "text": "Шаг 1. ☰ → «Ayarlar ve yardım» → «Eğitim: kasa turu» bölümünü açın. Ürünü olmayan yeni bir mağazaya tur ilk başlangıçta kendiliğinden, bir kez önerilir.\nШаг 2. Tur, ekranda ilgili yeri vurgulayan 9 adımdır: mağaza türü, ☰ menüsü, «Ayarlar ve yardım», yazıcı ve tartı, ürün arama, sepet ve indirim, ödeme, vardiya, yardım nerede. İşlem gerekiyorsa kartta «Bunu yapın — adım kendiliğinden sayılır.» yazar.\nШаг 3. Düğmeler: «Geri», «İleri», «Adımı atla» ve «Sonra bitir» (turu menüden yeniden başlatabilirsiniz). Son adımda «Bitir», sonra «Eğitim tamamlandı!» ekranı: «Çalışmaya başla», «Tekrar geç», «Yardımı aç».\nШаг 4. «Eğitim satışı»: ☰ → «Ayarlar ve yardım» → «Eğitim satışı». Üstte sarı şerit «Eğitim modu — para kaydedilmez» görünür, kasa adımları söyler: «3 adımın 1. adımı. Ürünü okutun veya soldaki katalogdan basın» → «3 adımın 2. adımı … «Öde» (veya Enter)» → tamam.\nШаг 5. Eğitim modundan çıkmak için sarı şeritteki «Eğitim modundan çık» düğmesini kullanın.\nВажно: Eğitim satışı hiçbir yere kaydedilmez: vardiyaya, raporlara, stoka işlenmez, sunucuya gitmez.",
+       "keywords": [
+        "eğitim",
+        "kasa turu",
+        "eğitim satışı",
+        "eğitim modu",
+        "ilk başlangıç",
+        "ipuçları"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-экран-без-полос-прокрутки-одно-окно",
+       "title": "Kaydırma çubuğu olmayan ekran ve «tek pencere — tek örnek»",
+       "text": "Шаг 1. Kaydırma çubukları artık yer kaplamaz: ince bir çubuk yalnızca kaydırırken içeriğin üstünde belirir, sonra kaybolur.\nШаг 2. Fare tekerleği, dokunmatik yüzey veya dokunmatik ekranda parmakla kaydırabilirsiniz (sürükleme ve atalet çalışır). Diyalog pencerelerinde ve bazı listelerde çubuk tamamen gizlidir, kaydırma yine aynı çalışır.\nШаг 3. Tek pencere — tek örnek: pencere zaten açıksa (örneğin «Eski yükleme»), düğmeye yeniden basmak ikinci pencere açmaz, açık olanı öne getirir; küçültülmüşse büyütür.\nВажно: Diyalog düğmesine hızlı çift tıklama da pencereyi iki kez açmaz.",
+       "keywords": [
+        "kaydırma çubuğu",
+        "kaydırma",
+        "fare tekerleği",
+        "dokunmatik yüzey",
+        "dokunmatik ekran",
+        "parmak",
+        "pencere iki kez açılıyor"
+       ],
+       "images": []
+      }
+     ]
+    },
+    {
+     "title": "Personel, iadeler ve yetkiler",
+     "articles": [
+      {
+       "id": "в2-доступы-сотрудника-окно-доступы",
+       "title": "Personele erişim verme: «Erişimler» penceresi",
+       "text": "Шаг 1. ☰ → «Ayarlar» → «Personel» bölümünü açın ve ilgili personelin yanında «Erişimler»e basın — «Erişimler: Ad» penceresi açılır.\nШаг 2. «Rol şablonu» seçin: «Kasiyer», «Kıdemli kasiyer», «Depo yöneticisi» veya «Yönetici» — işaretler kendiliğinden konur, sonra düzeltebilirsiniz.\nШаг 3. Erişimi «Erişim ara (ör. indirim)» alanında arayın. Erişimler gruplara ayrılmıştır («Temel erişimler», «Sektör erişimleri», «Market kasası», «Ek hizmetler», «Düzenleme ve maaş»); her grupta «N / M» sayacı ve «Tümünü seç» / «Tümünü kaldır» düğmesi vardır.\nШаг 4. Kasada çalışmak için önemli olanlar: «Kasada çalışma (satış, vardiya)», «Kasada indirim», «Kasada fiyat değiştirme», «Sepetten ürün silme», «Personel tarafından iade» ve «Alış fiyatının altında satış (sahip ve yönetici her zaman)» — alış fiyatından ucuza satabilme yetkisi.\nШаг 5. «Erişimleri kaydet»e basın. Kaydetmeden kapatırsanız kasa uyarır: «Kaydedilmemiş değişiklikler var». Kaydedince «Erişimler kaydedildi ✓» görünür.\nВажно: Sitede oluşturulan personelin erişimleri «Siteden yükle» düğmesiyle alınır. Kasa profili yeniden okuyunca kasa menüsü yeni erişimlere göre güncellenir.",
+       "keywords": [
+        "erişimler",
+        "yetkiler",
+        "rol şablonu",
+        "kasiyer",
+        "kıdemli kasiyer",
+        "depo yöneticisi",
+        "yönetici",
+        "tümünü seç",
+        "erişimleri kaydet",
+        "alış fiyatının altında satış"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-возвраты-поиск-чека-причины-куда-товар",
+       "title": "İadeler: fiş arama, nedenler ve «Ürün nereye»",
+       "text": "Шаг 1. ☰ → «İade» bölümünü açın ve fişi «Fiş ara: numara veya ürün» alanında bulun.\nШаг 2. Tüm fişi iade edin («Tüm fişi iade et») ya da ürünleri işaretleyip «Seçilenleri iade et»e basın.\nШаг 3. Nedeni seçin: «Vazgeçti», «Kusurlu», «Beden uymadı», «Renk uymadı», «Kasiyer hatası», «Yanlış ürün» veya «Kendi nedenim» (metni yazın). Tüm fiş iade edilirken pencerenin adı «Tam iade sebebi»dir.\nШаг 4. «Ürün nereye» bölümünde «Rafa» (varsayılan — stok depoya döner), «Fireye» (stoka dönmez) veya «Tedarikçiye» seçin. «Kusurlu» nedeni «Fireye»yi kendiliğinden seçer.\nШаг 5. Onaylayın (Ctrl+Enter — iade et). İade edilen fişin numarası iade fişine basılır.\nВажно: Personelin «Personel tarafından iade» yetkisi olmalıdır (Ayarlar → «Personel» içindeki «Erişimler» düğmesi).",
+       "keywords": [
+        "iade",
+        "fiş arama",
+        "iade nedeni",
+        "ürün nereye",
+        "rafa",
+        "fireye",
+        "tedarikçiye"
+       ],
+       "images": []
+      }
+     ]
+    },
+    {
+     "title": "Çevrimdışı ve vergi fişi",
+     "articles": [
+      {
+       "id": "в2-работа-без-интернета-не-отправлено",
+       "title": "İnternetsiz çalışma: «Gönderilmedi», çevrimdışı fişler, bağlantısız mal kabul ve düşüm",
+       "text": "Шаг 1. İnternet yokken her zamanki gibi satış yapın: fişler kasada gerçek satış tarihi ve saatiyle kaydedilir, bağlantı gelince sunucuya kendiliğinden gider.\nШаг 2. Mal kabul, düşüm ve transfer de bağlantı olmadan hatırlanır: mal kabul arka planda gider («Arka plandaki girişler»), düşüm ve transfer sıraya girer, kasadaki stok hemen azalır.\nШаг 3. Sunucuya henüz gitmeyen her şey ☰ → «Gönderilmedi» bölümünde («Gönderilmeyenler» penceresi): fişler, iadeler, borç ödemeleri, mal kabuller, yeni ürünler, vardiya kapatma, para girişi/çıkışı, düşümler, transferler. Durumlar: «Bağlantı bekliyor», «Gönderiliyor», «Hata». Düğmeler: «Şimdi gönder», «Tekrar dene», «Ayrıntılar», «Verileri kopyala», «Destek ekibine gönder».\nШаг 4. 7 günden eski fişi sunucu kendiliğinden kabul etmez: kasa önceden uyarır («7 gün yaklaşıyor») ve bu kayıtları kırmızıyla işaretler («7 günden eski — sahibi bekleniyor»). Bu fişler için sahibin (yöneticinin) PIN onayı bir sonraki güncellemede gelecek.\nВажно: Sıra bilgisayarın diskinde saklanır. Sahibin PIN'ini kontrol eden sayım, sunucu bağlantısı ister.",
+       "keywords": [
+        "internetsiz",
+        "çevrimdışı",
+        "gönderilmedi",
+        "sıra",
+        "bağlantı bekliyor",
+        "7 günden eski fiş"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-фискальный-чек-ekassa",
+       "title": "eKassa mali fiş: sunucu fişi, QR, «Fiş vergi dairesine gitmedi»",
+       "text": "Шаг 1. Şirket için NurCRM'de fiskalizasyon açıksa ve fişi sunucu kesiyorsa, kasa kendisi bir şey kesmez: hazır vergi fişi sunucudan alınır ve olduğu gibi yazdırılır (32 karakter), «QR» satırı QR resmiyle değiştirilir.\nШаг 2. Fiş veya iade vergi dairesine ulaşmazsa kasa uyarır: «Fiş vergi dairesine gitmedi» (veya «İade vergi dairesine gitmedi»). Sunucu yeniden gönderir; sahip ve yönetici «Göndermeyi tekrarla»ya basabilir, diğerlerine kasa yöneticiye haber vermelerini söyler.\nШаг 3. Sahip programında «Mali fişsiz satışlar» bölümü görünür — dönemde mali fişi olmayan fişler (yalnızca şirkette fiskalizasyon açıkken görünür). «Finans» → «İadeler» sekmesinde «ÖKC» sütunu ve fiş kartında «Mali iade» bloğu vardır.\nВажно: Kasanın mali yazarkasa üzerinden fişi kendisinin kestiği mod henüz açık değil.",
+       "keywords": [
+        "ekassa",
+        "mali fiş",
+        "vergi dairesi",
+        "ökc",
+        "qr fiş",
+        "mali fişsiz satışlar"
+       ],
+       "images": []
+      }
+     ]
+    },
+    {
+     "title": "Depo, fiyat etiketleri ve veri aktarımı",
+     "articles": [
+      {
+       "id": "в2-перенос-товаров-из-1с-мойсклад-poster",
+       "title": "1C, MoySklad, Poster, Loyverse, Paloma365, Umag'dan aktarım: «Toplu yükleme»",
+       "text": "Шаг 1. ☰ → «Depo» → «Ürünler» → «Toplu yükleme» bölümünü açın.\nШаг 2. «Dosya seç…» (Excel veya CSV) düğmesine basın ya da hücreleri kopyaladıysanız «Panodan yapıştır»a basın. Eski ikili .xls dosyasını kasa okumaz — onu .xlsx veya CSV olarak kaydedin.\nШаг 3. Dosyanın hangi programdan olduğunu kasa kendisi bulur: 1C, MoySklad, Poster, Loyverse, Paloma365 veya Umag («Dosya hangi programdan?», «Dosyadan belirle»). Tanımazsa programı listeden kendiniz seçin; sütunlar adlarına göre eşlenir.\nШаг 4. Sütunları kontrol edin, «Kontrol et»e, sonra «Yükle»ye basın. Dosyadaki miktar stoğa eklenir (mal kabul); «Yalnızca kartlar ve fiyatlar (girişsiz)» stoğu değiştirmez.\nШаг 5. «Müşteriler ve borçlar» — müşteri listesini Excel/CSV'den aktarır; borçlar kaydedilmez, yalnızca gösterilir.\nШаг 6. «Hangi dosya uygun?» — dosya biçimi hakkında ipucu. «Örnekle gör» — denemek için 30 eğitim ürünü, sunucuya ve veritabanınıza girmez.\nШаг 7. «Eski yükleme (stok değiştirme)» — önceki pencere: dosyadaki miktar ürünün stoğunun yerine geçer. Pencere tektir: düğmeye yeniden basmak onu yalnızca öne getirir.",
+       "keywords": [
+        "aktarım",
+        "içe aktarma",
+        "1c",
+        "moysklad",
+        "poster",
+        "loyverse",
+        "paloma365",
+        "umag",
+        "toplu yükleme",
+        "müşteriler ve borçlar",
+        "eski yükleme"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-склад-владельца-вкладки-и-строка-товара",
+       "title": "Depo: sekmeler, ürün satırı («Düzenle», «⋯») ve birden çok ürün seçme",
+       "text": "Шаг 1. ☰ → «Depo» bölümünü açın. Sekmeler: «Ürünler», «Mal kabul», «Barkodlar», «Toplu ekleme», «Sayım», «Düşüm», «Transfer», «ABC», «Etiket editörü».\nШаг 2. «Ürünler» sekmesinde tablonun üstünde toplam kutucukları vardır.\nШаг 3. Ürün satırında iki düğme var: «Düzenle» ve «⋯». Stoğu stok etiketine basarak veya «⋯» içinden değiştirirsiniz; «⋯» içinde ayrıca «Etiket yazdır», «Fiyat etiketi», «Fotoğraf yükle» ve kırmızı «Sil» (onay ve varsa personel kodu sorar) bulunur.\nШаг 4. Sütun başındaki işaret tüm ürünleri seçer; gerekenleri elle de işaretleyebilirsiniz. «Seçildi: N» çubuğu «Fiyat etiketleri ve barkodlar» düğmesiyle belirir — seçili ürünler için fiyat etiketi ve barkod yazdırmayı açar.\nВажно: Yazdırmayla ilgili ayrıntılar «Fiyat etiketi ayarı: «Barkodlar» sekmesi» makalesinde.",
+       "keywords": [
+        "depo",
+        "depo sekmeleri",
+        "düzenle",
+        "üç nokta",
+        "stok",
+        "etiket yazdır",
+        "tümünü seç",
+        "seçildi",
+        "fiyat etiketleri ve barkodlar"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-настройка-ценника-вкладка-штрихкоды",
+       "title": "Fiyat etiketi ayarı: «Barkodlar» sekmesi ve «Şablonlarım»",
+       "text": "Шаг 1. ☰ → «Depo» → «Barkodlar» sekmesini açın (ya da «Ürünler» sekmesinde ürünleri işaretleyip «Fiyat etiketleri ve barkodlar»a basın).\nШаг 2. Sağda «Fiyat etiketi ayarı» paneli: yazıcı noktalarıyla alt yazılı önizleme (örneğin «463×319 nokta · 203 dpi · modül 2»), «Boyut» (30×20, 40×30, 58×40, 58×30, 100×70 veya «Özel boyut»: genişlik × yükseklik, 15×10'dan 150×150 mm'ye kadar), «Barkod yüksekliği, mm», «Çizgi kalınlığı», «Barkod türü» (Otomatik, EAN-13, Code 128, QR), «Yazı tipi», «Metin boyutu», «Etikette göster:» işaretleri.\nШаг 3. «Ürün başına etiket»: «Birer» («Her birinin kopyası» ile), «Stoğa göre» (stoktaki adet kadar etiket, ama ürün başına en çok 99; büyük baskı onay ister) veya «Elle» (1'er, sayı ürün kartında ayarlanır). Seçim satırında «Ürün: N · etiket: M» görünür.\nШаг 4. Listenin üstünde: «Taranan» (yalnızca taranmışlar) — bu oturumda taranan ürünler («Tarayıcı: yazdırmaya ekle»yi açın) ve «Listedekilerin tümünü seç (N)».\nШаг 5. «Yazıcı ayarları» (açmak için tıklayın): «Çerçeve», yatay ve dikey kaydırma (nokta), «Ayarları sıfırla». TSPL dilinde sürücüsüz yazıcıda (Xprinter, TSC, Gprinter) ayrıca «Etiketler arası boşluk», «Hız», «Yoğunluk», «Yön» ve «Kalibrasyon» vardır; Windows sürücülü yazıcıda bunları sürücü belirler.\nШаг 6. İyi ayarları şablon olarak kaydedin: «Şablonlarım» — adla kaydet, seç, sil.\nШаг 7. Yazdırma: «Seçilenleri yazdır» termal yazıcıda veya «A4'e yazdır»; «Deneme baskısı» deneme etiketi verir.\nВажно: Etiketteki blokların yerini «Etiket editörü» değiştirir («Depo» → «Etiket editörü»). 1000 px'ten dar pencerelerde (ve ayrı pencerede) panelin yerine listenin üstünde aynı ayarlara sahip katlanır bir kart bulunur.",
+       "keywords": [
+        "fiyat etiketi ayarı",
+        "fiyat etiketi",
+        "etiket",
+        "önizleme",
+        "barkod türü",
+        "şablonlarım",
+        "yazı tipi",
+        "metin boyutu",
+        "ürün başına etiket",
+        "stoğa göre",
+        "taranmışlar",
+        "yazıcı ayarları",
+        "kalibrasyon",
+        "çerçeve"
+       ],
+       "images": [
+        {
+         "file": "owner-price-tag-setup.png",
+         "caption": "Depo → «Barkodlar» → sağdaki «Fiyat etiketi ayarı» paneli"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Mağaza türleri, yapay zeka ve destek",
+     "articles": [
+      {
+       "id": "в2-ремонт-trade-in-прокат",
+       "title": "Tamir ve servis, Trade-in / alım ve Kiralama",
+       "text": "Шаг 1. Bağlama: Pazaryeri → «Tamir ve servis» (1200 som) ve «Trade-in / alım» (1000 som); destek veya anahtar açar. Sonra ☰ menüsünde «Tamir ve servis» ve «Trade-in / alım» görünür.\nШаг 2. Tamir: numaralı kabul makbuzu (R-0001), müşteri ve telefon, cihaz, seri numarası veya IMEI, arıza, teslim edilenler, ön ödeme, süre. Durumlar: kabul, işlemde, hazır, teslim. Makbuz ve teslim tutanağı baskısı, müşteriye WhatsApp'ta «hazır» mesajı. Ön ödeme ve iade «Para girişi / çıkışı» üzerinden geçer.\nШаг 3. Trade-in: «Yeni alım» — değerleme, pasaport, seri numarası / IMEI, fotoğraf; kasadan ödeme veya alışverişe mahsup; ürün depoya ikinci el olarak girer (alış = alım tutarı); kabul tutanağı yazdırılır, alım günlüğü vardır.\nШаг 4. «Kiralama» — ☰ menüsünde ayrı bir madde (mağazanız için açıksa): eşyaları kiraya verme ve iade alma.\nВажно: Tamir ve alım verileri bu kasada saklanır ve bilgisayarlar arasında aktarılmaz (sunucu henüz desteklemiyor); günlükler sahip programında da vardır.",
+       "keywords": [
+        "tamir",
+        "servis",
+        "trade-in",
+        "alım",
+        "ikinci el",
+        "kiralama",
+        "makbuz",
+        "imei"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-электроника-и-строймаркет",
+       "title": "Elektronik (seri numarası, garanti) ve yapı market (paketler, usta fiyatı)",
+       "text": "Шаг 1. Elektronik: Ayarlar → «İşlemler» → «Değişim ve iade» kartı → «Seri numaraları ve garanti». Satışta IMEI / seri numarası gereken kategorileri işaretleyin ve «Varsayılan garanti, ay:» değerini girin (kategoriye göre de olur). Blok «Elektronik» türündeki mağazada görünür.\nШаг 2. Ürün kartında: «Seri numaraları / IMEI ile satılır» ve «Garanti, ay». Böyle bir ürün satılırken kasa seri numarası ister; yanlış numara «Geçersiz seri numarası» verir.\nШаг 3. Yapı market: ürünün paketi olabilir (kartta — «Pakette, m²» veya «Torbada (pakette), kg»). Fişte miktar paketle sayılır, depodan ise «miktar × paket boyutu» düşülür.\nШаг 4. «Usta fiyatı»: müşteri kartında «Toptan fiyattan alır (usta)» bloğu — bu müşteriye toptan fiyatı tanımlı tüm satırlarda verilir (fişte «Usta fiyatı» rozeti). Blok «Hırdavat» mağazasında görünür. Sunucudaki fiyat seviyelerini sonra bağlayacağız.",
+       "keywords": [
+        "elektronik",
+        "seri numarası",
+        "imei",
+        "garanti",
+        "yapı market",
+        "hırdavat",
+        "paket",
+        "çuval",
+        "metrekare",
+        "usta",
+        "toptan fiyat"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-смета-как-составить-смету",
+       "title": "Keşif nasıl hazırlanır (yapı market): malzeme tüketimi, baskı, fişe aktarma",
+       "text": "«Keşif», bir tadilat için ne kadar malzeme gerektiğini hesaplar ve her şeyi müşteriye verilecek bir belgede toplar. Modül ücretsizdir: «Hırdavat ve yapı malzemeleri» alanında zaten açıktır, diğer alanlarda — Marketplace → «Keşif» → «Ücretsiz aç».\nШаг 1. «Keşif»i açın: kasada — ☰ menüsü veya ana ekrandaki «Daha fazla», sahip programında — Ürünler → Keşif. «＋ Yeni keşif»e basın, şantiyeyi (örneğin «18 m² oda tadilatı»), müşteriyi ve telefonu yazın. «Geçerlilik» süresi varsayılan olarak 7 gündür.\nШаг 2. «Malzeme hesapla»ya basın: malzemeyi seçin (boya, astar, fayans, laminat, duvar kağıdı, alçıpan, macun, sıva, yapıştırıcı), odanın uzunluk, en ve yüksekliğini ve boşlukları girin (kapı ve pencereler düşülür). Kesim için fire payı %10'dur. Sonuç tam paketlerdir (her zaman yukarı yuvarlanır), altında formülü görürsünüz.\nШаг 3. Katalogdan ürün bağlayın («Katalogdan ürün» alanı) — satır fiyat ve miktarla keşfe girer. Bağlantı hatırlanır. «Ekle ve devam» penceresi aynı oda ölçüleriyle açık bırakır: fayans → yapıştırıcı → derz dolgu.\nШаг 4. Gerisini ekleyin: ürün — üstteki alan (ad veya barkod, tarayıcı veya Enter), «＋ Özel kalem» — iş veya teslimat, «＋ Bölüm» — «Duvarlar», «Zemin», «İş». Satırın miktarı, fiyatı, indirimi ve fire payı doğrudan tabloda düzenlenir. Genel indirim ve fire payı başlıktadır. «Usta (toptan)» fiyatı ürünün toptan fiyatını alır.\nШаг 5. «Yazdır…» — A4 sayfa (önizlemeli) veya 58/80 mm şerit; «Metin olarak kopyala» — WhatsApp veya Telegram için; «WhatsApp'ta aç» — müşteriyle sohbet ve hazır metin (Gönder'e siz basarsınız).\nШаг 6. Müşteri karar verince kasada «Hepsini fişe ekle»ye basın. Kalemler güncel fiyatlarla gider; keşiften beri fiyat veya stok değiştiyse kasa tam olarak neyin değiştiğini gösterir ve sorar. Özel kalem «Ek hizmet» satırı olarak gider. Aktarımdan sonra keşif durumu «Kabul edildi» olur.\nВажно: «Geçerlilik» tarihi geçtiyse fiyatlar değişmiş olabilir — «Fiyatları yeniden hesapla»ya basın. Alış fiyatlarını ve marjı yalnızca sahip ve alış hakkı olan personel görür; basılı çıktıda ve müşteri metninde yoktur. Keşifler yalnızca bu bilgisayarda saklanır, diğer kasalara aktarılmaz. Tüketim normlarını (m² başına litre ve kilogram) sahip düzenler — «Tüketim normları» düğmesi.",
+       "keywords": [
+        "keşif",
+        "keşif nasıl hazırlanır",
+        "hesaplayıcı",
+        "malzeme tüketimi",
+        "malzeme hesapla",
+        "tadilat",
+        "yapı market",
+        "boya fayans duvar kağıdı",
+        "keşif yazdır",
+        "hepsini fişe ekle",
+        "usta fiyatı",
+        "yenilikler"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-вкладка-ии-ключи-нур-советник",
+       "title": "Ayarlar → «Yapay zeka»: yapay zeka anahtarları ve Nur Danışman",
+       "text": "Шаг 1. ☰ → «Ayarlar» → «Yapay zeka» sekmesini açın.\nШаг 2. «Sohbet için YZ asistanı (ücretsiz, Google Gemini)»: «Ücretsiz anahtar al»a basın, anahtarı alıp alana yapıştırın, sonra «YZ'yi test et».\nШаг 3. «Yapay zekâ için internet araması (ücretsiz, Groq)» — kurlar, fiyatlar, haberler ve ürün fotoğrafı araması için anahtar; «Aramayı test et».\nШаг 4. «Yedek yapay zekâ modelleri (ücretsiz, OpenRouter, isteğe bağlı)» — Gemini'nin günlük limiti dolarsa yedek model yanıt verir. Boş alan kapalı demektir.\nШаг 5. Aşağıda Nur Danışman'ın neler yapabileceği (anahtarlar) var.\nВажно: Anahtar bir şifre gibidir: göstermeyin ve iletmeyin. Kesin rakamları yine kasa hesaplar; yapay zeka yalnızca mağazanın kısa özetini alır.",
+       "keywords": [
+        "yapay zeka",
+        "nur danışman",
+        "gemini",
+        "groq",
+        "openrouter",
+        "yz anahtarı",
+        "yz test"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-написать-в-поддержку-слоты-устройств",
+       "title": "Günlükle «Desteğe yaz» ve cihaz yuvaları",
+       "text": "Шаг 1. ☰ → «NurCRM destek» → «Destek ile iletişim» bölümünü açın. Aynı düğme hata penceresinde ve «Günlükler ve hatalar» içinde de var.\nШаг 2. Ne olduğunu anlatın: ne yaptınız ve neyin ters gittiği. Başvuruyla birlikte günlüğün son satırları (şifresiz ve anahtarsız), sürüm, şirket ve şube gider. Pencere görüntüsü isteğe bağlıdır, müşteri verileri içerebilir.\nШаг 3. «Gönder»e basın. «Başvurularım» listesinde durum görünür: «Gönderildi», «Kanal bağlı değil» veya «Gönderilmedi» — o zaman «Tekrar dene»ye basın. «Başvuru metniyle WhatsApp'ı aç» da mümkün.\nШаг 4. Cihaz yuvaları: kullanıcı adı başka bir kasada açıksa, girişte kasa «Bu kullanıcı adında başka bir kasa var» diye sorar. «Giriş yap ve diğerini kapat» — burada girersiniz, eski kasa açıklayıcı bir mesaj alır; «İptal» — hiçbir şey değişmez (Enter varsayılan olarak «İptal»).",
+       "keywords": [
+        "desteğe yaz",
+        "destek",
+        "günlük",
+        "başvuru",
+        "loglar",
+        "hata",
+        "başvurularım",
+        "cihaz yuvası",
+        "kullanıcı adı başka kasada"
+       ],
+       "images": []
+      }
+     ]
+    }
+   ]
+  },
+  {
    "title": "İşletme sahibi programı",
    "groups": [
     {
@@ -812,7 +1097,7 @@
       {
        "id": "товары-как-найти-товар",
        "title": "Ürün nasıl bulunur",
-       "text": "Шаг 1. Ana ekranda kataloğun üstündeki «Ürün ara…» alanına basın (veya Ctrl+F tuşlarına basın).\nШаг 2. Ürün adını, barkodu veya stok kodunu yazın — liste hemen filtrelenir.\nШаг 3. Daha ayrıntılı seçim için «Filtre» düğmesine basın: «Ürün türü», «Kategori», «Marka», «Fiyat (min)» / «Fiyat (max)», «Sadece stokta olanlar» → «Uygula».\nШаг 4. «Tüm ürünler», «Tartılı», «Adetli», «Tek tek satış», «Setler», «Hizmetler» sekmeleri yalnızca ilgili türdeki ürünleri gösterir.\nШаг 5. Stoğu ve barkodu liste halinde görmek için aramanın yanındaki «Ürün görünümü» düğmesine basın ve «Tablo görünümü» modunu seçin.\nВажно: Esc tuşu arama satırını temizler ve kasayı yeniden barkod okutmaya hazır hale getirir.",
+       "text": "Шаг 1. Ana ekranda katalogun üstündeki «Tara, kod veya ad» alanına tıklayın (veya Ctrl+F).\nШаг 2. Ürün adını, barkodu veya stok kodunu yazın — liste hemen filtrelenir.\nШаг 3. Daha ayrıntılı seçim için «Filtre» düğmesine basın: «Ürün türü», «Kategori», «Marka», «Fiyat (min)» / «Fiyat (max)», «Sadece stokta olanlar» → «Uygula».\nШаг 4. «Tüm ürünler», «Tartılı», «Adetli», «Tek tek satış», «Setler», «Hizmetler» sekmeleri yalnızca ilgili türdeki ürünleri gösterir.\nШаг 5. Stoğu ve barkodu liste halinde görmek için aramanın yanındaki «Ürün görünümü» düğmesine basın ve «Tablo görünümü» modunu seçin.\nВажно: Esc tuşu arama satırını temizler ve kasayı yeniden barkod okutmaya hazır hale getirir.",
        "keywords": [
         "ürün bul",
         "arama",
@@ -1007,7 +1292,7 @@
       {
        "id": "товары-как-напечатать-этикетку-со-штрихкодом",
        "title": "Barkodlu etiket nasıl yazdırılır",
-       "text": "Шаг 1. ☰ → «Çalışma» → «Depo» bölümünü açın; «Ürünler» sekmesinde «Liste» görünümünü seçin.\nШаг 2. Ürünü bulun ve «İşlemler» sütunundaki «Yazdır» düğmesine basın.\nШаг 3. «Etiket yazdır» penceresinde «Yazıcı» ve «Kopya sayısı» alanlarını doldurun.\nШаг 4. «Yazdır» düğmesine basın.\nВажно: Ürünün barkodu yoksa pencerede «Yazdırılacak barkod yok» yazısı çıkar — barkodu ürün kartında tanımlayın («Oluştur»).",
+       "text": "Шаг 1. ☰ → «Çalışma» → «Depo» bölümünü açın; «Ürünler» sekmesinde «Liste» görünümünü seçin.\nШаг 2. Ürünü bulun, satırındaki «⋯» düğmesine basın ve «Etiket yazdır»ı seçin.\nШаг 3. Yazdırma penceresinde («Barkod ve fiyat etiketi yazdırma») sağda «Fiyat etiketi ayarı» paneli var: yazıcıyı ve «Kopya»yı seçin.\nШаг 4. «Yazdır» düğmesine basın.\nВажно: Ürünün barkodu yoksa pencerede «Yazdırılacak barkod yok» yazısı çıkar — barkodu ürün kartında tanımlayın («Oluştur»).",
        "keywords": [
         "etiket",
         "barkod yazdır",
@@ -1026,7 +1311,7 @@
       {
        "id": "товары-как-напечатать-ценник",
        "title": "Fiyat etiketi nasıl yazdırılır",
-       "text": "Шаг 1. ☰ → «Çalışma» → «Depo» bölümünü açın, «Ürünler» sekmesine geçin.\nШаг 2. Ürünü bulun ve «İşlemler» sütunundaki «Fiyat etiketi» düğmesine basın.\nШаг 3. «Fiyat etiketi şablonu» alanından şablonu seçin; gerekirse «Eski fiyat (üstü çizili)» ve «İndirim (örn. -20%)» alanlarını doldurun.\nШаг 4. «Nereye yazdırılsın» bölümünde «Termal etiket yazıcısı» veya «Normal yazıcı (A4)» seçeneğini seçin; «Yazıcı» ve «Kopya sayısı» alanlarını doldurun.\nШаг 5. «Yazdır» düğmesine basın.\nВажно: Fiyat etiketi yazdırma ücretli bir ek özelliktir: düğmeye ilk bastığınızda kasa «Fiyat etiketi düzenleyici» için seri numarası ister.",
+       "text": "Шаг 1. ☰ → «Çalışma» → «Depo» bölümünü açın, «Ürünler» sekmesine geçin.\nШаг 2. Ürünü bulun, satırındaki «⋯» düğmesine basın ve «Fiyat etiketi»ni seçin.\nШаг 3. «Fiyat etiketi şablonu» alanından şablonu seçin; gerekirse «Eski fiyat (üstü çizili)» ve «İndirim (örn. -20%)» alanlarını doldurun.\nШаг 4. «Nereye yazdırılsın» bölümünde «Termal etiket yazıcısı» veya «Normal yazıcı (A4)» seçeneğini seçin; «Yazıcı» ve «Kopya sayısı» alanlarını doldurun.\nШаг 5. «Yazdır» düğmesine basın.\nВажно: Fiyat etiketi yazdırma ücretli bir ek özelliktir: düğmeye ilk bastığınızda kasa «Fiyat etiketi düzenleyici» için seri numarası ister.",
        "keywords": [
         "fiyat etiketi",
         "fiyat etiketi yazdır",
@@ -1045,7 +1330,7 @@
       {
        "id": "товары-как-напечатать-ценники-сразу-на-много-товаров",
        "title": "Birçok ürünün fiyat etiketi tek seferde nasıl yazdırılır",
-       "text": "Шаг 1. ☰ → «Çalışma» → «Depo» bölümünü açın, «Ürünler» sekmesine geçin.\nШаг 2. «Toplu fiyat etiketi yazdır» düğmesine basın.\nШаг 3. Ürünleri bulup işaretleyin («Tümünü seç» / «Seçimi kaldır»).\nШаг 4. «Fiyat etiketi şablonu», «Nereye yazdırılsın», «Ürün başına kopya» ve «Yazıcı» alanlarını doldurun.\nШаг 5. «Yazdır» düğmesine basın.\nВажно: «Toplu fiyat etiketi yazdırma» ayrı bir ücretli ek özelliktir ve seri numarasıyla etkinleştirilir.",
+       "text": "Шаг 1. ☰ → «Çalışma» → «Depo» bölümünü açın, «Ürünler» sekmesine geçin.\nШаг 2. «Toplu fiyat etiketi yazdır» düğmesine basın.\nШаг 3. Ürünleri bulup işaretleyin («Tümünü seç» / «Seçimi kaldır»).\nШаг 4. «Fiyat etiketi şablonu», «Nereye yazdırılsın», «Ürün başına kopya» ve «Yazıcı» alanlarını doldurun.\nШаг 5. «Yazdır» düğmesine basın.\nШаг 6. Seçilenler için daha hızlı: «Ürünler» sekmesinde ürünleri işaretleyin (sütun başındaki işaret hepsini seçer) ve «Seçildi: N» çubuğundaki «Fiyat etiketleri ve barkodlar»a basın.\nВажно: «Toplu fiyat etiketi yazdırma» ayrı bir ücretli ek özelliktir ve seri numarasıyla etkinleştirilir.",
        "keywords": [
         "toplu yazdırma",
         "çok sayıda fiyat etiketi",
@@ -1062,7 +1347,7 @@
       {
        "id": "товары-как-изменить-внешний-вид-этикетки",
        "title": "Etiketin görünümü nasıl değiştirilir",
-       "text": "Шаг 1. ☰ → «Depo» → «Etiket editörü» sekmesi → «Editörü aç» yolunu izleyin (veya etiket yazdırma penceresindeki «Etiket editörü» düğmesine basın).\nШаг 2. «Etiket genişliği, mm», «Etiket yüksekliği, mm» değerlerini girin veya bir «Şablon» seçin.\nШаг 3. Öğeleri fareyle sürükleyin; boyutlarını öğenin koyu köşesinden tutarak değiştirin. Gerekli öğeleri açın: «Barkod», «Stok kodu», «Ölçü birimi», «Mağaza adı».\nШаг 4. Sonucu «Baskı önizleme» bölümünde veya «Test baskısı» düğmesiyle kontrol edin.\nШаг 5. «Varsayılana sıfırla» düğmesi etiketin ilk görünümünü geri getirir.\nВажно: Etiket editörü ücretli bir ek özelliktir: editörü ilk açtığınızda kasa seri numarası ister. Normal etiket yazdırma ücretsizdir.",
+       "text": "Шаг 1. ☰ → «Depo» → «Etiket editörü» sekmesi → «Editörü aç» yolunu izleyin (veya etiket yazdırma penceresindeki «Etiket editörü» düğmesine basın).\nШаг 2. «Etiket genişliği, mm», «Etiket yüksekliği, mm» değerlerini girin veya bir «Şablon» seçin.\nШаг 3. Öğeleri fareyle sürükleyin; boyutlarını öğenin koyu köşesinden tutarak değiştirin. Gerekli öğeleri açın: «Barkod», «Stok kodu», «Ölçü birimi», «Mağaza adı».\nШаг 4. Sonucu «Baskı önizleme» bölümünde veya «Test baskısı» düğmesiyle kontrol edin.\nШаг 5. «Varsayılana sıfırla» düğmesi etiketin ilk görünümünü geri getirir.\nШаг 6. Editörsüz: «Barkodlar» sekmesi → sağdaki «Fiyat etiketi ayarı» paneli (önizleme, boyut, kopya, barkod yüksekliği, «Barkod türü», yazı tipi, metin boyutu, «Şablonlarım») — ayrıntılar «Fiyat etiketi ayarı…» makalesinde.\nВажно: Etiket editörü ücretli bir ek özelliktir: editörü ilk açtığınızda kasa seri numarası ister. Normal etiket yazdırma ücretsizdir.",
        "keywords": [
         "etiket editörü",
         "etiket boyutu",
@@ -1177,7 +1462,7 @@
       {
        "id": "склад-как-списать-товар",
        "title": "Ürün stoktan nasıl düşülür",
-       "text": "Шаг 1. ☰ → «Çalışma» → «Depo» bölümünü açın, «Düşüm» sekmesine geçin.\nШаг 2. Ürünü «Ürün adını yazmaya başlayın…» alanında bulun veya barkodunu okutun.\nШаг 3. «Düşülecek miktar» değerini girin.\nШаг 4. «Düşüm sebebi» düğmesine basın ve sebebi seçin: «Kusurlu», «Son kullanma tarihi geçmiş», «Ambalaj hasarlı», «Kişisel kullanım» veya «Diğer».\nШаг 5. «Düşümü onayla» düğmesine basın — kasa «Düşüm yapıldı.» mesajını gösterir.\nВажно: İnternet gerekir; stoktan fazlası düşülemez. Önceki düşümler «Düşüm geçmişi» bölümündedir («Tamamını aç ⤢» düğmesi).",
+       "text": "Шаг 1. ☰ → «Çalışma» → «Depo» bölümünü açın, «Düşüm» sekmesine geçin.\nШаг 2. Ürünü «Ürün adını yazmaya başlayın…» alanında bulun veya barkodunu okutun.\nШаг 3. «Düşülecek miktar» değerini girin.\nШаг 4. «Düşüm sebebi» düğmesine basın ve sebebi seçin: «Kusurlu», «Son kullanma tarihi geçmiş», «Ambalaj hasarlı», «Kişisel kullanım» veya «Diğer».\nШаг 5. «Düşümü onayla» düğmesine basın — kasa «Düşüm yapıldı.» mesajını gösterir.\nВажно: Bağlantı olmadan düşüm hatırlanır ve sunucuya kendiliğinden gider (☰ → «Gönderilmedi» bölümüne bakın); stoktan fazlası düşülemez. Önceki düşümler «Düşüm geçmişi» bölümündedir («Tamamını aç ⤢» düğmesi).",
        "keywords": [
         "düşüm",
         "zayiat",
@@ -1251,7 +1536,7 @@
       {
        "id": "склад-как-загрузить-много-товаров-из-csv-файла",
        "title": "CSV dosyasından çok sayıda ürün nasıl yüklenir",
-       "text": "Шаг 1. ☰ → «Çalışma» → «Depo» bölümünü açın, «Ürünler» sekmesinde «Toplu yükleme» düğmesine basın.\nШаг 2. «CSV şablonunu indir» düğmesine basın ve şablonu (örneğin Excel'de) ürün listesiyle doldurun.\nШаг 3. «Dosya seç…» düğmesine basın ve doldurduğunuz dosyayı seçin.\nШаг 4. Tabloyu kontrol edin: her satırda yeni ürün mü oluşturulacağı («Yeni ürün») yoksa mevcut ürünün mü güncelleneceği görünür.\nШаг 5. «Yüklemeyi başlat» düğmesine basın ve «Tamamlandı: oluşturulan …, güncellenen …, hata …» mesajı çıkana kadar bekleyin.\nВажно: Ürünler barkoda göre eşleştirilir. Dosyadaki miktar sütunu yeni stok miktarıdır, mevcut stoğa eklenmez; dosyadaki boş sütunlar ürün bilgilerini değiştirmez.",
+       "text": "Шаг 1. ☰ → «Çalışma» → «Depo» bölümünü açın, «Ürünler» sekmesinde «Toplu yükleme» düğmesine basın.\nШаг 2. «CSV şablonunu indir» düğmesine basın ve şablonu (örneğin Excel'de) ürün listesiyle doldurun.\nШаг 3. «Dosya seç…» düğmesine basın ve doldurduğunuz dosyayı seçin.\nШаг 4. Tabloyu kontrol edin: her satırda yeni ürün mü oluşturulacağı («Yeni ürün») yoksa mevcut ürünün mü güncelleneceği görünür.\nШаг 5. «Yüklemeyi başlat» düğmesine basın ve «Tamamlandı: oluşturulan …, güncellenen …, hata …» mesajı çıkana kadar bekleyin.\nВажно: Ürünler barkoda göre eşleştirilir. «Toplu yükleme» dosyadaki miktarı stoğa ekler (mal kabul); önceki «Eski yükleme (stok değiştirme)» penceresi stoğu değiştirir. Dosyadaki boş sütunlar ürün bilgilerini değiştirmez. 1C, MoySklad, Poster ve diğerlerinden — «1C, MoySklad, Poster … aktarım» makalesine bakın.",
        "keywords": [
         "csv",
         "ürün yükleme",
@@ -1632,7 +1917,7 @@
       {
        "id": "сотрудники-как-задать-коды-доступа-сотруднику",
        "title": "Personel için erişim kodları nasıl belirlenir",
-       "text": "Шаг 1. ☰ → «Ayarlar» → «Personel» bölümünü açın.\nШаг 2. Personelin kartına basın.\nШаг 3. «Sepetten silme kodu», «Depodan silme kodu», «Ürün düzenleme kodu», «Ürün ekleme kodu» alanlarını doldurun.\nШаг 4. «Tamam» düğmesine, ardından «Kaydet» düğmesine basın.\nВажно: Kod alanı boş bırakılırsa bu işlem o personel için engellenir. Mağaza sahibi ve yönetici kod girmeden çalışır. Bölümlere erişim yetkileri (personel kartının yanındaki kilitli «Erişimler» düğmesi) NurCRM'de de verilir.",
+       "text": "Шаг 1. ☰ → «Ayarlar» → «Personel» bölümünü açın.\nШаг 2. Personelin kartına basın.\nШаг 3. «Sepetten silme kodu», «Depodan silme kodu», «Ürün düzenleme kodu», «Ürün ekleme kodu» alanlarını doldurun.\nШаг 4. «Tamam» düğmesine, ardından «Kaydet» düğmesine basın.\nВажно: Kod alanı boş bırakılırsa bu işlem o personel için engellenir. Mağaza sahibi ve yönetici kod girmeden çalışır. Bölümlere ve işlemlere erişimi personelin yanındaki «Erişimler» düğmesi verir — «Personele erişim verme: «Erişimler» penceresi» makalesine bakın.",
        "keywords": [
         "erişim kodu",
         "pin kodu",
@@ -1651,7 +1936,7 @@
       {
        "id": "сотрудники-как-посмотреть-табель-сотрудников",
        "title": "Personel çizelgesi nasıl görüntülenir",
-       "text": "Шаг 1. ☰ → «Çalışma» → «Personel çizelgesi» bölümünü açın.\nШаг 2. Dönemi seçip («Başlangıç tarihi…» — «Bitiş tarihi…») «Yenile» düğmesine basın ya da «Tüm dönem» düğmesini kullanın.\nШаг 3. Tabloda her kasiyer için: «Vardiya», «Gün», «Toplam saat», «Ortalama vardiya», «Ciro», «İlk — son vardiya».\nВажно: Yalnızca kapatılmış vardiyalar sayılır. Çizelge, ücretli «Personel takibi» ek özelliğine dahildir («Pazaryeri» → «Ek özellikler»).",
+       "text": "Шаг 1. ☰ → «Çalışma» → «Personel çizelgesi» bölümünü açın (sahip programında — «Çizelge»).\nШаг 2. «İşaretler» sekmesi: ayın günlerine göre tablo, «Önceki ay» / «Sonraki ay» düğmeleri. Personeli işaretlemek için gün hücresine basın: «Günlük saat», «Yorum (isteğe bağlı)», «Kaydet»; «İşareti kaldır» işareti siler.\nШаг 3. «Bugün herkesi geldi işaretle» — tek düğmeyle; «Dünü kopyala» — dünkü işaretleri bugüne taşır.\nШаг 4. «Değişiklik günlüğü» — işaretlerdeki son 150 değişiklik.\nШаг 5. «Vardiya toplamları» sekmesi: her kasiyer için «Vardiya», «Gün», «Toplam saat», «Ortalama vardiya», «Ciro», «İlk — son vardiya».\nВажно: İşaretleri sahip koyar, diğerleri yalnızca görür. Otomatik işareti Ayarlar → «İşlemler» açar («Kasiyer vardiya açınca» veya «Kasaya girişte»): kasa geliş saatiyle «Geldi» işaretini kendisi koyar, sahibin elle işareti her zaman önceliklidir. İşaretler bu bilgisayarda saklanır, maaşı etkilemez. Yalnızca kapatılmış vardiyalar sayılır. Çizelge, ücretli «Personel takibi» ek özelliğine dahildir («Pazaryeri» → «Ek özellikler»).",
        "keywords": [
         "çizelge",
         "çalışma saatleri",
@@ -1909,7 +2194,7 @@
       {
        "id": "настройки-и-оборудование-как-настроить-вид-главного-экрана",
        "title": "Ana ekranın görünümü nasıl ayarlanır",
-       "text": "Шаг 1. ☰ → «Ayarlar» → «Ekran» bölümünü açın.\nШаг 2. «Ana ekran düzeni» alanında «Standart» veya «1C tarzı» seçeneğini seçin.\nШаг 3. «Ölçek», «Ürün kartı boyutu», «Katalogda ürün fotoğraflarını göster» ayarlarını yapın.\nШаг 4. «Ürüne tıklama» alanında «Tek» veya «Çift» seçeneğini seçin — bu, ürünün fişe eklenmesi için kaç kez basmanız gerektiğini belirler.\nШаг 5. «Kaydet» düğmesine basın.\nВажно: Aynı bölümde ayrıca «Tam ekran modu», «Windows ile başlat», «Zayıf cihaz modu» ile fiş için «Mağaza adı» ve «Mağaza adresi» ayarları vardır. Açık veya koyu tema için üst paneldeki «Tema» düğmesini kullanın.",
+       "text": "Шаг 1. ☰ → «Ayarlar» → «Ekran» bölümünü açın.\nШаг 2. Kasa düzeni Marketplace'te seçilir: ☰ → «Marketplace» → «Kasa görünümleri», istediğiniz düzenin kartına basın: «Klasik», «Tablo», «Kartlar», «Minimal», «Profesyonel» veya «1C» — kasa hemen yeniden düzenlenir.\nШаг 3. «Ölçek», «Ürün kartı boyutu», «Katalogda ürün fotoğraflarını göster» ayarlarını yapın.\nШаг 4. «Ürüne tıklama» alanında «Tek» veya «Çift» seçeneğini seçin — bu, ürünün fişe eklenmesi için kaç kez basmanız gerektiğini belirler.\nШаг 5. «Kaydet» düğmesine basın.\nВажно: Aynı bölümde ayrıca «Tam ekran modu», «Windows ile başlat», «Zayıf cihaz modu» ile fiş için «Mağaza adı» ve «Mağaza adresi» ayarları vardır. Açık veya koyu tema için üst paneldeki «Tema» düğmesini kullanın.",
        "keywords": [
         "kasa görünümü",
         "1c",
@@ -2211,6 +2496,22 @@
         "подсеть"
        ],
        "images": []
+      },
+      {
+       "id": "весы-быстрая-настройка-автоотправка-проверка",
+       "title": "Tartılar: «Tartıyı ayarla…», «Teknisyen için…», otomatik gönderim ve «Göndermeden önce kontrol»",
+       "text": "Шаг 1. ☰ → «Ayarlar» → «Tartı» bölümünü açın. «Mağazadaki tartılar» listesinde (veya «+ Tartı ekle»den sonra) ilgili tartıda «Tartıyı ayarla…»ya basın — 3 adımlı «Hızlı kurulum» sekmesi açılır: 1) hangi tartı ve adresi, 2) «Bağlantıyı kontrol et», 3) «Ürünleri gönder».\nШаг 2. Portlar, protokoller ve alışveriş dosyaları ayrıdır, «Teknisyen için…» düğmesinde (aynı pencere doğrudan teknik sekmede).\nШаг 3. «Tartıya ürün gönderme» penceresinde göndermeden önce «Göndermeden önce kontrol»e basın: kasa işaretli ürünlerin sorunlarını tek listede gösterir — PLU veya kod yok, PLU tartı tablosundan büyük, tekrarlar, fiyat 0 veya tartının basabileceğinden yüksek, tartının alabileceğinden çok ürün, tutar barkod türünün sınırının üstünde, tartının basmadığı ad karakterleri. Mümkünse yanında «Düzelt» düğmesi vardır.\nШаг 4. Otomatik gönderim: pencerenin altında «Değişiklikleri tartıya otomatik gönder» işareti. Kasa değişen ürünleri arka planda kendiliğinden tartıya gönderir (yalnızca doğrudan gönderen markalar: Rongta, Штрих-ПРИНТ, RS-200, TM-30F). Varsayılan olarak kapalıdır; bir tartı için tek bilgisayarda açın. «Son otomatik gönderim» yazısı sonucu gösterir; kontrol hatası olan ürünler gitmez.\nШаг 5. CAS ve Massa-K: protokol canlı tartıda henüz doğrulanmadı — ilk gönderimi tek ürünle yapın («CAS» ve «Massa-K» notlarına bakın).",
+       "keywords": [
+        "tartı hızlı kurulum",
+        "tartıyı ayarla",
+        "teknisyen için",
+        "tartıya otomatik gönderim",
+        "göndermeden önce kontrol",
+        "düzelt",
+        "plu",
+        "cas"
+       ],
+       "images": []
       }
      ]
     },
@@ -2297,7 +2598,7 @@
       {
        "id": "весы-памятка-massa-k",
        "title": "Not: Massa-K tartı — nasıl bağlanır, gönderilir ve kontrol edilir",
-       "text": "Kasiyer için kısaca. Etiket basan Massa-K tartılar uygundur: R ve SL serisi (örneğin MK-RP10, MK-RL10). VP/VPM tartılar henüz desteklenmiyor, etiket basmayan MK-A21'e ürün yüklenmez.\nAdım 1. Tartının kendisinde ağı (Ethernet) açın: kasa bilgisayarıyla aynı ağdan bir IP, port 5001.\nAdım 2. «Ürünler» → «Tartılar» → «Massa-K» markası → «Massa-K tartı ayarları» → «Hızlı kurulum»: tartı IP'sini girip «Bağlantıyı kontrol et»e basın. «Massa-K tartısı bağlı» ve seri numarası görünmeli. Bu yalnızca okumadır — tartıda hiçbir şey değişmez.\nAdım 3. «Teknisyen için» sekmesinde «Deneme paketini günlüğe»ye basın: çerçeveler yalnızca massak-exchange.log günlük dosyasına yazılır, tartıya hiçbir şey gitmez.\nAdım 4. «Tartı» penceresinde TEK bir tartılı ürün işaretleyin (PLU numarası olmalı) ve «Tartıya gönder»e basın. Kasa onay ister — «Gönder»e basın. Adetli ürünler Massa-K'ya gönderilmez, satırda uyarı olur.\nAdım 5. Tartıda ürünü PLU ile bulun: ad ve fiyat doğru mu? Etiket basıp kasayla okutun: aynı ürün ve aynı ağırlık açılmalı.\nAdım 6. Her şey doğruysa — «Massa-K tartı ayarları» → «Teknisyen için» → «Tartıda doğrulandı: etiket doğru çıktı»yı işaretleyin. Bundan sonra diğer ürünleri gönderebilirsiniz.\nAdım 7. «Bağlantı yok»: IP'yi, kabloyu, 5001 portunu, tartının açık ve kasayla aynı ağda olduğunu kontrol edin. Bir şey yanlışsa (fiyat ×100, boş ad) — ustaya «İletişim günlüğü» dosyasını (massak-exchange.log) gönderin.",
+       "text": "Kasiyer için kısaca. Etiket basan Massa-K tartılar uygundur: R ve SL serisi (örneğin MK-RP10, MK-RL10). VP/VPM tartılar henüz desteklenmiyor, etiket basmayan MK-A21'e ürün yüklenmez.\nШаг 1. Tartının kendisinde ağı (Ethernet) açın: kasa bilgisayarıyla aynı ağdan bir IP, port 5001.\nШаг 2. «Ürünler» → «Tartılar» → «Massa-K» markası → «Massa-K tartı ayarları» → «Hızlı kurulum»: tartı IP'sini girip «Bağlantıyı kontrol et»e basın. «Massa-K tartısı bağlı» ve seri numarası görünmeli. Bu yalnızca okumadır — tartıda hiçbir şey değişmez.\nШаг 3. «Teknisyen için» sekmesinde «Deneme paketini günlüğe»ye basın: çerçeveler yalnızca massak-exchange.log günlük dosyasına yazılır, tartıya hiçbir şey gitmez.\nШаг 4. «Tartı» penceresinde TEK bir tartılı ürün işaretleyin (PLU numarası olmalı) ve «Tartıya gönder»e basın. Kasa onay ister — «Gönder»e basın. Adetli ürünler Massa-K'ya gönderilmez, satırda uyarı olur.\nШаг 5. Tartıda ürünü PLU ile bulun: ad ve fiyat doğru mu? Etiket basıp kasayla okutun: aynı ürün ve aynı ağırlık açılmalı.\nШаг 6. Her şey doğruysa — «Massa-K tartı ayarları» → «Teknisyen için» → «Tartıda doğrulandı: etiket doğru çıktı»yı işaretleyin. Bundan sonra diğer ürünleri gönderebilirsiniz.\nШаг 7. «Bağlantı yok»: IP'yi, kabloyu, 5001 portunu, tartının açık ve kasayla aynı ağda olduğunu kontrol edin. Bir şey yanlışsa (fiyat ×100, boş ad) — ustaya «İletişim günlüğü» dosyasını (massak-exchange.log) gönderin.",
        "keywords": [
         "памятка",
         "масса-к",
@@ -2314,7 +2615,7 @@
       {
        "id": "весы-памятка-cas",
        "title": "Not: CAS tartı — nasıl bağlanır, gönderilir ve olmazsa ne yapılır",
-       "text": "Kasiyer için kısaca. CAS tartılar henüz canlı tartıda doğrulanmadı — ilk gönderimi tek ürünle yapın.\nAdım 1. «Ayarlar → Tartı» → «CAS» kutucuğu → «CAS tartı ayarları» → «Hızlı kurulum» sekmesi. Modeli seçin: CL5000J ve CL3000'i kasa ağ üzerinden doldurur; CL5500, CL5200, CL7200 ve LP-1.6 için yalnızca CL-Works programına dosya hazırlanır.\nAdım 2. Yalnızca CL5000J / CL3000: tartının IP'sini girin (tartıda menü 1913; ilk üç sayı bilgisayarınki gibi) ve «Bağlantıyı kontrol et»e basın. Düğme yalnızca durumu okur, tartıda hiçbir şeyi değiştirmez. Bağlantı yoksa kabloyu, IP'yi, 20304 portunu ve tartının menüde olmadığını kontrol edin.\nAdım 3. «Ürünler» → «Tartı» → CAS markası. Ürünleri işaretleyin (ilk seferde tek ürün), PLU sütunu dolu olsun. Uyarı varsa «Göndermeden önce kontrol» → «Düzelt».\nAdım 4. CL5000J / CL3000: «Tartıya gönder» ve onaylayın. «Tartı kabul etti: N» çıkana kadar bekleyin. CL5500 / CL5200 / CL7200 / LP-1.6: «CL-Works için dosyayı kaydet», sonra CL-Works'te «Dosya → İçe aktar → CSV», ürünleri kontrol edin ve «Veri alışverişi → Verileri gönder».\nAdım 5. Kontrol: tartıda ürünü PLU ile çağırın — ad ve fiyat doğru; deneme etiketi basıp kasada okutun: aynı ürün, aynı ağırlık ve tutar.\nAdım 6. Kasa etiketi tanımıyor («… kodlu ürün bulunamadı»): tartıda önek numaralı (20–29) bir reyon tanımlı olmalı, barkod biçimi CAS ayarlarının «Barkod» sekmesindeki gibi olmalı (örneğin DDIIIIIWWWWWC), ürünün «Barkoddaki kod»u etiketteki gibi olmalı. Düzeltip yeniden gönderin.\nAdım 7. Tartı reddetti («hata 89, 97, 84…») veya yanıt vermedi: tartı açık, menüde değil, aynı ağda. CAS ayarlarında «Teknisyen için» sekmesi → «İletişim günlüğü» — cas-exchange.log dosyasını ustaya gösterin.\nKasa tartıya yalnızca ürün kartlarını (PLU) yazar. Belleği, reyonları, barkod ve etiket biçimlerini silmez ve değiştirmez — onlar tartının kendisinde veya CL-Works'te ayarlanır.",
+       "text": "Kasiyer için kısaca. CAS tartılar henüz canlı tartıda doğrulanmadı — ilk gönderimi tek ürünle yapın.\nШаг 1. «Ayarlar → Tartı» → «CAS» kutucuğu → «CAS tartı ayarları» → «Hızlı kurulum» sekmesi. Modeli seçin: CL5000J ve CL3000'i kasa ağ üzerinden doldurur; CL5500, CL5200, CL7200 ve LP-1.6 için yalnızca CL-Works programına dosya hazırlanır.\nШаг 2. Yalnızca CL5000J / CL3000: tartının IP'sini girin (tartıda menü 1913; ilk üç sayı bilgisayarınki gibi) ve «Bağlantıyı kontrol et»e basın. Düğme yalnızca durumu okur, tartıda hiçbir şeyi değiştirmez. Bağlantı yoksa kabloyu, IP'yi, 20304 portunu ve tartının menüde olmadığını kontrol edin.\nШаг 3. «Ürünler» → «Tartı» → CAS markası. Ürünleri işaretleyin (ilk seferde tek ürün), PLU sütunu dolu olsun. Uyarı varsa «Göndermeden önce kontrol» → «Düzelt».\nШаг 4. CL5000J / CL3000: «Tartıya gönder» ve onaylayın. «Tartı kabul etti: N» çıkana kadar bekleyin. CL5500 / CL5200 / CL7200 / LP-1.6: «CL-Works için dosyayı kaydet», sonra CL-Works'te «Dosya → İçe aktar → CSV», ürünleri kontrol edin ve «Veri alışverişi → Verileri gönder».\nШаг 5. Kontrol: tartıda ürünü PLU ile çağırın — ad ve fiyat doğru; deneme etiketi basıp kasada okutun: aynı ürün, aynı ağırlık ve tutar.\nШаг 6. Kasa etiketi tanımıyor («… kodlu ürün bulunamadı»): tartıda önek numaralı (20–29) bir reyon tanımlı olmalı, barkod biçimi CAS ayarlarının «Barkod» sekmesindeki gibi olmalı (örneğin DDIIIIIWWWWWC), ürünün «Barkoddaki kod»u etiketteki gibi olmalı. Düzeltip yeniden gönderin.\nШаг 7. Tartı reddetti («hata 89, 97, 84…») veya yanıt vermedi: tartı açık, menüde değil, aynı ağda. CAS ayarlarında «Teknisyen için» sekmesi → «İletişim günlüğü» — cas-exchange.log dosyasını ustaya gösterin.\nKasa tartıya yalnızca ürün kartlarını (PLU) yazar. Belleği, reyonları, barkod ve etiket biçimlerini silmez ve değiştirmez — onlar tartının kendisinde veya CL-Works'te ayarlanır.",
        "keywords": [
         "памятка",
         "cas",
@@ -2922,7 +3223,7 @@
       {
        "id": "частые-вопросы-нет-интернета-можно-ли-продавать",
        "title": "İnternet yok — satış yapılabilir mi?",
-       "text": "Шаг 1. Evet, her zamanki gibi satışa devam edin: fişler kasada kaydedilir.\nШаг 2. Üst panelde «Çevrimdışı» yazısı ve «Sırada: N» sayacı görünür — bunlar gönderilmemiş fişlerdir.\nШаг 3. Bağlantı geri geldiğinde fişler sunucuya kendiliğinden gönderilir.\nШаг 4. Gönderilmemiş fişleri ☰ → «Çalışma» → «Sorunlu fişler» bölümünde kontrol edip «Tekrar gönder» düğmesiyle yeniden gönderebilirsiniz.\nВажно: İnternet olmadan sayım ve düşüm işlemleri yapılamaz. NurCRM hesabı olmadan tamamen çevrimdışı çalışma, giriş ekranındaki «Çevrimdışı çalış (internetsiz)» seçeneğinden bir anahtar girilerek açılır.",
+       "text": "Шаг 1. Evet, her zamanki gibi satışa devam edin: fişler kasada kaydedilir.\nШаг 2. Üst panelde «Çevrimdışı» yazısı ve «Sırada: N» sayacı görünür — bunlar gönderilmemiş fişlerdir.\nШаг 3. Bağlantı geri geldiğinde fişler sunucuya kendiliğinden gönderilir.\nШаг 4. Sunucuya henüz gitmeyen her şey (fişler, iadeler, mal kabuller, düşümler) ☰ → «Gönderilmedi» bölümünde görünür — «Şimdi gönder» de orada. Sorunlu fişler ☰ → «Çalışma» → «Sorunlu fişler» bölümünde, «Tekrar gönder» düğmesiyle.\nВажно: Bağlantısız düşüm, transfer ve mal kabul hatırlanır ve kendiliğinden gider; sahibin PIN'ini kontrol eden sayım bağlantı ister. NurCRM hesabı olmadan tamamen çevrimdışı çalışma, giriş ekranındaki «Çevrimdışı çalış (internetsiz)» seçeneğinden bir anahtar girilerek açılır.",
        "keywords": [
         "internet yok",
         "çevrimdışı",

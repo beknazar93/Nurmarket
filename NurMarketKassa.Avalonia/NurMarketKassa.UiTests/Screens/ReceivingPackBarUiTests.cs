@@ -127,6 +127,12 @@ public sealed class ReceivingPackBarUiTests
 
     private static ReceivingPackDefaultMode ModeOf(object bar) => Get<ReceivingPackDefaultMode>(bar, "Mode");
 
+    /// <summary>2026-11-19: видимый текст кнопки (содержимое), а не имя для экранного диктора, которое UiDrive.TextOf предпочитает.</summary>
+    private static string Visible(Control c) =>
+        c is ContentControl { Content: string text } ? text
+        : c.Tag is TextBlock title ? title.Text ?? "" // пункты окна: подпись лежит в Tag (окно закрыто — дерево пунктов не показано)
+        : string.Join(" ", c.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible).Select(t => t.Text));
+
     private static void Log(string text)
     {
         if (Environment.GetEnvironmentVariable("PACKBAR_LOG") is { Length: > 0 } path)
@@ -717,6 +723,7 @@ public sealed class ReceivingPackBarUiTests
             PressKey(window, Avalonia.Input.Key.F4, Avalonia.Input.PhysicalKey.F4, Avalonia.Input.RawInputModifiers.Control);
             ModeOf(bar).Should().Be(ReceivingPackDefaultMode.PackSale, "Ctrl+F4 — не наша клавиша");
             Call(bar, "Choose", ReceivingPackDefaultMode.Pieces);
+            UiShot.Settle(4); // 2026-11-19: Choose отложенно возвращает курсор в поле скана — ждём его, и только потом ставим фокус на сегмент вручную (иначе он перехватывал фокус обратно)
 
             // стрелки на сегментах: фокус остаётся на панели
             var segs = Get<ContentControl>(bar, "Host").GetVisualDescendants().OfType<RadioButton>().ToList();
@@ -991,14 +998,15 @@ public sealed class ReceivingPackBarUiTests
             Get<bool>(bar, "IsWide").Should().BeFalse("на 1024×600 сегменты не помещаются — меню");
             host.GetVisualDescendants().OfType<RadioButton>().Should().BeEmpty();
             var button = host.GetVisualDescendants().OfType<Button>().Single(b => b.IsEffectivelyVisible);
-            UiDrive.TextOf(button)!.Should().Contain("Приём:").And.Contain("в штуках").And.EndWith("▾");
+            // 2026-11-19: читаем видимый текст (UiDrive.TextOf берёт имя для экранного диктора — «Упаковка», оно задано намеренно)
+            Visible(button).Should().Contain("Приём:").And.Contain("в штуках").And.EndWith("▾");
             var flyout = (Avalonia.Controls.Flyout)bar.GetType().GetField("_flyout", Any)!.GetValue(bar)!;
             var items = ((StackPanel)flyout.Content!).Children.OfType<Button>().ToList();
             items.Count.Should().Be(4, "три способа и «Ко всем строкам»");
             items.Take(3).All(i => i.Focusable).Should().BeTrue("2026-11-12 (У-1): пункты окна доступны с клавиатуры");
-            UiDrive.TextOf(items[0])!.Should().Contain("В штуках");
-            UiDrive.TextOf(items[1])!.Should().Contain("Упаковками");
-            UiDrive.TextOf(items[2])!.Should().Contain("Поштучная продажа");
+            Visible(items[0])!.Should().Contain("В штуках");
+            Visible(items[1])!.Should().Contain("Упаковками");
+            Visible(items[2])!.Should().Contain("Поштучная продажа");
             // 2026-11-12 (Т-14): окно открывается настоящим щелчком по кнопке, а не рефлексией; пункт — нажатием кнопки пункта
             flyout.IsOpen.Should().BeFalse();
             UiDrive.Click(window, button);
@@ -1007,8 +1015,8 @@ public sealed class ReceivingPackBarUiTests
             items[1].RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
             UiShot.Settle(8);
             ModeOf(bar).Should().Be(ReceivingPackDefaultMode.Packs);
-            UiDrive.TextOf(button)!.Should().Contain("упаковками");
-            UiDrive.TextOf(items[1])!.Should().Contain("✓", "выбранный пункт отмечен");
+            Visible(button)!.Should().Contain("упаковками");
+            Visible(items[1])!.Should().Contain("✓", "выбранный пункт отмечен");
         }
         finally
         {

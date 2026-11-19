@@ -282,6 +282,9 @@
                                Foreground="{DynamicResource BrushTextSoft}"/>
                 </StackPanel>
                 <WrapPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Right" MaxWidth="400">
+                    <!-- 2026-11-19 (п. 4 владельца): явная кнопка «Настроить весы» — окно марки на «Быстрой настройке» (там же «Для мастера») -->
+                    <Button x:Name="ScaleQuickSetupButton" Classes="SecondaryActionButton" Margin="0,2,8,2"
+                            Content="{DynamicResource scaleSetup.btn.settings}" Click="ScaleQuickSetup_Click"/>
                     <Button x:Name="LabelWizardButton" Classes="SecondaryActionButton" Margin="0,2,8,2"
                             Content="{DynamicResource scaleSetup.wizard.open}" Click="LabelWizard_Click"/>
                     <!-- 2026-09-28: штрих-код этикетки весов — формат на самих весах (окно «Настройки весов

@@ -76,6 +76,7 @@ public static class SectionVisibility
         ("timesheet", Tr.T("Табель", "Табель", "Timesheet", "Çizelge", "Tabel")), // 2026-11-08
         ("repair", Tr.T("Ремонт и сервис", "Оңдоо жана тейлөө", "Repair and service", "Tamir ve servis", "Ta'mirlash va servis")), // 2026-11-13
         ("tradein", Tr.T("Trade-in / скупка", "Trade-in / сатып алуу", "Trade-in / buy-back", "Trade-in / alım", "Trade-in / sotib olish")), // 2026-11-13
+        ("estimate", Tr.T("Смета", "Смета", "Estimate", "Keşif", "Smeta")), // 2026-11-19
         ("print", Tr.T("Печать", "Басып чыгаруу", "Print", "Yazdır", "Chop etish")), // 2026-11-11: настройки печати программы владельца
         ("crm", "NurCRM"),
         ("whatsapp", "WhatsApp"),
@@ -95,6 +96,7 @@ public static class SectionVisibility
         ("kassa.timesheet", Tr.T("Табель сотрудников", "Кызматкерлердин табели", "Staff timesheet", "Personel puantajı", "Xodimlar tabeli")),
         ("kassa.repair", Tr.T("Ремонт и сервис", "Оңдоо жана тейлөө", "Repair and service", "Tamir ve servis", "Ta'mirlash va servis")), // 2026-11-13
         ("kassa.tradein", Tr.T("Trade-in / скупка", "Trade-in / сатып алуу", "Trade-in / buy-back", "Trade-in / alım", "Trade-in / sotib olish")), // 2026-11-13
+        ("kassa.estimate", Tr.T("Смета", "Смета", "Estimate", "Keşif", "Smeta")), // 2026-11-19
         ("kassa.warehouse", Tr.T("Склад", "Кампа", "Warehouse", "Depo", "Ombor")),
         // 2026-10-22 (закупки как в вебе): «Закупки» в меню кассы.
         ("kassa.purchases", Tr.T("Закупки", "Сатып алуулар", "Purchases", "Satın alma", "Xaridlar")),

@@ -221,6 +221,14 @@
             <TextBox x:Name="OwnerPhoneBox" x:FieldModifier="public" Watermark="+996 700 000000"
                      LostFocus="OwnerPhone_LostFocus"/>
 
+          </StackPanel>
+        </Border>
+
+        <!-- 2026-11-19 (п. 1 владельца): ключи ИИ (Gemini, Groq, OpenRouter) вынесены из карточки Telegram в свою карточку: она едет на вкладку «ИИ»
+             (OperationsSettingsView.DetachAiCards → AiSettingsView). Поля и обработчики те же, их имена не менялись. -->
+        <Border x:Name="AiKeysCard" Classes="SettingsCard" Padding="16">
+          <StackPanel Spacing="10">
+            <TextBlock x:Name="AiKeysCardTitle" Classes="SettingsCardTitle" FontSize="14"/>
             <!-- 2026-09-30, «добавь ИИ, чтобы бот отвечал и общался»: бесплатный ключ Google Gemini.
                  Есть ключ — на разговорные вопросы отвечает нейросеть (TelegramAiChat). -->
             <!-- 2026-10-05: ключи ИИ — только на «Стандарте» (TariffGate.CanUseAi), на «Старте» — строка о тарифе. -->

@@ -28,6 +28,18 @@ public partial class OperationsSettingsView : UserControl
     // а магазин работает с одним-двумя банками.
     private string[] _banks => KyrgyzBanks.DefaultVisible;
 
+    private readonly AdvisorSettingsCard _advisorCard;
+
+    /// <summary>2026-11-19 (п. 1 владельца): карточки ИИ (ключи Gemini/Groq/OpenRouter и тумблеры Нур Советника) — отдельная вкладка «ИИ» окна настроек.
+    /// Карточки снимаются отсюда и показываются на вкладке; поля и обработчики остаются в этом классе, логика не менялась.</summary>
+    public System.Collections.Generic.IReadOnlyList<Control> DetachAiCards()
+    {
+        var cards = new Control[] { AiKeysCard, _advisorCard };
+        foreach (var c in cards)
+            OpsCardList.Children.Remove(c);
+        return cards;
+    }
+
     public OperationsSettingsView()
     {
         InitializeComponent();
@@ -44,7 +56,9 @@ public partial class OperationsSettingsView : UserControl
         // 2026-11-14 (П0-1): «Налоги и ККМ» — режим фискализации, ставки НДС и НсП; только владелец и администратор, только когда сервер знает fiscal_kassa (FiscalSettingsCard).
         OpsCardList.Children.Add(new FiscalSettingsCard());
         // 2026-10-30: тумблеры возможностей Нур Советника — карточка из кода сразу за карточкой Telegram-бота и ключей ИИ.
-        OpsCardList.Children.Insert(OpsCardList.Children.IndexOf(TelegramCard) + 1, new AdvisorSettingsCard());
+        _advisorCard = new AdvisorSettingsCard();
+        OpsCardList.Children.Insert(OpsCardList.Children.IndexOf(AiKeysCard) + 1, _advisorCard);
+        AiKeysCardTitle.Text = Tr.T("Ключи ИИ", "ИИ ачкычтары", "AI keys", "Yapay zeka anahtarları", "AI kalitlari");
         AttachedToVisualTree += Lan_Attached;
         DetachedFromVisualTree += Lan_Detached;
         AttachedToVisualTree += SphereLock_Attached; // 2026-11-08: замок вида магазина обновляется на лету (сеанс поддержки, назначение)

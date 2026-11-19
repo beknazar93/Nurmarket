@@ -84,6 +84,9 @@ public sealed class LabelTemplate
     /// генерации этикетки.</summary>
     public string? SkuCustomText { get; set; }
 
+    /// <summary>2026-11-19: «Рамка» (веб-редактор ценников) — тонкая рамка по контуру этикетки. Поля нет в старом файле — false, вид прежних шаблонов не меняется.</summary>
+    public bool Frame { get; set; }
+
     public static LabelTemplate CreateDefault() => new();
 
     public LabelTemplate Clone() => new()
@@ -106,6 +109,7 @@ public sealed class LabelTemplate
         PriceCurrencyText = PriceCurrencyText,
         PriceHideDecimals = PriceHideDecimals,
         SkuCustomText = SkuCustomText,
+        Frame = Frame,
     };
 
     private static LabelElementLayout CloneLayout(LabelElementLayout source) => new()

@@ -43,11 +43,8 @@ public partial class SalaryWindow : Window, IOwnerSection, IOwnerSectionRefresh,
 
     public static void Open(Window? owner)
     {
-        var window = new SalaryWindow();
-        if (owner != null)
-            window.Show(owner);
-        else
-            window.Show();
+        // 2026-11-19 (список владельца, п. 7): одно окно на программу.
+        NurMarketKassa.AvaloniaHost.Views.Dialogs.WindowSingleton.ShowOnce(owner, () => new SalaryWindow());
     }
 
     private async void Window_Loaded(object? sender, RoutedEventArgs e)

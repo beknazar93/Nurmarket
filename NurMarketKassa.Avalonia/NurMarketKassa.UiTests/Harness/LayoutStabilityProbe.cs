@@ -167,7 +167,9 @@ public sealed class LayoutStabilityProbe
 
         switch (c)
         {
-            case ScrollViewer sv:
+            // 2026-11-19: полоса прокрутки обёртки раздела владельца (SectionFitHost) без переполнения — не «прокручиваемая область»: идём внутрь, иначе таблицы и вложенные прокрутки раздела (склад: «Товары», «ABC») не попадали в
+            // отпечаток и сценарий «прокрутка» всегда видел «нечего прокручивать» (колонка склада: ScrolledAreas = 0).
+            case ScrollViewer sv when !(sv.Parent is NurMarketKassa.AvaloniaHost.Views.SectionFitHost && sv.Extent.Height <= sv.Viewport.Height + 4 && sv.Extent.Width <= sv.Viewport.Width + 4):
                 fp.ScrollViewers.Add(sv);
                 fp.Boxes[key + "/viewport"] = new LayoutBox(0, 0, Math.Round(sv.Viewport.Width, 1), Math.Round(sv.Viewport.Height, 1));
                 if (sv.Content is Control content && sv.HorizontalScrollBarVisibility == ScrollBarVisibility.Disabled)

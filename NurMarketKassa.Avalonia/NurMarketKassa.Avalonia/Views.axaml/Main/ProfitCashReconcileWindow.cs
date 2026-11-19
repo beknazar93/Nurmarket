@@ -596,10 +596,28 @@ public sealed class ProfitCashReconcileWindow : Window, IOwnerSectionRefresh, IO
             var name = LocalizeCheckName(c.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "");
             var diff = Num(c, "diff") ?? 0;
             var right = good ? "✅" : "⚠ " + Tr.T("разница ", "айырма ", "diff ", "fark ", "farq ") + diff.ToString("N2", Ru);
+            string? fullIds = null;
             if (!good && c.TryGetProperty("examples", out var ex) && ex.ValueKind == JsonValueKind.Array && ex.GetArrayLength() > 0)
+            {
+                // 2026-11-19 (живой обход владельца): вместо сырых UUID — короткие номера (первые 8 знаков, как в «Продажи и финансы»); полный список — по «Показать подробности».
+                var ids = ex.EnumerateArray().Take(8).Select(x => x.ToString()).ToList();
+                var shown = ids.Take(3).Select(ShortReceiptNo).ToList();
                 right += Tr.T(" · чеки: ", " · чектер: ", " · receipts: ", " · fişler: ", " · cheklar: ")
-                         + string.Join(", ", ex.EnumerateArray().Take(8).Select(x => "№" + x.ToString()));
+                         + string.Join(", ", shown) + (ids.Count > shown.Count ? $" +{ids.Count - shown.Count}" : "");
+                fullIds = string.Join(", ", ids.Select(x => "№" + x));
+            }
             _checks.Children.Add(Row(name, right, false, stacked: !good, check: good ? CheckState.Ok : CheckState.Warn));
+            if (fullIds != null)
+            {
+                var full = Soft(fullIds);
+                full.IsVisible = false;
+                full.Margin = new Thickness(12, 2, 0, 0);
+                var more = UiKit.Ghost(this, Tr.T("Показать подробности", "Толугураак көрсөтүү", "Show details", "Ayrıntıları göster", "Batafsil ko'rsatish"));
+                more.HorizontalAlignment = HorizontalAlignment.Left;
+                more.Click += (_, _) => full.IsVisible = !full.IsVisible;
+                _checks.Children.Add(more);
+                _checks.Children.Add(full);
+            }
         }
         _checks.Children.Add(Soft(Tr.T("Сверку считает сервер NurCRM. Расхождение — повод написать в поддержку NurCRM с номерами чеков.",
             "Салыштырууну NurCRM сервери эсептейт. Айырмачылык болсо — чектердин номерлери менен NurCRM колдоосуна жазыңыз.",
@@ -607,6 +625,9 @@ public sealed class ProfitCashReconcileWindow : Window, IOwnerSectionRefresh, IO
             "Mutabakatı NurCRM sunucusu hesaplar. Uyuşmazlık varsa fiş numaralarıyla NurCRM desteğine yazın.",
             "Solishtirishni NurCRM serveri hisoblaydi. Farq bo'lsa — chek raqamlari bilan NurCRM yordamiga yozing.")));
     }
+
+    /// <summary>2026-11-19: короткий номер чека — как ShortId в «Нерегулярных чеках»: длинный UUID режем до 8 знаков, короткий номер оставляем.</summary>
+    private static string ShortReceiptNo(string id) => "№" + (id.Length > 12 ? id[..8].ToUpperInvariant() : id);
 
     /// <summary>2026-11-05 (Н-10, приёмка 1.17.75): названия проверок сервер присылает только по-русски — известные переводим на язык программы, незнакомые показываем как есть.</summary>
     private static string LocalizeCheckName(string name) => name.Trim() switch

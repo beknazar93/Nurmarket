@@ -100,11 +100,8 @@ public sealed class ProfitPayWindow : Window
     /// <summary>В разделе владельца (AsOwnerSection окна «Зарплата») окно тоже отдельное, поэтому отдельной вставки не нужно.</summary>
     public static void Open(Window? owner, DateTime from, DateTime to)
     {
-        var w = new ProfitPayWindow(from, to);
-        if (owner != null)
-            w.Show(owner);
-        else
-            w.Show();
+        // 2026-11-19 (список владельца, п. 7): одно окно на программу.
+        NurMarketKassa.AvaloniaHost.Views.Dialogs.WindowSingleton.ShowOnce(owner, () => new ProfitPayWindow(from, to));
     }
 
     private Button Outline(string text)

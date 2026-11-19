@@ -17,6 +17,24 @@ public partial class QrCropDialog : Window
     public QrCropDialog()
     {
         InitializeComponent();
+        // 2026-11-19 (п. 2 владельца): рамку можно двигать мышкой/пальцем прямо на картинке; ползунки справа — запасной путь
+        DragHintText.Text = Tr.T("Тяните рамку на картинке за углы, стороны или середину; ползунки справа — для точной подстройки.",
+            "Сүрөттөгү алкакты бурчтарынан, жактарынан же ортосунан сүйрөңүз; оң жактагы жылдыргычтар — так тууралоо үчүн.",
+            "Drag the frame on the picture by its corners, sides or middle; the sliders on the right are for fine tuning.",
+            "Resimdeki çerçeveyi köşelerinden, kenarlarından veya ortasından sürükleyin; sağdaki kaydırıcılar ince ayar içindir.",
+            "Rasmdagi ramkani burchaklari, tomonlari yoki o'rtasidan torting; o'ngdagi surgichlar — aniq sozlash uchun.");
+        CropSurface.CropChanged += (l, t, r, b) =>
+        {
+            if (!_initialized)
+                return;
+            _initialized = false; // значения ползунков ставим без лишних перерисовок
+            LeftSlider.Value = double.Round(l, 1); // 2026-11-19: double.Round — геометрия рамки, не деньги
+            TopSlider.Value = double.Round(t, 1);
+            RightSlider.Value = double.Round(r, 1);
+            BottomSlider.Value = double.Round(b, 1);
+            _initialized = true;
+            UpdatePreview(syncSurface: false);
+        };
     }
 
     public QrCropDialog(string imagePath, string bankName) : this()
@@ -27,6 +45,7 @@ public partial class QrCropDialog : Window
         try
         {
             _source = new Bitmap(imagePath);
+            CropSurface.SetBitmap(_source);
             _initialized = true;
             UpdatePreview();
         }
@@ -42,7 +61,7 @@ public partial class QrCropDialog : Window
             UpdatePreview();
     }
 
-    private void UpdatePreview()
+    private void UpdatePreview(bool syncSurface = true)
     {
         if (!_initialized || _source is null
             || LeftSlider is null || RightSlider is null
@@ -59,6 +78,8 @@ public partial class QrCropDialog : Window
         int width = Math.Max(1, size.Width - left - right);
         int height = Math.Max(1, size.Height - top - bottom);
         _cropRect = new PixelRect(left, top, width, height);
+        if (syncSurface)
+            CropSurface.SetCrop(LeftSlider.Value, TopSlider.Value, RightSlider.Value, BottomSlider.Value);
 
         if (_preview is null)
         {

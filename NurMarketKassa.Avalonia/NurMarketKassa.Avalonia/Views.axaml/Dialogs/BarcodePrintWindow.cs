@@ -107,6 +107,8 @@ public sealed partial class BarcodePrintView : UserControl
     private readonly ComboBox _codeModeCombo = new() { MinWidth = 160 };
     private readonly Image _previewImage;
     private readonly TextBlock _previewCaption;
+    private readonly TextBlock _previewDots = new() { FontSize = 11.5, TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap }; // 2026-11-19: «480×320 точек · модуль 2» — как напечатает принтер
+    private readonly HashSet<string> _scannedIds = new(StringComparer.Ordinal); // 2026-11-19: «Только отсканированные» — товары, отсканированные в этой сессии окна
     private readonly TextBlock _selectionText;
     private readonly Button _selectPageButton, _selectFoundButton, _clearButton, _a4Button, _printButton;
     private readonly ScrollViewer _scroll;
@@ -162,6 +164,8 @@ public sealed partial class BarcodePrintView : UserControl
             return;
         _settingsMaxHeight = Math.Max(150, height * 0.5);
         ApplySettingsContainer();
+        if (_sideMode) // 2026-11-19: боковая панель не сворачивается по высоте
+            return;
         var allow = height >= 640;
         if (!allow && _settingsBody.IsVisible)
             SetSettingsOpen(false);
@@ -178,8 +182,9 @@ public sealed partial class BarcodePrintView : UserControl
         _narrowToolbar = narrow;
         foreach (var (f, button) in _filterButtons)
             button.Content = narrow ? ShortFilterText(f) : FullFilterText(f);
-        _categoryCombo.MinWidth = narrow ? 130 : 190;
+        _categoryCombo.MinWidth = narrow ? 130 : 230; // 2026-11-19: 230 — «Бардык категориялар» / «Barcha kategoriyalar» не обрезаются
         _categoryCombo.MaxWidth = narrow ? 170 : 280;
+        SetAllCategoriesText(narrow); // 2026-11-19: в узкой панели — короткая подпись «Категории», иначе ky/uz обрезались
         _scanCheck.Content = narrow
             ? T("Сканер → в печать", "Сканер → басууга", "Scanner → print", "Tarayıcı → yazdır", "Skaner → chopga")
             : T("Сканер: добавлять в печать", "Сканер: басууга кошуу", "Scanner: add to print", "Tarayıcı: yazdırmaya ekle", "Skaner: chopga qo'shish");
@@ -190,6 +195,7 @@ public sealed partial class BarcodePrintView : UserControl
         BarcodeFilter.WithBarcode => T("Со штрихкодом", "Штрих-коду менен", "With barcode", "Barkodlu", "Shtrix-kodli"),
         BarcodeFilter.WithoutBarcode => T("Без штрихкода", "Штрих-коду жок", "No barcode", "Barkodsuz", "Shtrix-kodsiz"),
         BarcodeFilter.WithProblems => T("С замечаниями", "Эскертүү менен", "With warnings", "Uyarılı", "Eslatmali"),
+        BarcodeFilter.Scanned => T("Сканы", "Сканы", "Scanned", "Taranan", "Skanlar"), // 2026-11-19: полное название — в подсказке
         _ => T("Все", "Бардыгы", "All", "Tümü", "Hammasi"),
     };
 
@@ -198,6 +204,7 @@ public sealed partial class BarcodePrintView : UserControl
         BarcodeFilter.WithBarcode => T("С кодом", "Коду менен", "Barcode", "Barkodlu", "Kodli"),
         BarcodeFilter.WithoutBarcode => T("Без кода", "Коду жок", "No code", "Barkodsuz", "Kodsiz"),
         BarcodeFilter.WithProblems => T("С замеч.", "Эскертүү", "Warnings", "Uyarılı", "Eslatma"),
+        BarcodeFilter.Scanned => T("Сканы", "Сканы", "Scanned", "Taranan", "Skanlar"), // 2026-11-19
         _ => FullFilterText(f),
     };
 
@@ -274,17 +281,20 @@ public sealed partial class BarcodePrintView : UserControl
                      (BarcodeFilter.WithBarcode, T("Со штрихкодом", "Штрих-коду менен", "With barcode", "Barkodlu", "Shtrix-kodli")),
                      (BarcodeFilter.WithoutBarcode, T("Без штрихкода", "Штрих-коду жок", "No barcode", "Barkodsuz", "Shtrix-kodsiz")),
                      (BarcodeFilter.WithProblems, T("С замечаниями", "Эскертүү менен", "With warnings", "Uyarılı", "Eslatmali")),
+                     (BarcodeFilter.Scanned, T("Сканы", "Сканы", "Scanned", "Taranan", "Skanlar")), // 2026-11-19: веб «Только отсканированные» (короткая подпись — панель фильтров узкая; полное название в подсказке)
                  })
         {
             var b = UiKit.Seg(text, f == _filter);
             b.MinHeight = 44;
+            if (f == BarcodeFilter.Scanned)
+                ToolTip.SetTip(b, T("Только отсканированные в этой сессии (включите «Сканер: добавлять в печать»)", "Ушул сеанста гана сканерленгендер («Сканер: басууга кошуу» күйгүзүңүз)", "Only products scanned in this session (turn on “Scanner: add to print”)", "Yalnızca bu oturumda taranan ürünler («Tarayıcı: yazdırmaya ekle»yi açın)", "Faqat shu seansda skanerlanganlar («Skaner: chopga qo'shish»ni yoqing)"));
             b.Click += (_, _) => { _filter = f; foreach (var kv in _filterButtons) UiKit.SetActive(kv.Value, kv.Key == _filter); ApplyFilter(); };
             _filterButtons[f] = b;
             filterPanel.Children.Add(b);
         }
         var filterSegment = UiKit.Segment(filterPanel);
 
-        _categoryCombo = new ComboBox { MinWidth = 190, MaxWidth = 280, MinHeight = 44, VerticalAlignment = VerticalAlignment.Center };
+        _categoryCombo = new ComboBox { MinWidth = 230, MaxWidth = 280, MinHeight = 44, VerticalAlignment = VerticalAlignment.Center };
         Avalonia.Automation.AutomationProperties.SetName(_categoryCombo, T("Категория", "Категория", "Category", "Kategori", "Kategoriya"));
         FillCategories();
         _categoryCombo.SelectionChanged += (_, _) =>
@@ -337,10 +347,12 @@ public sealed partial class BarcodePrintView : UserControl
         _copiesBox = Num(1, 99, _settings.DefaultCopies, 118);
         // 2026-11-01 (П-4): «Копии: по умолчанию / = остаток»; (П-1): «Сбросить копии позиций».
         _copiesModeCombo = new ComboBox { MinWidth = 150 };
-        _copiesModeCombo.Items.Add(T("по умолчанию", "демейки", "default", "varsayılan", "standart"));
-        _copiesModeCombo.Items.Add(T("= остаток", "= калдык", "= stock", "= stok", "= qoldiq"));
-        _copiesModeCombo.SelectedIndex = _settings.CopiesMode == "stock" ? 1 : 0;
-        _copiesBox.IsEnabled = _settings.CopiesMode != "stock";
+        // 2026-11-19 (веб «Сколько на товар»): по одной / по остатку / вручную; «Копий каждой» — только у «По одной».
+        _copiesModeCombo.Items.Add(T("По одной", "Бирден", "One each", "Birer", "Bittadan"));
+        _copiesModeCombo.Items.Add(T("По остатку", "Калдык боюнча", "By stock", "Stoğa göre", "Qoldiq bo'yicha"));
+        _copiesModeCombo.Items.Add(T("Вручную", "Кол менен", "Manually", "Elle", "Qo'lda"));
+        _copiesModeCombo.SelectedIndex = CopiesModeIndex(_settings.CopiesMode);
+        _copiesBox.IsEnabled = _settings.CopiesMode == "default";
         _resetCopiesButton = Ghost(T("Сбросить копии позиций", "Позиция көчүрмөлөрүн кайтаруу", "Reset item copies", "Kalem kopyalarını sıfırla", "Pozitsiya nusxalarini tiklash"));
         _resetCopiesButton.IsVisible = false;
         ToolTip.SetTip(_resetCopiesButton, T("Вернуть всем позициям количество копий по умолчанию", "Бардык позицияларга демейки көчүрмө санын кайтаруу", "Give every item the default number of copies again", "Tüm kalemlere varsayılan kopya sayısını geri ver", "Barcha pozitsiyalarga standart nusxa sonini qaytarish"));
@@ -404,13 +416,14 @@ public sealed partial class BarcodePrintView : UserControl
         _previewImage = new Image { Stretch = Stretch.Uniform };
         _previewCaption = new TextBlock { FontSize = 12, TextAlignment = TextAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
         Use(_previewCaption, TextBlock.ForegroundProperty, "BrushTextSoft");
+        Use(_previewDots, TextBlock.ForegroundProperty, "BrushTextSoft");
 
         // Подпись слева от поля (в строку) — настройки занимают меньше высоты, карточкам товаров остаётся место.
         var rowA = new WrapPanel { Orientation = Orientation.Horizontal };
         rowA.Children.Add(Inline(T("Размер", "Өлчөм", "Size", "Boyut", "O'lcham"), _sizeCombo));
         rowA.Children.Add(Inline("", _customSizePanel));
-        rowA.Children.Add(Inline(T("Копии", "Көчүрмө", "Copies", "Kopya", "Nusxa"), _copiesModeCombo));
-        rowA.Children.Add(Inline(T("Копий (по умолчанию)", "Көчүрмө (демейки)", "Copies (default)", "Kopya (varsayılan)", "Nusxa (standart)"), _copiesBox));
+        rowA.Children.Add(Inline(T("Сколько на товар", "Ар бир товарга канча", "Labels per product", "Ürün başına etiket", "Mahsulotga nechta"), _copiesModeCombo));
+        rowA.Children.Add(Inline(T("Копий каждой", "Ар биринин көчүрмөсү", "Copies of each", "Her birinin kopyası", "Har birining nusxasi"), _copiesBox));
         _resetCopiesButton.Margin = new Thickness(0, 0, 14, 6);
         rowA.Children.Add(_resetCopiesButton);
         rowA.Children.Add(Inline(T("Высота штрих-кода, мм", "Штрих-код бийиктиги, мм", "Barcode height, mm", "Barkod yüksekliği, mm", "Shtrix-kod balandligi, mm"),
@@ -448,11 +461,13 @@ public sealed partial class BarcodePrintView : UserControl
             {
                 new Border { Background = Brushes.White, Height = 92, Child = _previewImage, BoxShadow = BoxShadows.Parse("0 2 8 0 #22000000") },
                 _previewCaption,
+                _previewDots,
             },
         };
 
-        _settingsBody = new StackPanel { Spacing = 2, Children = { rowA, rowB, _barHeightHint, rowC } };
-        var settingsLeft = new StackPanel { Children = { _settingsSummary, _settingsBody } };
+        _settingsBody = new StackPanel { Spacing = 2, Children = { rowA, rowB, _barHeightHint, BuildTagSetupRow(), rowC, BuildPrinterSetupBlock(), BuildPresetsRow() } }; // 2026-11-19: тип штрихкода, шрифт, размер текста; «Мои шаблоны»
+        var settingsLeft = new StackPanel { Children = { BuildSideTitle(), _settingsSummary, _settingsBody } };
+        _settingsLeft = settingsLeft;
         var settingsGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
         // 2026-11-11: настройки этикетки в прокручиваемой рамке с предельной высотой (во вкладке — не больше половины высоты вкладки): раскрытые настройки больше не съедают всю высоту, и список карточек остаётся
         var settingsScroll = new ScrollViewer { HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
@@ -584,6 +599,7 @@ public sealed partial class BarcodePrintView : UserControl
             root.RowDefinitions = new RowDefinitions("Auto,Auto,Auto,*,Auto");
             root.Children.Add(bottom);
         }
+        _rootGrid = root;
         Content = root;
 
         // ---- обработчики настроек (после сборки всех элементов)
@@ -632,6 +648,15 @@ public sealed partial class BarcodePrintView : UserControl
         AttachedToVisualTree += (_, _) =>
         {
             _liveTimer.Start();
+            // 2026-11-19: высота окна меняется без изменения размера самой вкладки (оболочка владельца подгоняет окно после первой раскладки, смена масштаба) — боковая панель и пороги
+            // пересчитываются и по размеру окна, иначе вид зависел от порядка событий (после «90 → 100 → 90 %» раскладка отличалась от исходной).
+            if (_embedded && TopLevel.GetTopLevel(this) is { } host && !ReferenceEquals(host, _sizeHost))
+            {
+                if (_sizeHost is not null)
+                    _sizeHost.PropertyChanged -= HostSizeChanged;
+                _sizeHost = host;
+                host.PropertyChanged += HostSizeChanged;
+            }
             if (!shownOnce || !_printersLoaded)
                 _ = LoadPrintersAsync();
             if (!shownOnce)
@@ -654,20 +679,21 @@ public sealed partial class BarcodePrintView : UserControl
         DetachedFromVisualTree += (_, _) =>
         {
             _liveTimer.Stop();
+            if (_sizeHost is not null)
+                _sizeHost.PropertyChanged -= HostSizeChanged;
+            _sizeHost = null;
             if (_embedded)
                 SaveState(); // окно сохраняет при закрытии само (Closing у BarcodePrintWindow)
         };
         SizeChanged += (_, e) =>
         {
             // 2026-11-11: пороги с запасом (гистерезис): включается ниже 1100/1400, выключается выше 1180/1480 — на самом пороге режим не мигает.
+            // 2026-11-19 («Неудобства от владельца», п. 11): на широкой вкладке настройки ценника — постоянная панель справа с крупным предпросмотром (BarcodePrintWindow.TagSetup.cs);
+            // ширина списка товаров для порогов ниже считается без неё.
+            ApplySideLayout(e.NewSize.Width);
             if (_embedded && e.HeightChanged)
                 FitSettingsToHeight(e.NewSize.Height);
-            ApplyToolbarWidth(_narrowToolbar ? e.NewSize.Width < 1180 : e.NewSize.Width < 1100); // узкая вкладка «Штрихкоды» (1024) — короткие подписи, поиску остаётся место
-            var c = _compact ? e.NewSize.Width < 1480 : e.NewSize.Width < 1400;
-            if (c == _compact)
-                return;
-            _compact = c;
-            ApplyTexts();
+            ApplyListModes(e.NewSize.Width);
         };
         _init = false;
 
@@ -683,4 +709,25 @@ public sealed partial class BarcodePrintView : UserControl
         RefreshPreview();
     }
 
+    private TopLevel? _sizeHost;
+
+    private void HostSizeChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property != TopLevel.ClientSizeProperty || Bounds.Width <= 0)
+            return;
+        ApplySideLayout(Bounds.Width);
+        ApplyListModes(Bounds.Width);
+    }
+
+    /// <summary>Порог узкой панели инструментов и компактных подписей по ширине списка товаров (без боковой панели настроек ценника).</summary>
+    private void ApplyListModes(double width)
+    {
+        var listWidth = Math.Max(0, width - (_sideMode ? SidePanelWidth + 12 : 0));
+        ApplyToolbarWidth(_narrowToolbar ? listWidth < 1180 : listWidth < 1100); // узкая вкладка «Штрихкоды» (1024) — короткие подписи, поиску остаётся место
+        var c = _compact ? listWidth < 1480 : listWidth < 1400;
+        if (c == _compact)
+            return;
+        _compact = c;
+        ApplyTexts();
+    }
 }

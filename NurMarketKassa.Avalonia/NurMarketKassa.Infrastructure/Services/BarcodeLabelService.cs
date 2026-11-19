@@ -102,6 +102,16 @@ public static partial class BarcodeLabelService
         if (!string.IsNullOrWhiteSpace(variantText) && variantElement is { Enabled: true })
             DrawTextElement(g, variantElement, variantText!.Trim(), FontStyle.Bold, ResolveFontFamily(variantElement, template), ResolveFontSizePx(variantElement, template));
 
+        if (template.Frame) // 2026-11-19: «Рамка» — четыре линии в 1 точку 203 dpi по краю (в g координаты 203 dpi, ScaleTransform уже выставлен)
+        {
+            var fw = widthPx * Dpi / (float)dpi;
+            var fh = heightPx * Dpi / (float)dpi;
+            g.FillRectangle(Brushes.Black, 0, 0, fw, 1);
+            g.FillRectangle(Brushes.Black, 0, fh - 1, fw, 1);
+            g.FillRectangle(Brushes.Black, 0, 0, 1, fh);
+            g.FillRectangle(Brushes.Black, fw - 1, 0, 1, fh);
+        }
+
         return label;
     }
 

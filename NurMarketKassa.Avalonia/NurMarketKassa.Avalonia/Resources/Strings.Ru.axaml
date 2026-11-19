@@ -24,6 +24,7 @@
   <x:String x:Key="csh.menu.rental">Прокат</x:String>
   <x:String x:Key="csh.menu.repair">Ремонт и сервис</x:String>
   <x:String x:Key="csh.menu.tradeIn">Trade-in / скупка</x:String>
+  <x:String x:Key="csh.menu.estimate">Смета</x:String>
   <x:String x:Key="csh.menu.settings">Настройки</x:String>
   <x:String x:Key="csh.menu.marketplace">Маркетплейс</x:String>
   <x:String x:Key="csh.menu.crm">NurCRM</x:String>
@@ -125,7 +126,7 @@
   <x:String x:Key="csh.cart.scanTitle">Отсканируйте товар</x:String>
   <x:String x:Key="csh.cart.scanHint">Сканер работает из любого места экрана.&#x0a;Или введите код / название в поле поиска.</x:String>
   <x:String x:Key="csh.cart.keysLink">Клавиши: ?</x:String>
-  <x:String x:Key="csh.menu.firstRunWizard">Мастер первого запуска</x:String>
+  <x:String x:Key="csh.menu.firstRunWizard">Обучение: экскурсия по кассе</x:String>
   <x:String x:Key="csh.menu.trainingSale">Учебная продажа</x:String>
   <x:String x:Key="hotkeyGroup.title">Горячая клавиша</x:String>
   <x:String x:Key="header.labelCustomerDisplay">Экран</x:String>
@@ -664,6 +665,7 @@
   <x:String x:Key="posSettings.navAccount">Аккаунт</x:String>
   <x:String x:Key="posSettings.navEmployees">Сотрудники</x:String>
   <x:String x:Key="posSettings.navKeys">Клавиши</x:String>
+  <x:String x:Key="posSettings.navAi">ИИ</x:String>
   <x:String x:Key="posSettings.keysSubtitle">Какая клавиша что делает на кассе</x:String>
   <x:String x:Key="employees.subtitle">Личные коды доступа для удаления из корзины, удаления, редактирования и добавления товара — без кода эти действия недоступны сотрудникам (владелец/админ действует без кода)</x:String>
   <x:String x:Key="employees.addButton">+ Добавить сотрудника</x:String>
@@ -1488,7 +1490,9 @@
   <x:String x:Key="scaleSetup.ai.hint">У AI-весов нет общего протокола — каждая модель идёт со своей программой. Касса сохраняет файл (PLU, название, единица, цена), а вы загружаете его программой весов. Адрес не нужен.</x:String>
   <x:String x:Key="scaleSetup.btn.check">Проверить связь</x:String>
   <x:String x:Key="scaleSetup.btn.find">Найти в сети…</x:String>
-  <x:String x:Key="scaleSetup.btn.settings">Настройки весов…</x:String>
+  <x:String x:Key="scaleSetup.btn.settings">Настроить весы…</x:String>
+  <x:String x:Key="scaleSetup.btn.master">Для мастера…</x:String>
+  <x:String x:Key="scaleSetup.quickHint">Быстрая настройка в 3 шага: 1) какие весы и адрес, 2) проверка связи, 3) отправка товаров. Откройте её кнопкой «Настроить весы…». Порты и файлы обмена — в «Для мастера…».</x:String>
   <x:String x:Key="scaleSetup.btn.send">Отправить товары</x:String>
   <x:String x:Key="scaleSetup.barcode.open">Вес / сумма →</x:String>
   <x:String x:Key="scaleSetup.barcode.title">Как касса читает штрих-код с этикетки весов</x:String>

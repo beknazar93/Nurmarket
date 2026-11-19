@@ -22,6 +22,8 @@ internal static class TestDataRoot
         Path = System.IO.Path.GetFullPath(System.IO.Path.Combine(parent, "run-" + Guid.NewGuid().ToString("N")[..8]));
         Directory.CreateDirectory(Path);
         Environment.SetEnvironmentVariable(AppPaths.DataRootVariable, Path);
+        // 2026-11-19: фоновый цикл AccessSync в тестах не запускаем (см. AccessSync.BackgroundLoopDisabledForTests) — иначе он съедает сигнал Wake у чужих тестов.
+        NurMarketKassa.Services.AccessSync.BackgroundLoopDisabledForTests = true;
         AppDomain.CurrentDomain.ProcessExit += (_, _) =>
         {
             try { Directory.Delete(Path, recursive: true); }

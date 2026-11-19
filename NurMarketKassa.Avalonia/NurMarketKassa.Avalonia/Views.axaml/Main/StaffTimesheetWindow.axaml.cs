@@ -20,6 +20,10 @@ public sealed class TimesheetDeps
     public Func<CancellationToken, Task<IReadOnlyList<ShiftHistoryEntry>>> Shifts { get; init; } = async ct => await ShiftHistoryService.LoadAsync(ct, fresh: true).ConfigureAwait(false);
     public Func<CancellationToken, Task<IReadOnlyList<(string Key, string Name)>>> Employees { get; init; } = StaffTimesheetWindow.LoadServerEmployeesAsync;
     public TimesheetMarksService Marks { get; init; } = TimesheetMarksService.Default;
+    /// <summary>2026-11-19: сколько ждать смены/сотрудников, прежде чем показать «не удалось, повторить» (тест ставит короче).</summary>
+    public TimeSpan LoadTimeout { get; init; } = TimeSpan.FromSeconds(20);
+    /// <summary>2026-11-19: кэш последней загрузки между открытиями окна — только для боевых источников (тестовые заглушки кэш не трогают).</summary>
+    public bool UseCache { get; init; }
     public Func<DateTime> Today { get; init; } = () => DateTime.Today;
     /// <summary>null — решает право «Настройки» (владелец/администратор) или программа владельца.</summary>
     public bool? CanEdit { get; init; }
@@ -45,10 +49,13 @@ public partial class StaffTimesheetWindow : Window, IOwnerSectionExcel, IOwnerSe
 
     public StaffTimesheetWindow(TimesheetDeps? deps)
     {
-        _deps = deps ?? new TimesheetDeps();
+        _deps = deps ?? new TimesheetDeps { UseCache = true };
         InitializeComponent();
         TimesheetGrid.ItemsSource = _rows;
         InitMarksUi();
+        // 2026-11-19: подпись месяца между ‹ › не должна быть пустой до конца загрузки.
+        MonthText.Text = $"{MonthName(_month)} {_year}";
+        RetryButton.Content = Tr.T("Повторить", "Кайталоо", "Retry", "Tekrar dene", "Qayta urinish");
         ApplyTab();
         // 2026-10-20 (живой аудит кассы, К18): окно стало шире (столбцы не обрезаются) — на маленьком экране кассы ужимается до него.
         Opened += (_, _) =>
@@ -60,11 +67,8 @@ public partial class StaffTimesheetWindow : Window, IOwnerSectionExcel, IOwnerSe
 
     public static void Open(Window? owner)
     {
-        var window = new StaffTimesheetWindow();
-        if (owner != null)
-            window.Show(owner);
-        else
-            window.Show();
+        // 2026-11-19 (список владельца, п. 7): одно окно на программу.
+        NurMarketKassa.AvaloniaHost.Views.Dialogs.WindowSingleton.ShowOnce(owner, () => new StaffTimesheetWindow());
     }
 
     /// <summary>2026-11-08: раздел программы владельца — повтор названия и «Закрыть» не рисуем, поля как у остальных разделов.</summary>
@@ -127,31 +131,95 @@ public partial class StaffTimesheetWindow : Window, IOwnerSectionExcel, IOwnerSe
         }
     }
 
-    /// <summary>Загрузить смены, сотрудников и отметки и перестроить обе вкладки.</summary>
+    // 2026-11-19 (живой обход владельца): кэш последней удачной загрузки (только боевые источники) — окно рисуется сразу из него, а не висит на «Загрузке…».
+    private static List<ShiftHistoryEntry>? _cacheShifts;
+    private static List<(string Key, string Name)>? _cacheEmployees;
+
+    /// <summary>Ждёт источник не дольше лимита (он мог не уважать токен отмены — не зависаем на нём). null — таймаут или ошибка.</summary>
+    private static async Task<T?> WithLimitAsync<T>(Func<CancellationToken, Task<T>> source, TimeSpan limit, string what) where T : class
+    {
+        using var cts = new CancellationTokenSource(limit);
+        try
+        {
+            var task = Task.Run(() => source(cts.Token));
+            var done = await Task.WhenAny(task, Task.Delay(limit, CancellationToken.None)).ConfigureAwait(true);
+            if (done == task)
+                return await task.ConfigureAwait(true);
+            cts.Cancel();
+            PosLogger.Log($"Табель сотрудников: {what} не получены за {limit.TotalSeconds:0} с", "STAFF");
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Табель сотрудников: {what} не получены: {ex.Message}", "STAFF");
+        }
+        return null;
+    }
+
+    /// <summary>Загрузить смены, сотрудников и отметки и перестроить обе вкладки.
+    /// 2026-11-19: сначала сразу рисуем то, что уже есть (кэш/пусто), смены и сотрудники догружаются с лимитом (<see cref="TimesheetDeps.LoadTimeout"/>);
+    /// по таймауту/ошибке — понятная строка и «Повторить», а не вечная «Загрузка…».</summary>
     public async Task LoadAsync()
     {
         var version = ++_loadVersion;
-        StatusText.Text = Tr.T("Загрузка…", "Жүктөлүүдө…", "Loading…", "Yükleniyor…", "Yuklanmoqda…");
+        RetryButton.IsVisible = false;
+        var useCache = _deps.UseCache;
+        if (useCache && _shifts.Count == 0 && _cacheShifts != null)
+            _shifts = _cacheShifts;
+        if (useCache && _serverEmployees.Count == 0 && _cacheEmployees != null)
+            _serverEmployees = _cacheEmployees;
         try
         {
-            var shifts = await _deps.Shifts(CancellationToken.None).ConfigureAwait(true);
-            var server = await _deps.Employees(CancellationToken.None).ConfigureAwait(true);
-            if (version != _loadVersion)
-                return;
-            _shifts = shifts.ToList();
-            _serverEmployees = server.ToList();
             ReloadMarks();
             RebuildMarks();
             RebuildShifts();
-            StatusText.Text = MarksStatusLine();
+            StatusText.Text = Tr.T("Загрузка смен…", "Смендер жүктөлүүдө…", "Loading shifts…", "Vardiyalar yükleniyor…", "Smenalar yuklanmoqda…");
+            var limit = _deps.LoadTimeout;
+            var shiftsTask = WithLimitAsync(_deps.Shifts, limit, "смены");
+            var employeesTask = WithLimitAsync(_deps.Employees, limit, "сотрудники");
+            // сотрудники обычно приходят быстро — сетку показываем сразу, не дожидаясь смен
+            var server = await employeesTask.ConfigureAwait(true);
+            if (version != _loadVersion)
+                return;
+            if (server != null)
+            {
+                _serverEmployees = server.ToList();
+                if (useCache)
+                    _cacheEmployees = _serverEmployees;
+                ReloadMarks();
+                RebuildMarks();
+            }
+            var shifts = await shiftsTask.ConfigureAwait(true);
+            if (version != _loadVersion)
+                return;
+            if (shifts != null)
+            {
+                _shifts = shifts.ToList();
+                if (useCache)
+                    _cacheShifts = _shifts;
+            }
+            ReloadMarks();
+            RebuildMarks();
+            RebuildShifts();
+            if (shifts == null)
+            {
+                var month = $"{MonthName(_month)} {_year}";
+                StatusText.Text = Tr.T($"Не удалось загрузить смены за {month}. Повторите.", $"{month} үчүн смендерди жүктөө мүмкүн болгон жок. Кайра аракет кылыңыз.",
+                    $"Could not load shifts for {month}. Try again.", $"{month} için vardiyalar yüklenemedi. Tekrar deneyin.", $"{month} uchun smenalarni yuklab bo'lmadi. Qayta urinib ko'ring.");
+                RetryButton.IsVisible = true;
+            }
+            else
+                StatusText.Text = MarksStatusLine();
         }
         catch (Exception ex)
         {
             PosLogger.Log($"Табель сотрудников: не удалось загрузить данные: {ex}", "STAFF");
             StatusText.Text = Tr.T("Не удалось загрузить данные.", "Маалыматтарды жүктөө мүмкүн болгон жок.",
                 "Could not load the data.", "Veriler yüklenemedi.", "Ma'lumotlarni yuklab bo'lmadi.");
+            RetryButton.IsVisible = true;
         }
     }
+
+    private async void Retry_Click(object? sender, RoutedEventArgs e) => await LoadAsync().ConfigureAwait(true);
 
     /// <summary>Вкладка «Итоги по сменам» — прежняя таблица по закрытым сменам.</summary>
     private void RebuildShifts()

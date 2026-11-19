@@ -78,12 +78,14 @@
                       RowHeight="46">
                 <DataGrid.Columns>
                     <!-- 2026-10-30 (стресс-тест): заголовки «Количество», «Себестоимость», «Причина списания» обрезались (в заголовке место под стрелку сортировки) — столбцы шире, у «Причины» и «Кассира» минимальная ширина. -->
-                    <DataGridTextColumn Header="{DynamicResource common.dateTime}" Width="150" Binding="{Binding DateText}"/>
+                    <!-- 2026-11-19 (список владельца, п. 8): в ky/uz заголовки «Күнү жана убактысы», «Эсептен чыгаруу себеби» обрезались — столбцы с фиксированной
+                         шириной стали «по заголовку и содержимому, не меньше прежней», у «Причины» минимум 240. -->
+                    <DataGridTextColumn Header="{DynamicResource common.dateTime}" Width="Auto" MinWidth="150" Binding="{Binding DateText}"/>
                     <DataGridTextColumn Header="{DynamicResource common.product}" Width="3*" MinWidth="120" Binding="{Binding ProductName}"/>
-                    <DataGridTextColumn Header="{DynamicResource common.quantity}" Width="145" Binding="{Binding QuantityText}"/>
-                    <DataGridTextColumn Header="{DynamicResource warehouse.writeOffUnitCost}" Width="175" Binding="{Binding UnitCostText}"/>
-                    <DataGridTextColumn Header="{DynamicResource warehouse.writeOffLineTotal}" Width="110" Binding="{Binding TotalText}"/>
-                    <DataGridTextColumn Header="{DynamicResource warehouse.writeOffReasonLabel}" Width="1.3*" MinWidth="200" Binding="{Binding Reason}"/>
+                    <DataGridTextColumn Header="{DynamicResource common.quantity}" Width="Auto" MinWidth="145" Binding="{Binding QuantityText}"/>
+                    <DataGridTextColumn Header="{DynamicResource warehouse.writeOffUnitCost}" Width="Auto" MinWidth="175" Binding="{Binding UnitCostText}"/>
+                    <DataGridTextColumn Header="{DynamicResource warehouse.writeOffLineTotal}" Width="Auto" MinWidth="110" Binding="{Binding TotalText}"/>
+                    <DataGridTextColumn Header="{DynamicResource warehouse.writeOffReasonLabel}" Width="1.3*" MinWidth="240" Binding="{Binding Reason}"/>
                     <DataGridTextColumn Header="{DynamicResource common.cashier}" Width="2*" MinWidth="110" Binding="{Binding CashierName}"/>
                 </DataGrid.Columns>
             </DataGrid>

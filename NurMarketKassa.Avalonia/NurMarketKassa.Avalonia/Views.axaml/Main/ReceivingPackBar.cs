@@ -105,6 +105,7 @@ internal sealed class ReceivingPackBar
         // ---- вид 2: кнопка и окно
         _compact = _makeButton("");
         _compact.MinHeight = 44;
+        _compact.Height = 44; // 2026-11-19: с отступами кнопки из шкалы Д-8 она выходила 46 px и поднимала верхнюю панель «Закупок»/«Склада» на 2 px против ряда без неё — высота фиксируется на цели касания 44
         _compact.Focusable = true; // 2026-11-12 (У-1): кнопку «Приём ▾» можно достать Tab и открыть Пробелом / Enter
         _compact.KeyDown += (_, e) => ArrowKey(e);
         ToolTip.SetTip(_compact, CompactHint);

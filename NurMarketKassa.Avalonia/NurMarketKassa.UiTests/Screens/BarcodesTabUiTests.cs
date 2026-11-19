@@ -112,7 +112,7 @@ public sealed class BarcodesTabUiTests : IDisposable
             host.View.Should().NotBeNull("печать куплена — вместо подсказки сама печать");
             host.View!.FoundCount.Should().Be(CatalogCacheService.Products.Count, "в печати весь каталог (поиск пуст)");
             window.GetVisualDescendants().OfType<BarcodePrintView>().Should().ContainSingle();
-            UiDrive.AllText(window).Should().Contain(lang == AppLanguage.Kyrgyz ? "Тандалды: 0" : "Выбрано: 0", "строка выбора печати на месте");
+            UiDrive.AllText(window).Should().Contain(lang == AppLanguage.Kyrgyz ? "Товар: 0" : "Товаров: 0", "строка выбора печати на месте");
             window.SelectNavTab("barcodes").Should().BeTrue("Нур Советник и словарь переходов находят вкладку по ключу «barcodes»");
             SaveShot(window, $"barcodes-tab-{(lang == AppLanguage.Kyrgyz ? "ky" : "ru")}-{w}x{h}", new UiSize(w, h));
         }

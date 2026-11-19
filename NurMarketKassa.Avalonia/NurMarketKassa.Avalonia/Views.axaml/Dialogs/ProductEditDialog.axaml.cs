@@ -322,7 +322,8 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
             var compact = e.NewSize.Height < 600;
             Classes.Set("compact", compact);
             Shell.Padding = compact ? new Thickness(24, 6, 24, 4) : new Thickness(24, 12, 24, 10);
-            MainTabScroll.Padding = compact ? new Thickness(0, 4, 16, 6) : new Thickness(0, 10, 16, 6);
+            // 2026-11-19 (список владельца, п. 5): правый отступ 16 → 4 — полосы прокрутки в окне нет, место под неё не резервируем.
+            MainTabScroll.Padding = compact ? new Thickness(0, 4, 4, 6) : new Thickness(0, 10, 4, 6);
         };
         MainTabStack.AddHandler(GotFocusEvent, (_, e) =>
         {

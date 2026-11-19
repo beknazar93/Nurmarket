@@ -1,4 +1,7 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
+using NurMarketKassa.AvaloniaHost.Views;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -28,6 +31,11 @@ internal static class EmployeeAccessChecklist
         /// <summary>2026-10-28: флаги схемы сервера (редактирование, зарплата, долги, работа на кассе) — чекбокс есть, только если
         /// сервер вернул это поле у сотрудника (feature-detect); при создании их нет.</summary>
         public Dictionary<string, CheckBox> Extra { get; } = new();
+        /// <summary>2026-11-19: все галочки по ключам (шаблоны ролей, поиск) и событие «что-то изменилось» (подсветка «Сохранить»).</summary>
+        public Dictionary<string, CheckBox> ByKey { get; } = new();
+        public List<CheckBox> All { get; } = new();
+        public event Action? Changed;
+        internal void RaiseChanged() => Changed?.Invoke();
     }
 
     public static (ScrollViewer View, Boxes Checkboxes) Build(EmployeeAccessFlags? initial = null)
@@ -36,12 +44,7 @@ internal static class EmployeeAccessChecklist
 
         CheckBox Check(string label, bool isChecked) => new()
         {
-            Content = label, Margin = new Thickness(0, 0, 20, 8), IsChecked = isChecked,
-        };
-
-        TextBlock GroupHeader(string text) => new()
-        {
-            Text = text, FontWeight = FontWeight.Bold, FontSize = 13, Margin = new Thickness(0, 14, 0, 4),
+            Content = new TextBlock { Text = label, TextWrapping = TextWrapping.Wrap }, Margin = new Thickness(0, 0, 20, 8), IsChecked = isChecked,
         };
 
         var boxes = new Boxes
@@ -76,28 +79,17 @@ internal static class EmployeeAccessChecklist
             Documents = Check(Tr.T("Документы (доп. услуга)", "Документтер (кошумча кызмат)", "Documents (add-on)", "Belgeler (ek hizmet)", "Hujjatlar (qo'shimcha xizmat)"), flags.CanViewDocuments),
         };
 
-        WrapPanel Row(params CheckBox[] cbs)
-        {
-            var wrap = new WrapPanel { Orientation = Orientation.Horizontal };
-            foreach (var box in cbs)
-                wrap.Children.Add(box);
-            return wrap;
-        }
-
-        var panel = new StackPanel { Spacing = 0 };
-        panel.Children.Add(GroupHeader(Tr.T("Базовые доступы", "Негизги укуктар", "Basic permissions", "Temel erişimler", "Asosiy huquqlar")));
-        panel.Children.Add(Row(boxes.Cashbox, boxes.Analytics, boxes.Products, boxes.Sale, boxes.Clients, boxes.BrandCategory, boxes.Employees, boxes.Settings, boxes.MarketProcurement, boxes.MarketSupplier));
-
-        panel.Children.Add(GroupHeader(Tr.T("Секторные доступы", "Секторлук укуктар", "Sector permissions", "Sektör erişimleri", "Sektor huquqlari")));
-        panel.Children.Add(Row(boxes.Cashier, boxes.Shifts, boxes.Document));
-
-        panel.Children.Add(GroupHeader(Tr.T("Касса Маркета", "Маркеттин кассасы", "Market till", "Market kasası", "Market kassasi")));
-        panel.Children.Add(Row(boxes.MarketDiscount, boxes.MarketEditPrice, boxes.MarketDeleteCartItem, boxes.MarketEmployeeReturn));
-        // 2026-11-01 (ответ Умара): право «Редактор документов закупок» (can_edit_purchase_documents) выдают и снимают владелец ИЛИ администратор — строка в блоке «Редактирование и зарплата» ниже
+        // 2026-11-19 (запрос владельца, п. 3): ключи для шаблонов ролей и поиска, группы-карточки со счётчиком и «Выбрать все».
+        void Reg(string key, CheckBox box) { boxes.ByKey[key] = box; boxes.All.Add(box); }
+        Reg("cashbox", boxes.Cashbox); Reg("analytics", boxes.Analytics); Reg("products", boxes.Products); Reg("sale", boxes.Sale);
+        Reg("clients", boxes.Clients); Reg("brand", boxes.BrandCategory); Reg("employees", boxes.Employees); Reg("settings", boxes.Settings);
+        Reg("procurement", boxes.MarketProcurement); Reg("supplier", boxes.MarketSupplier); Reg("cashier", boxes.Cashier);
+        Reg("shifts", boxes.Shifts); Reg("document", boxes.Document); Reg("discount", boxes.MarketDiscount);
+        Reg("editprice", boxes.MarketEditPrice); Reg("delcart", boxes.MarketDeleteCartItem); Reg("empreturn", boxes.MarketEmployeeReturn);
+        Reg("label", boxes.MarketLabel); Reg("scales", boxes.MarketScales); Reg("whatsapp", boxes.Whatsapp);
+        Reg("telegram", boxes.Telegram); Reg("instagram", boxes.Instagram); Reg("documents", boxes.Documents);
+        // 2026-11-01 (ответ Умара): право «Редактор документов закупок» (can_edit_purchase_documents) выдают и снимают владелец ИЛИ администратор — строка в блоке «Редактирование и зарплата»
         // (показывается, когда сервер вернул поле; у владельца и администратора право есть всегда).
-
-        panel.Children.Add(GroupHeader(Tr.T("Дополнительные услуги", "Кошумча кызматтар", "Add-on services", "Ek hizmetler", "Qo'shimcha xizmatlar")));
-        panel.Children.Add(Row(boxes.MarketLabel, boxes.MarketScales, boxes.Whatsapp, boxes.Telegram, boxes.Instagram, boxes.Documents));
 
         // 2026-10-28: поля из схемы сервера (EmployeeUpdate) и Б-16 (can_use_pos) — только если сервер их вернул.
         var extra = new List<(string Key, string Label, bool? Value)>
@@ -118,28 +110,197 @@ internal static class EmployeeAccessChecklist
             ("view_debts", Tr.T("Долги: просмотр", "Карыздар: көрүү", "Debts: view", "Borçlar: görüntüleme", "Qarzlar: ko'rish"), flags.CanViewDebts),
             ("edit_purchase_documents", Tr.T("Редактор документов закупок (правка накладных)", "Сатып алуу документтеринин редактору (накладнойлорду оңдоо)", "Purchase documents editor (invoice edits)", "Alım belgeleri düzenleyicisi (fatura düzenleme)", "Xarid hujjatlari muharriri (yuk xatlarini tahrirlash)"), flags.CanEditPurchaseDocuments),
         };
-        var extraBoxes = extra.Where(e => e.Value.HasValue).ToList();
-        if (extraBoxes.Count > 0)
+        var extraKeys = new List<string>();
+        foreach (var e in extra.Where(e => e.Value.HasValue))
         {
-            // (2026-11-13: в этом блоке и «Продажа ниже закупки»)
-            panel.Children.Add(GroupHeader(Tr.T("Редактирование и зарплата", "Түзөтүү жана эмгек акы", "Editing and salary", "Düzenleme ve maaş", "Tahrirlash va ish haqi")));
-            var extraRow = new WrapPanel { Orientation = Orientation.Horizontal };
-            foreach (var e in extraBoxes)
+            var box = Check(e.Label, e.Value == true);
+            boxes.Extra[e.Key] = box;
+            Reg(e.Key, box);
+            extraKeys.Add(e.Key);
+        }
+
+        // Пояснения под опасными правами: что именно разрешает галочка.
+        var notes = new Dictionary<string, string>
+        {
+            ["discount"] = Tr.T("Кассир сможет давать скидку на чек и позицию.", "Кассир чекке жана позицияга арзандатуу бере алат.", "The cashier can give discounts on a receipt or item.", "Kasiyer fişe veya ürüne indirim verebilir.", "Kassir chek va pozitsiyaga chegirma bera oladi."),
+            ["editprice"] = Tr.T("Кассир сможет менять цену товара прямо в чеке.", "Кассир товардын баасын чекте өзгөртө алат.", "The cashier can change an item's price in the receipt.", "Kasiyer fişte ürün fiyatını değiştirebilir.", "Kassir chekda tovar narxini o'zgartira oladi."),
+            ["sell_below_cost"] = Tr.T("Можно продать с убытком: дешевле закупочной цены.", "Зыян менен сатууга болот: сатып алуу баасынан арзан.", "Selling at a loss: cheaper than the purchase price.", "Zararına satış: alış fiyatından ucuza.", "Zarar bilan sotish mumkin: xarid narxidan arzon."),
+            ["delcart"] = Tr.T("Кассир сможет убирать позиции из чека до оплаты.", "Кассир төлөөгө чейин позицияларды өчүрө алат.", "The cashier can remove items before payment.", "Kasiyer ödemeden önce ürünleri silebilir.", "Kassir to'lovdan oldin pozitsiyalarni o'chira oladi."),
+            ["edit_salary"] = Tr.T("Сотрудник сможет менять чужие зарплаты.", "Кызматкер башкалардын эмгек акысын өзгөртө алат.", "The employee can change others' salaries.", "Personel başkalarının maaşını değiştirebilir.", "Xodim boshqalarning ish haqini o'zgartira oladi."),
+        };
+
+        var groups = new List<(string Title, string[] Keys)>
+        {
+            (Tr.T("Базовые доступы", "Негизги укуктар", "Basic permissions", "Temel erişimler", "Asosiy huquqlar"),
+                new[] { "cashbox", "analytics", "products", "sale", "clients", "brand", "employees", "settings", "procurement", "supplier" }),
+            (Tr.T("Секторные доступы", "Секторлук укуктар", "Sector permissions", "Sektör erişimleri", "Sektor huquqlari"),
+                new[] { "cashier", "shifts", "document" }),
+            (Tr.T("Касса Маркета", "Маркеттин кассасы", "Market till", "Market kasası", "Market kassasi"),
+                new[] { "discount", "editprice", "delcart", "empreturn" }),
+            (Tr.T("Дополнительные услуги", "Кошумча кызматтар", "Add-on services", "Ek hizmetler", "Qo'shimcha xizmatlar"),
+                new[] { "label", "scales", "whatsapp", "telegram", "instagram", "documents" }),
+        };
+        if (extraKeys.Count > 0)
+            groups.Add((Tr.T("Редактирование и зарплата", "Түзөтүү жана эмгек акы", "Editing and salary", "Düzenleme ve maaş", "Tahrirlash va ish haqi"), extraKeys.ToArray()));
+
+        var panel = new StackPanel { Spacing = 10 };
+        var noResults = new TextBlock
+        {
+            Text = Tr.T("Такого права нет. Измените запрос.", "Мындай укук жок. Сурамды өзгөртүңүз.", "No such permission. Change the search.", "Böyle bir erişim yok. Aramayı değiştirin.", "Bunday huquq yo'q. So'rovni o'zgartiring."),
+            IsVisible = false, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 16), FontSize = 13,
+        };
+        noResults.Bind(TextBlock.ForegroundProperty, noResults.GetResourceObservable("BrushTextSoft"));
+
+        var cardRefresh = new List<Func<string, bool>>();
+        var counters = new List<Action>();
+        foreach (var (title, keys) in groups)
+        {
+            var members = keys.Where(boxes.ByKey.ContainsKey).ToList();
+            if (members.Count == 0)
+                continue;
+            var rows = new List<(Control Row, string Text)>();
+            var wrap = new WrapPanel { Orientation = Orientation.Horizontal };
+            foreach (var key in members)
             {
-                var box = Check(e.Label, e.Value == true);
-                boxes.Extra[e.Key] = box;
-                extraRow.Children.Add(box);
+                var box = boxes.ByKey[key];
+                box.Margin = new Thickness(0);
+                var row = new StackPanel { Width = 300, Margin = new Thickness(0, 0, 12, 8) };
+                row.Children.Add(box);
+                if (notes.TryGetValue(key, out var note))
+                {
+                    var noteText = new TextBlock { Text = note, FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(30, 0, 0, 0) };
+                    noteText.Classes.Add("access-note");
+                    noteText.Bind(TextBlock.ForegroundProperty, noteText.GetResourceObservable("BrushWarning"));
+                    row.Children.Add(noteText);
+                }
+                rows.Add((row, (((box.Content as TextBlock)?.Text) ?? "") + " " + (notes.GetValueOrDefault(key) ?? "")));
+                wrap.Children.Add(row);
             }
-            panel.Children.Add(extraRow);
+
+            var count = new TextBlock { FontSize = 13, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 10, 0) };
+            count.Bind(TextBlock.ForegroundProperty, count.GetResourceObservable("BrushTextSoft"));
+            var all = SectionCards.Ghost("");
+            var memberBoxes = members.Select(k => boxes.ByKey[k]).ToList();
+            void UpdateCounter()
+            {
+                var on = memberBoxes.Count(c => c.IsChecked == true);
+                count.Text = Tr.T($"{on} из {memberBoxes.Count}", $"{on} / {memberBoxes.Count}", $"{on} of {memberBoxes.Count}", $"{on} / {memberBoxes.Count}", $"{on} / {memberBoxes.Count}");
+                all.Content = on == memberBoxes.Count
+                    ? Tr.T("Снять все", "Баарын алуу", "Clear all", "Tümünü kaldır", "Hammasini olib tashlash")
+                    : Tr.T("Выбрать все", "Баарын тандоо", "Select all", "Tümünü seç", "Hammasini tanlash");
+            }
+            counters.Add(UpdateCounter);
+            UpdateCounter();
+            all.Click += (_, _) =>
+            {
+                var target = memberBoxes.Any(c => c.IsChecked != true);
+                foreach (var c in memberBoxes)
+                    c.IsChecked = target;
+            };
+
+            var titleText = new TextBlock { Text = title, FontSize = 14, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+            titleText.Bind(TextBlock.ForegroundProperty, titleText.GetResourceObservable("BrushText"));
+            var head = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto"), Margin = new Thickness(0, 0, 0, 8) };
+            head.Children.Add(titleText);
+            Grid.SetColumn(count, 1);
+            head.Children.Add(count);
+            Grid.SetColumn(all, 2);
+            head.Children.Add(all);
+
+            var card = new Border
+            {
+                CornerRadius = new CornerRadius(12), Padding = new Thickness(16, 12, 16, 4), BorderThickness = new Thickness(1),
+                Child = new StackPanel { Children = { head, wrap } },
+            };
+            card.Classes.Add("access-card");
+            card.Bind(Border.BorderBrushProperty, card.GetResourceObservable("BrushBorder"));
+            card.Bind(Border.BackgroundProperty, card.GetResourceObservable("BrushPanel"));
+            Avalonia.Automation.AutomationProperties.SetName(card, title);
+            panel.Children.Add(card);
+
+            cardRefresh.Add(query =>
+            {
+                var any = false;
+                foreach (var (row, text) in rows)
+                {
+                    var show = query.Length == 0 || text.Contains(query, StringComparison.CurrentCultureIgnoreCase);
+                    row.IsVisible = show;
+                    any |= show;
+                }
+                card.IsVisible = any;
+                return any;
+            });
+        }
+        panel.Children.Add(noResults);
+
+        foreach (var box in boxes.All)
+            box.IsCheckedChanged += (_, _) =>
+            {
+                foreach (var c in counters)
+                    c();
+                boxes.RaiseChanged();
+            };
+
+        // Верх: поиск по названию права и шаблоны ролей.
+        var search = new TextBox
+        {
+            Name = "AccessSearchBox",
+            Watermark = Tr.T("Найти право (например, скидка)", "Укукту издөө (мисалы, арзандатуу)", "Find a permission (e.g. discount)", "Erişim ara (ör. indirim)", "Huquqni qidirish (masalan, chegirma)"),
+        };
+        search.Classes.Add("modal-field");
+        search.TextChanged += (_, _) =>
+        {
+            var q = (search.Text ?? "").Trim();
+            var anyShown = false;
+            foreach (var r in cardRefresh)
+                anyShown |= r(q);
+            noResults.IsVisible = q.Length > 0 && !anyShown;
+        };
+
+        var tplRow = new WrapPanel { Orientation = Orientation.Horizontal };
+        tplRow.Children.Add(new TextBlock
+        {
+            Text = Tr.T("Шаблон роли:", "Ролдун үлгүсү:", "Role template:", "Rol şablonu:", "Rol shabloni:"),
+            VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 10, 6), FontSize = 13,
+        });
+        foreach (var (name, label, keys) in Templates(extraKeys))
+        {
+            var b = SectionCards.Secondary(label);
+            b.Name = "Template_" + name;
+            b.Margin = new Thickness(0, 0, 8, 6);
+            var keySet = keys;
+            b.Click += (_, _) =>
+            {
+                foreach (var kv in boxes.ByKey)
+                    kv.Value.IsChecked = keySet.Contains(kv.Key);
+            };
+            tplRow.Children.Add(b);
         }
 
         var scroll = new ScrollViewer
         {
-            Content = panel,
+            Content = new StackPanel { Spacing = 12, Children = { new StackPanel { Spacing = 8, Children = { search, tplRow } }, panel } },
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
         };
 
         return (scroll, boxes);
+    }
+
+    /// <summary>2026-11-19: шаблоны ролей — наборы галочек по существующим правам (владелец потом правит руками).</summary>
+    private static IEnumerable<(string Name, string Label, HashSet<string> Keys)> Templates(List<string> extraKeys)
+    {
+        var cashier = new HashSet<string> { "sale", "clients", "cashier", "shifts", "use_pos" };
+        var senior = new HashSet<string>(cashier) { "products", "discount", "delcart", "empreturn", "label", "view_debts" };
+        var warehouse = new HashSet<string> { "products", "brand", "procurement", "supplier", "label", "scales", "document", "edit_products", "edit_procurement" };
+        var admin = new HashSet<string>(extraKeys)
+        {
+            "cashbox", "analytics", "products", "sale", "clients", "brand", "employees", "settings", "procurement", "supplier",
+            "cashier", "shifts", "document", "discount", "editprice", "delcart", "empreturn", "label", "scales", "whatsapp", "telegram", "instagram", "documents",
+        };
+        yield return ("Cashier", Tr.T("Кассир", "Кассир", "Cashier", "Kasiyer", "Kassir"), cashier);
+        yield return ("SeniorCashier", Tr.T("Старший кассир", "Улук кассир", "Senior cashier", "Kıdemli kasiyer", "Katta kassir"), senior);
+        yield return ("Warehouse", Tr.T("Менеджер склада", "Склад менеджери", "Warehouse manager", "Depo yöneticisi", "Ombor menejeri"), warehouse);
+        yield return ("Admin", Tr.T("Администратор", "Администратор", "Administrator", "Yönetici", "Administrator"), admin);
     }
 
     private static bool? ReadExtra(Boxes b, string key) => b.Extra.TryGetValue(key, out var c) ? c.IsChecked == true : null;

@@ -16,6 +16,9 @@ public static class UiFake
     public static FakeNurCrmServer Reset()
     {
         var s = Server;
+        // 2026-11-19: защита «двойного нажатия» (0,7 с) помнит диалоги прошлых сценариев — в полном прогоне они ещё «открыты» и гасили чужие диалоги.
+        NurMarketKassa.AvaloniaHost.Views.Dialogs.PosDialogHost.ResetDuplicateGuardForTests();
+        NurMarketKassa.AvaloniaHost.Views.Dialogs.WindowSingleton.ResetForTests();
         s.Server.Reset();
         s.StubLogin();
         s.StubProfile();

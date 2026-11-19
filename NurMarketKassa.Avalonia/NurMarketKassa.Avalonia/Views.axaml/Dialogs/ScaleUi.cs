@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.VisualTree;
 using NurMarketKassa.Core.Application;
 using NurMarketKassa.Services;
 
@@ -393,7 +394,7 @@ internal static partial class ScaleUi
     };
 
     /// <summary>Окно настроек весов выбранной марки. Для AI-весов отдельного окна нет.</summary>
-    public static async Task OpenBrandSettingsAsync(Window owner, string brand)
+    public static async Task OpenBrandSettingsAsync(Window owner, string brand, bool masterTab = false)
     {
         var window = SettingsWindowTypeFor(brand) is { } windowType ? (Window)Activator.CreateInstance(windowType)! : null;
         if (window is null)
@@ -405,6 +406,17 @@ internal static partial class ScaleUi
                 "AI tartıların ortak protokolü yok: ayarlar kendi programlarında yapılır. Kasa onun için «Tartı» penceresinde dosya hazırlar.",
                 "AI tarozilarning umumiy protokoli yo‘q: sozlamalar ularning o‘z dasturida qilinadi. Kassa u uchun «Tarozi» oynasida fayl tayyorlaydi.")).ConfigureAwait(true);
             return;
+        }
+        if (masterTab)
+        {
+            // 2026-11-19 (п. 4 владельца): открыть окно марки на вкладке «Для мастера» (если она есть у этой марки)
+            window.Opened += (_, _) =>
+            {
+                var tabs = window.GetVisualDescendants().OfType<TabControl>().FirstOrDefault();
+                var master = tabs?.Items.OfType<TabItem>().FirstOrDefault(t => t.Header as string == MasterTabTitle);
+                if (tabs is not null && master is not null)
+                    tabs.SelectedItem = master;
+            };
         }
         await window.ShowDialog(owner).ConfigureAwait(true);
     }

@@ -18,6 +18,10 @@
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
       <_Parameter1>NurMarketKassa.Tests</_Parameter1>
     </AssemblyAttribute>
+    <!-- 2026-11-19: UiTests подключает TestDataRoot.cs из Tests ссылкой; он обращается к internal AccessSync.BackgroundLoopDisabledForTests (иначе сборка UiTests не проходит) -->
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>NurMarketKassa.UiTests</_Parameter1>
+    </AssemblyAttribute>
   </ItemGroup>
 
   <ItemGroup>

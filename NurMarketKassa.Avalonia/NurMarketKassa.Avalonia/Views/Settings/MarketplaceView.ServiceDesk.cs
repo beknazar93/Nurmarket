@@ -43,6 +43,21 @@ public partial class MarketplaceView
             PosAlertKind.Success);
     }
 
+    /// <summary>2026-11-19 («Смета»): модуль бесплатный — если ещё не включён (другая сфера), «Включить бесплатно» включает его (признак EstimateEnabled, сохраняется) и открывает окно; в сфере «Хозтовары и стройматериалы» он доступен сразу.
+    /// Цена модуля — EstimateFeature.PriceSom (0); при ненулевой цене включение пойдёт через ключ, как у «Ремонта».</summary>
+    private void OpenEstimate()
+    {
+        if (!EstimateFeature.IsAvailable)
+        {
+            UserPreferences.Instance.EstimateEnabled = true;
+            UserPreferences.Instance.SaveToDisk();
+            TariffGate.RaisePacksChanged(); // меню кассы перечитывает пункты
+            ScheduleStoreReload();
+        }
+        var owner = TopLevel.GetTopLevel(this) as Window;
+        EstimatesWindow.Open(owner);
+    }
+
     private void OpenServiceDesk(string slug)
     {
         var owner = TopLevel.GetTopLevel(this) as Window;

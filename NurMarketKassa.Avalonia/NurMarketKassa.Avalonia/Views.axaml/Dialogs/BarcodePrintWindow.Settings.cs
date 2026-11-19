@@ -54,6 +54,7 @@ public partial class BarcodePrintView
             _search.SelectAll();
             return;
         }
+        _scannedIds.Add(product.Id); // 2026-11-19: «Только отсканированные»
         var idx = choices.FindIndex(c => string.Equals(c.Code, matchedCode ?? code, StringComparison.OrdinalIgnoreCase));
         var st = GetSel(product.Id);
         st.BarcodeIndex = Math.Max(idx, 0);
@@ -76,6 +77,8 @@ public partial class BarcodePrintView
         _scanClearing = true;
         try { _search.Text = ""; }
         finally { _scanClearing = false; }
+        if (_filter == BarcodeFilter.Scanned)
+            ApplyFilter(keepPage: true); // 2026-11-19: в списке «Отсканированные» новый товар появляется сразу
         SetStatus($"＋ {product.Title} · " + T($"копий: {CopiesOf(product, st)}", $"көчүрмө: {CopiesOf(product, st)}", $"copies: {CopiesOf(product, st)}", $"kopya: {CopiesOf(product, st)}", $"nusxa: {CopiesOf(product, st)}"));
     }
 
@@ -132,8 +135,9 @@ public partial class BarcodePrintView
     private void UpdateSelectionUi()
     {
         var labels = TotalLabels();
-        _selectionText.Text = T($"Выбрано: {_selectedCount}", $"Тандалды: {_selectedCount}", $"Selected: {_selectedCount}", $"Seçildi: {_selectedCount}", $"Tanlandi: {_selectedCount}")
-            + (_selectedCount > 0 ? T($" · этикеток: {labels}", $" · этикетка: {labels}", $" · labels: {labels}", $" · etiket: {labels}", $" · yorliq: {labels}") : "");
+        // 2026-11-19 (веб «Товаров: N · этикеток: M»): число этикеток видно всегда, в том числе 0
+        _selectionText.Text = T($"Товаров: {_selectedCount}", $"Товар: {_selectedCount}", $"Products: {_selectedCount}", $"Ürün: {_selectedCount}", $"Mahsulot: {_selectedCount}")
+            + T($" · этикеток: {labels}", $" · этикетка: {labels}", $" · labels: {labels}", $" · etiket: {labels}", $" · yorliq: {labels}");
         // 2026-11-01 (П-1): «Печать выбранных (N · M эт.)», если этикеток больше, чем товаров
         var nm = labels > _selectedCount ? $"{_selectedCount} · {labels} " + T("эт.", "эт.", "lbl.", "et.", "yor.") : _selectedCount.ToString();
         // 2026-11-11: подпись и значок кнопки заменяются, только если текст поменялся (раньше новый значок создавался на каждый пересчёт — кнопки на кадр становились пустыми рамками, подсказка сбрасывалась).
@@ -201,11 +205,12 @@ public partial class BarcodePrintView
             _settingsScroll.Content = null;
             _settingsCard.Child = _settingsGrid;
         }
-        _settingsCard.MaxHeight = open ? _settingsMaxHeight : double.PositiveInfinity;
+        _settingsCard.MaxHeight = open && !_sideMode ? _settingsMaxHeight : double.PositiveInfinity; // 2026-11-19: боковая панель «Настройка ценника» — во всю высоту
     }
 
     private void SetSettingsOpen(bool open, bool initial = false)
     {
+        open |= _sideMode; // 2026-11-19: в боковой панели настройки всегда раскрыты
         _settingsBody.IsVisible = open;
         _previewCard.IsVisible = open;
         _settingsSummary.IsVisible = !open;
@@ -238,11 +243,11 @@ public partial class BarcodePrintView
         _textsKey = key;
         _selectPageButton.Content = _compact ? T("На странице", "Баракта", "On page", "Sayfada", "Sahifada")
             : T("Выбрать все на странице", "Баракта бардыгын тандоо", "Select all on page", "Sayfadakilerin tümünü seç", "Sahifadagilarni tanlash");
-        _selectFoundButton.Content = _compact ? T($"Все найденные ({n})", $"Баары ({n})", $"All found ({n})", $"Tümü ({n})", $"Hammasi ({n})")
-            : T($"Выбрать все найденные ({n})", $"Табылгандардын бардыгын тандоо ({n})", $"Select all found ({n})", $"Bulunanların tümünü seç ({n})", $"Topilganlarning barchasini tanlash ({n})");
+        _selectFoundButton.Content = _compact ? T($"Весь список ({n})", $"Баары ({n})", $"All in list ({n})", $"Tümü ({n})", $"Hammasi ({n})")
+            : T($"Выбрать все в списке ({n})", $"Тизмедеги бардыгын тандоо ({n})", $"Select all in list ({n})", $"Listedekilerin tümünü seç ({n})", $"Ro'yxatdagilarning barchasini tanlash ({n})"); // 2026-11-19: как в вебе
         _clearButton.Content = _compact ? T("Снять", "Алуу", "Clear", "Kaldır", "Bekor") : T("Снять выбор", "Тандоону алып салуу", "Clear selection", "Seçimi kaldır", "Tanlovni bekor qilish");
         ToolTip.SetTip(_selectPageButton, T("Выбрать все на странице", "Баракта бардыгын тандоо", "Select all on page", "Sayfadakilerin tümünü seç", "Sahifadagilarni tanlash"));
-        ToolTip.SetTip(_selectFoundButton, T("Выбрать все найденные", "Табылгандардын бардыгын тандоо", "Select all found", "Bulunanların tümünü seç", "Topilganlarning barchasini tanlash"));
+        ToolTip.SetTip(_selectFoundButton, T("Выбрать все товары в списке (по текущему поиску и фильтру)", "Тизмедеги бардык товарларды тандоо (учурдагы издөө жана чыпка боюнча)", "Select every product in the list (by the current search and filter)", "Listedeki tüm ürünleri seç (geçerli arama ve filtreye göre)", "Ro'yxatdagi barcha mahsulotlarni tanlash (joriy qidiruv va filtr bo'yicha)"));
     }
 
     private void UpdateSummary()
@@ -255,7 +260,9 @@ public partial class BarcodePrintView
         parts.Add(string.Join(", ", shown));
         parts.Add(_settings.CopiesMode == "stock"
             ? T("копий = остаток", "көчүрмө = калдык", "copies = stock", "kopya = stok", "nusxa = qoldiq")
-            : T($"копий {_settings.DefaultCopies}", $"көчүрмө {_settings.DefaultCopies}", $"copies {_settings.DefaultCopies}", $"kopya {_settings.DefaultCopies}", $"nusxa {_settings.DefaultCopies}"));
+            : _settings.CopiesMode == "manual"
+                ? T("копии вручную", "көчүрмө кол менен", "copies manually", "kopya elle", "nusxa qo'lda")
+                : T($"копий {_settings.DefaultCopies}", $"көчүрмө {_settings.DefaultCopies}", $"copies {_settings.DefaultCopies}", $"kopya {_settings.DefaultCopies}", $"nusxa {_settings.DefaultCopies}"));
         parts.Add(_printerCombo.SelectedItem is DiscoveredPrinter pr ? pr.Label : T("принтер не подключён", "принтер туташкан эмес", "no printer", "yazıcı bağlı değil", "printer ulanmagan"));
         _settingsSummary.Text = string.Join(" · ", parts.Where(s => s.Length > 0));
     }
@@ -285,8 +292,7 @@ public partial class BarcodePrintView
 
     private void ApplySize(double w, double h)
     {
-        w = Math.Clamp(w, 15, 150);
-        h = Math.Clamp(h, 10, 150);
+        (w, h) = LabelPrintMath.ClampSize(w, h); // 2026-11-19: границы «Своего размера» — в одном месте (LabelPrintMath), их же проверяют тесты
         if (Math.Abs(_template.WidthMm - w) < 0.01 && Math.Abs(_template.HeightMm - h) < 0.01)
             return;
         // Ручной размер шрифта (если задан в редакторе) растёт и убывает вместе с этикеткой — иначе на малой этикетке он не помещается.
@@ -305,22 +311,42 @@ public partial class BarcodePrintView
 
     /// <summary>2026-11-01 (П-4): число копий «по умолчанию» для товара: общее или остаток товара (режим «= остаток»).</summary>
     private int BaseCopies(CatalogProductTileVm p) =>
-        _settings.CopiesMode == "stock" ? BarcodePrintCatalog.StockCopies(p, out _) : _settings.DefaultCopies;
+        LabelPrintMath.BaseCopies(_settings.CopiesMode, _settings.DefaultCopies, _settings.CopiesMode == "stock" ? BarcodePrintCatalog.StockCopies(p, out _) : 1);
 
-    private int CopiesOf(CatalogProductTileVm p, Sel st) => Math.Clamp(st.Copies ?? BaseCopies(p), 1, 99);
+    private int CopiesOf(CatalogProductTileVm p, Sel st) => st.Copies is { } own ? Math.Clamp(own, 1, LabelPrintMath.MaxCopies) : BaseCopies(p);
+
+    private static int CopiesModeIndex(string? mode) => LabelPrintMath.NormalizeMode(mode) switch { "stock" => 1, "manual" => 2, _ => 0 };
 
     private void CopiesMode_Changed()
     {
         if (_init)
             return;
-        _settings.CopiesMode = _copiesModeCombo.SelectedIndex == 1 ? "stock" : "default";
-        _copiesBox.IsEnabled = _settings.CopiesMode != "stock";
+        _settings.CopiesMode = _copiesModeCombo.SelectedIndex switch { 1 => "stock", 2 => "manual", _ => "default" };
+        _copiesBox.IsEnabled = _settings.CopiesMode == "default";
         BarcodePrintSettingsStore.Save(_settings);
         _copiesGuard = true;
         try { foreach (var s in _copiesSync) s(); }
         finally { _copiesGuard = false; }
         UpdateSelectionUi();
         UpdateSummary();
+        // 2026-11-19: подсказка к режиму; «по остатку» — предупреждение, где остаток больше потолка в 99 этикеток на товар
+        if (_settings.CopiesMode == "manual")
+            SetStatus(T("Вручную: число этикеток задаётся в карточке каждого товара (по умолчанию 1).", "Кол менен: этикеткалардын саны ар бир товардын карточкасында коюлат (демейки 1).",
+                "Manually: set the number of labels in each product's card (1 by default).", "Elle: etiket sayısı her ürünün kartında ayarlanır (varsayılan 1).", "Qo'lda: yorliqlar soni har bir mahsulot kartasida belgilanadi (standart 1)."));
+        else if (_settings.CopiesMode == "stock")
+        {
+            var capped = 0;
+            foreach (var p in CatalogCacheService.Products)
+                if (_sel.TryGetValue(p.Id, out var sel) && sel.Selected && sel.Copies == null)
+                {
+                    BarcodePrintCatalog.StockCopies(p, out var c);
+                    if (c)
+                        capped++;
+                }
+            if (capped > 0)
+                SetStatus(T($"У {capped} товаров остаток больше {LabelPrintMath.MaxCopies} — на каждый будет {LabelPrintMath.MaxCopies} этикеток (измените в карточке).", $"{capped} товардын калдыгы {LabelPrintMath.MaxCopies}ден көп — ар бирине {LabelPrintMath.MaxCopies} этикетка (карточкасында өзгөртүңүз).",
+                    $"{capped} products have stock above {LabelPrintMath.MaxCopies} — each gets {LabelPrintMath.MaxCopies} labels (change it in the card).", $"{capped} ürünün stoğu {LabelPrintMath.MaxCopies} üzerinde — her birine {LabelPrintMath.MaxCopies} etiket (kartta değiştirin).", $"{capped} ta mahsulot qoldig'i {LabelPrintMath.MaxCopies} dan ko'p — har biriga {LabelPrintMath.MaxCopies} yorliq (kartada o'zgartiring)."));
+        }
     }
 
     private void ResetItemCopies()
@@ -437,11 +463,36 @@ public partial class BarcodePrintView
             _previewBitmap?.Dispose();
             _previewBitmap = next;
             _previewCaption.Text = sample != null ? name : T("Образец", "Үлгү", "Sample", "Örnek", "Namuna");
+            UpdatePreviewDots(name, code, price, previewTemplate, sample);
         }
         catch (Exception ex)
         {
             PosLogger.Log($"Barcode print window: preview failed: {ex}", "WARNING");
         }
+    }
+
+    /// <summary>2026-11-19: поля настроек — по текущему шаблону (после редактора этикетки и после выбора сохранённого шаблона).</summary>
+    private void SyncSettingsFromTemplate()
+    {
+        _init = true;
+        _showName.IsChecked = _template.ProductName.Enabled;
+        _showPrice.IsChecked = _template.Price.Enabled;
+        _showBarcode.IsChecked = _template.Barcode.Enabled;
+        _showDigits.IsChecked = _template.BarcodeShowDigits;
+        _showSku.IsChecked = _template.Sku.Enabled;
+        _showUnit.IsChecked = _template.Unit.Enabled;
+        _showStore.IsChecked = _template.StoreName.Enabled;
+        _barPx = LabelAutoLayout.BarcodeHeightPx(_template);
+        _barHeightBox.Value = BarMmFromPx(_barPx);
+        _barHeightHint.IsVisible = false;
+        _thicknessCombo.SelectedIndex = Math.Clamp(_template.BarcodeModuleDots, 0, 4);
+        SyncFrameFromTemplate(); // 2026-11-19: «Рамка»
+        _sizeCombo.SelectedIndex = FindPresetIndex();
+        _customSizePanel.IsVisible = _sizeCombo.SelectedIndex == SizePresets.Length;
+        _widthBox.Value = (decimal)_template.WidthMm;
+        _heightBox.Value = (decimal)_template.HeightMm;
+        SyncTagSetupFromTemplate();
+        _init = false;
     }
 
     private async Task OpenEditorAsync()
@@ -463,23 +514,7 @@ public partial class BarcodePrintView
             return;
         _template = LabelTemplateStore.Load();
         _templateDirty = false;
-        _init = true;
-        _showName.IsChecked = _template.ProductName.Enabled;
-        _showPrice.IsChecked = _template.Price.Enabled;
-        _showBarcode.IsChecked = _template.Barcode.Enabled;
-        _showDigits.IsChecked = _template.BarcodeShowDigits;
-        _showSku.IsChecked = _template.Sku.Enabled;
-        _showUnit.IsChecked = _template.Unit.Enabled;
-        _showStore.IsChecked = _template.StoreName.Enabled;
-        _barPx = LabelAutoLayout.BarcodeHeightPx(_template);
-        _barHeightBox.Value = BarMmFromPx(_barPx);
-        _barHeightHint.IsVisible = false;
-        _thicknessCombo.SelectedIndex = Math.Clamp(_template.BarcodeModuleDots, 0, 4);
-        _sizeCombo.SelectedIndex = FindPresetIndex();
-        _customSizePanel.IsVisible = _sizeCombo.SelectedIndex == SizePresets.Length;
-        _widthBox.Value = (decimal)_template.WidthMm;
-        _heightBox.Value = (decimal)_template.HeightMm;
-        _init = false;
+        SyncSettingsFromTemplate(); // 2026-11-19: общий перенос шаблона в поля настроек (редактор и «Мои шаблоны»)
         UpdateSummary();
         RenderPage();
         RefreshPreview();
@@ -499,7 +534,7 @@ public partial class BarcodePrintView
             // 2026-11-01 (П-9): запоминаем поиск, фильтр, категорию и страницу (не копии и не выбор).
             var q = _search.Text ?? "";
             _settings.LastSearch = q.Length > 200 ? q[..200] : q;
-            _settings.LastFilter = (int)_filter;
+            _settings.LastFilter = _filter == BarcodeFilter.Scanned ? 0 : (int)_filter; // 2026-11-19: «Отсканированные» — только на сессию
             _settings.LastCategory = _category;
             _settings.LastPage = _page;
         }

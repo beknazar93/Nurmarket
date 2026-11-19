@@ -287,11 +287,15 @@
                     <TextBlock x:Name="IpHintText" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource BrushText}"/>
                 </Border>
 
+                <!-- 2026-11-19 (п. 4 владельца): «Быстрая настройка в 3 шага» и «Для мастера» были спрятаны в окне марки — теперь подсказка и две явные кнопки. -->
+                <TextBlock x:Name="QuickHintText" Text="{DynamicResource scaleSetup.quickHint}" Classes="SettingsCardBody"/>
+
                 <WrapPanel x:Name="ButtonsRow" Margin="0,2,-8,-8">
                     <Button x:Name="CheckButton" Classes="ScaleSecondary" Content="{DynamicResource scaleSetup.btn.check}" Click="Check_Click"/>
                     <Button x:Name="FindButton" Classes="ScaleSecondary" Content="{DynamicResource scaleSetup.btn.find}" Click="Find_Click"/>
-                    <Button x:Name="DeviceSettingsButton" Classes="ScaleSecondary" Content="{DynamicResource scaleSetup.btn.settings}" Click="DeviceSettings_Click"/>
-                    <Button x:Name="SendButton" Classes="ScalePrimary" Content="{DynamicResource scaleSetup.btn.send}" Click="Send_Click"/>
+                    <Button x:Name="DeviceSettingsButton" Classes="ScalePrimary" Content="{DynamicResource scaleSetup.btn.settings}" Click="DeviceSettings_Click"/>
+                    <Button x:Name="MasterSettingsButton" Classes="ScaleSecondary" Content="{DynamicResource scaleSetup.btn.master}" Click="MasterSettings_Click"/>
+                    <Button x:Name="SendButton" Classes="ScaleSecondary" Content="{DynamicResource scaleSetup.btn.send}" Click="Send_Click"/>
                 </WrapPanel>
 
                 <!-- Состояние связи: последняя проверка -->

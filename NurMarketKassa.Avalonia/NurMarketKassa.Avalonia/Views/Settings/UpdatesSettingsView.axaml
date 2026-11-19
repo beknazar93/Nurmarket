@@ -127,7 +127,8 @@
             <!-- Полоса прокрутки показывается ВСЕГДА, а не по наведению: при "Auto" её не было
                  видно, и обрезанная по высоте последняя строка выглядела как поломка вёрстки —
                  ничто не подсказывало, что список можно прокрутить. -->
-            <ScrollViewer MaxHeight="240" VerticalScrollBarVisibility="Visible"
+            <!-- 2026-11-19 (список владельца, п. 5): без постоянной полосы — тонкая, только при прокрутке (Auto + AllowAutoHide). -->
+            <ScrollViewer MaxHeight="240" VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled">
               <TextBlock x:Name="WhatsNewText" x:FieldModifier="public"
                          Classes="SettingsCardBody" FontSize="12" TextWrapping="Wrap"

@@ -24,6 +24,7 @@
   <x:String x:Key="csh.menu.rental">Rentals</x:String>
   <x:String x:Key="csh.menu.repair">Repair and service</x:String>
   <x:String x:Key="csh.menu.tradeIn">Trade-in / buy-back</x:String>
+  <x:String x:Key="csh.menu.estimate">Estimate</x:String>
   <x:String x:Key="csh.menu.settings">Settings</x:String>
   <x:String x:Key="csh.menu.marketplace">Marketplace</x:String>
   <x:String x:Key="csh.menu.crm">NurCRM</x:String>
@@ -125,7 +126,7 @@
   <x:String x:Key="csh.cart.scanTitle">Scan a product</x:String>
   <x:String x:Key="csh.cart.scanHint">The scanner works from anywhere on the screen.&#x0a;Or type a code / name in the search field.</x:String>
   <x:String x:Key="csh.cart.keysLink">Keys: ?</x:String>
-  <x:String x:Key="csh.menu.firstRunWizard">First-start wizard</x:String>
+  <x:String x:Key="csh.menu.firstRunWizard">Tutorial: guided tour of the till</x:String>
   <x:String x:Key="csh.menu.trainingSale">Training sale</x:String>
   <x:String x:Key="hotkeyGroup.title">Hotkey</x:String>
   <x:String x:Key="header.labelCustomerDisplay">Display</x:String>
@@ -664,6 +665,7 @@
   <x:String x:Key="posSettings.navAccount">Account</x:String>
   <x:String x:Key="posSettings.navEmployees">Employees</x:String>
   <x:String x:Key="posSettings.navKeys">Keys</x:String>
+  <x:String x:Key="posSettings.navAi">AI</x:String>
   <x:String x:Key="posSettings.keysSubtitle">Which key does what on the till</x:String>
   <x:String x:Key="employees.subtitle">Personal access codes for removing items from the cart and for deleting, editing and adding products. Without a code, employees can't perform these actions (the owner/admin doesn't need a code)</x:String>
   <x:String x:Key="employees.addButton">+ Add employee</x:String>
@@ -1488,7 +1490,9 @@
   <x:String x:Key="scaleSetup.ai.hint">AI scales have no common protocol — each model comes with its own software. The till saves a file (PLU, name, unit, price) and you load it with the scale’s software. No address is needed.</x:String>
   <x:String x:Key="scaleSetup.btn.check">Check connection</x:String>
   <x:String x:Key="scaleSetup.btn.find">Find on network…</x:String>
-  <x:String x:Key="scaleSetup.btn.settings">Scale settings…</x:String>
+  <x:String x:Key="scaleSetup.btn.settings">Set up the scale…</x:String>
+  <x:String x:Key="scaleSetup.btn.master">For the technician…</x:String>
+  <x:String x:Key="scaleSetup.quickHint">Quick setup in 3 steps: 1) which scale and its address, 2) check the connection, 3) send the goods. Open it with “Set up the scale…”. Ports and exchange files are under “For the technician…”.</x:String>
   <x:String x:Key="scaleSetup.btn.send">Send goods</x:String>
   <x:String x:Key="scaleSetup.barcode.open">Weight / amount →</x:String>
   <x:String x:Key="scaleSetup.barcode.title">How the till reads the scale label barcode</x:String>

@@ -349,6 +349,10 @@ public partial class ScalesPluWindow : Window
         UpdateBarcodeExample();
     }
 
+    /// <summary>2026-11-19 (п. 4 владельца): «Настроить весы…» — окно настроек выбранной марки (первая вкладка «Быстрая настройка»).</summary>
+    private async void ScaleQuickSetup_Click(object? sender, RoutedEventArgs e) =>
+        await ScaleUi.OpenBrandSettingsAsync(this, UserPreferences.Instance.ScaleBrand ?? ScaleUi.BrandShtrikh).ConfigureAwait(true);
+
     /// <summary>Открывает «Настройки весов Штрих-ПРИНТ» на вкладке «Штрих-код» с примером для
     /// первого отмеченного товара — там формат ШК весов читается, правится и записывается.</summary>
     private async void BarcodeSettings_Click(object? sender, RoutedEventArgs e)

@@ -96,6 +96,7 @@ public partial class BarcodePrintView
             panel.Children.Add(label);
         }
         panel.Children.Add(control);
+        _inlinePanels.Add(panel); // 2026-11-19: в боковой панели «Настройка ценника» подпись встаёт над полем (BarcodePrintWindow.TagSetup.cs)
         return panel;
     }
 
@@ -112,7 +113,7 @@ public partial class BarcodePrintView
     private void FillCategories()
     {
         _categoryCombo.Items.Clear();
-        _categoryCombo.Items.Add(T("Все категории", "Бардык категориялар", "All categories", "Tüm kategoriler", "Barcha kategoriyalar"));
+        _categoryCombo.Items.Add(AllCategoriesText(_narrowToolbar));
         foreach (var c in BarcodePrintCatalog.Categories(CatalogCacheService.Products))
             _categoryCombo.Items.Add(c);
         _categoryCombo.SelectedIndex = 0;
@@ -136,9 +137,31 @@ public partial class BarcodePrintView
 
     private int PageCount => Math.Max(1, (_found.Count + PageSize - 1) / PageSize);
 
+    private static string AllCategoriesText(bool narrow) => narrow
+        ? T("Категории", "Категориялар", "Categories", "Kategoriler", "Kategoriyalar")
+        : T("Все категории", "Бардык категориялар", "All categories", "Tüm kategoriler", "Barcha kategoriyalar");
+
+    /// <summary>2026-11-19: подпись первого пункта списка категорий по ширине панели (выбор не меняется).</summary>
+    private void SetAllCategoriesText(bool narrow)
+    {
+        if (_categoryCombo.Items.Count == 0)
+            return;
+        var was = _init;
+        _init = true;
+        try
+        {
+            var selected = _categoryCombo.SelectedIndex;
+            _categoryCombo.Items[0] = AllCategoriesText(narrow);
+            _categoryCombo.SelectedIndex = selected;
+        }
+        finally { _init = was; }
+    }
+
     private void ApplyFilter(bool keepPage = false)
     {
         var found = BarcodePrintCatalog.Search(CatalogCacheService.Products, _search.Text, _filter, _category);
+        if (_filter == BarcodeFilter.Scanned)
+            found = found.Where(p => _scannedIds.Contains(p.Id)).ToList(); // 2026-11-19: «Только отсканированные» (в этой сессии окна)
         if (_onlyIds != null)
         {
             // 2026-11-01 (П-4): окно открыто с готовым выбором — пока поиск и фильтры пусты, показываем только эти товары.
@@ -297,7 +320,10 @@ public partial class BarcodePrintView
         var total = CatalogCacheService.Products.Count;
         _emptyText.IsVisible = _found.Count == 0;
         if (_found.Count == 0)
-            _emptyText.Text = total == 0
+            _emptyText.Text = _filter == BarcodeFilter.Scanned && total > 0
+                ? T("Пока ничего не отсканировано. Включите «Сканер: добавлять в печать» и отсканируйте товары — они появятся здесь.", "Азырынча эч нерсе сканерленген жок. «Сканер: басууга кошуу» күйгүзүп, товарларды сканерлеңиз — алар ушул жерде чыгат.",
+                    "Nothing scanned yet. Turn on “Scanner: add to print” and scan products — they will appear here.", "Henüz taranan yok. «Tarayıcı: yazdırmaya ekle»yi açıp ürünleri okutun — burada görünürler.", "Hali hech narsa skanerlanmagan. «Skaner: chopga qo'shish»ni yoqib, mahsulotlarni skanerlang — ular shu yerda chiqadi.")
+                : total == 0
                 ? T("Каталог товаров ещё не загружен — откройте Склад и нажмите «Обновить».", "Товарлар каталогу али жүктөлө элек — Кампаны ачып, «Жаңыртуу» баскычын басыңыз.", "The product catalog is not loaded yet — open the Warehouse and press “Refresh”.", "Ürün kataloğu henüz yüklenmedi — Depoyu açıp «Yenile»ye basın.", "Mahsulotlar katalogi hali yuklanmagan — Omborni ochib, «Yangilash» tugmasini bosing.")
                 : T("Ничего не найдено. Измените поиск или фильтр.", "Эч нерсе табылган жок. Издөөнү же чыпканы өзгөртүңүз.", "Nothing found. Change the search or the filter.", "Hiçbir şey bulunamadı. Aramayı veya filtreyi değiştirin.", "Hech narsa topilmadi. Qidiruv yoki filtrni o'zgartiring.");
         var from = _found.Count == 0 ? 0 : start + 1;

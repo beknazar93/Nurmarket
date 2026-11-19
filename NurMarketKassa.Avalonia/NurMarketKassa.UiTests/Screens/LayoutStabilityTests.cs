@@ -667,7 +667,13 @@ public sealed class LayoutStabilityTests : IDisposable
                 section = OpenOwnerSection(shell, key, factory);
             // 2026-11-13: ABC — полоса срезов («АВС-анализ / Склад по стоимости / Сезонность») появляется, когда придёт ответ сервера; исходный отпечаток снимаем после неё (иначе «доехала» на 44 px — обычная поздняя загрузка, а не пульсация)
             if (key == "abc" && section != null)
-                for (var wait = 0; wait < 50 && !section.GetVisualDescendants().OfType<Button>().Any(b => (UiDrive.TextOf(b) ?? "") == "ABC-анализ" || (UiDrive.TextOf(b) ?? "") == "АВС-анализ"); wait++)
+            // 2026-11-19: ждём до 15 с (было 5): при нескольких параллельных прогонах ответ-заглушка сервера приходит позже, и исходный снимок брался без полосы срезов (8 px вместо 52)
+                for (var wait = 0; wait < 150 && !section.GetVisualDescendants().OfType<Button>().Any(b => (UiDrive.TextOf(b) ?? "") == "ABC-анализ" || (UiDrive.TextOf(b) ?? "") == "АВС-анализ"); wait++)
+                    UiShot.Settle(1, 100);
+            // 2026-11-19: «Клиенты» — ответ-заглушка сервера (ошибка загрузки) показывает блок StateHost позже исходного снимка (при нагрузке — через секунды);
+            // ждём его до 8 с, иначе исходный снимок берётся до появления блока и «после возврата масштаба раскладка другая».
+            if (key == "clients" && section != null)
+                for (var wait = 0; wait < 80 && !section.GetVisualDescendants().OfType<Border>().Any(b => b.Name == "StateHost" && b.IsVisible); wait++)
                     UiShot.Settle(1, 100);
             var target = section ?? shell;
             probe = new LayoutStabilityProbe($"владелец {key} {w}x{h} {scale * 100:0}%", target);

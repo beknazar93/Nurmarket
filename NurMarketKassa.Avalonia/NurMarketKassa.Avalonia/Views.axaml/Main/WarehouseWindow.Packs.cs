@@ -15,7 +15,7 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 public partial class WarehouseWindow
 {
     // Высота строки таблицы в режиме упаковок: «Принимаем» (28) + «шт/упак.» (28) + подпись/ссылка и поля «Закупка» помещаются, строки не наезжают.
-    private const double ReceivingPackRowHeight = 84;
+    private const double ReceivingPackRowHeight = 98; // 2026-11-19: было 84 — в правке два поля по 36 (шкала Д-8) + подпись = ~93 px, нижнее поле вылезало за строку
 
     /// <summary>Подсказка поля «шт/упак.» (x:Static в разметке).</summary>
     public static string PackPiecesHintText => TR("шт/упак.", "даана/таңгак", "pcs/pack", "adet/koli", "dona/qadoq");

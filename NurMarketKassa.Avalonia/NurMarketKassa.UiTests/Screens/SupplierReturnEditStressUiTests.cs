@@ -218,81 +218,11 @@ public sealed class SupplierReturnEditStressUiTests
         stand.Json("GET", ReturnPath, 200, json);
         stand.Json("PATCH", ReturnPath, 200, "{\"id\":\"r1\",\"version\":4}");
         var owner = Owner();
-        SupplierReturnEditDialog? dialog = null;
         try
         {
-            var info = Info(json);
-            var mem0 = Mem();
-            var sw = Stopwatch.StartNew();
-            dialog = new SupplierReturnEditDialog(info, "ВП-2026-000123", stand.Edit);
-            var shown = dialog.ShowDialog<bool>(owner);
-            UiShot.Pump();
-            var open = sw.Elapsed;
-            // кадры после открытия: самый долгий кадр = насколько «замирает» окно
-            var maxFrame = TimeSpan.Zero;
-            for (var i = 0; i < 3; i++)
-            {
-                var f = Stopwatch.StartNew();
-                UiShot.Pump();
-                if (f.Elapsed > maxFrame)
-                    maxFrame = f.Elapsed;
-            }
-            var memOpen = Mem() - mem0;
-            dialog.RowCountForTests.Should().Be(lines);
-            dialog.ShownRowsForTests.Should().Be(Math.Min(lines, 50), "поля ввода — только для первой страницы (2026-11-12: иначе 2000 строк = 31 с и ~950 МБ)");
-
-            // поиск товара в длинной накладной и ввод количества в последней строке (сумма пересчитывается по всем строкам)
-            var find = TimeSpan.Zero;
-            if (lines > 50)
-            {
-                sw.Restart();
-                dialog.FindForTests("№" + lines + " ");
-                UiShot.Pump();
-                find = sw.Elapsed;
-                dialog.ShownRowsForTests.Should().Be(1, "поиск находит последнюю строку");
-            }
-            sw.Restart();
-            dialog.SetQtyForTests(lines - 1, "1");
-            UiShot.Pump();
-            var type = sw.Elapsed;
-            dialog.TotalText.Should().Contain("было", "сумма изменилась и показано прежнее значение");
-            if (lines > 50)
-            {
-                dialog.FindForTests("");
-                dialog.ShowMoreForTests();
-                UiShot.Pump();
-                dialog.ShownRowsForTests.Should().Be(100, "«Показать ещё» добавляет страницу");
-            }
-
-            // прокрутка в конец списка строк
-            var scrolled = TimeSpan.Zero;
-            ScrollViewer? scroll = dialog.GetVisualDescendants().OfType<ScrollViewer>().OrderByDescending(s => s.Extent.Height).First();
-            sw.Restart();
-            scroll.Offset = new Vector(0, Math.Max(0, scroll.Extent.Height - scroll.Viewport.Height));
-            UiShot.Pump();
-            scrolled = sw.Elapsed;
-            if (lines >= 30)
-                scroll.Offset.Y.Should().BeGreaterThan(0, "длинный список прокручивается");
-            scroll = null; // ссылка на дерево окна не должна держать его после закрытия (замер памяти)
-
-            // сохранение: проверка версии → PIN → PATCH со всеми строками
-            dialog.SetReasonForTests("ошиблись количеством");
-            sw.Restart();
-            var save = dialog.SaveForTestsAsync();
-            EnterPin(dialog).Should().BeTrue("перед сохранением — PIN руководителя");
-            await Finish(save, 60000);
-            var saved = sw.Elapsed;
-            (await Finish(shown)).Should().BeTrue("окно закрылось с результатом «изменено»");
-            stand.Patches.Should().HaveCount(1);
-            var body = Body(stand.Patches[0]);
-            body.GetProperty("items").GetArrayLength().Should().Be(lines, "уходит полный новый состав");
-            body.GetProperty("items")[lines - 1].GetProperty("qty").GetString().Should().Be("1");
-            if (lines >= 3)
-                body.GetProperty("items")[2].GetProperty("qty").GetString().Should().Be("1.255", "кг не округляются до целых");
-            Header(stand.Patches[0], "If-Match").Should().Be("\"3\"");
-            var weakDialog = new WeakReference(dialog);
-            dialog = null;
-            UiShot.Pump();
+            var m = await StressCore(lines, json, stand, owner);
+            var (weakDialog, mem0, open, maxFrame, find, type, scrolled, saved, memOpen) = m;
+            m = default;
             stand.Server.ResetLogEntries(); // журнал WireMock (тела GET/PATCH) — память теста, не окна
             AssertCollected(weakDialog, "Окно правки накладной после сохранения");
             var memAfter = Mem() - mem0;
@@ -323,8 +253,89 @@ public sealed class SupplierReturnEditStressUiTests
         }
         finally
         {
-            Close(dialog, owner);
+            Close(null, owner);
         }
+    }
+
+    /// <summary>2026-11-19: вся работа с окном — в отдельном async-методе: когда он завершён, его машина состояний и локальные (окно, строки, задачи) недостижимы,
+    /// а вызывающий тест проверяет сборку окна по слабой ссылке (в самом async-тесте локальные держали окно, «цепочка не найдена»).</summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static async Task<(WeakReference Weak, long Mem0, TimeSpan Open, TimeSpan MaxFrame, TimeSpan Find, TimeSpan Type, TimeSpan Scrolled, TimeSpan Saved, long MemOpen)> StressCore(int lines, string json, Stand stand, Window owner)
+    {
+        SupplierReturnEditDialog? dialog = null;
+        var info = Info(json);
+        var mem0 = Mem();
+        var sw = Stopwatch.StartNew();
+        dialog = new SupplierReturnEditDialog(info, "ВП-2026-000123", stand.Edit);
+        Task<bool>? shown = dialog.ShowDialog<bool>(owner);
+        UiShot.Pump();
+        var open = sw.Elapsed;
+        // кадры после открытия: самый долгий кадр = насколько «замирает» окно
+        var maxFrame = TimeSpan.Zero;
+        for (var i = 0; i < 3; i++)
+        {
+            var f = Stopwatch.StartNew();
+            UiShot.Pump();
+            if (f.Elapsed > maxFrame)
+                maxFrame = f.Elapsed;
+        }
+        var memOpen = Mem() - mem0;
+        dialog.RowCountForTests.Should().Be(lines);
+        dialog.ShownRowsForTests.Should().Be(Math.Min(lines, 50), "поля ввода — только для первой страницы (2026-11-12: иначе 2000 строк = 31 с и ~950 МБ)");
+
+        // поиск товара в длинной накладной и ввод количества в последней строке (сумма пересчитывается по всем строкам)
+        var find = TimeSpan.Zero;
+        if (lines > 50)
+        {
+            sw.Restart();
+            dialog.FindForTests("№" + lines + " ");
+            UiShot.Pump();
+            find = sw.Elapsed;
+            dialog.ShownRowsForTests.Should().Be(1, "поиск находит последнюю строку");
+        }
+        sw.Restart();
+        dialog.SetQtyForTests(lines - 1, "1");
+        UiShot.Pump();
+        var type = sw.Elapsed;
+        dialog.TotalText.Should().Contain("было", "сумма изменилась и показано прежнее значение");
+        if (lines > 50)
+        {
+            dialog.FindForTests("");
+            dialog.ShowMoreForTests();
+            UiShot.Pump();
+            dialog.ShownRowsForTests.Should().Be(100, "«Показать ещё» добавляет страницу");
+        }
+
+        // прокрутка в конец списка строк
+        var scrolled = TimeSpan.Zero;
+        ScrollViewer? scroll = dialog.GetVisualDescendants().OfType<ScrollViewer>().OrderByDescending(s => s.Extent.Height).First();
+        sw.Restart();
+        scroll.Offset = new Vector(0, Math.Max(0, scroll.Extent.Height - scroll.Viewport.Height));
+        UiShot.Pump();
+        scrolled = sw.Elapsed;
+        if (lines >= 30)
+            scroll.Offset.Y.Should().BeGreaterThan(0, "длинный список прокручивается");
+        scroll = null; // ссылка на дерево окна не должна держать его после закрытия (замер памяти)
+
+        // сохранение: проверка версии → PIN → PATCH со всеми строками
+        dialog.SetReasonForTests("ошиблись количеством");
+        sw.Restart();
+        Task? save = dialog.SaveForTestsAsync();
+        EnterPin(dialog).Should().BeTrue("перед сохранением — PIN руководителя");
+        await Finish(save!, 60000);
+        var saved = sw.Elapsed;
+        (await Finish(shown!)).Should().BeTrue("окно закрылось с результатом «изменено»");
+        stand.Patches.Should().HaveCount(1);
+        var body = Body(stand.Patches[0]);
+        body.GetProperty("items").GetArrayLength().Should().Be(lines, "уходит полный новый состав");
+        body.GetProperty("items")[lines - 1].GetProperty("qty").GetString().Should().Be("1");
+        if (lines >= 3)
+            body.GetProperty("items")[2].GetProperty("qty").GetString().Should().Be("1.255", "кг не округляются до целых");
+        Header(stand.Patches[0], "If-Match").Should().Be("\"3\"");
+        var weakDialog = new WeakReference(dialog);
+        dialog = null;
+        UiShot.Pump();
+        return (weakDialog, mem0, open, maxFrame, find, type, scrolled, saved, memOpen);
     }
 
     // ───────────── двойной клик «Сохранить» ─────────────
@@ -570,11 +581,11 @@ public sealed class SupplierReturnEditStressUiTests
         await using var stand = await Stand.StartAsync();
         var json = CardJson(2);
         // фаза 1: ответа на PATCH нет — шлюз отвечает 504 (так выглядит обрыв за nginx: дошла ли правка до сервера, неизвестно)
-        // 2026-11-12 (аудит 12.11, Т-19): и настоящий обрыв сокета — сервер закрывает соединение без ответа (WireMock FaultType.EMPTY_RESPONSE)
+        // 2026-11-12 (аудит 12.11, Т-19): и настоящий обрыв сокета — сервер закрывает соединение без ответа (WireMock FaultType.MALFORMED_RESPONSE_CHUNK; 2026-11-19: EMPTY_RESPONSE в WireMock.Net 2.21 даёт пустой 200, а не обрыв)
         stand.Json("GET", ReturnPath, 200, json);
         stand.Server.Given(Request.Create().WithPath(ReturnPath).UsingMethod("PATCH")).AtPriority(1)
             .RespondWith(socketDrop
-                ? Response.Create().WithFault(FaultType.EMPTY_RESPONSE)
+                ? Response.Create().WithFault(FaultType.MALFORMED_RESPONSE_CHUNK)
                 : Response.Create().WithStatusCode(504).WithHeader("Content-Type", "text/html").WithBody("<html><body>504 Gateway Time-out</body></html>"));
         var owner = Owner();
         var dialog = new SupplierReturnEditDialog(Info(json), "ВП-2026-000123", stand.Edit);
@@ -958,11 +969,14 @@ public sealed class SupplierReturnEditStressUiTests
         return (new WeakReference(dialog), pinRef, ok);
     }
 
+    private static int _drained;
+
     private static bool Collected(WeakReference weak)
     {
         for (var i = 0; i < 20; i++)
         {
             UiShot.Settle(2, 30);
+            _drained += UiShot.DrainGestureTimers(); // 2026-11-19: таймер жеста Avalonia (Headless) держит закрытое окно — доигрываем его, критерий «окно собрано» прежний
             GC.Collect();
             GC.WaitForPendingFinalizers();
             GC.Collect();
@@ -977,7 +991,7 @@ public sealed class SupplierReturnEditStressUiTests
         if (Collected(weak))
             return;
         var target = weak.Target;
-        Assert.Fail(what + " остался в памяти после закрытия." + Environment.NewLine + (target is null ? "(объект собрался во время поиска)" : HeapPath.Find(target)));
+        Assert.Fail(what + " остался в памяти после закрытия." + Environment.NewLine + (target is null ? "(объект собрался во время поиска)" : HeapPath.Find(target)) + Environment.NewLine + "жестовых таймеров снято принудительно: " + _drained);
     }
 
     /// <summary>В-7/В-12: в стресс-замере «после закрытия» (42–45 МБ) было больше «памяти окна» (26 МБ) — окно с выведенными строками оставалось в памяти после сохранения.
@@ -1020,7 +1034,7 @@ public sealed class SupplierReturnEditStressUiTests
                 cycles.Add(Mb(Mem() - before));
             }
             Note($"[save→close ×6, 100 строк] рост памяти по циклам, МБ: {string.Join(" / ", cycles)}; живых слабых ссылок: {weak.Count(r => r.IsAlive)}");
-            weak.Count(r => r.IsAlive).Should().Be(0, "ни одно окно (правки, PIN) не держится после сохранения");
+            weak.Count(r => !Collected(r)).Should().Be(0, "ни одно окно (правки, PIN) не держится после сохранения");
             // рост от цикла к циклу: последний цикл не дороже предыдущего больше чем на малую величину (разовые кеши остаются в первых циклах)
             (cycles[^1] - cycles[2]).Should().BeLessThan(3, "рост памяти от цикла к циклу после сборки мусора — единицы МБ, а не десятки (удержанное окно = ~0,4 МБ на строку)");
             cycles[^1].Should().BeLessThan(8, "после 6 сохранений память почти не выросла");
@@ -1294,7 +1308,8 @@ public sealed class SupplierReturnEditStressUiTests
             _ = dialog.ShowDialog<bool>(owner);
             UiShot.Settle(4);
             dialog.ShowSavedForTests("s1", "r1", 2);
-            dialog.ErrorTextForTests.Should().BeEmpty();
+            // 2026-11-19: сервера в этом тесте нет — загрузка поставщиков окна сама заканчивается красной строкой «Поставщики не загрузились» (после 2.0 — раньше, чем раньше), поэтому «пусто до правки» не проверяем:
+            // важно, что после неудачного открытия правки на экране именно EditOpenFailedText (проверка ниже).
             var edit = dialog.EditSavedForTestsAsync();
             Wait(() => edit.IsCompleted, 5000);
             edit.IsCompleted.Should().BeTrue("ошибка не подвешивает окно");

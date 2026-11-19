@@ -1,4 +1,6 @@
+using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using NurMarketKassa.AvaloniaHost.Views;
 using NurMarketKassa.Services;
 using NurMarketKassa.UiTests.Harness;
 using Xunit;
@@ -18,18 +20,58 @@ public sealed class TextNotClippedTests
             yield return [screen.Name, theme, lang];
     }
 
+    /// <summary>2026-11-19 (список владельца, п. 8): узбекский и турецкий (слова длиннее русских) — светлая тема, окна 1024×600.</summary>
+    public static IEnumerable<object[]> MatrixUzTr()
+    {
+        foreach (var screen in ScreenCatalog.All)
+        foreach (var lang in new[] { AppLanguage.Uzbek, AppLanguage.Turkish })
+            yield return [screen.Name, UiTheme.Light, lang];
+    }
+
     [AvaloniaTheory]
     [MemberData(nameof(Matrix))]
-    public async Task Screen_TextIsNotClipped(string screenName, UiTheme theme, AppLanguage lang)
+    public Task Screen_TextIsNotClipped(string screenName, UiTheme theme, AppLanguage lang) => CheckAsync(screenName, theme, lang, UiSize.Small);
+
+    [AvaloniaTheory]
+    [MemberData(nameof(MatrixUzTr))]
+    public Task Screen_TextIsNotClipped_UzTr(string screenName, UiTheme theme, AppLanguage lang) => CheckAsync(screenName, theme, lang, new UiSize(1024, 600));
+
+    /// <summary>2026-11-19 (список владельца, п. 8): окна, которых нет в каталоге снимков (разделы и мастера «Маркетплейс», «Журнал», «Склад»-мелочь,
+    /// «Старая загрузка»…), — на всех четырёх языках (ru, ky, uz, tr), светлая тема, 1024×600.</summary>
+    private static readonly Dictionary<string, Func<Window>> ExtraWindows = new()
+    {
+        ["x-marketplace"] = () => new MarketplaceWindow(),
+        ["x-logs-errors"] = () => new LogsAndErrorsWindow(),
+        ["x-irregular-receipts"] = () => new IrregularReceiptsWindow(),
+        ["x-knowledge-base"] = () => new KnowledgeBaseWindow(),
+        ["x-remote-support"] = () => new RemoteSupportWindow(),
+        ["x-restock"] = () => new RestockSuggestionsWindow(),
+        ["x-writeoff-history"] = () => new WriteOffHistoryWindow(),
+        ["x-timesheet"] = () => new StaffTimesheetWindow(),
+        ["x-bulk-import"] = () => new BulkImportWindow(),
+    };
+
+    public static IEnumerable<object[]> MatrixExtra()
+    {
+        foreach (var name in ExtraWindows.Keys)
+        foreach (var lang in new[] { AppLanguage.Russian, AppLanguage.Kyrgyz, AppLanguage.Uzbek, AppLanguage.Turkish })
+            yield return [name, lang];
+    }
+
+    [AvaloniaTheory]
+    [MemberData(nameof(MatrixExtra))]
+    public Task ExtraWindow_TextIsNotClipped(string name, AppLanguage lang) => CheckAsync(name, UiTheme.Light, lang, new UiSize(1024, 600), ExtraWindows[name]);
+
+    private static async Task CheckAsync(string screenName, UiTheme theme, AppLanguage lang, UiSize windowSize, Func<Window>? create = null)
     {
         await TestHost.WarmAsync();
-        var screen = ScreenCatalog.Get(screenName);
+        var screen = create is null ? ScreenCatalog.Get(screenName) : null;
         UiShot.Setup(theme, lang);
-        var window = screen.Create();
+        var window = create is null ? screen!.Create() : create();
         try
         {
-            using var _ = UiShot.Render(window, screen.Kind == ScreenKind.Window ? UiSize.Small : null);
-            var langCode = lang == AppLanguage.Kyrgyz ? "ky" : "ru";
+            using var _ = UiShot.Render(window, screen is null || screen.Kind == ScreenKind.Window ? windowSize : null);
+            var langCode = lang switch { AppLanguage.Kyrgyz => "ky", AppLanguage.Uzbek => "uz", AppLanguage.Turkish => "tr", _ => "ru" };
             var found = TextClipChecker.Find(window, screenName, langCode);
             var known = KnownClipping.Load();
             if (Snapshots.PngSnapshot.UpdateMode)

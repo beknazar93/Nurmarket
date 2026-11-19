@@ -164,6 +164,7 @@ public partial class WarehouseWindow
     {
         var compact = ClientSize.Height > 0 && ClientSize.Height < 800;
         Classes.Set("wh-compact", compact);
+        WarehouseTabs.Classes.Set("tabs-low", ClientSize.Height > 0 && ClientSize.Height < 660); // 2026-11-19: низкое окно — чипы вкладок ниже (стиль tabs-low)
         // 2026-10-22 (аудит новой сборки, П5): на 1366×768 в программе владельца было ~6 строк (нужно ≥ 8): строка 44 → 40 на совсем низком окне,
         // плитки сводки ниже (стиль wh-compact в разметке), подписи фильтров скрыты — два ряда фильтров стали одним, поля раздела меньше.
         var veryLow = compact && ClientSize.Height < 720;
@@ -185,9 +186,17 @@ public partial class WarehouseWindow
         WindowHeaderBorder.Margin = new Thickness(0, 0, 0, tiny ? 6 : (_isOwnerSection ? 8 : 16));
         if (tiny)
             ProductsGrid.RowHeight = 44;
+        // 2026-11-19: приёмка на низком окне (1024×600): рамка вкладки, шапка и строки таблицы плотнее — после новой шкалы высот (поля 44) таблице оставалось 3,3 строки, нужно не меньше 4 (Д-4).
+        ReceivingTabBorder.Padding = tiny ? new Thickness(12, 4) : new Thickness(16);
+        ReceivingSupplierBlock.Margin = new Thickness(0, 0, 0, tiny ? 4 : 10);
+        ReceivingSupplierWrap.Margin = new Thickness(0, 0, 0, tiny ? -6 : 0); // нижние отступы 8 у кнопок ряда «Поставщик» на низком окне не нужны
+        ReceivingGrid.ColumnHeaderHeight = ReceivingHeaderHeight(ReceivingGrid.Classes.Contains("rcv-compact"));
         if (_isOwnerSection)
             RootGrid.Margin = compact ? new Thickness(24, 6, 24, 10) : OwnerSectionLayout.Margin;
     }
+
+    /// <summary>2026-11-19: шапка таблицы приёмки: на низком окне (ниже 660 px) 36, иначе 40/44 (узкий/широкий вид). Строка остаётся 48/52 — в 44 не помещаются две строки текста «название + штрихкод».</summary>
+    private double ReceivingHeaderHeight(bool compact) => ClientSize.Height is > 0 and < 660 ? 36 : (compact ? 40 : 44);
 
     /// <summary>2026-11-11 (жалоба «пустота»): 0 строк в списке — подсказка по центру («ничего не найдено» при поиске/фильтре, «товаров пока нет» при пустом складе).</summary>
     private void SyncProductsEmpty()
@@ -197,13 +206,17 @@ public partial class WarehouseWindow
         if (!empty)
             return;
         var filtered = CatalogCacheService.Products.Count > 0;
-        ProductsEmptyHint.Text = filtered
-            ? T("Ничего не найдено. Измените поиск или фильтры.", "Эчтеке табылган жок. Издөөнү же чыпкаларды өзгөртүңүз.", "Nothing found. Change the search or the filters.",
-                "Hiçbir şey bulunamadı. Aramayı veya filtreleri değiştirin.", "Hech narsa topilmadi. Qidiruv yoki filtrlarni o'zgartiring.")
-            : T("Товаров пока нет. Нажмите «Создать товар» или «Массовая загрузка».", "Товарлар азырынча жок. «Товар түзүү» же «Массалык жүктөө» баскычын басыңыз.",
-                "No products yet. Press “Create product” or “Bulk import”.", "Henüz ürün yok. «Ürün oluştur» veya «Toplu yükleme» düğmesine basın.",
-                "Hozircha mahsulot yo'q. «Mahsulot yaratish» yoki «Ommaviy yuklash» tugmasini bosing.");
+        // 2026-11-19 («Неудобства от владельца», п. 10): вместо строки текста — блок пустого состояния с кнопками действий (WarehouseWindow.BulkBar.cs); пересобирается только при смене вида.
+        // Низкая таблица (1024×600 — под шапкой ~150 px): короткий вид без значка, иначе кнопка действия уходит под край.
+        var compact = ProductsGrid.Bounds.Height > 0 && ProductsGrid.Bounds.Height < 340;
+        if (ProductsEmptyHint.Content is null || _productsEmptyKey != (filtered, compact))
+        {
+            _productsEmptyKey = (filtered, compact);
+            ProductsEmptyHint.Content = BuildProductsEmpty(filtered, compact);
+        }
     }
+
+    private (bool Filtered, bool Compact)? _productsEmptyKey;
 
     /// <summary>2026-10-06, владелец: «открывать товар на складе голосом». Вкладка «Товары», фильтры сброшены, в поиске — товар.</summary>
     public void ShowProduct(CatalogProductTileVm product)

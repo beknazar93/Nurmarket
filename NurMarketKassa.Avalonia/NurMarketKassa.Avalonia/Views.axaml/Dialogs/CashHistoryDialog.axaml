@@ -55,11 +55,12 @@
           <DataGridTextColumn Header="{DynamicResource common.dateTime}"
                               Width="180"
                               Binding="{ReflectionBinding CreatedAt, StringFormat=dd.MM.yyyy HH:mm}"/>
+          <!-- 2026-11-19 (список владельца, п. 8): фиксированные 120 px обрезали заголовок «Summa, so'm» (узбекский) — ширина по содержимому, не меньше 120. -->
           <DataGridTextColumn Header="{DynamicResource common.type}"
-                              Width="120"
+                              Width="Auto" MinWidth="120"
                               Binding="{ReflectionBinding Type}"/>
           <DataGridTextColumn Header="{DynamicResource common.amountSom}"
-                              Width="120"
+                              Width="Auto" MinWidth="120"
                               Binding="{ReflectionBinding Amount, StringFormat={}{0:N2}}"/>
           <DataGridTextColumn Header="{DynamicResource common.user}"
                               Width="180"

@@ -168,7 +168,7 @@ public sealed class WarehouseKpiTilesUiTests
         var heights = tiles.Select(t => t.Bounds.Height).ToList();
         foreach (var row in rows)
             row.Select(t => t.Bounds.Height).Distinct().Count().Should().Be(1, $"{tag}: плитки одного ряда одной высоты; {string.Join(", ", heights.Select(x => x.ToString("0.#")))}");
-        heights.Max().Should().BeLessThanOrEqualTo(110, $"{tag}: плитка не выше 110 px; высоты {string.Join(", ", heights.Select(x => x.ToString("0.#")))}");
+        heights.Max().Should().BeLessThanOrEqualTo(114, $"{tag}: плитка не выше 114 px (2026-11-19: было 110 — двустрочная подпись на киргизском в узкой плитке 198 px теперь 112 px при шкале шрифтов Д-8; раздутая плитка была бы 165); высоты {string.Join(", ", heights.Select(x => x.ToString("0.#")))}");
         heights.Min().Should().BeGreaterThan(60, $"{tag}: плитка не сплющена; высоты {string.Join(", ", heights.Select(x => x.ToString("0.#")))}");
         // Узкая раздел (до 1100): 3 + 3, а не растянутый один ряд из шести тесных плиток.
         var perRow = rows.Select(r => r.Count()).ToList();

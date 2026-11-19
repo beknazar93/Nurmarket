@@ -930,6 +930,27 @@
                                        VerticalAlignment="Center"/>
                         </Grid>
                     </Button>
+                    <!-- 2026-11-19: «Смета» — калькулятор сметы для строймаркета (модуль Маркетплейса, сфера «Хозтовары и стройматериалы»). -->
+                    <Button Classes="sidebar-menu-item"
+                            IsVisible="{Binding ShowEstimate}"
+                            Command="{Binding NavigateEstimateCommand}">
+                        <Grid ColumnDefinitions="24,12,*" HorizontalAlignment="Stretch">
+                            <Path Grid.Column="0"
+                                  Width="20" Height="20"
+                                  Stretch="Uniform"
+                                  VerticalAlignment="Center"
+                                  Fill="Transparent"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  StrokeThickness="1.6"
+                                  StrokeLineCap="Round"
+                                  StrokeJoin="Round"
+                                  Data="M6,3 H18 V21 H6 Z M9,7 H15 M9,11 H15 M9,15 H12"/>
+                            <TextBlock Grid.Column="2"
+                                       Text="{DynamicResource csh.menu.estimate}"
+                                       HorizontalAlignment="Left"
+                                       VerticalAlignment="Center"/>
+                        </Grid>
+                    </Button>
 
                     </StackPanel>
 
@@ -1548,6 +1569,14 @@
                                 <StackPanel Classes="km-tile-body">
                                     <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="M4,8 H17 M14,5 L17,8 L14,11 M20,16 H7 M10,13 L7,16 L10,19"/></Border>
                                     <TextBlock Classes="km-tile-text" Text="{DynamicResource csh.menu.tradeIn}"/>
+                                </StackPanel>
+                            </Button>
+                        </Panel>
+                        <Panel Classes="km-cell">
+                            <Button x:Name="MiEstimate" Classes="km-tile km-act" IsVisible="{Binding ShowEstimate}" Command="{Binding NavigateEstimateCommand}">
+                                <StackPanel Classes="km-tile-body">
+                                    <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="M6,3 H18 V21 H6 Z M9,7 H15 M9,11 H15 M9,15 H12"/></Border>
+                                    <TextBlock Classes="km-tile-text" Text="{DynamicResource csh.menu.estimate}"/>
                                 </StackPanel>
                             </Button>
                         </Panel>

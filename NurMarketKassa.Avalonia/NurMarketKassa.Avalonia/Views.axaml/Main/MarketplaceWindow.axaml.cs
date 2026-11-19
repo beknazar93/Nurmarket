@@ -20,12 +20,8 @@ public partial class MarketplaceWindow : Window
 
     public static MarketplaceWindow Open(Window? owner)
     {
-        var window = new MarketplaceWindow();
-        if (owner != null)
-            window.Show(owner);
-        else
-            window.Show();
-        return window;
+        // 2026-11-19 (список владельца, п. 7): одно окно на программу — повторное нажатие выводит открытое вперёд.
+        return NurMarketKassa.AvaloniaHost.Views.Dialogs.WindowSingleton.ShowOnce(owner, () => new MarketplaceWindow());
     }
 
     /// <summary>Сразу открывает вкладку "Доп. функции" — используется, когда переходят сюда

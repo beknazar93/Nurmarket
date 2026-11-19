@@ -24,6 +24,7 @@
   <x:String x:Key="csh.menu.rental">Prokat</x:String>
   <x:String x:Key="csh.menu.repair">Ta'mirlash va servis</x:String>
   <x:String x:Key="csh.menu.tradeIn">Trade-in / sotib olish</x:String>
+  <x:String x:Key="csh.menu.estimate">Smeta</x:String>
   <x:String x:Key="csh.menu.settings">Sozlamalar</x:String>
   <x:String x:Key="csh.menu.marketplace">Marketpleys</x:String>
   <x:String x:Key="csh.menu.crm">NurCRM</x:String>
@@ -125,7 +126,7 @@
   <x:String x:Key="csh.cart.scanTitle">Mahsulotni skanerlang</x:String>
   <x:String x:Key="csh.cart.scanHint">Skaner ekranning istalgan joyidan ishlaydi.&#x0a;Yoki qidiruv maydoniga kod / nomini yozing.</x:String>
   <x:String x:Key="csh.cart.keysLink">Tugmalar: ?</x:String>
-  <x:String x:Key="csh.menu.firstRunWizard">Birinchi ishga tushirish ustasi</x:String>
+  <x:String x:Key="csh.menu.firstRunWizard">O'rgatish: kassa bo'ylab sayr</x:String>
   <x:String x:Key="csh.menu.trainingSale">O'quv sotuvi</x:String>
   <x:String x:Key="hotkeyGroup.title">Tezkor tugma</x:String>
   <x:String x:Key="header.labelCustomerDisplay">Ekran</x:String>
@@ -664,6 +665,7 @@
   <x:String x:Key="posSettings.navAccount">Hisob</x:String>
   <x:String x:Key="posSettings.navEmployees">Xodimlar</x:String>
   <x:String x:Key="posSettings.navKeys">Tugmalar</x:String>
+  <x:String x:Key="posSettings.navAi">AI</x:String>
   <x:String x:Key="posSettings.keysSubtitle">Kassada qaysi tugma nima qiladi</x:String>
   <x:String x:Key="employees.subtitle">Savatdan o'chirish, mahsulotni o'chirish, tahrirlash va qo'shish uchun shaxsiy kirish kodlari — kodsiz xodimlar bu amallarni bajara olmaydi (ega/admin kodsiz ishlaydi)</x:String>
   <x:String x:Key="employees.addButton">+ Xodim qo'shish</x:String>
@@ -1488,7 +1490,9 @@
   <x:String x:Key="scaleSetup.ai.hint">AI tarozilarning umumiy protokoli yo‘q — har bir model o‘z dasturi bilan keladi. Kassa fayl saqlaydi (PLU, nomi, birligi, narxi), siz uni tarozi dasturi bilan yuklaysiz. Manzil kerak emas.</x:String>
   <x:String x:Key="scaleSetup.btn.check">Aloqani tekshirish</x:String>
   <x:String x:Key="scaleSetup.btn.find">Tarmoqda topish…</x:String>
-  <x:String x:Key="scaleSetup.btn.settings">Tarozi sozlamalari…</x:String>
+  <x:String x:Key="scaleSetup.btn.settings">Tarozini sozlash…</x:String>
+  <x:String x:Key="scaleSetup.btn.master">Usta uchun…</x:String>
+  <x:String x:Key="scaleSetup.quickHint">3 qadamda tez sozlash: 1) qaysi tarozi va manzili, 2) aloqani tekshirish, 3) tovarlarni yuborish. «Tarozini sozlash…» tugmasi bilan oching. Portlar va almashuv fayllari — «Usta uchun…» ichida.</x:String>
   <x:String x:Key="scaleSetup.btn.send">Tovarlarni yuborish</x:String>
   <x:String x:Key="scaleSetup.barcode.open">Vazn / summa →</x:String>
   <x:String x:Key="scaleSetup.barcode.title">Kassa tarozi yorlig‘idagi shtrix-kodni qanday o‘qiydi</x:String>

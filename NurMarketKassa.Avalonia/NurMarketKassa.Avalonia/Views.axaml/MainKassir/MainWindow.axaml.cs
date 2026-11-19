@@ -285,6 +285,7 @@ public partial class MainWindow : Window
         // 2026-11-13: «Ремонт и сервис» и «Trade-in / скупка» — подключаемые функции Маркетплейса (MainWindow.ServiceDesk.cs).
         _viewModel.SideMenu.NavigateRepairAction ??= NavigateRepair;
         _viewModel.SideMenu.NavigateTradeInAction ??= NavigateTradeIn;
+        _viewModel.SideMenu.NavigateEstimateAction ??= NavigateEstimate; // 2026-11-19: «Смета»
         // 2026-11-13 (Н-1): «Мастер первого запуска» и «Учебная продажа» в меню «Помощь» (MainWindow.Training.cs).
         _viewModel.SideMenu.NavigateFirstRunWizardAction ??= NavigateFirstRunWizard;
         _viewModel.SideMenu.NavigateTrainingSaleAction ??= NavigateTrainingSale;
@@ -3428,6 +3429,10 @@ public partial class MainWindow : Window
     private void ShowModuleWindow<T>() where T : Window
     {
         _viewModel.CloseSideMenu();
+        // 2026-11-19 (список владельца, п. 7): раздел уже открыт — повторное нажатие выводит его вперёд, а не открывает второй экземпляр.
+        var singletonKey = NurMarketKassa.AvaloniaHost.Views.Dialogs.WindowSingleton.KeyOf<T>();
+        if (NurMarketKassa.AvaloniaHost.Views.Dialogs.WindowSingleton.TryActivate(singletonKey))
+            return;
         var window = App.GetRequiredService<T>();
         // 2026-10-21 (пакет 6, п. 68): немодальное «Некорректные чеки» закрывалось только мышью — Esc закрывает его, как
         // остальные окна (у тех Esc уже свой: IsCancel или обработчик клавиш).
@@ -3448,6 +3453,7 @@ public partial class MainWindow : Window
             NurMarketKassa.AvaloniaHost.Views.Dialogs.ModalWindowManager.Track(window, suspended: window is RemoteSupportWindow);
 #endif
         window.Show(this);
+        NurMarketKassa.AvaloniaHost.Views.Dialogs.WindowSingleton.Register(singletonKey, window);
     }
 
     private static bool _accessibleNamesRegistered;

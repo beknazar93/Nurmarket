@@ -182,8 +182,10 @@ public sealed class CustomerReturnEditDialog : Window
         Close(_changed);
     }
 
-    /// <summary>Название товара по id товара — для текстов 409 (в карточке возврата от клиента id товара нет, текст без названия, если сервер не прислал product_name).</summary>
-    private static string? ProductNameById(string id) => null;
+    /// <summary>Название товара по id товара — для текстов 409 (negative_stock, exceeds_returnable).
+    /// 2026-11-19: id берётся из строки возврата/чека (CustomerReturnEditLine.ProductId); раньше метод всегда возвращал null и отказ сервера не называл товар.</summary>
+    private string? ProductNameById(string id) =>
+        _rows.FirstOrDefault(r => r.Source.ProductId.Length > 0 && string.Equals(r.Source.ProductId, id, StringComparison.OrdinalIgnoreCase))?.Source.Name;
 
     private Control BuildRow(CustomerReturnEditLine line)
     {

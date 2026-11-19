@@ -24,11 +24,8 @@ public partial class WriteOffHistoryWindow : Window
 
     public static void Open(Window? owner)
     {
-        var window = new WriteOffHistoryWindow();
-        if (owner != null)
-            window.Show(owner);
-        else
-            window.Show();
+        // 2026-11-19 (список владельца, п. 7): одно окно на программу.
+        NurMarketKassa.AvaloniaHost.Views.Dialogs.WindowSingleton.ShowOnce(owner, () => new WriteOffHistoryWindow());
     }
 
     private void Window_Loaded(object? sender, RoutedEventArgs e) => LoadHistory();

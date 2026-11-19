@@ -316,15 +316,54 @@ public static class ReturnEditFlows
                 key.OnError(e.InnerException ?? e);
             else
                 VoidKeys.Remove(doc.Id);
+            // 2026-11-19: 409 negative_stock — называем товар; у возврата от клиента id товара в карточке нет — берём из карточки чека (один запрос, только в этом редком отказе)
+            Func<string, string?> nameOf = id => ProductNameInCard(card, id);
+            if (!unknown && doc.Kind == ReturnDocKind.Customer && e.Failure == ReturnEditFailure.NegativeStock && e.ProductId is { Length: > 0 } stockId && nameOf(stockId) is null
+                && SaleIdOf(card) is { Length: > 0 } stockSaleId)
+            {
+                try
+                {
+                    var saleCard = await api.GetSaleAsync(stockSaleId).ConfigureAwait(true);
+                    nameOf = id => ProductNameInCard(card, id) ?? ProductNameInCard(saleCard, id);
+                }
+                catch (ReturnEditException)
+                {
+                    // карточка чека не получена — текст без названия товара
+                }
+            }
             await Say(owner, unknown
                 ? T("Нет связи с сервером — неизвестно, дошло ли аннулирование. Нажмите «Удалить» ещё раз, когда связь появится: повтор не аннулирует возврат второй раз.",
                     "Сервер менен байланыш жок — жокко чыгаруу жеткени белгисиз. Байланыш пайда болгондо «Өчүрүү» дагы басыңыз: кайталоо кайтарууну экинчи жолу жокко чыгарбайт.",
                     "No connection to the server — it is unknown whether the voiding arrived. Press “Delete” again when the connection is back: a retry will not void the return twice.",
                     "Sunucuyla bağlantı yok — iptalin ulaşıp ulaşmadığı bilinmiyor. Bağlantı gelince yine «Sil»e basın: tekrar, iadeyi ikinci kez iptal etmez.",
                     "Server bilan aloqa yo'q — bekor qilish yetib borgani noma'lum. Aloqa paydo bo'lganda yana «O'chirish»ni bosing: takror qaytarishni ikkinchi marta bekor qilmaydi.")
-                : T("Возврат не удалён: ", "Кайтаруу өчүрүлгөн жок: ", "The return was not deleted: ", "İade silinmedi: ", "Qaytarish o'chirilmadi: ") + ReturnEditErrors.Text(e)).ConfigureAwait(true);
+                : T("Возврат не удалён: ", "Кайтаруу өчүрүлгөн жок: ", "The return was not deleted: ", "İade silinmedi: ", "Qaytarish o'chirilmadi: ") + ReturnEditErrors.Text(e, nameOf)).ConfigureAwait(true);
             return e.IsFinal;
         }
+    }
+
+    /// <summary>2026-11-19: название товара по id в свежей карточке документа (items[].product_id → product_name/name) — для текста отказа 409 negative_stock при аннулировании.
+    /// У возврата от клиента id товара в карточке может не быть — тогда null, текст без названия.</summary>
+    private static string? ProductNameInCard(System.Text.Json.JsonElement card, string productId)
+    {
+        try
+        {
+            if (card.ValueKind != System.Text.Json.JsonValueKind.Object || !card.TryGetProperty("items", out var items) || items.ValueKind != System.Text.Json.JsonValueKind.Array)
+                return null;
+            foreach (var it in items.EnumerateArray())
+            {
+                if (it.ValueKind != System.Text.Json.JsonValueKind.Object || !it.TryGetProperty("product_id", out var pid) || !string.Equals(pid.ToString(), productId, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                foreach (var n in new[] { "product_name", "name" })
+                    if (it.TryGetProperty(n, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.String && !string.IsNullOrWhiteSpace(v.GetString()))
+                        return v.GetString();
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // название — подсказка; без него текст отказа остаётся понятным
+        }
+        return null;
     }
 
     /// <summary>2026-11-12 (аудит К-1, В-1): возврат аннулирован на сервере — у возврата от клиента запись убирается из журнала возвратов кассы (потолок нового возврата, пометка «возвращён»,

@@ -499,35 +499,27 @@ public partial class EmployeesSettingsView : UserControl
             return;
         }
 
-        var dialog = new EmployeeAccessDialog(employee.Name, match.Access);
-        var confirmed = PosDialogHost.Show(dialog, owner);
-        if (confirmed != true)
-            return;
-
-        try
+        // 2026-11-19 (п. 3 владельца): окно само отправляет доступы и показывает «Сохраняю…» / «Сохранены ✓» / ошибку с «Повторить»; PATCH и побочные действия — прежние.
+        var dialog = new EmployeeAccessDialog(employee.Name, match.Access, async flags =>
         {
             // 2026-10-28: на сервер уходят только флаги, которые владелец изменил в окне (раньше - все 23: правка
             // с другого устройства затиралась старым значением).
-            var changed = dialog.AccessFlags.ChangedFields(match.Access);
+            var changed = flags.ChangedFields(match.Access);
             if (changed.Count == 0)
-            {
-                ShowLoadStatus(Tr.T("Доступы не менялись.", "Укуктар өзгөргөн жок.", "Permissions unchanged.", "Erişimler değişmedi.", "Huquqlar o'zgarmadi."), isError: false);
                 return;
-            }
             await authApi.PatchEmployeeAsync(employee.ServerId, changed.ToDictionary(kv => kv.Key, kv => (object?)kv.Value));
             ConsultantDirectory.Forget();
             // 2026-11-11 (доступы «с сайта»): касса сотрудника в этой сети перечитает его доступы сейчас, а не через свой такт (~90 с).
             SyncCenter.NoteLocalChange("access");
-            ShowLoadStatus(
-                Tr.T($"Доступы «{employee.Name}» обновлены.", $"«{employee.Name}» укуктары жаңыртылды.",
-                    $"Permissions for “{employee.Name}” updated.", $"«{employee.Name}» için erişimler güncellendi.",
-                    $"«{employee.Name}» huquqlari yangilandi."),
-                isError: false);
-        }
-        catch (ApiException ex)
-        {
-            ShowLoadStatus(EmployeeApiMessages.Describe(ex), isError: true);
-        }
+        });
+        PosDialogHost.Show(dialog, owner);
+        if (!dialog.Saved)
+            return;
+        ShowLoadStatus(
+            Tr.T($"Доступы «{employee.Name}» обновлены.", $"«{employee.Name}» укуктары жаңыртылды.",
+                $"Permissions for “{employee.Name}” updated.", $"«{employee.Name}» için erişimler güncellendi.",
+                $"«{employee.Name}» huquqlari yangilandi."),
+            isError: false);
     }
 
     /// <summary>2026-10-28: «Данные сотрудника» - свежая карточка с сервера, форма, PATCH только изменённых полей.</summary>

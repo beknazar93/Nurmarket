@@ -837,6 +837,10 @@ public partial class OwnerShellWindow : Window, IMainShell
         // Заказы с сайта — «Заказы». Раньше Склад — по «Закупкам», остальное открывалось всем.
         Add("calculator", "CalculatorIcon", Tr.T("Калькуляция", "Калькуляция", "Pricing calculator", "Hesaplama", "Kalkulyatsiya"), true,
             () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("calculator", () => new CalculatorWindow()); });
+        // 2026-11-19 («Смета», ТЗ 19.11.2026): «Товары → Смета» — калькулятор сметы для строймаркета (то же окно, что в кассе; в программе владельца видны себестоимость и маржа). Виден, если модуль доступен
+        // (сфера «Хозтовары и стройматериалы» или включён в Маркетплейсе); право — «Склад»; скрывается в «Разделах меню».
+        Add("estimate", "EstimateIcon", Tr.T("Смета", "Смета", "Estimate", "Keşif", "Smeta"), EstimateFeature.IsAvailable,
+            () => { if (Authorize(PosPermissions.ViewProducts)) OpenSection("estimate", () => new EstimatesWindow()); });
         // 2026-11-11, запрос владельца «убрать пункт весов из кассы и поставить на владелец»: «Весы» — отправка товаров на весы с этикетками (Штрих-М/Штрих-ПРИНТ,
         // РС-200, Rongta, TM-30F, AI), список весов и «Штрих-код этикеток» (ScalesSectionWindow = та же страница, что была в Настройках кассы). Платный доступ — как раньше
         // (TariffGate.CanUseScales: на «Старте» нужна покупка), право — «Настройки» (владелец — всегда; без права пункта нет); скрывается в «Разделах меню».
@@ -875,7 +879,8 @@ public partial class OwnerShellWindow : Window, IMainShell
         // 2026-10-05, владелец: «аналитика по долгам — при нажатии подробно показывать долги».
         // 2026-11-10, владелец: «возвраты добавь в программу владельца тоже» — то же окно возврата, что в кассе («Возврат товаров по чеку»: фильтры, поиск по товару,
         // возврат долгового чека в счёт долга), через общий ReturnSaleLauncher. Виден только с правом «Возврат» (у владельца — всегда); скрывается в «Разделах меню».
-        Add("salereturn", "ReturnIcon", Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"), HasPermissionSafe(PosPermissions.EmployeeReturn),
+        // 2026-11-19 (живой обход владельца): пункт открывает диалог, а не раздел — многоточие «Оформить возврат…»
+        Add("salereturn", "ReturnIcon", Tr.T("Оформить возврат…", "Кайтарууну тариздөө…", "Process a return…", "İade işle…", "Qaytarishni rasmiylashtirish…"), HasPermissionSafe(PosPermissions.EmployeeReturn),
             () => _ = ReturnSaleLauncher.OpenAsync(this));
         Add("debts", "DebtsIcon", Tr.T("Долги клиентов", "Кардарлардын карыздары", "Customer debts", "Müşteri borçları", "Mijozlar qarzlari"), TariffGate.CanUseDebts,
             OpenDebts);

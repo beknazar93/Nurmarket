@@ -335,8 +335,12 @@ public sealed class SideMenuViewModel : ViewModelBase
 
     public Action? NavigateTradeInAction { get; set; }
 
+    /// <summary>2026-11-19 («Смета», ТЗ 19.11.2026): пункт «Смета» в меню ☰ и в «Ещё» — только когда модуль доступен (сфера «Хозтовары и стройматериалы» или включён в Маркетплейсе).</summary>
+    public Action? NavigateEstimateAction { get; set; }
+
     private ICommand? _navigateRepairCommand;
     private ICommand? _navigateTradeInCommand;
+    private ICommand? _navigateEstimateCommand;
 
     public ICommand NavigateRepairCommand => _navigateRepairCommand ??= new RelayCommand(() =>
     {
@@ -370,6 +374,16 @@ public sealed class SideMenuViewModel : ViewModelBase
         NavigateTrainingSaleAction?.Invoke();
     });
 
+    public ICommand NavigateEstimateCommand => _navigateEstimateCommand ??= new RelayCommand(() =>
+    {
+        CloseMenuCommand.Execute(null);
+        NavigateEstimateAction?.Invoke();
+    });
+
+    public bool ShowEstimate => NavigateEstimateAction != null
+                                && NurMarketKassa.Services.EstimateFeature.IsAvailable
+                                && !NurMarketKassa.Services.SectionVisibility.IsHidden("kassa.estimate");
+
     public bool ShowRepair => NavigateRepairAction != null
                               && NurMarketKassa.Services.UserPreferences.Instance.RepairUnlocked
                               && !NurMarketKassa.Services.SectionVisibility.IsHidden("kassa.repair");
@@ -387,6 +401,7 @@ public sealed class SideMenuViewModel : ViewModelBase
         OnPropertyChanged(nameof(ShowRental));
         OnPropertyChanged(nameof(ShowRepair));  // 2026-11-13
         OnPropertyChanged(nameof(ShowTradeIn)); // 2026-11-13
+        OnPropertyChanged(nameof(ShowEstimate)); // 2026-11-19
         // 2026-11-13 (живая проверка доступов, ошибка 1): «Настройки» и «Удалено из чека» (CanViewSettings — вычисляемое свойство) не обновлялись на лету, пока право не менялось
         // перезаходом. Все вычисляемые права меню уведомляются при каждом пересчёте (остальные — сохраняемые, ниже).
         OnPropertyChanged(nameof(CanViewSettings));

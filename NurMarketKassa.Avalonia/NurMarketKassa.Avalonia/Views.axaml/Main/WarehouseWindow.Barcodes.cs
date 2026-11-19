@@ -56,6 +56,7 @@ public partial class WarehouseWindow
         SizeChanged += (_, _) => ApplyBarcodesPadding();
         ApplyBarcodesPadding();
         Closed += (_, _) => _barcodesHost?.Shutdown();
+        InitBulkBar(); // 2026-11-19: выбор галочками и панель массовых действий (WarehouseWindow.BulkBar.cs)
     }
 
     private static string BarcodesTabText => Tr.T("Штрихкоды", "Штрих-коддор", "Barcodes", "Barkodlar", "Shtrix-kodlar");
@@ -124,10 +125,18 @@ public partial class WarehouseWindow
             BulkPriceTagButton.Content = Tr.T($"Печать ценников ({n})", $"Баа белгилерин басуу ({n})", $"Print price tags ({n})", $"Fiyat etiketi yazdır ({n})", $"Narx yorliqlarini chop etish ({n})");
             _printPickTextChanged = true;
         }
+        else if (ProductsGrid.Classes.Contains("row-compact"))
+        {
+            // 2026-11-19: узкая таблица (1024) — короткая подпись, иначе строке поиска оставалось ~80 px; полное название — в подсказке.
+            BulkPriceTagButton.Content = Tr.T("Ценники", "Баа белгилери", "Price tags", "Fiyat etiketleri", "Narx yorliqlari");
+            ToolTip.SetTip(BulkPriceTagButton, Tr.T("Печать штрихкодов и ценников", "Штрих-коддорду жана баа белгилерин басып чыгаруу", "Print barcodes and price tags", "Barkod ve fiyat etiketi yazdır", "Shtrix-kod va narx yorliqlarini chop etish"));
+            _printPickTextChanged = true;
+        }
         else if (_printPickTextChanged)
         {
             BulkPriceTagButton.Content = Tr.T("Печать штрихкодов и ценников", "Штрих-коддорду жана баа белгилерин басып чыгаруу", "Print barcodes and price tags", "Barkod ve fiyat etiketi yazdır", "Shtrix-kod va narx yorliqlarini chop etish");
             _printPickTextChanged = false;
         }
+        UpdateBulkBar(); // 2026-11-19: панель массовых действий и галочка «выбрать все» в шапке
     }
 }

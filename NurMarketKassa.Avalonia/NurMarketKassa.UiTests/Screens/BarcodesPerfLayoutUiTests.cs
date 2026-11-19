@@ -230,7 +230,7 @@ public sealed class BarcodesPerfLayoutUiTests : IDisposable
             window.GetVisualDescendants().OfType<BarcodePrintView>().Should().ContainSingle("вкладка не создаёт второй экземпляр печати");
             view.SelectedCount.Should().Be(selected, "выбор не теряется и не двоится при переходах по вкладкам");
             view.BuildItems().Count.Should().BeLessThanOrEqualTo(selected);
-            UiDrive.AllText(window).Should().Contain($"Выбрано: {selected}");
+            UiDrive.AllText(window).Should().Contain($"Товаров: {selected}");
             view.SearchText.Should().Be("номер 7777", "поиск помнится при возврате на вкладку");
             CheckLayout(window, view, $"warehouse-after-switch {w}x{h}");
             Log($"warehouse-tab {w}x{h}: первый показ {first} мс, фильтр {filter} мс");
@@ -439,14 +439,14 @@ public sealed class BarcodesPerfLayoutUiTests : IDisposable
                 cards.Should().Be(Math.Min(expected, 24), "число карточек на странице действительно изменилось");
                 Desired();
                 free.DesiredSize.Width.Should().Be(0, $"список карточек желаемой ширины не сообщает ({cards} карточек)");
-                scroll0.Bounds.Width.Should().BeApproximately(view.Bounds.Width, 1, $"список занимает всю ширину вкладки ({cards} карточек)");
+                scroll0.Bounds.Width.Should().BeApproximately(view.Bounds.Width - (((bool)typeof(BarcodePrintView).GetField("_sideMode", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(view)!) ? 352 : 0), 1, $"список занимает всю ширину вкладки, кроме панели «Настройка ценника» (2026-11-19) ({cards} карточек)");
                 view.DesiredSize.Width.Should().BeLessThanOrEqualTo(width + 1, "желаемая ширина вкладки не больше выданной");
             }
             var many = Desired();
             var many2 = many;
             Log($"desired width @{width}: {many:0.#}");
             var scroll = view.GetVisualDescendants().OfType<ScrollViewer>().First(x => x.Content is WrapPanel);
-            scroll.Bounds.Width.Should().BeApproximately(view.Bounds.Width, 1, "список карточек занимает всю ширину вкладки");
+            scroll.Bounds.Width.Should().BeApproximately(view.Bounds.Width - (((bool)typeof(BarcodePrintView).GetField("_sideMode", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(view)!) ? 352 : 0), 1, "список карточек занимает всю ширину вкладки (без панели «Настройка ценника», 2026-11-19)");
         }
         finally
         {
@@ -487,7 +487,7 @@ public sealed class BarcodesPerfLayoutUiTests : IDisposable
                     if (last is { } l && l != now)
                         switches++;
                     last = now;
-                    scroll.Bounds.Width.Should().BeApproximately(view.Bounds.Width, 1, $"список = ширине вкладки ({wd})");
+                    scroll.Bounds.Width.Should().BeApproximately(view.Bounds.Width - (((bool)typeof(BarcodePrintView).GetField("_sideMode", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(view)!) ? 352 : 0), 1, $"список = ширине вкладки без панели «Настройка ценника» (2026-11-19) ({wd})");
                     var panel = (WrapPanel)scroll.Content!;
                     cols.Add(panel.Children.OfType<Control>().Where(c => c.Bounds.Width > 0).Select(c => Math.Round(c.Bounds.X)).Distinct().Count());
                 }
@@ -655,10 +655,14 @@ public sealed class BarcodesPerfLayoutUiTests : IDisposable
                     var view = wh!.GetVisualDescendants().OfType<BarcodePrintView>().FirstOrDefault();
                     var toggle = view?.GetVisualDescendants().OfType<Button>().FirstOrDefault(b => (UiDrive.TextOf(b) ?? "").Contains("Настройк"));
                     toggle.Should().NotBeNull("кнопка «Настройки этикетки» есть на вкладке «Штрихкоды»");
-                    UiDrive.Click(wh!, toggle!);
-                    Record("«Штрихкоды», настройки переключены");
-                    UiDrive.Click(wh!, toggle!);
-                    Record("«Штрихкоды», настройки переключены обратно");
+                    // 2026-11-19: на широкой вкладке настройки — постоянная панель справа, кнопка-переключатель скрыта (переключать нечего).
+                    if (toggle!.IsEffectivelyVisible)
+                    {
+                        UiDrive.Click(wh!, toggle!);
+                        Record("«Штрихкоды», настройки переключены");
+                        UiDrive.Click(wh!, toggle!);
+                        Record("«Штрихкоды», настройки переключены обратно");
+                    }
                 }
                 if (ReferenceEquals(t, UiDrive.Find<TabItem>(wh!, "RevisionTabItem")))
                 {

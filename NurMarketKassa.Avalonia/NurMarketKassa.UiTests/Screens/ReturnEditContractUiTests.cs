@@ -542,7 +542,7 @@ public sealed class ReturnEditContractUiTests : IDisposable
                 if (!isVoid || doc.Id != "pr2" || !dropOnce)
                     return null;
                 dropOnce = false;
-                return new ResponseMessage { FaultType = WireMock.ResponseBuilders.FaultType.EMPTY_RESPONSE };
+                return new ResponseMessage { FaultType = WireMock.ResponseBuilders.FaultType.MALFORMED_RESPONSE_CHUNK }; // 2026-11-19: см. StrictReturnServer — EMPTY_RESPONSE даёт пустой 200, а не обрыв
             };
             pilot.Alerts.Clear();
             var t3 = ReturnEditFlows.VoidAsync(owner, VoidDoc(s, notReached), s.Edit);
@@ -603,7 +603,7 @@ public sealed class ReturnEditContractUiTests : IDisposable
                 if (isVoid || doc.Id != "r2" || !dropOnce)
                     return null;
                 dropOnce = false;
-                return new ResponseMessage { FaultType = WireMock.ResponseBuilders.FaultType.EMPTY_RESPONSE };
+                return new ResponseMessage { FaultType = WireMock.ResponseBuilders.FaultType.MALFORMED_RESPONSE_CHUNK }; // 2026-11-19: см. StrictReturnServer — EMPTY_RESPONSE даёт пустой 200, а не обрыв
             };
             var info2 = SupplierInfo(s, d2);
             dialog = new SupplierReturnEditDialog(info2, d2.Number, s.Edit);
@@ -693,7 +693,7 @@ public sealed class ReturnEditContractUiTests : IDisposable
             dialog.ShowMoreForTests();
             UiShot.Pump();
             dialog.ShownRowsForTests.Should().Be(120, "после двух «Показать ещё» видна вся накладная");
-            dialog.SetQtyForTests(99, "2.5");              // строка со второй страницы
+            dialog.SetQtyForTests(98, "2.5");              // строка со второй страницы (2026-11-19: 98 — «кг» (i % 3 == 2), дробное можно; 99 — штучная, 2,5 шт — ошибка «целое»)
             dialog.SetQtyForTests(110, "0.005");           // строка с третьей страницы
             dialog.SetReasonForTests("ошиблись количеством");
 
@@ -702,7 +702,7 @@ public sealed class ReturnEditContractUiTests : IDisposable
             var expected = 0m;
             for (var i = 0; i < 120; i++)
             {
-                var q = i switch { 89 => 0.005m, 110 => 0.005m, 99 => 2.5m, _ => i % 3 == 2 ? 1.255m : 2m };
+                var q = i switch { 89 => 0.005m, 110 => 0.005m, 98 => 2.5m, _ => i % 3 == 2 ? 1.255m : 2m };
                 expected += Round(q, 150.5m);
             }
             dialog.TotalText.Should().Contain(MoneyText.Som((double)expected), "сумма пересчитана по всем строкам, включая скрытые, с округлением каждой строки");
@@ -715,7 +715,7 @@ public sealed class ReturnEditContractUiTests : IDisposable
             items.Should().HaveCount(120, "в PATCH — полный состав, в том числе строки, которые были скрыты");
             items[89]!["qty"]!.ToString().Should().Be("0.005", "скрытая строка, найденная поиском, ушла с правкой");
             items[110]!["qty"]!.ToString().Should().Be("0.005", "строка третьей страницы ушла с правкой");
-            items[99]!["qty"]!.ToString().Should().Be("2.5");
+            items[98]!["qty"]!.ToString().Should().Be("2.5");
             items[0]!["qty"]!.ToString().Should().Be("2", "нетронутые строки — как были");
             items[2]!["qty"]!.ToString().Should().Be("1.255", "кг не округляются");
             d.Lines.Should().HaveCount(120);
@@ -896,6 +896,11 @@ public sealed class ReturnEditContractUiTests : IDisposable
             dialog.SetReasonForTests("ошиблись количеством");
             var save = dialog.SaveForTestsAsync();
             EnterPin(dialog).Should().BeTrue();
+            // 2026-11-19: окно PIN при отказе «нет права» (final) не закрывается само — показывает причину и ждёт «Отмена» (кассир читает её); тест закрывает его, как кассир
+            var pinWindow = PinOf(dialog)!;
+            Wait(() => pinWindow.FinalError is not null);
+            pinWindow.FinalError.Should().NotBeNull("отказ по праву — окончательный");
+            UiDrive.Click(pinWindow, UiDrive.ButtonByText(pinWindow, "Отмена"));
             await Finish(save);
             dialog.ErrorText.Should().Contain("Нет прав на это действие", "403 — словами, а не кодом и не сырым ответом");
             dialog.ErrorText.Should().NotContain("{\"");

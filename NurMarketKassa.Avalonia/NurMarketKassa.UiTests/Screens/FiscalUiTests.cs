@@ -21,6 +21,10 @@ namespace NurMarketKassa.UiTests.Screens;
 [Collection("UiScenarios")]
 public sealed class FiscalUiTests : IDisposable
 {
+    // 2026-11-19: Dispose раньше обнулял ClientResolver насовсем — все следующие по алфавиту сценарии (Owner*, LayoutStability) оставались без клиента отчётов
+    // (список возвратов не запрашивался, «Править возврат» не появлялась). Возвращаем прежний делегат.
+    private readonly Func<NurMarketApiClient?>? _savedResolver = NurCrmReportsApi.ClientResolver;
+
     public FiscalUiTests()
     {
         TestHost.Ensure();
@@ -29,7 +33,7 @@ public sealed class FiscalUiTests : IDisposable
 
     public void Dispose()
     {
-        NurCrmReportsApi.ClientResolver = null;
+        NurCrmReportsApi.ClientResolver = _savedResolver;
     }
 
     public static IEnumerable<object[]> Cases() =>

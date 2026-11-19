@@ -116,6 +116,7 @@ public static class CompanyStoreRegistry
         "fiscal-queue.json", "fiscal-queue.json.bak", "fiscal-settings.json", "fiscal-settings.json.bak", // 2026-11-14 (П0-1): очередь фискальных чеков и последний известный режим фискализации (FiscalQueueStore, FiscalSettings) — данные компании
         "repair-orders.json", "repair-orders.json.bak",       // 2026-11-13: квитанции «Ремонта и сервиса» (RepairOrderStore) — данные компании, общий файл кассы и владельца
         "trade-in-records.json", "trade-in-records.json.bak", // 2026-11-13: выкупы «Trade-in / скупки» (TradeInStore) — данные компании (паспорт и телефоны клиентов)
+        "estimates.json", "estimates.json.bak",               // 2026-11-19: сметы «Сметы» (EstimateStore) — данные компании (клиенты, цены), общий файл кассы и владельца
         "removed-products.json", "removed-products.json.bak", // 2026-11-06: память об удалённых/архивных товарах (закупка, категория, бренд для прошлых периодов аналитики) — товары прежней компании
     ];
 

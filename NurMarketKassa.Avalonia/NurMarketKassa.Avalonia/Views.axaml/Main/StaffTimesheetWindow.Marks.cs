@@ -239,11 +239,24 @@ public partial class StaffTimesheetWindow
         // столбец сотрудников (закреплён по горизонтали) и тело
         var names = new StackPanel { ZIndex = 2, Background = panel };
         var body = new StackPanel();
+        // 2026-11-19 (п. 9 владельца): итоги месяца для плиток сверху
+        double sumHours = 0; int sumDays = 0, shiftDays = 0, mismatches = 0;
         foreach (var (key, name) in emps)
         {
             var mine = _allMarks.Where(m => string.Equals(m.EmployeeKey, key, StringComparison.OrdinalIgnoreCase)).ToList();
             var shiftMap = _shiftHours.GetValueOrDefault(key);
             var totals = TimesheetMarksService.Summarize(mine, from, to, shiftMap);
+            sumHours += totals.PresentHours;
+            sumDays += totals.PresentDays;
+            for (var dd = 1; dd <= days; dd++)
+            {
+                var dt = new DateOnly(_year, _month, dd);
+                var sh = ShiftHoursOf(key, dt);
+                if (sh > 0)
+                    shiftDays++;
+                if (TimesheetMarksService.Reconcile(MarkOf(key, dt), sh) != TimesheetCheck.None)
+                    mismatches++;
+            }
             var other = totals.SickDays + totals.VacationDays + totals.DayOffDays + totals.AbsentDays;
             var totalsText = Tr.T($"{totals.PresentDays} дн · {HoursPlain(totals.PresentHours)} ч", $"{totals.PresentDays} күн · {HoursPlain(totals.PresentHours)} саат", $"{totals.PresentDays} d · {HoursPlain(totals.PresentHours)} h",
                 $"{totals.PresentDays} gün · {HoursPlain(totals.PresentHours)} sa", $"{totals.PresentDays} kun · {HoursPlain(totals.PresentHours)} soat");
@@ -279,9 +292,47 @@ public partial class StaffTimesheetWindow
         TableGrid.Children.Add(names);
         TableGrid.Children.Add(_corner);
         BuildLegend(textSoft);
-        ActionsPanel.IsVisible = CanEdit;
+        BuildSummaryTiles(emps.Count > 0, sumHours, sumDays, shiftDays, mismatches, textSoft);
+        // 2026-11-19: нет сотрудников — вместо пустой сетки блок состояния (StateBlock)
+        TableScroll.IsVisible = emps.Count > 0;
+        EmptyHost.IsVisible = emps.Count == 0;
+        EmptyHost.Content = emps.Count > 0 ? null : StateBlock.Empty(
+            CanEdit ? Tr.T("Сотрудников пока нет", "Кызматкерлер азырынча жок", "No staff yet", "Henüz çalışan yok", "Hozircha xodimlar yo'q")
+                    : Tr.T("Ваших отметок пока нет", "Сиздин белгилериңиз азырынча жок", "You have no marks yet", "Henüz işaretiniz yok", "Sizning belgilaringiz hali yo'q"),
+            CanEdit ? Tr.T("Список придёт с сервера, а кассиры появятся после первых смен.", "Тизме серверден келет, кассирлер биринчи смендерден кийин чыгат.",
+                    "The list comes from the server, cashiers appear after their first shifts.", "Liste sunucudan gelir, kasiyerler ilk vardiyadan sonra görünür.",
+                    "Ro'yxat serverdan keladi, kassirlar birinchi smenadan keyin ko'rinadi.") : null);
+        ActionsPanel.IsVisible = CanEdit && emps.Count > 0;
         JournalButton.IsVisible = CanEdit;
         UpdateSticky();
+    }
+
+    /// <summary>2026-11-19 (п. 9 владельца): сводные плитки месяца. «Опоздания» касса не хранит (нет времени прихода), поэтому вместо них — «расхождения со сменой»
+    /// (отметка не совпала с кассовой сменой): то, что владельцу нужно проверить.</summary>
+    private void BuildSummaryTiles(bool any, double hours, int days, int shiftDays, int mismatches, IBrush textSoft)
+    {
+        SummaryTiles.Children.Clear();
+        SummaryTiles.IsVisible = any;
+        void Tile(string label, string value, Color? accent)
+        {
+            var valueText = new TextBlock { Text = value, FontWeight = FontWeight.SemiBold };
+            valueText.Bind(TextBlock.FontSizeProperty, valueText.GetResourceObservable("NurFontTitle", v => v is double d ? d : 20d));
+            if (accent is { } c)
+                valueText.Foreground = new SolidColorBrush(c);
+            var tile = new Border
+            {
+                Padding = new Thickness(14, 10), Margin = new Thickness(0, 0, 8, 0),
+                Child = new StackPanel { Spacing = 2, Children = { new TextBlock { Text = label, FontSize = 12, Foreground = textSoft, TextTrimming = TextTrimming.CharacterEllipsis }, valueText } },
+            };
+            tile.Classes.Add("Card");
+            AutomationProperties.SetName(tile, label + ": " + value);
+            SummaryTiles.Children.Add(tile);
+        }
+        Tile(Tr.T("Часы за месяц", "Айдагы саат", "Hours this month", "Aylık saat", "Oy davomida soat"), HoursPlain(hours), null);
+        Tile(Tr.T("Отработано дней", "Иштелген күндөр", "Days worked", "Çalışılan gün", "Ishlangan kunlar"), days.ToString(CultureInfo.CurrentCulture), null);
+        Tile(Tr.T("Дни со сменой", "Смена болгон күндөр", "Days with a shift", "Vardiyalı günler", "Smenali kunlar"), shiftDays.ToString(CultureInfo.CurrentCulture), null);
+        Tile(Tr.T("Расхождения со сменой", "Смена менен дал келбегендер", "Mismatches with shifts", "Vardiya uyuşmazlıkları", "Smena bilan nomuvofiqlik"), mismatches.ToString(CultureInfo.CurrentCulture),
+            mismatches > 0 ? Color.FromRgb(0xC6, 0x28, 0x28) : null);
     }
 
     private static string HoursPlain(double h) => h.ToString("0.##", CultureInfo.CurrentCulture);

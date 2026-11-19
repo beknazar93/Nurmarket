@@ -288,6 +288,9 @@ public partial class MarketplaceView : UserControl
             case "repair": case "trade_in": // 2026-11-13
                 OpenServiceDesk(id);
                 break;
+            case "estimate": // 2026-11-19: бесплатный модуль — «Включить бесплатно» = включить и открыть
+                OpenEstimate();
+                break;
             case "analytics":
                 // Программа владельца (2026-09-27): аналитика склада — вкладка «Склад» раздела «Аналитика».
                 // В кассе и на тарифе «Старт» — отдельное окно склада, как было.

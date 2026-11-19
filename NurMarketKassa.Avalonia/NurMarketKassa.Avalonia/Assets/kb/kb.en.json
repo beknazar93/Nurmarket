@@ -1,5 +1,5 @@
 {
- "version": "2026-09-26",
+ "version": "2026-11-19",
  "language": "en",
  "sections": [
   {
@@ -11,7 +11,7 @@
       {
        "id": "продажи-как-создать-продажу",
        "title": "How to make a sale",
-       "text": "Шаг 1. Open a shift with the “Open shift” button in the top bar (if a shift is already open, the button there reads “Close shift”).\nШаг 2. In the catalog on the left, tap the product tile — the product appears in the “Main receipt” on the right.\nШаг 3. Or scan the barcode with the scanner — the product is added to the receipt automatically; you don't need to press anything.\nШаг 4. Or type the code or name in the “Product code or name” field under the receipt, set the quantity with the − and + buttons if needed, and press “Add”.\nШаг 5. Check the items in the receipt and the amount in the “Total” line.\nШаг 6. Press “Pay” (or the Enter key), choose the payment method, and confirm.\nВажно: If the shift is not open, the POS offers to open it when you add the first product.",
+       "text": "Шаг 1. Open a shift with the “Open shift” button in the top bar (if a shift is already open, the button there reads “Close shift”).\nШаг 2. In the catalog on the left, tap the product tile — the product appears in the “Main receipt” on the right.\nШаг 3. Or scan the barcode with the scanner — the product is added to the receipt automatically; you don't need to press anything.\nШаг 4. Or type a code or name into the “Scan, code or name” field above the catalog and press Enter. Quantity — “3*code” (3 pieces at once).\nШаг 5. Check the items in the receipt and the amount in the “Total” line.\nШаг 6. Press “Pay” (or the Enter key), choose the payment method, and confirm.\nВажно: If the shift is not open, the POS offers to open it when you add the first product.",
        "keywords": [
         "sale",
         "sell",
@@ -63,7 +63,7 @@
       {
        "id": "продажи-как-изменить-количество-товара-в-чеке",
        "title": "How to change a product's quantity in the receipt",
-       "text": "Шаг 1. Find the line you need in the receipt on the right.\nШаг 2. Press “+” to increase or “−” to decrease the quantity by 1.\nШаг 3. To enter an exact quantity, tap the number itself between “−” and “+” and type the value.\nШаг 4. For a weighed product, tap the scale icon in the line — the “Weigh product” window opens so you can reweigh it.\nШаг 5. The “Total” is recalculated automatically.\nВажно: You cannot add more than is in stock — the POS shows “Stock limit reached”.",
+       "text": "Шаг 1. Find the line you need in the receipt on the right.\nШаг 2. Press “+” to increase or “−” to decrease the quantity by 1.\nШаг 3. To enter an exact quantity, tap the number itself between “−” and “+” and type the value.\nШаг 4. For a weighed product, tap the scale icon in the line — the “Weigh product” window opens so you can reweigh it.\nШаг 5. The “Total” is recalculated automatically.\nШаг 6. Faster: in the “Scan, code or name” field type “3*code” (or “3*” and scan the product) — it is added at once with quantity 3.\nВажно: You cannot add more than is in stock — the POS shows “Stock limit reached”.",
        "keywords": [
         "quantity",
         "change quantity",
@@ -465,6 +465,305 @@
    ]
   },
   {
+   "title": "What is new",
+   "groups": [
+    {
+     "title": "Main screen and training",
+     "articles": [
+      {
+       "id": "в2-главный-экран-одно-поле-ввода",
+       "title": "New main screen: one “Scan, code or name” field, “3*code” and “Pay”",
+       "text": "The main till screen is simpler now: a product is added with a single field, without extra buttons.\nШаг 1. Above the catalog there is a “Scan, code or name” field. Scan a product here, or type a code or name and press Enter. The scanner also works from anywhere on the screen. Ctrl+F puts the cursor in this field.\nШаг 2. Quantity: type “3*code”, or “3*” and then scan the product — it is added to the receipt at once with quantity 3.\nШаг 3. When the receipt has items, press the big “Pay” button or the Enter key — the payment window opens.\nШаг 4. An empty receipt prompts “Scan a product” and shows “Quick products” — your favorites (★ in the catalog). Click a product and it goes straight into the receipt. The block is switched on in Settings → “Screen” (“Quick products in an empty receipt”).\nШаг 5. Choose the screen look in ☰ → “Marketplace” → “Till layouts”: “Classic”, “Table”, “Cards”, “Minimal”, “Pro” or “1C”. Click a card and the till rebuilds at once. The menu look (old / new ☰) is the “Menu layout” button in the ☰ menu and in Settings → “Screen”.\nВажно: The old ways are still there: a catalog tile, the scanner, the F1–F12 keys.",
+       "keywords": [
+        "main screen",
+        "single field",
+        "3*code",
+        "quantity",
+        "pay enter",
+        "quick products",
+        "till layout"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-обучение-экскурсия-и-учебная-продажа",
+       "title": "Tutorial: guided tour of the till and the “Training sale”",
+       "text": "Шаг 1. Open ☰ → “Settings and help” → “Tutorial: guided tour of the till”. A new store with no products is offered the tour automatically, once, at first start.\nШаг 2. The tour has 9 steps that highlight the right place on the screen: store type, the ☰ menu, “Settings and help”, printer and scales, finding a product, cart and discount, payment, the shift, where to get help. When an action is needed, the card says “Do it — the step counts by itself.”\nШаг 3. Buttons: “Back”, “Next”, “Skip step” and “Finish later” (you can start the tour again from the menu). On the last step — “Finish”, then the “Tutorial complete!” screen with “Start working”, “Go through again”, “Open Help”.\nШаг 4. “Training sale”: ☰ → “Settings and help” → “Training sale”. A yellow bar at the top says “Training mode — money is not recorded”, and the till prompts: “Step 1 of 3. Scan a product or click it in the catalog on the left” → “Step 2 of 3 … “Pay” (or Enter)” → done.\nШаг 5. To leave training mode, use the “Leave training mode” button on the yellow bar.\nВажно: A training sale is not recorded anywhere: not in the shift, reports or stock, and nothing goes to the server.",
+       "keywords": [
+        "tutorial",
+        "guided tour",
+        "training sale",
+        "training mode",
+        "first start",
+        "hints",
+        "learn"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-экран-без-полос-прокрутки-одно-окно",
+       "title": "A screen without scroll bars and “one window — one instance”",
+       "text": "Шаг 1. Scroll bars no longer take up room: a thin bar appears over the content only while you scroll, then disappears.\nШаг 2. You can scroll with the mouse wheel, the touchpad or a finger on a touch screen (dragging and inertia work). In dialog windows and some lists the bar is hidden completely, and scrolling works the same.\nШаг 3. One window — one instance: if a window is already open (for example “Old import”), pressing the button again does not open a second window but brings the open one to the front; a minimized one is restored.\nВажно: A quick double click on a dialog button does not open the window twice either.",
+       "keywords": [
+        "scroll bar",
+        "scrolling",
+        "mouse wheel",
+        "touchpad",
+        "touch screen",
+        "finger",
+        "window opens twice",
+        "one window"
+       ],
+       "images": []
+      }
+     ]
+    },
+    {
+     "title": "Staff, returns and permissions",
+     "articles": [
+      {
+       "id": "в2-доступы-сотрудника-окно-доступы",
+       "title": "How to give an employee permissions: the “Permissions” window",
+       "text": "Шаг 1. Open ☰ → “Settings” → “Employees” and click “Permissions” next to the employee — the “Permissions: Name” window opens.\nШаг 2. Choose a “Role template”: “Cashier”, “Senior cashier”, “Warehouse manager” or “Administrator” — the ticks are set for you and you can adjust them afterwards.\nШаг 3. Look up the permission in the “Find a permission (e.g. discount)” field. Permissions are grouped (“Basic permissions”, “Sector permissions”, “Market till”, “Add-on services”, “Editing and salary”); each group has an “N of M” counter and a “Select all” / “Clear all” button.\nШаг 4. For work at the till the important ones are “Work at the till (sales, shifts)”, “Discount at checkout”, “Price change at checkout”, “Removing items from the cart”, “Sales returns by employee” and “Selling below cost (owner and admin always can)” — the ability to sell cheaper than the purchase price.\nШаг 5. Click “Save permissions”. If you close the window without saving, the till reminds you: “There are unsaved changes”. After saving you see “Permissions saved ✓”.\nВажно: For employees created on the website, permissions are pulled in with the “Load from website” button. The till menu follows the new permissions once the till has re-read the profile.",
+       "keywords": [
+        "permissions",
+        "role template",
+        "cashier",
+        "senior cashier",
+        "warehouse manager",
+        "administrator",
+        "select all",
+        "save permissions",
+        "selling below cost",
+        "work at the till"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-возвраты-поиск-чека-причины-куда-товар",
+       "title": "Returns: receipt search, reasons and “Where the item goes”",
+       "text": "Шаг 1. Open ☰ → “Return” and find the receipt in the “Find a receipt: number or product” field.\nШаг 2. Return the whole receipt (“Return whole receipt”) or tick the products and click “Return selected”.\nШаг 3. Give the reason: “Changed mind”, “Defective”, “Wrong size”, “Wrong colour”, “Cashier error”, “Wrong item” or “Own reason” (type the text). When the whole receipt is returned, the window is called “Reason for full return”.\nШаг 4. In the “Where the item goes” block choose “Back on the shelf” (the default — the stock returns to the warehouse), “To defective” (does not go back to stock) or “To the supplier”. The reason “Defective” picks “To defective” by itself.\nШаг 5. Confirm (Ctrl+Enter — return). The number of the receipt being returned is printed on the return receipt.\nВажно: The employee needs the “Sales returns by employee” permission (the “Permissions” button in Settings → “Employees”).",
+       "keywords": [
+        "return",
+        "receipt search",
+        "return reason",
+        "where the item goes",
+        "back on the shelf",
+        "defective",
+        "to the supplier"
+       ],
+       "images": []
+      }
+     ]
+    },
+    {
+     "title": "Offline and tax receipts",
+     "articles": [
+      {
+       "id": "в2-работа-без-интернета-не-отправлено",
+       "title": "Working without internet: “Unsent”, offline receipts, receiving and write-off with no connection",
+       "text": "Шаг 1. Without internet, sell as usual: receipts are saved on the till with the real date and time of the sale and go to the server by themselves when the connection returns.\nШаг 2. Receiving (goods in), write-off and transfer are also remembered without a connection: receiving is sent in the background (“Background receipts”), write-offs and transfers go into a queue, and the stock in the till drops at once.\nШаг 3. Everything that has not reached the server yet is in ☰ → “Unsent” (window “Unsent”): receipts, returns, debt payments, receiving, new products, shift closing, cash in/out, write-offs, transfers. Statuses: “Waiting for connection”, “Sending”, “Error”. Buttons: “Send now”, “Retry”, “More details”, “Copy data”, “Send to support”.\nШаг 4. The server does not accept a receipt older than 7 days by itself: the till warns in advance (“soon 7 days”) and marks such records in red (“Older than 7 days — awaiting owner”). Confirmation with the owner's (admin's) PIN for such receipts will appear in the next update.\nВажно: The queue is stored on the computer's disk. A stocktake that checks the owner's PIN needs a connection to the server.",
+       "keywords": [
+        "no internet",
+        "offline",
+        "unsent",
+        "queue",
+        "waiting for connection",
+        "receipt older than 7 days",
+        "receiving offline",
+        "write-off offline",
+        "transfer"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-фискальный-чек-ekassa",
+       "title": "eKassa fiscal receipt: the server receipt, QR, “The receipt did not reach the tax service”",
+       "text": "Шаг 1. If fiscalization is switched on for the company in NurCRM and the server issues the receipt, the till does not issue anything itself: the finished tax receipt is taken from the server and printed as it is (32 characters), and the “QR” line is replaced by a QR picture.\nШаг 2. If a receipt or a return did not reach the tax service, the till warns: “The receipt did not reach the tax service” (or “The return did not reach the tax service”). The server will resend it; the owner and administrator can press “Retry sending”, others are advised to tell the administrator.\nШаг 3. The owner's program gets a section “Sales without a fiscal receipt” — receipts of the period that have no fiscal receipt (visible only when fiscalization is on for the company). In “Finance” → the “Returns” tab there is a “KKM” column and a “Fiscal return” block in the receipt card.\nВажно: The mode where the till itself issues the receipt through a fiscal register is not switched on yet.",
+       "keywords": [
+        "ekassa",
+        "fiscal receipt",
+        "tax service",
+        "kkm",
+        "qr receipt",
+        "sales without a fiscal receipt"
+       ],
+       "images": []
+      }
+     ]
+    },
+    {
+     "title": "Warehouse, price tags and data import",
+     "articles": [
+      {
+       "id": "в2-перенос-товаров-из-1с-мойсклад-poster",
+       "title": "Moving over from 1C, MoySklad, Poster, Loyverse, Paloma365, Umag: “Bulk import”",
+       "text": "Шаг 1. Open ☰ → “Warehouse” → “Products” → “Bulk import”.\nШаг 2. Click “Choose file…” (Excel or CSV), or “Paste from clipboard” if you copied cells. The till does not read the old binary .xls — save it as .xlsx or CSV.\nШаг 3. The till detects by itself which program the file is from: 1C, MoySklad, Poster, Loyverse, Paloma365 or Umag (“Which program is the file from?”, “Detect from file”). If it is not recognised, pick the program from the list yourself; columns are matched by name.\nШаг 4. Check the columns, click “Check”, then “Load”. The quantity from the file is added to the stock (receiving); “Cards and prices only (no receiving)” leaves the stock unchanged.\nШаг 5. “Customers and debts” — moving a customer list from Excel/CSV; debts are not recorded, only shown.\nШаг 6. “Which file fits?” — a hint about the file format. “See an example” — 30 practice products just to try; they do not reach the server or your database.\nШаг 7. “Old import (replace stock)” — the previous window: the quantity from the file replaces the product's stock. There is only one such window: pressing the button again just brings it to the front.",
+       "keywords": [
+        "transfer",
+        "import",
+        "1c",
+        "moysklad",
+        "poster",
+        "loyverse",
+        "paloma365",
+        "umag",
+        "bulk import",
+        "customers and debts",
+        "old import",
+        "excel",
+        "csv"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-склад-владельца-вкладки-и-строка-товара",
+       "title": "Warehouse: tabs, the product row (“Edit”, “⋯”) and selecting several products",
+       "text": "Шаг 1. Open ☰ → “Warehouse”. Tabs: “Products”, “Receiving”, “Barcodes”, “Bulk add”, “Stocktake”, “Write-off”, “Transfers”, “ABC”, “Label editor”.\nШаг 2. On the “Products” tab there are total tiles above the table.\nШаг 3. A product row has two buttons: “Edit” and “⋯”. You change the stock by clicking the stock badge or in “⋯”; “⋯” also has “Print label”, “Price tag”, “Upload photo” and a red “Delete” (it asks for confirmation and the employee code, if one is set).\nШаг 4. The tick at the top of the column selects all products; you can also tick the ones you need by hand. A “Selected: N” bar appears with a “Price tags and barcodes” button — it opens price tag and barcode printing for the selected products.\nВажно: More about printing is in the article “Price tag setup: the “Barcodes” tab”.",
+       "keywords": [
+        "warehouse",
+        "warehouse tabs",
+        "edit",
+        "three dots",
+        "stock",
+        "print label",
+        "select all",
+        "selected",
+        "price tags and barcodes",
+        "total tiles"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-настройка-ценника-вкладка-штрихкоды",
+       "title": "Price tag setup: the “Barcodes” tab and “My templates”",
+       "text": "Шаг 1. Open ☰ → “Warehouse” → the “Barcodes” tab (or tick products on the “Products” tab and click “Price tags and barcodes”).\nШаг 2. On the right is the “Price tag setup” panel: a preview captioned in printer dots (for example “463×319 dots · 203 dpi · module 2”), “Size” (30×20, 40×30, 58×40, 58×30, 100×70 or “Custom size”: width × height, from 15×10 to 150×150 mm), “Barcode height, mm”, “Bar thickness”, “Barcode type” (Auto, EAN-13, Code 128, QR), “Font”, “Text size” and the “Show on the label:” ticks.\nШаг 3. “Labels per product”: “One each” (and “Copies of each”), “By stock” (as many labels as there are pieces in stock, but no more than 99 per product; a large print asks for confirmation) or “Manually” (1 each, set the number in the product card). The selection line shows “Products: N · labels: M”.\nШаг 4. Above the list: “Scanned” (scanned only) — just the products scanned in this session (turn on “Scanner: add to print”), and “Select all in list (N)”.\nШаг 5. “Printer settings” (click to expand): “Frame”, horizontal and vertical shift in dots, “Reset settings”. A driverless printer on the TSPL language (Xprinter, TSC, Gprinter) also has “Gap between labels”, “Speed”, “Density”, “Orientation” and “Calibration”; for a printer on a Windows driver the driver sets them.\nШаг 6. Save good settings as a template: “My templates” — save under a name, pick, delete.\nШаг 7. Printing: “Print selected” on the thermal printer or “Print on A4”; “Test print” gives a trial label.\nВажно: The placement of blocks on the label is changed in the “Label editor” (“Warehouse” → “Label editor”). In windows narrower than 1000 px (and in a separate window) there is a collapsible card with the same settings above the list instead of the panel.",
+       "keywords": [
+        "price tag setup",
+        "price tag",
+        "label",
+        "preview",
+        "barcode type",
+        "my templates",
+        "font",
+        "text size",
+        "barcode height",
+        "copies",
+        "barcodes",
+        "labels per product",
+        "by stock",
+        "scanned only",
+        "printer settings",
+        "calibration",
+        "frame"
+       ],
+       "images": [
+        {
+         "file": "owner-price-tag-setup.png",
+         "caption": "Warehouse → “Barcodes” → the “Price tag setup” panel on the right"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Store types, AI and support",
+     "articles": [
+      {
+       "id": "в2-ремонт-trade-in-прокат",
+       "title": "Repair and service, Trade-in / buy-back and Rentals",
+       "text": "Шаг 1. Connecting: Marketplace → “Repair and service” (1200 som) and “Trade-in / buy-back” (1000 som); support or a key switches them on. After that the ☰ menu shows “Repair and service” and “Trade-in / buy-back”.\nШаг 2. Repair: an intake receipt with a number (R-0001), customer and phone, device, serial number or IMEI, fault, included items, prepayment, due date. Statuses: accepted, in progress, ready, handed over. Printing of the receipt and the hand-over act, a “ready” message to the customer on WhatsApp. Prepayment and refund go through “Cash in / out”.\nШаг 3. Trade-in: “New buy-back” — appraisal, passport, serial number / IMEI, photos; payout from the till or credit toward a purchase; the item is received into stock as used (purchase cost = buy-back amount); an intake act is printed and there is a buy-back journal.\nШаг 4. “Rentals” is a separate ☰ menu item (if enabled for your store): giving things out for rent and taking them back.\nВажно: Repair and buy-back data is kept on this till and is not passed between computers (the server does not support it yet); the journals are also in the owner's program.",
+       "keywords": [
+        "repair",
+        "service",
+        "trade-in",
+        "buy-back",
+        "used goods",
+        "rentals",
+        "receipt",
+        "imei",
+        "workshop"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-электроника-и-строймаркет",
+       "title": "Electronics (serial numbers, warranty) and building supplies (packs, foreman price)",
+       "text": "Шаг 1. Electronics: Settings → “Operations” → the “Exchange and return” card → “Serial numbers and warranty”. Tick the categories where an IMEI / serial number is required at sale and set “Default warranty, months:” (per category too). The block is visible in a store of the “Electronics” type.\nШаг 2. In the product card: “Sold with serial numbers / IMEI” and “Warranty, months”. When such a product is sold the till asks for the serial number; a wrong number gives “Invalid serial number”.\nШаг 3. Building supplies: a product can have a pack (in the card — “Per pack, m²” or “Per bag (pack), kg”). In the receipt the quantity is counted in packs, and the warehouse is written off “quantity × pack size”.\nШаг 4. “Foreman price”: in the customer card there is a “Buys at the wholesale price (foreman)” block — that customer gets the wholesale price on every line where one is set (the receipt shows a “Foreman price” badge). The block is visible in a “Hardware” store. Server price levels will be connected later.",
+       "keywords": [
+        "electronics",
+        "serial number",
+        "imei",
+        "warranty",
+        "building supplies",
+        "hardware",
+        "pack",
+        "bag",
+        "square meters",
+        "foreman",
+        "wholesale price"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-смета-как-составить-смету",
+       "title": "How to make an estimate (building store): material consumption, printing, to the receipt",
+       "text": "“Estimate” works out how much material a renovation needs and puts it all into a document for the customer. The module is free: in the “Hardware and building materials” sphere it is already on, in other spheres — Marketplace → “Estimate” → “Turn on for free”.\nШаг 1. Open “Estimate”: at the till — the ☰ menu or “More” on the main screen, in the owner's program — Products → Estimate. Press “＋ New estimate”, enter the site (for example “Room renovation 18 m²”), the customer and phone. “Valid until” is 7 days by default.\nШаг 2. Press “Calculate material”: pick the material (paint, primer, tiles, laminate, wallpaper, drywall, putty, plaster, adhesive), enter the room length, width and height and the openings (doors and windows are subtracted). The allowance for cutting is 10 %. The result is whole packs (always rounded up) with the formula under it.\nШаг 3. Link a product from the catalog (the “Product from the catalog” field) — the line goes into the estimate with its price and quantity. The link is remembered. “Add and more” keeps the window open with the same room size: tiles → adhesive → grout.\nШаг 4. Add the rest: a product — the field at the top (name or barcode, scanner or Enter), “＋ Custom line” — work or delivery, “＋ Section” — “Walls”, “Floor”, “Work”. Quantity, price, discount and allowance of a line can be edited right in the table. The overall discount and allowance are in the header. The “Foreman (wholesale)” price takes the product's wholesale price.\nШаг 5. “Print…” — an A4 sheet (with a preview) or a 58/80 mm tape; “Copy as text” — for WhatsApp or Telegram; “Open in WhatsApp” — a chat with the customer and the text ready (you press Send yourself).\nШаг 6. When the customer decides, press “Add all to the receipt” at the till. Lines go at current prices; if a price or stock changed since the estimate, the till shows exactly what and asks. A custom line goes as an “Extra service” line. After the transfer the estimate status is “Accepted”.\nВажно: If the “Valid until” date has passed, prices may have changed — press “Recalculate prices”. Purchase prices and margin are visible only to the owner and staff with the purchase right; they are not in the printout or the customer text. Estimates are stored on this computer only and are not shared with other tills. The owner edits the consumption rates (litres and kilograms per m²) — the “Consumption rates” button.",
+       "keywords": [
+        "estimate",
+        "how to make an estimate",
+        "calculator",
+        "material consumption",
+        "calculate material",
+        "renovation",
+        "building store",
+        "paint tiles wallpaper",
+        "print estimate",
+        "add all to receipt",
+        "foreman price",
+        "what is new"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-вкладка-ии-ключи-нур-советник",
+       "title": "Settings → “AI”: neural-network keys and Nur Advisor",
+       "text": "Шаг 1. Open ☰ → “Settings” → the “AI” tab (“Artificial intelligence”).\nШаг 2. “AI assistant for chatting (free, Google Gemini)”: click “Get a free key”, get the key and paste it into the field, then “Test AI”.\nШаг 3. “Web search for the AI (free, Groq)” — a key for exchange rates, prices, news and product photo search; “Test search”.\nШаг 4. “Backup AI models (free, OpenRouter, optional)” — a backup model answers if Gemini's daily limit is used up. An empty field means off.\nШаг 5. Below is what Nur Advisor is allowed to do (switches).\nВажно: A key is like a password: do not show or forward it. Exact numbers are still calculated by the till; the neural network gets only a short summary of the store.",
+       "keywords": [
+        "ai",
+        "artificial intelligence",
+        "nur advisor",
+        "gemini",
+        "groq",
+        "openrouter",
+        "ai key",
+        "test ai"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-написать-в-поддержку-слоты-устройств",
+       "title": "“Contact support” with a log, and device slots",
+       "text": "Шаг 1. Open ☰ → “NurCRM support” → “Contact support”. The same button is in the error window and in “Logs and errors”.\nШаг 2. Describe what happened: what you did and what went wrong. The last lines of the log (without passwords and keys), the version, the company and the branch go with the request. A window screenshot is optional and may contain customer data.\nШаг 3. Click “Send”. The “My requests” list shows the status: “Sent”, “Channel not connected” or “Not sent” — then click “Retry”. You can also “Open WhatsApp with the request text”.\nШаг 4. Device slots: if the login is already taken by another till, the till asks at sign-in “Another till is on this login”. “Sign in and disconnect the other” — you sign in here and the old till gets a clear message; “Cancel” — nothing changes (Enter is “Cancel” by default).",
+       "keywords": [
+        "contact support",
+        "support",
+        "log",
+        "request",
+        "logs",
+        "error",
+        "my requests",
+        "device slot",
+        "login taken by another till",
+        "disconnect the other till"
+       ],
+       "images": []
+      }
+     ]
+    }
+   ]
+  },
+  {
    "title": "Owner program",
    "groups": [
     {
@@ -816,7 +1115,7 @@
       {
        "id": "товары-как-найти-товар",
        "title": "How to find a product",
-       "text": "Шаг 1. On the main screen, click in the “Search product…” field above the catalog (or press Ctrl+F).\nШаг 2. Type a name, barcode, or article number — the list is filtered instantly.\nШаг 3. To narrow the results, click “Filter”: “Product type”, “Category”, “Brand”, “Price from” / “Price to”, “In-stock products only” → “Apply”.\nШаг 4. The “All products”, “Weighed”, “Piece items”, “Singles from pack”, “Bundles”, and “Services” tabs show only products of that type.\nШаг 5. To see stock levels and barcodes in a list, click the “Product view” button next to the search box and choose “Table view”.\nВажно: Esc clears the search box and switches the POS back to scanner input.",
+       "text": "Шаг 1. On the main screen click the “Scan, code or name” field above the catalog (or press Ctrl+F).\nШаг 2. Type a name, barcode, or article number — the list is filtered instantly.\nШаг 3. To narrow the results, click “Filter”: “Product type”, “Category”, “Brand”, “Price from” / “Price to”, “In-stock products only” → “Apply”.\nШаг 4. The “All products”, “Weighed”, “Piece items”, “Singles from pack”, “Bundles”, and “Services” tabs show only products of that type.\nШаг 5. To see stock levels and barcodes in a list, click the “Product view” button next to the search box and choose “Table view”.\nВажно: Esc clears the search box and switches the POS back to scanner input.",
        "keywords": [
         "find product",
         "search",
@@ -1010,7 +1309,7 @@
       {
        "id": "товары-как-напечатать-этикетку-со-штрихкодом",
        "title": "How to print a barcode label",
-       "text": "Шаг 1. Open ☰ → “Work” → “Warehouse”, then the “Products” tab in “List” view.\nШаг 2. Find the product and click “Print” in the “Actions” column.\nШаг 3. In the “Print label” window, choose the “Printer” and the “Number of copies”.\nШаг 4. Click “Print”.\nВажно: If the product has no barcode, the window shows “No barcode to print” — add one in the product card (“Generate”).",
+       "text": "Шаг 1. Open ☰ → “Work” → “Warehouse”, then the “Products” tab in “List” view.\nШаг 2. Find the product, click “⋯” in its row and choose “Print label”.\nШаг 3. In the print window (“Print barcodes and price tags”) the “Price tag setup” panel is on the right: choose the printer and “Copies”.\nШаг 4. Click “Print”.\nВажно: If the product has no barcode, the window shows “No barcode to print” — add one in the product card (“Generate”).",
        "keywords": [
         "label",
         "print barcode",
@@ -1029,7 +1328,7 @@
       {
        "id": "товары-как-напечатать-ценник",
        "title": "How to print a price tag",
-       "text": "Шаг 1. Open ☰ → “Work” → “Warehouse”, then the “Products” tab.\nШаг 2. Find the product and click “Price tag” in the “Actions” column.\nШаг 3. Choose the “Price tag template” and, if needed, fill in “Old price (struck through)” and “Discount (e.g., -20%)”.\nШаг 4. Under “Print to”, choose “Thermal label printer” or “Regular printer (A4)”, then set the “Printer” and the “Number of copies”.\nШаг 5. Click “Print”.\nВажно: Price tag printing is a paid add-on: the first time you use it, the POS asks for the “Price tag editor” serial number.",
+       "text": "Шаг 1. Open ☰ → “Work” → “Warehouse”, then the “Products” tab.\nШаг 2. Find the product, click “⋯” in its row and choose “Price tag”.\nШаг 3. Choose the “Price tag template” and, if needed, fill in “Old price (struck through)” and “Discount (e.g., -20%)”.\nШаг 4. Under “Print to”, choose “Thermal label printer” or “Regular printer (A4)”, then set the “Printer” and the “Number of copies”.\nШаг 5. Click “Print”.\nВажно: Price tag printing is a paid add-on: the first time you use it, the POS asks for the “Price tag editor” serial number.",
        "keywords": [
         "price tag",
         "print price tag",
@@ -1048,7 +1347,7 @@
       {
        "id": "товары-как-напечатать-ценники-сразу-на-много-товаров",
        "title": "How to print price tags for many products at once",
-       "text": "Шаг 1. Open ☰ → “Work” → “Warehouse”, then the “Products” tab.\nШаг 2. Click “Bulk print price tags”.\nШаг 3. Find and select the products (“Select all” / “Clear selection”).\nШаг 4. Choose the “Price tag template”, “Print to”, “Copies per product”, and “Printer”.\nШаг 5. Click “Print”.\nВажно: “Bulk price tag printing” is a separate paid add-on — it is activated with a serial number.",
+       "text": "Шаг 1. Open ☰ → “Work” → “Warehouse”, then the “Products” tab.\nШаг 2. Click “Bulk print price tags”.\nШаг 3. Find and select the products (“Select all” / “Clear selection”).\nШаг 4. Choose the “Price tag template”, “Print to”, “Copies per product”, and “Printer”.\nШаг 5. Click “Print”.\nШаг 6. Faster for selected products: tick them on the “Products” tab (the tick at the top of the column selects all) and click “Price tags and barcodes” on the “Selected: N” bar.\nВажно: “Bulk price tag printing” is a separate paid add-on — it is activated with a serial number.",
        "keywords": [
         "bulk printing",
         "many price tags",
@@ -1065,7 +1364,7 @@
       {
        "id": "товары-как-изменить-внешний-вид-этикетки",
        "title": "How to change the label layout",
-       "text": "Шаг 1. Open ☰ → “Warehouse” → the “Label editor” tab → “Open editor” (or click “Label editor” in the label printing window).\nШаг 2. Set “Label width, mm” and “Label height, mm”, or choose a “Template”.\nШаг 3. Drag blocks with the mouse; resize a block by dragging its dark corner. Turn on the elements you need: “Barcode”, “SKU”, “Unit”, and “Store name”.\nШаг 4. Check the result in “Print preview” or with the “Test print” button.\nШаг 5. “Reset to default” restores the original layout.\nВажно: The label editor is a paid add-on: the first time you open it, the POS asks for a serial number. Regular label printing is free.",
+       "text": "Шаг 1. Open ☰ → “Warehouse” → the “Label editor” tab → “Open editor” (or click “Label editor” in the label printing window).\nШаг 2. Set “Label width, mm” and “Label height, mm”, or choose a “Template”.\nШаг 3. Drag blocks with the mouse; resize a block by dragging its dark corner. Turn on the elements you need: “Barcode”, “SKU”, “Unit”, and “Store name”.\nШаг 4. Check the result in “Print preview” or with the “Test print” button.\nШаг 5. “Reset to default” restores the original layout.\nШаг 6. Without the editor: the “Barcodes” tab → the “Price tag setup” panel on the right (preview, size, copies, barcode height, “Barcode type”, font, text size, “My templates”) — more in the article “Price tag setup…”.\nВажно: The label editor is a paid add-on: the first time you open it, the POS asks for a serial number. Regular label printing is free.",
        "keywords": [
         "label editor",
         "label size",
@@ -1182,7 +1481,7 @@
       {
        "id": "склад-как-списать-товар",
        "title": "How to write off a product",
-       "text": "Шаг 1. Open ☰ → “Work” → “Warehouse”, then the “Write-off” tab.\nШаг 2. Find the product using the “Start typing the product name…” field, or scan it.\nШаг 3. Enter the “Quantity to write off”.\nШаг 4. Click “Write-off reason” and choose “Defect”, “Expired”, “Damaged packaging”, “Written off for personal use”, or “Other”.\nШаг 5. Click “Confirm write-off” — the POS reports “Write-off completed.”\nВажно: An internet connection is required, and you cannot write off more than is in stock. Past write-offs are in the “Write-off history” block (the “Expand ⤢” button).",
+       "text": "Шаг 1. Open ☰ → “Work” → “Warehouse”, then the “Write-off” tab.\nШаг 2. Find the product using the “Start typing the product name…” field, or scan it.\nШаг 3. Enter the “Quantity to write off”.\nШаг 4. Click “Write-off reason” and choose “Defect”, “Expired”, “Damaged packaging”, “Written off for personal use”, or “Other”.\nШаг 5. Click “Confirm write-off” — the POS reports “Write-off completed.”\nВажно: Without a connection a write-off is remembered and goes to the server by itself (see ☰ → “Unsent”); you cannot write off more than is in stock. Past write-offs are in the “Write-off history” block (the “Expand ⤢” button).",
        "keywords": [
         "write-off",
         "write off",
@@ -1256,7 +1555,7 @@
       {
        "id": "склад-как-загрузить-много-товаров-из-csv-файла",
        "title": "How to upload many products from a CSV file",
-       "text": "Шаг 1. Open ☰ → “Work” → “Warehouse”, go to the “Products” tab, and click “Bulk import”.\nШаг 2. Click “Download CSV template” and fill it in (for example, in Excel) with your product list.\nШаг 3. Click “Choose file…” and select the filled-in file.\nШаг 4. Check the table: each row shows whether a “New product” will be created or an existing product will be updated.\nШаг 5. Click “Start import” and wait for “Done: created …, updated …, errors …”.\nВажно: Products are matched by barcode. “Qty” in the file is the new stock level, not an amount to add; empty columns in the file leave product data unchanged.",
+       "text": "Шаг 1. Open ☰ → “Work” → “Warehouse”, go to the “Products” tab, and click “Bulk import”.\nШаг 2. Click “Download CSV template” and fill it in (for example, in Excel) with your product list.\nШаг 3. Click “Choose file…” and select the filled-in file.\nШаг 4. Check the table: each row shows whether a “New product” will be created or an existing product will be updated.\nШаг 5. Click “Start import” and wait for “Done: created …, updated …, errors …”.\nВажно: Products are matched by barcode. “Bulk import” adds the quantity from the file to the stock (receiving); the previous “Old import (replace stock)” window replaces the stock. Empty columns in the file leave product data unchanged. From 1C, MoySklad, Poster and others — see the article “Moving over from 1C, MoySklad, Poster…”.",
        "keywords": [
         "csv",
         "product upload",
@@ -1639,7 +1938,7 @@
       {
        "id": "сотрудники-как-задать-коды-доступа-сотруднику",
        "title": "How to set access codes for an employee",
-       "text": "Шаг 1. Open ☰ → “Settings” → “Employees”.\nШаг 2. Click the employee's card.\nШаг 3. Fill in “Cart-delete code”, “Warehouse-delete code”, “Product-edit code”, and “Product-add code”.\nШаг 4. Click “Done”, then “Save”.\nВажно: If a code is left empty, that action is blocked for the employee. The owner and administrators don't need codes. Section permissions (the “Access” lock button next to the employee's card) are also granted in NurCRM.",
+       "text": "Шаг 1. Open ☰ → “Settings” → “Employees”.\nШаг 2. Click the employee's card.\nШаг 3. Fill in “Cart-delete code”, “Warehouse-delete code”, “Product-edit code”, and “Product-add code”.\nШаг 4. Click “Done”, then “Save”.\nВажно: If a code is left empty, that action is blocked for the employee. The owner and administrators don't need codes. Permissions for sections and actions are given by the “Permissions” button next to the employee — see the article “How to give an employee permissions: the “Permissions” window”.",
        "keywords": [
         "access code",
         "pin code",
@@ -1658,7 +1957,7 @@
       {
        "id": "сотрудники-как-посмотреть-табель-сотрудников",
        "title": "How to view the staff timesheet",
-       "text": "Шаг 1. Open ☰ → “Work” → “Staff timesheet”.\nШаг 2. Set the period (“From date…” — “To date…”) and click “Refresh”, or click “All time”.\nШаг 3. For each cashier, the table shows “Shifts”, “Days”, “Total hours”, “Average shift”, “Revenue”, and “First — last shift”.\nВажно: Only closed shifts are counted. The timesheet is part of the paid “Staff management” add-on (Marketplace → “Extras”).",
+       "text": "Шаг 1. Open ☰ → “Work” → “Staff timesheet” (in the owner's program — “Timesheet”).\nШаг 2. The “Marks” tab: a table by days of the month, with “Previous month” / “Next month” switches. Click a day cell to mark the employee: “Hours per day”, “Comment (optional)”, “Save”; “Remove mark” takes the mark off.\nШаг 3. “Mark everyone present today” — one button; “Copy yesterday” — copy yesterday's marks to today.\nШаг 4. “Change log” — the last 150 changes of marks.\nШаг 5. The “Shift totals” tab: for each cashier “Shifts”, “Days”, “Total hours”, “Average shift”, “Revenue”, “First — last shift”.\nВажно: The owner sets the marks, everyone else only views. Auto-marking is switched on in Settings → “Operations” (“When a cashier opens a shift” or “When signing in to the till”): the till marks “Present” with the arrival time by itself, and the owner's manual mark always wins. Marks are stored on this computer and do not affect salary. Only closed shifts are counted. The timesheet is part of the paid “Staff management” add-on (Marketplace → “Extras”).",
        "keywords": [
         "timesheet",
         "working hours",
@@ -1915,7 +2214,7 @@
       {
        "id": "настройки-и-оборудование-как-настроить-вид-главного-экрана",
        "title": "How to customize the main screen",
-       "text": "Шаг 1. Open ☰ → “Settings” → “Screen”.\nШаг 2. In “Main screen layout”, choose “Standard” or “1C style”.\nШаг 3. Adjust “UI scale”, “Product tile size”, and “Show product photos in the catalog”.\nШаг 4. In “Clicking a product”, choose “Single” or “Double” — the number of clicks needed to add a product to the receipt.\nШаг 5. Click “Save”.\nВажно: The same tab also has “Fullscreen mode”, “Launch with Windows”, “Low-power device mode”, and the “Store name” and “Store address” printed on the receipt. To switch between light and dark themes, use the “Theme” button in the top bar.",
+       "text": "Шаг 1. Open ☰ → “Settings” → “Screen”.\nШаг 2. The till layout is chosen in the Marketplace: ☰ → “Marketplace” → “Till layouts”, click the card of the layout you want: “Classic”, “Table”, “Cards”, “Minimal”, “Pro” or “1C” — the till rebuilds at once.\nШаг 3. Adjust “UI scale”, “Product tile size”, and “Show product photos in the catalog”.\nШаг 4. In “Clicking a product”, choose “Single” or “Double” — the number of clicks needed to add a product to the receipt.\nШаг 5. Click “Save”.\nВажно: The same tab also has “Fullscreen mode”, “Launch with Windows”, “Low-power device mode”, and the “Store name” and “Store address” printed on the receipt. To switch between light and dark themes, use the “Theme” button in the top bar.",
        "keywords": [
         "1c",
         "scale",
@@ -2216,6 +2515,22 @@
         "подсеть"
        ],
        "images": []
+      },
+      {
+       "id": "весы-быстрая-настройка-автоотправка-проверка",
+       "title": "Scales: “Set up the scale…”, “For the technician…”, auto-send and “Check before sending”",
+       "text": "Шаг 1. Open ☰ → “Settings” → “Scales”. In the “Scales in the store” list (or after “+ Add scale”) click “Set up the scale…” for the scale you need — the “Quick setup” tab opens in 3 steps: 1) which scale and its address, 2) “Check connection”, 3) “Send goods”.\nШаг 2. Ports, protocols and exchange files are separate, under “For the technician…” (the same window straight on the technical tab).\nШаг 3. In the “Sending products to the scale” window, press “Check before sending” first: the till lists the ticked products with problems in one list — no PLU or code, PLU beyond the scale table, duplicates, price 0 or higher than the scale can print, more products than the scale holds, an amount above the barcode type ceiling, name characters the scale does not print. Where possible there is a “Fix” button next to the row.\nШаг 4. Auto-send: at the bottom of the window there is the “Send changes to the scale automatically” tick. The till quietly sends changed products to the scale in the background (only brands with direct sending: Rongta, Shtrikh-PRINT, RS-200, TM-30F). It is off by default; switch it on on one computer per scale. The “last auto-send” label shows the result; products with check errors are not sent.\nШаг 5. CAS and Massa-K: the protocol has not been verified on a live scale yet — do the first send with a single product (see the “CAS” and “Massa-K” cheat sheets).",
+       "keywords": [
+        "scale quick setup",
+        "set up the scale",
+        "for the technician",
+        "auto send to scale",
+        "check before sending",
+        "fix",
+        "plu",
+        "cas"
+       ],
+       "images": []
       }
      ]
     },
@@ -2302,7 +2617,7 @@
       {
        "id": "весы-памятка-massa-k",
        "title": "Cheat sheet: Massa-K scales — how to connect, send and check",
-       "text": "Short version for the cashier. Label-printing Massa-K scales of series R and SL fit (for example MK-RP10, MK-RL10). VP/VPM scales are not supported yet, and MK-A21 does not print labels — goods are not loaded to it.\nStep 1. On the scale itself enable the network (Ethernet): an IP from the same network as the till computer, port 5001.\nStep 2. “Products” → “Scales” → brand “Massa-K” → “Massa-K scale settings” → “Quick setup”: enter the scale IP and press “Check connection”. You should see “the Massa-K scale is connected” and a serial number. This only reads — nothing on the scale changes.\nStep 3. Press “Trial packet to the log” (tab “For the technician”): the frames go only to the log file massak-exchange.log, nothing is sent to the scale.\nStep 4. In the “Scales” window tick ONE weighed product (it must have a PLU number) and press “Send to scale”. The till asks for confirmation — press “Send”. Piece goods are not sent to Massa-K; the row shows a warning.\nStep 5. On the scale find the product by PLU: are the name and price right? Print a label and scan it with the till: the same product with the same weight must open.\nStep 6. If all is right — “Massa-K scale settings” → “For the technician” → tick “Verified on the scale: the label came out right”. After that you can send the other goods.\nStep 7. “No connection”: check the IP, the cable, port 5001, that the scale is on and in the same network as the till. If something is wrong (price ×100, empty name) — send the technician the “Exchange log” file (massak-exchange.log).",
+       "text": "Short version for the cashier. Label-printing Massa-K scales of series R and SL fit (for example MK-RP10, MK-RL10). VP/VPM scales are not supported yet, and MK-A21 does not print labels — goods are not loaded to it.\nШаг 1. On the scale itself enable the network (Ethernet): an IP from the same network as the till computer, port 5001.\nШаг 2. “Products” → “Scales” → brand “Massa-K” → “Massa-K scale settings” → “Quick setup”: enter the scale IP and press “Check connection”. You should see “the Massa-K scale is connected” and a serial number. This only reads — nothing on the scale changes.\nШаг 3. Press “Trial packet to the log” (tab “For the technician”): the frames go only to the log file massak-exchange.log, nothing is sent to the scale.\nШаг 4. In the “Scales” window tick ONE weighed product (it must have a PLU number) and press “Send to scale”. The till asks for confirmation — press “Send”. Piece goods are not sent to Massa-K; the row shows a warning.\nШаг 5. On the scale find the product by PLU: are the name and price right? Print a label and scan it with the till: the same product with the same weight must open.\nШаг 6. If all is right — “Massa-K scale settings” → “For the technician” → tick “Verified on the scale: the label came out right”. After that you can send the other goods.\nШаг 7. “No connection”: check the IP, the cable, port 5001, that the scale is on and in the same network as the till. If something is wrong (price ×100, empty name) — send the technician the “Exchange log” file (massak-exchange.log).",
        "keywords": [
         "памятка",
         "масса-к",
@@ -2319,7 +2634,7 @@
       {
        "id": "весы-памятка-cas",
        "title": "Cheat sheet: CAS scale — how to connect, send, and what to do if it fails",
-       "text": "Short version for the cashier. CAS scales have not been verified on a live scale yet — do the first send with a single product.\nStep 1. “Settings → Scales” → the “CAS” tile → “CAS scale settings” → the “Quick setup” tab. Choose the model: the till fills CL5000J and CL3000 over the network; CL5500, CL5200, CL7200 and LP-1.6 only through a file for the CL-Works software.\nStep 2. CL5000J / CL3000 only: enter the scale IP (scale menu 1913; the first three numbers like the computer's) and press “Check connection”. The button only reads the status and changes nothing on the scale. No connection — check the cable, the IP, port 20304 and that the scale is not in a menu.\nStep 3. “Products” → “Scales” → brand CAS. Tick the products (just one the first time), the PLU column is filled. “Check before sending” → “Fix” if there are issues.\nStep 4. CL5000J / CL3000: “Send to the scale” and confirm. Wait for “Accepted by the scale: N”. CL5500 / CL5200 / CL7200 / LP-1.6: “Save file for CL-Works”, then in CL-Works “File → Import → CSV”, check the goods and “Data exchange → Send data”.\nStep 5. Check: on the scale call the product by PLU — name and price are right; print a trial label and scan it with the till: the same product, the same weight and amount.\nStep 6. The till does not recognise the label (“Product with code … not found”): the scale must have a department with the prefix number (20–29), the barcode format must be as on the “Barcode” tab of the CAS settings (for example DDIIIIIWWWWWC), and the product's “Code in barcode” must match the label. Fix and send again.\nStep 7. The scale refused (“error 89, 97, 84…”) or did not answer: the scale is on, not in a menu, same network. In the CAS settings the “For the technician” tab → “Exchange log” — show the cas-exchange.log file to the technician.\nThe till writes only product cards (PLU) to the scale. It does not erase or change the memory, departments, barcode or label formats — those are set on the scale itself or in CL-Works.",
+       "text": "Short version for the cashier. CAS scales have not been verified on a live scale yet — do the first send with a single product.\nШаг 1. “Settings → Scales” → the “CAS” tile → “CAS scale settings” → the “Quick setup” tab. Choose the model: the till fills CL5000J and CL3000 over the network; CL5500, CL5200, CL7200 and LP-1.6 only through a file for the CL-Works software.\nШаг 2. CL5000J / CL3000 only: enter the scale IP (scale menu 1913; the first three numbers like the computer's) and press “Check connection”. The button only reads the status and changes nothing on the scale. No connection — check the cable, the IP, port 20304 and that the scale is not in a menu.\nШаг 3. “Products” → “Scales” → brand CAS. Tick the products (just one the first time), the PLU column is filled. “Check before sending” → “Fix” if there are issues.\nШаг 4. CL5000J / CL3000: “Send to the scale” and confirm. Wait for “Accepted by the scale: N”. CL5500 / CL5200 / CL7200 / LP-1.6: “Save file for CL-Works”, then in CL-Works “File → Import → CSV”, check the goods and “Data exchange → Send data”.\nШаг 5. Check: on the scale call the product by PLU — name and price are right; print a trial label and scan it with the till: the same product, the same weight and amount.\nШаг 6. The till does not recognise the label (“Product with code … not found”): the scale must have a department with the prefix number (20–29), the barcode format must be as on the “Barcode” tab of the CAS settings (for example DDIIIIIWWWWWC), and the product's “Code in barcode” must match the label. Fix and send again.\nШаг 7. The scale refused (“error 89, 97, 84…”) or did not answer: the scale is on, not in a menu, same network. In the CAS settings the “For the technician” tab → “Exchange log” — show the cas-exchange.log file to the technician.\nThe till writes only product cards (PLU) to the scale. It does not erase or change the memory, departments, barcode or label formats — those are set on the scale itself or in CL-Works.",
        "keywords": [
         "памятка",
         "cas",
@@ -2934,7 +3249,7 @@
       {
        "id": "частые-вопросы-нет-интернета-можно-ли-продавать",
        "title": "No internet — can I still sell?",
-       "text": "Шаг 1. Yes, keep selling as usual: receipts are saved on the POS.\nШаг 2. The top bar shows “Offline” and a “Queued: N” counter — these are receipts that have not been sent yet.\nШаг 3. When the connection is restored, the receipts are sent to the server automatically.\nШаг 4. You can check unsent receipts in ☰ → “Work” → “Irregular receipts” and resend them with the “Resend” button.\nВажно: Stocktakes and write-offs do not work without internet. Fully standalone operation without a NurCRM account is enabled with a key via “Work offline (no internet)” on the login screen.",
+       "text": "Шаг 1. Yes, keep selling as usual: receipts are saved on the POS.\nШаг 2. The top bar shows “Offline” and a “Queued: N” counter — these are receipts that have not been sent yet.\nШаг 3. When the connection is restored, the receipts are sent to the server automatically.\nШаг 4. Everything that has not reached the server yet (receipts, returns, receiving, write-offs) is in ☰ → “Unsent” — with “Send now” there. Problem receipts are in ☰ → “Work” → “Irregular receipts”, the “Resend” button.\nВажно: Write-offs, transfers and receiving without a connection are remembered and sent by themselves; a stocktake that checks the owner's PIN needs a connection. Fully standalone operation without a NurCRM account is enabled with a key via “Work offline (no internet)” on the login screen.",
        "keywords": [
         "no internet",
         "offline",

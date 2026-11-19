@@ -56,6 +56,8 @@ public static class AccessSync
     /// <summary>Запустить фоновую проверку (один раз за запуск; после входа в компанию).</summary>
     public static void Start()
     {
+        if (BackgroundLoopDisabledForTests)
+            return;
         if (Interlocked.Exchange(ref _started, 1) != 0)
             return;
         ServerOutageMonitor.Recovered += () => Kick("connection");
@@ -184,6 +186,10 @@ public static class AccessSync
         AddonsOverride = null;
         BusyProbe = null;
     }
+
+    /// <summary>2026-11-19: только для тестов — не запускать фоновый цикл. Иначе любой тест, который проходит через CompanyInfoService.RefreshAsync,
+    /// навсегда оставляет живой цикл, и он «съедает» сигнал Wake у тестов Kick/TakeWakeForTests при параллельном прогоне.</summary>
+    internal static bool BackgroundLoopDisabledForTests { get; set; }
 
     /// <summary>Только для тестов: «запущено» без фонового цикла (Kick только будит сигнал).</summary>
     internal static void MarkStartedForTests(bool started) => Interlocked.Exchange(ref _started, started ? 1 : 0);

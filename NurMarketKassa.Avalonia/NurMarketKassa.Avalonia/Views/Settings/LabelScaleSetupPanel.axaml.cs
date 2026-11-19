@@ -502,6 +502,17 @@ public partial class LabelScaleSetupPanel : UserControl
         SetupChanged?.Invoke();
     }
 
+    /// <summary>2026-11-19 (п. 4 владельца): «Для мастера…» — то же окно марки сразу на вкладке технических полей (порты, протоколы, файлы обмена).</summary>
+    private async void MasterSettings_Click(object? sender, RoutedEventArgs e)
+    {
+        if (TopLevel.GetTopLevel(this) is not Window owner)
+            return;
+        SaveFields();
+        await ScaleUi.OpenBrandSettingsAsync(owner, _brand, masterTab: true).ConfigureAwait(true);
+        LoadFromPreferences();
+        SetupChanged?.Invoke();
+    }
+
     private void Send_Click(object? sender, RoutedEventArgs e)
     {
         SaveFields();

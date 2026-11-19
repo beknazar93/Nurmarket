@@ -1,5 +1,5 @@
 {
- "version": "2026-09-26",
+ "version": "2026-11-19",
  "language": "uz",
  "sections": [
   {
@@ -11,7 +11,7 @@
       {
        "id": "продажи-как-создать-продажу",
        "title": "Sotuvni qanday amalga oshirish",
-       "text": "Шаг 1. Yuqori paneldagi «Smenani ochish» tugmasi bilan smenani oching (agar smena allaqachon ochiq bo'lsa, bu joyda «Smenani yopish» tugmasi turadi).\nШаг 2. Chapdagi katalogda kerakli mahsulot plitkasini bosing — u o'ngdagi «Asosiy chek»da paydo bo'ladi.\nШаг 3. Yoki shtrix-kodni skaner bilan skanerlang — mahsulot chekka o'zi qo'shiladi, hech narsani bosish shart emas.\nШаг 4. Yoki chek ostidagi «Mahsulot kodi yoki nomi» maydoniga kod yoki nomni kiriting, kerak bo'lsa − va + tugmalari bilan miqdorni belgilang va «Qo'shish» tugmasini bosing.\nШаг 5. Chek tarkibini va «Jami» qatoridagi summani tekshiring.\nШаг 6. «To'lash» tugmasini (yoki Enter tugmasini) bosing, to'lov usulini tanlang va tasdiqlang.\nВажно: Agar smena ochilmagan bo'lsa, birinchi mahsulot qo'shilganda kassa uni ochishni o'zi taklif qiladi.",
+       "text": "Шаг 1. Yuqori paneldagi «Smenani ochish» tugmasi bilan smenani oching (agar smena allaqachon ochiq bo'lsa, bu joyda «Smenani yopish» tugmasi turadi).\nШаг 2. Chapdagi katalogda kerakli mahsulot plitkasini bosing — u o'ngdagi «Asosiy chek»da paydo bo'ladi.\nШаг 3. Yoki shtrix-kodni skaner bilan skanerlang — mahsulot chekka o'zi qo'shiladi, hech narsani bosish shart emas.\nШаг 4. Yoki katalog ustidagi «Skan, kod yoki nom» maydoniga kod yoki nom yozib, Enter bosing. Miqdor — «3*kod» (darhol 3 dona).\nШаг 5. Chek tarkibini va «Jami» qatoridagi summani tekshiring.\nШаг 6. «To'lash» tugmasini (yoki Enter tugmasini) bosing, to'lov usulini tanlang va tasdiqlang.\nВажно: Agar smena ochilmagan bo'lsa, birinchi mahsulot qo'shilganda kassa uni ochishni o'zi taklif qiladi.",
        "keywords": [
         "sotuv",
         "sotish",
@@ -63,7 +63,7 @@
       {
        "id": "продажи-как-изменить-количество-товара-в-чеке",
        "title": "Chekdagi mahsulot miqdorini qanday o'zgartirish",
-       "text": "Шаг 1. O'ngdagi chekda kerakli qatorni toping.\nШаг 2. Miqdorni 1 taga oshirish uchun «+», kamaytirish uchun «−» tugmasini bosing.\nШаг 3. Aniq miqdorni kiritish uchun «−» va «+» orasidagi raqamning o'zini bosing va qiymatni kiriting.\nШаг 4. Vaznli mahsulot uchun qatordagi tarozi belgisini bosing — qayta tortish uchun «Mahsulotni tortish» oynasi ochiladi.\nШаг 5. «Jami»dagi summa avtomatik qayta hisoblanadi.\nВажно: Omborda bor miqdordan ko'proq qo'shib bo'lmaydi — kassa «Qoldiq chegarasiga yetdi» deb ko'rsatadi.",
+       "text": "Шаг 1. O'ngdagi chekda kerakli qatorni toping.\nШаг 2. Miqdorni 1 taga oshirish uchun «+», kamaytirish uchun «−» tugmasini bosing.\nШаг 3. Aniq miqdorni kiritish uchun «−» va «+» orasidagi raqamning o'zini bosing va qiymatni kiriting.\nШаг 4. Vaznli mahsulot uchun qatordagi tarozi belgisini bosing — qayta tortish uchun «Mahsulotni tortish» oynasi ochiladi.\nШаг 5. «Jami»dagi summa avtomatik qayta hisoblanadi.\nШаг 6. Tezroq: «Skan, kod yoki nom» maydoniga «3*kod» yozing (yoki «3*» yozib, mahsulotni skanerlang) — u darhol 3 dona bo'lib qo'shiladi.\nВажно: Omborda bor miqdordan ko'proq qo'shib bo'lmaydi — kassa «Qoldiq chegarasiga yetdi» deb ko'rsatadi.",
        "keywords": [
         "miqdor",
         "miqdorni o'zgartirish",
@@ -464,6 +464,291 @@
    ]
   },
   {
+   "title": "Yangiliklar",
+   "groups": [
+    {
+     "title": "Asosiy ekran va o'rgatish",
+     "articles": [
+      {
+       "id": "в2-главный-экран-одно-поле-ввода",
+       "title": "Yangi asosiy ekran: bitta «Skan, kod yoki nom» maydoni, «3*kod» va «To'lash»",
+       "text": "Kassaning asosiy ekrani soddalashdi: mahsulot bitta maydon orqali, ortiqcha tugmalarsiz qo'shiladi.\nШаг 1. Katalog ustida «Skan, kod yoki nom» maydoni bor. Mahsulotni shu yerda skanerlang yoki kod yoki nomini yozib, Enter bosing. Skaner ekranning istalgan joyidan ishlaydi. Ctrl+F — kursor shu maydonga.\nШаг 2. Miqdor: «3*kod» yoki «3*» deb yozib, mahsulotni skanerlang — u chekka darhol 3 dona bo'lib qo'shiladi.\nШаг 3. Chekda mahsulot bo'lganda katta «To'lash» tugmasini yoki Enter bosing — to'lov oynasi ochiladi.\nШаг 4. Bo'sh chek «Mahsulotni skanerlang» deydi va «Tezkor mahsulotlar»ni ko'rsatadi — tanlanganlar (katalogda ★). Mahsulotni bossangiz, u darhol chekka tushadi. Blok Sozlamalar → «Ekran» bo'limida yoqiladi («Bo'sh chekda tezkor mahsulotlar»).\nШаг 5. Ekran ko'rinishini ☰ → «Marketplace» → «Kassa ko'rinishlari» bo'limida tanlang: «Klassika», «Jadval», «Kartochkalar», «Minimal», «Professional» yoki «1C». Kartani bossangiz, kassa darhol qayta quriladi. Menyu ko'rinishi (eski / yangi ☰) — ☰ menyusidagi va Sozlamalar → «Ekran»dagi «Menyu ko'rinishi» tugmasi.\nВажно: Eski usullar saqlanib qoldi: katalogdagi plitka, skaner, F1–F12 tugmalari.",
+       "keywords": [
+        "asosiy ekran",
+        "bitta maydon",
+        "3*kod",
+        "miqdor",
+        "to'lash",
+        "tezkor mahsulotlar",
+        "kassa ko'rinishi"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-обучение-экскурсия-и-учебная-продажа",
+       "title": "O'rgatish: kassa bo'ylab sayr va «O'quv sotuvi»",
+       "text": "Шаг 1. ☰ → «Sozlamalar va yordam» → «O'rgatish: kassa bo'ylab sayr» bo'limini oching. Mahsuloti yo'q yangi do'konga sayr birinchi ishga tushirishda o'zi, bir marta taklif qilinadi.\nШаг 2. Sayr — ekrandagi kerakli joyni yoritadigan 9 qadam: do'kon turi, ☰ menyusi, «Sozlamalar va yordam», printer va tarozi, mahsulot qidirish, savat va chegirma, to'lov, smena, yordam qayerda. Harakat kerak bo'lsa, kartada «Buni bajaring — qadam o'zi hisoblanadi.» deb yoziladi.\nШаг 3. Tugmalar: «Orqaga», «Keyingi», «Qadamni o'tkazish» va «Keyinroq tugatish» (sayrni menyudan qayta boshlash mumkin). Oxirgi qadamda — «Tugatish», keyin «O'rgatish tugadi!» ekrani: «Ishni boshlash», «Yana o'tish», «Yordamni ochish».\nШаг 4. «O'quv sotuvi»: ☰ → «Sozlamalar va yordam» → «O'quv sotuvi». Tepada sariq chiziq «O'quv rejimi — pul hisobga olinmaydi», kassa qadamlarni aytib turadi: «3 qadamning 1-qadami. Mahsulotni skanerlang yoki chapdagi katalogdan bosing» → «3 qadamning 2-qadami … «To'lash» (yoki Enter)» → tayyor.\nШаг 5. O'quv rejimidan chiqish — sariq chiziqdagi «O'quv rejimidan chiqish» tugmasi.\nВажно: O'quv sotuvi hech qayerga yozilmaydi: smenaga ham, hisobotlarga ham, qoldiqlarga ham, serverga ham ketmaydi.",
+       "keywords": [
+        "o'rgatish",
+        "sayr",
+        "o'quv sotuvi",
+        "o'quv rejimi",
+        "birinchi ishga tushirish",
+        "maslahatlar"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-экран-без-полос-прокрутки-одно-окно",
+       "title": "Aylantirish chizig'i yo'q ekran va «bitta oyna — bitta nusxa»",
+       "text": "Шаг 1. Aylantirish chiziqlari endi joy egallamaydi: ingichka chiziq faqat aylantirayotganda mazmun ustida paydo bo'ladi va keyin yo'qoladi.\nШаг 2. Sichqoncha g'ildiragi, tachpad yoki sensorli ekranda barmoq bilan aylantirish mumkin (sudrash va inersiya ishlaydi). Dialog oynalarida va ba'zi ro'yxatlarda chiziq butunlay yashirilgan, aylantirish esa xuddi shunday ishlaydi.\nШаг 3. Bitta oyna — bitta nusxa: oyna allaqachon ochiq bo'lsa (masalan, «Eski yuklash»), tugmani qayta bosish ikkinchi oyna ochmaydi, ochiq oynani oldinga chiqaradi; yig'ilgan oyna yoyiladi.\nВажно: Dialog tugmasini tez ikki marta bosish ham oynani ikki marta ochmaydi.",
+       "keywords": [
+        "aylantirish chizig'i",
+        "skroll",
+        "sichqoncha g'ildiragi",
+        "tachpad",
+        "sensorli ekran",
+        "barmoq",
+        "oyna ikki marta ochiladi"
+       ],
+       "images": []
+      }
+     ]
+    },
+    {
+     "title": "Xodimlar, qaytarishlar va huquqlar",
+     "articles": [
+      {
+       "id": "в2-доступы-сотрудника-окно-доступы",
+       "title": "Xodimga huquq berish: «Huquqlar» oynasi",
+       "text": "Шаг 1. ☰ → «Sozlamalar» → «Xodimlar» bo'limini oching va kerakli xodim yonida «Huquqlar»ni bosing — «Huquqlar: Ism» oynasi ochiladi.\nШаг 2. «Rol shabloni»ni tanlang: «Kassir», «Katta kassir», «Ombor menejeri» yoki «Administrator» — belgilar o'zi qo'yiladi, keyin tuzatish mumkin.\nШаг 3. Kerakli huquqni «Huquqni qidirish (masalan, chegirma)» maydonida qidiring. Huquqlar guruhlarga bo'lingan («Asosiy huquqlar», «Sektor huquqlari», «Market kassasi», «Qo'shimcha xizmatlar», «Tahrirlash va ish haqi»); guruhda «N / M» hisoblagichi va «Hammasini tanlash» / «Hammasini olib tashlash» tugmasi bor.\nШаг 4. Kassada ishlash uchun muhimlari: «Kassada ishlash (sotuv, smenalar)», «Kassada chegirma», «Kassada narxni o'zgartirish», «Savatdan pozitsiyalarni o'chirish», «Xodim tomonidan qaytarish» va «Xarid narxidan past sotish (egasi va admin — doim)» — xarid narxidan arzon sotish imkoniyati.\nШаг 5. «Huquqlarni saqlash»ni bosing. Saqlamay yopsangiz, kassa eslatadi: «Saqlanmagan o'zgarishlar bor». Saqlangach — «Huquqlar saqlandi ✓».\nВажно: Saytda yaratilgan xodimlarning huquqlari «Saytdan yuklash» tugmasi bilan olinadi. Kassa profilni qayta o'qigach, kassa menyusi yangi huquqlarga qarab yangilanadi.",
+       "keywords": [
+        "huquqlar",
+        "rol shabloni",
+        "kassir",
+        "katta kassir",
+        "ombor menejeri",
+        "administrator",
+        "hammasini tanlash",
+        "huquqlarni saqlash",
+        "xarid narxidan past sotish"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-возвраты-поиск-чека-причины-куда-товар",
+       "title": "Qaytarishlar: chek qidirish, sabablar va «Mahsulot qayerga»",
+       "text": "Шаг 1. ☰ → «Qaytarish» bo'limini oching va chekni «Chek qidirish: raqam yoki mahsulot» maydonida toping.\nШаг 2. Butun chekni qaytaring («Butun chekni qaytarish») yoki mahsulotlarni belgilab, «Tanlanganlarni qaytarish»ni bosing.\nШаг 3. Sababni ko'rsating: «Fikridan qaytdi», «Nuqsonli», «O'lchami to'g'ri kelmadi», «Rangi to'g'ri kelmadi», «Kassir xatosi», «Boshqa mahsulot» yoki «O'z sababim» (matn yozing). Butun chek qaytarilganda oyna «To'liq qaytarish sababi» deb ataladi.\nШаг 4. «Mahsulot qayerga» blokida «Javonga» (odatda — qoldiq omborga qaytadi), «Nuqsonliga» (omborga qaytmaydi) yoki «Yetkazib beruvchiga»ni tanlang. «Nuqsonli» sababi «Nuqsonliga»ni o'zi tanlaydi.\nШаг 5. Tasdiqlang (Ctrl+Enter — qaytarish). Qaytarilayotgan chekning raqami qaytarish chekida chop etiladi.\nВажно: Xodimda «Xodim tomonidan qaytarish» huquqi bo'lishi kerak (Sozlamalar → «Xodimlar»dagi «Huquqlar» tugmasi).",
+       "keywords": [
+        "qaytarish",
+        "chek qidirish",
+        "qaytarish sababi",
+        "mahsulot qayerga",
+        "javonga",
+        "nuqsonliga",
+        "yetkazib beruvchiga"
+       ],
+       "images": []
+      }
+     ]
+    },
+    {
+     "title": "Internetsiz va soliq cheki",
+     "articles": [
+      {
+       "id": "в2-работа-без-интернета-не-отправлено",
+       "title": "Internetsiz ishlash: «Yuborilmadi», oflayn cheklar, aloqasiz kirim va hisobdan chiqarish",
+       "text": "Шаг 1. Internetsiz odatdagidek soting: cheklar kassada sotuvning haqiqiy sanasi va vaqti bilan yoziladi, aloqa tiklanganda serverga o'zi ketadi.\nШаг 2. Aloqasiz kirim (qabul), hisobdan chiqarish va ko'chirish ham eslab qolinadi: kirim fonda ketadi («Fondagi kirimlar»), hisobdan chiqarish va ko'chirish — navbatga, kassadagi qoldiq darhol kamayadi.\nШаг 3. Serverga hali ketmagan hamma narsa — ☰ → «Yuborilmadi» bo'limida («Yuborilmaganlar» oynasi): cheklar, qaytarishlar, qarz to'lovlari, kirimlar, yangi mahsulotlar, smenani yopish, kiritish/olish, hisobdan chiqarishlar, ko'chirishlar. Holatlar: «Aloqani kutmoqda», «Yuborilmoqda», «Xato». Tugmalar: «Hozir yuborish», «Qayta urinish», «Batafsil», «Ma'lumotni nusxalash», «Yordamga yuborish».\nШаг 4. 7 kundan eski chekni server o'zi qabul qilmaydi: kassa oldindan ogohlantiradi («tez orada 7 kun») va bunday yozuvlarni qizil qiladi («7 kundan eski — egasini kutmoqda»). Bunday cheklar uchun egasining (adminning) PIN kodini tasdiqlash keyingi yangilanishda paydo bo'ladi.\nВажно: Navbat kompyuter diskida saqlanadi. Egasining PIN kodini tekshiradigan inventarizatsiya server bilan aloqani talab qiladi.",
+       "keywords": [
+        "internetsiz",
+        "oflayn",
+        "yuborilmadi",
+        "navbat",
+        "aloqani kutmoqda",
+        "7 kundan eski chek"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-фискальный-чек-ekassa",
+       "title": "eKassa fiskal cheki: server cheki, QR, «Chek soliqqa ketmadi»",
+       "text": "Шаг 1. Kompaniya uchun NurCRM'da fiskalizatsiya yoqilgan bo'lsa va chekni server o'tkazsa, kassa o'zi hech narsa o'tkazmaydi: tayyor soliq cheki serverdan olinadi va o'zgarishsiz chop etiladi (32 belgi), «QR» qatori QR rasmiga almashtiriladi.\nШаг 2. Chek yoki qaytarish soliqqa yetib bormasa, kassa ogohlantiradi: «Chek soliqqa ketmadi» (yoki «Qaytarish soliqqa ketmadi»). Server uni qayta yuboradi; ega va administrator «Qayta yuborish»ni bosishi mumkin, qolganlarga kassa administratorga xabar berishni maslahat beradi.\nШаг 3. Ega dasturida «Fiskal chekisiz sotuvlar» bo'limi paydo bo'ladi — davrning fiskal cheki yo'q cheklari (kompaniyada fiskalizatsiya yoqilgandagina ko'rinadi). «Moliya» → «Qaytarishlar» varag'ida «KKM» ustuni va chek kartasida «Fiskal qaytarish» bloki bor.\nВажно: Kassaning o'zi fiskal registrator orqali chek o'tkazadigan rejim hozircha yoqilmagan.",
+       "keywords": [
+        "ekassa",
+        "fiskal chek",
+        "soliq",
+        "kkm",
+        "qr chek",
+        "fiskal chekisiz sotuvlar"
+       ],
+       "images": []
+      }
+     ]
+    },
+    {
+     "title": "Ombor, narx yorliqlari va ma'lumot ko'chirish",
+     "articles": [
+      {
+       "id": "в2-перенос-товаров-из-1с-мойсклад-poster",
+       "title": "1C, MoySklad, Poster, Loyverse, Paloma365, Umag'dan ko'chirish: «Ommaviy yuklash»",
+       "text": "Шаг 1. ☰ → «Ombor» → «Mahsulotlar» → «Ommaviy yuklash» bo'limini oching.\nШаг 2. «Faylni tanlash…» (Excel yoki CSV) tugmasini bosing yoki kataklarni nusxalagan bo'lsangiz, «Buferdan qo'yish»ni bosing. Eski ikkilik .xls faylini kassa o'qimaydi — uni .xlsx yoki CSV qilib saqlang.\nШаг 3. Fayl qaysi dasturdan ekanini kassa o'zi aniqlaydi: 1C, MoySklad, Poster, Loyverse, Paloma365 yoki Umag («Fayl qaysi dasturdan?», «Fayl bo'yicha aniqlash»). Tanimasa, dasturni ro'yxatdan o'zingiz tanlang; ustunlar nomi bo'yicha tanlanadi.\nШаг 4. Ustunlarni tekshiring, «Tekshirish»ni, keyin «Yuklash»ni bosing. Fayldagi miqdor qoldiqqa qo'shiladi (kirim); «Faqat kartochkalar va narxlar (kirimsiz)» qoldiqni o'zgartirmaydi.\nШаг 5. «Mijozlar va qarzlar» — mijozlar ro'yxatini Excel/CSV'dan ko'chirish; qarzlar yozilmaydi, faqat ko'rsatiladi.\nШаг 6. «Qanday fayl mos?» — fayl formati bo'yicha maslahat. «Misolda ko'rish» — sinab ko'rish uchun 30 ta o'quv mahsuloti, ular serverga ham, bazangizga ham tushmaydi.\nШаг 7. «Eski yuklash (qoldiqni almashtirish)» — avvalgi oyna: fayldagi miqdor mahsulot qoldig'ini almashtiradi. Oyna bitta: tugmani qayta bosish uni faqat oldinga chiqaradi.",
+       "keywords": [
+        "ko'chirish",
+        "import",
+        "1c",
+        "moysklad",
+        "poster",
+        "loyverse",
+        "paloma365",
+        "umag",
+        "ommaviy yuklash",
+        "mijozlar va qarzlar",
+        "eski yuklash"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-склад-владельца-вкладки-и-строка-товара",
+       "title": "Ombor: varaqlar, mahsulot qatori («O'zgartirish», «⋯») va bir nechta mahsulotni tanlash",
+       "text": "Шаг 1. ☰ → «Ombor» bo'limini oching. Varaqlar: «Mahsulotlar», «Qabul qilish», «Shtrix-kodlar», «Ommaviy qo'shish», «Inventarizatsiya», «Hisobdan chiqarish», «Ko'chirish», «ABC», «Yorliq muharriri».\nШаг 2. «Mahsulotlar» varag'ida jadval ustida — jami plitkalari.\nШаг 3. Mahsulot qatorida ikkita tugma: «O'zgartirish» va «⋯». Qoldiqni qoldiq plashkasini bosib yoki «⋯» orqali o'zgartirasiz; «⋯»da yana «Yorliq chop etish», «Narx yorlig'i», «Rasm yuklash» va qizil «O'chirish» (tasdiq va, berilgan bo'lsa, xodim kodini so'raydi) bor.\nШаг 4. Ustun boshidagi belgi hamma mahsulotlarni tanlaydi; kerakli bo'lganlarini qo'lda ham belgilash mumkin. «Tanlandi: N» paneli «Narx yorliqlari va shtrix-kodlar» tugmasi bilan chiqadi — tanlangan mahsulotlar uchun narx yorliqlari va shtrix-kodlarni chop etish ochiladi.\nВажно: Chop etish haqida batafsil — «Narx yorlig'ini sozlash: «Shtrix-kodlar» varag'i» maqolasida.",
+       "keywords": [
+        "ombor",
+        "ombor varaqlari",
+        "o'zgartirish",
+        "uch nuqta",
+        "qoldiq",
+        "yorliq chop etish",
+        "hammasini tanlash",
+        "tanlandi",
+        "narx yorliqlari va shtrix-kodlar"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-настройка-ценника-вкладка-штрихкоды",
+       "title": "Narx yorlig'ini sozlash: «Shtrix-kodlar» varag'i va «Mening shablonlarim»",
+       "text": "Шаг 1. ☰ → «Ombor» → «Shtrix-kodlar» varag'ini oching (yoki «Mahsulotlar» varag'ida mahsulotlarni belgilab, «Narx yorliqlari va shtrix-kodlar»ni bosing).\nШаг 2. O'ngda «Narx yorlig'ini sozlash» paneli: printer nuqtalarida yozuvli oldindan ko'rish (masalan «463×319 nuqta · 203 dpi · modul 2»), «O'lcham» (30×20, 40×30, 58×40, 58×30, 100×70 yoki «Maxsus o'lcham»: eni × bo'yi, 15×10 dan 150×150 mm gacha), «Shtrix-kod balandligi, mm», «Chiziq qalinligi», «Shtrix-kod turi» (Avto, EAN-13, Code 128, QR), «Shrift», «Matn o'lchami», «Yorliqda ko'rsatish:» belgilari.\nШаг 3. «Mahsulotga nechta»: «Bittadan» («Har birining nusxasi» bilan), «Qoldiq bo'yicha» (omborda nechta dona bo'lsa, shuncha yorliq, lekin bir mahsulotga 99 tadan oshmaydi; katta chop etish tasdiq so'raydi) yoki «Qo'lda» (1 tadan, soni mahsulot kartasida belgilanadi). Tanlov qatorida «Mahsulot: N · yorliq: M» ko'rinadi.\nШаг 4. Ro'yxat ustida: «Skanlar» (faqat skanerlanganlar) — shu seansda skanerlangan mahsulotlar («Skaner: chopga qo'shish»ni yoqing) va «Ro'yxatdagilarning barchasini tanlash (N)».\nШаг 5. «Printer sozlamalari» (ochish uchun bosing): «Ramka», gorizontal va vertikal siljish nuqtada, «Sozlamalarni tiklash». TSPL tilidagi drayversiz printerda (Xprinter, TSC, Gprinter) yana «Yorliqlar orasidagi oraliq», «Tezlik», «Zichlik», «Yo'nalish» va «Kalibrlash» bor; Windows drayveri orqali printerda ularni drayver belgilaydi.\nШаг 6. Yaxshi sozlamalarni shablon sifatida saqlang: «Mening shablonlarim» — nom bilan saqlash, tanlash, o'chirish.\nШаг 7. Chop etish: «Tanlanganlarni chop etish» termoprinterda yoki «A4 da chop etish»; «Sinov chop etish» — sinov yorlig'i.\nВажно: Yorliqdagi bloklar joyini «Yorliq muharriri» o'zgartiradi («Ombor» → «Yorliq muharriri»). 1000 px dan tor oynalarda (va alohida oynada) panel o'rniga ro'yxat ustida xuddi shu sozlamalarga ega yig'iladigan karta bo'ladi.",
+       "keywords": [
+        "narx yorlig'ini sozlash",
+        "narx yorlig'i",
+        "yorliq",
+        "oldindan ko'rish",
+        "shtrix-kod turi",
+        "mening shablonlarim",
+        "shrift",
+        "matn o'lchami",
+        "mahsulotga nechta",
+        "qoldiq bo'yicha",
+        "skanerlanganlar",
+        "printer sozlamalari",
+        "kalibrlash",
+        "ramka"
+       ],
+       "images": [
+        {
+         "file": "owner-price-tag-setup.png",
+         "caption": "Ombor → «Shtrix-kodlar» → o'ngdagi «Narx yorlig'ini sozlash» paneli"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Do'kon turlari, SI va yordam",
+     "articles": [
+      {
+       "id": "в2-ремонт-trade-in-прокат",
+       "title": "Ta'mirlash va servis, Trade-in / sotib olish va Prokat",
+       "text": "Шаг 1. Ulash: Marketpleys → «Ta'mirlash va servis» (1200 som) va «Trade-in / sotib olish» (1000 som); yordam xizmati yoki kalit ulaydi. Shundan so'ng ☰ menyusida «Ta'mirlash va servis» va «Trade-in / sotib olish» paydo bo'ladi.\nШаг 2. Ta'mirlash: raqamli qabul kvitansiyasi (R-0001), mijoz va telefon, qurilma, seriya raqami yoki IMEI, nosozlik, komplektatsiya, oldindan to'lov, muddat. Statuslar: qabul, ishda, tayyor, topshirildi. Kvitansiya va topshirish dalolatnomasini chop etish, mijozga WhatsApp'da «tayyor» xabari. Oldindan to'lov va qaytarish «Kiritish / olish» orqali o'tadi.\nШаг 3. Trade-in: «Yangi sotib olish» — baholash, pasport, seriya raqami / IMEI, rasm; kassadan to'lash yoki xaridga hisoblash; mahsulot omborga ishlatilgan sifatida kiradi (xarid narxi = to'langan summa); qabul dalolatnomasi chop etiladi, sotib olishlar jurnali bor.\nШаг 4. «Prokat» — ☰ menyusidagi alohida band (do'koningiz uchun yoqilgan bo'lsa): buyumlarni prokatga berish va qaytarib olish.\nВажно: Ta'mirlash va sotib olish ma'lumotlari shu kassada saqlanadi va kompyuterlar o'rtasida uzatilmaydi (server hozircha qo'llab-quvvatlamaydi); jurnallar ega dasturida ham bor.",
+       "keywords": [
+        "ta'mirlash",
+        "servis",
+        "trade-in",
+        "sotib olish",
+        "ishlatilgan",
+        "prokat",
+        "kvitansiya",
+        "imei"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-электроника-и-строймаркет",
+       "title": "Elektronika (seriya raqamlari, kafolat) va qurilish do'koni (qadoqlar, prorab narxi)",
+       "text": "Шаг 1. Elektronika: Sozlamalar → «Operatsiyalar» → «Almashtirish va qaytarish» kartasi → «Seriya raqamlari va kafolat». Sotuvda IMEI / seriya raqami kerak bo'lgan kategoriyalarni belgilang va «Odatiy kafolat, oy:»ni kiriting (kategoriyalar bo'yicha ham bo'ladi). Blok «Elektronika» turidagi do'konda ko'rinadi.\nШаг 2. Mahsulot kartasida: «Seriya raqamlari / IMEI bilan sotiladi» va «Kafolat, oy». Bunday mahsulot sotilganda kassa seriya raqamini so'raydi; noto'g'ri raqam — «Seriya raqami noto'g'ri».\nШаг 3. Qurilish do'koni: mahsulotning qadog'i bo'lishi mumkin (kartada — «Qadoqda, m²» yoki «Qopda (qadoqda), kg»). Chekda miqdor qadoq bilan hisoblanadi, ombordan esa «miqdor × qadoq o'lchami» hisobdan chiqadi.\nШаг 4. «Prorab narxi»: mijoz kartasida «Ulgurji narxda xarid qiladi (prorab)» bloki — bunday mijozga ulgurji narx u belgilangan barcha qatorlarga beriladi (chekda «Prorab narxi» plashkasi). Blok «Xo'jalik mollari» do'konida ko'rinadi. Serverdagi narx darajalarini keyinroq ulaymiz.",
+       "keywords": [
+        "elektronika",
+        "seriya raqami",
+        "imei",
+        "kafolat",
+        "qurilish do'koni",
+        "xo'jalik mollari",
+        "qadoq",
+        "qop",
+        "kvadrat metr",
+        "prorab",
+        "ulgurji narx"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-смета-как-составить-смету",
+       "title": "Smeta qanday tuziladi (qurilish do'koni): material sarfi, chop etish, chekka",
+       "text": "«Smeta» ta'mirga qancha material kerakligini hisoblaydi va hammasini mijoz uchun hujjatga jamlaydi. Modul bepul: «Xo'jalik mollari va qurilish materiallari» sohasida u allaqachon yoqilgan, boshqa sohalarda — Marketpleys → «Smeta» → «Bepul yoqish».\nШаг 1. «Smeta»ni oching: kassada — ☰ menyusi yoki bosh ekrandagi «Yana», egasining dasturida — Mahsulotlar → Smeta. «＋ Yangi smeta» ni bosing, obyektni («18 m² xonani ta'mirlash»), mijozni va telefonni yozing. «Amal qiladi» muddati — odatda 7 kun.\nШаг 2. «Materialni hisoblash» ni bosing: materialni tanlang (bo'yoq, grunt, plitka, laminat, oboy, gipsokarton, shpatlyovka, suvoq, yelim), xonaning uzunligi, eni va balandligini hamda teshiklarni kiriting (eshik va derazalar ayiriladi). Kesish uchun zaxira — 10 %. Natija — butun qadoqlar (doim yuqoriga) va uning ostida formula.\nШаг 3. Katalogdan tovarni bog'lang («Katalogdan tovar» maydoni) — qator smetaga narxi va soni bilan tushadi. Bog'lash eslab qolinadi. «Qo'shish va yana» oynani o'sha xona o'lchamlari bilan ochiq qoldiradi: plitka → yelim → zatirka.\nШаг 4. Qolganini qo'shing: tovar — yuqoridagi maydon (nomi yoki shtrix-kod, skaner yoki Enter), «＋ O'z pozitsiyasi» — ish yoki yetkazib berish, «＋ Bo'lim» — «Devorlar», «Pol», «Ish». Qatorning soni, narxi, chegirmasi va zaxirasini to'g'ridan-to'g'ri jadvalda tahrirlash mumkin. Umumiy chegirma va zaxira — tepada. «Prorab (ulgurji)» narxi tovarning ulgurji narxini oladi.\nШаг 5. «Chop etish…» — A4 varaq (oldindan ko'rish bilan) yoki 58/80 mm lenta; «Matn sifatida nusxalash» — WhatsApp yoki Telegram uchun; «WhatsApp'da ochish» — mijoz bilan chat va tayyor matn (yuborishni o'zingiz bosasiz).\nШаг 6. Mijoz qaror qilganda, kassada «Hammasini chekka qo'shish» ni bosing. Pozitsiyalar hozirgi narxlar bo'yicha o'tadi; smeta tuzilgandan beri narx yoki qoldiq o'zgargan bo'lsa, kassa aynan nimaligini ko'rsatib so'raydi. O'z pozitsiya «Qo'shimcha xizmat» qatori bilan ketadi. O'tkazilgach smeta holati — «Qabul qilindi».\nВажно: «Amal qiladi» muddati o'tgan bo'lsa, narxlar o'zgargan bo'lishi mumkin — «Narxlarni qayta hisoblash» ni bosing. Xarid narxlari va marjani faqat egasi va xarid huquqi bor xodim ko'radi; chop etishda va mijozga matnda ular yo'q. Smetalar faqat shu kompyuterda saqlanadi va boshqa kassalarga uzatilmaydi. Sarf normalarini (m² uchun litr va kilogramm) egasi tahrirlaydi — «Sarf normalari» tugmasi.",
+       "keywords": [
+        "smeta",
+        "smeta qanday tuziladi",
+        "kalkulyator",
+        "material sarfi",
+        "materialni hisoblash",
+        "ta'mir",
+        "qurilish do'koni",
+        "bo'yoq plitka oboy",
+        "smetani chop etish",
+        "hammasini chekka qo'shish",
+        "prorab narxi",
+        "yangiliklar"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-вкладка-ии-ключи-нур-советник",
+       "title": "Sozlamalar → «AI»: neyron tarmoq kalitlari va Nur Maslahatchi",
+       "text": "Шаг 1. ☰ → «Sozlamalar» → «AI» varag'ini oching («Sun'iy intellekt»).\nШаг 2. «Suhbat uchun SI yordamchi (bepul, Google Gemini)»: «Bepul kalit olish»ni bosing, kalitni olib maydonga qo'ying, so'ng «SIni tekshirish».\nШаг 3. «SI uchun internetda qidirish (bepul, Groq)» — kurslar, narxlar, yangiliklar va mahsulot rasmini qidirish uchun kalit; «Qidiruvni tekshirish».\nШаг 4. «SI zaxira modellari (bepul, OpenRouter, ixtiyoriy)» — Gemini'ning kunlik limiti tugasa, zaxira model javob beradi. Bo'sh maydon — o'chiq.\nШаг 5. Pastda Nur Maslahatchiga nima qilishga ruxsat borligi (o'tkazgichlar).\nВажно: Kalit parol kabi: uni ko'rsatmang va yubormang. Aniq raqamlarni kassa hisoblaydi; neyron tarmoq faqat do'konning qisqa xulosasini oladi.",
+       "keywords": [
+        "ai",
+        "sun'iy intellekt",
+        "nur maslahatchi",
+        "gemini",
+        "groq",
+        "openrouter",
+        "ai kaliti",
+        "si tekshirish"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-написать-в-поддержку-слоты-устройств",
+       "title": "Jurnal bilan «Yordamga yozish» va qurilma slotlari",
+       "text": "Шаг 1. ☰ → «NurCRM texnik yordami» → «Yordamga yozish» bo'limini oching. Xuddi shu tugma xato oynasida va «Jurnal va xatolar»da ham bor.\nШаг 2. Nima bo'lganini yozing: nima qildingiz va nima noto'g'ri ketdi. Murojaat bilan birga jurnalning oxirgi qatorlari (parol va kalitsiz), versiya, kompaniya va filial ketadi. Oyna surati — ixtiyoriy, unda mijozlar ma'lumoti bo'lishi mumkin.\nШаг 3. «Yuborish»ni bosing. «Mening murojaatlarim» ro'yxatida holat ko'rinadi: «Yuborildi», «Kanal ulanmagan» yoki «Yuborilmadi» — unda «Qayta urinish»ni bosing. «Murojaat matni bilan WhatsApp'ni ochish» ham mumkin.\nШаг 4. Qurilma slotlari: login boshqa kassada band bo'lsa, kirishda kassa «Bu loginda boshqa kassa bor» deb so'raydi. «Kirish va boshqasini o'chirish» — shu yerdan kirasiz, eski kassa tushunarli xabar oladi; «Bekor qilish» — hech narsa o'zgarmaydi (Enter odatda «Bekor qilish»).",
+       "keywords": [
+        "yordamga yozish",
+        "yordam",
+        "jurnal",
+        "murojaat",
+        "loglar",
+        "xato",
+        "mening murojaatlarim",
+        "qurilma slot",
+        "login boshqa kassada band"
+       ],
+       "images": []
+      }
+     ]
+    }
+   ]
+  },
+  {
    "title": "Ega dasturi",
    "groups": [
     {
@@ -816,7 +1101,7 @@
       {
        "id": "товары-как-найти-товар",
        "title": "Mahsulotni qanday topish",
-       "text": "Шаг 1. Asosiy ekranda katalog ustidagi «Mahsulot qidirish…» maydonini bosing (yoki Ctrl+F).\nШаг 2. Nomi, shtrix-kodi yoki artikulini kiriting — ro'yxat darhol filtrlanadi.\nШаг 3. Aniq tanlash uchun «Filtr» tugmasini bosing: «Mahsulot turi», «Toifa», «Brend», «Min. narx» / «Maks. narx», «Faqat mavjud mahsulotlar» → «Qo'llash».\nШаг 4. «Barcha mahsulotlar», «Vaznli», «Donali», «Donalab», «To'plamlar», «Xizmatlar» varaqlari faqat kerakli turdagi mahsulotlarni ko'rsatadi.\nШаг 5. Qoldiq va shtrix-kodni ro'yxat ko'rinishida ko'rish uchun qidiruv yonidagi «Mahsulotlar ko'rinishi» tugmasini bosing va «Jadval ko'rinishi»ni tanlang.\nВажно: Esc qidiruv qatorini tozalaydi va kassani yana skanerdan kod qabul qilish rejimiga qaytaradi.",
+       "text": "Шаг 1. Asosiy ekranda katalog ustidagi «Skan, kod yoki nom» maydonini bosing (yoki Ctrl+F).\nШаг 2. Nomi, shtrix-kodi yoki artikulini kiriting — ro'yxat darhol filtrlanadi.\nШаг 3. Aniq tanlash uchun «Filtr» tugmasini bosing: «Mahsulot turi», «Toifa», «Brend», «Min. narx» / «Maks. narx», «Faqat mavjud mahsulotlar» → «Qo'llash».\nШаг 4. «Barcha mahsulotlar», «Vaznli», «Donali», «Donalab», «To'plamlar», «Xizmatlar» varaqlari faqat kerakli turdagi mahsulotlarni ko'rsatadi.\nШаг 5. Qoldiq va shtrix-kodni ro'yxat ko'rinishida ko'rish uchun qidiruv yonidagi «Mahsulotlar ko'rinishi» tugmasini bosing va «Jadval ko'rinishi»ni tanlang.\nВажно: Esc qidiruv qatorini tozalaydi va kassani yana skanerdan kod qabul qilish rejimiga qaytaradi.",
        "keywords": [
         "mahsulot topish",
         "qidirish",
@@ -1012,7 +1297,7 @@
       {
        "id": "товары-как-напечатать-этикетку-со-штрихкодом",
        "title": "Shtrix-kodli yorliqni qanday chop etish",
-       "text": "Шаг 1. ☰ → «Ish» → «Ombor»ni oching, «Mahsulotlar» varag'ida «Ro'yxat» ko'rinishini tanlang.\nШаг 2. Mahsulotni toping va «Amallar» ustunidagi «Chop etish» tugmasini bosing.\nШаг 3. «Yorliqni chop etish» oynasida «Printer» va «Nusxalar soni»ni tanlang.\nШаг 4. «Chop etish» tugmasini bosing.\nВажно: Agar mahsulotda shtrix-kod bo'lmasa, oynada «Chop etish uchun shtrix-kod yo'q» yozuvi chiqadi — shtrix-kodni mahsulot kartasida kiriting yoki «Yaratish» tugmasi bilan hosil qiling.",
+       "text": "Шаг 1. ☰ → «Ish» → «Ombor»ni oching, «Mahsulotlar» varag'ida «Ro'yxat» ko'rinishini tanlang.\nШаг 2. Mahsulotni toping, qatoridagi «⋯» tugmasini bosing va «Yorliq chop etish»ni tanlang.\nШаг 3. Chop etish oynasida («Shtrix-kod va narx yorliqlarini chop etish») o'ngda «Narx yorlig'ini sozlash» paneli bor: printerni va «Nusxa»ni tanlang.\nШаг 4. «Chop etish» tugmasini bosing.\nВажно: Agar mahsulotda shtrix-kod bo'lmasa, oynada «Chop etish uchun shtrix-kod yo'q» yozuvi chiqadi — shtrix-kodni mahsulot kartasida kiriting yoki «Yaratish» tugmasi bilan hosil qiling.",
        "keywords": [
         "yorliq",
         "etiketka",
@@ -1031,7 +1316,7 @@
       {
        "id": "товары-как-напечатать-ценник",
        "title": "Narx yorlig'ini qanday chop etish",
-       "text": "Шаг 1. ☰ → «Ish» → «Ombor»ni oching va «Mahsulotlar» varag'iga o'ting.\nШаг 2. Mahsulotni toping va «Amallar» ustunidagi «Narx yorlig'i» tugmasini bosing.\nШаг 3. «Narx yorlig'i shabloni»ni tanlang, kerak bo'lsa «Eski narx (ustidan chizilgan)» va «Chegirma (masalan, -20%)»ni yozing.\nШаг 4. «Qayerga chop etish» bandida «Yorliq termoprinteri» yoki «Oddiy printer (A4)»ni tanlang, «Printer» va «Nusxalar soni»ni ko'rsating.\nШаг 5. «Chop etish» tugmasini bosing.\nВажно: Narx yorliqlarini chop etish — pullik qo'shimcha xizmat: birinchi bosishda kassa «Narx yorliqlari muharriri» seriya raqamini so'raydi.",
+       "text": "Шаг 1. ☰ → «Ish» → «Ombor»ni oching va «Mahsulotlar» varag'iga o'ting.\nШаг 2. Mahsulotni toping, qatoridagi «⋯» tugmasini bosing va «Narx yorlig'i»ni tanlang.\nШаг 3. «Narx yorlig'i shabloni»ni tanlang, kerak bo'lsa «Eski narx (ustidan chizilgan)» va «Chegirma (masalan, -20%)»ni yozing.\nШаг 4. «Qayerga chop etish» bandida «Yorliq termoprinteri» yoki «Oddiy printer (A4)»ni tanlang, «Printer» va «Nusxalar soni»ni ko'rsating.\nШаг 5. «Chop etish» tugmasini bosing.\nВажно: Narx yorliqlarini chop etish — pullik qo'shimcha xizmat: birinchi bosishda kassa «Narx yorliqlari muharriri» seriya raqamini so'raydi.",
        "keywords": [
         "narx chek",
         "narx yorlig'i",
@@ -1053,7 +1338,7 @@
       {
        "id": "товары-как-напечатать-ценники-сразу-на-много-товаров",
        "title": "Ko'plab mahsulotlar uchun narx yorliqlarini birdaniga qanday chop etish",
-       "text": "Шаг 1. ☰ → «Ish» → «Ombor»ni oching va «Mahsulotlar» varag'iga o'ting.\nШаг 2. «Narx yorliqlarini ommaviy chop etish» tugmasini bosing.\nШаг 3. Mahsulotlarni toping va belgilang («Barchasini tanlash» / «Tanlovni bekor qilish»).\nШаг 4. «Narx yorlig'i shabloni», «Qayerga chop etish», «Har bir mahsulotga nusxa» va «Printer»ni tanlang.\nШаг 5. «Chop etish» tugmasini bosing.\nВажно: «Narx yorliqlarini ommaviy chop etish» — alohida pullik qo'shimcha xizmat, seriya raqami bilan faollashtiriladi.",
+       "text": "Шаг 1. ☰ → «Ish» → «Ombor»ni oching va «Mahsulotlar» varag'iga o'ting.\nШаг 2. «Narx yorliqlarini ommaviy chop etish» tugmasini bosing.\nШаг 3. Mahsulotlarni toping va belgilang («Barchasini tanlash» / «Tanlovni bekor qilish»).\nШаг 4. «Narx yorlig'i shabloni», «Qayerga chop etish», «Har bir mahsulotga nusxa» va «Printer»ni tanlang.\nШаг 5. «Chop etish» tugmasini bosing.\nШаг 6. Tanlanganlar uchun tezroq: «Mahsulotlar» varag'ida mahsulotlarni belgilang (ustun boshidagi belgi hammasini tanlaydi) va «Tanlandi: N» panelidagi «Narx yorliqlari va shtrix-kodlar»ni bosing.\nВажно: «Narx yorliqlarini ommaviy chop etish» — alohida pullik qo'shimcha xizmat, seriya raqami bilan faollashtiriladi.",
        "keywords": [
         "ommaviy chop etish",
         "ko'p narx chek",
@@ -1072,7 +1357,7 @@
       {
        "id": "товары-как-изменить-внешний-вид-этикетки",
        "title": "Yorliq ko'rinishini qanday o'zgartirish",
-       "text": "Шаг 1. ☰ → «Ombor» → «Yorliq muharriri» varag'i → «Muharrirni ochish» tugmasini bosing (yoki yorliq chop etish oynasidagi «Yorliq muharriri» tugmasini bosing).\nШаг 2. «Yorliq kengligi, mm», «Yorliq balandligi, mm»ni kiriting yoki «Shablon»ni tanlang.\nШаг 3. Bloklarni sichqoncha bilan sudrab joylashtiring; o'lchamini blokning to'q rangli burchagidan tortib o'zgartiring. Kerakli elementlarni yoqing: «Shtrix-kod», «Artikul», «O'lchov birligi», «Do'kon nomi».\nШаг 4. Natijani «Chop etishni oldindan ko'rish» orqali yoki «Sinov uchun chop etish» tugmasi bilan tekshiring.\nШаг 5. «Standartga qaytarish» tugmasi dastlabki ko'rinishni tiklaydi.\nВажно: Yorliq muharriri — pullik qo'shimcha xizmat: birinchi ochishda kassa seriya raqamini so'raydi. Oddiy yorliq chop etish bepul.",
+       "text": "Шаг 1. ☰ → «Ombor» → «Yorliq muharriri» varag'i → «Muharrirni ochish» tugmasini bosing (yoki yorliq chop etish oynasidagi «Yorliq muharriri» tugmasini bosing).\nШаг 2. «Yorliq kengligi, mm», «Yorliq balandligi, mm»ni kiriting yoki «Shablon»ni tanlang.\nШаг 3. Bloklarni sichqoncha bilan sudrab joylashtiring; o'lchamini blokning to'q rangli burchagidan tortib o'zgartiring. Kerakli elementlarni yoqing: «Shtrix-kod», «Artikul», «O'lchov birligi», «Do'kon nomi».\nШаг 4. Natijani «Chop etishni oldindan ko'rish» orqali yoki «Sinov uchun chop etish» tugmasi bilan tekshiring.\nШаг 5. «Standartga qaytarish» tugmasi dastlabki ko'rinishni tiklaydi.\nШаг 6. Muharrirsiz: «Shtrix-kodlar» varag'i → o'ngdagi «Narx yorlig'ini sozlash» paneli (oldindan ko'rish, o'lcham, nusxa, shtrix-kod balandligi, «Shtrix-kod turi», shrift, matn o'lchami, «Mening shablonlarim») — batafsil «Narx yorlig'ini sozlash…» maqolasida.\nВажно: Yorliq muharriri — pullik qo'shimcha xizmat: birinchi ochishda kassa seriya raqamini so'raydi. Oddiy yorliq chop etish bepul.",
        "keywords": [
         "yorliq muharriri",
         "yorliq o'lchami",
@@ -1188,7 +1473,7 @@
       {
        "id": "склад-как-списать-товар",
        "title": "Mahsulotni qanday hisobdan chiqarish",
-       "text": "Шаг 1. ☰ → «Ish» → «Ombor»ni oching va «Hisobdan chiqarish» varag'iga o'ting.\nШаг 2. Mahsulotni «Mahsulot nomini yozishni boshlang…» maydonida toping yoki skanerlang.\nШаг 3. «Hisobdan chiqariladigan miqdor»ni kiriting.\nШаг 4. «Hisobdan chiqarish sababi»ni bosing va tanlang: «Nuqsonli», «Muddati o'tgan», «Qadoq shikastlangan», «O'z ehtiyoji uchun hisobdan chiqarish» yoki «Boshqa».\nШаг 5. «Hisobdan chiqarishni tasdiqlash» tugmasini bosing — kassa «Hisobdan chiqarish bajarildi.» deb xabar beradi.\nВажно: Internet kerak; qoldiqdan ko'proq miqdorni hisobdan chiqarib bo'lmaydi. Oldingi hisobdan chiqarishlar «Hisobdan chiqarishlar tarixi» blokida («To'liq ochish ⤢» tugmasi).",
+       "text": "Шаг 1. ☰ → «Ish» → «Ombor»ni oching va «Hisobdan chiqarish» varag'iga o'ting.\nШаг 2. Mahsulotni «Mahsulot nomini yozishni boshlang…» maydonida toping yoki skanerlang.\nШаг 3. «Hisobdan chiqariladigan miqdor»ni kiriting.\nШаг 4. «Hisobdan chiqarish sababi»ni bosing va tanlang: «Nuqsonli», «Muddati o'tgan», «Qadoq shikastlangan», «O'z ehtiyoji uchun hisobdan chiqarish» yoki «Boshqa».\nШаг 5. «Hisobdan chiqarishni tasdiqlash» tugmasini bosing — kassa «Hisobdan chiqarish bajarildi.» deb xabar beradi.\nВажно: Aloqasiz hisobdan chiqarish eslab qolinadi va serverga o'zi ketadi (☰ → «Yuborilmadi» bo'limiga qarang); qoldiqdan ko'proq miqdorni hisobdan chiqarib bo'lmaydi. Oldingi hisobdan chiqarishlar «Hisobdan chiqarishlar tarixi» blokida («To'liq ochish ⤢» tugmasi).",
        "keywords": [
         "hisobdan chiqarish",
         "spisaniye",
@@ -1263,7 +1548,7 @@
       {
        "id": "склад-как-загрузить-много-товаров-из-csv-файла",
        "title": "Ko'plab mahsulotlarni CSV fayldan qanday yuklash",
-       "text": "Шаг 1. ☰ → «Ish» → «Ombor»ni oching, «Mahsulotlar» varag'ida «Ommaviy yuklash» tugmasini bosing.\nШаг 2. «CSV shablonini yuklab olish» tugmasini bosing va shablonni (masalan, Excel'da) mahsulotlar ro'yxati bilan to'ldiring.\nШаг 3. «Faylni tanlash…» tugmasini bosing va to'ldirilgan faylni tanlang.\nШаг 4. Jadvalni tekshiring: har bir qatorda «Yangi mahsulot» yaratilishi yoki mavjud mahsulot yangilanishi ko'rsatiladi.\nШаг 5. «Yuklashni boshlash» tugmasini bosing va «Tayyor: yaratildi …, yangilandi …, xatolar …» yozuvini kuting.\nВажно: Mahsulotlar shtrix-kod bo'yicha solishtiriladi. Fayldagi «Miqdor» — bu yangi qoldiq, qoldiqqa qo'shiladigan miqdor emas; fayldagi bo'sh ustunlar mahsulot ma'lumotlarini o'zgartirmaydi.",
+       "text": "Шаг 1. ☰ → «Ish» → «Ombor»ni oching, «Mahsulotlar» varag'ida «Ommaviy yuklash» tugmasini bosing.\nШаг 2. «CSV shablonini yuklab olish» tugmasini bosing va shablonni (masalan, Excel'da) mahsulotlar ro'yxati bilan to'ldiring.\nШаг 3. «Faylni tanlash…» tugmasini bosing va to'ldirilgan faylni tanlang.\nШаг 4. Jadvalni tekshiring: har bir qatorda «Yangi mahsulot» yaratilishi yoki mavjud mahsulot yangilanishi ko'rsatiladi.\nШаг 5. «Yuklashni boshlash» tugmasini bosing va «Tayyor: yaratildi …, yangilandi …, xatolar …» yozuvini kuting.\nВажно: Mahsulotlar shtrix-kod bo'yicha solishtiriladi. «Ommaviy yuklash» fayldagi miqdorni qoldiqqa qo'shadi (kirim); avvalgi «Eski yuklash (qoldiqni almashtirish)» oynasi qoldiqni almashtiradi. Fayldagi bo'sh ustunlar mahsulot ma'lumotlarini o'zgartirmaydi. 1C, MoySklad, Poster va boshqalardan — «1C, MoySklad, Poster … ko'chirish» maqolasiga qarang.",
        "keywords": [
         "csv",
         "mahsulotlarni yuklash",
@@ -1646,7 +1931,7 @@
       {
        "id": "сотрудники-как-задать-коды-доступа-сотруднику",
        "title": "Xodimga kirish kodlarini qanday berish",
-       "text": "Шаг 1. ☰ → «Sozlamalar» → «Xodimlar» bo'limini oching.\nШаг 2. Xodim kartasini bosing.\nШаг 3. «Savatdan o'chirish kodi», «Ombordan o'chirish kodi», «Mahsulotni tahrirlash kodi», «Mahsulot qo'shish kodi» maydonlarini to'ldiring.\nШаг 4. «Tayyor» tugmasini, keyin «Saqlash» tugmasini bosing.\nВажно: Kod bo'sh qoldirilsa, bu amal xodim uchun bloklanadi. Ega va admin kodsiz ishlaydi. Bo'limlarga huquqlar (xodim kartasi yonidagi «Huquqlar» qulf tugmasi) NurCRM'da ham beriladi.",
+       "text": "Шаг 1. ☰ → «Sozlamalar» → «Xodimlar» bo'limini oching.\nШаг 2. Xodim kartasini bosing.\nШаг 3. «Savatdan o'chirish kodi», «Ombordan o'chirish kodi», «Mahsulotni tahrirlash kodi», «Mahsulot qo'shish kodi» maydonlarini to'ldiring.\nШаг 4. «Tayyor» tugmasini, keyin «Saqlash» tugmasini bosing.\nВажно: Kod bo'sh qoldirilsa, bu amal xodim uchun bloklanadi. Ega va admin kodsiz ishlaydi. Bo'limlar va amallarga huquqlarni xodim yonidagi «Huquqlar» tugmasi beradi — «Xodimga huquq berish: «Huquqlar» oynasi» maqolasiga qarang.",
        "keywords": [
         "kirish kodi",
         "код доступа",
@@ -1665,7 +1950,7 @@
       {
        "id": "сотрудники-как-посмотреть-табель-сотрудников",
        "title": "Xodimlar tabelini qanday ko'rish",
-       "text": "Шаг 1. ☰ → «Ish» → «Xodimlar tabeli» bo'limini oching.\nШаг 2. Davrni belgilang («Sanadan…» — «Sanagacha…») va «Yangilash» tugmasini bosing yoki «Butun davr»ni tanlang.\nШаг 3. Jadvalda har bir kassir bo'yicha: «Smenalar», «Kunlar», «Jami soat», «O'rtacha smena», «Tushum», «Birinchi — oxirgi smena».\nВажно: Faqat yopilgan smenalar hisoblanadi. Tabel pullik «Xodimlar hisobi» qo'shimcha xizmatiga kiradi (Marketpleys → «Qo'shimcha funksiyalar»).",
+       "text": "Шаг 1. ☰ → «Ish» → «Xodimlar tabeli» bo'limini oching (ega dasturida — «Tabel»).\nШаг 2. «Belgilar» varag'i: oy kunlari bo'yicha jadval, «Oldingi oy» / «Keyingi oy» o'tkazgichlari. Xodimni belgilash uchun kun katagini bosing: «Kunlik soat», «Izoh (ixtiyoriy)», «Saqlash»; «Belgini olib tashlash» belgini o'chiradi.\nШаг 3. «Bugun hammani keldi deb belgilash» — bitta tugma bilan; «Kechagini nusxalash» — kechagi belgilarni bugunga ko'chiradi.\nШаг 4. «O'zgarishlar jurnali» — belgilardagi oxirgi 150 ta o'zgarish.\nШаг 5. «Smena yakunlari» varag'i: har bir kassir bo'yicha «Smenalar», «Kunlar», «Jami soat», «O'rtacha smena», «Tushum», «Birinchi — oxirgi smena».\nВажно: Belgilarni ega qo'yadi, qolganlar faqat ko'radi. Avtobelgini Sozlamalar → «Operatsiyalar» yoqadi («Kassir smenani ochganda» yoki «Kassaga kirganda»): kassa kelgan vaqti bilan «Keldi» belgisini o'zi qo'yadi, egasining qo'lda qo'ygan belgisi doim ustun. Belgilar shu kompyuterda saqlanadi, maoshga ta'sir qilmaydi. Faqat yopilgan smenalar hisoblanadi. Tabel pullik «Xodimlar hisobi» qo'shimcha xizmatiga kiradi (Marketpleys → «Qo'shimcha funksiyalar»).",
        "keywords": [
         "tabel",
         "табель",
@@ -1914,7 +2199,7 @@
       {
        "id": "настройки-и-оборудование-как-настроить-вид-главного-экрана",
        "title": "Asosiy ekran ko'rinishini qanday sozlash",
-       "text": "Шаг 1. ☰ → «Sozlamalar» → «Ekran» bo'limini oching.\nШаг 2. «Asosiy ekran maketi» bandida «Oddiy» yoki «1C uslubi»ni tanlang.\nШаг 3. «Masshtab», «Mahsulot kartalari o'lchami», «Katalogda mahsulot rasmlarini ko'rsatish»ni sozlang.\nШаг 4. «Mahsulotni bosish» bandida «Bir marta» yoki «Ikki marta»ni tanlang — mahsulot chekka tushishi uchun necha marta bosish kerakligini belgilaydi.\nШаг 5. «Saqlash» tugmasini bosing.\nВажно: O'sha yerda: «To'liq ekran rejimi», «Windows bilan birga ishga tushirish», «Zaif qurilma rejimi», chek uchun «Do'kon nomi» va «Do'kon manzili». Yorug' yoki qorong'i mavzu — yuqori paneldagi «Mavzu» tugmasi.",
+       "text": "Шаг 1. ☰ → «Sozlamalar» → «Ekran» bo'limini oching.\nШаг 2. Kassa ko'rinishi Marketplace'da tanlanadi: ☰ → «Marketplace» → «Kassa ko'rinishlari», kerakli joylashuv kartasini bosing: «Klassika», «Jadval», «Kartochkalar», «Minimal», «Professional» yoki «1C» — kassa darhol qayta quriladi.\nШаг 3. «Masshtab», «Mahsulot kartalari o'lchami», «Katalogda mahsulot rasmlarini ko'rsatish»ni sozlang.\nШаг 4. «Mahsulotni bosish» bandida «Bir marta» yoki «Ikki marta»ni tanlang — mahsulot chekka tushishi uchun necha marta bosish kerakligini belgilaydi.\nШаг 5. «Saqlash» tugmasini bosing.\nВажно: O'sha yerda: «To'liq ekran rejimi», «Windows bilan birga ishga tushirish», «Zaif qurilma rejimi», chek uchun «Do'kon nomi» va «Do'kon manzili». Yorug' yoki qorong'i mavzu — yuqori paneldagi «Mavzu» tugmasi.",
        "keywords": [
         "kassa ko'rinishi",
         "вид кассы",
@@ -2209,6 +2494,22 @@
         "подсеть"
        ],
        "images": []
+      },
+      {
+       "id": "весы-быстрая-настройка-автоотправка-проверка",
+       "title": "Tarozilar: «Tarozini sozlash…», «Usta uchun…», avtoyuborish va «Yuborishdan oldin tekshirish»",
+       "text": "Шаг 1. ☰ → «Sozlamalar» → «Tarozi» bo'limini oching. «Do'kondagi tarozilar» ro'yxatida («+ Tarozi qo'shish»dan keyin ham) kerakli tarozida «Tarozini sozlash…»ni bosing — 3 qadamli «Tez sozlash» varag'i ochiladi: 1) qaysi tarozi va manzili, 2) «Aloqani tekshirish», 3) «Tovarlarni yuborish».\nШаг 2. Portlar, protokollar va almashuv fayllari alohida, «Usta uchun…» tugmasida (xuddi shu oyna darhol texnik varaqda).\nШаг 3. «Taroziga tovar yuborish» oynasida yuborishdan oldin «Yuborishdan oldin tekshirish»ni bosing: kassa belgilangan tovarlarning kamchiliklarini bitta ro'yxatda ko'rsatadi — PLU yoki kod yo'q, PLU tarozi jadvalidan katta, takrorlar, narx 0 yoki tarozi chop eta olganidan yuqori, tovar tarozi sig'diradiganidan ko'p, summa shtrix-kod turi chegarasidan yuqori, tarozi chop etmaydigan belgilar. Iloji bo'lsa, yonida «Tuzatish» tugmasi bor.\nШаг 4. Avtoyuborish: oynaning pastida «O'zgarishlarni taroziga avtomatik yuborish» belgisi. Kassa o'zgargan tovarlarni fonda o'zi taroziga yuboradi (faqat to'g'ridan-to'g'ri yuboradigan markalar: Rongta, Штрих-ПРИНТ, RS-200, TM-30F). Odatda o'chiq; bitta tarozi uchun bitta kompyuterda yoqing. «Oxirgi avtoyuborish» yozuvi natijani ko'rsatadi; tekshiruvda xatosi bor tovarlar ketmaydi.\nШаг 5. CAS va Massa-K: protokol jonli tarozida hali tekshirilmagan — birinchi yuborishni bitta tovar bilan qiling («CAS» va «Massa-K» eslatmalariga qarang).",
+       "keywords": [
+        "tarozi tez sozlash",
+        "tarozini sozlash",
+        "usta uchun",
+        "taroziga avtoyuborish",
+        "yuborishdan oldin tekshirish",
+        "tuzatish",
+        "plu",
+        "cas"
+       ],
+       "images": []
       }
      ]
     },
@@ -2295,7 +2596,7 @@
       {
        "id": "весы-памятка-massa-k",
        "title": "Eslatma: Massa-K tarozisi — qanday ulash, yuborish va tekshirish",
-       "text": "Kassir uchun qisqacha. Yorliq chop etadigan Massa-K tarozilari mos: R va SL seriyalari (masalan MK-RP10, MK-RL10). VP/VPM tarozilari hozircha qo‘llab-quvvatlanmaydi, yorliq chop etmaydigan MK-A21 ga tovarlar yuklanmaydi.\n1-qadam. Tarozining o‘zida tarmoqni (Ethernet) yoqing: kassa kompyuteri bilan bir tarmoqdan IP, port 5001.\n2-qadam. «Tovarlar» → «Tarozi» → «Massa-K» markasi → «Massa-K tarozi sozlamalari» → «Tez sozlash»: tarozi IP'sini kiriting va «Aloqani tekshirish»ni bosing. «Massa-K tarozisi aloqada» va seriya raqami chiqishi kerak. Bu faqat o‘qish — tarozida hech narsa o‘zgarmaydi.\n3-qadam. «Usta uchun» yorlig‘ida «Sinov paketini jurnalga»ni bosing: kadrlar faqat massak-exchange.log jurnal fayliga yoziladi, taroziga hech narsa ketmaydi.\n4-qadam. «Tarozi» oynasida BITTA vaznli tovarni belgilang (uning PLU raqami bo‘lishi kerak) va «Taroziga yuborish»ni bosing. Kassa tasdiq so‘raydi — «Yuborish»ni bosing. Donali tovarlar Massa-K ga yuborilmaydi, qatorda ogohlantirish bo‘ladi.\n5-qadam. Tarozida tovarni PLU bo‘yicha toping: nomi va narxi to‘g‘rimi? Yorliq chop etib, kassada skanerlang: o‘sha tovar va o‘sha vazn ochilishi kerak.\n6-qadam. Hammasi to‘g‘ri bo‘lsa — «Massa-K tarozi sozlamalari» → «Usta uchun» → «Tarozida tekshirildi: yorliq to‘g‘ri chiqdi»ni belgilang. Shundan keyin qolgan tovarlarni yuborish mumkin.\n7-qadam. «Ulanish yo‘q»: IP, kabel, 5001 port, tarozi yoqilgan va kassa bilan bir tarmoqda ekanini tekshiring. Biror narsa noto‘g‘ri bo‘lsa (narx ×100, nom bo‘sh) — ustaga «Almashuv jurnali» faylini (massak-exchange.log) yuboring.",
+       "text": "Kassir uchun qisqacha. Yorliq chop etadigan Massa-K tarozilari mos: R va SL seriyalari (masalan MK-RP10, MK-RL10). VP/VPM tarozilari hozircha qo‘llab-quvvatlanmaydi, yorliq chop etmaydigan MK-A21 ga tovarlar yuklanmaydi.\nШаг 1. Tarozining o‘zida tarmoqni (Ethernet) yoqing: kassa kompyuteri bilan bir tarmoqdan IP, port 5001.\nШаг 2. «Tovarlar» → «Tarozi» → «Massa-K» markasi → «Massa-K tarozi sozlamalari» → «Tez sozlash»: tarozi IP'sini kiriting va «Aloqani tekshirish»ni bosing. «Massa-K tarozisi aloqada» va seriya raqami chiqishi kerak. Bu faqat o‘qish — tarozida hech narsa o‘zgarmaydi.\nШаг 3. «Usta uchun» yorlig‘ida «Sinov paketini jurnalga»ni bosing: kadrlar faqat massak-exchange.log jurnal fayliga yoziladi, taroziga hech narsa ketmaydi.\nШаг 4. «Tarozi» oynasida BITTA vaznli tovarni belgilang (uning PLU raqami bo‘lishi kerak) va «Taroziga yuborish»ni bosing. Kassa tasdiq so‘raydi — «Yuborish»ni bosing. Donali tovarlar Massa-K ga yuborilmaydi, qatorda ogohlantirish bo‘ladi.\nШаг 5. Tarozida tovarni PLU bo‘yicha toping: nomi va narxi to‘g‘rimi? Yorliq chop etib, kassada skanerlang: o‘sha tovar va o‘sha vazn ochilishi kerak.\nШаг 6. Hammasi to‘g‘ri bo‘lsa — «Massa-K tarozi sozlamalari» → «Usta uchun» → «Tarozida tekshirildi: yorliq to‘g‘ri chiqdi»ni belgilang. Shundan keyin qolgan tovarlarni yuborish mumkin.\nШаг 7. «Ulanish yo‘q»: IP, kabel, 5001 port, tarozi yoqilgan va kassa bilan bir tarmoqda ekanini tekshiring. Biror narsa noto‘g‘ri bo‘lsa (narx ×100, nom bo‘sh) — ustaga «Almashuv jurnali» faylini (massak-exchange.log) yuboring.",
        "keywords": [
         "памятка",
         "масса-к",
@@ -2312,7 +2613,7 @@
       {
        "id": "весы-памятка-cas",
        "title": "Eslatma: CAS tarozisi — qanday ulash, yuborish va bo‘lmasa nima qilish",
-       "text": "Kassir uchun qisqacha. CAS tarozilari hali jonli tarozida tekshirilmagan — birinchi yuborishni bitta tovar bilan qiling.\n1-qadam. «Sozlamalar → Tarozi» → «CAS» plitkasi → «CAS tarozi sozlamalari» → «Tez sozlash» varag‘i. Modelni tanlang: CL5000J va CL3000 ni kassa tarmoq orqali to‘ldiradi; CL5500, CL5200, CL7200 va LP-1.6 uchun faqat CL-Works dasturiga fayl tayyorlanadi.\n2-qadam. Faqat CL5000J / CL3000 uchun: tarozi IP'sini kiriting (tarozida 1913 menyu; dastlabki uch son kompyuterniki kabi) va «Aloqani tekshirish»ni bosing. Tugma faqat holatni o‘qiydi, tarozida hech narsani o‘zgartirmaydi. Aloqa yo‘q bo‘lsa — kabel, IP, 20304 port va tarozi menyuda emasligini tekshiring.\n3-qadam. «Tovarlar» → «Tarozi» → CAS markasi. Tovarlarni belgilang (birinchi marta — bittasini), PLU ustuni to‘ldirilgan bo‘lsin. Ogohlantirish bo‘lsa «Yuborishdan oldin tekshirish» → «Tuzatish».\n4-qadam. CL5000J / CL3000: «Taroziga yuborish»ni bosing va tasdiqlang. «Tarozi qabul qildi: N» chiqquncha kuting. CL5500 / CL5200 / CL7200 / LP-1.6: «CL-Works uchun faylni saqlash», so‘ng CL-Works da «Fayl → Import → CSV», tovarlarni tekshiring va «Ma’lumot almashuvi → Ma’lumotlarni uzatish».\n5-qadam. Tekshirish: tarozida tovarni PLU bo‘yicha chaqiring — nomi va narxi to‘g‘ri; sinov yorlig‘ini chop etib, kassada skanerlang: o‘sha tovar, o‘sha vazn va summa.\n6-qadam. Kassa yorliqni tanimaydi («… kodli tovar topilmadi»): tarozida prefiks raqamli (20–29) bo‘lim yaratilgan bo‘lishi kerak, shtrix-kod formati CAS sozlamalarining «Shtrix-kod» varag‘idagidek (masalan DDIIIIIWWWWWC), tovarning «Shtrix-koddagi kodi» yorliqdagidek bo‘lishi kerak. Tuzatib, qayta yuboring.\n7-qadam. Tarozi rad etdi («89, 97, 84… xato») yoki javob bermadi: tarozi yoqilgan, menyuda emas, bir xil tarmoq. CAS sozlamalarida «Usta uchun» varag‘i → «Almashuv jurnali» — cas-exchange.log faylini ustaga ko‘rsating.\nKassa taroziga faqat tovar kartochkalarini (PLU) yozadi. Xotirani, bo‘limlarni, shtrix-kod va yorliq formatlarini o‘chirmaydi va o‘zgartirmaydi — ularni tarozining o‘zida yoki CL-Works da o‘rnatiladi.",
+       "text": "Kassir uchun qisqacha. CAS tarozilari hali jonli tarozida tekshirilmagan — birinchi yuborishni bitta tovar bilan qiling.\nШаг 1. «Sozlamalar → Tarozi» → «CAS» plitkasi → «CAS tarozi sozlamalari» → «Tez sozlash» varag‘i. Modelni tanlang: CL5000J va CL3000 ni kassa tarmoq orqali to‘ldiradi; CL5500, CL5200, CL7200 va LP-1.6 uchun faqat CL-Works dasturiga fayl tayyorlanadi.\nШаг 2. Faqat CL5000J / CL3000 uchun: tarozi IP'sini kiriting (tarozida 1913 menyu; dastlabki uch son kompyuterniki kabi) va «Aloqani tekshirish»ni bosing. Tugma faqat holatni o‘qiydi, tarozida hech narsani o‘zgartirmaydi. Aloqa yo‘q bo‘lsa — kabel, IP, 20304 port va tarozi menyuda emasligini tekshiring.\nШаг 3. «Tovarlar» → «Tarozi» → CAS markasi. Tovarlarni belgilang (birinchi marta — bittasini), PLU ustuni to‘ldirilgan bo‘lsin. Ogohlantirish bo‘lsa «Yuborishdan oldin tekshirish» → «Tuzatish».\nШаг 4. CL5000J / CL3000: «Taroziga yuborish»ni bosing va tasdiqlang. «Tarozi qabul qildi: N» chiqquncha kuting. CL5500 / CL5200 / CL7200 / LP-1.6: «CL-Works uchun faylni saqlash», so‘ng CL-Works da «Fayl → Import → CSV», tovarlarni tekshiring va «Ma’lumot almashuvi → Ma’lumotlarni uzatish».\nШаг 5. Tekshirish: tarozida tovarni PLU bo‘yicha chaqiring — nomi va narxi to‘g‘ri; sinov yorlig‘ini chop etib, kassada skanerlang: o‘sha tovar, o‘sha vazn va summa.\nШаг 6. Kassa yorliqni tanimaydi («… kodli tovar topilmadi»): tarozida prefiks raqamli (20–29) bo‘lim yaratilgan bo‘lishi kerak, shtrix-kod formati CAS sozlamalarining «Shtrix-kod» varag‘idagidek (masalan DDIIIIIWWWWWC), tovarning «Shtrix-koddagi kodi» yorliqdagidek bo‘lishi kerak. Tuzatib, qayta yuboring.\nШаг 7. Tarozi rad etdi («89, 97, 84… xato») yoki javob bermadi: tarozi yoqilgan, menyuda emas, bir xil tarmoq. CAS sozlamalarida «Usta uchun» varag‘i → «Almashuv jurnali» — cas-exchange.log faylini ustaga ko‘rsating.\nKassa taroziga faqat tovar kartochkalarini (PLU) yozadi. Xotirani, bo‘limlarni, shtrix-kod va yorliq formatlarini o‘chirmaydi va o‘zgartirmaydi — ularni tarozining o‘zida yoki CL-Works da o‘rnatiladi.",
        "keywords": [
         "памятка",
         "cas",
@@ -2921,7 +3222,7 @@
       {
        "id": "частые-вопросы-нет-интернета-можно-ли-продавать",
        "title": "Internet yo'q — sotish mumkinmi?",
-       "text": "Шаг 1. Ha, odatdagidek sotishda davom eting: cheklar kassada saqlanadi.\nШаг 2. Yuqori panelda «Oflayn» yozuvi va «Navbatda: N» hisoblagichi chiqadi — bu yuborilmagan cheklar soni.\nШаг 3. Aloqa tiklanganda cheklar serverga avtomatik yuboriladi.\nШаг 4. Yuborilmagan cheklarni ☰ → «Ish» → «Noto'g'ri cheklar» bo'limida tekshirish va «Qayta yuborish» tugmasi bilan qayta yuborish mumkin.\nВажно: Internetsiz inventarizatsiya va hisobdan chiqarish bajarilmaydi. NurCRM hisobisiz to'liq avtonom ishlash kirish ekranidagi «Oflayn ishlash (internetsiz)» orqali kalit bilan yoqiladi.",
+       "text": "Шаг 1. Ha, odatdagidek sotishda davom eting: cheklar kassada saqlanadi.\nШаг 2. Yuqori panelda «Oflayn» yozuvi va «Navbatda: N» hisoblagichi chiqadi — bu yuborilmagan cheklar soni.\nШаг 3. Aloqa tiklanganda cheklar serverga avtomatik yuboriladi.\nШаг 4. Serverga hali ketmagan hamma narsa (cheklar, qaytarishlar, kirimlar, hisobdan chiqarishlar) ☰ → «Yuborilmadi» bo'limida ko'rinadi — «Hozir yuborish» ham o'sha yerda. Muammoli cheklar — ☰ → «Ish» → «Noto'g'ri cheklar», «Qayta yuborish» tugmasi.\nВажно: Aloqasiz hisobdan chiqarish, ko'chirish va kirim eslab qolinadi va o'zi ketadi; egasining PIN kodini tekshiradigan inventarizatsiya aloqani talab qiladi. NurCRM hisobisiz to'liq avtonom ishlash kirish ekranidagi «Oflayn ishlash (internetsiz)» orqali kalit bilan yoqiladi.",
        "keywords": [
         "internet yo'q",
         "нет интернета",

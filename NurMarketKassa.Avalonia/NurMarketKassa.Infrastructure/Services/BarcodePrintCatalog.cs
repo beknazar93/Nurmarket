@@ -8,7 +8,8 @@ using NurMarketKassa.Models.Pos;
 namespace NurMarketKassa.Services;
 
 /// <summary>Фильтр списка окна «Печать штрихкодов и ценников» по наличию штрихкода.</summary>
-public enum BarcodeFilter { All, WithBarcode, WithoutBarcode, WithProblems }
+/// <summary>2026-11-19: Scanned — «Только отсканированные» (товары, отсканированные в этой сессии окна); сам список ограничивает окно, не Search; в настройках не запоминается.</summary>
+public enum BarcodeFilter { All, WithBarcode, WithoutBarcode, WithProblems, Scanned }
 
 /// <summary>Один штрихкод товара для выбора на карточке: основной или дополнительный (alternate_barcodes).</summary>
 public sealed record BarcodeChoice(string Code, bool IsMain, string? VariantName, double Quantity = 0, bool IsSize = false, double? Price = null);

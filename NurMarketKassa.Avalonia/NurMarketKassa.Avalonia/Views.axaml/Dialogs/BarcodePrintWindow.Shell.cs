@@ -65,6 +65,8 @@ public sealed class BarcodePrintWindow : Window
         if (!PaidFeatureGate.EnsureUnlocked(PaidFeature.BulkPriceTag, owner))
             return;
         var window = new BarcodePrintWindow();
+        if (PosDialogHost.IsDuplicateOpen(window)) // 2026-11-19 (список владельца, п. 7): двойное нажатие — второе окно не открываем
+            return;
         if (owner is null)
         {
             window.Show();
@@ -83,6 +85,8 @@ public sealed class BarcodePrintWindow : Window
             return;
         var window = new BarcodePrintWindow(false);
         window.ApplyPreset(items);
+        if (PosDialogHost.IsDuplicateOpen(window)) // 2026-11-19 (список владельца, п. 7): двойное нажатие — второе окно не открываем
+            return;
         if (owner is null)
         {
             window.Show();

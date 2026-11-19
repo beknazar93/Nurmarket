@@ -27,6 +27,10 @@ public static class BarChartRenderer
     private const string AccentYellow = "#FFB208";
     private const string SeriesBlue = "#5470E1";
 
+    /// <summary>2026-11-19 (живой обход владельца): пустой график при «Сегодня» — не просто «Нет данных», а подсказка выбрать более длинный период.</summary>
+    private static string NoDataText() => Tr.T("Нет данных за период — выберите «Неделя» или «Месяц».", "Мезгил боюнча маалымат жок — «Апта» же «Ай» тандаңыз.",
+        "No data for the period — pick “Week” or “Month”.", "Dönem için veri yok — «Hafta» veya «Ay» seçin.", "Davr bo'yicha ma'lumot yo'q — «Hafta» yoki «Oy»ni tanlang.");
+
     /// <param name="barBrush">Один цвет всех полос (для ВРЕМЕННОГО ряда есть RenderTimeSeriesBars); null — у каждой полосы свой цвет
     /// из палитры по названию (2026-10-26: рейтинги товаров и категорий снова разноцветные по просьбе владельца; с 2026-10-19 были одним цветом).</param>
     public static void Render(StackPanel container, IReadOnlyList<(string Label, double Value, string ValueText)> items, IBrush? barBrush = null)
@@ -36,7 +40,7 @@ public static class BarChartRenderer
         {
             container.Children.Add(new TextBlock
             {
-                Text = Tr.T("Нет данных", "Маалымат жок", "No data", "Veri yok", "Ma'lumot yo'q"),
+                Text = NoDataText(),
                 FontSize = 12,
                 Foreground = ThemeInk.Soft,
             });
@@ -103,7 +107,7 @@ public static class BarChartRenderer
         container.Children.Clear();
         if (items.Count == 0)
         {
-            container.Children.Add(new TextBlock { Text = Tr.T("Нет данных", "Маалымат жок", "No data", "Veri yok", "Ma'lumot yo'q"), FontSize = 12, Foreground = ThemeInk.Soft });
+            container.Children.Add(new TextBlock { Text = NoDataText(), FontSize = 12, Foreground = ThemeInk.Soft });
             return;
         }
 
@@ -233,7 +237,7 @@ public static class BarChartRenderer
         {
             container.Children.Add(new TextBlock
             {
-                Text = Tr.T("Нет данных", "Маалымат жок", "No data", "Veri yok", "Ma'lumot yo'q"),
+                Text = NoDataText(),
                 FontSize = 12,
                 Foreground = ThemeInk.Soft,
             });
@@ -864,7 +868,7 @@ public static class BarChartRenderer
         {
             container.Children.Add(new TextBlock
             {
-                Text = Tr.T("Нет данных", "Маалымат жок", "No data", "Veri yok", "Ma'lumot yo'q"),
+                Text = NoDataText(),
                 FontSize = 12,
                 Foreground = ThemeInk.Soft,
             });
@@ -1011,7 +1015,7 @@ public static class BarChartRenderer
         {
             container.Children.Add(new TextBlock
             {
-                Text = Tr.T("Нет данных", "Маалымат жок", "No data", "Veri yok", "Ma'lumot yo'q"),
+                Text = NoDataText(),
                 FontSize = 12,
                 Foreground = ThemeInk.Soft,
             });

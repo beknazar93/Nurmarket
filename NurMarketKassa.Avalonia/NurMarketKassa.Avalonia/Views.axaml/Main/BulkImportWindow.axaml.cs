@@ -50,11 +50,17 @@ public partial class BulkImportWindow : Window
 
     public static void Open(Window? owner)
     {
+        // 2026-11-19 (список владельца, п. 7): «Старая загрузка» из мастера открывала новое окно при каждом нажатии (окно оказывалось
+        // под мастером, нажимали снова) — теперь одно окно на программу: повтор выводит открытое вперёд.
+        const string key = "BulkImportWindow";
+        if (NurMarketKassa.AvaloniaHost.Views.Dialogs.WindowSingleton.TryActivate(key))
+            return;
         var window = new BulkImportWindow();
         if (owner != null)
             window.Show(owner);
         else
             window.Show();
+        NurMarketKassa.AvaloniaHost.Views.Dialogs.WindowSingleton.Register(key, window);
     }
 
     // 2026-10-29: срочный баг клиента — любое исключение в async void обработчике уходило в общий диалог

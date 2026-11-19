@@ -178,7 +178,8 @@ public sealed partial class BulkImportWizardWindow : Window
         _paste.Click += async (_, _) => await GuardAsync(PasteAsync, "вставка из буфера").ConfigureAwait(true);
         _tplXlsx.Click += async (_, _) => await GuardAsync(() => SaveTemplateAsync(xlsx: true), "шаблон Excel").ConfigureAwait(true);
         _tplCsv.Click += async (_, _) => await GuardAsync(() => SaveTemplateAsync(xlsx: false), "шаблон CSV").ConfigureAwait(true);
-        _oldImport.Click += (_, _) => BulkImportWindow.Open(Owner as Window);
+        // 2026-11-19 (список владельца, п. 7): владелец старого окна — сам мастер (раньше его владелец, и окно пряталось под мастером).
+        _oldImport.Click += (_, _) => BulkImportWindow.Open(this);
         ToolTip.SetTip(_oldImport, T("Прежнее окно: количество из CSV ЗАМЕНЯЕТ остаток товара (не прибавляется).",
             "Мурунку терезе: CSV'деги сан товардын калдыгын АЛМАШТЫРАТ (кошулбайт).",
             "The previous window: the quantity from CSV REPLACES the product stock (it is not added).",

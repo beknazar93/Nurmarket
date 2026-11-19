@@ -600,6 +600,10 @@ public sealed partial class UserPreferences
     public bool TradeInUnlocked { get => _keyTradeInUnlocked || ServerAddons.IsGranted("trade_in", LastDataAccountKey); set => _keyTradeInUnlocked = value; }
     private bool _keyTradeInUnlocked;
 
+    /// <summary>2026-11-19 («Смета», ТЗ 19.11): модуль «Смета» включён в Маркетплейсе (бесплатно, без ключа; в сфере «Хозтовары и стройматериалы» доступен и без этого — см. <see cref="EstimateFeature"/>).
+    /// Данные смет — локальный файл estimates.json (EstimateStore).</summary>
+    public bool EstimateEnabled { get; set; }
+
     /// <summary>Доп. услуга "Весы" (2026-09-21, по просьбе владельца — "весы надо добавить в
     /// доп услуги в тарифе старт") — на тарифе «Старт» отправка PLU на весы (Штрих-М/Rongta,
     /// экран Настройки → Весы) требует серийного номера, как остальные карточки в Маркетплейс →

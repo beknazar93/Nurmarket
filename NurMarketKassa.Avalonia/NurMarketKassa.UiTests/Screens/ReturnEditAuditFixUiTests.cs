@@ -866,12 +866,13 @@ public sealed class ReturnEditAuditFixUiTests
         {
             _ = dialog.ShowDialog<bool>(owner);
             UiShot.Settle(3);
-            dialog.SetQtyForTests(80, "1.5"); // штучный товар (шт) — только целое число
+            // 2026-11-19: в Supplier.Card весовая каждая третья строка (i % 3 == 2) — строка 80 «кг», дробное ей можно; штучная — строка 79 («Товар №80», шт)
+            dialog.SetQtyForTests(79, "1.5"); // штучный товар (шт) — только целое число
             dialog.SetReasonForTests("ошиблись количеством");
             await Finish(dialog.SaveForTestsAsync());
-            dialog.ErrorText.Should().Contain("Товар №81").And.Contain("целое");
-            dialog.RowBoxesForTests(80).Qty.Should().NotBeNull();
-            dialog.FocusedRowForTests.Should().Be(80);
+            dialog.ErrorText.Should().Contain("Товар №80").And.Contain("целое");
+            dialog.RowBoxesForTests(79).Qty.Should().NotBeNull();
+            dialog.FocusedRowForTests.Should().Be(79);
         }
         finally
         {

@@ -24,6 +24,7 @@
   <x:String x:Key="csh.menu.rental">Kiralama</x:String>
   <x:String x:Key="csh.menu.repair">Tamir ve servis</x:String>
   <x:String x:Key="csh.menu.tradeIn">Trade-in / alım</x:String>
+  <x:String x:Key="csh.menu.estimate">Keşif</x:String>
   <x:String x:Key="csh.menu.settings">Ayarlar</x:String>
   <x:String x:Key="csh.menu.marketplace">Pazaryeri</x:String>
   <x:String x:Key="csh.menu.crm">NurCRM</x:String>
@@ -125,7 +126,7 @@
   <x:String x:Key="csh.cart.scanTitle">Ürünü okutun</x:String>
   <x:String x:Key="csh.cart.scanHint">Tarayıcı ekranın her yerinden çalışır.&#x0a;Ya da arama alanına kod / ad yazın.</x:String>
   <x:String x:Key="csh.cart.keysLink">Tuşlar: ?</x:String>
-  <x:String x:Key="csh.menu.firstRunWizard">İlk başlangıç sihirbazı</x:String>
+  <x:String x:Key="csh.menu.firstRunWizard">Eğitim: kasa turu</x:String>
   <x:String x:Key="csh.menu.trainingSale">Eğitim satışı</x:String>
   <x:String x:Key="hotkeyGroup.title">Kısayol</x:String>
   <x:String x:Key="header.labelCustomerDisplay">Ekran</x:String>
@@ -664,6 +665,7 @@
   <x:String x:Key="posSettings.navAccount">Hesap</x:String>
   <x:String x:Key="posSettings.navEmployees">Personel</x:String>
   <x:String x:Key="posSettings.navKeys">Tuşlar</x:String>
+  <x:String x:Key="posSettings.navAi">Yapay zeka</x:String>
   <x:String x:Key="posSettings.keysSubtitle">Kasada hangi tuş ne yapar</x:String>
   <x:String x:Key="employees.subtitle">Sepetten silme, ürün silme, düzenleme ve ekleme için kişisel erişim kodları — kodu olmayan personel bu işlemleri yapamaz (sahip/yönetici kodsuz işlem yapar)</x:String>
   <x:String x:Key="employees.addButton">+ Personel ekle</x:String>
@@ -1488,7 +1490,9 @@
   <x:String x:Key="scaleSetup.ai.hint">AI tartıların ortak protokolü yok — her model kendi programıyla gelir. Kasa bir dosya kaydeder (PLU, ad, birim, fiyat), siz onu tartı programıyla yüklersiniz. Adres gerekmez.</x:String>
   <x:String x:Key="scaleSetup.btn.check">Bağlantıyı kontrol et</x:String>
   <x:String x:Key="scaleSetup.btn.find">Ağda bul…</x:String>
-  <x:String x:Key="scaleSetup.btn.settings">Tartı ayarları…</x:String>
+  <x:String x:Key="scaleSetup.btn.settings">Tartıyı ayarla…</x:String>
+  <x:String x:Key="scaleSetup.btn.master">Teknisyen için…</x:String>
+  <x:String x:Key="scaleSetup.quickHint">3 adımda hızlı kurulum: 1) hangi tartı ve adresi, 2) bağlantıyı kontrol, 3) ürünleri gönder. «Tartıyı ayarla…» düğmesiyle açın. Portlar ve dosyalar «Teknisyen için…» bölümünde.</x:String>
   <x:String x:Key="scaleSetup.btn.send">Ürünleri gönder</x:String>
   <x:String x:Key="scaleSetup.barcode.open">Ağırlık / tutar →</x:String>
   <x:String x:Key="scaleSetup.barcode.title">Kasa tartı etiketindeki barkodu nasıl okur</x:String>

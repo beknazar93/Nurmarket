@@ -308,10 +308,10 @@ public partial class WarehouseWindow
         }
         RcvColName.MinWidth = 170;
         ReceivingGrid.RowHeight = compact ? 48 : 52;
-        ReceivingGrid.ColumnHeaderHeight = compact ? 40 : 44;
+        ReceivingGrid.ColumnHeaderHeight = ReceivingHeaderHeight(compact);
         var widths = compact
-            ? new (DataGridColumn Column, double Width)[] { (RcvColNo, 40), (RcvColUnit, 48), (RcvColQty, 96), (RcvColPurchase, 88), (RcvColMarkup, 80), (RcvColSale, 84), (RcvColChange, 100), (RcvColAuto, 128), (RcvColTotal, 92), (RcvColRemove, 44) }
-            : new (DataGridColumn Column, double Width)[] { (RcvColNo, 44), (RcvColBarcode, 120), (RcvColUnit, 48), (RcvColWas, 80), (RcvColQty, 96), (RcvColPurchase, 88), (RcvColMarkup, 76), (RcvColSale, 84), (RcvColChange, 128), (RcvColAuto, 144), (RcvColProfit, 84), (RcvColTotal, 92), (RcvColRemove, 44) };
+            ? new (DataGridColumn Column, double Width)[] { (RcvColNo, 40), (RcvColUnit, 48), (RcvColQty, 100), (RcvColPurchase, 88), (RcvColMarkup, 80), (RcvColSale, 84), (RcvColChange, 100), (RcvColAuto, 128), (RcvColTotal, 92), (RcvColRemove, 44) }
+            : new (DataGridColumn Column, double Width)[] { (RcvColNo, 44), (RcvColBarcode, 120), (RcvColUnit, 48), (RcvColWas, 80), (RcvColQty, 100), (RcvColPurchase, 88), (RcvColMarkup, 76), (RcvColSale, 84), (RcvColChange, 128), (RcvColAuto, 144), (RcvColProfit, 84), (RcvColTotal, 92), (RcvColRemove, 44) };
         foreach (var (column, colWidth) in widths)
             if (column.Width.Value != colWidth)
                 column.Width = new DataGridLength(colWidth);

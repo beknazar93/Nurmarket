@@ -91,7 +91,8 @@ public sealed class FirstRunWizardWindow : Window
                 "Beş kısa adım — sonra satışa başlayabilirsiniz. Her adım atlanabilir, sonra dönebilirsiniz: ☰ menü → «Yardım».",
                 "Besh qisqa qadam — va sotishingiz mumkin. Istalgan qadamni o'tkazib, keyin qaytish mumkin: ☰ menyu → «Yordam»."),
             Hint = _stepText,
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, HorizontalAlignment = HorizontalAlignment.Right, Children = { _later, _back, _next } },
+            // 2026-11-19 (владелец п. 8): три кнопки в ряд не влезали в 672 px — «Начать учебную продажу» обрезалась справа (ky/uz длиннее). WrapPanel переносит лишнюю кнопку строкой ниже.
+            Footer = new WrapPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Children = { _later, _back, _next } },
             Content = _body,
         };
         PosLogger.Log("[UI] Мастер первого запуска: открыт.", "SETTINGS");

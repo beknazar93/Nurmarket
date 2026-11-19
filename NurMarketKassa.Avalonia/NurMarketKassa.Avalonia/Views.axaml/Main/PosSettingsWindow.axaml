@@ -267,6 +267,14 @@
                 <TextBlock Text="{DynamicResource posSettings.navKeys}"/>
               </StackPanel>
             </Button>
+            <Button x:Name="NavAi" Classes="SettingsTab" Tag="10" Click="SidebarNav_Click"
+                    AutomationProperties.Name="{DynamicResource posSettings.navAi}"
+                    ToolTip.Tip="{DynamicResource posSettings.navAi}">
+              <StackPanel>
+                <PathIcon Data="{StaticResource IconStar}"/>
+                <TextBlock Text="{DynamicResource posSettings.navAi}"/>
+              </StackPanel>
+            </Button>
               </UniformGrid>
             </ScrollViewer>
             <Button x:Name="NavScrollRight" Grid.Column="2" Classes="top-tool" IsVisible="False" Focusable="False" Width="32" MinWidth="32"

@@ -24,6 +24,7 @@
   <x:String x:Key="csh.menu.rental">Прокат</x:String>
   <x:String x:Key="csh.menu.repair">Оңдоо жана тейлөө</x:String>
   <x:String x:Key="csh.menu.tradeIn">Trade-in / сатып алуу</x:String>
+  <x:String x:Key="csh.menu.estimate">Смета</x:String>
   <x:String x:Key="csh.menu.settings">Жөндөөлөр</x:String>
   <x:String x:Key="csh.menu.marketplace">Маркетплейс</x:String>
   <x:String x:Key="csh.menu.crm">NurCRM</x:String>
@@ -125,7 +126,7 @@
   <x:String x:Key="csh.cart.scanTitle">Товарды сканерлеңиз</x:String>
   <x:String x:Key="csh.cart.scanHint">Сканер экрандын каалаган жеринен иштейт.&#x0a;Же издөө талаасына кодун / атын жазыңыз.</x:String>
   <x:String x:Key="csh.cart.keysLink">Баскычтар: ?</x:String>
-  <x:String x:Key="csh.menu.firstRunWizard">Биринчи ишке киргизүү чебери</x:String>
+  <x:String x:Key="csh.menu.firstRunWizard">Үйрөнүү: кассадагы экскурсия</x:String>
   <x:String x:Key="csh.menu.trainingSale">Окуу сатуусу</x:String>
   <x:String x:Key="hotkeyGroup.title">Ыкчам баскыч</x:String>
   <x:String x:Key="header.labelCustomerDisplay">Экран</x:String>
@@ -664,6 +665,7 @@
   <x:String x:Key="posSettings.navAccount">Аккаунт</x:String>
   <x:String x:Key="posSettings.navEmployees">Кызматкерлер</x:String>
   <x:String x:Key="posSettings.navKeys">Баскычтар</x:String>
+  <x:String x:Key="posSettings.navAi">ЖИ</x:String>
   <x:String x:Key="posSettings.keysSubtitle">Кассада кайсы баскыч эмне кылат</x:String>
   <x:String x:Key="employees.subtitle">Себеттен өчүрүү, товарды өчүрүү, түзөтүү жана кошуу үчүн жеке кирүү коддору — коду жок кызматкер бул аракеттерди аткара албайт (ээси/админ коду жок эле аткара берет)</x:String>
   <x:String x:Key="employees.addButton">+ Кызматкер кошуу</x:String>
@@ -1488,7 +1490,9 @@
   <x:String x:Key="scaleSetup.ai.hint">AI таразанын жалпы протоколу жок — ар бир модель өз программасы менен келет. Касса файлды сактайт (PLU, аталышы, бирдиги, баасы), аны сиз тараза программасы менен жүктөйсүз. Дарек керек эмес.</x:String>
   <x:String x:Key="scaleSetup.btn.check">Байланышты текшерүү</x:String>
   <x:String x:Key="scaleSetup.btn.find">Тармактан табуу…</x:String>
-  <x:String x:Key="scaleSetup.btn.settings">Тараза жөндөөлөрү…</x:String>
+  <x:String x:Key="scaleSetup.btn.settings">Таразаны жөндөө…</x:String>
+  <x:String x:Key="scaleSetup.btn.master">Уста үчүн…</x:String>
+  <x:String x:Key="scaleSetup.quickHint">Тез жөндөө 3 кадамда: 1) кайсы тараза жана дареги, 2) байланышты текшерүү, 3) товарларды жөнөтүү. «Таразаны жөндөө…» баскычы менен ачыңыз. Порттор жана алмашуу файлдары — «Уста үчүн…» ичинде.</x:String>
   <x:String x:Key="scaleSetup.btn.send">Товарларды жөнөтүү</x:String>
   <x:String x:Key="scaleSetup.barcode.open">Салмак / сумма →</x:String>
   <x:String x:Key="scaleSetup.barcode.title">Касса тараза этикеткасындагы штрих-кодду кантип окуйт</x:String>

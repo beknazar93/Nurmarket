@@ -43,7 +43,7 @@ public partial class WarehouseWindow
     private TextBlock _bulkLastScan = null!;
     /// <summary>2026-10-24 (приёмка, ПР-11): строка, по которой написан «✓ …» в строке последнего скана, — чтобы «−»/«+» обновляли число.</summary>
     private BulkScanRow? _bulkLastScanRow;
-    private TextBlock _bulkEmpty = null!;
+    private Control _bulkEmpty = null!;
     private Control _bulkHeader = null!;
     private TextBox _bulkScanBox = null!;
     private readonly ObservableCollection<string> _bulkCategories = new();
@@ -198,16 +198,23 @@ public partial class WarehouseWindow
             };
         });
         var listScroll = _bulkList;
-        _bulkEmpty = new TextBlock
+        // 2026-11-19 («Неудобства от владельца», п. 10: «пустая тёмная пустыня с мелким текстом»): пустой список — блок состояния с понятным действием
+        // («Сканируйте штрихкод» + «Загрузить из файла»), а не одна мелкая строка посреди пустой области.
+        var bulkEmptyButtons = new WrapPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
+        bulkEmptyButtons.Children.Add(EmptyAction(TrB("Загрузить из файла (Excel)", "Файлдан жүктөө (Excel)", "Import from a file (Excel)", "Dosyadan yükle (Excel)", "Fayldan yuklash (Excel)"), primary: false, BulkImport_Click));
+        _bulkEmpty = new StackPanel
         {
-            Text = TrB("Список пуст. Отсканируйте первый штрихкод.", "Тизме бош. Биринчи штрихкодду сканерлеңиз.",
-                "The list is empty. Scan the first barcode.", "Liste boş. İlk barkodu okutun.", "Ro'yxat bo'sh. Birinchi shtrix-kodni skanerlang."),
-            FontSize = 15,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-            TextWrapping = TextWrapping.Wrap,
+            Spacing = 4, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, MaxWidth = 560,
+            Children =
+            {
+                StateBlock.Empty(
+                    TrB("Сканируйте штрихкод", "Штрихкодду сканерлеңиз", "Scan a barcode", "Barkod okutun", "Shtrix-kodni skanerlang"),
+                    TrB("Каждый скан добавляет товар в список. Потом проверьте названия и цены и нажмите «Загрузить всё».", "Ар бир скан товарды тизмеге кошот. Андан кийин аталыштарды жана бааларды текшерип, «Баарын жүктөө» баскычын басыңыз.",
+                        "Each scan adds a product to the list. Then check the names and prices and press “Load all”.", "Her okutma listeye bir ürün ekler. Sonra adları ve fiyatları kontrol edip «Hepsini yükle»ye basın.",
+                        "Har bir skan mahsulotni ro'yxatga qo'shadi. So'ng nomlar va narxlarni tekshirib, «Hammasini yuklash»ni bosing.")),
+                bulkEmptyButtons,
+            },
         };
-        _bulkEmpty.Bind(TextBlock.ForegroundProperty, _bulkEmpty.GetResourceObservable("BrushTextSoft"));
         var listArea = new Grid();
         listArea.Children.Add(listScroll);
         listArea.Children.Add(_bulkEmpty);
@@ -683,6 +690,7 @@ public partial class WarehouseWindow
 
         var remove = BulkButton("✕", false, 44);
         remove.Width = 44;
+        remove.Height = 44; // 2026-11-19: глиф «✕» берётся из запасного шрифта и с отступами новой шкалы раздувал кнопку до 56 px (строка 74 вместо ≤ 68) — высота фиксируется на цели касания 44
         remove.Click += (_, _) => _bulk.Remove(row);
         ToolTip.SetTip(remove, TrB("Убрать строку", "Сапты өчүрүү", "Remove the row", "Satırı kaldır", "Qatorni olib tashlash"));
 

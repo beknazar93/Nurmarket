@@ -23,7 +23,8 @@ public sealed class BarcodePrintSettings
     public string? A4PrinterName { get; set; }
 
     // 2026-11-01 (пакеты из веба, П-4/П-5/П-9). Всё необязательно: нет поля в файле — прежнее поведение.
-    /// <summary>«Копии»: "default" — «по умолчанию», "stock" — «= остаток» (целое 1..99; дробное и весовое = 1).</summary>
+    /// <summary>«Сколько на товар»: "default" — «По одной» (+ «Копий каждой»), "stock" — «По остатку» (целое 1..99; дробное и весовое = 1),
+    /// "manual" (2026-11-19) — «Вручную» (по умолчанию 1, число — в карточке товара).</summary>
     public string CopiesMode { get; set; } = "default";
     /// <summary>Режим сканера «скан → в печать».</summary>
     public bool ScanToQueue { get; set; }
@@ -32,6 +33,19 @@ public sealed class BarcodePrintSettings
     public int LastFilter { get; set; }
     public string? LastCategory { get; set; }
     public int LastPage { get; set; }
+
+    /// <summary>2026-11-19 («Неудобства от владельца», п. 11): сохранённые шаблоны ценника («Мои шаблоны») — имя, шаблон этикетки целиком и копии.
+    /// Поля нет в старом файле — список пуст, прежние настройки и шаблон этикетки читаются как раньше.</summary>
+    public List<BarcodeLabelPreset> Presets { get; set; } = new();
+}
+
+/// <summary>2026-11-19: сохранённый шаблон ценника (размер, поля, шрифт, штрихкод — в <see cref="Template"/>; копии — рядом).</summary>
+public sealed class BarcodeLabelPreset
+{
+    public string Name { get; set; } = "";
+    public LabelTemplate Template { get; set; } = new();
+    public int DefaultCopies { get; set; } = 1;
+    public string CopiesMode { get; set; } = "default";
 }
 
 /// <summary>Файл barcode-print-settings.json рядом с шаблоном этикетки. Ошибки чтения/записи не бросаются — окно работает с умолчаниями.</summary>
@@ -59,13 +73,15 @@ public static class BarcodePrintSettingsStore
                 s.A4.StartCell = Math.Clamp(s.A4.StartCell, 1, 400);
                 s.A4.OffsetXmm = Math.Clamp(s.A4.OffsetXmm, -10, 10);
                 s.A4.OffsetYmm = Math.Clamp(s.A4.OffsetYmm, -10, 10);
-                if (s.CopiesMode != "stock")
-                    s.CopiesMode = "default";
+                s.CopiesMode = LabelPrintMath.NormalizeMode(s.CopiesMode); // 2026-11-19: добавлен режим "manual"; старые значения читаются как раньше
                 if (s.LastSearch is { Length: > 200 })
                     s.LastSearch = s.LastSearch[..200];
                 s.LastPage = Math.Max(s.LastPage, 0);
                 s.DefaultCopies = Math.Clamp(s.DefaultCopies, 1, 99);
                 s.A4Copies = Math.Clamp(s.A4Copies, 1, 99);
+                // 2026-11-19: «Мои шаблоны» — пустые и битые записи отбрасываются, не больше 30.
+                s.Presets = (s.Presets ?? new List<BarcodeLabelPreset>())
+                    .Where(x => x is { Template: not null } && !string.IsNullOrWhiteSpace(x.Name)).Take(30).ToList();
                 return s;
             }
         }

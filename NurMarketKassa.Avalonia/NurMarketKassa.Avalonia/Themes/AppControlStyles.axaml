@@ -70,6 +70,22 @@
     <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ContentPresenter, Tree=Visual}}"/>
   </Style>
 
+  <!-- 2026-11-19 (список владельца, п. 5: «вертикальный ползунок справа мешает, резервирует место»): полосы прокрутки во всей программе не занимают
+       место. ScrollViewer — полоса поверх содержимого, тонкая, появляется только при прокрутке и пропадает (AllowAutoHide). В модальных окнах и
+       у списков с классом hide-scrollbar полоса скрыта совсем (колесо, тач-протяжка и инерция работают как раньше — прячется только сама полоса).
+       Тач-протяжка пальцем и двумя пальцами — штатная у ScrollContentPresenter (ScrollGestureRecognizer), её никто не отключает. DataGrid:
+       горизонтальная полоса остаётся тонкой (ScrollBarSize ниже), вертикальная — тонкая и без резерва ширины сверх этого. -->
+  <Styles.Resources>
+    <x:Double x:Key="ScrollBarSize">8</x:Double>
+  </Styles.Resources>
+  <Style Selector="ScrollViewer">
+    <Setter Property="AllowAutoHide" Value="True"/>
+  </Style>
+  <Style Selector="ScrollViewer.hide-scrollbar /template/ ScrollBar">
+    <Setter Property="Opacity" Value="0"/>
+    <Setter Property="IsHitTestVisible" Value="False"/>
+  </Style>
+
   <!-- CheckBox/ToggleSwitch/ComboBox — та же плавная смена фона/рамки. -->
   <Style Selector="ComboBox /template/ Border#PART_Border">
     <Setter Property="Transitions">

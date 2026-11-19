@@ -408,6 +408,7 @@ public partial class SideMenuView : UserControl
         ["MiRental"] = "прокат аренда rent rental ижара kira ijara prokat",
         ["MiRepair"] = "ремонт сервис квитанция repair service tamir servis оңдоо ta'mir",
         ["MiTradeIn"] = "трейд ин скупка выкуп б/у trade-in buyback used alım sotib olish сатып алуу",
+        ["MiEstimate"] = "смета расчёт материала калькулятор стройка ремонт estimate calculator keşif hesap smeta kalkulyator",
         ["MiClients"] = "клиент клиенты покупатель customer client кардар müşteri musteri mijoz xaridor",
         ["MiDeferredCarts"] = "отлож отложенные корзина пауза hold held deferred калтыр кийинкиге bekle kechiktir savat",
         ["MiWarehouse"] = "склад товар товары остаток stock warehouse inventory кампа товар depo stok ombor tovar",
@@ -436,7 +437,7 @@ public partial class SideMenuView : UserControl
         ["MiSupport"] = "поддержка помощь техподдержка удалённая support help remote колдоо жардам destek yardım yordam",
         ["MiKnowledgeBase"] = "база знаний справка инструкция помощь faq knowledge help билим bilgi bilim yordam",
         // 2026-11-13 (Н-1): мастер первого запуска и учебная продажа — слова поиска на 5 языках.
-        ["MiFirstRunWizard"] = "мастер первый запуск начало настройка помощь wizard first start setup чебер биринчи ишке киргизүү sihirbaz ilk başlangıç usta birinchi ishga tushirish",
+        ["MiFirstRunWizard"] = "обучение экскурсия tutorial tour үйрөнүү eğitim o'rgatish мастер первый запуск начало настройка помощь wizard first start setup чебер биринчи ишке киргизүү sihirbaz ilk başlangıç usta birinchi ishga tushirish",
         ["MiTrainingSale"] = "учебная продажа учебный режим обучение тренировка помощь training sale practice demo окуу сатуу режим eğitim satışı o'quv sotuvi",
         ["MiCashOperation"] = "внесение изъятие деньги касса наличные cash in out акча салуу алуу nakit kirim chiqim pul",
         ["MiFindCloseShift"] = "закрыть смену смена close shift сменаны жабуу vardiya kapat smena yopish",

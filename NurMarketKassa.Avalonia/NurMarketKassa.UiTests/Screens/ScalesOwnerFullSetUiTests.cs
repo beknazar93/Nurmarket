@@ -171,7 +171,9 @@ public sealed class ScalesOwnerFullSetUiTests : IDisposable
             TabVisible(view, "TabBarcodeButton").Should().BeTrue("«Штрих-код: вес / сумма» — и в кассе");
             TabVisible(view, "TabWeighingButton").Should().BeTrue("COM-весы — оборудование кассы");
             TabVisible(view, "TabDisplayButton").Should().BeTrue("табло цены — оборудование кассы");
-            view.FindControl<Border>("SaveBlock")!.IsVisible.Should().BeTrue("в кассе «Сохранить» на месте");
+            // 2026-11-19: в окне настроек кассы «Сохранить» страницы прячется (его заменяет закреплённая внизу окна кнопка), а карточка SaveBlock видна только когда в ней
+            // есть кнопка или надпись «Сохранено…» (ScaleSettingsView.UpdateSaveBlockVisibility) — раньше оставалась пустая полоса под содержимым. Проверяем это правило, а не «всегда видна».
+            view.FindControl<Border>("SaveBlock")!.IsVisible.Should().Be(view.SaveButton.IsVisible || !string.IsNullOrEmpty(view.FindControl<TextBlock>("SaveStatusText")!.Text), "в кассе карточка «Сохранить» видна, когда в ней есть кнопка или надпись, и не остаётся пустой полосой");
             view.SaveButton.CornerRadius.TopLeft.Should().BeGreaterThan(0, "Д-20: у «Сохранить» скруглённые углы");
             view.SaveButton.GetVisualAncestors().Should().Contain(view.FindControl<Border>("SaveBlock")!, "Д-20: кнопка в подвале карточки");
             view.SaveButton.HorizontalAlignment.Should().Be(Avalonia.Layout.HorizontalAlignment.Right, "Д-20: не по центру");

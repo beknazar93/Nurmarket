@@ -33,9 +33,11 @@ public partial class WarehouseWindow
 
     // Ширина колонки «Действия»: с подписями и только значками (3 × 36 + промежутки + отступ 12 от полосы прокрутки
     // + поля ячейки 12 + 12).
-    private const double RowActionsWideWidth = 350;
+    // 2026-11-19 («Неудобства от владельца», п. 10): в строке остались «Изменить» и «⋯» («Остаток» — нажатием на плашку остатка и в «⋯», «Печать этикетки» — в «⋯»):
+    // 350 → 200 с подписью, 222 → 146 значками (44 + 6 + 48 + отступ 20 + поля ячейки 24). Освободившееся место — названию товара.
+    private const double RowActionsWideWidth = 200;
     // 2026-10-29: «⋯» 48 dp и отступ справа 20 — 156 → 172.
-    private const double RowActionsCompactWidth = 222;
+    private const double RowActionsCompactWidth = 146;
     // Наименьшая ширина названия (MinWidth в WarehouseWindow.axaml) и в узкой таблице: в разделе владельца на экране
     // 1024 (таблица ~868) иначе появлялась прокрутка вбок, и полоса прокрутки ложилась на «⋯».
     // 2026-11-01: в строке добавлен значок «🏷 Печать этикетки» (44 px) — колонка действий шире на 50 px.
@@ -59,7 +61,11 @@ public partial class WarehouseWindow
             others += columns[i].Width.IsAbsolute ? columns[i].Width.Value : columns[i].ActualWidth;
         // 32 — рамка таблицы, полоса прокрутки и поля строк.
         var compact = e.NewSize.Width < NameMinWidth + others + RowActionsWideWidth + 32;
+        var wasCompact = ProductsGrid.Classes.Contains("row-compact");
         ProductsGrid.Classes.Set("row-compact", compact);
+        if (wasCompact != compact)
+            UpdatePrintPickButton(); // 2026-11-19: короткая подпись «Ценники» в узкой таблице
+        SyncProductsEmpty(); // 2026-11-19: вид пустого состояния зависит от высоты таблицы
         columns[0].MinWidth = compact ? NameMinWidthCompact : NameMinWidth;
         // 2026-10-19, этап О9 (аудит: на 1024 «Кока-Кола 1,…»): в узкой таблице колонка «Код / штрихкод» прячется — место
         // названию. Поиск по коду и штрихкоду работает как раньше; ширина колонки по-прежнему входит в расчёт «узкой».
@@ -77,6 +83,8 @@ public partial class WarehouseWindow
 
         var menu = new MenuFlyout { Placement = PlacementMode.BottomEdgeAlignedRight };
         menu.FlyoutPresenterClasses.Add("row-menu");
+        // 2026-11-19 (п. 10): «Остаток» (приход, списание, точное количество) — первым пунктом меню; в строке его кнопки больше нет.
+        menu.Items.Add(RowMenuItem(RowStockName, "M11,3 H13 V8 H18 V10 H13 V15 H11 V10 H6 V8 H11 Z M6,18 H18 V20 H6 Z", StockAdjust_Click, product));
         // 2026-10-30, просьба владельца: «Поступления и партии» — от кого, когда и по какой накладной пришёл товар (вкладка карточки товара).
         menu.Items.Add(RowMenuItem(Tr.T("Поступления и партии", "Кирүүлөр жана партиялар", "Receipts and batches", "Girişler ve partiler", "Kirimlar va partiyalar"),
             IconReceipts, ProductReceipts_Click, product));

@@ -1,11 +1,11 @@
-## v2.0.0 (тестовая версия)
+## v1.17.87 (тестовая версия)
 
-Версия 2.0: новый главный экран кассы, единый дизайн, понятные ошибки, весы CAS и Масса-К, перенос данных из 1С, МойСклад, Poster, Loyverse, Paloma365 и Umag, работа без связи, возвраты, отчёты владельца, фискализация eKassa, доступы сотрудников, Ремонт и Trade-in, Электроника и строймаркет, мастер принтеров Xprinter. Всё из 1.17.86 сохраняется.
+Новый главный экран кассы, единый дизайн, понятные ошибки, весы CAS и Масса-К, перенос данных из 1С, МойСклад, Poster, Loyverse, Paloma365 и Umag, работа без связи, возвраты, отчёты владельца, фискализация eKassa, доступы сотрудников, Ремонт и Trade-in, Электроника и строймаркет, мастер принтеров Xprinter. Всё из 1.17.86 сохраняется.
 
 Файлы для установки:
 
 - `NurMarketKassa-win-Setup.exe` — касса (при первом запуске спросит, ставить ли программу владельца).
-- Linux — `nurmarket-kassa-linux-x64-2.0.0.tar.gz`; Android — `nurmarket-kassa-android-2.0.0.apk`.
+- Linux — `nurmarket-kassa-linux-x64-1.17.87.tar.gz`; Android — `nurmarket-kassa-android-1.17.87.apk`.
 
 Тестовая версия: обновление видят только кассы с кодом тестировщика (Настройки → Обновления). Обновление не меняет ваши настройки.
 
@@ -33,6 +33,15 @@
 - **Ремонт и Trade-in.** В Маркетплейсе появились модули «Ремонт» и «Trade-in».
 - **Электроника и строймаркет.** Сфера «Электроника»: серийные номера и гарантия; строймаркет: упаковки и цена прораба по уровню.
 - **Мастер принтеров Xprinter.** Мастер настройки принтера Xprinter и диагностика принтера.
+- **Смета.** Новый модуль «Смета» для строймаркета: калькулятор расхода материала по площади, смета с разделами, печать A4 и на ленту, текст для WhatsApp и «Добавить всё в чек» в кассе. Бесплатно, данные — на этом компьютере.
+- **Обучение-экскурсия.** Подсказки показывают по шагам, где что на кассе; в конце — «Обучение завершено».
+- **Окно «Доступы».** Права сотрудников по группам, поиск, шаблоны ролей и пометка «Сохранено».
+- **Новый табель.** Сетка табеля сразу, ограничение загрузки и кнопка «Повторить» при ошибке.
+- **Вкладка «ИИ».** В настройках появилась вкладка «ИИ»; «Быстрая настройка» и «Для мастера» весов теперь видны.
+- **Аккуратные окна.** Одно окно не открывается дважды (например, «Старая загрузка товаров»), тонкие полосы прокрутки, исправлено обрезание текста.
+- **Программа владельца.** Новый склад, настройка и печать ценников как в вебе (по остатку, свой размер, настройки принтера, «Сканы», предпросмотр), «Прибыль и деньги» без служебных кодов, понятные пустые экраны, кнопка «Оформить возврат…».
+- **Возвраты.** В ошибках возврата показываются названия товаров.
+- **База знаний.** 149 статей, обновлены снимки и анимации.
 
 
 ---
@@ -59,6 +68,15 @@
 - **Оңдоо жана Trade-in.** Маркетплейсте «Оңдоо» жана «Trade-in» модулдары пайда болду.
 - **Электроника жана курулуш дүкөнү.** «Электроника» тармагы: сериялык номерлер жана кепилдик; курулуш дүкөнү: таңгактар жана прораб баасы деңгээл боюнча.
 - **Xprinter принтерлеринин устасы.** Xprinter принтерин жөндөө устасы жана принтердин диагностикасы.
+- **Смета.** Курулуш дүкөнү үчүн жаңы «Смета» модулу: аянт боюнча материалдын сарптоосун эсептөө, бөлүмдөрү бар смета, A4 жана лентага басуу, WhatsApp үчүн текст жана кассада «Баарын чекке кошуу». Акысыз, маалымат ушул компьютерде.
+- **Үйрөтүү-экскурсия.** Кеңештер кассада эмне кайда экенин кадам-кадам көрсөтөт; аягында «Үйрөтүү аяктады».
+- **«Жеткиликтүүлүк» терезеси.** Кызматкерлердин укуктары топтор боюнча, издөө, ролдордун үлгүлөрү жана «Сакталды» белгиси.
+- **Жаңы табель.** Табель торчосу дароо чыгат, жүктөө чектелген жана ката болсо «Кайталоо» баскычы бар.
+- **«ИИ» өтмөгү.** Жөндөөлөрдө «ИИ» өтмөгү пайда болду; тараздардын «Тез жөндөө» жана «Уста үчүн» бөлүмдөрү эми көрүнөт.
+- **Таза терезелер.** Бир терезе эки жолу ачылбайт (мисалы, «Товарларды эски жүктөө»), жука сыдыргычтар, кесилген тексттер оңдолду.
+- **Ээсинин программасы.** Жаңы кампа, баа белгилерин вебдегидей жөндөө жана басуу (калдык боюнча, өз өлчөмү, принтер жөндөөлөрү, «Сканерлер», алдын ала көрүү), «Пайда жана акча» кызматтык коддорсуз, түшүнүктүү бош экрандар, «Кайтарууну түзүү…» баскычы.
+- **Кайтаруулар.** Кайтаруу каталарында товарлардын аттары көрсөтүлөт.
+- **Билим базасы.** 149 макала, сүрөттөр жана анимациялар жаңыланды.
 
 
 ---
@@ -85,6 +103,15 @@
 - **Repair and Trade-in.** The Marketplace now has the “Repair” and “Trade-in” modules.
 - **Electronics and building store.** “Electronics” sphere: serial numbers and warranty; building store: packs and the contractor price by level.
 - **Xprinter printer wizard.** A setup wizard for Xprinter printers and printer diagnostics.
+- **Estimate.** A new “Estimate” module for building-material shops: material consumption by area, an estimate with sections, printing on A4 and the tape, text for WhatsApp and “Add all to the receipt” at the till. Free, data stays on this computer.
+- **Guided tour.** Hints show step by step where things are on the till; it ends with “Training complete”.
+- **“Access” window.** Employee permissions by group, search, role templates and a “Saved” mark.
+- **New timesheet.** The timesheet grid appears at once, loading is limited and there is a “Retry” button on errors.
+- **“AI” tab.** Settings got an “AI” tab; the scales “Quick setup” and “For the technician” are now visible.
+- **Tidier windows.** A window no longer opens twice (for example “Old product import”), thin scroll bars, clipped text fixed.
+- **Owner program.** New warehouse, price tag setup and printing as on the web (by stock, custom size, printer settings, “Scans”, preview), “Profit and money” without internal codes, clear empty screens, the “Create return…” button.
+- **Returns.** Return errors now show product names.
+- **Knowledge base.** 149 articles, screenshots and animations refreshed.
 
 
 ---
@@ -111,6 +138,15 @@
 - **Onarım ve Trade-in.** Pazaryerinde «Onarım» ve «Trade-in» modülleri eklendi.
 - **Elektronik ve yapı market.** «Elektronik» alanı: seri numaraları ve garanti; yapı market: paketler ve seviyeye göre usta fiyatı.
 - **Xprinter yazıcı sihirbazı.** Xprinter yazıcıları için kurulum sihirbazı ve yazıcı tanılama.
+- **Keşif.** Yapı marketleri için yeni «Keşif» modülü: alana göre malzeme tüketimi, bölümlü keşif, A4 ve fiş şeridine baskı, WhatsApp için metin ve kasada «Hepsini fişe ekle». Ücretsiz, veriler bu bilgisayarda kalır.
+- **Rehberli tur.** İpuçları kasada neyin nerede olduğunu adım adım gösterir; sonunda «Eğitim tamamlandı» çıkar.
+- **«Erişimler» penceresi.** Çalışan yetkileri gruplara göre, arama, rol şablonları ve «Kaydedildi» işareti.
+- **Yeni puantaj.** Puantaj tablosu hemen açılır, yükleme sınırlıdır ve hatada «Tekrar dene» düğmesi vardır.
+- **«YZ» sekmesi.** Ayarlarda «YZ» sekmesi eklendi; terazilerin «Hızlı kurulum» ve «Usta için» bölümleri artık görünür.
+- **Düzenli pencereler.** Bir pencere iki kez açılmaz (ör. «Eski ürün yükleme»), ince kaydırma çubukları, kesilen metin düzeltildi.
+- **Sahip programı.** Yeni depo, fiyat etiketi ayarı ve baskısı web'deki gibi (stoka göre, özel boyut, yazıcı ayarları, «Taramalar», önizleme), iç kodsuz «Kâr ve para», anlaşılır boş ekranlar, «İade oluştur…» düğmesi.
+- **İadeler.** İade hatalarında ürün adları gösterilir.
+- **Bilgi bankası.** 149 makale, ekran görüntüleri ve animasyonlar yenilendi.
 
 
 ---
@@ -137,4 +173,13 @@
 - **Ta'mirlash va Trade-in.** Marketpleysda «Ta'mirlash» va «Trade-in» modullari paydo bo'ldi.
 - **Elektronika va qurilish do'koni.** «Elektronika» sohasi: seriya raqamlari va kafolat; qurilish do'koni: o'ramlar va daraja bo'yicha prorab narxi.
 - **Xprinter printer ustasi.** Xprinter printerlari uchun sozlash ustasi va printer diagnostikasi.
+- **Smeta.** Qurilish do'konlari uchun yangi «Smeta» moduli: maydon bo'yicha material sarfi, bo'limli smeta, A4 va lentaga chop etish, WhatsApp uchun matn va kassada «Hammasini chekka qo'shish». Bepul, ma'lumotlar shu kompyuterda qoladi.
+- **O'qitish-ekskursiya.** Maslahatlar kassada nima qayerdaligini bosqichma-bosqich ko'rsatadi; oxirida «O'qitish yakunlandi».
+- **«Ruxsatlar» oynasi.** Xodimlar huquqlari guruhlar bo'yicha, qidiruv, rol shablonlari va «Saqlandi» belgisi.
+- **Yangi tabel.** Tabel jadvali darhol chiqadi, yuklash cheklangan va xatoda «Qayta urinish» tugmasi bor.
+- **«SI» yorlig'i.** Sozlamalarda «SI» yorlig'i paydo bo'ldi; tarozilarning «Tez sozlash» va «Usta uchun» bo'limlari endi ko'rinadi.
+- **Tartibli oynalar.** Bitta oyna ikki marta ochilmaydi (masalan, «Tovarlarni eski yuklash»), ingichka aylantirish chiziqlari, kesilgan matn tuzatildi.
+- **Ega dasturi.** Yangi ombor, narx yorliqlarini veb kabi sozlash va chop etish (qoldiq bo'yicha, o'z o'lchami, printer sozlamalari, «Skanerlar», oldindan ko'rish), xizmat kodlarisiz «Foyda va pul», tushunarli bo'sh ekranlar, «Qaytarishni rasmiylashtirish…» tugmasi.
+- **Qaytarishlar.** Qaytarish xatolarida tovar nomlari ko'rsatiladi.
+- **Bilimlar bazasi.** 149 ta maqola, rasmlar va animatsiyalar yangilandi.
 

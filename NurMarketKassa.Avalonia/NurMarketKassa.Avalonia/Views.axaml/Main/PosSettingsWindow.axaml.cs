@@ -39,6 +39,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
         private readonly MonitorSettingsView _monitorView;
         private readonly UpdatesSettingsView _updatesView = new();
         private readonly OperationsSettingsView _operationsView = new();
+        private AiSettingsView? _aiView; // 2026-11-19 (п. 1 владельца): вкладка «ИИ» — карточки ИИ из «Операций», создаётся при первом показе
         private readonly SettingsView _customizationView = new();
         private readonly AccountView _accountView = new();
         private readonly EmployeesSettingsView _employeesView = new();
@@ -213,7 +214,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             WireChildEvents();
             _operationsView.LoadBankQrSettings();
 
-            _navButtons = new[] { NavScales, NavPrint, NavScreen, NavMonitor, NavUpdates, NavOperations, NavCustomization, NavAccount, NavEmployees, NavKeys };
+            _navButtons = new[] { NavScales, NavPrint, NavScreen, NavMonitor, NavUpdates, NavOperations, NavCustomization, NavAccount, NavEmployees, NavKeys, NavAi };
             // 2026-11-01 («дизайн верхних кнопок»): стрелки прокрутки ряда вкладок — подсказка и имя для диктора на 5 языках.
             var navPrev = Tr.T("Назад", "Артка", "Previous", "Geri", "Orqaga");
             var navNext = Tr.T("Вперёд", "Алдыга", "Next", "İleri", "Oldinga");
@@ -620,7 +621,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             try
             {
                 var roots = new Control?[] { this, _scaleView, _printView, _screenView, _monitorView, _updatesView, _operationsView, _customizationView,
-                    _accountView, _employeesView, _keysView };
+                    _accountView, _employeesView, _keysView, _aiView };
                 var done = new HashSet<Control>();
                 foreach (var root in roots)
                 {
@@ -883,6 +884,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 "account" => (7, (Button?)_navButtons[7]),
                 "employees" => (8, (Button?)_navButtons[8]),
                 "keys" => (9, (Button?)_navButtons[9]),
+                "ai" => (10, (Button?)_navButtons[10]),
                 _ => (-1, (Button?)null),
             };
             if (index < 0 || button is null || !button.IsVisible)
@@ -961,6 +963,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 7 => _accountView,
                 8 => _employeesView,
                 9 => _keysView,
+                10 => _aiView ??= new AiSettingsView(_operationsView),
                 _ => _scaleView
             };
 

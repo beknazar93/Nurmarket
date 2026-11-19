@@ -69,6 +69,36 @@ public static class UiShot
         Dispatcher.UIThread.RunJobs();
     }
 
+    /// <summary>2026-11-19: Avalonia (Gestures) после нажатия мыши заводит одноразовый DispatcherTimer, чей обработчик держит PointerPressedEventArgs, а он — окно
+    /// (_rootVisual). В Headless такой таймер не успевает сработать и удерживает закрытое окно (PIN, правка накладной) — это стенд, а не утечка приложения.
+    /// Здесь таймер «доигрывается»: ждём его срабатывания до ~1,5 с, а оставшиеся жестовые таймеры снимаются (Stop) — их действие уже не нужно окну, которого нет.
+    /// Возвращает, сколько таймеров пришлось снять принудительно.</summary>
+    public static int DrainGestureTimers()
+    {
+        var timersField = typeof(Dispatcher).GetField("_timers", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var tickField = typeof(DispatcherTimer).GetField("Tick", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        if (timersField?.GetValue(Dispatcher.UIThread) is not System.Collections.IList timers || tickField is null)
+            return 0;
+        static bool IsGesture(DispatcherTimer t, System.Reflection.FieldInfo tick)
+        {
+            if (tick.GetValue(t) is not EventHandler h)
+                return false;
+            var target = h.Target;
+            var action = target?.GetType().GetField("action")?.GetValue(target) as Delegate;
+            return (action?.Target?.GetType().FullName ?? "").Contains("Avalonia.Input.Gestures", StringComparison.Ordinal);
+        }
+        List<DispatcherTimer> Pending() => timers.Cast<DispatcherTimer>().Where(t => IsGesture(t, tickField)).ToList();
+        for (var i = 0; i < 30 && Pending().Count > 0; i++)
+        {
+            Thread.Sleep(50);
+            Pump();
+        }
+        var left = Pending();
+        foreach (var t in left)
+            t.Stop();
+        return left.Count;
+    }
+
     /// <summary>Даёт фоновым загрузкам окна (ответ «нет связи» от заглушки, подсказки, таймеры) закончиться до снимка: несколько коротких пауз с прогоном очереди интерфейса.</summary>
     public static void Settle(int rounds = 5, int pauseMs = 30)
     {

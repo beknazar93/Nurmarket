@@ -456,8 +456,14 @@ public sealed class SuppliersWindow : Window, IOwnerSection
     private void Render()
     {
         _rows.Children.Clear();
-        if (!_loaded || (_suppliers.Count == 0 && !_summariesDone))
+        if (!_loaded)
             return;
+        // 2026-11-19 (живой обход владельца): первые секунды была пустая таблица без индикатора — показываем строку загрузки.
+        if (_suppliers.Count == 0 && !_summariesDone)
+        {
+            _rows.Children.Add(StateBlock.Loading(T("Загружаю поставщиков…", "Жеткирүүчүлөр жүктөлүүдө…", "Loading suppliers…", "Tedarikçiler yükleniyor…", "Yetkazib beruvchilar yuklanmoqda…")));
+            return;
+        }
         if (_loadError is { } failure && _suppliers.Count == 0)
         {
             _rows.Children.Add(StateBlock.Failure(this, failure,

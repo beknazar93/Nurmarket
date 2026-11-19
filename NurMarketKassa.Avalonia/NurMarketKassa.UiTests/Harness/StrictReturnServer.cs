@@ -75,7 +75,7 @@ public sealed class StrictReturnServer : IAsyncDisposable
     /// <summary>Подмена ответа на правку/аннулирование ПОСЛЕ строгих проверок (409 negative_stock, 409 exceeds_returnable, 403…); null — применить как обычно. Вызывается с (документ, это void?).</summary>
     public Func<Doc, bool, ResponseMessage?>? Override { get; set; }
 
-    /// <summary>Правка применяется, а ответ теряется настоящим обрывом сокета (FaultType.EMPTY_RESPONSE): следующая мутация. Повтор с тем же ключом получит прежний результат.</summary>
+    /// <summary>Правка применяется, а ответ теряется настоящим обрывом сокета (FaultType.MALFORMED_RESPONSE_CHUNK): следующая мутация. Повтор с тем же ключом получит прежний результат.</summary>
     public bool DropNextResponseAfterApply { get; set; }
 
     /// <summary>Пока включено — любой запрос PIN отвечает 403 permission_denied (нет права руководителя).</summary>
@@ -261,7 +261,7 @@ public sealed class StrictReturnServer : IAsyncDisposable
             if (DropNextResponseAfterApply)
             {
                 DropNextResponseAfterApply = false;
-                return new ResponseMessage { FaultType = FaultType.EMPTY_RESPONSE };
+                return new ResponseMessage { FaultType = FaultType.MALFORMED_RESPONSE_CHUNK }; // 2026-11-19: WireMock.Net 2.21 на EMPTY_RESPONSE отвечает пустым 200 (клиент считает правку принятой), а не рвёт сокет — обрыв делает MALFORMED_RESPONSE_CHUNK (ответ-мусор и закрытие соединения)
             }
             return Reply(200, json);
         }
