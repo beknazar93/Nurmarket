@@ -94,6 +94,7 @@ public partial class ReturnSaleDialog
         // 2026-10-16, ревью: сколько было к возврату по строкам до отправки — для сверки, если ответ не дойдёт.
         var refundableBefore = RefundableByLine(selected);
         var outcomeUnknown = false;
+        List<(string ProductId, string Name, double Qty)>? toSupplier = null; // 2026-11-13 (Л-5): «Поставщику» — после успешного возврата откроется возврат поставщику с этим товаром
         ApiException? debtLineRefusal = null; // 2026-11-06 (Б-2): сервер ответил «Долг нельзя указывать в строках оплаты», а возврат мог провести — выясняем по чеку
         ApiException? lineIdRefusal = null; // 2026-11-10: сервер отказал «позиции не из этого чека / несуществующие sale_item_id»
         List<PosRefundLineRequest>? sentRequests = null;
@@ -154,6 +155,7 @@ public partial class ReturnSaleDialog
                 idempotencyKey: returnKey), () => IsBusy = false).ConfigureAwait(true);
             PendingReturn.OnSuccess();
             FraudMonitor.OnReturn(saleId, _currentReceiptNumber, fraudAmount);
+            toSupplier = SupplierHandoff(reasonDialog.Outcome, selected);
 
             SaleDetailCache.Forget(saleId);
 
@@ -225,7 +227,8 @@ public partial class ReturnSaleDialog
                 total,
                 reason,
                 isWholeSale: false,
-                printCashier)).ConfigureAwait(true);
+                printCashier,
+                saleId)).ConfigureAwait(true);
 
             // 2026-10-20 (живой аудит, К7): ошибка печати — строкой в том же итоговом окне, а не отдельным окном
             // (было 4 окна на один возврат: подтверждение, причина, ошибка печати, итог).
@@ -305,6 +308,7 @@ public partial class ReturnSaleDialog
                                 && selected.All(l => l.Quantity >= l.MaxReturnQuantity - 1e-6),
                 returnedLines: selected, isDefect: isDefect, serverRefusal: debtLineRefusal).ConfigureAwait(true);
         await RefreshCurrentSaleAsync(saleId).ConfigureAwait(true);
+        await OpenSupplierReturnAsync(toSupplier).ConfigureAwait(true);
     }
 
 
@@ -492,6 +496,7 @@ public partial class ReturnSaleDialog
         // 2026-10-16, ревью: остаток к возврату по строкам до отправки и оценка суммы — для сверки, если ответ не дойдёт.
         var refundableBefore = RefundableByLine(Lines.Where(l => l.CanReturn));
         var outcomeUnknown = false;
+        List<(string ProductId, string Name, double Qty)>? toSupplier = null; // 2026-11-13 (Л-5): см. возврат по позициям
         var exceedsRefused = false; // 2026-11-01 (К-01): сервер отказал «больше положенного» — чек перечитываем, деньги не выдаём
         ApiException? debtLineRefusal = null; // 2026-11-06 (Б-2): см. возврат по позициям
         ApiException? wholeLineIdRefusal = null; // 2026-11-10: см. возврат по позициям
@@ -541,6 +546,7 @@ public partial class ReturnSaleDialog
                     idempotencyKey: returnKey), () => IsBusy = false).ConfigureAwait(true);
             PendingReturn.OnSuccess();
             FraudMonitor.OnReturn(saleId, _currentReceiptNumber, (double)estimatedWhole);
+            toSupplier = SupplierHandoff(reasonDialog.Outcome, Lines.Where(l => l.CanReturn).ToList());
 
             // 2026-09-23, живой баг: полный возврат чека не писал событие смены вообще — запись
             // стояла только в построчном возврате. Вернули покупателю весь чек наличными, а в
@@ -584,7 +590,8 @@ public partial class ReturnSaleDialog
                 wholeTotal,
                 wholeReason,
                 isWholeSale: true,
-                wholeCashier)).ConfigureAwait(true);
+                wholeCashier,
+                saleId)).ConfigureAwait(true);
 
             // 2026-09-13, живой баг: полный возврат чека не отменял баллы лояльности,
             // начисленные/списанные при этой продаже (см. BasketPanelViewModel.
@@ -672,5 +679,34 @@ public partial class ReturnSaleDialog
         }
         else if (exceedsRefused)
             await RefreshCurrentSaleAsync(saleId).ConfigureAwait(true); // 2026-11-01 (К-01): «можно вернуть» пересчитывается по чеку
+        await OpenSupplierReturnAsync(toSupplier).ConfigureAwait(true);
+    }
+
+    /// <summary>2026-11-13 (Л-5): исход «Поставщику» — какие товары (id, название, количество) передать в «Возврат поставщику»; для остальных исходов null.
+    /// Товар уже вернулся на склад покупателем возврата (не брак), поэтому возврат поставщику уменьшит остаток обычным путём.</summary>
+    private static List<(string ProductId, string Name, double Qty)>? SupplierHandoff(ReturnProductOutcome outcome, IEnumerable<ReturnSaleLineVm> lines)
+    {
+        if (outcome != ReturnProductOutcome.Supplier)
+            return null;
+        var list = lines.Where(l => !string.IsNullOrWhiteSpace(l.ProductId)).Select(l => (l.ProductId!, l.Title, l.Quantity > 0 ? l.Quantity : 1.0)).ToList();
+        return list.Count > 0 ? list : null;
+    }
+
+    /// <summary>2026-11-13 (Л-5): после возврата с исходом «Поставщику» — окно «Возврат поставщику» с подставленным товаром (всё прежним путём: поставщика выбирает и проводит человек).</summary>
+    private async Task OpenSupplierReturnAsync(List<(string ProductId, string Name, double Qty)>? lines)
+    {
+        if (lines is not { Count: > 0 })
+            return;
+        try
+        {
+            var dialog = new NurMarketKassa.AvaloniaHost.Views.SupplierReturnDialog();
+            dialog.ApplyPreset(lines, "defect");
+            PosLogger.Log($"Возврат: товар отправлен в возврат поставщику ({lines.Count} поз.).", "INFO");
+            await dialog.ShowDialog<bool>(this).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Возврат: окно «Возврат поставщику» не открылось: {ex.Message}", "WARNING");
+        }
     }
 }

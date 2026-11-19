@@ -722,7 +722,7 @@ public sealed partial class PurchasesWindow
         catch (Exception ex)
         {
             PosLogger.Log($"Закупки: скан {code} не обработан ({ex.Message}).", "WARNING");
-            ReceiveMessage(T("Не удалось найти товар: ", "Товар табылган жок: ", "Couldn't find the product: ", "Ürün bulunamadı: ", "Mahsulot topilmadi: ") + ex.Message, warning: true);
+            ReceiveMessage(T("Не удалось найти товар: ", "Товар табылган жок: ", "Couldn't find the product: ", "Ürün bulunamadı: ", "Mahsulot topilmadi: ") + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex), warning: true);
         }
         finally
         {

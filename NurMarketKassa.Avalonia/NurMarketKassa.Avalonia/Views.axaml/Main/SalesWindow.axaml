@@ -134,7 +134,7 @@
                 <Border Background="{DynamicResource BrushInput}" CornerRadius="8" Padding="4,0" VerticalAlignment="Center"
                         BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
                     <!-- 2026-10-24 (аудит, круг 8, М-11): подсказка «Поиск чека: номер или товар» обрезалась при 220 -->
-                    <TextBox x:Name="SearchReceiptBox" Width="320" MinWidth="320" Height="34"
+                    <TextBox x:Name="SearchReceiptBox" Width="320" MinWidth="320" Height="44"
                              BorderThickness="0" FontSize="14" Classes="TouchTextBox"
                              TextChanged="SearchReceiptBox_TextChanged" />
                 </Border>
@@ -145,7 +145,7 @@
                         Click="ExportWord_Click"
                         ToolTip.Tip="{DynamicResource loc.owner.sales.wordTip}"/>
                 <!-- 2026-11-06 (В11, Д4-25): «Обновить» — не главное действие раздела: значок 40×40 с подсказкой, без жёлтой заливки (жёлтое — только действие раздела). -->
-                <Button x:Name="RefreshButton" Classes="sec-outline" Width="40" Height="40" MinWidth="40" MinHeight="40" Padding="0"
+                <Button x:Name="RefreshButton" Classes="sec-outline" Width="44" Height="44" MinWidth="44" MinHeight="44" Padding="0"
                         Click="Refresh_Click"
                         ToolTip.Tip="{DynamicResource common.refresh}" AutomationProperties.Name="{DynamicResource common.refresh}">
                     <PathIcon Data="{StaticResource IconRefresh}" Width="18" Height="18"/>

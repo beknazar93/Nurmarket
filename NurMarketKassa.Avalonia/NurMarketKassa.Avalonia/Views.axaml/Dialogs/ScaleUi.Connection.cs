@@ -35,6 +35,8 @@ internal static partial class ScaleUi
         BrandAi => BrandAi,
         BrandTm => BrandTm,
         BrandShtrikhPc => BrandShtrikhPc, // 2026-11-06: весы Штрих РС-200 (обмен файлами)
+        BrandCas => BrandCas, // 2026-11-13: весы CAS
+        BrandMassaK => BrandMassaK, // 2026-11-13: весы Масса-К (серии R/SL)
         _ => BrandShtrikh,
     };
 
@@ -44,7 +46,9 @@ internal static partial class ScaleUi
     {
         BrandRongta => "Rongta",
         BrandTm => "TM-30F (Dahua)",
+        BrandMassaK => L("Масса-К (серии R, SL)", "Масса-К (R, SL сериялары)", "Massa-K (R, SL series)", "Massa-K (R, SL serisi)", "Massa-K (R, SL seriyalari)"), // 2026-11-13
         BrandAi => L("AI весы", "AI тараза", "AI scales", "AI tartı", "AI tarozi"),
+        BrandCas => CasScaleSettings.ModelTitle(CasScaleSettings.Current.Model), // 2026-11-13: «CAS CL5000J» и т. п.
         BrandShtrikhPc => L("Штрих РС-200 (Штрих-М)", "Штрих РС-200 (Штрих-М)", "Shtrih RS-200 (Shtrih-M)", "Shtrih RS-200 (Shtrih-M)", "Shtrix RS-200 (Shtrix-M)"),
         _ => L("Штрих-ПРИНТ (Штрих-М)", "Штрих-ПРИНТ (Штрих-М)", "Shtrih-PRINT (Shtrih-M)", "Shtrih-PRINT (Shtrih-M)", "Shtrix-PRINT (Shtrix-M)"),
     };
@@ -58,7 +62,9 @@ internal static partial class ScaleUi
             // 2026-09-30: напрямую касса говорит с Rongta на порту 4001 (протокол Dahua).
             BrandRongta => prefs.RongtaDirectLan ? DahuaTmProtocol.DefaultPort : prefs.RongtaScalePort,
             BrandTm => prefs.TmScalePort,
+            BrandMassaK => prefs.MassaKScalePort, // 2026-11-13
             BrandAi => 0,
+            BrandCas => CasScaleSettings.Current.IsNetwork ? CasScaleSettings.Current.Port : 0, // 2026-11-13: у «файловых» моделей CAS порта нет
             BrandShtrikhPc => 0, // 2026-11-06: у РС-200 нет сетевого порта — общая папка
             _ => prefs.ScaleLanPort,
         };
@@ -75,7 +81,10 @@ internal static partial class ScaleUi
                 ? L($"свой сервер кассы, порт {prefs.RongtaServerPort}", $"кассанын өз сервери, {prefs.RongtaServerPort} порт", $"till's own server, port {prefs.RongtaServerPort}", $"kasanın kendi sunucusu, port {prefs.RongtaServerPort}", $"kassaning o‘z serveri, {prefs.RongtaServerPort} port")
                 : L("через сайт и программу RLS1000", "сайт жана RLS1000 программасы аркылуу", "via the website and RLS1000", "site ve RLS1000 programı üzerinden", "sayt va RLS1000 dasturi orqali"),
             BrandTm => L("напрямую по сети", "тармак аркылуу түз", "directly over the network", "doğrudan ağ üzerinden", "to‘g‘ridan-to‘g‘ri tarmoq orqali"),
+            BrandMassaK => L("напрямую по сети", "тармак аркылуу түз", "directly over the network", "doğrudan ağ üzerinden", "to‘g‘ridan-to‘g‘ri tarmoq orqali"), // 2026-11-13
             BrandAi => L("файл для программы весов", "тараза программасы үчүн файл", "file for the scale's software", "tartı programı için dosya", "tarozi dasturi uchun fayl"),
+            BrandCas when CasScaleSettings.Current.IsNetwork => L("напрямую по сети (не проверено на весах)", "тармак аркылуу түз (таразада текшерилген эмес)", "directly over the network (not verified on a scale)", "doğrudan ağ üzerinden (tartıda doğrulanmadı)", "to‘g‘ridan-to‘g‘ri tarmoq orqali (tarozida tekshirilmagan)"), // 2026-11-13
+            BrandCas => L("файл для CL-Works", "CL-Works үчүн файл", "file for CL-Works", "CL-Works için dosya", "CL-Works uchun fayl"), // 2026-11-13
             BrandShtrikhPc => L("файлом через общую папку весов", "таразанын жалпы папкасы аркылуу файл менен", "as a file via the scale's shared folder", "tartının paylaşımlı klasörü üzerinden dosyayla", "tarozining umumiy papkasi orqali fayl bilan"),
             _ => prefs.ShtrikhDirectLan
                 ? L("напрямую по сети", "тармак аркылуу түз", "directly over the network", "doğrudan ağ üzerinden", "to‘g‘ridan-to‘g‘ri tarmoq orqali")
@@ -89,6 +98,8 @@ internal static partial class ScaleUi
         brand = NormalizeBrand(brand);
         if (brand == BrandAi)
             return RouteText(brand);
+        if (brand == BrandCas && !CasScaleSettings.Current.IsNetwork)
+            return LabelBrandTitle(brand) + " · " + RouteText(brand); // 2026-11-13: CAS без сети — только модель и путь
         if (brand == BrandShtrikhPc)
         {
             // 2026-11-06: вместо «IP:порт» — путь общей папки обмена
@@ -299,6 +310,16 @@ internal static partial class ScaleUi
         if (brand == BrandShtrikhPc)
             return await CheckShtrikhPcAsync(ct).ConfigureAwait(true);
 
+        // 2026-11-13: CAS CL5500/CL5200/CL7200/LP-1.6 — файл для CL-Works, связи с весами у кассы нет; по сети проверяются только CL5000J и CL3000
+        if (brand == BrandCas && !CasScaleSettings.Current.IsNetwork)
+        {
+            return (false, L("Эти модели CAS касса по сети не ведёт: она готовит файл для CL-Works (кнопка «Сохранить файл для CL-Works» в окне «Весы»).",
+                "CAS бул моделдерин касса тармак аркылуу жүргүзбөйт: ал CL-Works үчүн файл даярдайт («Таразалар» терезесиндеги «CL-Works үчүн файлды сактоо» баскычы).",
+                "The till does not talk to these CAS models over the network: it prepares a file for CL-Works (the “Save file for CL-Works” button in the “Scales” window).",
+                "Kasa bu CAS modelleriyle ağ üzerinden konuşmaz: CL-Works için dosya hazırlar («Tartı» penceresindeki «CL-Works için dosyayı kaydet» düğmesi).",
+                "Kassa bu CAS modellari bilan tarmoq orqali ishlamaydi: CL-Works uchun fayl tayyorlaydi («Tarozi» oynasidagi «CL-Works uchun faylni saqlash» tugmasi)."));
+        }
+
         if (!IPAddress.TryParse(ip, out _) || ip.Count(c => c == '.') != 3)
         {
             return (false, L("Введите IP-адрес весов, например 192.168.1.50.", "Таразанын IP-дарегин киргизиңиз, мисалы 192.168.1.50.", "Enter the scale IP address, e.g. 192.168.1.50.", "Tartı IP adresini girin, ör. 192.168.1.50.", "Tarozi IP manzilini kiriting, masalan 192.168.1.50."));
@@ -309,6 +330,8 @@ internal static partial class ScaleUi
             result = brand switch
             {
                 BrandTm => await CheckTmAsync(ip, prefs.TmScalePort, ct).ConfigureAwait(true),
+                BrandCas => await CheckCasAsync(ip, CasScaleSettings.Current.Port, ct).ConfigureAwait(true), // 2026-11-13
+                BrandMassaK => await CheckMassaKAsync(ip, prefs.MassaKScalePort, ct).ConfigureAwait(true), // 2026-11-13
                 // 2026-09-30: Rongta напрямую — то же чтение PLU №1 по протоколу Dahua (TCP 4001).
                 BrandRongta when prefs.RongtaDirectLan => await CheckTmAsync(ip, DahuaTmProtocol.DefaultPort, ct).ConfigureAwait(true),
                 BrandRongta => await CheckRongtaAsync(ip, prefs.RongtaScalePort).ConfigureAwait(true),
@@ -451,6 +474,45 @@ internal static partial class ScaleUi
                 $"{ip} cihazı ping'e yanıt veriyor ({rtt} ms) ama {port} portu kapalı: bu tartı değil, tartı başka port kullanıyor ya da «Русский масштаб» tutuyor — kapatıp tekrar deneyin.",
                 $"{ip} qurilmasi ping'ga javob beradi ({rtt} ms), lekin {port} port yopiq: bu tarozi emas, tarozi porti boshqa yoki uni «Русский масштаб» band qilgan — uni yopib, qayta urinib ko‘ring.")
             : NobodyAnswers(ip));
+    }
+
+    /// <summary>2026-11-13: «Проверить связь» с весами CAS — подключение и чтение состояния (команда «RN», ничего не записывает). НЕ ПРОВЕРЕНО на живых весах.</summary>
+    private static async Task<(bool, string)> CheckCasAsync(string ip, int port, CancellationToken ct)
+    {
+        var scale = CasScaleService.TryCreate(ip, port);
+        if (scale is null)
+            return (false, NobodyAnswers(ip));
+
+        var result = await scale.ReadStatusAsync(ct).ConfigureAwait(true);
+        PosLogger.Log($"CAS: проверка связи {ip}:{port}: error={result.Error} {result.Detail}", "SCALES");
+        if (result.Ok)
+        {
+            var s = result.Status;
+            var extra = s is null ? "" : L($" Знаков в цене на весах: {s.PriceDecimalPoint}, в весе: {s.WeightDecimalPoint}.", $" Таразадагы баада үтүрдөн кийин: {s.PriceDecimalPoint}, салмакта: {s.WeightDecimalPoint}.", $" Decimals in price on the scale: {s.PriceDecimalPoint}, in weight: {s.WeightDecimalPoint}.", $" Tartıda fiyatta ondalık: {s.PriceDecimalPoint}, ağırlıkta: {s.WeightDecimalPoint}.", $" Tarozida narxda kasr: {s.PriceDecimalPoint}, vaznda: {s.WeightDecimalPoint}.");
+            return (true, L("весы CAS на связи и ответили на чтение состояния (ничего не записано)." + extra,
+                "CAS таразасы байланышта жана абалды окууга жооп берди (эч нерсе жазылган жок)." + extra,
+                "the CAS scale is connected and answered the status read (nothing was written)." + extra,
+                "CAS tartı bağlı ve durum okumasına yanıt verdi (hiçbir şey yazılmadı)." + extra,
+                "CAS tarozi aloqada va holatni o‘qishga javob berdi (hech narsa yozilmadi)." + extra));
+        }
+
+        if (result.Error == CasError.ConnectFailed)
+        {
+            var (pingOk, rtt) = await RongtaScaleSettingsWindow.PingAsync(ip).ConfigureAwait(true);
+            return (false, pingOk
+                ? L($"устройство {ip} отвечает на ping ({rtt} мс), но порт {port} закрыт: проверьте порт весов (меню 1913, обычно 20304) и что сеть на весах включена.",
+                    $"{ip} түзмөгү ping'ге жооп берет ({rtt} мс), бирок {port} порт жабык: таразанын портун текшериңиз (1913 меню, адатта 20304) жана таразада тармак күйгүзүлгөнүн.",
+                    $"device {ip} answers ping ({rtt} ms) but port {port} is closed: check the scale port (menu 1913, usually 20304) and that the network is on in the scale.",
+                    $"{ip} cihazı ping'e yanıt veriyor ({rtt} ms) ama {port} portu kapalı: tartının portunu (menü 1913, genellikle 20304) ve tartıda ağın açık olduğunu kontrol edin.",
+                    $"{ip} qurilmasi ping'ga javob beradi ({rtt} ms), lekin {port} port yopiq: tarozi portini (1913 menyu, odatda 20304) va tarozida tarmoq yoqilganini tekshiring.")
+                : NobodyAnswers(ip));
+        }
+
+        return (false, L($"подключение к {ip}:{port} есть, но весы не ответили на чтение состояния (возможно, это другая модель CAS с другим протоколом — тогда нужен файл для CL-Works). Ответы видны в журнале обмена: {CasScaleService.ExchangeLogPath}",
+            $"{ip}:{port} менен туташуу бар, бирок тараза абалды окууга жооп берген жок (балким, бул башка протоколдуу CAS модели — анда CL-Works үчүн файл керек). Жооптор алмашуу журналында: {CasScaleService.ExchangeLogPath}",
+            $"connected to {ip}:{port}, but the scale did not answer the status read (it may be another CAS model with another protocol — then use the CL-Works file). Replies are in the exchange log: {CasScaleService.ExchangeLogPath}",
+            $"{ip}:{port} bağlantısı var ama tartı durum okumasına yanıt vermedi (başka protokollü bir CAS modeli olabilir — o zaman CL-Works dosyası gerekir). Yanıtlar iletişim günlüğünde: {CasScaleService.ExchangeLogPath}",
+            $"{ip}:{port} bilan ulanish bor, lekin tarozi holatni o‘qishga javob bermadi (balki boshqa protokolli CAS modeli — unda CL-Works uchun fayl kerak). Javoblar almashuv jurnalida: {CasScaleService.ExchangeLogPath}"));
     }
 
     private static async Task<(bool, string)> CheckRongtaAsync(string ip, int port)

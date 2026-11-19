@@ -370,7 +370,7 @@ public sealed class ClientPurchasesWindow : Window
             return;
         static string Join(Dictionary<string, double> d) =>
             string.Join(", ", d.OrderByDescending(kv => kv.Value).ThenBy(kv => kv.Key).Take(6)
-                .Select(kv => $"{kv.Key} — {kv.Value.ToString("0.##", CultureInfo.InvariantCulture)}"));
+                .Select(kv => $"{kv.Key} — {NurMarketKassa.Services.MoneyText.Weight(kv.Value, "0.##")}"));
         var text = "";
         if (sizes.Count > 0)
         {

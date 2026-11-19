@@ -412,7 +412,7 @@ internal sealed class RevisionFinishDialog : Window
         catch (Exception ex)
         {
             PosLogger.Log($"Ревизия: окно итога — отправка упала: {ex}", "WARNING");
-            ShowError(ex.Message);
+            ShowError(NurMarketKassa.Services.ServerOutageMonitor.UserText(ex));
         }
         finally
         {

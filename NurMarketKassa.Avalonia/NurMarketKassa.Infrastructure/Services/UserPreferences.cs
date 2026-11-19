@@ -180,6 +180,10 @@ public sealed partial class UserPreferences
     /// см. <see cref="NurMarketKassa.Services.Hardware.ShtrikhPcSettings"/>. null — по умолчанию из руководства.</summary>
     public string? ShtrikhPcConfig { get; set; }
 
+    /// <summary>2026-11-13: настройки весов CAS одной строкой JSON (IP, порт, модель, префикс, знаки цены, форматы, параметры файла для CL-Works) —
+    /// см. <see cref="NurMarketKassa.Services.Hardware.CasScaleSettings"/>. Только локально, на сервер не уходит. null — по умолчанию.</summary>
+    public string? CasScaleConfig { get; set; }
+
     /// <summary>2026-11-06: пароль Windows весов РС-200 для сетевой папки. В памяти — открытым, в user-settings.json — только зашифрованный (ShtrikhPcPasswordProtected),
     /// в журнал и отчёты не попадает.</summary>
     public string? ShtrikhPcPassword { get; set; }
@@ -193,6 +197,28 @@ public sealed partial class UserPreferences
 
     /// <summary>Срок годности, дней, для всех отправляемых товаров (0 — не задан).</summary>
     public int TmScaleShelfLifeDays { get; set; }
+
+    /// <summary>2026-11-13: весы Масса-К серий R/SL (протокол массы-К, TCP 5001, <see cref="NurMarketKassa.Services.Hardware.MassaKProtocol"/>): адрес весов.</summary>
+    public string? MassaKScaleIp { get; set; }
+
+    /// <summary>2026-11-13: TCP-порт весов Масса-К (по умолчанию 5001).</summary>
+    public int MassaKScalePort { get; set; } = 5001;
+
+    /// <summary>2026-11-13: префикс штрихкода товара на весах Масса-К (20…26, поле BarcodePrefix записи товара).</summary>
+    public int MassaKBarcodePrefix { get; set; } = 20;
+
+    /// <summary>2026-11-13: срок годности, дней, для товаров Масса-К (0 — не задан; на весах хранится в минутах).</summary>
+    public int MassaKShelfLifeDays { get; set; }
+
+    /// <summary>2026-11-13: название товара на весах Масса-К латиницей (если кириллица печатается мусором).</summary>
+    public bool MassaKLatinNames { get; set; }
+
+    /// <summary>2026-11-13: владелец подтвердил на живых весах, что товар и этикетка вышли верно (кнопка в окне «Масса-К»). Пока false — запись
+    /// на весы идёт с подтверждением и пометкой «не проверено на весах», автоотправка выключена.</summary>
+    public bool MassaKVerified { get; set; }
+
+    /// <summary>2026-11-13: «больше не спрашивать» перед отправкой на Масса-К; действует только при <see cref="MassaKVerified"/>.</summary>
+    public bool MassaKSkipConfirm { get; set; }
 
     /// <summary>2026-09-30: RongtaDataSource = «lan» — касса сама пишет товары на весы Rongta
     /// (протокол Dahua «!0V», TCP 4001, проверено на весах владельца).</summary>

@@ -11,29 +11,9 @@
     <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views/Settings/SettingsSharedStyles.axaml"/>
 
     <!-- 2026-11-01 (контрольный аудит, Д-04): цвет, рамка, радиус, курсор и наведение «главной» — из общего Button.btn-primary (PosDialogStyles); здесь только размеры страницы. -->
-    <Style Selector="Button.btn-primary">
-      <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="HorizontalContentAlignment" Value="Center"/>
-      <Setter Property="VerticalContentAlignment" Value="Center"/>
-    </Style>
+    <!-- 2026-11-13 (Д-1): местные описания кнопок удалены — вид один на всю программу (nur-primary / nur-secondary и их псевдонимы, PosDialogStyles.axaml). -->
 
     <!-- 2026-10-19, этап О7: второстепенные — обводкой цветом текста (были серые с бледным текстом). -->
-    <Style Selector="Button.btn-secondary">
-      <Setter Property="Background" Value="Transparent"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
-      <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="HorizontalContentAlignment" Value="Center"/>
-      <Setter Property="VerticalContentAlignment" Value="Center"/>
-      <Setter Property="Cursor" Value="Hand"/>
-    </Style>
-    <Style Selector="Button.btn-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
-    </Style>
     <!-- 2026-10-19, этап О7: кнопки внутри карточек доп. функций («Скачать модель», «Настроить»…) — обводкой: жёлтая на
          вкладке одна («Редактор тем» / «Редактор экрана покупателя»), а в «Доп. функциях» их было 4–5. -->
     <Style Selector="Border.SettingsCard Border.SettingsCard Button.btn-primary">

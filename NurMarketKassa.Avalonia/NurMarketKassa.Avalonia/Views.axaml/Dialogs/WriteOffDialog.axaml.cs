@@ -202,7 +202,7 @@ public partial class WriteOffDialog : Window
 
     // 2026-11-03 (ревью С-5): дробный остаток не на весах (метры, литры: 2,4) больше не округляется до целого — иначе списывалось 2 и оставалось 0,4.
     private void SetQty(double qty) =>
-        QtyBox.Text = qty.ToString(_selected?.MustWeigh == true || Math.Abs(qty - Math.Round(qty)) > 0.0005 ? "0.###" : "0", CultureInfo.InvariantCulture);
+        QtyBox.Text = MoneyText.Weight(qty, _selected?.MustWeigh == true || Math.Abs(qty - Math.Round(qty)) > 0.0005 ? "0.###" : "0"); // 2026-11-13 (Д-5): запятая; разбор поля её принимает
 
     private void Minus_Click(object? sender, RoutedEventArgs e) => SetQty(Math.Max(1, ReadQty() - 1));
 

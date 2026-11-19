@@ -432,9 +432,9 @@ namespace NurMarketKassa.ViewModels
         public double CashSuggestion1 => CashSuggestionValues.Length > 0 ? CashSuggestionValues[0] : 0;
         public double CashSuggestion2 => CashSuggestionValues.Length > 1 ? CashSuggestionValues[1] : 0;
         public double CashSuggestion3 => CashSuggestionValues.Length > 2 ? CashSuggestionValues[2] : 0;
-        public string CashSuggestion1Display => CashSuggestion1.ToString("0.##", CultureInfo.InvariantCulture);
-        public string CashSuggestion2Display => CashSuggestion2.ToString("0.##", CultureInfo.InvariantCulture);
-        public string CashSuggestion3Display => CashSuggestion3.ToString("0.##", CultureInfo.InvariantCulture);
+        public string CashSuggestion1Display => NurMarketKassa.Services.MoneyText.Weight(CashSuggestion1, "0.##"); // 2026-11-13 (Д-5): запятая (общий формат), было с точкой
+        public string CashSuggestion2Display => NurMarketKassa.Services.MoneyText.Weight(CashSuggestion2, "0.##"); // 2026-11-13 (Д-5): запятая (общий формат), было с точкой
+        public string CashSuggestion3Display => NurMarketKassa.Services.MoneyText.Weight(CashSuggestion3, "0.##"); // 2026-11-13 (Д-5): запятая (общий формат), было с точкой
         public bool HasCashSuggestion1 => IsCashMode && CashSuggestion1 > 0;
         public bool HasCashSuggestion2 => IsCashMode && CashSuggestion2 > 0;
         public bool HasCashSuggestion3 => IsCashMode && CashSuggestion3 > 0;
@@ -965,6 +965,7 @@ namespace NurMarketKassa.ViewModels
 
                 _clientLoyaltyBalance = value != null ? ClientLoyaltyStore.GetBalance(value.Id) : 0;
                 _pointsToRedeemInput = "0";
+                RefreshClientObjects(value); // 2026-11-14: объекты прораба (хозмаг) для окна оплаты
                 // 2026-10-05, запрос NurCRM: «баланс в окне оплаты с сервера» — сначала последний известный, потом серверный.
                 if (value != null && LoyaltyEnabled)
                     _ = LoadServerBalanceAsync(value.Id);
@@ -1876,7 +1877,7 @@ namespace NurMarketKassa.ViewModels
             }
             catch (ApiException ex)
             {
-                ErrorMessage = ex.Message;
+                ErrorMessage = NurMarketKassa.Services.ServerOutageMonitor.UserText(ex);
                 PosLogger.Log($"Checkout add client failed: {ex}", "PAYMENT");
             }
             catch (Exception ex)

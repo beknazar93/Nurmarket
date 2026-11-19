@@ -530,6 +530,12 @@ public partial class ScaleBarcodeSetupPanel : UserControl
                 shtrikh.ShowBarcodeTabFor(tile?.Title ?? "", tile?.Plu ?? 1, (decimal)(tile is null ? 0 : LocalCartService.ParsePrice(tile.PriceLine)));
                 await shtrikh.ShowDialog(owner).ConfigureAwait(true);
                 break;
+            case ScaleUi.BrandCas:
+                // 2026-11-13: CAS — окно «Настройки весов CAS» на вкладке «Штрих-код»
+                var cas = new CasScaleSettingsWindow();
+                cas.ShowBarcodeTab();
+                await cas.ShowDialog(owner).ConfigureAwait(true);
+                break;
             case ScaleUi.BrandShtrikhPc:
                 // 2026-11-07 (живая проверка 1.17.81, Б-F1): у РС-200 ветки не было — кнопка не открывала ничего; теперь окно «Настройки весов РС-200» на вкладке «Штрих-код».
                 var pc = new ShtrikhPcSettingsWindow();

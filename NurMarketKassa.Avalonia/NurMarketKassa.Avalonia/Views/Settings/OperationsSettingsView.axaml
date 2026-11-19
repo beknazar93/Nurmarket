@@ -317,7 +317,7 @@
           </ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="models:BankQrSetting">
-              <Border Classes="SettingsCard" Padding="16,14" HorizontalAlignment="Stretch">
+              <Border Classes="SettingsCard" Padding="16" HorizontalAlignment="Stretch">
                 <Grid ColumnDefinitions="Auto,*,Auto">
 
                   <!-- Логотип банка: своя картинка (встроенная или загруженная кассиром) либо
@@ -416,7 +416,7 @@
              Но вместе с тумблером тогда исчез и ПРОЦЕНТ начисления: изменить его стало негде,
              и он навсегда оставался равным 5 (UserPreferences.LoyaltyEarnPercent). Карточка
              ниже возвращает только процент и видна лишь после покупки. -->
-        <Border Classes="SettingsCard" Padding="14" Margin="0,6,0,0"
+        <Border Classes="SettingsCard" Padding="16" Margin="0,6,0,0"
                 x:Name="LoyaltyCard" x:FieldModifier="public">
           <StackPanel Spacing="10">
             <TextBlock Text="{DynamicResource posSettings.operations.loyaltyTitle}" Classes="SettingsCardTitle" FontSize="14"/>

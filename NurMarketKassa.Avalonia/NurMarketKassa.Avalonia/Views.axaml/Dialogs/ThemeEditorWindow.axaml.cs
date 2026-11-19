@@ -127,6 +127,10 @@ public partial class ThemeEditorWindow : Window
 
         PreviewOnlineText.Text = Tr.T("В сети", "Тармакта", "Online", "Çevrimiçi", "Onlayn");
         PreviewProduct1.Text = Tr.T("Молоко 1 л", "Сүт 1 л", "Milk 1 l", "Süt 1 l", "Sut 1 l");
+        // 2026-11-13 (Д-5): «шт» в примере плитки — на языке кассы (было по-русски во всех языках).
+        var pcs = Tr.T("шт", "даана", "pcs", "adet", "dona");
+        PreviewStock1.Text = "24 " + pcs;
+        PreviewStock2.Text = "30 " + pcs;
         PreviewProduct2.Text = Tr.T("Хлеб", "Нан", "Bread", "Ekmek", "Non");
         PreviewSearchText.Text = Tr.T("Поиск товара…", "Товарды издөө…", "Search…", "Ürün ara…", "Qidirish…");
         PreviewChipText.Text = Tr.T("Все товары", "Бардык товарлар", "All products", "Tüm ürünler", "Barcha mahsulotlar");

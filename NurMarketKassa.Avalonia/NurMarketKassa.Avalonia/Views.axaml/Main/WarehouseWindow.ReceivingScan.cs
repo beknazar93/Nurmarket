@@ -583,6 +583,7 @@ public partial class WarehouseWindow
         }
         catch (Exception ex)
         {
+            NurMarketKassa.Services.PosLogger.Log($"WarehouseWindow.ReceivingScan: сбой, показанный пользователю: {ex}", "WARNING"); // 2026-11-13 (Н-4): сырой текст — в журнал, на экран — понятный
             if (cts.IsCancellationRequested)
                 return;
             ReceivingSupplierProductsButton.IsVisible = false;
@@ -590,7 +591,7 @@ public partial class WarehouseWindow
             ReceivingSupplierProductsSearch.IsVisible = false;
             ReceivingSupplierProductsList.IsVisible = false;
             ReceivingSupplierProductsTitle.Text = TR("Товары поставщика не загрузились: ", "Жеткирүүчүнүн товарлары жүктөлгөн жок: ", "Supplier products didn't load: ",
-                "Tedarikçi ürünleri yüklenemedi: ", "Yetkazib beruvchi mahsulotlari yuklanmadi: ") + ex.Message;
+                "Tedarikçi ürünleri yüklenemedi: ", "Yetkazib beruvchi mahsulotlari yuklanmadi: ") + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex);
             return;
         }
         if (cts.IsCancellationRequested)

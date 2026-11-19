@@ -40,7 +40,8 @@ class UpdateBanner extends ConsumerWidget {
             TextButton(onPressed: () => showUpdateDialog(context), child: Text(l.updUpdate)),
             IconButton(
               tooltip: l.updLater,
-              visualDensity: VisualDensity.compact,
+              // 2026-11-13 (аудит UX мобилки, п. 3): без VisualDensity.compact — касание 48 dp, а не 40
+              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
               icon: Icon(Icons.close_rounded, size: 18, color: p.textSoft),
               onPressed: () => ref.read(appUpdateProvider.notifier).snooze(),
             ),

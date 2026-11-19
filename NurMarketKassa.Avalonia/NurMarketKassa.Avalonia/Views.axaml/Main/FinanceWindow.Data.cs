@@ -47,7 +47,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
             // в LoadDataAsync при сбое запроса, но баннер с ошибкой показывается только на главной
             // вкладке продаж, а не здесь — поэтому дублируем понятное сообщение прямо в диаграммах.
             // 2026-09-29: плашка «список обрезан» — не ошибка загрузки, товары при ней полные.
-            if (HasError && ErrorMessage != ListTruncatedNotice)
+            // 2026-11-13 (Н-4): признак сбоя загрузки, а не «есть любое сообщение»: после выгрузки здесь появлялось
+            // «Не удалось загрузить данные за период: Отчёт сохранён: C:\…».
+            if (_loadFailed)
             {
                 ShowProductsLoadError();
                 return;
@@ -131,22 +133,19 @@ namespace NurMarketKassa.AvaloniaHost.Views
             BarChartRenderer.RenderPie(AllProductsStockPie, pieItems, diameter: 200);
         }
 
+        /// <summary>2026-11-13 (Н-4): загрузка периода не удалась (сервер недоступен) — для вкладок с товарами.</summary>
+        private bool _loadFailed;
+
+        /// <summary>2026-11-13 (Н-4): блок «Сервер NurCRM недоступен» с «Повторить» на месте таблицы чеков самих «Финансов».</summary>
+        private bool ShowOwnServerOffline() =>
+            StateBlock.ShowOver(SalesGrid, StateBlock.Offline(this, () => Refresh_Click(this, new RoutedEventArgs())));
+
         private void ShowProductsLoadError()
         {
-            var message = Tr.T(
-                $"Не удалось загрузить данные за период: {ErrorMessage}",
-                $"Мезгилдин маалыматтарын жүктөө мүмкүн болгон жок: {ErrorMessage}", $"Could not load data for the period: {ErrorMessage}", $"Dönem verileri yüklenemedi: {ErrorMessage}", $"Davr uchun ma'lumotlarni yuklab bo'lmadi: {ErrorMessage}");
+            // 2026-11-13 (Н-4): общий блок состояния с «Повторить» вместо трёх оранжевых строк с сырым текстом.
             foreach (var panel in new[] { PopularProductsChart, PopularProductsPie, UnpopularProductsChart })
-            {
                 panel.Children.Clear();
-                panel.Children.Add(new TextBlock
-                {
-                    Text = message,
-                    FontSize = 12,
-                    Foreground = Brushes.OrangeRed,
-                    TextWrapping = TextWrapping.Wrap,
-                });
-            }
+            PopularProductsChart.Children.Add(StateBlock.Offline(this, () => Refresh_Click(this, new RoutedEventArgs())));
         }
 
         // 2026-11-06 (В11, шаг 7, п. 26.3): «Все товары» (до 15 000 строк) фильтруются после паузы 200 мс с последней буквы, а не на каждую.
@@ -339,6 +338,14 @@ namespace NurMarketKassa.AvaloniaHost.Views
             // 2026-10-18: «Продажи и финансы» — «Чеки» тоже по данным кассы (FinanceWindow.Merged.cs).
             ShowMergedSalesLocal(from, to);
 
+            _loadFailed = true;
+            // 2026-11-13 (Н-4): у кассы за период пусто — причина уже написана блоком на месте таблицы чеков, вторую полосу не показываем.
+            // Отдельные «Финансы» (без встроенных «Продаж») — тот же блок на месте своей таблицы чеков.
+            if (sales.Count == 0 && (_mergedSales?.LoadFailedBlockShown == true || (_mergedSales == null && ShowOwnServerOffline())))
+            {
+                ErrorMessage = null;
+                return;
+            }
             ErrorMessage = ServerOutageMonitor.IsOutage
                 // 2026-09-29: «Данные на 14:05, сервер не отвечает» — с какого времени нет данных сервера.
                 ? ServerOutageMonitor.StaleDataNote(null) + ServerOutageMonitor.LocalDataSuffix
@@ -430,6 +437,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             {
                 IsLoading = true;
                 ErrorMessage = null;
+                _loadFailed = false;
 
                 // 2026-09-29: сервер не отвечает (ServerOutageMonitor) — сразу данные кассы с пометкой
                 // времени, без ожидания таймаутов каждого запроса и без ошибок.
@@ -554,8 +562,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
                 // 2026-11-01 (В-27, аудит «10 из 10»): сервер не дал ни сводки, ни чеков (ответил 500 без исключения) — раньше экран
                 // показывал пустые плитки без пояснения. Теперь — «Сервер недоступен».
-                if (_serverSummary is null && sales.Count == 0)
+                var nothingFromServer = _serverSummary is null && sales.Count == 0;
+                if (nothingFromServer)
+                {
+                    _loadFailed = true;
                     ErrorMessage = ServerOfflineNotice.Text;
+                }
 
                 // Возвраты — с сервера (GET api/main/pos/returns/, полные и частичные); журнал
                 // удалений строк корзины — только если сервер список не дал (см. FetchRefundsAsync).
@@ -565,6 +577,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 // 2026-10-18, ревью объединения: «Чеки» и «Скидки» — из этого же списка, без второго списка с сервера.
                 token.ThrowIfCancellationRequested();
                 ShowMergedSales(sales, from, to);
+                // 2026-11-13 (Н-4): сервер ничего не дал — блок с «Повторить» на месте таблицы чеков вместо полосы внизу.
+                if (nothingFromServer && (_mergedSales != null ? _mergedSales.ShowServerOffline() : ShowOwnServerOffline()))
+                    ErrorMessage = null;
                 // 2026-09-17: базовые показатели (выручка/чеки/наличные/безнал) считаются сразу из
                 // уже полученных sales/refunds и не зависят от построчных данных чеков — раньше
                 // UpdateStats ждала полной загрузки LoadTopItemsAsync (нужна для маржи), из-за чего

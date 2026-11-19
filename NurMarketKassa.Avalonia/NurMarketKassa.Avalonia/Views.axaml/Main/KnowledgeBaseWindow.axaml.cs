@@ -74,6 +74,10 @@ public partial class KnowledgeBaseWindow : Window, IOwnerSection
         Closed += (_, _) => Tr.LanguageChanged -= OnLanguageChanged;
     }
 
+    /// <summary>2026-11-13: открыть на нужной статье (памятка кассира из окна «Весы»); нет такой — на запасной.</summary>
+    public void OpenArticle(string id, string fallbackId) =>
+        ApplyLanguage(_articles.Any(a => a.Id == id) ? id : fallbackId);
+
     private void OnLanguageChanged() => Avalonia.Threading.Dispatcher.UIThread.Post(() => ApplyLanguage(_current?.Id));
 
     private void ApplyLanguage(string? articleId)

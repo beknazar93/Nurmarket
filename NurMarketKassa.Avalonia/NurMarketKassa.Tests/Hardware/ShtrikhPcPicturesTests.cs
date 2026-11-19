@@ -195,7 +195,7 @@ public sealed class ShtrikhPcPicturesTests : IDisposable
         var without = Item(124, source: null);
 
         var text = ShtrikhPcImportWriter.Build(new[] { withPicture, without }, new ShtrikhPcSettings().Normalize()).Text;
-        var lines = text.Split("\r\n").Where(l => l.Length > 0).ToArray();
+        var lines = text.Split("\r\n").Where(l => l.Length > 0 && !l.StartsWith("<L", StringComparison.Ordinal)).ToArray(); // 2026-11-19: без строк <L (база форматов)
 
         lines[2].Should().StartWith("<R 100123;3;");
         lines[3].Should().StartWith("<D 123;");

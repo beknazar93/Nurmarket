@@ -21,6 +21,12 @@ public enum OutboxKind
     ShiftClose,
     /// <summary>Внесение или изъятие денег кассы.</summary>
     CashOperation,
+    /// <summary>2026-11-14 (Л-6): списание товара, принятое без связи (StockOpsQueue).</summary>
+    StockWriteOff,
+    /// <summary>2026-11-14 (Л-6): перемещение между складами/филиалами, принятое без связи (StockOpsQueue).</summary>
+    StockTransfer,
+    /// <summary>2026-11-14 (Л-6): ревизия склада, посчитанная, но не проведённая на сервере (черновик RevisionDraftStore).</summary>
+    Revision,
 }
 
 /// <summary>Состояние записи: ждёт связи/очереди, сейчас отправляется, отказ по существу.</summary>
@@ -174,6 +180,9 @@ public static class OutboxText
         OutboxKind.NewProduct => Tr.T("Новый товар", "Жаңы товар", "New product", "Yeni ürün", "Yangi tovar"),
         OutboxKind.ShiftClose => Tr.T("Закрытие смены", "Сменаны жабуу", "Shift closing", "Vardiya kapatma", "Smenani yopish"),
         OutboxKind.CashOperation => Tr.T("Внесение/изъятие", "Киргизүү/алуу", "Cash in/out", "Para girişi/çıkışı", "Kiritish/olish"),
+        OutboxKind.StockWriteOff => Tr.T("Списание", "Эсептен чыгаруу", "Write-off", "Düşüm", "Hisobdan chiqarish"),
+        OutboxKind.StockTransfer => Tr.T("Перемещение", "Жылдыруу", "Transfer", "Transfer", "Ko'chirish"),
+        OutboxKind.Revision => Tr.T("Ревизия", "Ревизия", "Stocktake", "Sayım", "Inventarizatsiya"),
         _ => Tr.T("Другое", "Башка", "Other", "Diğer", "Boshqa"),
     };
 

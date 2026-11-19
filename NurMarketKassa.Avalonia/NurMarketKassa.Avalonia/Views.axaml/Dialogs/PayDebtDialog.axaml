@@ -53,12 +53,7 @@
             <Setter Property="Padding" Value="12,10"/>
         </Style>
         <!-- Строка под курсором — мягкий фон, текст цветом текста (был белый текст на светлом фоне). -->
-        <Style Selector="DataGridRow:pointerover">
-            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-        </Style>
-        <Style Selector="DataGridRow:selected, DataGridRow:pointerover">
-            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-        </Style>
+        <!-- 2026-11-13 (Д-1): выделенная и наведённая строка — общий стиль программы (Themes/AppControlStyles.axaml), местный удалён. -->
         <Style Selector="DataGridCell">
             <Setter Property="FontSize" Value="14"/>
         </Style>

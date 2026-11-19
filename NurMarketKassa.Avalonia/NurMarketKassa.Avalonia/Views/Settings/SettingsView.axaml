@@ -16,27 +16,8 @@
     <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views/Settings/SettingsSharedStyles.axaml"/>
 
     <!-- 2026-11-01 (контрольный аудит, Д-04): цвет, рамка, радиус, курсор и наведение «главной» — из общего Button.btn-primary (PosDialogStyles); здесь только размеры страницы. -->
-    <Style Selector="Button.btn-primary">
-      <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="HorizontalContentAlignment" Value="Center"/>
-      <Setter Property="VerticalContentAlignment" Value="Center"/>
-    </Style>
+    <!-- 2026-11-13 (Д-1): местные описания кнопок удалены — вид один на всю программу (nur-primary / nur-secondary и их псевдонимы, PosDialogStyles.axaml). -->
 
-    <Style Selector="Button.btn-secondary">
-      <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
-      <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="HorizontalContentAlignment" Value="Center"/>
-      <Setter Property="VerticalContentAlignment" Value="Center"/>
-      <Setter Property="Cursor" Value="Hand"/>
-    </Style>
-    <Style Selector="Button.btn-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-    </Style>
   </UserControl.Styles>
 
   <Border Classes="SettingsContentHost" Padding="16">
@@ -46,7 +27,7 @@
       <StackPanel Classes="SettingsCardList" Spacing="10" MaxWidth="{DynamicResource SettingsPageMaxWidth}" HorizontalAlignment="Stretch">
 
         <!-- Заголовок страницы и главный переключатель прижаты влево -->
-        <Border Classes="SettingsHeaderCard" Padding="12">
+        <Border Classes="SettingsHeaderCard">
           <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Spacing="12">
             <Border Width="36" Height="36" CornerRadius="8" Background="{DynamicResource BrushAccentSoft}"
                     BorderBrush="{DynamicResource BrushAccent}" BorderThickness="1">
@@ -60,7 +41,7 @@
         </Border>
 
         <!-- Единый блок кастомизации -->
-        <Border Classes="SettingsCard" Padding="14">
+        <Border Classes="SettingsCard" Padding="16">
           <StackPanel Spacing="12">
             <!-- Секция 1: Обои -->
             <StackPanel Spacing="6">

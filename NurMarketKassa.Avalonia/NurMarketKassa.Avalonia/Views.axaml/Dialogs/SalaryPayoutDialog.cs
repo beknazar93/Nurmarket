@@ -327,7 +327,7 @@ public sealed class SalaryPayoutDialog : Window
         {
             PosLogger.Log($"Выплата зарплаты: кассы не получены: {ex.Message}", "WARNING");
             ShowMessage(T("Не удалось загрузить кассы компании: ", "Компаниянын кассаларын жүктөө мүмкүн болгон жок: ", "Could not load the company cash desks: ",
-                "Şirket kasaları yüklenemedi: ", "Kompaniya kassalarini yuklab bo'lmadi: ") + ex.Message, "danger");
+                "Şirket kasaları yüklenemedi: ", "Kompaniya kassalarini yuklab bo'lmadi: ") + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex), "danger");
         }
         UpdateState();
         _amount.Focus();

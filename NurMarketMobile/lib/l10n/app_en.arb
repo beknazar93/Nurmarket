@@ -2051,5 +2051,12 @@
   "returnMaybeDoneBody": "This receipt already has a return at {time} for {sum} som from the earlier attempt. A new return was NOT sent, so the money is not paid out twice. Check the receipt's returns in Receipts; if you need one more return, open the receipt again.",
   "payDuplicatePrice": "“{name}” is in the receipt at two prices (retail and wholesale). Keep one price or remove the extra line.",
   "logoutCartTitle": "Sign out with an unfinished receipt?",
-  "logoutCartAsk": "Items in the receipt: {lines}, held receipts: {held}. They will be lost on sign-out; every line is written to “Removed from receipt”."
+  "logoutCartAsk": "Items in the receipt: {lines}, held receipts: {held}. They will be lost on sign-out; every line is written to “Removed from receipt”.",
+  "apiForbidden": "You don't have permission for this action. Ask the owner.",
+  "apiNotFound": "Not found — the record may have been deleted. Refresh the list.",
+  "apiThrottled": "Too many requests. Wait a minute and try again.",
+  "apiFieldRequired": "Fill in the required field.",
+  "apiNumberInvalid": "Enter a number.",
+  "apiAlreadyExists": "This record already exists.",
+  "receiptOfflineNote": "Receipt saved offline — it will be sent to the server automatically"
 }

@@ -52,7 +52,7 @@
     </Style>
 
     <Style Selector="TextBox.ModernInput">
-      <Setter Property="Height" Value="42"/>
+      <Setter Property="Height" Value="44"/>
       <Setter Property="Padding" Value="12,6"/>
       <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource BrushInputBorder}"/>
@@ -411,12 +411,12 @@
                 <ContentControl x:Name="ActionBarHost"/>
                 <!-- 2026-10-03, владелец: «нужна кнопка для печати документов из чека» — лист A4 в браузере. -->
                 <Grid ColumnDefinitions="*,8,*">
-                  <Button x:Name="DocReceiptButton" Grid.Column="0" Classes="sec-outline" MinHeight="38"
+                  <Button x:Name="DocReceiptButton" Grid.Column="0" Classes="sec-outline" MinHeight="44"
                           HorizontalAlignment="Stretch" IsEnabled="False" Click="DocReceipt_Click"
                           AutomationProperties.Name="{DynamicResource receiptHistory.docSalesReceipt}">
                     <TextBlock Text="{DynamicResource receiptHistory.docSalesReceipt}" TextWrapping="Wrap" TextAlignment="Center"/>
                   </Button>
-                  <Button x:Name="DocWaybillButton" Grid.Column="2" Classes="sec-outline" MinHeight="38"
+                  <Button x:Name="DocWaybillButton" Grid.Column="2" Classes="sec-outline" MinHeight="44"
                           HorizontalAlignment="Stretch" IsEnabled="False" Click="DocWaybill_Click"
                           AutomationProperties.Name="{DynamicResource receiptHistory.docWaybill}">
                     <TextBlock Text="{DynamicResource receiptHistory.docWaybill}" TextWrapping="Wrap" TextAlignment="Center"/>

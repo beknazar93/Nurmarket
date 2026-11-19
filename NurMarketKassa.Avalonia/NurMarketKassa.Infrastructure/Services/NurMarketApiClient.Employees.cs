@@ -708,6 +708,9 @@ public sealed partial class NurMarketApiClient
         CanViewDebts = ReadOptionalBool(item, "can_view_debts"),
         CanEditPurchaseDocuments = ReadOptionalBool(item, "can_edit_purchase_documents"),
         CanUsePos = ReadOptionalBool(item, "can_use_pos"),
+        // 2026-11-13: null у сервера = права нет (или владелец/админ по роли) — в форме «не выдано»; переключатель показываем всегда.
+        CanSellBelowCost = ReadOptionalBool(item, "can_sell_below_cost") ?? false,
+        SellBelowCostShown = true,
         CanViewCashbox = ReadTopLevelBool(item, "can_view_cashbox"),
         CanViewAnalytics = ReadTopLevelBool(item, "can_view_analytics"),
         CanViewProducts = ReadTopLevelBool(item, "can_view_products"),

@@ -7370,4 +7370,29 @@ class AppLocalizationsRu extends AppLocalizations {
   String logoutCartAsk(int lines, int held) {
     return 'В чеке позиций: $lines, отложено чеков: $held. При выходе они пропадут; каждая строка будет записана в «Удалено из чека».';
   }
+
+  @override
+  String get apiForbidden =>
+      'Недостаточно прав для этого действия. Обратитесь к владельцу.';
+
+  @override
+  String get apiNotFound =>
+      'Не найдено — возможно, запись уже удалена. Обновите список.';
+
+  @override
+  String get apiThrottled =>
+      'Слишком много запросов. Подождите минуту и повторите.';
+
+  @override
+  String get apiFieldRequired => 'Заполните обязательное поле.';
+
+  @override
+  String get apiNumberInvalid => 'Введите число.';
+
+  @override
+  String get apiAlreadyExists => 'Такая запись уже есть.';
+
+  @override
+  String get receiptOfflineNote =>
+      'Чек сохранён без связи — уйдёт на сервер автоматически';
 }

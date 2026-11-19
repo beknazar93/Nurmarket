@@ -292,8 +292,9 @@
         <!-- Отступы окна. 2026-10-23 (ТЗ компактной оплаты): «высота по содержимому». Классы compact (доступная высота < 760) и tiny (< 650)
              ставит CheckoutDialog.ApplyDock по доступной высоте (MaxHeight). 2026-10-30 (редизайн): шапка 52 (tiny 44), крупный итог 36/32/26,
              «Получено» 56/52/48, плитки 64/56/52, кнопка «Оплатить» 52/48/44; зоны касания везде ≥ 44. -->
+        <!-- 2026-11-19 (единые отступы окон): ✕ стоял в 8 px от правого края, а панели и подвал — в 16; справа 16 (tiny — 12, как панели). -->
         <Style Selector="Border.pay-header">
-            <Setter Property="Padding" Value="10,4,8,4"/>
+            <Setter Property="Padding" Value="10,4,16,4"/>
             <Setter Property="MinHeight" Value="52"/>
         </Style>
         <Style Selector="Border.pay-pane">
@@ -373,7 +374,7 @@
         </Style>
         <!-- 2026-10-23 (аудит круг 3, Б-6): моноблок 1024×600 — доступная высота ниже 650 px (класс tiny, ставит ApplyDock). -->
         <Style Selector=".tiny Border.pay-header">
-            <Setter Property="Padding" Value="8,2,6,2"/>
+            <Setter Property="Padding" Value="8,2,12,2"/>
             <Setter Property="MinHeight" Value="44"/>
         </Style>
         <Style Selector=".tiny Border.pay-pane">
@@ -677,7 +678,8 @@
             </Border>
 
             <!-- 2. Над телом (2026-10-30): «Цена изменилась», ошибка, статус списка клиентов — под шапкой, пока видны. Пока все строки скрыты, блок высоты не имеет. -->
-            <StackPanel Grid.Row="1" Margin="12,0">
+            <!-- 2026-11-19 (единые отступы окон): плашки — по линии панелей и подвала (16), было 12. -->
+            <StackPanel Grid.Row="1" Margin="16,0">
                 <!-- 2026-10-27 (приёмка 1.17.63, Д-6): «Цена изменилась: …» — сверка цен перед оплатой изменила строки; текст стоит, пока окно открыто. -->
                 <Border IsVisible="{Binding HasPriceChangeNotice}" Margin="0,8,0,0" Padding="12,8" CornerRadius="10"
                         Background="{DynamicResource BrushWarningSoft}">
@@ -1222,6 +1224,15 @@
                                 </Grid>
                             </Border>
                         </Panel>
+
+                        <!-- 2026-11-14 (ответ Умара 13.11 вечер, строймаркет): объект клиента-прораба (необязательный) — уходит в продажу полем object. Виден только в «Хозтовары», когда у клиента есть объекты. -->
+                        <StackPanel x:CompileBindings="False" Spacing="4" IsVisible="{Binding ShowClientObjects}">
+                            <TextBlock Text="{Binding ClientObjectLabel}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+                            <ComboBox ItemsSource="{Binding ClientObjects}" SelectedItem="{Binding SelectedClientObject, Mode=TwoWay}"
+                                      DisplayMemberBinding="{Binding DisplayName}"
+                                      HorizontalAlignment="Stretch" MinHeight="44"
+                                      AutomationProperties.Name="{Binding ClientObjectLabel}"/>
+                        </StackPanel>
 
                         <!-- Бонусная программа — только когда включена в Настройки → Операции и клиент выбран.
                              2026-10-30 (редизайн): «Бонусов доступно» + поле списания, кнопка «Списать N F6» → «✓ Списано N», «начислится…» мелко под ней. -->

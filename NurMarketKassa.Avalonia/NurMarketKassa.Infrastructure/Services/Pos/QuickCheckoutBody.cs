@@ -44,7 +44,9 @@ public static class QuickCheckoutBody
         bool consultantCommissionEnabled,
         string? consultantCommissionPercent,
         bool printReceipt,
-        out string? unsupportedReason)
+        out string? unsupportedReason,
+        string? objectId = null,
+        bool overrideCreditLimit = false)
     {
         unsupportedReason = null;
         if (string.IsNullOrWhiteSpace(paymentMethod))
@@ -178,6 +180,12 @@ public static class QuickCheckoutBody
             }
 
             body["print_receipt"] = printReceipt;
+            // 2026-11-14 (ответ Умара 13.11 вечер): объект клиента-прораба (поле object, id) — только вместе с клиентом; чужой объект сервер отклонит (404 object_not_found).
+            if (!string.IsNullOrWhiteSpace(objectId) && body["client"] is not null)
+                body["object"] = objectId.Trim();
+            // 2026-11-14: владелец подтвердил превышение лимита долга клиента (иначе 409 credit_limit_exceeded). Только «в долг».
+            if (overrideCreditLimit && string.Equals(method, "debt", StringComparison.OrdinalIgnoreCase))
+                body["override_credit_limit"] = true;
             DeviceIdentity.ApplyTo(body); // 2026-11-05: device_key / device_name / branch — только при признаке сервера checkout_branch
             return body;
         }
@@ -320,7 +328,8 @@ public static class QuickCheckoutBody
             line["price_override"] = true;
         // 2026-11-13 (сервер sn1311, «Электроника»): серийники строки (поле serials строки чека кассы) уходят как serial_numbers — только при флаге компании electronics_2026_11.
         // Без флага (и у других сфер, где номеров нет) тело прежнее байт в байт: номера остаются в местном журнале.
-        if (ServerSerials.Enabled && ServerSerials.ToJson(SerialJournal.ReadSerials(it)) is { } serialNumbers)
+        // 2026-11-14 (ответ Умара 13.11 вечер): сервер сохраняет serial_numbers ВСЕГДА, флаг electronics_2026_11 включает только проверки (количество, «уже продан») — поэтому номера шлём без флага.
+        if (ServerSerials.ToJson(SerialJournal.ReadSerials(it)) is { } serialNumbers)
             line["serial_numbers"] = serialNumbers;
         return line;
     }

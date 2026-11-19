@@ -114,10 +114,10 @@ public sealed class RongtaScaleSettingsUiTests
             var tag = $"{width}x{height} {lang}";
             var langCode = lang == AppLanguage.Kyrgyz ? "ky" : "ru";
             var tabs = window.FindControl<TabControl>("Tabs")!;
-            tabs.ItemCount.Should().Be(4, $"четыре вкладки ({tag})");
+            tabs.ItemCount.Should().Be(5, $"пять вкладок ({tag})"); // 2026-11-13 (Н-3): «Быстрая настройка» первой, «Для мастера» последней
 
-            var names = new[] { "connection", "upload", "barcode", "date" };
-            for (var i = 0; i < 4; i++)
+            var names = new[] { "quick", "upload", "barcode", "date", "master" };
+            for (var i = 0; i < 5; i++)
             {
                 tabs.SelectedIndex = i;
                 UiShot.Settle(8);

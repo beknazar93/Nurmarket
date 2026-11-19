@@ -7240,4 +7240,29 @@ class AppLocalizationsKy extends AppLocalizations {
   String logoutCartAsk(int lines, int held) {
     return 'Чекте позиция: $lines, кечиктирилген чектер: $held. Чыкканда алар жок болот; ар бир сап «Чектен өчүрүлдү» журналына жазылат.';
   }
+
+  @override
+  String get apiForbidden =>
+      'Бул аракет үчүн укук жетишсиз. Ээси менен байланышыңыз.';
+
+  @override
+  String get apiNotFound =>
+      'Табылган жок — жазуу өчүрүлгөн болушу мүмкүн. Тизмени жаңыртыңыз.';
+
+  @override
+  String get apiThrottled =>
+      'Өтүнүчтөр өтө көп. Бир мүнөт күтүп, кайра аракет кылыңыз.';
+
+  @override
+  String get apiFieldRequired => 'Милдеттүү талааны толтуруңуз.';
+
+  @override
+  String get apiNumberInvalid => 'Сан киргизиңиз.';
+
+  @override
+  String get apiAlreadyExists => 'Мындай жазуу бар.';
+
+  @override
+  String get receiptOfflineNote =>
+      'Чек байланышсыз сакталды — серверге өзү кетет';
 }

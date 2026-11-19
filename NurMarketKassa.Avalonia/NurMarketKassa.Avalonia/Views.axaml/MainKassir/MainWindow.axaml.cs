@@ -120,6 +120,7 @@ public partial class MainWindow : Window
         // 2026-10-23 (аудит Б-9): заголовок системной рамки — цветом темы кассы.
         NurMarketKassa.AvaloniaHost.Services.WindowChrome.Apply(this);
         DataContext = _viewModel;
+        HookTrainingMode(); // 2026-11-19 (Н-1): полоса учебного режима и пункты меню «Помощь» — сразу при создании окна
         // 2026-10-23 (аудит, круг 5): узкая шапка — по ширине самой шапки (Bounds), а не по экрану.
         KassaHeaderBar.PropertyChanged += (_, e) =>
         {
@@ -184,6 +185,12 @@ public partial class MainWindow : Window
         PermissionRecheck.PermissionsChanged += OnAccessChangedFromSite;
         // 2026-10-20 (живой аудит кассы, К1–К3, К6): как заплатили — для суммы возврата и «Истории чеков» после возврата.
         _viewModel.Basket.CheckoutSucceeded += RememberSaleForReturns;
+        // 2026-11-13: «Интерфейс кассира» отняли при открытом чеке — после продажи касса закрывается (см. EnforceCashierInterfaceRight).
+        _viewModel.Basket.CheckoutSucceeded += (_, _) =>
+        {
+            if (_cashierRightLostWarned)
+                DispatcherTimer.RunOnce(EnforceCashierInterfaceRight, TimeSpan.FromSeconds(2));
+        };
         // 2026-10-20 (К12): оплата долга (в этой кассе, в программе владельца или на соседней кассе) — «Касса» в шапке сразу.
         PosDataEvents.ClientDebtChanged += OnClientDebtChangedRefreshBalance;
         // 2026-10-18, редизайн (этап 6): «Продажа прошла» — плашка внизу вместо окна (MainWindow.SaleDoneBar.cs).
@@ -278,6 +285,9 @@ public partial class MainWindow : Window
         // 2026-11-13: «Ремонт и сервис» и «Trade-in / скупка» — подключаемые функции Маркетплейса (MainWindow.ServiceDesk.cs).
         _viewModel.SideMenu.NavigateRepairAction ??= NavigateRepair;
         _viewModel.SideMenu.NavigateTradeInAction ??= NavigateTradeIn;
+        // 2026-11-13 (Н-1): «Мастер первого запуска» и «Учебная продажа» в меню «Помощь» (MainWindow.Training.cs).
+        _viewModel.SideMenu.NavigateFirstRunWizardAction ??= NavigateFirstRunWizard;
+        _viewModel.SideMenu.NavigateTrainingSaleAction ??= NavigateTrainingSale;
         // 2026-10-17, редизайн (этап 4): журнал «Удалено из чека» — владельцу и администратору (как «Настройки»).
         _viewModel.SideMenu.NavigateCartRemovalsAction ??= () =>
         {
@@ -858,6 +868,10 @@ public partial class MainWindow : Window
             return;
         }
 
+        // 2026-11-13 (Н-2): F1 — шпаргалка клавиш, если на F1 не назначена группа быстрых товаров (иначе группа важнее, как у F5).
+        if (e.Key == Key.F1 && TryOpenCheatSheetByKey(e))
+            return;
+
         if (e.KeyModifiers == KeyModifiers.None && TryGetHotkeyGroup(e.Key, out var group))
         {
             e.Handled = true;
@@ -878,6 +892,7 @@ public partial class MainWindow : Window
 
             if (FocusManager?.GetFocusedElement() is TextBox { Name: "ProductSearchBox" } search)
                 search.Text = "";
+            _viewModel.Basket.ResetPendingQuantity(); // 2026-11-13 (Н-2): Esc сбрасывает набранное «3*»
             RestoreScannerFocus();
             return;
         }
@@ -885,6 +900,10 @@ public partial class MainWindow : Window
         if (FocusManager?.GetFocusedElement() is TextBox)
             return;
         if (ReferenceEquals(e, _scanKeySeenInTunnel))
+            return;
+
+        // 2026-11-13 (Н-2): вне полей ввода — «?» открывает шпаргалку клавиш; «3», «*» — количество для следующего скана (цифры по-прежнему идут и сканеру).
+        if (TryOpenCheatSheetByKey(e) || TrackTypedQuantity(e))
             return;
 
         _barcodeInputService.ProcessKeyDown(e);
@@ -1842,7 +1861,7 @@ public partial class MainWindow : Window
         if (_permissions.HasPermission(PosPermissions.ViewShifts))
             return true;
         PosLogger.Log($"Permission denied: {PosPermissions.ViewShifts}", "WARNING");
-        _prompts.ShowWarning(PermissionService.CashierWorkDeniedMessage(PosPermissions.ViewShifts));
+        _prompts.ShowWarning(PermissionService.DeniedMessage(_permissions, PosPermissions.ViewShifts)); // 2026-11-13: при can_use_pos=false — «Работа на кассе»
         return false;
     }
 
@@ -2070,12 +2089,41 @@ public partial class MainWindow : Window
         {
             _viewModel.SideMenu.RefreshEntitlements();
             NurMarketKassa.AvaloniaHost.Services.AccessSyncNotice.Show();
+            EnforceCashierInterfaceRight();
         }
         catch (Exception ex)
         {
             PosLogger.Log($"Права: меню кассы не обновлено после изменения доступов ({ex.Message}).", "WARNING");
         }
     });
+
+    private bool _cashierRightLostWarned;
+
+    /// <summary>2026-11-13 (живая проверка доступов, замечание про «Интерфейс кассира»): владелец отнял доступ, пока касса открыта — раньше он проверялся только при входе, и кассир продавал до перезапуска.
+    /// Теперь: чек пуст и оплаты нет — объяснение и окно входа (сохранённый вход остаётся, как при входе без доступа); в чеке есть товары — кассира не обрываем: объяснение один раз, чек дорабатывается
+    /// (скидки, удаление и оплата проверяются по актуальным правам), и после продажи касса закрывается так же.</summary>
+    private void EnforceCashierInterfaceRight()
+    {
+        if (_permissions.HasPermission(PosPermissions.ViewCashier))
+        {
+            _cashierRightLostWarned = false;
+            return;
+        }
+        var basket = _viewModel.Basket;
+        if (basket.HasItems || basket.IsBusy)
+        {
+            if (_cashierRightLostWarned)
+                return;
+            _cashierRightLostWarned = true;
+            PosLogger.Log("Права: «Интерфейс кассира» отнят при открытом чеке — касса закроется после этого чека.", "AUTH");
+            _prompts.ShowWarning(PermissionService.CashierInterfaceRevokedWithCheckMessage());
+            return;
+        }
+        _cashierRightLostWarned = false;
+        PosLogger.Log("Права: «Интерфейс кассира» отнят на сервере — окно входа, сохранённый вход оставлен.", "AUTH");
+        _prompts.ShowWarning(PermissionService.DeniedMessage(_permissions, PosPermissions.ViewCashier));
+        _ = NavigateToLoginAsync(keepSavedLogin: true);
+    }
 
     /// <summary>Раздел владельца из кассы (2026-09-26, разделение программ): при входе через NurCRM
     /// он в программе «NurMarket Владелец». Пункты меню скрыты, но в раздел ведут и другие пути
@@ -2197,7 +2245,7 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             PosLogger.Log($"История чеков не открылась: {ex}", "WARNING");
-            _prompts.ShowWarning(Tr.T("Не удалось открыть историю чеков: ", "Чектердин тарыхын ачуу мүмкүн болгон жок: ", "Could not open the receipt history: ", "Fiş geçmişi açılamadı: ", "Cheklar tarixini ochib bo'lmadi: ") + ex.Message);
+            _prompts.ShowWarning(Tr.T("Не удалось открыть историю чеков: ", "Чектердин тарыхын ачуу мүмкүн болгон жок: ", "Could not open the receipt history: ", "Fiş geçmişi açılamadı: ", "Cheklar tarixini ochib bo'lmadi: ") + ServerOutageMonitor.UserText(ex)); // 2026-11-13 (Н-4): сырой текст — в журнал (строка выше)
         }
     }
 
@@ -2353,7 +2401,8 @@ public partial class MainWindow : Window
         if (_permissions.HasPermission(permission))
             return true;
         PosLogger.Log($"Permission denied: {permission}", "WARNING");
-        _prompts.ShowWarning(Tr.T("Недостаточно прав для выполнения этой операции.", "Бул операцияны аткарууга укук жетишсиз.", "Insufficient permissions to perform this operation.", "Bu işlemi gerçekleştirmek için yetkiniz yok.", "Bu amalni bajarish uchun huquq yetarli emas."));
+        // 2026-11-13 (живая проверка доступов, замечание 5): отказ называет право («Настройки» и т. д.), а не общее «Недостаточно прав».
+        _prompts.ShowWarning(PermissionService.DeniedMessage(_permissions, permission));
         return false;
     }
 
@@ -2423,7 +2472,7 @@ public partial class MainWindow : Window
         if (!_permissions.HasPermission(PosPermissions.ViewCashier))
         {
             PosLogger.Log("Вход в кассу: нет доступа «Интерфейс кассира» — окно входа, сохранённый вход оставлен.", "AUTH");
-            _prompts.ShowWarning(PermissionService.CashierWorkDeniedMessage(PosPermissions.ViewCashier));
+            _prompts.ShowWarning(PermissionService.DeniedMessage(_permissions, PosPermissions.ViewCashier)); // 2026-11-13: при can_use_pos=false — «Работа на кассе»
             await NavigateToLoginAsync(keepSavedLogin: true).ConfigureAwait(true);
             return;
         }
@@ -2487,6 +2536,9 @@ public partial class MainWindow : Window
         ServerBotOffer.Schedule(this);
         // 2026-10-06, владелец: «новым клиентам при первом запуске спрашивать сферу маркета» — только на новой установке.
         _ = MarketSphereChoiceWindow.MaybeAskAsync(this);
+        // 2026-11-13 (Н-1): учебный режим (полоса под шапкой) и мастер первого запуска — новому магазину с пустым каталогом, один раз; повторно — меню «Помощь».
+        HookTrainingMode();
+        _ = MaybeOfferFirstRunWizardAsync();
 
         // 2026-10-27 (приёмка 26.10, Д-5): экран покупателя открываем ДО модального окна «Касса обновлена» (оно держит этот метод,
         // пока его не закроют, и экран покупателя после обновления не появлялся); причина и итог — в журнал (CUSTOMER_DISPLAY).
@@ -3180,11 +3232,20 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ScheduleApplicationStateSave() =>
+    // 2026-11-13 (Н-1): пока включён учебный режим, состояние кассы (чек) на диск не пишется — учебные товары не должны «восстановиться» после перезапуска.
+    private void ScheduleApplicationStateSave()
+    {
+        if (TrainingMode.IsActive)
+            return;
         _applicationStateService.SaveDebounced(CaptureApplicationState);
+    }
 
-    private void SaveApplicationState() =>
+    private void SaveApplicationState()
+    {
+        if (TrainingMode.IsActive)
+            return;
         _applicationStateService.Save(CaptureApplicationState());
+    }
 
     private bool _portraitLayout;
 

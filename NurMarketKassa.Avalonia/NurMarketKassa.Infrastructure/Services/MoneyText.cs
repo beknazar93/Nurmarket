@@ -80,5 +80,13 @@ public static class MoneyText
 
     public static string Weight(decimal value, string format = "0.###") => value.ToString(format, Format);
 
+    /// <summary>2026-11-13 (Д-5, решение координатора): ОДНА функция показа количества (шт, кг, л) вместо шести копий FormatQty в диалогах,
+    /// писавших точку (InvariantCulture): целое — без дробной части («3»), дробное — до трёх знаков с запятой («1,25»). Только показ и
+    /// заполнение полей ввода (их разбор принимает запятую); в запросы серверу — прежний инвариантный формат.</summary>
+    public static string Qty(double value) =>
+        double.IsNaN(value) || double.IsInfinity(value) ? NotANumber : Weight(Math.Abs(value - Math.Round(value)) < 1e-6 ? Math.Round(value) : value);
+
+    public static string Qty(decimal value) => Qty((double)value);
+
     public static string Currency => Tr.T("сом", "сом", "som", "som", "so'm");
 }

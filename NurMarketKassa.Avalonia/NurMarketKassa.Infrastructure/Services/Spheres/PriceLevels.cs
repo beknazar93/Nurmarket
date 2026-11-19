@@ -12,7 +12,11 @@ public sealed record PriceLevelInfo(string Id, string Name);
 public sealed record ProductLevelPrice(string LevelId, string? LevelName, decimal Price, decimal? MinQty);
 
 /// <summary>Объект клиента-прораба (GET/POST main/clients/{id}/objects/): стройка, адрес.</summary>
-public sealed record ClientObjectInfo(string Id, string Name, string? Address);
+public sealed record ClientObjectInfo(string Id, string Name, string? Address)
+{
+    /// <summary>2026-11-14: подпись в списке окна оплаты — «Дом на Ленина — ул. Ленина 5».</summary>
+    public string DisplayName => string.IsNullOrWhiteSpace(Address) ? Name : $"{Name} — {Address}";
+}
 
 /// <summary>
 /// 2026-11-13 (ответ Умара 13.11, п. 4, «Строймаркет»): «цена прораба» — серверный уровень цен. У клиента поле <c>price_level</c>; уровни — <c>GET main/price-levels/</c>;
@@ -79,7 +83,9 @@ public sealed class PriceLevelsApi
     public async Task<IReadOnlyList<ClientObjectInfo>> GetObjectsAsync(string clientId, CancellationToken ct = default)
     {
         var data = await _api.RequestAsync(HttpMethod.Get, $"api/main/clients/{Uri.EscapeDataString(clientId)}/objects/", null, null, ct, TimeSpan.FromSeconds(15)).ConfigureAwait(false);
-        return Rows(data, "results", "objects").Select(r => new ClientObjectInfo(Text(r, "id") ?? "", Text(r, "name") ?? Text(r, "title") ?? "", Text(r, "address")))
+        // 2026-11-14 (ответ Умара 13.11 вечер): у объекта есть is_active — удалённые/неактивные в окне оплаты не показываем.
+        return Rows(data, "results", "objects").Where(r => !(r.TryGetProperty("is_active", out var active) && active.ValueKind == JsonValueKind.False))
+            .Select(r => new ClientObjectInfo(Text(r, "id") ?? "", Text(r, "name") ?? Text(r, "title") ?? "", Text(r, "address")))
             .Where(o => o.Id.Length > 0).ToList();
     }
 
@@ -268,6 +274,24 @@ public static class PriceLevelPricing
             }
         }
         return new PriceLevelResult(byItem, fromCache, missing, byItem.Count == 0 ? error : (fromCache ? error : null));
+    }
+
+    /// <summary>2026-11-14 (ответ Умара 13.11 вечер): объекты клиента-прораба для окна оплаты (GET clients/&lt;id&gt;/objects/); только активные. Нет связи, сервер не ответил или объектов нет — пустой список
+    /// (продажа идёт без объекта, касса не блокируется).</summary>
+    public static async Task<IReadOnlyList<ClientObjectInfo>> LoadObjectsAsync(string clientId, CancellationToken ct = default)
+    {
+        var api = (ApiOverride ?? ServerLoyalty.ApiProvider)?.Invoke();
+        if (!Online || api is null || string.IsNullOrEmpty(api.AccessToken) || string.IsNullOrWhiteSpace(clientId))
+            return Array.Empty<ClientObjectInfo>();
+        try
+        {
+            return await new PriceLevelsApi(api).GetObjectsAsync(clientId, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            PosLogger.Log($"Объекты клиента {clientId}: сервер не ответил ({ex.Message}).", "WARNING");
+            return Array.Empty<ClientObjectInfo>();
+        }
     }
 
     /// <summary>Уровень цен клиента по памяти кассы (поле <c>price_level</c> списка клиентов) или null.</summary>

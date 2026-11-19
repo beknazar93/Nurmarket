@@ -120,6 +120,13 @@
   <x:String x:Key="mainWindow.checkCustomerDisplayTooltip">Xaridor ekranini tekshirish</x:String>
   <x:String x:Key="mainWindow.onScreenKeyboardTooltip">Ekran klaviaturasi</x:String>
   <x:String x:Key="mainWindow.hotkeysTooltip">Tezkor tugmalar</x:String>
+  <!-- 2026-11-13 (Н-1, Н-2): шпаргалка клавиш, подсказка пустого чека, мастер первого запуска и учебная продажа -->
+  <x:String x:Key="mainWindow.hotkeysCheatSheet">Kassa tugmalari (?)</x:String>
+  <x:String x:Key="csh.cart.scanTitle">Mahsulotni skanerlang</x:String>
+  <x:String x:Key="csh.cart.scanHint">Skaner ekranning istalgan joyidan ishlaydi.&#x0a;Yoki qidiruv maydoniga kod / nomini yozing.</x:String>
+  <x:String x:Key="csh.cart.keysLink">Tugmalar: ?</x:String>
+  <x:String x:Key="csh.menu.firstRunWizard">Birinchi ishga tushirish ustasi</x:String>
+  <x:String x:Key="csh.menu.trainingSale">O'quv sotuvi</x:String>
   <x:String x:Key="hotkeyGroup.title">Tezkor tugma</x:String>
   <x:String x:Key="header.labelCustomerDisplay">Ekran</x:String>
   <x:String x:Key="header.labelTheme">Mavzu</x:String>
@@ -866,7 +873,7 @@
   <x:String x:Key="posSettings.monitor.sampleCoffee">Tabiiy qahva</x:String>
   <x:String x:Key="posSettings.monitor.sampleMilk">Sut 1 l</x:String>
   <x:String x:Key="posSettings.monitor.qtyShort">Miqdor</x:String>
-  <x:String x:Key="posSettings.monitor.samplePayable">To'lovga: 400.00 so'm</x:String>
+  <x:String x:Key="posSettings.monitor.samplePayable">To'lovga: 400,00 so'm</x:String>
   <x:String x:Key="posSettings.monitor.screenContentTitle">Ekran tarkibi</x:String>
   <x:String x:Key="posSettings.monitor.companyLogo">Kompaniya logotipi</x:String>
   <x:String x:Key="posSettings.monitor.itemCount">Mahsulotlar soni</x:String>
@@ -1352,9 +1359,9 @@
     <x:String x:Key="loc.owner.zeroMoney">0,00 so'm</x:String>
     <x:String x:Key="loc.settings.monitor.samplePositions">2 pozitsiya</x:String>
     <x:String x:Key="loc.settings.monitor.sampleQty2">×2 dona</x:String>
-    <x:String x:Key="loc.settings.monitor.sampleSum320">320.00 so'm</x:String>
+    <x:String x:Key="loc.settings.monitor.sampleSum320">320,00 so'm</x:String>
     <x:String x:Key="loc.settings.monitor.sampleQty1">×1 dona</x:String>
-    <x:String x:Key="loc.settings.monitor.sampleSum95">95.00 so'm</x:String>
+    <x:String x:Key="loc.settings.monitor.sampleSum95">95,00 so'm</x:String>
     <x:String x:Key="loc.settings.telegram.title">Do'kon egasining Telegram boti</x:String>
     <x:String x:Key="loc.settings.telegram.desc">Yopilgan smena bo'yicha hisobot sizga Telegram'da keladi: tushum, cheklar, o'rtacha chek, naqd va naqdsiz to'lovlar, kirim va chiqim, kamomad yoki ortiqcha. Do'kondan turib ishlaydi — statik IP ham, o'z serveringiz ham kerak emas.</x:String>
     <x:String x:Key="loc.settings.telegram.wizardButton">Botni ulash (bosqichma-bosqich)</x:String>
@@ -1496,6 +1503,7 @@
   <x:String x:Key="scalesPlu.change">O‘zgartirish…</x:String>
   <x:String x:Key="scalesPlu.colStatus">Natija</x:String>
   <x:String x:Key="scalesPlu.saveFile">Faylni saqlash…</x:String>
+  <x:String x:Key="scalesPlu.preflight">Yuborishdan oldin tekshirish</x:String>
   <x:String x:Key="scaleSetup.list.title">Do‘kondagi tarozilar</x:String>
   <x:String x:Key="scaleSetup.list.desc">Har bir tarozining o‘z markasi, manzili va tovar kategoriyalari bor. «Sozlash…» — shu tarozi oynasi, «Tovarlarni yuborish» — uning tovarlarini unga yuboradi.</x:String>
   <x:String x:Key="scaleSetup.list.add">+ Tarozi qo‘shish</x:String>

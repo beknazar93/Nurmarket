@@ -26,12 +26,51 @@ public static class OperationReceiptPrinter
         decimal refundTotal,
         string? reason,
         bool isWholeSale,
-        string? cashierName)
+        string? cashierName,
+        string? saleId = null)
     {
         if (OwnerSkipsPrint("возврата"))
             return null;
-        return Print(() => ReturnReceiptTextBuilder.Build(
+        // 2026-11-19 (eKassa, ТЗ Умара п. 5): сервер сам отправляет возврат в eKassa — ждём статус ok (до 45 с) и печатаем его текст как есть.
+        var fiscal = saleId is { Length: > 0 } ? TryFiscalReturnText(saleId) : null;
+        return Print(() => fiscal ?? ReturnReceiptTextBuilder.Build(
             originalReceiptNumber, lines, refundTotal, reason, isWholeSale, cashierName), "возврата");
+    }
+
+    private static string? TryFiscalReturnText(string saleId)
+    {
+        try
+        {
+            if (!NurMarketKassa.Services.Fiscal.FiscalSettings.ServerFiscalizes || PosApp.SalesApi is null)
+                return null;
+            var until = DateTime.UtcNow.AddSeconds(45);
+            while (DateTime.UtcNow < until)
+            {
+                var sale = PosApp.SalesApi.PosSaleGetAsync(saleId).GetAwaiter().GetResult();
+                var all = FiscalServerReceipt.ParseReturns(sale);
+                if (all.Count == 0)
+                    return null; // исходный чек не фискальный — обычный чек возврата NurCRM
+                var fresh = all.Where(r => !FiscalServerReceipt.PrintedReturns.Contains(r.Id)).OrderByDescending(r => r.Fd).ToList();
+                if (fresh.Count == 0)
+                    return null;
+                var ok = fresh.FirstOrDefault(r => string.Equals(r.Status, "ok", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(r.Text));
+                if (ok.Id is not null)
+                {
+                    FiscalServerReceipt.PrintedReturns.Add(ok.Id);
+                    return FiscalServerReceipt.Marker + ok.Text;
+                }
+                if (fresh.Any(r => string.Equals(r.Status, "error", StringComparison.OrdinalIgnoreCase)))
+                    break;
+                Thread.Sleep(1500);
+            }
+            PosLogger.Log($"eKassa: фискальный возврат продажи {saleId} не получен за 45 с — печатаю обычный чек возврата, сервер отправит повторно.", "WARNING");
+            FiscalServerReceipt.RaiseNotSent(true);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"eKassa: фискальный возврат продажи {saleId}: {ex.Message} — обычный чек.", "WARNING");
+        }
+        return null;
     }
 
     /// <summary>2026-10-06 (О-30, магазин одежды): чек обмена — что вернули, что выдали, доплата или сдача.</summary>

@@ -748,6 +748,9 @@ public static class AccentThemeService
 
         app.Resources["SettingsButtonRadius"] = new CornerRadius(skin.ButtonRadius);
         app.Resources["SettingsCardRadius"] = new CornerRadius(skin.CardRadius);
+        // 2026-11-13 (Д-8): ключи единой шкалы — тот же радиус темы (кнопка/поле и карточка), чтобы не было двух наборов радиусов.
+        app.Resources["NurRadiusControl"] = new CornerRadius(skin.ButtonRadius);
+        app.Resources["NurRadiusCard"] = new CornerRadius(skin.CardRadius);
 
         // Раскладка каталога и элементов управления — см. комментарий к Skin.
         _lastSkin = skin;

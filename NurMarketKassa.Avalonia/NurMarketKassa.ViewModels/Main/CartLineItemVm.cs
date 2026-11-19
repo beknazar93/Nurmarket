@@ -249,11 +249,11 @@ public sealed class CartLineItemVm : ViewModelBase
         : "";
 
     public string LossTooltip => HasLoss
-        ? Tr.T($"Продаётся дешевле закупки: закупка {UnitCost:0.00} × {QuantityDisplay}, со скидкой — {LossAmount:0.00} сом убытка.",
-            $"Сатып алуу баасынан арзан сатылат: сатып алуу {UnitCost:0.00} × {QuantityDisplay}, арзандатуу менен — {LossAmount:0.00} сом зыян.",
-            $"Sold below cost: cost {UnitCost:0.00} × {QuantityDisplay}, with the discount — {LossAmount:0.00} som loss.",
-            $"Alış fiyatının altında satılıyor: alış {UnitCost:0.00} × {QuantityDisplay}, indirimle — {LossAmount:0.00} som zarar.",
-            $"Xarid narxidan arzon sotilmoqda: xarid {UnitCost:0.00} × {QuantityDisplay}, chegirma bilan — {LossAmount:0.00} so'm zarar.")
+        ? Tr.T($"Продаётся дешевле закупки: закупка {MoneyText.Amount(UnitCost)} × {QuantityDisplay}, со скидкой — {MoneyText.Amount(LossAmount)} сом убытка.",
+            $"Сатып алуу баасынан арзан сатылат: сатып алуу {MoneyText.Amount(UnitCost)} × {QuantityDisplay}, арзандатуу менен — {MoneyText.Amount(LossAmount)} сом зыян.",
+            $"Sold below cost: cost {MoneyText.Amount(UnitCost)} × {QuantityDisplay}, with the discount — {MoneyText.Amount(LossAmount)} som loss.",
+            $"Alış fiyatının altında satılıyor: alış {MoneyText.Amount(UnitCost)} × {QuantityDisplay}, indirimle — {MoneyText.Amount(LossAmount)} som zarar.",
+            $"Xarid narxidan arzon sotilmoqda: xarid {MoneyText.Amount(UnitCost)} × {QuantityDisplay}, chegirma bilan — {MoneyText.Amount(LossAmount)} so'm zarar.")
         : "";
 
     // 2026-10-19, К1: суммы на экране — одним видом «1 234,50» (MoneyText), как у владельца; только показ.

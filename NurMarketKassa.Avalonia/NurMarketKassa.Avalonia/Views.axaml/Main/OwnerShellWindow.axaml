@@ -1040,6 +1040,10 @@
                         </StackPanel>
                         </Viewbox>
                     </Border>
+                    <!-- 2026-11-13 (Л-13): «Год назад» — сравнивать период с тем же периодом год назад (год к году) вместо прошлой недели/месяца. -->
+                    <Border Classes="segment" Margin="0,0,10,3">
+                        <Button x:Name="YearCompareButton" Classes="seg" Click="YearCompare_Click"/>
+                    </Border>
                     <!-- 2026-10-18, этап О1: открывает тот же раздел «Нур Советник», что пункт меню (виден, только если пункт есть).
                          На узкой шапке — только значок (OwnerShellWindow.Attention.cs, FitHeaderTools). -->
                     <Button x:Name="AskAiButton" Classes="askAi" Click="AskAi_Click" IsVisible="False" Margin="0,0,0,3">

@@ -508,6 +508,8 @@ public sealed partial class UserPreferences
                 p.TmScaleBarcodePrefix = fromFile.TmScaleBarcodePrefix.Value;
             if (!string.IsNullOrWhiteSpace(fromFile.ShtrikhPcConfig))
                 p.ShtrikhPcConfig = fromFile.ShtrikhPcConfig; // 2026-11-06: весы Штрих РС-200
+            if (!string.IsNullOrWhiteSpace(fromFile.CasScaleConfig))
+                p.CasScaleConfig = fromFile.CasScaleConfig; // 2026-11-13: весы CAS
             p.ShtrikhPcPassword = WindowsDpapiHelper.UnprotectFromBase64(fromFile.ShtrikhPcPasswordProtected);
             if (!string.IsNullOrWhiteSpace(fromFile.TmScaleDahuaBarcode))
                 p.TmScaleDahuaBarcode = fromFile.TmScaleDahuaBarcode;
@@ -515,6 +517,21 @@ public sealed partial class UserPreferences
                 p.TmScaleSendMode = fromFile.TmScaleSendMode;
             if (fromFile.TmScaleShelfLifeDays is >= 0 and <= 999)
                 p.TmScaleShelfLifeDays = fromFile.TmScaleShelfLifeDays.Value;
+            // 2026-11-13: весы Масса-К
+            if (fromFile.MassaKScaleIp is not null)
+                p.MassaKScaleIp = fromFile.MassaKScaleIp;
+            if (fromFile.MassaKScalePort is > 0 and <= 65535)
+                p.MassaKScalePort = fromFile.MassaKScalePort.Value;
+            if (fromFile.MassaKBarcodePrefix is >= 0 and <= 99)
+                p.MassaKBarcodePrefix = fromFile.MassaKBarcodePrefix.Value;
+            if (fromFile.MassaKShelfLifeDays is >= 0 and <= 999)
+                p.MassaKShelfLifeDays = fromFile.MassaKShelfLifeDays.Value;
+            if (fromFile.MassaKLatinNames is not null)
+                p.MassaKLatinNames = fromFile.MassaKLatinNames.Value;
+            if (fromFile.MassaKVerified is not null)
+                p.MassaKVerified = fromFile.MassaKVerified.Value;
+            if (fromFile.MassaKSkipConfirm is not null)
+                p.MassaKSkipConfirm = fromFile.MassaKSkipConfirm.Value;
             if (fromFile.RongtaLanBarcodePrefix is >= 0 and <= 99)
                 p.RongtaLanBarcodePrefix = fromFile.RongtaLanBarcodePrefix.Value;
             if (fromFile.RongtaLanShelfLifeDays is >= 0 and <= 999)

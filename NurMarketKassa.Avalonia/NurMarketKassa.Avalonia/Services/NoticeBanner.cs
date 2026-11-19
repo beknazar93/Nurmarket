@@ -19,7 +19,8 @@ public static class NoticeBanner
         var owner = TopLevel.GetTopLevel(box);
         var theme = owner?.ActualThemeVariant ?? Application.Current?.ActualThemeVariant;
         box.Background = Brush(success ? "BrushSuccessSoft" : "BrushDangerSoft", theme, success ? Brushes.Honeydew : Brushes.MistyRose);
-        text.Foreground = Brush(success ? "BrushUiStatusOk" : "BrushDanger", theme, success ? Brushes.DarkGreen : Brushes.DarkRed);
+        // 2026-11-13 (Н-6): красный текст на мягком красном фоне — читаемый ключ BrushDangerOnSoft (в тёмной теме BrushDanger давал 3,5:1).
+        text.Foreground = Brush(success ? "BrushUiStatusOk" : "BrushDangerOnSoft", theme, success ? Brushes.DarkGreen : Brushes.DarkRed);
     }
 
     private static IBrush Brush(string key, Avalonia.Styling.ThemeVariant? theme, IBrush fallback) =>

@@ -76,6 +76,63 @@ public static class EscPosTextReceiptPrinter
         PrinterPortService.SendRawBytes(port, payload, cfg.RetryCount);
     }
 
+    /// <summary>2026-11-19 (eKassa, ТЗ Умара 18.11): фискальный чек ГНС — строки как есть (без регистра и переносов), строка «QR&lt;TAB&gt;ссылка» — QR по центру.</summary>
+    public static void PrintFiscal(ReceiptPrinterSettings cfg, string text)
+    {
+        ArgumentNullException.ThrowIfNull(cfg);
+        var port = NormalizeDevicePath(HardwarePortHelper.NormalizeLptPort(cfg.DevicePath));
+        var payload = BuildFiscalPayload(cfg, text);
+        PosLogger.Log($"EscPos Print (фискальный): port={port}, encoding={cfg.TextEncoding}, bytes={payload.Length}", "PRINTER");
+        PrinterPortService.SendRawBytes(port, payload, cfg.RetryCount);
+    }
+
+    public static byte[] BuildFiscalPayload(ReceiptPrinterSettings cfg, string text)
+    {
+        var utf8 = IsUtf8Pos(cfg.TextEncoding);
+        var encName = MapToDotNetEncoding(cfg.TextEncoding);
+        Encoding encoding;
+        try { encoding = utf8 ? new UTF8Encoding(false) : Encoding.GetEncoding(encName); }
+        catch (ArgumentException) { encoding = Encoding.GetEncoding(866); }
+
+        using var s = new MemoryStream();
+        EscPosCommands.WriteInitialize(s);
+        EscPosCommands.WriteCancelKanjiMode(s);
+        if (!utf8)
+            EscPosCommands.WriteCodePage(s, cfg.EscPosTableByte ?? DefaultEscPosTableByte(encName), cfg.EscRByte, NoEscPct());
+        EscPosCommands.WriteDefaultLineSpacing(s);
+        EscPosCommands.WriteCharacterSize(s, widthMultiplier: 1, heightMultiplier: 1);
+        foreach (var raw in (text ?? "").Replace("\r\n", "\n").Replace('\r', '\n').Split('\n'))
+        {
+            if (raw.StartsWith("QR\t", StringComparison.Ordinal))
+            {
+                WriteQr(s, raw[3..].Trim());
+                continue;
+            }
+            WriteTextLine(s, encoding, raw);
+        }
+        EscPosCommands.WriteLineFeed(s);
+        EscPosCommands.WriteFeedAndCut(s);
+        return s.ToArray();
+    }
+
+    /// <summary>Родной QR принтера (GS ( k, модель 2, модуль 6 ≈ 30 мм на ленте 80 мм, коррекция L), по центру.</summary>
+    private static void WriteQr(Stream s, string url)
+    {
+        var data = Encoding.ASCII.GetBytes(url);
+        if (data.Length == 0 || data.Length > 700)
+            return;
+        s.Write(new byte[] { 0x1B, 0x61, 0x01 });
+        s.Write(new byte[] { 0x1D, 0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00 });
+        s.Write(new byte[] { 0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, 0x06 });
+        s.Write(new byte[] { 0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 0x30 });
+        var len = data.Length + 3;
+        s.Write(new byte[] { 0x1D, 0x28, 0x6B, (byte)(len & 0xFF), (byte)(len >> 8), 0x31, 0x50, 0x30 });
+        s.Write(data);
+        s.Write(new byte[] { 0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30 });
+        EscPosCommands.WriteLineFeed(s);
+        s.Write(new byte[] { 0x1B, 0x61, 0x00 });
+    }
+
     public static byte[] BuildEscPosPayload(ReceiptPrinterSettings cfg, string text, int? charWidth = null)
     {
         ArgumentNullException.ThrowIfNull(cfg);

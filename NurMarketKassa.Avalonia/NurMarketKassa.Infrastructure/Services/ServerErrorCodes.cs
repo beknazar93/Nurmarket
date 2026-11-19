@@ -21,6 +21,13 @@ public static class ServerErrorCodes
     public const string SerialCountMismatch = "serial_count_mismatch";
     public const string SerialDuplicateInLine = "serial_duplicate_in_line";
     public const string SerialTooLong = "serial_too_long";
+    // 2026-11-14 (ответ Умара 13.11 вечер, строймаркет): упаковки (sale_units), шаг/минимум количества, объект прораба, лимит долга клиента.
+    public const string SaleUnitConflict = "sale_unit_conflict";
+    public const string SaleUnitNotFound = "sale_unit_not_found";
+    public const string QuantityStepMismatch = "quantity_step_mismatch";
+    public const string QuantityBelowMin = "quantity_below_min";
+    public const string ObjectNotFound = "object_not_found";
+    public const string CreditLimitExceeded = "credit_limit_exceeded";
 
     /// <summary>Код из тела ответа (<c>code</c>, иначе <c>error</c>), строчными; null — нет.</summary>
     public static string? Code(Exception? ex) => ex is ApiException { Payload: { } p } ? Code(p) : null;
@@ -192,8 +199,107 @@ public static class ServerErrorCodes
             ? $" ({c.ToString("0.###", CultureInfo.InvariantCulture)} / {q.ToString("0.###", CultureInfo.InvariantCulture)})"
             : "";
 
+    // ── 2026-11-14 (ответ Умара 13.11 вечер, строймаркет): ошибки упаковок, шага/минимума, объекта и лимита долга ──
+
+    /// <summary>Ошибка «строймаркета» из ответа: (код, объект ошибки). Код ищется в теле ответа и в первом подходящем элементе массива errors / items / lines (ошибки строк с index). null — не она.</summary>
+    public static (string Code, JsonElement Error)? HardwareError(Exception? ex)
+    {
+        if (ex is not ApiException { Payload: { } payload } || payload.ValueKind != JsonValueKind.Object)
+            return null;
+        if (HardwareCodeOf(payload) is { } top)
+            return (top, payload);
+        foreach (var name in new[] { "errors", "items", "lines" })
+            if (payload.TryGetProperty(name, out var arr) && arr.ValueKind == JsonValueKind.Array)
+                foreach (var el in arr.EnumerateArray())
+                    if (el.ValueKind == JsonValueKind.Object && HardwareCodeOf(el) is { } nested)
+                        return (nested, el);
+        return null;
+    }
+
+    private static string? HardwareCodeOf(JsonElement obj) =>
+        Code(obj) is { } c && c is SaleUnitConflict or SaleUnitNotFound or QuantityStepMismatch or QuantityBelowMin or ObjectNotFound or CreditLimitExceeded ? c : null;
+
+    public static bool IsHardwareError(Exception? ex) => HardwareError(ex) is not null;
+
+    /// <summary>409 credit_limit_exceeded — клиент превысил лимит долга (проверка у сервера только при флаге «Хозтовары»).</summary>
+    public static bool IsCreditLimitExceeded(Exception? ex) => HardwareError(ex) is { Code: CreditLimitExceeded };
+
+    /// <summary>Число из ошибки: в самом объекте или в его <c>data</c> (сервер кладёт step/min/limit/debt/requested в <c>data</c>).</summary>
+    private static decimal? DataNumber(JsonElement error, string name) =>
+        Number(error, name) ?? (error.ValueKind == JsonValueKind.Object && error.TryGetProperty("data", out var data) ? Number(data, name) : null);
+
+    private static string Qty(decimal? v) => v is { } d ? d.ToString("0.###", CultureInfo.InvariantCulture) : "?";
+
+    private static string MoneyText(decimal? v) => v is { } d ? d.ToString("0.00", CultureInfo.InvariantCulture) : "?";
+
+    /// <summary>Понятный кассиру текст ошибки упаковки / шага количества / объекта / лимита долга (5 языков). <paramref name="ownerCanOverride"/> — вошёл владелец/админ: к тексту про лимит
+    /// добавляется предложение провести продажу с превышением (override_credit_limit). null — это не такая ошибка.</summary>
+    public static string? HardwareFriendly(Exception? ex, bool ownerCanOverride = false)
+    {
+        if (HardwareError(ex) is not { } e)
+            return null;
+        var prefix = LinePrefix(e.Error);
+        var step = Qty(DataNumber(e.Error, "step"));
+        var min = Qty(DataNumber(e.Error, "min"));
+        var body = e.Code switch
+        {
+            SaleUnitConflict => Tr.T("В чеке один товар стоит в разных единицах продажи (штуки и упаковка или разные упаковки). Оставьте одну единицу: удалите лишнюю строку.",
+                "Чекте бир товар ар башка сатуу бирдиктеринде турат (даана жана таңгак же ар түрдүү таңгак). Бир бирдик калтырыңыз: ашыкча сапты өчүрүңүз.",
+                "One product is in the receipt in different sale units (pieces and a pack, or different packs). Keep a single unit: delete the extra line.",
+                "Fişte aynı ürün farklı satış birimlerinde (adet ve paket veya farklı paketler). Tek bir birim bırakın: fazla satırı silin.",
+                "Chekda bir mahsulot turli sotuv birliklarida turibdi (dona va qadoq yoki turli qadoqlar). Bitta birlik qoldiring: ortiqcha qatorni o'chiring."),
+            SaleUnitNotFound => Tr.T("Упаковка не найдена на сервере — её удалили или изменили в NurCRM. Обновите каталог и добавьте товар заново.",
+                "Таңгак серверден табылган жок — аны NurCRMде өчүрүшкөн же өзгөртүшкөн. Каталогду жаңыртып, товарды кайра кошуңуз.",
+                "The pack was not found on the server — it was deleted or changed in NurCRM. Refresh the catalog and add the product again.",
+                "Paket sunucuda bulunamadı — NurCRM'de silinmiş veya değiştirilmiş. Kataloğu yenileyin ve ürünü yeniden ekleyin.",
+                "Qadoq serverda topilmadi — uni NurCRMda o'chirishgan yoki o'zgartirishgan. Katalogni yangilab, mahsulotni qayta qo'shing."),
+            QuantityStepMismatch => Tr.T($"Количество не подходит под шаг продажи этого товара (шаг {step}). Измените количество.",
+                $"Саны бул товарды сатуу кадамына туура келбейт (кадам {step}). Санын өзгөртүңүз.",
+                $"The quantity does not match this product's sale step (step {step}). Change the quantity.",
+                $"Miktar bu ürünün satış adımına uymuyor (adım {step}). Miktarı değiştirin.",
+                $"Miqdor bu mahsulotning sotuv qadamiga mos kelmaydi (qadam {step}). Miqdorni o'zgartiring."),
+            QuantityBelowMin => Tr.T($"Количество меньше минимального для продажи этого товара (минимум {min}). Увеличьте количество.",
+                $"Саны бул товарды сатуунун эң азынан аз (эң аз {min}). Санын көбөйтүңүз.",
+                $"The quantity is below this product's minimum sale quantity (minimum {min}). Increase the quantity.",
+                $"Miktar bu ürünün asgari satış miktarından az (asgari {min}). Miktarı artırın.",
+                $"Miqdor bu mahsulotning eng kam sotuv miqdoridan kam (eng kami {min}). Miqdorni oshiring."),
+            ObjectNotFound => Tr.T("Объект клиента не найден: его удалили или он принадлежит другому клиенту. Выберите объект заново или продайте без объекта.",
+                "Кардардын объектиси табылган жок: ал өчүрүлгөн же башка кардарга таандык. Объектини кайра тандаңыз же объектисиз сатыңыз.",
+                "The client's site was not found: it was deleted or belongs to another client. Choose the site again or sell without a site.",
+                "Müşterinin şantiyesi bulunamadı: silinmiş veya başka bir müşteriye ait. Şantiyeyi yeniden seçin veya şantiyesiz satın.",
+                "Mijozning obyekti topilmadi: u o'chirilgan yoki boshqa mijozga tegishli. Obyektni qayta tanlang yoki obyektsiz soting."),
+            CreditLimitExceeded => CreditLimitText(e.Error, ownerCanOverride),
+            _ => null,
+        };
+        return body is null ? null : prefix + body;
+    }
+
+    private static string CreditLimitText(JsonElement error, bool ownerCanOverride)
+    {
+        var limit = MoneyText(DataNumber(error, "limit"));
+        var debt = MoneyText(DataNumber(error, "debt"));
+        var requested = MoneyText(DataNumber(error, "requested"));
+        var main = Tr.T($"Продажа в долг не проведена: превышен лимит долга клиента (лимит {limit}, долг {debt}, этот чек в долг {requested} сом).",
+            $"Карызга сатуу өткөрүлгөн жок: кардардын карыз лимити ашты (лимит {limit}, карыз {debt}, бул чек карызга {requested} сом).",
+            $"The credit sale was not recorded: the client's debt limit is exceeded (limit {limit}, debt {debt}, this receipt on credit {requested} som).",
+            $"Veresiye satış kaydedilmedi: müşterinin borç limiti aşıldı (limit {limit}, borç {debt}, bu fiş veresiye {requested} som).",
+            $"Qarzga sotuv o'tkazilmadi: mijozning qarz limiti oshdi (limit {limit}, qarz {debt}, bu chek qarzga {requested} so'm).");
+        var tail = ownerCanOverride
+            ? Tr.T(" Вы можете провести продажу с превышением лимита.",
+                " Сиз сатууну лимитти ашып өткөрсөңүз болот.",
+                " You can record the sale over the limit.",
+                " Satışı limiti aşarak kaydedebilirsiniz.",
+                " Savdoni limitdan oshirib o'tkazishingiz mumkin.")
+            : Tr.T(" Оплатите часть наличными или позовите владельца.",
+                " Бир бөлүгүн накталай төлөңүз же ээсин чакырыңыз.",
+                " Pay part in cash or call the owner.",
+                " Bir kısmını nakit ödeyin veya sahibini çağırın.",
+                " Bir qismini naqd to'lang yoki egasini chaqiring.");
+        return main + tail;
+    }
+
     /// <summary>Понятный текст по коду ошибки; null — код не известен (показывается слово сервера).</summary>
-    public static string? Friendly(Exception? ex) => BelowCostGuard.IsServerDenial(ex) ? BelowCostGuard.ServerDeniedText(ex, null) : SerialFriendly(ex) ?? Code(ex) switch // 2026-11-13: отказ «ниже закупки» (can_sell_below_cost); ошибки серийных номеров (sn1311)
+    public static string? Friendly(Exception? ex) => BelowCostGuard.IsServerDenial(ex) ? BelowCostGuard.ServerDeniedText(ex, null) : SerialFriendly(ex) ?? HardwareFriendly(ex) ?? Code(ex) switch // 2026-11-13: отказ «ниже закупки» (can_sell_below_cost); ошибки серийных номеров (sn1311); 2026-11-14: строймаркет
     {
         DuplicateLine => DuplicateLineText(),
         NegativeStock when ex is ApiException { StatusCode: 409 } => NegativeStockText(),

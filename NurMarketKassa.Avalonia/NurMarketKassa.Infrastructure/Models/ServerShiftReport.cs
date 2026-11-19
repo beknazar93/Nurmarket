@@ -90,6 +90,11 @@ public sealed class ServerShiftReport
     public decimal ReturnsTotal { get; init; }
     public int ReturnsCount { get; init; }
 
+    /// <summary>2026-11-14 (ответ Умара 13.11 вечер, П0-3): возвраты смены, ушедшие в уменьшение долга клиента (<c>returns_debt_offset</c>) и их число (<c>returns_debt_offset_count</c>).
+    /// В «ожидаемую наличность» (expected_cash) НЕ входят — деньги из ящика не выдавались. null — старый сервер без поля.</summary>
+    public decimal? ReturnsDebtOffset { get; init; }
+    public int? ReturnsDebtOffsetCount { get; init; }
+
     /// <summary>Внесения в ящик (cashflows с source_kind «shift_drawer_inflow»).</summary>
     public decimal Deposits { get; init; }
 
@@ -145,6 +150,8 @@ public sealed class ServerShiftReport
             BonusRedeemed = Num(e, "bonus_redeemed") ?? 0m,
             ReturnsTotal = Num(e, "returns_total") ?? 0m,
             ReturnsCount = (int)(Num(e, "returns_count") ?? 0m),
+            ReturnsDebtOffset = Num(e, "returns_debt_offset"),
+            ReturnsDebtOffsetCount = Num(e, "returns_debt_offset_count") is { } debtOffsetCount ? (int)debtOffsetCount : null,
             Deposits = Num(e, "deposits") ?? 0m,
             Withdrawals = Num(e, "withdrawals") ?? 0m,
             IncomeTotal = Num(e, "income_total") ?? 0m,

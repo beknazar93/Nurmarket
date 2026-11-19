@@ -479,7 +479,7 @@ internal sealed class PurchasesRegistryView : UserControl
                         return;
                     _loading = false;
                     _loadFailed = true;
-                    _note = T("Реестр не загрузился: ", "Реестр жүктөлгөн жок: ", "The registry didn't load: ", "Kayıt yüklenemedi: ", "Reestr yuklanmadi: ") + ex.Message;
+                    _note = T("Реестр не загрузился: ", "Реестр жүктөлгөн жок: ", "The registry didn't load: ", "Kayıt yüklenemedi: ", "Reestr yuklanmadi: ") + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex);
                     Refresh();
                 });
             }

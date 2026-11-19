@@ -103,6 +103,9 @@ internal static class EmployeeAccessChecklist
         var extra = new List<(string Key, string Label, bool? Value)>
         {
             ("use_pos", Tr.T("Работа на кассе (продажи, смены)", "Кассада иштөө (сатуу, сменалар)", "Work at the till (sales, shifts)", "Kasada çalışma (satış, vardiya)", "Kassada ishlash (sotuv, smenalar)"), flags.CanUsePos),
+            // 2026-11-13 (живая проверка доступов, ошибка 6): право «Продажа ниже закупки» — как на сайте; владелец и администратор имеют его по роли.
+            ("sell_below_cost", Tr.T("Продажа ниже закупки (владелец и админ — всегда)", "Сатып алуу баасынан төмөн сатуу (ээси жана админ — дайыма)", "Selling below cost (owner and admin always can)", "Alış fiyatının altında satış (sahip ve yönetici her zaman)", "Xarid narxidan past sotish (egasi va admin — doim)"),
+                flags.SellBelowCostShown ? flags.CanSellBelowCost ?? false : (bool?)null),
             ("view_salary", Tr.T("Зарплата: просмотр", "Эмгек акы: көрүү", "Salary: view", "Maaş: görüntüleme", "Ish haqi: ko'rish"), flags.CanViewSalary),
             ("edit_salary", Tr.T("Зарплата: редактирование", "Эмгек акы: түзөтүү", "Salary: edit", "Maaş: düzenleme", "Ish haqi: tahrirlash"), flags.CanEditSalary),
             ("edit_employees", Tr.T("Сотрудники: редактирование", "Кызматкерлер: түзөтүү", "Employees: edit", "Personel: düzenleme", "Xodimlar: tahrirlash"), flags.CanEditEmployees),
@@ -118,6 +121,7 @@ internal static class EmployeeAccessChecklist
         var extraBoxes = extra.Where(e => e.Value.HasValue).ToList();
         if (extraBoxes.Count > 0)
         {
+            // (2026-11-13: в этом блоке и «Продажа ниже закупки»)
             panel.Children.Add(GroupHeader(Tr.T("Редактирование и зарплата", "Түзөтүү жана эмгек акы", "Editing and salary", "Düzenleme ve maaş", "Tahrirlash va ish haqi")));
             var extraRow = new WrapPanel { Orientation = Orientation.Horizontal };
             foreach (var e in extraBoxes)
@@ -143,6 +147,8 @@ internal static class EmployeeAccessChecklist
     public static EmployeeAccessFlags Read(Boxes b) => new()
     {
         CanUsePos = ReadExtra(b, "use_pos"),
+        CanSellBelowCost = ReadExtra(b, "sell_below_cost"),
+        SellBelowCostShown = b.Extra.ContainsKey("sell_below_cost"), // 2026-11-13
         CanViewSalary = ReadExtra(b, "view_salary"),
         CanEditSalary = ReadExtra(b, "edit_salary"),
         CanEditEmployees = ReadExtra(b, "edit_employees"),

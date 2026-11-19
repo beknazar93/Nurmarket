@@ -49,30 +49,7 @@ public sealed class MarketSphereChoiceWindow : Window
                 return;
             }
 
-            var dialog = new MarketSphereChoiceWindow();
-            await dialog.ShowDialog(owner).ConfigureAwait(true);
-            if (dialog.Chosen is not { } sphere)
-                return;
-
-            MarketSpheres.Set(sphere);
-            // 2026-11-12 (ХМ14): «Хозтовары» — размер магазина и «скан коробки» (новому магазину включён, В-Х4); на сервер уходит только базовая сфера (grocery).
-            if (sphere == MarketSpheres.Hardware)
-                SphereSettings.SetHardwareChoice(dialog.ChosenHardwareSize ?? HardwareSize.Shop, packScan: true);
-            prefs.MarketSphereChoicePending = false;
-            prefs.SaveToDisk();
-            PosLogger.Log($"Первый запуск: выбран вид магазина {sphere}.", "SETTINGS");
-            try
-            {
-                var serverSphereValue = MarketSpheres.Normalize(sphere);
-                await App.GetRequiredService<ClientDebtsApiService>().SetCompanyMarketSphereAsync(serverSphereValue).ConfigureAwait(true);
-                MarketSphereSync.NoteSavedOnServer(serverSphereValue);
-                PosLogger.Log("Первый запуск: вид магазина сохранён на сервере для всех касс компании.", "SETTINGS");
-            }
-            catch (Exception ex)
-            {
-                // Кассир (403) или нет связи — вид остаётся в этой кассе; владелец сменит его в настройках.
-                PosLogger.Log($"Первый запуск: вид магазина на сервер не сохранён ({ex.Message}) — только в этой кассе.", "SETTINGS");
-            }
+            await ShowAndApplyAsync(owner).ConfigureAwait(true);
         }
         catch (Exception ex)
         {
@@ -82,6 +59,39 @@ public sealed class MarketSphereChoiceWindow : Window
         {
             _running = false;
         }
+    }
+
+    /// <summary>2026-11-13 (Н-1, мастер первого запуска): показать «Какой у вас магазин?» и применить выбор — тот же путь, что при первом запуске (MaybeAskAsync):
+    /// вид в этой кассе, «Хозтовары» — размер магазина, сохранение на сервер для всех касс (кассир / нет связи — только в этой кассе).
+    /// Возвращает выбранный вид или null (закрыли без выбора).</summary>
+    public static async Task<string?> ShowAndApplyAsync(Window owner)
+    {
+        var prefs = UserPreferences.Instance;
+        var dialog = new MarketSphereChoiceWindow();
+        await dialog.ShowDialog(owner).ConfigureAwait(true);
+        if (dialog.Chosen is not { } sphere)
+            return null;
+
+        MarketSpheres.Set(sphere);
+        // 2026-11-12 (ХМ14): «Хозтовары» — размер магазина и «скан коробки» (новому магазину включён, В-Х4); на сервер уходит только базовая сфера (grocery).
+        if (sphere == MarketSpheres.Hardware)
+            SphereSettings.SetHardwareChoice(dialog.ChosenHardwareSize ?? HardwareSize.Shop, packScan: true);
+        prefs.MarketSphereChoicePending = false;
+        prefs.SaveToDisk();
+        PosLogger.Log($"Первый запуск: выбран вид магазина {sphere}.", "SETTINGS");
+        try
+        {
+            var serverSphereValue = MarketSpheres.Normalize(sphere);
+            await App.GetRequiredService<ClientDebtsApiService>().SetCompanyMarketSphereAsync(serverSphereValue).ConfigureAwait(true);
+            MarketSphereSync.NoteSavedOnServer(serverSphereValue);
+            PosLogger.Log("Первый запуск: вид магазина сохранён на сервере для всех касс компании.", "SETTINGS");
+        }
+        catch (Exception ex)
+        {
+            // Кассир (403) или нет связи — вид остаётся в этой кассе; владелец сменит его в настройках.
+            PosLogger.Log($"Первый запуск: вид магазина на сервер не сохранён ({ex.Message}) — только в этой кассе.", "SETTINGS");
+        }
+        return sphere;
     }
 
     public MarketSphereChoiceWindow()

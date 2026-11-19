@@ -45,7 +45,7 @@ public sealed class SaleUnitsTests : IDisposable
 
     private const string TileCard =
         "{\"id\":\"" + TileId + "\",\"name\":\"Плитка\",\"price\":\"520.00\",\"unit\":\"м²\",\"quantity\":\"100\"," +
-        "\"sale_units\":[{\"name\":\"Упаковка\",\"unit_code\":\"pack\",\"factor\":1.44,\"barcode\":\"4600000001440\",\"price\":\"749.00\",\"wholesale_price\":\"700.00\"}]}";
+        "\"sale_units\":[{\"id\":7,\"name\":\"Упаковка\",\"unit_code\":\"pack\",\"factor\":1.44,\"barcode\":\"4600000001440\",\"price\":\"749.00\",\"wholesale_price\":\"700.00\"}]}"; // 2026-11-14: у единицы есть id (на сервер уходит только он)
 
     private static CatalogProductTileVm Tile()
     {
@@ -68,7 +68,8 @@ public sealed class SaleUnitsTests : IDisposable
         ProductSaleUnits.Remember(TileId, Card(TileCard));
 
         var unit = ProductSaleUnits.For(TileId).Single();
-        unit.Key.Should().Be("pack");
+        unit.Key.Should().Be("7", "ключ единицы — её id (2026-11-14: код pack серверу не годится)");
+        unit.HasServerId.Should().BeTrue();
         unit.Factor.Should().Be(1.44m);
         unit.Price.Should().Be(749m);
         unit.WholesalePrice.Should().Be(700m);
@@ -138,9 +139,9 @@ public sealed class SaleUnitsTests : IDisposable
         item.Quantity.Should().Be(2);
         item.UnitPrice.Should().Be(749m);
         item.LineTotal.Should().Be(1498m);
-        item.SalePackageId.Should().Be("sale_unit:pack", "в проекции строка видна как «условная упаковка»");
+        item.SalePackageId.Should().Be("sale_unit:7", "в проекции строка видна как «условная упаковка» (по id единицы)");
         var line = CartDisplayHelper.EnumerateItems(cart.Root).Single();
-        ProductSaleUnits.LineKey(line).Should().Be("pack");
+        ProductSaleUnits.LineKey(line).Should().Be("7");
         CartDisplayHelper.SalePackageId(line).Should().BeNull("sale_package_id серверу не уходит — только sale_unit");
         // Остаток после продажи = 100 − 2 × 1,44 = 97,12.
         var sold = CartDisplayHelper.LineQuantityInStockUnits(line, tile);
@@ -188,7 +189,7 @@ public sealed class SaleUnitsTests : IDisposable
     [Fact]
     public void Cart_PackPriceMissingOnServer_FallsBackToBasePriceTimesFactor()
     {
-        ProductSaleUnits.Remember(TileId, Card("{\"sale_units\":[{\"name\":\"Упаковка\",\"unit_code\":\"pack\",\"factor\":2}]}"));
+        ProductSaleUnits.Remember(TileId, Card("{\"sale_units\":[{\"id\":7,\"name\":\"Упаковка\",\"unit_code\":\"pack\",\"factor\":2}]}"));
         var cart = NewCart();
 
         cart.AddSaleUnitItem(Tile(), "pack", 1, false);
@@ -265,7 +266,8 @@ public sealed class SaleUnitsTests : IDisposable
 
         body["product_id"]!.ToString().Should().Be(TileId);
         body["quantity"]!.ToString().Should().Be("2", "количество — в упаковках; сервер сам спишет 2 × 1,44");
-        body["sale_unit"]!.ToString().Should().Be("pack");
+        body["sale_unit_id"]!.ToString().Should().Be("7", "2026-11-14: поле sale_unit_id и только id единицы (код pack сервер не понимает)");
+        body.ContainsKey("sale_unit").Should().BeFalse("старое поле sale_unit в add-item не шлём");
         body.ContainsKey("unit_price").Should().BeFalse("цену упаковки ставит сервер");
         body.ContainsKey("sale_package_id").Should().BeFalse();
         cart.Dispose();
@@ -280,8 +282,9 @@ public sealed class SaleUnitsTests : IDisposable
 
         var body = await SentAddItemAsync(cart.Root.GetRawText());
 
-        body["sale_unit"]!.ToString().Should().Be("pack");
+        body["sale_unit_id"]!.ToString().Should().Be("7");
         body["unit_price"]!.ToString().Should().Be("700.00");
+        body["is_wholesale"]!.ToString().Should().Be("true", "2026-11-14: опт упаковки помечаем (не обязательно, но безопасно)");
         cart.Dispose();
     }
 
@@ -297,7 +300,7 @@ public sealed class SaleUnitsTests : IDisposable
 
         var body = await SentAddItemAsync(queued);
 
-        body["sale_unit"]!.ToString().Should().Be("pack");
+        body["sale_unit_id"]!.ToString().Should().Be("7");
         body["quantity"]!.ToString().Should().Be("3");
         CartDisplayHelper.LineQuantityInStockUnits(CartDisplayHelper.EnumerateItems(cart.Root).Single(), Tile())
             .Should().BeApproximately(3 * 1.44, 1e-9, "множитель записан в самой строке — остаток офлайн считается верно и без каталога");
@@ -368,7 +371,7 @@ public sealed class SaleUnitsTests : IDisposable
         var line = vm.Lines.Single();
         line.Quantity.Should().Be(1);
         line.UnitPrice.Should().Be(749d, "цена упаковки, а не 520 за м²");
-        line.SalePackageId.Should().Be("sale_unit:pack");
+        line.SalePackageId.Should().Be("sale_unit:7");
         vm.Dispose();
         cart.Dispose();
     }
@@ -407,6 +410,59 @@ public sealed class SaleUnitsTests : IDisposable
         await WaitAsync(() => vm.Lines.Count == 1);
         vm.Lines.Single().UnitPrice.Should().Be(520d);
         vm.Lines.Single().SalePackageId.Should().BeNull();
+        vm.Dispose();
+        cart.Dispose();
+    }
+
+    // ───────────── 2026-11-14 (ответ Умара 13.11 вечер): единица без id — не продаётся ─────────────
+
+    private const string NoIdCard = "{\"sale_units\":[{\"name\":\"Упаковка\",\"unit_code\":\"pack\",\"factor\":1.44,\"barcode\":\"4600000001440\",\"price\":\"749.00\"}]}";
+
+    [Fact]
+    public void NoServerId_Unit_CannotBeAddedToCart_WithClearMessage()
+    {
+        ProductSaleUnits.Remember(TileId, Card(NoIdCard));
+        var unit = ProductSaleUnits.For(TileId).Single();
+        unit.HasServerId.Should().BeFalse("сервер не прислал id — упаковка ещё не сохранена");
+        var cart = NewCart();
+
+        var act = () => cart.AddSaleUnitItem(Tile(), "pack", 1, false);
+
+        act.Should().Throw<SaleUnitNotSavedException>().Which.Message.Should().Contain("Упаковка ещё не сохранена на сервере");
+        cart.Items.Should().BeEmpty();
+        cart.Dispose();
+    }
+
+    [Fact]
+    public async Task Send_LegacyCodeOnlyLine_IsNotSentWithTheCode()
+    {
+        // Строка, записанная старой версией кассы (sale_unit = «pack», единица без id): серверу код не годится — ошибка вместо продажи упаковки штукой.
+        ProductSaleUnits.Remember(TileId, Card(NoIdCard));
+        var legacy = "{\"items\":[{\"id\":\"l1\",\"product_id\":\"" + TileId + "\",\"name\":\"Плитка\",\"quantity\":1,\"unit_price\":749,\"sale_unit\":\"pack\",\"sale_unit_factor\":1.44}]}";
+        _fake.Json("POST", "/api/main/pos/sales/*/add-item/", 200, "{}");
+        var api = await LoggedInAsync(_fake);
+
+        var act = () => StagingCartService.PushItemsFromSnapshotAsync(new SalesApiService(api), "cart-1", legacy, default);
+
+        (await act.Should().ThrowAsync<ApiException>()).Which.Message.Should().Contain("Упаковка ещё не сохранена на сервере");
+        Requests(_fake, "POST", "/add-item/").Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Scan_PackBarcode_UnitWithoutServerId_ShowsMessage_AddsNothing()
+    {
+        ProductSaleUnits.Remember(TileId, Card(NoIdCard));
+        var tile = Tile();
+        var cart = NewCart();
+        var prompts = new FakePrompts();
+        var vm = new BasketPanelViewModel(cart, prompts, new FakeCheckout(), new FakeDeferred(), new FakeDisplay(), new FakeWindows(), new FakeDialogs(),
+            new InlineDispatcher(), catalogLookup: id => id == TileId || id == tile.Barcode ? tile : null, stockLimitLookup: (_, _) => tile.Quantity);
+
+        vm.EnqueueBarcode("4600000001440");
+
+        await WaitAsync(() => prompts.Errors.Count > 0);
+        vm.Lines.Should().BeEmpty();
+        prompts.Errors.Should().ContainSingle().Which.Should().Contain("не сохранена на сервере");
         vm.Dispose();
         cart.Dispose();
     }

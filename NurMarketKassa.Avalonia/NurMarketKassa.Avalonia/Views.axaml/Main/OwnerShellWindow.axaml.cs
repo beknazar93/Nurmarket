@@ -86,6 +86,8 @@ public partial class OwnerShellWindow : Window, IMainShell
 
     // Прошлый период не меняется — берём его отчёт один раз на период (и на новый день).
     private string? _compareKey;
+    // 2026-11-13 (Л-13): сравнение «год к году» вместо прошлой недели/месяца (кнопка «Год назад» в шапке «Сводки»); на сессию.
+    private bool _compareYear;
     private double _lastMargin;
     private JsonElement? _compareCards;
 
@@ -196,6 +198,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         Action rebuildNavigation = () => Avalonia.Threading.Dispatcher.UIThread.Post(() => { BuildNavigation(onlyIfChanged: true); _ = RefreshDebtsCardAsync(force: true); });
         TariffGate.PacksChanged += rebuildNavigation;
         SectionVisibility.Changed += rebuildNavigation;
+        NurMarketKassa.Services.Fiscal.FiscalSettings.Changed += rebuildNavigation; // 2026-11-14 (П0-1): режим фискализации изменился — раздел «Продажи без фискального чека» появляется или пропадает
         // 2026-11-11 (доступы «с сайта»): доступы изменились на сайте/в программе владельца — меню по новым правам без перезапуска и плашка.
         Action accessChanged = () => { rebuildNavigation(); Avalonia.Threading.Dispatcher.UIThread.Post(NurMarketKassa.AvaloniaHost.Services.AccessSyncNotice.Show); };
         PermissionRecheck.PermissionsChanged += accessChanged;
@@ -203,6 +206,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         {
             TariffGate.PacksChanged -= rebuildNavigation;
             SectionVisibility.Changed -= rebuildNavigation;
+            NurMarketKassa.Services.Fiscal.FiscalSettings.Changed -= rebuildNavigation;
             PermissionRecheck.PermissionsChanged -= accessChanged;
             // 2026-10-31 (стресс-тест 1.17.68, п. 8): статические ссылки ProductActionPlan на лямбды окна держали закрытое главное окно (WireNavSearch).
             if (ProductActionPlan.OpenProduct?.Target == this) ProductActionPlan.OpenProduct = null;
@@ -635,6 +639,10 @@ public partial class OwnerShellWindow : Window, IMainShell
         TodayButton.Content = Tr.T("Сегодня", "Бүгүн", "Today", "Bugün", "Bugun");
         WeekButton.Content = Tr.T("Неделя", "Жума", "Week", "Hafta", "Hafta");
         MonthButton.Content = Tr.T("Месяц", "Ай", "Month", "Ay", "Oy");
+        YearCompareButton.Content = Tr.T("Год назад", "Жыл мурун", "Year ago", "Geçen yıl", "Yil oldin");
+        YearCompareButton.Classes.Set("active", _compareYear);
+        ToolTip.SetTip(YearCompareButton, Tr.T("Сравнить период с тем же периодом год назад (год к году)", "Мезгилди бир жыл мурунку ошол мезгил менен салыштыруу",
+            "Compare the period with the same period a year ago", "Dönemi geçen yılın aynı dönemiyle karşılaştır", "Davrni bir yil oldingi shu davr bilan taqqoslash"));
         CustomButton.Content = _period == "custom"
             ? (_customFrom == _customTo ? $"{_customFrom:dd.MM}" : $"{_customFrom:dd.MM}–{_customTo:dd.MM}")
             : Tr.T("Спец. дата", "Башка дата", "Custom dates", "Özel tarih", "Boshqa sana");
@@ -906,6 +914,12 @@ public partial class OwnerShellWindow : Window, IMainShell
         // 2026-10-28, запрос владельца «Общая аналитика по бонусам»: раздел «Бонусы» (BonusAnalyticsWindow) — права и тариф как у «Аналитики».
         Add("bonusanalytics", "ClientsIcon", Tr.T("Бонусы", "Бонустар", "Bonuses", "Bonuslar", "Bonuslar"), TariffGate.CanUseSalesAnalytics,
             () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("bonusanalytics", () => new BonusAnalyticsWindow()); });
+        // 2026-11-13 (Л-13 «Отчёты владельца»): отчёты по кассирам и по часам/дням недели с сравнением периодов и выгрузкой в Excel — права и тариф как у «Аналитики».
+        Add("staffreport", "ClientsIcon", StaffReportsWindow.TitleText, TariffGate.CanUseSalesAnalytics,
+            () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("staffreport", () => new StaffReportsWindow()); });
+        // 2026-11-14 (П0-1, ответ Умара 13.11 вечер): «Продажи без фискального чека» — сверка с ККМ; раздел виден, только когда у компании включена фискализация (режим не «выключено»). Права и тариф — как у «Аналитики».
+        Add("fiscalreport", "ReceiptIcon", FiscalSalesReportWindow.TitleText, NurMarketKassa.Services.Fiscal.FiscalSettings.ShowsFiscalUi && TariffGate.CanUseSalesAnalytics,
+            () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("fiscalreport", () => new FiscalSalesReportWindow()); });
         // 2026-10-06, исследование «Кассы для одежды» (О-80): продажи по размерам и цветам — только в сфере «Одежда».
         Add("sizesreport", "SizesIcon", Tr.T("Размеры и цвета", "Өлчөмдөр жана түстөр", "Sizes and colours", "Bedenler ve renkler", "O'lchamlar va ranglar"),
             MarketSpheres.IsClothing && TariffGate.CanUseSalesAnalytics,

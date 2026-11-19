@@ -24,4 +24,8 @@ public sealed class ReturnSaleListItemVm
     public string? ClientId { get; init; }
     /// <summary>Первый товар чека из списка (first_item_name) — поиск по товару без загрузки чека.</summary>
     public string? FirstItemName { get; init; }
+
+    // 2026-11-13 (Л-5, поиск чека одним полем): телефон клиента и последние цифры карты, если сервер присылает их в строке списка (иначе — null, поле дочитывается из карточки чека).
+    public string? ClientPhone { get; set; }
+    public string? CardLast4 { get; set; }
 }

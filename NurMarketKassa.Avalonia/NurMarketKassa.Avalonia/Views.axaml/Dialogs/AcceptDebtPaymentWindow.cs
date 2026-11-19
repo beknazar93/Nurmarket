@@ -332,7 +332,7 @@ public sealed class AcceptDebtPaymentWindow : Window
 
     private static string Money(double v) => DebtPaymentFlow.Money(v);
 
-    private static string AmountText(double v) => v.ToString("0.##", CultureInfo.InvariantCulture);
+    private static string AmountText(double v) => NurMarketKassa.Services.MoneyText.Weight(v, "0.##"); // 2026-11-13 (Д-5): запятая (общий формат), было с точкой
 
     /// <remarks>2026-10-18, десятый круг (п.6): итог и максимум — только по точным остаткам (без «уточняется»).</remarks>
     private double Total => _rows.Where(r => r.Amount > 0.005 && !r.RemainingUnknown).Sum(r => r.Amount);
@@ -417,7 +417,7 @@ public sealed class AcceptDebtPaymentWindow : Window
             PosLogger.Log($"Владелец: оплата долга — долги клиента {_clientId} не загружены ({ex.GetType().Name}: {ex.Message}).", "WARNING");
             ShowLoadError(T("Не удалось получить долг с сервера: ", "Карызды серверден алуу мүмкүн болгон жок: ", "Could not get the debt from the server: ",
                               "Borç sunucudan alınamadı: ", "Qarzni serverdan olib bo'lmadi: ")
-                          + (ex is OperationCanceledException ? T("сервер не ответил", "сервер жооп берген жок", "the server didn't respond", "sunucu yanıt vermedi", "server javob bermadi") : ex.Message));
+                          + (ex is OperationCanceledException ? T("сервер не ответил", "сервер жооп берген жок", "the server didn't respond", "sunucu yanıt vermedi", "server javob bermadi") : NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)));
             return false;
         }
     }
@@ -579,7 +579,7 @@ public sealed class AcceptDebtPaymentWindow : Window
         {
             _running = false;
             PosLogger.Log($"Владелец: оплата долга — {what} не выполнено: {ex}", "WARNING");
-            ShowMessage(T("Не удалось выполнить: ", "Аткаруу мүмкүн болгон жок: ", "Couldn't complete: ", "Tamamlanamadı: ", "Bajarib bo'lmadi: ") + ex.Message);
+            ShowMessage(T("Не удалось выполнить: ", "Аткаруу мүмкүн болгон жок: ", "Couldn't complete: ", "Tamamlanamadı: ", "Bajarib bo'lmadi: ") + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex));
             UpdateState();
             RenderSales();
         }
@@ -1095,7 +1095,7 @@ public sealed class AcceptDebtPaymentWindow : Window
             granted = false;
             gateError = T("Не удалось проверить код сотрудника — оплата не проведена: ", "Кызматкердин кодун текшерүү мүмкүн болгон жок — төлөм өткөн жок: ",
                 "Couldn't check the employee code — the payment was not made: ", "Çalışan kodu kontrol edilemedi — ödeme yapılmadı: ",
-                "Xodim kodini tekshirib bo'lmadi — to'lov o'tmadi: ") + ex.Message;
+                "Xodim kodini tekshirib bo'lmadi — to'lov o'tmadi: ") + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex);
         }
         if (gateError is not null)
             ShowMessage(gateError);

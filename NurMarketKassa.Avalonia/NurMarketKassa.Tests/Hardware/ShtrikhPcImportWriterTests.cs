@@ -40,7 +40,7 @@ public sealed class ShtrikhPcImportWriterTests : IDisposable
         new(code, name, price, piece, shelf);
 
     private static string[] DataLines(string text) =>
-        text.Split("\r\n", StringSplitOptions.None).Skip(2).Where(l => l.Length > 0).ToArray();
+        text.Split("\r\n", StringSplitOptions.None).Skip(2).Where(l => l.Length > 0 && !l.StartsWith("<L", StringComparison.Ordinal)).ToArray(); // 2026-11-19: строки <L — база форматов этикеток, не товары
 
     [Fact]
     public void Build_Header_TwoLines_ThenDataLines()
@@ -87,7 +87,7 @@ public sealed class ShtrikhPcImportWriterTests : IDisposable
         var line = DataLines(build.Text).Single();
 
         line.Should().Be("<D 98765;;ТЕСТ NurMarket;0;100.00;0;0;0;0;;;0;;0;0;0;;;;;;;0;0;0;0;0;0;0;0;0;0;0;0");
-        ShtrikhPcImportWriter.Encode(build.Text).Should().Equal(ShtrikhPcImportWriter.Encode("##@@&&\r\n#\r\n" + line + "\r\n"));
+        ShtrikhPcImportWriter.Encode(build.Text).Should().Equal(ShtrikhPcImportWriter.Encode("##@@&&\r\n#\r\n" + string.Concat(ShtrikhPcImportWriter.FormatLines(Settings()).Select(l => l + "\r\n")) + line + "\r\n")); // 2026-11-19: + база форматов <L (58x40 / 58x30)
     }
 
     [Fact]

@@ -359,7 +359,7 @@ public partial class ReturnSaleDialog
                 "İade zaten yapılmış olabilir (önceki gönderim yanıtsız kaldı). Ödemeden önce «İadeler»i kontrol edin — emin olmadan vermeyin. Bu iade vardiyaya yazılmadı.",
                 "Qaytarish allaqachon o'tkazilgan bo'lishi mumkin (oldingi yuborishga javob kelmadi). Pul berishdan oldin «Qaytarishlar»ni tekshiring — ishonch hosil qilmay bermang. Bu qaytarish smenaga yozilmadi.");
         }
-        return RefundExceedsText(ex) ?? ex.Message;
+        return RefundExceedsText(ex) ?? NurMarketKassa.Services.ServerOutageMonitor.UserText(ex);
     }
 
     /// <summary>2026-10-30: ответ сервера «refund_exceeds_paid» (возврат больше положенного) — текст для кассира с цифрами сервера

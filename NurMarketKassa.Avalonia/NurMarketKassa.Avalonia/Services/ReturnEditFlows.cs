@@ -176,8 +176,8 @@ public static class ReturnEditFlows
                 try
                 {
                     if (TopLevel.GetTopLevel(b) is Window w)
-                        await Say(w, T($"Действие «{text}» не выполнено: {ex.Message}", $"«{text}» аракети аткарылган жок: {ex.Message}", $"The action “{text}” was not completed: {ex.Message}",
-                            $"«{text}» işlemi tamamlanamadı: {ex.Message}", $"«{text}» amali bajarilmadi: {ex.Message}")).ConfigureAwait(true);
+                        await Say(w, T($"Действие «{text}» не выполнено: {NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)}", $"«{text}» аракети аткарылган жок: {NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)}", $"The action “{text}” was not completed: {NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)}",
+                            $"«{text}» işlemi tamamlanamadı: {NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)}", $"«{text}» amali bajarilmadi: {NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)}")).ConfigureAwait(true);
                 }
                 catch (Exception sayEx) when (sayEx is not OutOfMemoryException)
                 {

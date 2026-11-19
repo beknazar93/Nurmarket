@@ -433,7 +433,7 @@ public sealed class CustomerReturnEditDialog : Window
         {
             // 2026-11-12 (аудит С-3): неожиданная ошибка не должна ронять кассу из обработчика кнопки
             PosLogger.Log($"Возврат от клиента {_doc.Id}: правка прервана ({ex.GetType().Name}: {ex.Message}).", "WARNING");
-            ShowError(T("Не сохранено: ", "Сакталган жок: ", "Not saved: ", "Kaydedilmedi: ", "Saqlanmadi: ") + ex.Message);
+            ShowError(T("Не сохранено: ", "Сакталган жок: ", "Not saved: ", "Kaydedilmedi: ", "Saqlanmadi: ") + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex));
         }
         finally
         {
@@ -474,7 +474,7 @@ public sealed class CustomerReturnEditDialog : Window
         {
             // 2026-11-12 (аудит С-3): «Удалить возврат» — обработчик без try ронял программу при неожиданной ошибке
             PosLogger.Log($"Возврат от клиента {_doc.Id}: удаление прервано ({ex.GetType().Name}: {ex.Message}).", "WARNING");
-            ShowError(T("Не удалено: ", "Өчүрүлгөн жок: ", "Not deleted: ", "Silinmedi: ", "O'chirilmadi: ") + ex.Message);
+            ShowError(T("Не удалено: ", "Өчүрүлгөн жок: ", "Not deleted: ", "Silinmedi: ", "O'chirilmadi: ") + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex));
         }
     }
 

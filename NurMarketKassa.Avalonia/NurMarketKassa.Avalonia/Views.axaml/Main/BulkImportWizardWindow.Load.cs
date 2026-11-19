@@ -236,6 +236,7 @@ public partial class BulkImportWizardWindow
                     _journal?.Delete();
                     _journal = null;
                     _journalDone = 0;
+                    ShowNextSteps(cardsOnly: true); // 2026-11-13 (Л-10)
                 }
             }
             _summary.Text = result.SummaryText;
@@ -320,6 +321,8 @@ public partial class BulkImportWizardWindow
             _status.Text = T($"Готово: {info.SummaryText}. Строки, которые не приняты, — в «Приходах в фоне» (можно повторить).", $"Даяр: {info.SummaryText}. Кабыл алынбаган саптар — «Фондогу кирешелерде» (кайталоого болот).",
                 $"Done: {info.SummaryText}. Rows that were not accepted are in “Background receipts” (you can retry them).", $"Tamam: {info.SummaryText}. Kabul edilmeyen satırlar «Arka plan girişleri»nde (tekrar denenebilir).",
                 $"Tayyor: {info.SummaryText}. Qabul qilinmagan qatorlar «Fondagi kirimlar»da (qayta urinish mumkin).");
+            if (info.FailedRows.Count == 0)
+                ShowNextSteps(cardsOnly: false); // 2026-11-13 (Л-10)
         });
     }
 

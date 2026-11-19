@@ -155,7 +155,7 @@
     <StackPanel Spacing="10">
 
         <!-- 1. Мастер «Настроить по этикетке» -->
-        <Border x:Name="WizardCard" Classes="SettingsCard" Padding="14">
+        <Border x:Name="WizardCard" Classes="SettingsCard" Padding="16">
             <StackPanel Spacing="10">
                 <TextBlock Text="{DynamicResource scaleSetup.wizard.title}" Classes="SettingsCardTitle"/>
                 <TextBlock Text="{DynamicResource scaleSetup.wizard.desc}" Classes="SettingsCardBody"/>
@@ -214,7 +214,7 @@
         </Border>
 
         <!-- 2. Правила по префиксам -->
-        <Border Classes="SettingsCard" Padding="14">
+        <Border Classes="SettingsCard" Padding="16">
             <StackPanel Spacing="10">
                 <TextBlock Text="{DynamicResource scaleSetup.rules.title}" Classes="SettingsCardTitle"/>
                 <TextBlock x:Name="RulesDescText" Classes="SettingsCardBody"/>
@@ -231,7 +231,7 @@
         </Border>
 
         <!-- 3. Как касса читает штрих-код (раскладка компании) -->
-        <Border x:Name="CompanyCard" Classes="SettingsCard" Padding="14">
+        <Border x:Name="CompanyCard" Classes="SettingsCard" Padding="16">
             <StackPanel Spacing="10">
                 <TextBlock Text="{DynamicResource scaleSetup.barcode.title}" Classes="SettingsCardTitle"/>
                 <TextBlock Text="{DynamicResource scaleSetup.barcode.desc}" Classes="SettingsCardBody"/>

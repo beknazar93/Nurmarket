@@ -57,6 +57,8 @@ public sealed class OutboxWindow : Window
         public TextBlock Status = new();
         public TextBlock Reason = new();
         public TextBlock Hint = new();
+        public TextBlock Deadline = new(); // 2026-11-14 (Л-6): «не принято по сроку (7 суток)» / «скоро 7 суток» с действием
+        public string DeadlineBrush = "";
         public StackPanel Detail = new() { Spacing = 2, IsVisible = false };
         public Button Send = null!;
         public Button Retry = null!;
@@ -78,6 +80,13 @@ public sealed class OutboxWindow : Window
     private readonly TextBlock _counts = new() { FontSize = 15, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock _empty = new() { FontSize = 14, TextWrapping = TextWrapping.Wrap, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 24) };
     private readonly TextBlock _more = new() { FontSize = 12.5, TextWrapping = TextWrapping.Wrap, IsVisible = false };
+    // 2026-11-14 (Л-6): сводка с деньгами и самой старой записью, предупреждение о сроке 7 суток, плашка при долгом офлайне
+    private readonly TextBlock _summary = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap, IsVisible = false };
+    private readonly TextBlock _deadlineBanner = new() { FontSize = 13, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, IsVisible = false };
+    private readonly Border _offlineBanner = new() { CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 8), IsVisible = false, BorderThickness = new Thickness(1) };
+    private readonly TextBlock _offlineBannerText = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap };
+    private string _deadlineBrush = "";
+    private string _offlineBrush = "";
     private readonly Border _notice = new() { CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 8), IsVisible = false };
     private readonly TextBlock _noticeText = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap };
     private readonly Button _noticeAction;
@@ -101,6 +110,7 @@ public sealed class OutboxWindow : Window
     private static readonly OutboxKind?[] KindFilters =
     {
         null, OutboxKind.Sale, OutboxKind.Return, OutboxKind.DebtPayment, OutboxKind.Receiving, OutboxKind.NewProduct, OutboxKind.ShiftClose, OutboxKind.CashOperation,
+        OutboxKind.StockWriteOff, OutboxKind.StockTransfer, OutboxKind.Revision, // 2026-11-14 (Л-6)
     };
 
     private static readonly OutboxStatus?[] StatusFilters = { null, OutboxStatus.Waiting, OutboxStatus.Sending, OutboxStatus.Error };
@@ -124,6 +134,9 @@ public sealed class OutboxWindow : Window
         _notice.Bind(Border.BackgroundProperty, _notice.GetResourceObservable("BrushSurfaceSubtle"));
         _notice.Bind(Border.BorderBrushProperty, _notice.GetResourceObservable("BrushBorder"));
         _notice.BorderThickness = new Thickness(1);
+        _summary.Bind(TextBlock.ForegroundProperty, _summary.GetResourceObservable("BrushTextSoft"));
+        _offlineBanner.Bind(Border.BackgroundProperty, _offlineBanner.GetResourceObservable("BrushSurfaceSubtle"));
+        _offlineBanner.Child = _offlineBannerText;
 
         _noticeAction = Small(UiKit.Primary(this, T("Войти", "Кирүү", "Sign in", "Giriş yap", "Kirish")));
         _noticeAction.IsVisible = false;
@@ -177,6 +190,9 @@ public sealed class OutboxWindow : Window
 
         var root = new StackPanel { Spacing = 10 };
         root.Children.Add(_counts);
+        root.Children.Add(_summary);
+        root.Children.Add(_deadlineBanner);
+        root.Children.Add(_offlineBanner);
         root.Children.Add(filters);
         root.Children.Add(_notice);
         root.Children.Add(_scroll);
@@ -363,6 +379,7 @@ public sealed class OutboxWindow : Window
         _sendAll.Content = T($"Отправить всё ({all.Count(i => i.Status == OutboxStatus.Waiting && i.CanSend)})", $"Баарын жөнөтүү ({all.Count(i => i.Status == OutboxStatus.Waiting && i.CanSend)})",
             $"Send all ({all.Count(i => i.Status == OutboxStatus.Waiting && i.CanSend)})", $"Hepsini gönder ({all.Count(i => i.Status == OutboxStatus.Waiting && i.CanSend)})", $"Hammasini yuborish ({all.Count(i => i.Status == OutboxStatus.Waiting && i.CanSend)})");
         _sendAll.IsEnabled = !_batchBusy && all.Any(i => i.Status == OutboxStatus.Waiting && i.CanSend);
+        ApplySummary(all);
 
         var kind = _kindFilter.SelectedIndex is >= 0 and var ki && ki < KindFilters.Length ? KindFilters[ki] : null;
         var status = _statusFilter.SelectedIndex is >= 0 and var si && si < StatusFilters.Length ? StatusFilters[si] : null;
@@ -413,6 +430,37 @@ public sealed class OutboxWindow : Window
         _openBackground.IsVisible = all.Any(i => i.Kind == OutboxKind.Receiving);
     }
 
+    /// <summary>2026-11-14 (Л-6): сводка («чеков в очереди N на сумму…, самая старая запись — …»), предупреждение о сроке 7 суток и плашка с советом при долгом офлайне.</summary>
+    private void ApplySummary(IReadOnlyList<OutboxItem> all)
+    {
+        var now = DateTimeOffset.Now;
+        var s = OutboxInsight.Summarize(all, now);
+        var text = OutboxInsight.SummaryText(s, now, v => MoneyText.Som(v));
+        _summary.IsVisible = text.Length > 0;
+        _summary.Text = text;
+
+        var banner = OutboxInsight.DeadlineBanner(s);
+        _deadlineBanner.IsVisible = banner is not null;
+        _deadlineBanner.Text = banner ?? "";
+        var dBrush = s.Expired > 0 ? "BrushDanger" : "BrushWarning";
+        if (!string.Equals(_deadlineBrush, dBrush, StringComparison.Ordinal))
+        {
+            _deadlineBrush = dBrush;
+            _deadlineBanner.Bind(TextBlock.ForegroundProperty, _deadlineBanner.GetResourceObservable(dBrush));
+        }
+
+        var advice = OutboxInsight.EvaluateLongOffline(ServerOutageMonitor.OutageSince, s, now);
+        _offlineBanner.IsVisible = advice.Level > 0;
+        _offlineBannerText.Text = advice.Text;
+        var oBrush = advice.Level >= 2 ? "BrushDanger" : "BrushWarning";
+        if (!string.Equals(_offlineBrush, oBrush, StringComparison.Ordinal))
+        {
+            _offlineBrush = oBrush;
+            _offlineBannerText.Bind(TextBlock.ForegroundProperty, _offlineBannerText.GetResourceObservable("BrushText"));
+            _offlineBanner.Bind(Border.BorderBrushProperty, _offlineBanner.GetResourceObservable(oBrush));
+        }
+    }
+
     // ------------------------------------------------------------------ строка
 
     private Row BuildRow(string key)
@@ -433,6 +481,10 @@ public sealed class OutboxWindow : Window
         row.Hint.FontSize = 13;
         row.Hint.TextWrapping = TextWrapping.Wrap;
         row.Hint.Bind(TextBlock.ForegroundProperty, row.Hint.GetResourceObservable("BrushWarning"));
+        row.Deadline.FontSize = 13;
+        row.Deadline.FontWeight = FontWeight.SemiBold;
+        row.Deadline.TextWrapping = TextWrapping.Wrap;
+        row.Deadline.IsVisible = false;
 
         row.Send = Small(UiKit.Primary(this, T("Отправить сейчас", "Азыр жөнөтүү", "Send now", "Şimdi gönder", "Hozir yuborish")));
         row.Retry = Small(UiKit.Primary(this, T("Повторить", "Кайра аракет", "Retry", "Tekrar dene", "Qayta urinish")));
@@ -462,6 +514,7 @@ public sealed class OutboxWindow : Window
         body.Children.Add(row.Status);
         body.Children.Add(row.Reason);
         body.Children.Add(row.Hint);
+        body.Children.Add(row.Deadline);
         body.Children.Add(row.Detail);
         body.Children.Add(new Border { Height = 4 });
         body.Children.Add(buttons);
@@ -476,7 +529,11 @@ public sealed class OutboxWindow : Window
     {
         row.Item = item;
         row.Head.Text = item.KindLabel + " · " + item.Title;
-        var info = new List<string> { T("создан ", "түзүлгөн ", "created ", "oluşturuldu ", "yaratilgan ") + item.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture) };
+        var info = new List<string>
+        {
+            T("создан ", "түзүлгөн ", "created ", "oluşturuldu ", "yaratilgan ") + item.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture)
+            + " (" + T("ждёт ", "күтүүдө ", "waiting ", "bekliyor ", "kutmoqda ") + OutboxInsight.AgeText(item.CreatedAt, DateTimeOffset.Now) + ")", // 2026-11-14 (Л-6): возраст записи
+        };
         if (!string.IsNullOrWhiteSpace(item.Subtitle))
             info.Add(item.Subtitle!);
         if (item.Amount is { } amount)
@@ -505,7 +562,8 @@ public sealed class OutboxWindow : Window
             row.Status.Bind(TextBlock.ForegroundProperty, row.Status.GetResourceObservable(brush));
         }
 
-        var reason = item.Reason;
+        // 2026-11-14 (Л-6): у ждущей записи всегда есть причина ожидания (источник не сказал — по состоянию связи).
+        var reason = item.Status == OutboxStatus.Error ? item.Reason : OutboxInsight.WhyWaiting(item, ServerOutageMonitor.IsOutage || OfflineModeHelper.SellLocally);
         row.Reason.IsVisible = !string.IsNullOrWhiteSpace(reason);
         row.Reason.Text = reason ?? "";
         var reasonBrush = item.Status == OutboxStatus.Error ? "BrushDanger" : "BrushTextSoft";
@@ -516,6 +574,17 @@ public sealed class OutboxWindow : Window
         }
         row.Hint.IsVisible = !string.IsNullOrWhiteSpace(item.Hint);
         row.Hint.Text = item.Hint ?? "";
+        // 2026-11-14 (Л-6): срок сервера (7 суток): «скоро» — предупреждение, «не принято по сроку» — красным и с понятным действием
+        var now = DateTimeOffset.Now;
+        var deadlineText = OutboxInsight.DeadlineText(item, now);
+        row.Deadline.IsVisible = !string.IsNullOrWhiteSpace(deadlineText);
+        row.Deadline.Text = deadlineText ?? "";
+        var deadlineBrush = OutboxInsight.Deadline(item, now) == OutboxDeadlineLevel.Soon ? "BrushWarning" : "BrushDanger";
+        if (!string.Equals(row.DeadlineBrush, deadlineBrush, StringComparison.Ordinal))
+        {
+            row.DeadlineBrush = deadlineBrush;
+            row.Deadline.Bind(TextBlock.ForegroundProperty, row.Deadline.GetResourceObservable(deadlineBrush));
+        }
 
         var busy = row.Busy || item.Status == OutboxStatus.Sending || _batchBusy;
         row.Send.IsVisible = item.Status == OutboxStatus.Waiting && item.CanSend;
@@ -528,7 +597,7 @@ public sealed class OutboxWindow : Window
         row.Copy.IsVisible = item.CanCopy;
         row.Support.IsVisible = item.CanSupport && SupportLogService.IsConfigured;
 
-        var hasDetails = item.Lines.Count > 0 || !string.IsNullOrWhiteSpace(item.Details);
+        var hasDetails = true; // 2026-11-14 (Л-6): в подробностях всегда «Если не отправить: …»
         row.Details.IsVisible = hasDetails;
         row.Details.Content = row.DetailsOpen
             ? T("Скрыть", "Жашыруу", "Hide", "Gizle", "Yashirish")
@@ -541,11 +610,13 @@ public sealed class OutboxWindow : Window
     /// <summary>Раскрытая панель пересобирается, только если изменились данные (выделение текста и прокрутка не сбрасываются каждые 2,5 с).</summary>
     private void FillDetails(Row row, OutboxItem item)
     {
-        var signature = (item.Details ?? "") + "|" + string.Join(";", item.Lines.Select(l => l.Name + l.Quantity + l.Amount + l.Note));
+        var consequence = OutboxInsight.IfNotSent(item.Kind);
+        var signature = consequence + "|" + (item.Details ?? "") + "|" + string.Join(";", item.Lines.Select(l => l.Name + l.Quantity + l.Amount + l.Note));
         if (signature == row.DetailSignature && row.Detail.Children.Count > 0)
             return;
         row.DetailSignature = signature;
         row.Detail.Children.Clear();
+        row.Detail.Children.Add(DetailLine(consequence, bold: true)); // 2026-11-14 (Л-6): что будет, если не отправить
         if (!string.IsNullOrWhiteSpace(item.Details))
             row.Detail.Children.Add(DetailLine(item.Details!, bold: true));
         foreach (var l in item.Lines.Take(200))

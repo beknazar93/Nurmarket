@@ -369,6 +369,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             _screenView.PreselectCashbox(prefs.PreferredCashboxId, prefs.PreferredCashboxName);
             StoreNameBox.Text = prefs.StoreName;
             StoreAddressBox.Text = prefs.StoreAddress;
+            _screenView.StoreInnBox.Text = prefs.StoreInn;
             ShowInnCheck.IsChecked = prefs.ShowInn;
             ShowStoreNameCheck.IsChecked = prefs.ShowStoreName;
             ShowAddressCheck.IsChecked = prefs.ShowAddress;
@@ -1134,7 +1135,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 _printView.LabelPrinterKindText.Text = "";
                 var notFound = !string.IsNullOrWhiteSpace(saved);
                 _printView.LabelPrinterWarnText.Text = LabelPrinterSelector.HintText(notFound ? LabelPrinterState.NotFound : LabelPrinterState.NotSelected);
-                _printView.LabelPrinterWarnText.IsVisible = true;
+                // 2026-11-19 (живой обход «Настройки → Печать»): «Принтер этикеток не выбран» стояло в карточке дважды — жёлтая подсказка
+                // над кнопками мастера (PrinterSetupBar.RefreshLabelHint) и эта строка внизу. Не выбран — оставляем подсказку мастера;
+                // эта строка — только «выбранный не найден» (или если строки мастера нет, как на Android).
+                _printView.LabelPrinterWarnText.IsVisible = notFound || !_printView.LabelSetupBar.IsVisible;
                 return;
             }
             var kind = LabelPrinterSelector.DescribeKind(selected.DevicePath);
@@ -2106,6 +2110,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             if (string.IsNullOrEmpty(prefs.StoreName))
                 prefs.StoreName = "MARKET PLUS";
             prefs.StoreAddress = StoreAddressBox.Text?.Trim() ?? string.Empty;
+            prefs.StoreInn = _screenView.StoreInnBox.Text?.Trim() ?? string.Empty; // 2026-11-19: ИНН вводится вручную и сохраняется
             prefs.ShowInn = ShowInnCheck.IsChecked == true;
 
             prefs.SaveToDisk();

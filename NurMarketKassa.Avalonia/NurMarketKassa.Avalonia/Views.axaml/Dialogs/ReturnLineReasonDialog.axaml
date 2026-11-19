@@ -58,13 +58,20 @@
            сервер не возвращает на склад (is_defect). Кнопки и подписи — в коде. -->
       <StackPanel x:Name="QuickReasonsPanel" Spacing="8">
         <WrapPanel x:Name="QuickReasonsWrap" Orientation="Horizontal"/>
-        <CheckBox x:Name="DefectCheck" FontSize="13" Foreground="{DynamicResource BrushText}"/>
+      </StackPanel>
+
+      <!-- 2026-11-13 (Л-5): куда товар после возврата — на полку (по умолчанию) / в брак (на склад не возвращается, is_defect) / поставщику (после возврата откроется возврат поставщику
+           с этим товаром). Подписи и подсказка — в коде. -->
+      <StackPanel x:Name="OutcomePanel" Spacing="6">
+        <TextBlock x:Name="OutcomeLabel" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSoft}"/>
+        <WrapPanel x:Name="OutcomeWrap" Orientation="Horizontal"/>
+        <TextBlock x:Name="OutcomeHint" FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
       </StackPanel>
 
       <!-- Многострочное поле ввода -->
       <TextBox x:Name="ReasonBox"
                Classes="ModernTextArea"
-               MinHeight="110"
+               MinHeight="84"
                Watermark="{DynamicResource returnReason.watermark}"
                TextWrapping="Wrap"
                AcceptsReturn="True"/>

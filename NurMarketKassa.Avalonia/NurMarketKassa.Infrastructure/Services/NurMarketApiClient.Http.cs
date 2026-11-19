@@ -244,6 +244,9 @@ public sealed partial class NurMarketApiClient
                 ? AuthInvalidHintRu
                 : ApiErrorParser.Parse(resp, text);
             JsonElement? payload = TryParse(text);
+            // 2026-11-14 (П0-1): 409 fiscal_locked и другие фискальные коды — понятный текст на языке интерфейса вместо ответа сервера (правка/удаление пробитого чека, возврата).
+            if (Fiscal.FiscalErrors.TryFriendly((int)resp.StatusCode, payload, out var fiscalText, relativePath))
+                msg = fiscalText;
             throw new ApiException(msg, (int)resp.StatusCode, payload);
         }
 

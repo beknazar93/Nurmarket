@@ -658,7 +658,7 @@ public partial class WarehouseWindow
         catch (Exception ex)
         {
             PosLogger.Log($"Ревизия: не удалось начать: {ex}", "WARNING");
-            _revStartStatus.Text = RevT("Не удалось начать ревизию: ", "Ревизияны баштоо мүмкүн болгон жок: ", "Could not start the stocktake: ", "Sayım başlatılamadı: ", "Inventarizatsiyani boshlab bo'lmadi: ") + ex.Message;
+            _revStartStatus.Text = RevT("Не удалось начать ревизию: ", "Ревизияны баштоо мүмкүн болгон жок: ", "Could not start the stocktake: ", "Sayım başlatılamadı: ", "Inventarizatsiyani boshlab bo'lmadi: ") + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex);
         }
         finally
         {

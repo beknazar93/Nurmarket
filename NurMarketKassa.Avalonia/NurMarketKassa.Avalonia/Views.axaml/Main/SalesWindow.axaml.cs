@@ -497,6 +497,19 @@ namespace NurMarketKassa.AvaloniaHost.Views
         /// Чего здесь честно нет: способа оплаты и возвратов — они живут только на сервере.
         /// Поэтому оплата показывается прочерком, а не выдумывается, и в шапке прямо сказано,
         /// что данные локальные.</summary>
+        /// <summary>2026-11-13 (Н-4): действие «Повторить» хозяина («Финансы» перечитывают свой список); null — «Продажи» грузят сами.</summary>
+        internal Action HostRetry;
+
+        /// <summary>2026-11-13 (Н-4): стоит ли вместо таблицы чеков блок «Сервер NurCRM недоступен».</summary>
+        internal bool LoadFailedBlockShown => StateBlock.IsOver(SalesGrid);
+
+        /// <summary>2026-11-13 (Н-4): блок «Сервер NurCRM недоступен» с «Повторить» на месте таблицы чеков. false — поставить некуда.</summary>
+        internal bool ShowServerOffline()
+        {
+            var retry = HostRetry ?? (() => _ = LoadDataAsync(_historyFrom, _historyTo));
+            return StateBlock.ShowOver(SalesGrid, StateBlock.Offline(this, retry));
+        }
+
         private void LoadFromLocalHistory(DateTime from, DateTime to, CancellationToken token)
         {
             var fromUtc = from.Date.ToUniversalTime();
@@ -538,6 +551,13 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 .ToList();
             TopItemsGrid.ItemsSource = top;
 
+            // 2026-11-13 (Н-4): сервера нет и у кассы за период пусто — блок «Сервер NurCRM недоступен» с «Повторить» на месте
+            // таблицы чеков, а не красная полоса внизу окна под пустой таблицей с подсказкой «чеков нет».
+            if (sales.Count == 0 && ShowServerOffline())
+            {
+                ErrorMessage = null;
+                return;
+            }
             ErrorMessage = ServerOutageMonitor.IsOutage
                 // 2026-09-29: «Данные на 14:05, сервер не отвечает» — с какого времени нет данных сервера.
                 ? ServerOutageMonitor.StaleDataNote(null) + ServerOutageMonitor.LocalDataSuffix

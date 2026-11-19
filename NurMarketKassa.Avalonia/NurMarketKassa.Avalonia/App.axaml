@@ -15,6 +15,34 @@
       <CornerRadius x:Key="SettingsCardRadius">12</CornerRadius>
       <CornerRadius x:Key="SettingsButtonRadius">10</CornerRadius>
 
+      <!-- 2026-11-13 (Д-8, согласие владельца 13.11): ЕДИНАЯ ШКАЛА РАЗМЕРОВ. Новые и переделанные экраны берут только эти ключи
+           (DynamicResource), а не свои числа. Шрифт — 5 размеров, радиус — 3, высота элемента — 3, отступ — 5 шагов.
+           Размеры не зависят от светлой/тёмной темы, поэтому лежат здесь, а не в AppTheme*.axaml (там только цвета).
+           NurRadiusControl / NurRadiusCard переехали из PosDialogStyles.axaml: тема из Маркетплейса пишет в них те же значения,
+           что в SettingsButtonRadius / SettingsCardRadius (AccentThemeService), — радиус кнопки и поля один на всю программу. -->
+      <x:Double x:Key="NurFontCaption">12.5</x:Double>
+      <x:Double x:Key="NurFontBody">14</x:Double>
+      <x:Double x:Key="NurFontSubtitle">16</x:Double>
+      <x:Double x:Key="NurFontTitle">20</x:Double>
+      <x:Double x:Key="NurFontDisplay">26</x:Double>
+      <!-- Радиусы: плашка/значок — кнопка/поле — карточка/окно. -->
+      <CornerRadius x:Key="NurRadiusSmall">6</CornerRadius>
+      <CornerRadius x:Key="NurRadiusControl">10</CornerRadius>
+      <CornerRadius x:Key="NurRadiusCard">12</CornerRadius>
+      <!-- Высоты: плотный ряд (чип, кнопка в строке таблицы) — кнопка/поле/сегмент (обычная и сенсорная цель ≥ 44) — главное действие экрана. -->
+      <x:Double x:Key="NurHeightCompact">36</x:Double>
+      <x:Double x:Key="NurHeightControl">44</x:Double>
+      <x:Double x:Key="NurHeightLarge">52</x:Double>
+      <!-- Отступы: шаги 4 / 8 / 12 / 16 / 24 и готовые поля кнопки, карточки, содержимого окна. -->
+      <x:Double x:Key="NurSpace1">4</x:Double>
+      <x:Double x:Key="NurSpace2">8</x:Double>
+      <x:Double x:Key="NurSpace3">12</x:Double>
+      <x:Double x:Key="NurSpace4">16</x:Double>
+      <x:Double x:Key="NurSpace5">24</x:Double>
+      <Thickness x:Key="NurPadButton">16,0</Thickness>
+      <Thickness x:Key="NurPadCard">16</Thickness>
+      <Thickness x:Key="NurPadWindow">24,18</Thickness>
+
       <!-- Шрифт приложения — базовые значения "как всегда было"; настраивается в модалке
            "⚙ Настройка темы" (см. AccentThemeService.ApplyFontResources). Noto Sans встроен
            шрифтом ресурсом приложения (Assets/Fonts, 2026-09-04) и стоит первым в списке —
@@ -148,7 +176,7 @@
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource BrushInputBorder}"/>
       <Setter Property="CornerRadius" Value="{DynamicResource NurRadiusControl}"/>
-      <Setter Property="MinHeight" Value="38"/>
+      <Setter Property="MinHeight" Value="{DynamicResource NurHeightControl}"/>
     </Style>
     <Style Selector="CalendarDatePicker /template/ TextBox#PART_TextBox">
       <Setter Property="Background" Value="Transparent"/>
@@ -173,7 +201,7 @@
       <Setter Property="Background" Value="{DynamicResource BrushPanelElevated}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
       <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource NurRadiusControl}"/>
     </Style>
 
     <!-- Сетка дней лежит на собственном фоне CalendarItem из темы Fluent. Без этого правила
@@ -208,7 +236,7 @@
     <Style Selector="CalendarDayButton">
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
       <Setter Property="Background" Value="Transparent"/>
-      <Setter Property="CornerRadius" Value="6"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource NurRadiusSmall}"/>
     </Style>
     <!-- Дни соседних месяцев — бледные: это подсказка, а не выбор. -->
     <Style Selector="CalendarDayButton:inactive">
@@ -231,7 +259,7 @@
     <Style Selector="CalendarButton">
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
       <Setter Property="Background" Value="Transparent"/>
-      <Setter Property="CornerRadius" Value="6"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource NurRadiusSmall}"/>
     </Style>
     <Style Selector="CalendarButton:pointerover">
       <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>

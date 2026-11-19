@@ -412,8 +412,8 @@ public partial class MarketplaceView : UserControl
         catch (Exception ex)
         {
             PosLogger.Log($"Marketplace update download/apply failed: {ex}", "UPDATE");
-            UpdateBannerNotes.Text = Tr.T($"Не удалось обновить: {ex.Message}", $"Жаңыртуу мүмкүн болгон жок: {ex.Message}",
-                $"Could not update: {ex.Message}", $"Güncellenemedi: {ex.Message}", $"Yangilab bo'lmadi: {ex.Message}");
+            UpdateBannerNotes.Text = Tr.T($"Не удалось обновить: {NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)}", $"Жаңыртуу мүмкүн болгон жок: {NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)}",
+                $"Could not update: {NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)}", $"Güncellenemedi: {NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)}", $"Yangilab bo'lmadi: {NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)}");
             UpdateProgressBar.IsVisible = false;
             UpdateNowButton.IsEnabled = true;
         }

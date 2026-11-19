@@ -1031,7 +1031,7 @@ public sealed class DebtsView : UserControl
             Content = expanded ? T("▴ Скрыть чеки", "▴ Чектерди жашыруу", "▴ Hide receipts", "▴ Fişleri gizle", "▴ Cheklarni yashirish")
                 : T($"▾ Чеки в долг ({d.Sales.Count})", $"▾ Карыз чектер ({d.Sales.Count})", $"▾ Receipts on credit ({d.Sales.Count})",
                     $"▾ Veresiye fişler ({d.Sales.Count})", $"▾ Qarzga cheklar ({d.Sales.Count})"),
-            Height = 40, MinHeight = 40, Padding = new Thickness(12, 0), CornerRadius = new CornerRadius(8), BorderThickness = new Thickness(1), FontSize = 12, // 2026-11-06: В6 цель нажатия 40 (было 28)
+            Height = 44, MinHeight = 44, Padding = new Thickness(12, 0), CornerRadius = new CornerRadius(8), BorderThickness = new Thickness(1), FontSize = 12, // 2026-11-06: В6 цель нажатия 40 (было 28)
             HorizontalAlignment = HorizontalAlignment.Left, VerticalContentAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 6, 0, 0),
             Focusable = false,
         };
@@ -1094,7 +1094,7 @@ public sealed class DebtsView : UserControl
             pay.Classes.Remove("sec-outline");
             pay.Classes.Add("sec-chip");
             UiKit.SetActive(pay, true);
-            pay.Height = 40;
+            pay.Height = 44; // 2026-11-13 (Н-6): цель касания 44
             pay.MinHeight = 40;
             pay.MinWidth = 0;
             pay.FontSize = 13;
@@ -1132,7 +1132,7 @@ public sealed class DebtsView : UserControl
         if (d.ClientId.Length > 0 && d.Sales.Any(s => !s.Id.StartsWith("deal:", StringComparison.Ordinal)) && ReturnSaleLauncher.CanReturn())
         {
             var ret = UiKit.Ghost(this, ReturnSaleLauncher.ButtonText);
-            ret.Height = 40;
+            ret.Height = 44; // 2026-11-13 (Н-6): цель касания 44
             ret.MinHeight = 40;
             ret.MinWidth = 0;
             ret.FontSize = 13;

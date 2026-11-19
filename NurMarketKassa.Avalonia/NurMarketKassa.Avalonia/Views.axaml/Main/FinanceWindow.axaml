@@ -288,7 +288,7 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <Button x:Name="HamburgerButton" Grid.Column="0"
-                        Content="☰" Width="40" Height="40" Padding="0"
+                        Content="☰" Width="44" Height="44" Padding="0"
                         Background="Transparent" BorderThickness="0"
                         FontSize="22" FontWeight="Bold"
                         Foreground="{DynamicResource BrushText}"
@@ -319,7 +319,7 @@
                                     Click="ExportWord_Click"
                                     ToolTip.Tip="{DynamicResource loc.owner.finance.wordTip}"/>
                             <!-- 2026-11-06 (В11, Д4-25): «Обновить» — не главное действие раздела: значок 40×40 с подсказкой, без жёлтой заливки (жёлтое — только действие раздела). -->
-                            <Button x:Name="RefreshButton" Classes="sec-outline" Width="40" Height="40" MinWidth="40" MinHeight="40" Padding="0"
+                            <Button x:Name="RefreshButton" Classes="sec-outline" Width="44" Height="44" MinWidth="44" MinHeight="44" Padding="0"
                                     Click="Refresh_Click"
                                     ToolTip.Tip="{DynamicResource common.refresh}" AutomationProperties.Name="{DynamicResource common.refresh}">
                                 <PathIcon Data="{StaticResource IconRefresh}" Width="18" Height="18"/>
@@ -663,9 +663,13 @@
                             <Border Background="#00FFFFFF" Padding="8">
                                 <Grid>
                                     <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="*"/>
                                     </Grid.RowDefinitions>
-                                    <DataGrid x:Name="RefundsGrid"
+                                    <!-- 2026-11-13 (Л-5): «Возвраты по причинам и кассирам» — сводка периода над таблицей (текст собирает код: UpdateRefundsReport). -->
+                                    <TextBlock x:Name="RefundsReportText" Grid.Row="0" Margin="4,0,4,8" TextWrapping="Wrap" FontSize="13"
+                                               Foreground="{DynamicResource BrushTextSoft}" IsVisible="False"/>
+                                    <DataGrid x:Name="RefundsGrid" Grid.Row="1"
                                         x:CompileBindings="False"
                                         Classes="ModernGrid"
                                               AutoGenerateColumns="False"
@@ -687,6 +691,8 @@
                                             <DataGridTextColumn Header="{DynamicResource common.quantity}" Width="Auto" MinWidth="90" Binding="{ReflectionBinding QuantityDisplay}" />
                                             <DataGridTextColumn Header="{DynamicResource common.amount}" Width="120" Binding="{ReflectionBinding AmountDisplay}" />
                                             <DataGridTextColumn Header="{DynamicResource common.reason}" Width="2*" MinWidth="120" Binding="{ReflectionBinding DeletedBy}" />
+                                            <!-- 2026-11-14 (П0-1): «ККМ» — Пробит / Не пробит / Ошибка; колонка видна только при включённой фискализации (FinanceWindow.Fiscal.cs). -->
+                                            <DataGridTextColumn Header="ККМ" Width="Auto" MinWidth="90" IsVisible="False" Binding="{ReflectionBinding FiscalText}" />
                                             <!-- 2026-11-11 (сервер Умара, pos_return_edit_24h): «Правка» — окно возвратов чека (Редактировать / Удалить / История); только при признаке сервера. -->
                                             <DataGridTemplateColumn Width="Auto">
                                                 <DataGridTemplateColumn.CellTemplate>

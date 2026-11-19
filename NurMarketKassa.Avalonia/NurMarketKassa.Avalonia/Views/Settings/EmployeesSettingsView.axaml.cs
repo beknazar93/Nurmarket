@@ -838,9 +838,10 @@ public partial class EmployeesSettingsView : UserControl
         }
         catch (System.Exception ex)
         {
+            NurMarketKassa.Services.PosLogger.Log($"EmployeesSettingsView: сбой, показанный пользователю: {ex}", "WARNING"); // 2026-11-13 (Н-4): сырой текст — в журнал, на экран — понятный
             ShowRolesStatus(
                 Tr.T(
-                    $"Ошибка при загрузке ролей: {ex.Message}",
+                    $"Ошибка при загрузке ролей: {NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)}",
                     $"Ролдорду жүктөөдө ката: {ServerOutageMonitor.FriendlyError(ex)}",
                     $"Error loading roles: {ServerOutageMonitor.FriendlyError(ex)}",
                     $"Roller yüklenirken hata: {ServerOutageMonitor.FriendlyError(ex)}",

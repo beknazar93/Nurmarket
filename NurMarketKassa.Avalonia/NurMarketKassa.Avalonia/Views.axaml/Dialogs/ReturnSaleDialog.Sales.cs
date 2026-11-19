@@ -55,6 +55,15 @@ public partial class ReturnSaleDialog
         });
     }
 
+    /// <summary>2026-11-13 (Н-4): сбой загрузки списка чеков — общий блок состояния на месте таблицы (null — убрать).</summary>
+    private void SetSalesFailure(Exception? ex)
+    {
+        StateBlock.ShowOver(SalesDataGrid, ex is null ? null : StateBlock.Failure(this, ex,
+            Tr.T("Не удалось загрузить чеки", "Чектерди жүктөө мүмкүн болгон жок", "Could not load the receipts", "Fişler yüklenemedi", "Cheklarni yuklab bo'lmadi"),
+            () => _ = LoadSalesAsync(true)));
+        OnPropertyChanged(nameof(HasNoSales));
+    }
+
     private async Task<bool> LoadSalesAsync(bool reset)
     {
         if (!reset && _loadingMore)
@@ -63,6 +72,8 @@ public partial class ReturnSaleDialog
         ErrorText.IsVisible = false;
         ErrorText.Text = "";
         _serverDown = false;
+        if (reset)
+            SetSalesFailure(null); // 2026-11-13 (Н-4): новая загрузка — блок ошибки убираем
 
         if (OfflineModeHelper.IsServerOutage)
         {
@@ -145,13 +156,9 @@ public partial class ReturnSaleDialog
             if (_productQuery is { IsEmpty: false })
                 StartDeepProductSearch();
 
-            if (reset && Sales.Count == 0)
-                ShowErr(Tr.T("Список продаж пуст или API не вернул данные. Попробуйте «Обновить» или введите ID продажи вручную.",
-                    "Сатуулар тизмеси бош же API маалымат кайтарган жок. «Жаңылоо» баскычын басыңыз же сатуунун ID’син өзүңүз киргизиңиз.",
-                    "The sales list is empty or the API returned no data. Try “Refresh” or enter the sale ID manually.",
-                    "Satış listesi boş veya API veri döndürmedi. «Yenile»yi deneyin veya satış ID'sini elle girin.",
-                    "Sotuvlar ro'yxati bo'sh yoki API ma'lumot qaytarmadi. «Yangilash»ni bosib ko'ring yoki sotuv ID'sini qo'lda kiriting."));
-            else if (!reset && added == 0)
+            // 2026-11-13 (Н-4): пустой список уже объяснён подсказкой в самой таблице («Чеков пока нет…») — второй текст
+            // под окном («…или API не вернул данные») убран.
+            if (!reset && added == 0)
             {
                 // 2026-10-22 (модалки, пакет 1): сообщение — строкой в окне, а не всплывающим окном.
                 ShowInputErr(Tr.T("Больше чеков нет — загружены все.", "Башка чек жок — баары жүктөлдү.", "No more receipts — all are loaded.", "Başka fiş yok — hepsi yüklendi.", "Boshqa chek yo'q — hammasi yuklandi."));
@@ -170,24 +177,19 @@ public partial class ReturnSaleDialog
             else
                 SwitchToOfflineReturn();
         }
-        catch (ApiException ex)
+        catch (Exception ex) when (ex is ApiException or HttpRequestException)
         {
+            // 2026-11-13 (Н-4): раньше под окном стоял сырой ответ сервера («Status: No matching mapping found»), а в таблице
+            // одновременно «Чеков пока нет». Теперь — общий блок ошибки с «Повторить» на месте списка; сырой текст — в журнал
+            // и под «Подробнее».
+            PosLogger.Log($"Возврат: список чеков не загружен: {ex}", "WARNING");
             if (reset)
-                ShowErr(ex.Message);
+                SetSalesFailure(ex);
             else
-                PosMessageBox.Show(this, ex.Message, Tr.T("Продажи", "Сатуулар", "Sales", "Satışlar", "Sotuvlar"), MessageBoxButton.OK, MessageBoxImage.Warning);
-            if (!reset)
+            {
+                PosMessageBox.Show(this, ServerOutageMonitor.FriendlyError(ex), Tr.T("Продажи", "Сатуулар", "Sales", "Satışlar", "Sotuvlar"), MessageBoxButton.OK, MessageBoxImage.Warning);
                 _salesPage = Math.Max(1, _salesPage - 1);
-        }
-        catch (HttpRequestException ex)
-        {
-            var msg = string.IsNullOrWhiteSpace(ex.Message) ? Tr.T("Нет подключения.", "Байланыш жок.", "No connection.", "Bağlantı yok.", "Aloqa yo'q.") : ex.Message;
-            if (reset)
-                ShowErr(msg);
-            else
-                PosMessageBox.Show(this, msg, Tr.T("Продажи", "Сатуулар", "Sales", "Satışlar", "Sotuvlar"), MessageBoxButton.OK, MessageBoxImage.Warning);
-            if (!reset)
-                _salesPage = Math.Max(1, _salesPage - 1);
+            }
         }
         catch (TaskCanceledException)
         {
@@ -216,26 +218,17 @@ public partial class ReturnSaleDialog
     {
         FilteredSales.Clear();
         var position = 0;
-        // Поиск, кроме внутреннего SaleId (серверный GUID, не показывается пользователю),
-        // должен уметь находить чек и по видимому "№N" — это то, что реально видно в списке.
-        var trimmedFilter = (_searchFilter ?? "").Trim().TrimStart('№', '#');
-        // 2026-09-28: «№1115», «1115» и «001115» — один и тот же постоянный номер чека.
-        var filterNumber = NurCrmReportsApi.ParseSaleNumber(_searchFilter);
         var now = DateTime.Now;
         foreach (var item in Sales)
         {
             position++;
-            var matches = string.IsNullOrWhiteSpace(_searchFilter)
-                || item.SaleId.Contains(_searchFilter.Trim(), StringComparison.OrdinalIgnoreCase)
-                || (!string.IsNullOrWhiteSpace(item.ReceiptNumber) &&
-                    item.ReceiptNumber.Contains(trimmedFilter, StringComparison.OrdinalIgnoreCase)) // 2026-10-29: «№1115» и «#1115» находят чек (раньше искали с символом №)
-                || (filterNumber is { } wanted && NurCrmReportsApi.ParseSaleNumber(item.ReceiptNumber) == wanted)
-                || (string.IsNullOrWhiteSpace(item.ReceiptNumber) &&
-                    string.Equals(trimmedFilter, position.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal));
-            // 2026-11-10: фильтры (период, сумма, оплата, статус, кассир, клиент) и поиск по товару — все вместе.
+            // 2026-11-13 (Л-5): единое поле поиска — номер чека (в т.ч. «№1115», «#1115», внутренний id и порядковый «№N»), сумма, дата, клиент, телефон / карта (ReturnSearchQuery)
+            // ИЛИ товар (название, штрихкод, артикул — SaleProductQuery). Дальше — фильтры панели (период, сумма, оплата, статус, кассир, клиент): они вместе.
             string? hit = null;
-            if (matches && !PassesListFilters(item, now, out hit))
-                matches = false;
+            var matches = PassesListFilters(item, now, out hit);
+            if (matches && !_search.IsEmpty)
+                matches = _search.Matches(new ReturnSearchRow(item.SaleId, item.ReceiptNumber, position, item.TotalAmount, item.SaleDate, item.ClientName, item.ClientPhone, item.CardLast4))
+                          || hit is not null;
             if (matches)
                 FilteredSales.Add(new ReturnSaleGridRow(item, position) { HitText = hit });
         }
@@ -474,16 +467,12 @@ public partial class ReturnSaleDialog
             Lines.Clear();
             UpdateReceiptChrome();
         }
-        catch (ApiException ex)
+        catch (Exception ex) when (ex is ApiException or HttpRequestException)
         {
-            ShowErr(ex.Message);
-            _currentSaleId = null;
-            Lines.Clear();
-            UpdateReceiptChrome();
-        }
-        catch (HttpRequestException ex)
-        {
-            ShowErr(string.IsNullOrWhiteSpace(ex.Message) ? Tr.T("Нет подключения.", "Байланыш жок.", "No connection.", "Bağlantı yok.", "Aloqa yo'q.") : ex.Message);
+            // 2026-11-13 (Н-4): понятный текст вместо сырого ответа сервера; сырой — в журнал.
+            PosLogger.Log($"Возврат: чек не открыт: {ex}", "WARNING");
+            ShowErr(Tr.T("Не удалось открыть чек. ", "Чекти ачуу мүмкүн болгон жок. ", "Could not open the receipt. ", "Fiş açılamadı. ", "Chekni ochib bo'lmadi. ")
+                + ServerOutageMonitor.FriendlyError(ex));
             _currentSaleId = null;
             Lines.Clear();
             UpdateReceiptChrome();

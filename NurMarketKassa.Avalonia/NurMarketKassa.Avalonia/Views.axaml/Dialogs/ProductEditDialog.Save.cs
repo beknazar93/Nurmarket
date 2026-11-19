@@ -325,6 +325,8 @@ public partial class ProductEditDialog
                 TrackSerials = SerialsRequestTrack(),
                 SendWarrantyMonths = SerialsRequestSendWarranty(),
                 WarrantyMonths = SerialsRequestWarranty(),
+                SendVatRate = VatRequestSend(), // 2026-11-14 (П0-1): ставка НДС товара — только при включённой фискализации и если владелец её менял
+                VatRate = VatRequestValue(),
                 // 2026-10-20: поставщик — только если кассир его выбрал/сменил в этом окне (иначе «client» на сервере не трогаем).
                 SupplierId = _supplierChanged ? _supplierId : null,
                 DiscountPercent = discountValue,
@@ -505,7 +507,7 @@ public partial class ProductEditDialog
         {
             // Файл очереди не записался — товар остаётся только в этой кассе; кассир должен об этом знать.
             PosLogger.Log($"PRODUCT save: товар {tempId} не поставлен в очередь отправки: {ex.Message}", "WAREHOUSE");
-            CatalogCacheService.RaiseToast(ex.Message, true);
+            CatalogCacheService.RaiseToast(NurMarketKassa.Services.ServerOutageMonitor.UserText(ex), true);
         }
     }
 

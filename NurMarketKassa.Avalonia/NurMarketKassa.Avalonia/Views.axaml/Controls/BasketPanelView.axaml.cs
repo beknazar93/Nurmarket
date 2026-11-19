@@ -40,7 +40,7 @@ public partial class BasketPanelView : UserControl
         }, RoutingStrategies.Bubble, handledEventsToo: true);
         // 2026-11-06 (В7, Д4-03): признак «одна строка Скан или поиск» (файл single-input-row.on в %LOCALAPPDATA%\NurMarketKassa) — нижняя строка ввода чека скрыта,
         // код и название вводятся в поиск каталога (там Enter добавляет в чек, см. CatalogPanelView). Без файла — строка на месте, как раньше.
-        if (KassaMainViewRules.SingleInputRowEnabled())
+        if (KassaMainViewRules.SingleInputRowEnabled() && !OperatingSystem.IsAndroid()) // 2026-11-13 (Н-2): на Android нижняя строка остаётся — в ней кнопка камеры-сканера
             CartEntryRow.IsVisible = false;
     }
 
@@ -349,6 +349,10 @@ public partial class BasketPanelView : UserControl
     /// <summary>2026-11-12 (КТ3): «Счёт из этого чека» (сфера «Канцтовары»).</summary>
     private void InvoiceFromReceipt_Click(object? sender, RoutedEventArgs e) =>
         NurMarketKassa.AvaloniaHost.Views.InvoiceFromReceipt.Open(this, DataContext as BasketPanelViewModel);
+
+    /// <summary>2026-11-13 (Н-2): «Клавиши: ?» в пустом чеке — шпаргалка клавиш (то же окно, что по «?» и F1).</summary>
+    private void EmptyCartKeysLink_Click(object? sender, RoutedEventArgs e) =>
+        (TopLevel.GetTopLevel(this) as NurMarketKassa.AvaloniaHost.Views.MainKassir.MainWindow)?.OpenHotkeysCheatSheet();
 
     /// <summary>«Печать последнего чека» в меню «Ещё» (2026-09-27), см. <see cref="BasketExtraActions"/>.</summary>
     private async void PrintLastReceipt_Click(object? sender, RoutedEventArgs e) =>

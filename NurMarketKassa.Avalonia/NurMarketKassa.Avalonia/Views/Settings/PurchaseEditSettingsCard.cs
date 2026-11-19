@@ -21,7 +21,7 @@ public sealed class PurchaseEditSettingsCard : Border
     public PurchaseEditSettingsCard()
     {
         Classes.Add("SettingsCard");
-        Padding = new Thickness(14);
+        Padding = new Thickness(16); // 2026-11-19: как у всех карточек настроек (SettingsCard — 16), было 14
         var stack = new StackPanel { Spacing = 8 };
         stack.Children.Add(new TextBlock { Text = T("Редактирование накладных закупок", "Сатып алуу накладнойлорун оңдоо", "Editing purchase invoices", "Alım faturalarını düzenleme", "Xarid yuk xatlarini tahrirlash"), Classes = { "SettingsCardTitle" }, FontSize = 14 });
         stack.Children.Add(Hint(T("Правка: всегда открыта. Владелец может исправить количество в проведённой накладной в любое время (Закупки → приход → «Изменить»), без ограничения по сроку.",

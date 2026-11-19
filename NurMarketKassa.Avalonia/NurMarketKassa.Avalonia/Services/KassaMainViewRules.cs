@@ -60,21 +60,33 @@ internal static class KassaMainViewRules
     /// Enter в поиске каталога добавляет код/название в чек, как «Добавить». Без файла — всё как раньше. Включать после живой проверки сканером.</summary>
     public const string SingleInputFlagFile = "single-input-row.on";
 
+    /// <summary>2026-11-13 (Н-2, решение владельца): одно поле ввода в кассе — по умолчанию (прежний файл-признак «.on» больше не нужен). Откат без пересборки:
+    /// файл с этим именем в папке данных кассы «Local» возвращает прежние два поля (нижняя строка «Код или название», «− 1 +», «Добавить»).</summary>
+    public const string SingleInputOffFlagFile = "single-input-row.off";
+
     /// <param name="kassaLocalFolder">Папка данных кассы в «Local» (в тесте — временная); null — настоящая (AppPaths.KassaLocal).</param>
     public static bool SingleInputRowEnabled(string? kassaLocalFolder = null)
     {
         try
         {
-            return File.Exists(Path.Combine(kassaLocalFolder ?? AppPaths.KassaLocal, SingleInputFlagFile));
+            return !File.Exists(Path.Combine(kassaLocalFolder ?? AppPaths.KassaLocal, SingleInputOffFlagFile));
         }
         catch
         {
-            return false;
+            return true;
         }
     }
 
-    /// <summary>Надпись поля поиска каталога: при «одной строке» поле принимает и скан, и название.</summary>
+    /// <summary>Надпись поля поиска каталога: при «одной строке» поле принимает и скан, и код, и название.</summary>
     public static string SearchWatermark(bool singleInput) => singleInput
-        ? Tr.T("Скан или поиск · Ctrl+F", "Скан же издөө · Ctrl+F", "Scan or search · Ctrl+F", "Tara veya ara · Ctrl+F", "Skan yoki qidiruv · Ctrl+F")
+        ? Tr.T("Скан, код или название", "Скан, код же аты", "Scan, code or name", "Tara, kod veya ad", "Skan, kod yoki nom")
         : "";
+
+    /// <summary>2026-11-13 (Н-2): подсказка единственного поля ввода — что в него можно вводить.</summary>
+    public static string SearchTooltip() => Tr.T(
+        "Сканируйте товар или введите код / название и нажмите Enter. Количество: «3*код» или «3*» и скан. Ctrl+F — курсор в это поле.",
+        "Товарды сканерлеңиз же кодун / атын жазып, Enter басыңыз. Саны: «3*код» же «3*» жана скан. Ctrl+F — курсор ушул талаага.",
+        "Scan a product or type a code / name and press Enter. Quantity: “3*code” or “3*” and scan. Ctrl+F puts the cursor here.",
+        "Ürünü okutun veya kod / ad yazıp Enter'a basın. Miktar: «3*kod» veya «3*» ve okutma. Ctrl+F — imleç bu alana.",
+        "Mahsulotni skanerlang yoki kod / nomini yozib Enter bosing. Miqdor: «3*kod» yoki «3*» va skan. Ctrl+F — kursor shu maydonga.");
 }

@@ -51,6 +51,7 @@ public static class CompanyStoreRegistry
         "debt-reminders.json", "debt-reminders.json.bak",     // напоминания о долге: расписание, исключённые клиенты, журнал
         "background-receipts",                                // приходы в фоне
         "receiving-draft",                                    // 2026-11-11 (О-5): черновик неоконченной приёмки («Склад → Приёмка», «Закупки → Приём товара») — товары и поставщики компании
+        "pending-stock-ops.json",                             // 2026-11-14 (Л-6): списания и перемещения без связи (StockOpsQueue) — склад прежней компании
         "pending-products.json",                              // 2026-11-06: очередь создания новых товаров, заведённых без интернета (PendingProductQueue) — товары прежней компании
         "advisor-morning.json", "cash_articles.json", "catalog_feed_cursor.json", "custom-themes.json",
         // 2026-11-06: В3 Л4-03 — "debt-payments" УБРАНО отсюда: журнал неподтверждённых оплат долга общий для кассы и программы владельца, у каждой записи есть
@@ -112,6 +113,7 @@ public static class CompanyStoreRegistry
         // 2026-11-06 (аудит №5, Л5-11): порог PIN ревизии и история пересчётов теперь общий файл кассы и владельца (история — товары прежней компании).
         "cycle-count.json", "cycle-count.json.bak",
         "timesheet-marks.json", "timesheet-marks.json.bak",   // 2026-11-08: отметки сотрудников в табеле (TimesheetMarksService) — общий файл кассы и владельца, данные компании
+        "fiscal-queue.json", "fiscal-queue.json.bak", "fiscal-settings.json", "fiscal-settings.json.bak", // 2026-11-14 (П0-1): очередь фискальных чеков и последний известный режим фискализации (FiscalQueueStore, FiscalSettings) — данные компании
         "repair-orders.json", "repair-orders.json.bak",       // 2026-11-13: квитанции «Ремонта и сервиса» (RepairOrderStore) — данные компании, общий файл кассы и владельца
         "trade-in-records.json", "trade-in-records.json.bak", // 2026-11-13: выкупы «Trade-in / скупки» (TradeInStore) — данные компании (паспорт и телефоны клиентов)
         "removed-products.json", "removed-products.json.bak", // 2026-11-06: память об удалённых/архивных товарах (закупка, категория, бренд для прошлых периодов аналитики) — товары прежней компании

@@ -103,8 +103,8 @@ public partial class NoStockDialog : Window
             $"{Tr.T("Можно добавить", "Кошсо болот", "Available to add", "Eklenebilir", "Qo'shish mumkin")}: {FormatQty(availableToAdd)} {unit}";
     }
 
-    private static string FormatQty(double value) =>
-        value.ToString(value % 1 < 1e-6 ? "0" : "0.###", CultureInfo.InvariantCulture);
+    // 2026-11-13 (Д-5): общий формат количества (запятая) вместо местной копии с точкой.
+    private static string FormatQty(double value) => MoneyText.Qty(value);
 
     private void BtnCancel_Click(object? sender, RoutedEventArgs e) => CloseWithResult(false);
 

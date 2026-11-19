@@ -51,6 +51,9 @@ public partial class OwnerShellWindow
     /// <summary>С чем сравнивать: вчера; те же дни прошлой недели; те же числа прошлого месяца.</summary>
     private (DateTime From, DateTime To) PreviousRange(DateTime from, DateTime to)
     {
+        // 2026-11-13 (Л-13): «Год назад» — те же даты год назад (одни правила с отчётом «Кассиры и часы», OwnerReportsMath).
+        if (_compareYear)
+            return NurMarketKassa.Services.OwnerReportsMath.ComparePeriod(from, to, NurMarketKassa.Services.OwnerReportsMath.PeriodKind.Custom, NurMarketKassa.Services.OwnerReportsMath.CompareBase.YearAgo);
         var days = (to - from).Days;
         switch (_period)
         {
@@ -94,7 +97,9 @@ public partial class OwnerShellWindow
     /// <summary>График по дням самого периода (месяц, свои даты), иначе — последние 7 дней.</summary>
     private bool ChartIsPeriod => _period is "month" or "custom";
 
-    private string CompareHint() => _period switch
+    private string CompareHint() => _compareYear
+        ? Tr.T("к году назад", "жыл мурунга карата", "vs a year ago", "geçen yıla göre", "bir yil oldingiga nisbatan")
+        : _period switch
     {
         "week" => Tr.T("к прошлой неделе", "өткөн жумага карата", "vs last week", "geçen haftaya göre", "o'tgan haftaga nisbatan"),
         "month" => Tr.T("к прошлому месяцу", "өткөн айга карата", "vs last month", "geçen aya göre", "o'tgan oyga nisbatan"),
@@ -122,17 +127,75 @@ public partial class OwnerShellWindow
         UseBrush(LiveDot, Shape.FillProperty, "BrushWarning");
         _offline = true;
         if (!ApplyLanSales(online: false))
+        {
+            ShowOverviewNoData(); // 2026-11-13 (Н-4)
             UpdatedText.Text = NurMarketKassa.Services.ServerOutageMonitor.IsOutage
                 ? NurMarketKassa.Services.ServerOutageMonitor.StaleDataNote(_lastSuccess)
                 : _lastSuccess is { } at
                     ? Tr.T($"Сервер недоступен · данные на {at:HH:mm}", $"Сервер жеткиликсиз · маалымат {at:HH:mm} боюнча", $"Server unavailable · data as of {at:HH:mm}",
                         $"Sunucu kullanılamıyor · veriler {at:HH:mm} itibarıyla", $"Server mavjud emas · ma'lumotlar {at:HH:mm} holatiga ko'ra")
                     : Tr.T("Сервер недоступен", "Сервер жеткиликсиз", "The server is unavailable", "Sunucu kullanılamıyor", "Server mavjud emas");
+        }
         // 2026-11-06 (Б-8): сервер отвечает 401 — это не «недоступен»: честная подпись «Войдите снова».
         if (SessionExpiryMonitor.IsExpired)
             UpdatedText.Text = ExpiredHeaderText();
         // 2026-10-18, ревью О1: каталог локальный — товары на исходе видны и без связи (иначе «Требует внимания» пустой).
         ApplyLowStock();
+    }
+
+    /// <summary>2026-11-13 (Н-4): сервер недоступен и за выбранный период показать нечего. Раньше карточки «Выручка за N дней»,
+    /// «Способы оплаты», «Последние продажи», «Лучшие товары» оставались пустыми белыми без подписи, а при смене периода без связи
+    /// в плитках висели числа ПРОШЛОГО периода под новым названием. Теперь: плитки — «—», в карточке графика — общий блок
+    /// «Сервер NurCRM недоступен» с «Повторить», в остальных — короткая подпись «Нет данных — сервер недоступен».</summary>
+    private Control? _overviewOfflineBlock;
+
+    /// <summary>2026-11-13 (Н-4): убрать блок «сервер недоступен» из карточки графика (пришли данные).</summary>
+    private void RemoveOverviewOfflineBlock()
+    {
+        if (_overviewOfflineBlock is { } old)
+            (old.Parent as Panel)?.Children.Remove(old);
+        _overviewOfflineBlock = null;
+    }
+
+    private void ShowOverviewNoData()
+    {
+        foreach (var value in new[] { RevenueValue, ChecksValue, AvgValue, ProfitValue })
+        {
+            value.Inlines = null;
+            value.Text = "—";
+        }
+        RevenueDelta.IsVisible = ChecksDelta.IsVisible = AvgDelta.IsVisible = ProfitDelta.IsVisible = false;
+        KpiCompareNote.IsVisible = false;
+
+        // Строки и колонки сетки графика не трогаем (замена определений между замером и раскладкой роняла Grid) — блок стоит
+        // рядом с сеткой, в общей панели карточки, и убирается в ApplyChart. Карточку, в которой уже что-то показано
+        // (например «Последние продажи» пришли, а отчёт — нет), не трогаем: подпись «нет данных» — только в пустую.
+        RemoveOverviewOfflineBlock();
+        if (ChartBars.Children.Count == 0 && !ChartEmptyText.IsVisible && ChartBars.Parent is Panel chartHost)
+        {
+            var block = StateBlock.Offline(this, () => _ = RefreshAsync(forceChart: true, supersede: true));
+            block.Margin = new Thickness(12, 0);
+            _overviewOfflineBlock = block;
+            chartHost.Children.Add(block);
+        }
+        if (PaymentsLegend.Children.Count == 0 && !PaymentsEmptyText.IsVisible)
+            PaymentsLegend.Children.Add(NoDataLine());
+        if (RecentList.Children.Count == 0 && !RecentEmptyText.IsVisible)
+            RecentList.Children.Add(NoDataLine());
+        if (TopList.Children.Count == 0 && !TopEmptyText.IsVisible)
+            TopList.Children.Add(NoDataLine());
+
+        TextBlock NoDataLine()
+        {
+            var line = new TextBlock
+            {
+                Text = Tr.T("Нет данных — сервер недоступен", "Маалымат жок — сервер жеткиликсиз", "No data — the server is unavailable",
+                    "Veri yok — sunucu kullanılamıyor", "Ma'lumot yo'q — server mavjud emas"),
+                TextWrapping = TextWrapping.Wrap,
+            };
+            line.Classes.Add("empty");
+            return line;
+        }
     }
 
     /// <summary>2026-10-04, п. 7: «Сводка» видна владельцу — окно активно, не свёрнуто и не закрыто
@@ -268,7 +331,7 @@ public partial class OwnerShellWindow
             // график, последние чеки, возвраты) уходят одновременно, а не один за другим — ожидание
             // равно самому долгому из них, а не их сумме.
             var (prevFrom, prevTo) = PreviousRange(from, to);
-            var compareKey = $"{_period}:{prevFrom:yyyyMMdd}:{prevTo:yyyyMMdd}";
+            var compareKey = $"{_period}:{_compareYear}:{prevFrom:yyyyMMdd}:{prevTo:yyyyMMdd}";
             // График: для «сегодня» и «недели» — последние 7 дней, для месяца — дни месяца (они уже
             // есть в отчёте за период).
             var (chartFrom, chartTo) = !ChartIsPeriod ? (ServerClock.Today.AddDays(-6), ServerClock.Today) : (from, to);
@@ -635,7 +698,7 @@ public partial class OwnerShellWindow
         double? prevProfit = prev is { } p4 ? Num(p4, "gross_profit") : null;
         // 2026-10-06: «Сегодня» — со вчера до того же часа, а не с целым вчерашним днём (OwnerShellWindow.SameTime.cs).
         var sameTime = false;
-        if (prev != null && YesterdayShareNow() is { } share)
+        if (prev != null && !_compareYear && YesterdayShareNow() is { } share)
         {
             prevRevenue *= share.Revenue;
             prevChecks *= share.Checks;
@@ -740,7 +803,10 @@ public partial class OwnerShellWindow
 
     /// <summary>Подпись, когда в прошлом периоде (вчера к этому часу) продаж не было.
     /// 2026-10-21 (пакет 2, п. 85): одна строка под всеми плитками — с объяснением, почему нет «▲ / ▼».</summary>
-    private string NoSalesBeforeText(bool sameTime) => _period switch
+    private string NoSalesBeforeText(bool sameTime) => _compareYear
+        ? Tr.T("Сравнить не с чем: год назад за этот период продаж не было", "Салыштырууга эч нерсе жок: жыл мурун бул мезгилде сатуу болгон эмес", "Nothing to compare with: no sales in this period a year ago",
+            "Karşılaştırılacak bir şey yok: geçen yıl bu dönemde satış yoktu", "Taqqoslash uchun hech narsa yo'q: bir yil oldin bu davrda sotuv bo'lmagan")
+        : _period switch
     {
         "week" => Tr.T("Сравнить не с чем: на прошлой неделе продаж не было", "Салыштырууга эч нерсе жок: өткөн жумада сатуу болгон эмес", "Nothing to compare with: no sales last week", "Karşılaştırılacak bir şey yok: geçen hafta satış yoktu", "Taqqoslash uchun hech narsa yo'q: o'tgan haftada sotuv bo'lmagan"),
         "month" => Tr.T("Сравнить не с чем: в прошлом месяце продаж не было", "Салыштырууга эч нерсе жок: өткөн айда сатуу болгон эмес", "Nothing to compare with: no sales last month", "Karşılaştırılacak bir şey yok: geçen ay satış yoktu", "Taqqoslash uchun hech narsa yo'q: o'tgan oyda sotuv bo'lmagan"),
@@ -751,7 +817,10 @@ public partial class OwnerShellWindow
     };
 
     /// <summary>2026-10-21 (пакет 2, п. 85): прошлый период не получен (сервер не ответил) — одна строка вместо «— к вчера» в каждой плитке.</summary>
-    private string NoCompareText() => _period switch
+    private string NoCompareText() => _compareYear
+        ? Tr.T("Сравнения с годом назад пока нет — данные за тот период не получены", "Жыл мурунку менен салыштыруу азырынча жок — ал мезгилдин маалыматы алынган жок", "No comparison with a year ago yet — data for that period was not received",
+            "Geçen yılla karşılaştırma henüz yok — o dönemin verileri alınamadı", "Bir yil oldingi bilan taqqoslash hozircha yo'q — o'sha davr ma'lumotlari olinmadi")
+        : _period switch
     {
         "week" => Tr.T("Сравнения с прошлой неделей пока нет — её данные не получены", "Өткөн жума менен салыштыруу азырынча жок — анын маалыматы алынган жок", "No comparison with last week yet — its data was not received", "Geçen haftayla karşılaştırma henüz yok — verileri alınamadı", "O'tgan hafta bilan taqqoslash hozircha yo'q — uning ma'lumotlari olinmadi"),
         "month" => Tr.T("Сравнения с прошлым месяцем пока нет — его данные не получены", "Өткөн ай менен салыштыруу азырынча жок — анын маалыматы алынган жок", "No comparison with last month yet — its data was not received", "Geçen ayla karşılaştırma henüz yok — verileri alınamadı", "O'tgan oy bilan taqqoslash hozircha yo'q — uning ma'lumotlari olinmadi"),

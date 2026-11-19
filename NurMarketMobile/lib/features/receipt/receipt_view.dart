@@ -103,9 +103,9 @@ class ReceiptView extends StatelessWidget {
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
                         child: Text(
-                          'Чек сохранён без связи — уйдёт на сервер автоматически',
+                          context.l.receiptOfflineNote, // 2026-11-13 (аудит UX мобилки, п. 4): было по-русски на любом языке
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.orange.shade800, fontSize: 11.5),
+                          style: TextStyle(color: context.pal.warn, fontSize: 11.5), // и цвет из палитры: оранжевый 800 в тёмной теме не читался
                         ),
                       ),
                     if (qrData != null) ...[

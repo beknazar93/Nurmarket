@@ -106,7 +106,7 @@ public sealed partial class NurMarketApiClient : IDisposable
         _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         // 2026-11-05 (аудит №4, п. 4): сервер видит, какая версия кассы пришла (поддержка, будущие проверки совместимости).
         // 2026-11-06: В3 А5-19 — сервер и поддержка отличают платформу: у Android и Linux после версии добавляется «(android)» / «(linux)»; у Windows заголовок прежний.
-        try { _http.DefaultRequestHeaders.TryAddWithoutValidation("X-NurMarket-Client", BuildClientHeader(OperatingSystem.IsAndroid(), OperatingSystem.IsLinux(), AppVersionInfo.CurrentVersionLabel)); }
+        try { _http.DefaultRequestHeaders.TryAddWithoutValidation("X-NurMarket-Client", BuildClientHeader(OperatingSystem.IsAndroid(), OperatingSystem.IsLinux(), AppVersionInfo.CurrentVersionLabel, AppMode.IsOwner)); }
         catch (Exception ex) when (ex is not OutOfMemoryException) { PosLogger.Log($"Заголовок X-NurMarket-Client не добавлен: {ex.GetType().Name}", "WARNING"); }
         UserPayload = default;
         // 2026-09-29: этим клиентом ServerOutageMonitor проверяет, ожил ли сервер после аварии.
@@ -116,8 +116,9 @@ public sealed partial class NurMarketApiClient : IDisposable
 
     /// <summary>2026-11-13 (ответ Умара 13.11, п. 5): Android-касса шлёт «android-pos/версия» (сервер по заголовку выбирает слот устройства), остальные — «kassa/версия» (Linux с пометкой « (linux)»,
     /// как с 1.17.6x). Раньше Android слал «kassa/версия (android)».</summary>
-    internal static string BuildClientHeader(bool isAndroid, bool isLinux, string version) =>
-        isAndroid ? "android-pos/" + version : "kassa/" + version + (isLinux ? " (linux)" : "");
+    /// <summary>2026-11-14 (ответ Умара 13.11 вечер, слоты): программа владельца ОБЯЗАНА слать «owner/версия» — иначе сервер сочтёт её кассой (desktop_pos), она займёт слот кассы на ПК и выбьет кассира.</summary>
+    internal static string BuildClientHeader(bool isAndroid, bool isLinux, string version, bool isOwner = false) =>
+        isOwner ? "owner/" + version : isAndroid ? "android-pos/" + version : "kassa/" + version + (isLinux ? " (linux)" : "");
 
     /// <summary>2026-10-04, стенд «сбои сервера»: запросы, ушедшие ДО объявления аварии, при аварии
     /// отменяются сразу, а не висят до таймаута HttpClient (55 с). При «чёрной дыре» фоновые загрузки

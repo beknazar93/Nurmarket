@@ -239,11 +239,23 @@ public sealed class ServerTelegramBotApi
                     _ => null,
                 };
                 if (!string.IsNullOrWhiteSpace(msg))
+                {
+                    // 2026-11-13 (Н-4): ответ не от формы DRF, а от шлюза/маршрутизатора ({"Status":"No matching mapping found"},
+                    // {"error":"…"}, {"title":"Not Found","traceId":…}) — это не «поле: ошибка», а сырой служебный текст: кассиру —
+                    // общая понятная фраза, сам ответ остаётся в журнале и под «Подробнее» блока состояния.
+                    // Текст на языке кассы (не чисто латиница) — показываем сам текст, без имени служебного поля.
+                    if (IsGatewayField(p.Name))
+                        return msg!.Any(c => c > 127 && char.IsLetter(c)) ? msg! : ServerOutageMonitor.FriendlyError(ex);
                     return p.Name is "detail" or "non_field_errors" ? msg! : $"{p.Name}: {msg}";
+                }
             }
         }
         return ex is ApiException ? Describe(ex) : ServerOutageMonitor.FriendlyError(ex); // не ApiException (сеть, таймаут) — общая фраза вместо сырого текста .NET
     }
+
+    /// <summary>2026-11-13 (Н-4): имя поля служебного ответа (не поле формы): с заглавной буквы («Status», «Message») или из списка шлюзов.</summary>
+    private static bool IsGatewayField(string name) =>
+        name.Length > 0 && (char.IsUpper(name[0]) || name is "status" or "error" or "message" or "title" or "type" or "traceId" or "path" or "timestamp");
 
     /// <summary>Текст ошибки сервера из ApiException (поле token / detail), без токенов.</summary>
     public static string Describe(Exception ex)

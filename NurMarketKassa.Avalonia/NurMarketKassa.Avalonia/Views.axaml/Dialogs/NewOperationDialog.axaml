@@ -131,7 +131,7 @@
       <StackPanel Spacing="6" IsVisible="False">
         <TextBlock Text="{DynamicResource common.date}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSoft}"/>
         <CalendarDatePicker x:Name="DateBox"
-                           Height="42"
+                           Height="44"
                            HorizontalAlignment="Stretch"/>
       </StackPanel>
 
@@ -148,7 +148,7 @@
         <Grid>
           <TextBox x:Name="AmountBox"
                    Classes="field"
-                   Watermark="0.00"/>
+                   Watermark="0,00"/>
           <TextBlock Text="{DynamicResource csh.catalog.currency}"
                      HorizontalAlignment="Right"
                      VerticalAlignment="Center"

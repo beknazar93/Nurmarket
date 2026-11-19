@@ -62,17 +62,24 @@ public partial class TmScaleSettingsWindow : Window
         Opened += (_, _) => this.FitToKassaScreen();
         Title = L("Настройки весов TM-30F", "TM-30F таразасынын жөндөөлөрү", "TM-30F scale settings", "TM-30F tartı ayarları", "TM-30F tarozi sozlamalari");
         TitleText.Text = Title;
+        // 2026-11-13 (Д-7, Н-3): вступление — одна строка простыми словами (производитель, протокол и порт — во вкладке «Для мастера»).
         IntroText.Text = L(
-            "Весы TM-30F — производитель Shanghai Dahua Scale (серия TM-A / TM-F), их программа «Русский масштаб». Касса отправляет товары на весы сама, по сети (TCP, порт 4001) — тем же протоколом, что и их программа. Настройки самих весов (формат штрих-кода, знаки цены) меняются в «Русском масштабе».",
-            "TM-30F таразасы — өндүрүүчүсү Shanghai Dahua Scale (TM-A / TM-F сериясы), программасы «Русский масштаб». Касса товарларды таразага өзү тармак аркылуу жөнөтөт (TCP, 4001 порт) — алардын программасындай эле протокол менен. Таразанын өз жөндөөлөрү (штрих-код форматы, баанын белгилери) «Русский масштаб» программасында өзгөртүлөт.",
-            "The TM-30F scale is made by Shanghai Dahua Scale (TM-A / TM-F series); its software is “Russian Scale” (Русский масштаб). The till sends goods to the scale itself over the network (TCP, port 4001) using the same protocol as that software. The scale's own settings (barcode format, price decimals) are changed in “Russian Scale”.",
-            "TM-30F tartının üreticisi Shanghai Dahua Scale (TM-A / TM-F serisi), programı «Русский масштаб». Kasa ürünleri tartıya kendisi ağ üzerinden gönderir (TCP, port 4001) — o programla aynı protokolle. Tartının kendi ayarları (barkod biçimi, fiyat ondalığı) «Русский масштаб» programında değiştirilir.",
-            "TM-30F tarozisi — ishlab chiqaruvchi Shanghai Dahua Scale (TM-A / TM-F seriyasi), dasturi «Русский масштаб». Kassa tovarlarni taroziga o‘zi tarmoq orqali yuboradi (TCP, 4001 port) — o‘sha dastur bilan bir xil protokolda. Tarozining o‘z sozlamalari (shtrix-kod formati, narx kasrlari) «Русский масштаб» dasturida o‘zgartiriladi.");
+            "Весы TM-30F: касса сама отправляет товары на весы. Пройдите три шага ниже.",
+            "TM-30F таразасы: касса товарларды таразага өзү жөнөтөт. Төмөнкү үч кадамды аткарыңыз.",
+            "TM-30F scale: the till sends goods to the scale itself. Follow the three steps below.",
+            "TM-30F tartı: kasa ürünleri tartıya kendisi gönderir. Aşağıdaki üç adımı izleyin.",
+            "TM-30F tarozisi: kassa tovarlarni taroziga o‘zi yuboradi. Quyidagi uch qadamni bajaring.");
 
-        Tabs.Items.Add(MakeTab(L("Подключение", "Туташуу", "Connection", "Bağlantı", "Ulanish"), BuildConnectionTab()));
-        Tabs.Items.Add(MakeTab(L("Сеть", "Тармак", "Network", "Ağ", "Tarmoq"), BuildNetworkTab()));
-        Tabs.Items.Add(MakeTab(L("Штрих-код", "Штрих-код", "Barcode", "Barkod", "Shtrix-kod"), BuildBarcodeTab()));
+        // 2026-11-13 (Н-3): «Быстрая настройка» в три шага (общий блок ScaleUi.QuickSetup) / «Загрузка товаров» / «Штрих-код» (третья —
+        // ShowBarcodeTab) / «Для мастера» (порт, подробная проверка, журнал обмена и бывшая вкладка «Сеть»).
+        Tabs.Items.Add(MakeTab(QuickTabTitle, BuildQuickTab()));
         Tabs.Items.Add(MakeTab(L("Загрузка товаров", "Товарларды жүктөө", "Uploading goods", "Ürün yükleme", "Tovarlarni yuklash"), BuildUploadTab()));
+        Tabs.Items.Add(MakeTab(L("Штрих-код", "Штрих-код", "Barcode", "Barkod", "Shtrix-kod"), BuildBarcodeTab()));
+        var network = BuildNetworkTab();
+        network.Margin = default;
+        _masterPanel.Children.Add(network);
+        Tabs.Items.Add(MakeTab(MasterTabTitle, _masterPanel));
+        IntroOnFirstTab(Tabs, IntroText, ConnectionText);
         UpdateHeader();
         ShowResult(L("Введите IP весов и нажмите «Проверить связь» или найдите весы в сети.", "Таразанын IP'син киргизип «Байланышты текшерүү» басыңыз же таразаны тармактан табыңыз.", "Enter the scale IP and press “Check connection”, or find the scale on the network.", "Tartı IP'sini girip “Bağlantıyı kontrol et”e basın veya tartıyı ağda bulun.", "Tarozi IP'sini kiriting va «Aloqani tekshirish»ni bosing yoki tarozini tarmoqdan toping."), false);
     }
@@ -88,17 +95,45 @@ public partial class TmScaleSettingsWindow : Window
     private void UpdateHeader()
     {
         var ip = (_ipBox.Text ?? "").Trim();
-        ConnectionText.Text = L("Весы: ", "Тараза: ", "Scale: ", "Tartı: ", "Tarozi: ") + (ip.Length > 0 ? ip : "—")
-            + $" · TCP {Port} · Dahua TM-A / TM-F";
+        ConnectionText.Text = L("Весы: ", "Тараза: ", "Scale: ", "Tartı: ", "Tarozi: ") + (ip.Length > 0 ? ip : "—"); // 2026-11-13 (Н-3): без номера порта — он во вкладке «Для мастера»
     }
 
     // =====================================================================================
     // Подключение
     // =====================================================================================
 
-    private Control BuildConnectionTab()
+    /// <summary>2026-11-13 (Н-3): «Для мастера» — порт, подробная проверка связи, журнал обмена, сеть компьютера и весов.</summary>
+    private readonly StackPanel _masterPanel = new() { Spacing = 12, Margin = new Thickness(0, 10, 8, 10) };
+    private ScaleQuickView _quick = null!;
+
+    private Control BuildQuickTab()
     {
-        var panel = new StackPanel { Spacing = 12, Margin = new Thickness(0, 10, 8, 10) };
+        _ipBox = new TextBox { Text = IpOf(BrandTm), Watermark = "192.168.1.151", MinWidth = 220 };
+        _ipBox.LostFocus += (_, _) => { SaveConnection(); UpdateHeader(); UpdateNetwork(); };
+        _portBox = new NumericUpDown { Minimum = 1, Maximum = 65535, Increment = 1, FormatString = "0", Value = UserPreferences.Instance.TmScalePort, MinWidth = 140 };
+        _portBox.ValueChanged += (_, _) => UpdateHeader();
+        _quick = QuickSetup(this, new ScaleQuickOptions
+        {
+            Brand = BrandTm,
+            WhereLabel = L("Адрес весов (IP)", "Таразанын дареги (IP)", "Scale address (IP)", "Tartı adresi (IP)", "Tarozi manzili (IP)"),
+            WhereBox = _ipBox,
+            Save = () => { SaveConnection(); UpdateHeader(); UpdateNetwork(); },
+            Find = async () =>
+            {
+                if (await OpenScanAsync(this, BrandTm).ConfigureAwait(true))
+                {
+                    _ipBox.Text = IpOf(BrandTm);
+                    UpdateHeader();
+                    UpdateNetwork();
+                    _quick.RefreshFromLastCheck();
+                }
+            },
+            SendGoods = () => { SaveAll(); OpenScalesWindow(this, BrandTm); },
+            CheckLabel = ShowBarcodeTab,
+            ShowResult = ShowResult,
+        });
+
+        var panel = _masterPanel;
         var card = Card(L("Адрес весов", "Таразанын дареги", "Scale address", "Tartı adresi", "Tarozi manzili"),
             L("IP весов — тот же, что в их программе: «Настройка коммуникации → Настройка Ethernet». Порт — 4001 (так в их программе; менять, только если его поменяли в сетевом модуле весов).",
               "Таразанын IP'си — алардын программасындагыдай эле: «Настройка коммуникации → Настройка Ethernet». Порт — 4001 (алардын программасында ушундай; таразанын тармак модулунда өзгөртүлсө гана алмаштырыңыз).",
@@ -107,12 +142,6 @@ public partial class TmScaleSettingsWindow : Window
               "Tarozi IP'si ularning dasturidagidek: «Настройка коммуникации → Настройка Ethernet». Port — 4001 (dasturda shunday; faqat tarozining tarmoq modulida o‘zgartirilgan bo‘lsa almashtiring)."),
             out var body);
 
-        _ipBox = new TextBox { Text = IpOf(BrandTm), Watermark = "192.168.1.151", MinWidth = 220 };
-        _ipBox.LostFocus += (_, _) => { SaveConnection(); UpdateHeader(); UpdateNetwork(); };
-        body.Children.Add(Row(L("IP-адрес весов", "Таразанын IP-дареги", "Scale IP address", "Tartı IP adresi", "Tarozi IP manzili"), _ipBox));
-
-        _portBox = new NumericUpDown { Minimum = 1, Maximum = 65535, Increment = 1, FormatString = "0", Value = UserPreferences.Instance.TmScalePort, MinWidth = 140 };
-        _portBox.ValueChanged += (_, _) => UpdateHeader();
         body.Children.Add(Row(L("TCP-порт", "TCP-порт", "TCP port", "TCP portu", "TCP port"), _portBox));
 
         body.Children.Add(Text(L(
@@ -122,26 +151,12 @@ public partial class TmScaleSettingsWindow : Window
             "“Bağlantıyı kontrol et”: tartıya bağlanır ve PLU No. 1 kaydını OKUMA komutu (!0J0001A) gönderir — tartı hiçbir şeyi değiştirmez. Tüm iletişim günlüğe yazılır («İletişim günlüğü» düğmesi).",
             "«Aloqani tekshirish»: taroziga ulanish va PLU №1 yozuvini O‘QISH buyrug‘i (!0J0001A) — tarozi hech narsani o‘zgartirmaydi. Butun almashuv jurnalga yoziladi («Almashuv jurnali» tugmasi)."), "hint"));
 
-        _checkButton = MakeButton(L("Проверить связь", "Байланышты текшерүү", "Check connection", "Bağlantıyı kontrol et", "Aloqani tekshirish"), false, async (_, _) => await CheckAsync().ConfigureAwait(true));
+        _checkButton = MakeButton(L("Подробная проверка связи", "Байланышты кеңири текшерүү", "Detailed connection check", "Ayrıntılı bağlantı kontrolü", "Aloqani batafsil tekshirish"), false, async (_, _) => await CheckAsync().ConfigureAwait(true));
         body.Children.Add(ButtonRow(
             _checkButton,
-            MakeButton(L("Найти весы в сети…", "Тармактан тараза табуу…", "Find scales on the network…", "Ağda tartı bul…", "Tarmoqda tarozi topish…"), false, async (_, _) =>
-            {
-                if (await OpenScanAsync(this, BrandTm).ConfigureAwait(true))
-                {
-                    _ipBox.Text = IpOf(BrandTm);
-                    UpdateHeader();
-                    UpdateNetwork();
-                }
-            }),
-            MakeButton(L("Журнал обмена", "Алмашуу журналы", "Exchange log", "İletişim günlüğü", "Almashuv jurnali"), false, (_, _) => OpenExchangeLog()),
-            MakeButton(L("Сохранить", "Сактоо", "Save", "Kaydet", "Saqlash"), true, (_, _) =>
-            {
-                SaveConnection();
-                ShowResult(L("Сохранено.", "Сакталды.", "Saved.", "Kaydedildi.", "Saqlandi."), false);
-            })));
+            MakeButton(L("Журнал обмена", "Алмашуу журналы", "Exchange log", "İletişim günlüğü", "Almashuv jurnali"), false, (_, _) => OpenExchangeLog())));
         panel.Children.Add(card);
-        return panel;
+        return _quick.Root;
     }
 
     private void SaveConnection()
@@ -192,11 +207,11 @@ public partial class TmScaleSettingsWindow : Window
                         $"Device {ip} answers ping ({rtt} ms) but port {Port} is closed. It is not the scale, the scale's network module uses another port, or the scale is busy with its software — close “Russian Scale” and retry.",
                         $"{ip} cihazı ping'e yanıt veriyor ({rtt} ms) ama {Port} portu kapalı. Bu tartı değil, tartının ağ modülü başka port kullanıyor ya da tartı kendi programıyla meşgul — «Русский масштаб»ı kapatıp tekrar deneyin.",
                         $"{ip} qurilmasi ping'ga javob beradi ({rtt} ms), lekin {Port} port yopiq. Bu tarozi emas, tarozi tarmoq modulining porti boshqa yoki tarozi o‘z dasturi bilan band — «Русский масштаб»ni yopib, qayta urinib ko‘ring.")
-                    : L($"По адресу {ip} никто не отвечает. Проверьте кабель, что весы включены, и что компьютер в той же сети, что и весы (вкладка «Сеть»).",
-                        $"{ip} дареги боюнча эч ким жооп бербейт. Кабелди, тараза күйүк экенин жана компьютер тараза менен бир тармакта экенин текшериңиз («Тармак» өтмөгү).",
-                        $"Nobody answers at {ip}. Check the cable, that the scale is on, and that the computer is on the same network as the scale (“Network” tab).",
-                        $"{ip} adresinde yanıt veren yok. Kabloyu, tartının açık olduğunu ve bilgisayarın tartıyla aynı ağda olduğunu kontrol edin («Ağ» sekmesi).",
-                        $"{ip} manzilida hech kim javob bermayapti. Kabelni, tarozi yoqilganini va kompyuter tarozi bilan bir tarmoqda ekanini tekshiring («Tarmoq» bo‘limi)."), true);
+                    : L($"По адресу {ip} никто не отвечает. Проверьте кабель, что весы включены, и что компьютер в той же сети, что и весы (вкладка «Для мастера»).",
+                        $"{ip} дареги боюнча эч ким жооп бербейт. Кабелди, тараза күйүк экенин жана компьютер тараза менен бир тармакта экенин текшериңиз («Уста үчүн» өтмөгү).",
+                        $"Nobody answers at {ip}. Check the cable, that the scale is on, and that the computer is on the same network as the scale (“For the technician” tab).",
+                        $"{ip} adresinde yanıt veren yok. Kabloyu, tartının açık olduğunu ve bilgisayarın tartıyla aynı ağda olduğunu kontrol edin («Teknisyen için» sekmesi).",
+                        $"{ip} manzilida hech kim javob bermayapti. Kabelni, tarozi yoqilganini va kompyuter tarozi bilan bir tarmoqda ekanini tekshiring («Usta uchun» bo‘limi)."), true);
                 return;
             }
 
@@ -239,11 +254,11 @@ public partial class TmScaleSettingsWindow : Window
         var panel = new StackPanel { Spacing = 12, Margin = new Thickness(0, 10, 8, 10) };
 
         panel.Children.Add(Card(L("Как узнать IP весов", "Таразанын IP'син кантип билүү", "How to find the scale IP", "Tartı IP'si nasıl öğrenilir", "Tarozi IP'sini qanday bilish"),
-            L("1) В программе «Русский масштаб»: меню «Настройка коммуникации → Настройка Ethernet» — там список весов и их адреса (галочка — с какими весами программа работает). В её базе записаны адреса: " + string.Join(", ", KnownAddresses) + ". 2) Кнопка «Найти весы в сети» на вкладке «Подключение». 3) Если адреса не подходят — сетевой модуль весов (ZLG ZNE-100T) настраивается программой «Настройка весовой сетевой карты» из того же меню (файл netcom\\DHNETCONEn v1.0.exe в папке их программы): там видны IP модуля, маска, шлюз и порт 4001.",
-              "1) «Русский масштаб» программасында: «Настройка коммуникации → Настройка Ethernet» менюсу — ал жерде таразалардын тизмеси жана даректери бар (белги — программа кайсы тараза менен иштейт). Анын базасында даректер: " + string.Join(", ", KnownAddresses) + ". 2) «Туташуу» өтмөгүндөгү «Тармактан тараза табуу» баскычы. 3) Даректер туура келбесе — таразанын тармак модулу (ZLG ZNE-100T) ошол эле менюдагы «Настройка весовой сетевой карты» программасы менен жөндөлөт (алардын программасынын папкасындагы netcom\\DHNETCONEn v1.0.exe файлы): ал жерде модулдун IP'си, маскасы, шлюзу жана 4001 порту көрүнөт.",
-              "1) In “Russian Scale”: menu “Communication settings → Ethernet settings” lists the scales and their addresses (the tick shows which scales the software works with). Its database contains: " + string.Join(", ", KnownAddresses) + ". 2) The “Find scales on the network” button on the “Connection” tab. 3) If the addresses do not fit, the scale's network module (ZLG ZNE-100T) is configured with “Scale network card settings” from the same menu (netcom\\DHNETCONEn v1.0.exe in its folder): it shows the module IP, mask, gateway and port 4001.",
-              "1) «Русский масштаб»da: «Настройка коммуникации → Настройка Ethernet» menüsü tartıları ve adreslerini listeler (işaret, programın hangi tartıyla çalıştığını gösterir). Veritabanındaki adresler: " + string.Join(", ", KnownAddresses) + ". 2) «Bağlantı» sekmesindeki «Ağda tartı bul» düğmesi. 3) Adresler uymazsa tartının ağ modülü (ZLG ZNE-100T) aynı menüdeki «Настройка весовой сетевой карты» ile ayarlanır (program klasöründeki netcom\\DHNETCONEn v1.0.exe): modülün IP'si, maskesi, ağ geçidi ve 4001 portu orada görünür.",
-              "1) «Русский масштаб» dasturida: «Настройка коммуникации → Настройка Ethernet» menyusi — u yerda tarozilar ro‘yxati va manzillari (belgi — dastur qaysi tarozi bilan ishlaydi). Uning bazasidagi manzillar: " + string.Join(", ", KnownAddresses) + ". 2) «Ulanish» bo‘limidagi «Tarmoqda tarozi topish» tugmasi. 3) Manzillar mos kelmasa — tarozining tarmoq moduli (ZLG ZNE-100T) o‘sha menyudagi «Настройка весовой сетевой карты» dasturi bilan sozlanadi (dastur papkasidagi netcom\\DHNETCONEn v1.0.exe): u yerda modul IP'si, niqobi, shlyuzi va 4001 porti ko‘rinadi."),
+            L("1) В программе «Русский масштаб»: меню «Настройка коммуникации → Настройка Ethernet» — там список весов и их адреса (галочка — с какими весами программа работает). В её базе записаны адреса: " + string.Join(", ", KnownAddresses) + ". 2) Кнопка «Найти весы в сети» на вкладке «Быстрая настройка». 3) Если адреса не подходят — сетевой модуль весов (ZLG ZNE-100T) настраивается программой «Настройка весовой сетевой карты» из того же меню (файл netcom\\DHNETCONEn v1.0.exe в папке их программы): там видны IP модуля, маска, шлюз и порт 4001.",
+              "1) «Русский масштаб» программасында: «Настройка коммуникации → Настройка Ethernet» менюсу — ал жерде таразалардын тизмеси жана даректери бар (белги — программа кайсы тараза менен иштейт). Анын базасында даректер: " + string.Join(", ", KnownAddresses) + ". 2) «Тез жөндөө» өтмөгүндөгү «Тармактан тараза табуу» баскычы. 3) Даректер туура келбесе — таразанын тармак модулу (ZLG ZNE-100T) ошол эле менюдагы «Настройка весовой сетевой карты» программасы менен жөндөлөт (алардын программасынын папкасындагы netcom\\DHNETCONEn v1.0.exe файлы): ал жерде модулдун IP'си, маскасы, шлюзу жана 4001 порту көрүнөт.",
+              "1) In “Russian Scale”: menu “Communication settings → Ethernet settings” lists the scales and their addresses (the tick shows which scales the software works with). Its database contains: " + string.Join(", ", KnownAddresses) + ". 2) The “Find scales on the network” button on the “Quick setup” tab. 3) If the addresses do not fit, the scale's network module (ZLG ZNE-100T) is configured with “Scale network card settings” from the same menu (netcom\\DHNETCONEn v1.0.exe in its folder): it shows the module IP, mask, gateway and port 4001.",
+              "1) «Русский масштаб»da: «Настройка коммуникации → Настройка Ethernet» menüsü tartıları ve adreslerini listeler (işaret, programın hangi tartıyla çalıştığını gösterir). Veritabanındaki adresler: " + string.Join(", ", KnownAddresses) + ". 2) «Hızlı kurulum» sekmesindeki «Ağda tartı bul» düğmesi. 3) Adresler uymazsa tartının ağ modülü (ZLG ZNE-100T) aynı menüdeki «Настройка весовой сетевой карты» ile ayarlanır (program klasöründeki netcom\\DHNETCONEn v1.0.exe): modülün IP'si, maskesi, ağ geçidi ve 4001 portu orada görünür.",
+              "1) «Русский масштаб» dasturida: «Настройка коммуникации → Настройка Ethernet» menyusi — u yerda tarozilar ro‘yxati va manzillari (belgi — dastur qaysi tarozi bilan ishlaydi). Uning bazasidagi manzillar: " + string.Join(", ", KnownAddresses) + ". 2) «Tez sozlash» bo‘limidagi «Tarmoqda tarozi topish» tugmasi. 3) Manzillar mos kelmasa — tarozining tarmoq moduli (ZLG ZNE-100T) o‘sha menyudagi «Настройка весовой сетевой карты» dasturi bilan sozlanadi (dastur papkasidagi netcom\\DHNETCONEn v1.0.exe): u yerda modul IP'si, niqobi, shlyuzi va 4001 porti ko‘rinadi."),
             out _));
 
         var card = Card(L("Сеть компьютера и весов", "Компьютердин жана таразанын тармагы", "Computer and scale network", "Bilgisayar ve tartı ağı", "Kompyuter va tarozi tarmog‘i"),

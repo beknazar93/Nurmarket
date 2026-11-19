@@ -408,7 +408,7 @@ class _ActionLineView extends StatelessWidget {
                       padding: const EdgeInsets.only(left: 6, top: 3),
                       child: OutlinedButton(
                         style: OutlinedButton.styleFrom(
-                          minimumSize: const Size(0, 40),
+                          minimumSize: const Size(0, 48), // 2026-11-13 (аудит UX мобилки, п. 3): было 40 dp
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           side: const BorderSide(color: T.borderStrong),
                           foregroundColor: pal.text,

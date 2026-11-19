@@ -226,8 +226,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
             }
             catch (Exception ex)
             {
+                NurMarketKassa.Services.PosLogger.Log($"LoginWindow: сбой, показанный пользователю: {ex}", "WARNING"); // 2026-11-13 (Н-4): сырой текст — в журнал, на экран — понятный
                 _enteringMain = false;
-                _viewModel.ReportError(Tr.T("Не удалось загрузить кассу: ", "Кассаны жүктөө мүмкүн болгон жок: ", "Couldn't load the till: ", "Kasa yüklenemedi: ", "Kassani yuklab bo'lmadi: ") + ex.Message);
+                _viewModel.ReportError(Tr.T("Не удалось загрузить кассу: ", "Кассаны жүктөө мүмкүн болгон жок: ", "Couldn't load the till: ", "Kasa yüklenemedi: ", "Kassani yuklab bo'lmadi: ") + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex));
             }
         }
 

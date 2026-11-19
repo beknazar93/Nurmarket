@@ -197,6 +197,19 @@ public static class ReceiptPrintService
         if (string.IsNullOrWhiteSpace(text))
             throw new InvalidOperationException("Текст чека пуст.");
 
+        // 2026-11-19 (eKassa): фискальный чек ГНС — как есть, с QR-картинкой (текстовый режим); в графическом режиме — текст без метки.
+        if (text.StartsWith(FiscalServerReceipt.Marker, StringComparison.Ordinal))
+        {
+            text = text[FiscalServerReceipt.Marker.Length..];
+            if (prefs.SelectedPrintMode != PrintMode.Graphic)
+            {
+                var fcfg = prefs.ToReceiptPrinterSettings();
+                EscPosTextReceiptPrinter.ValidateSettings(fcfg);
+                EscPosTextReceiptPrinter.PrintFiscal(fcfg, text);
+                return;
+            }
+        }
+
         // 2026-10-05: графический чек рисовался через System.Drawing — его нет на Android и Linux; там печатали текстом.
         // 2026-11-06 (В18, АЛ-3): теперь на Linux и Android графический чек рисует Skia — режим работает везде.
         if (prefs.SelectedPrintMode == PrintMode.Graphic)

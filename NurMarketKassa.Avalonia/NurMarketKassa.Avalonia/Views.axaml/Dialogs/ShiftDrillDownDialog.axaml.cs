@@ -133,7 +133,7 @@ public partial class ShiftDrillDownDialog : Window
         catch (Exception ex)
         {
             PosLogger.Log($"Отчёт смены ({_kind}) не загружен: {ex}", "SHIFTS");
-            SummaryText.Text = Tr.T("Не удалось загрузить отчёт: ", "Отчётту жүктөө мүмкүн болгон жок: ", "Could not load the report: ", "Rapor yüklenemedi: ", "Hisobotni yuklab bo'lmadi: ") + ex.Message;
+            SummaryText.Text = Tr.T("Не удалось загрузить отчёт: ", "Отчётту жүктөө мүмкүн болгон жок: ", "Could not load the report: ", "Rapor yüklenemedi: ", "Hisobotni yuklab bo'lmadi: ") + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex);
         }
         finally
         {

@@ -297,7 +297,7 @@ public partial class PurchasesWindow
         catch (Exception ex)
         {
             failed++;
-            failText = ex.Message;
+            failText = NurMarketKassa.Services.ServerOutageMonitor.UserText(ex);
             if (!cts.IsCancellationRequested)
                 PosLogger.Log($"Закупки: товары «{supplier.Name}» не загружены ({ex.Message}).", "WARNING");
         }
@@ -308,7 +308,7 @@ public partial class PurchasesWindow
         catch (Exception ex)
         {
             failed++;
-            failText ??= ex.Message;
+            failText ??= NurMarketKassa.Services.ServerOutageMonitor.UserText(ex);
             if (!cts.IsCancellationRequested)
                 PosLogger.Log($"Закупки: товары из приходов «{supplier.Name}» не загружены ({ex.Message}).", "WARNING");
         }

@@ -1399,14 +1399,14 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         {
             // Очередь закрыта (повреждён файл) или диск не записался: строки остаются в окне, показываем причину (не модально).
             PosLogger.Log($"Приёмка: не поставлена в очередь: {ex.Message}", "WARNING");
-            SetReceivingNotice(ex.Message, isError: true);
+            SetReceivingNotice(NurMarketKassa.Services.ServerOutageMonitor.UserText(ex), isError: true);
             return;
         }
         catch (Exception ex)
         {
             PosLogger.Log($"Приёмка не поставлена в очередь: {ex}", "WARNING");
             SetReceivingNotice(Tr.T("Не удалось провести приёмку: ", "Кабыл алуу өткөрүлгөн жок: ",
-                "Receiving failed: ", "Mal kabul yapılamadı: ", "Qabulni rasmiylashtirib bo'lmadi: ") + ex.Message, isError: true);
+                "Receiving failed: ", "Mal kabul yapılamadı: ", "Qabulni rasmiylashtirib bo'lmadi: ") + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex), isError: true);
             return;
         }
 
@@ -1663,6 +1663,15 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
             {
                 _prompts?.ShowError(result.Message);
                 return false;
+            }
+
+            if (result.Queued)
+            {
+                // 2026-11-14 (Л-6): списание принято без связи — не «проведено», а «в очереди»; текст берём из ответа (остаток в кассе уже уменьшен).
+                LoadWriteOffHistory();
+                ResetWriteOffForm();
+                NurMarketKassa.AvaloniaHost.Views.SuccessToast.Show(result.Message);
+                return true;
             }
 
             InventoryApiService.InvalidateActsCache(); // 2026-10-27, В-2: свой акт сразу виден в списке сервера

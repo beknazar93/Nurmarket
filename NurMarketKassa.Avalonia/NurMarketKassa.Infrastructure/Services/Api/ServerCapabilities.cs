@@ -21,7 +21,7 @@ public static class ServerCapabilities
     private static bool _shapeWarned;
     private static Exception? _lastError;
 
-    private static string AccountKey() => (UserPreferences.Instance.LastDataAccountKey ?? "") + "|" + (CompanyInfoService.LastCompany?.Id ?? "");
+    internal static string AccountKey() => (UserPreferences.Instance.LastDataAccountKey ?? "") + "|" + (CompanyInfoService.LastCompany?.Id ?? "");
 
     /// <summary>Забыть признаки (смена аккаунта, выход).</summary>
     public static void Reset()
@@ -228,6 +228,7 @@ public static class ServerCapabilities
             {
                 var d = await api.RequestAsync(HttpMethod.Get, "api/main/capabilities/", null, null, ct).ConfigureAwait(false);
                 var set = Parse(d);
+                Fiscal.FiscalSettings.Apply(d, set, account); // 2026-11-14 (П0-1): блок capabilities.fiscal — режим фискализации компании
                 _cache = (DateTime.UtcNow, account, set, true, false);
                 _lastError = null;
                 SaveToDisk(account, set); // 2026-11-06 (Л5-01): ответ получен — это новый «последний известный» список (в том числе пустой: сервер реально ответил без признаков)

@@ -306,6 +306,7 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
             : Tr.T("Остаток *", "Калдык *", "Stock *", "Stok *", "Qoldiq *");
         SalePriceFieldLabel.Text = Tr.T("Цена продажи *", "Сатуу баасы *", "Sale price *", "Satış fiyatı *", "Sotuv narxi *");
         InitSerialsBlock(existing); // 2026-11-13 (сервер sn1311): серийники и гарантия товара — только сфера «Электроника»
+        InitVatBlock(existing); // 2026-11-14 (П0-1): «Ставка НДС» товара — только при включённой фискализации
         Opened += (_, _) => _ = LoadMinimumQuantityAsync();
         // 2026-10-07, владелец: «если наименование есть — поставь штрихкод из barcode-list.ru, но дай проверить и сверить».
         NameBox.LostFocus += (_, _) => _ = BarcodeSuggestAsync();
@@ -1017,8 +1018,9 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
         }
         catch (Exception ex)
         {
+            NurMarketKassa.Services.PosLogger.Log($"ProductEditDialog: сбой, показанный пользователю: {ex}", "WARNING"); // 2026-11-13 (Н-4): сырой текст — в журнал, на экран — понятный
             StatusMessage = "";
-            ErrorMessage = Tr.T("Не удалось создать: ", "Түзүү мүмкүн болгон жок: ", "Could not create: ", "Oluşturulamadı: ", "Yaratib bo'lmadi: ") + ex.Message;
+            ErrorMessage = Tr.T("Не удалось создать: ", "Түзүү мүмкүн болгон жок: ", "Could not create: ", "Oluşturulamadı: ", "Yaratib bo'lmadi: ") + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex);
         }
         finally
         {

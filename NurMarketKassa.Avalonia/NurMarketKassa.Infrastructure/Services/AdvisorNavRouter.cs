@@ -171,6 +171,8 @@ public static class AdvisorNavRouter
             "прибыль и деньги|прибыль|прибыли|доход|доходы|деньги|движение денег|пайда жана акча|пайда|киреше|акча|profit and cash|profit|income|cash flow|cash|kar ve nakit|kar|nakit|foyda va pul|foyda|pul"),
         S("losssales", "losssales", "Продажи в убыток", "Зыян менен сатуулар", "Sales at a loss", "Zararına satışlar", "Zarariga sotuvlar",
             "продажи в убыток|убыток|убытки|убыточные продажи|продаю в минус|зыян менен сатуулар|зыян|sales at a loss|loss sales|selling at a loss|zararina satislar|zararina satis|zarar|zarariga sotuvlar|zarar"),
+        S("fiscalreport", "fiscalreport", "Продажи без фискального чека", "Фискалдык чексиз сатуулар", "Sales without a fiscal receipt", "Mali fişsiz satışlar", "Fiskal chekisiz sotuvlar",
+            "продажи без фискального чека|фискальный чек|фискальные чеки|не пробит|ккм|онлайн ккм|фискалдык чек|фискалдык чексиз сатуулар|ккм|sales without a fiscal receipt|fiscal receipt|fiscal receipts|cash register|mali fis|mali fissiz satislar|okc|fiskal chek|fiskal chekisiz sotuvlar|kkm"),
         S("sizesreport", "sizesreport", "Размеры и цвета", "Өлчөмдөр жана түстөр", "Sizes and colours", "Bedenler ve renkler", "O'lchamlar va ranglar",
             "размеры и цвета|размеры|размер|цвета|өлчөмдөр жана түстөр|sizes and colours|sizes|sizes and colors|bedenler ve renkler|bedenler|beden|olchamlar va ranglar|olchamlar"),
         S("siteorders", "siteorders", "Заказы с сайта", "Сайттан заказдар", "Website orders", "Web sitesi siparişleri", "Saytdan buyurtmalar",

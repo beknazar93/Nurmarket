@@ -94,8 +94,10 @@
   <Color x:Key="ColorDangerPressed">#991B1B</Color>
 
   <SolidColorBrush x:Key="BrushUiStatusMuted" Color="#64748B" />
-  <SolidColorBrush x:Key="BrushUiStatusOk" Color="#059669" />
-  <SolidColorBrush x:Key="BrushUiStatusWarn" Color="#D97706" />
+  <!-- 2026-11-13 (Н-6, контраст текста статусов): было #059669 (3,8:1 на белом, 3,3 на мягком зелёном) и #D97706 (3,2:1) — мелкий
+       текст «сдача», «оплачено», «нет связи» читался плохо. Теперь не ниже 4,8:1 на белом, панели и мягких фонах. -->
+  <SolidColorBrush x:Key="BrushUiStatusOk" Color="#036B50" />
+  <SolidColorBrush x:Key="BrushUiStatusWarn" Color="#A14A08" />
   <SolidColorBrush x:Key="BrushShiftOpenBg" Color="#DCFCE7" />
   <SolidColorBrush x:Key="BrushShiftOpenBorder" Color="#22C55E" />
   <SolidColorBrush x:Key="BrushShiftWarnBg" Color="#FEF3C7" />

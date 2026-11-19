@@ -272,7 +272,8 @@ public sealed class VariantEditorWindow : Window
         }
         catch (Exception ex)
         {
-            _status.Text = Tr.T("Не удалось загрузить: ", "Жүктөө мүмкүн болгон жок: ", "Could not load: ", "Yüklenemedi: ", "Yuklab bo'lmadi: ") + ex.Message;
+            NurMarketKassa.Services.PosLogger.Log($"VariantEditorWindow: сбой, показанный пользователю: {ex}", "WARNING"); // 2026-11-13 (Н-4): сырой текст — в журнал, на экран — понятный
+            _status.Text = Tr.T("Не удалось загрузить: ", "Жүктөө мүмкүн болгон жок: ", "Could not load: ", "Yüklenemedi: ", "Yuklab bo'lmadi: ") + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex);
         }
     }
 

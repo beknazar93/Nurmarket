@@ -330,7 +330,7 @@ public partial class PayDebtDialog
         }
         catch (ApiException ex)
         {
-            ErrorMessage = ex.Message;
+            ErrorMessage = NurMarketKassa.Services.ServerOutageMonitor.UserText(ex);
             PosLogger.Log($"Pay-debt failed ({what}): {ex}", "PAYMENT");
             // Долг уже погашен (другая касса, владелец) — перечитать список и сказать прямо.
             if (DebtPaymentFlow.IsNoDebt(ex))
@@ -517,7 +517,7 @@ public partial class PayDebtDialog
         }
         catch (Exception ex)
         {
-            ErrorMessage = Tr.T("Не удалось выполнить: ", "Аткаруу мүмкүн болгон жок: ", "Couldn't complete: ", "Tamamlanamadı: ", "Bajarib bo'lmadi: ") + ex.Message;
+            ErrorMessage = Tr.T("Не удалось выполнить: ", "Аткаруу мүмкүн болгон жок: ", "Couldn't complete: ", "Tamamlanamadı: ", "Bajarib bo'lmadi: ") + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex);
             PosLogger.Log($"Оплата долга: решение по замку ({resolution}) не выполнено: {ex}", "WARNING");
         }
     }

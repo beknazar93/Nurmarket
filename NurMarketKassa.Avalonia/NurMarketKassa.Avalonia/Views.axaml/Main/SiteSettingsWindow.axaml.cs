@@ -570,7 +570,7 @@ public partial class SiteSettingsWindow : Window, IOwnerSection
                                "no connection to the server. Your changes are still in the fields — press “Save” again.",
                                "sunucuyla bağlantı yok. Değişiklikler alanlarda duruyor — «Kaydet»e tekrar basın.",
                                "server bilan aloqa yo'q. O'zgarishlar maydonlarda qoldi — «Saqlash»ni yana bosing.")
-                           : ex.Message), success: false);
+                           : NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)), success: false);
         }
         finally
         {

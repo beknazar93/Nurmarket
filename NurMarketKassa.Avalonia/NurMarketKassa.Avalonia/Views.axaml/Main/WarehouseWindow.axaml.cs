@@ -49,11 +49,27 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         return sp.GetRequiredService<T>();
     }
 
+    /// <summary>2026-11-13 (Н-6): высота полей в строках приёмки — «плотная» 36 (NurHeightCompact), в сенсорной теме
+    /// (высота элементов темы AppControlHeight ≥ 48, тот же признак, что в «Закупках») — 44.</summary>
+    private void ApplyReceivingCellHeight()
+    {
+        var compact = this.TryFindResource("NurHeightCompact", ActualThemeVariant, out var c) && c is double ch ? ch : 36d;
+        var touch = this.TryFindResource("AppControlHeight", ActualThemeVariant, out var v) && v is double h && h >= 48;
+        var height = touch ? Math.Max(compact, 44d) : compact;
+        if (!Equals(Resources["ReceivingCellHeight"], height))
+            Resources["ReceivingCellHeight"] = height;
+    }
+
     public WarehouseWindow(WarehouseViewModel viewModel, IBarcodeInputService barcodeInputService)
     {
         _viewModel = viewModel;
         _barcodeInputService = barcodeInputService;
+        // 2026-11-13 (Н-6, решение координатора): поля в строках приёмки — 36 px (шаг «плотная» общей шкалы, NurHeightCompact; было 28),
+        // в сенсорной теме — 44. Ресурс окна, на него ссылаются поля количества / штук / цены в таблице приёмки.
+        Resources["ReceivingCellHeight"] = 36d;
         InitializeComponent();
+        ApplyReceivingCellHeight();
+        Activated += (_, _) => ApplyReceivingCellHeight(); // тему могли сменить в настройках, пока окно открыто
         // 2026-10-24 (аудит, круг 8, С-14): заголовок окна — «Склад» (в окне пять вкладок, не только ревизия и списание); ресурс не менялся.
         Title = Tr.T("Склад", "Кампа", "Warehouse", "Depo", "Ombor");
         // Сканер ловим на ТУННЕЛЬНОЙ фазе (раньше любых элементов окна) — см. Window_KeyDown.

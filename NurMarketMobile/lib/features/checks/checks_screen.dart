@@ -211,12 +211,8 @@ class _ChecksScreenState extends ConsumerState<ChecksScreen> {
                 child: shown.isEmpty
                     ? ListView(
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.all(32),
-                            child: Center(
-                              child: Text(l.noChecks, style: TextStyle(color: pal.textSoft)),
-                            ),
-                          ),
+                          // 2026-11-13 (аудит UX мобилки, п. 5): значок вместо голого серого текста
+                          SizedBox(height: 320, child: EmptyState(icon: Icons.receipt_long_outlined, text: l.noChecks)),
                         ],
                       )
                     : ListView.separated(

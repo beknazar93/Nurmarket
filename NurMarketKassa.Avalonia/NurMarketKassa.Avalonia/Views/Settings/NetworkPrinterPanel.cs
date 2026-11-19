@@ -59,7 +59,13 @@ public sealed class NetworkPrinterPanel : StackPanel
 
         _found = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, MinHeight = 44, IsVisible = false, PlaceholderText = T("Найденные принтеры (порт 9100)", "Табылган принтерлер (порт 9100)", "Found printers (port 9100)", "Bulunan yazıcılar (port 9100)", "Topilgan printerlar (port 9100)") };
         _found.Classes.Add("TouchComboBox");
-        _status = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap };
+        _status = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap, IsVisible = false };
+        // 2026-11-19 (живой обход «Настройки → Печать»): пустая строка состояния давала пустую полосу под кнопками — видна, только когда есть текст.
+        _status.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == TextBlock.TextProperty)
+                _status.IsVisible = !string.IsNullOrEmpty(_status.Text);
+        };
 
         Children.Add(caption);
         Children.Add(row);

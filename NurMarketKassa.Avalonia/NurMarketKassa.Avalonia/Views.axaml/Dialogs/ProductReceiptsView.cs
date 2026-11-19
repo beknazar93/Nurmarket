@@ -242,7 +242,7 @@ internal sealed class ProductReceiptsView : UserControl
             catch (Exception ex)
             {
                 PosLogger.Log($"Поступления товара {_productId}: {ex.Message}", "WARNING");
-                Dispatcher.UIThread.Post(() => _status.Text = T("Поступления не загрузились: ", "Кирүүлөр жүктөлгөн жок: ", "Receipts failed to load: ", "Girişler yüklenemedi: ", "Kirimlar yuklanmadi: ") + ex.Message);
+                Dispatcher.UIThread.Post(() => _status.Text = T("Поступления не загрузились: ", "Кирүүлөр жүктөлгөн жок: ", "Receipts failed to load: ", "Girişler yüklenemedi: ", "Kirimlar yuklanmadi: ") + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex));
             }
         });
     }

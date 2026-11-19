@@ -548,3 +548,35 @@ class LeaveGuard extends StatelessWidget {
     child: child,
   );
 }
+
+/// 2026-11-13 (аудит UX мобилки, п. 5): единое пустое состояние — значок, понятная фраза и (если есть что предложить) кнопка.
+/// Раньше в списках был только серый текст по центру, а где-то — голое «Здесь пусто».
+class EmptyState extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+  const EmptyState({super.key, required this.icon, required this.text, this.actionLabel, this.onAction});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.pal;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 48, color: p.textSoft),
+            const SizedBox(height: 12),
+            Text(text, textAlign: TextAlign.center, style: TextStyle(color: p.textSoft, height: 1.35)),
+            if (actionLabel != null && onAction != null) ...[
+              const SizedBox(height: 16),
+              OutlinedButton(style: OutlinedButton.styleFrom(minimumSize: const Size(160, 48)), onPressed: onAction, child: Text(actionLabel!)),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}

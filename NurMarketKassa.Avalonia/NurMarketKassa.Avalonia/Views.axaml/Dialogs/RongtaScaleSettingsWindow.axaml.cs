@@ -63,17 +63,22 @@ public partial class RongtaScaleSettingsWindow : Window
         TitleText.Text = Title;
         // 2026-09-30: весы Rongta понимают протокол Dahua (порт 4001) — касса пишет товары сама.
         // 2026-11-13 (разбор RLS1000): тип штрихкода и дату касса передаёт «родной» командой весов (порт 5001) — вкладки «Штрих-код» и «Дата и параметры».
+        // 2026-11-13 (Д-7, Н-3): вступление — одна строка простыми словами; адрес, способ загрузки и прочее — по вкладкам.
         IntroText.Text = L(
-            "Весы Rongta (RLS1000/RLS1100): касса записывает товары прямо в весы по сети, без программы RLS1000. Здесь — адрес весов, способ загрузки, тип штрихкода и дата.",
-            "Rongta таразасы (RLS1000/RLS1100): касса товарларды RLS1000 программасыз тармак аркылуу түз таразага жазат. Бул жерде — таразанын дареги, жүктөө жолу, штрих-коддун түрү жана дата.",
-            "Rongta scales (RLS1000/RLS1100): the till writes goods straight into the scale over the network, without RLS1000. Here: scale address, upload method, barcode type and date.",
-            "Rongta tartılar (RLS1000/RLS1100): kasa ürünleri RLS1000 olmadan ağ üzerinden doğrudan tartıya yazar. Burada: tartı adresi, yükleme yolu, barkod türü ve tarih.",
-            "Rongta tarozilari (RLS1000/RLS1100): kassa tovarlarni RLS1000'siz tarmoq orqali to‘g‘ridan-to‘g‘ri taroziga yozadi. Bu yerda — tarozi manzili, yuklash usuli, shtrix-kod turi va sana.");
+            "Весы Rongta (RLS1000/RLS1100): касса сама записывает товары в весы. Пройдите три шага ниже.",
+            "Rongta таразасы (RLS1000/RLS1100): касса товарларды таразага өзү жазат. Төмөнкү үч кадамды аткарыңыз.",
+            "Rongta scales (RLS1000/RLS1100): the till writes goods into the scale itself. Follow the three steps below.",
+            "Rongta tartılar (RLS1000/RLS1100): kasa ürünleri tartıya kendisi yazar. Aşağıdaki üç adımı izleyin.",
+            "Rongta tarozilari (RLS1000/RLS1100): kassa tovarlarni taroziga o‘zi yozadi. Quyidagi uch qadamni bajaring.");
 
-        Tabs.Items.Add(MakeTab(L("Подключение", "Туташуу", "Connection", "Bağlantı", "Ulanish"), BuildConnectionTab()));
+        // 2026-11-13 (Н-3): первая вкладка — «Быстрая настройка» в три шага (общий блок ScaleUi.QuickSetup), последняя — «Для мастера»
+        // (подробная проверка связи, RLS1000, способы через файл и «свой сервер»). «Штрих-код» остаётся третьей (ShowBarcodeTab).
+        Tabs.Items.Add(MakeTab(QuickTabTitle, BuildQuickTab()));
         Tabs.Items.Add(MakeTab(L("Загрузка товаров", "Товарларды жүктөө", "Uploading goods", "Ürün yükleme", "Tovarlarni yuklash"), BuildUploadTab()));
         Tabs.Items.Add(MakeTab(L("Штрих-код", "Штрих-код", "Barcode", "Barkod", "Shtrix-kod"), BuildBarcodeTab()));
         Tabs.Items.Add(MakeTab(L("Дата и параметры", "Дата жана параметрлер", "Date and settings", "Tarih ve ayarlar", "Sana va parametrlar"), BuildDateTab()));
+        Tabs.Items.Add(MakeTab(MasterTabTitle, _masterPanel));
+        IntroOnFirstTab(Tabs, IntroText, ConnectionText);
         UpdateHeader();
         ShowResult(L("Введите IP весов и нажмите «Проверить связь».", "Таразанын IP'син киргизип «Байланышты текшерүү» басыңыз.", "Enter the scale IP and press “Check connection”.", "Tartı IP'sini girip “Bağlantıyı kontrol et”e basın.", "Tarozi IP'sini kiriting va «Aloqani tekshirish»ni bosing."), false);
     }
@@ -88,19 +93,44 @@ public partial class RongtaScaleSettingsWindow : Window
     {
         var ip = (_ipBox.Text ?? "").Trim();
         // 2026-11-13: порты весов известны (товары — TCP 4001, тип штрихкода и дата — UDP 5001), поле «TCP-порт для проверки» убрано.
+        // 2026-11-13 (Н-3): в шапке только адрес — номера портов продавцу не нужны (они во вкладке «Для мастера»).
         ConnectionText.Text = L("Весы: ", "Тараза: ", "Scale: ", "Tartı: ", "Tarozi: ")
-            + (ip.Length > 0 ? ip : "—") + L(" · товары — порт 4001 · тип штрихкода и дата — порт 5001", " · товарлар — 4001 порт · штрих-коддун түрү жана дата — 5001 порт", " · goods — port 4001 · barcode type and date — port 5001", " · ürünler — port 4001 · barkod türü ve tarih — port 5001", " · tovarlar — 4001 port · shtrix-kod turi va sana — 5001 port");
+            + (ip.Length > 0 ? ip : "—");
     }
 
     // =====================================================================================
     // Подключение
     // =====================================================================================
 
-    private Control BuildConnectionTab()
-    {
-        var panel = new StackPanel { Spacing = 12, Margin = new Thickness(0, 10, 8, 10) };
-        var prefs = UserPreferences.Instance;
+    /// <summary>2026-11-13 (Н-3): «Для мастера» — подробная проверка связи, RLS1000, способы загрузки через файл и «свой сервер».</summary>
+    private readonly StackPanel _masterPanel = new() { Spacing = 12, Margin = new Thickness(0, 10, 8, 10) };
+    private ScaleQuickView _quick = null!;
 
+    private Control BuildQuickTab()
+    {
+        _ipBox = new TextBox { Text = IpOf(BrandRongta), Watermark = "192.168.1.87", MinWidth = 220 };
+        _ipBox.LostFocus += (_, _) => { SaveConnection(); UpdateHeader(); };
+        _quick = QuickSetup(this, new ScaleQuickOptions
+        {
+            Brand = BrandRongta,
+            WhereLabel = L("Адрес весов (IP)", "Таразанын дареги (IP)", "Scale address (IP)", "Tartı adresi (IP)", "Tarozi manzili (IP)"),
+            WhereBox = _ipBox,
+            Save = () => { SaveConnection(); UpdateHeader(); },
+            Find = async () =>
+            {
+                if (await OpenScanAsync(this, BrandRongta).ConfigureAwait(true))
+                {
+                    _ipBox.Text = IpOf(BrandRongta);
+                    UpdateHeader();
+                    _quick.RefreshFromLastCheck();
+                }
+            },
+            SendGoods = () => OpenScalesWindow(this, BrandRongta),
+            CheckLabel = ShowBarcodeTab,
+            ShowResult = ShowResult,
+        });
+
+        var panel = _masterPanel;
         var card = Card(L("Адрес весов", "Таразанын дареги", "Scale address", "Tartı adresi", "Tarozi manzili"),
             L("Заводской адрес весов Rongta — 192.168.1.87. На весах он меняется так: держать [SETTING] 2 секунды → «@ IP address». Компьютер и весы должны быть в одной сети (первые три числа адреса совпадают).",
               "Rongta таразасынын заводдук дареги — 192.168.1.87. Таразада мындай өзгөртүлөт: [SETTING] 2 секунд басып туруу → «@ IP address». Компьютер менен тараза бир тармакта болушу керек (даректин алгачкы үч саны бирдей).",
@@ -109,9 +139,6 @@ public partial class RongtaScaleSettingsWindow : Window
               "Rongta tarozilarining zavod manzili — 192.168.1.87. Tarozida: [SETTING] ni 2 soniya bosib turing → «@ IP address». Kompyuter va tarozi bitta tarmoqda bo‘lishi kerak (manzilning dastlabki uch soni bir xil)."),
             out var body);
 
-        _ipBox = new TextBox { Text = IpOf(BrandRongta), Watermark = "192.168.1.87", MinWidth = 220 };
-        _ipBox.LostFocus += (_, _) => { SaveConnection(); UpdateHeader(); };
-        body.Children.Add(Row(L("IP-адрес весов", "Таразанын IP-дареги", "Scale IP address", "Tartı IP adresi", "Tarozi IP manzili"), _ipBox));
         // 2026-11-13 (разбор RLS1000): порты весов найдены — поле «TCP-порт для проверки» больше не нужно.
         body.Children.Add(Text(L(
             "«Проверить связь» спрашивает весы по сети (ping) и читает ячейку PLU №1 (порт 4001 — им касса пишет товары). На весах ничего не меняется.",
@@ -120,22 +147,8 @@ public partial class RongtaScaleSettingsWindow : Window
             "“Bağlantıyı kontrol et” tartıya ağdan sorar (ping) ve 1 numaralı PLU hücresini okur (port 4001 — kasa ürünleri bununla yazar). Tartıda hiçbir şey değişmez.",
             "«Aloqani tekshirish» taroziga tarmoq orqali murojaat qiladi (ping) va 1-PLU katagini o‘qiydi (4001 port — u orqali kassa tovarlarni yozadi). Tarozida hech narsa o‘zgarmaydi."), "hint"));
 
-        _checkButton = MakeButton(L("Проверить связь", "Байланышты текшерүү", "Check connection", "Bağlantıyı kontrol et", "Aloqani tekshirish"), false, async (_, _) => await CheckAsync().ConfigureAwait(true));
-        body.Children.Add(ButtonRow(
-            _checkButton,
-            MakeButton(L("Найти весы в сети…", "Тармактан тараза табуу…", "Find scales on the network…", "Ağda tartı bul…", "Tarmoqda tarozi topish…"), false, async (_, _) =>
-            {
-                if (await OpenScanAsync(this, BrandRongta).ConfigureAwait(true))
-                {
-                    _ipBox.Text = IpOf(BrandRongta);
-                    UpdateHeader();
-                }
-            }),
-            MakeButton(L("Сохранить", "Сактоо", "Save", "Kaydet", "Saqlash"), true, (_, _) =>
-            {
-                SaveConnection();
-                ShowResult(L("Сохранено.", "Сакталды.", "Saved.", "Kaydedildi.", "Saqlandi."), false);
-            })));
+        _checkButton = MakeButton(L("Подробная проверка связи", "Байланышты кеңири текшерүү", "Detailed connection check", "Ayrıntılı bağlantı kontrolü", "Aloqani batafsil tekshirish"), false, async (_, _) => await CheckAsync().ConfigureAwait(true));
+        body.Children.Add(ButtonRow(_checkButton));
         panel.Children.Add(card);
 
         // 2026-11-13: по живой программе RLS1000 V1.129 (русский интерфейс) — колонка «id магазина / ip магазина», «Сеть → Проверка порта» (F12).
@@ -147,7 +160,7 @@ public partial class RongtaScaleSettingsWindow : Window
               "RLS1000 da shu manzil tarozi qatoriga yoziladi (IP ustuni). «Сеть → Проверка порта» (F12) aloqani tekshiradi. RLS1000 va kassani bir vaqtda taroziga ulamang."),
             out _);
         panel.Children.Add(rls);
-        return panel;
+        return _quick.Root;
     }
 
     private void SaveConnection()
@@ -279,7 +292,8 @@ public partial class RongtaScaleSettingsWindow : Window
         }
         panel.Children.Add(lanCard);
 
-        panel.Children.Add(Card(L("Способ 1 — файл .txp и F9 (по умолчанию)", "1-жол — .txp файлы жана F9 (демейки)", "Method 1 — .txp file and F9 (default)", "Yöntem 1 — .txp dosyası ve F9 (varsayılan)", "1-usul — .txp fayli va F9 (standart)") + Current(!useServer && !useLan),
+        // 2026-11-13 (Н-3): способы через файл .txp и «свой сервер», программа RLS1000 — во вкладке «Для мастера».
+        _masterPanel.Children.Add(Card(L("Способ 1 — файл .txp и F9 (по умолчанию)", "1-жол — .txp файлы жана F9 (демейки)", "Method 1 — .txp file and F9 (default)", "Yöntem 1 — .txp dosyası ve F9 (varsayılan)", "1-usul — .txp fayli va F9 (standart)") + Current(!useServer && !useLan),
             L("Касса скачивает список весовых товаров в формате RLS1000 (.txp, как вкладка «Rongta» на сайте), кладёт его в рабочую папку RLS1000, запускает RLS1000 и «нажимает» F9 — «Download PLU» (полная перезапись товаров на весах). Касса видит только «команда передана»: успех показывает сама RLS1000.",
               "Касса салмактуу товарлардын тизмесин RLS1000 форматында (.txp, сайттагы «Rongta» өтмөгүндөй) жүктөп алып, RLS1000'дун жумушчу папкасына салат, RLS1000'ду иштетип F9 — «Download PLU» (таразадагы товарларды толук алмаштыруу) «басат». Касса «буйрук берилди» дегенди гана көрөт: ийгиликти RLS1000 өзү көрсөтөт.",
               "The till downloads the weighed goods in RLS1000 format (.txp, like the “Rongta” tab on the website), puts it into the RLS1000 work folder, starts RLS1000 and “presses” F9 — “Download PLU” (full overwrite of goods on the scale). The till only sees “command sent”; RLS1000 itself shows success.",
@@ -289,7 +303,7 @@ public partial class RongtaScaleSettingsWindow : Window
 
         var localIps = ScaleNetworkScanner.GetLocalSubnets().Select(s => s.LocalAddress.ToString()).Distinct().ToList();
         var ipsText = localIps.Count > 0 ? string.Join(", ", localIps) : "—";
-        panel.Children.Add(Card(L("Способ 2 — «свой сервер» (касса отдаёт товары RLS1000 по TCP/IP)", "2-жол — «өз сервер» (касса товарларды RLS1000'го TCP/IP аркылуу берет)", "Method 2 — “own server” (the till serves goods to RLS1000 over TCP/IP)", "Yöntem 2 — “kendi sunucu” (kasa ürünleri RLS1000'e TCP/IP ile verir)", "2-usul — «o‘z server» (kassa tovarlarni RLS1000 ga TCP/IP orqali beradi)") + Current(useServer),
+        _masterPanel.Children.Add(Card(L("Способ 2 — «свой сервер» (касса отдаёт товары RLS1000 по TCP/IP)", "2-жол — «өз сервер» (касса товарларды RLS1000'го TCP/IP аркылуу берет)", "Method 2 — “own server” (the till serves goods to RLS1000 over TCP/IP)", "Yöntem 2 — “kendi sunucu” (kasa ürünleri RLS1000'e TCP/IP ile verir)", "2-usul — «o‘z server» (kassa tovarlarni RLS1000 ga TCP/IP orqali beradi)") + Current(useServer),
             L($"Касса становится TCP-сервером на порту {prefs.RongtaServerPort} и отдаёт товары из локального каталога без обращения к сайту (раздел 2.2–2.4 руководства RLS1000). Один раз в RLS1000: File → Options → вкладка TCP/IP → галочка, адрес = IP этого компьютера ({ipsText}), порт = {prefs.RongtaServerPort}. Название товара уходит латиницей (кодировка кириллицы в протоколе не описана).",
               $"Касса {prefs.RongtaServerPort} портунда TCP-сервер болуп, товарларды сайтка кайрылбай жергиликтүү каталогдон берет (RLS1000 колдонмосу, 2.2–2.4). RLS1000'до бир жолу: File → Options → TCP/IP өтмөгү → белги, дарек = бул компьютердин IP'си ({ipsText}), порт = {prefs.RongtaServerPort}. Товардын аты латынча кетет (протоколдо кирилл коддоосу жазылган эмес).",
               $"The till becomes a TCP server on port {prefs.RongtaServerPort} and serves goods from the local catalog without the website (RLS1000 manual, 2.2–2.4). Once in RLS1000: File → Options → TCP/IP tab → tick, address = this computer's IP ({ipsText}), port = {prefs.RongtaServerPort}. Names are sent in Latin letters (Cyrillic encoding is not described in the protocol).",
@@ -305,7 +319,7 @@ public partial class RongtaScaleSettingsWindow : Window
             out var statusBody);
         statusBody.Children.Add(ButtonRow(MakeButton(L("Открыть окно «Весы» (Rongta)", "«Таразалар» терезесин ачуу (Rongta)", "Open the “Scales” window (Rongta)", "«Tartı» penceresini aç (Rongta)", "«Tarozi» oynasini ochish (Rongta)"), false,
             (_, _) => OpenScalesWindow(this, BrandRongta))));
-        panel.Children.Add(status);
+        _masterPanel.Children.Add(status);
         return panel;
     }
 

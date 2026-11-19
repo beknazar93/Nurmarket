@@ -120,6 +120,13 @@
   <x:String x:Key="mainWindow.checkCustomerDisplayTooltip">Сатып алуучунун экранын текшерүү</x:String>
   <x:String x:Key="mainWindow.onScreenKeyboardTooltip">Экрандык баскычтоп</x:String>
   <x:String x:Key="mainWindow.hotkeysTooltip">Ыкчам баскычтар</x:String>
+  <!-- 2026-11-13 (Н-1, Н-2): шпаргалка клавиш, подсказка пустого чека, мастер первого запуска и учебная продажа -->
+  <x:String x:Key="mainWindow.hotkeysCheatSheet">Кассанын баскычтары (?)</x:String>
+  <x:String x:Key="csh.cart.scanTitle">Товарды сканерлеңиз</x:String>
+  <x:String x:Key="csh.cart.scanHint">Сканер экрандын каалаган жеринен иштейт.&#x0a;Же издөө талаасына кодун / атын жазыңыз.</x:String>
+  <x:String x:Key="csh.cart.keysLink">Баскычтар: ?</x:String>
+  <x:String x:Key="csh.menu.firstRunWizard">Биринчи ишке киргизүү чебери</x:String>
+  <x:String x:Key="csh.menu.trainingSale">Окуу сатуусу</x:String>
   <x:String x:Key="hotkeyGroup.title">Ыкчам баскыч</x:String>
   <x:String x:Key="header.labelCustomerDisplay">Экран</x:String>
   <x:String x:Key="header.labelTheme">Тема</x:String>
@@ -866,7 +873,7 @@
   <x:String x:Key="posSettings.monitor.sampleCoffee">Табигый кофе</x:String>
   <x:String x:Key="posSettings.monitor.sampleMilk">Сүт 1 л</x:String>
   <x:String x:Key="posSettings.monitor.qtyShort">Саны</x:String>
-  <x:String x:Key="posSettings.monitor.samplePayable">Төлөөгө: 400.00 сом</x:String>
+  <x:String x:Key="posSettings.monitor.samplePayable">Төлөөгө: 400,00 сом</x:String>
   <x:String x:Key="posSettings.monitor.screenContentTitle">Экрандын мазмуну</x:String>
   <x:String x:Key="posSettings.monitor.companyLogo">Компаниянын логотиби</x:String>
   <x:String x:Key="posSettings.monitor.itemCount">Товарлардын саны</x:String>
@@ -1352,9 +1359,9 @@
     <x:String x:Key="loc.owner.zeroMoney">0,00 сом</x:String>
     <x:String x:Key="loc.settings.monitor.samplePositions">2 позиция</x:String>
     <x:String x:Key="loc.settings.monitor.sampleQty2">×2 даана</x:String>
-    <x:String x:Key="loc.settings.monitor.sampleSum320">320.00 сом</x:String>
+    <x:String x:Key="loc.settings.monitor.sampleSum320">320,00 сом</x:String>
     <x:String x:Key="loc.settings.monitor.sampleQty1">×1 даана</x:String>
-    <x:String x:Key="loc.settings.monitor.sampleSum95">95.00 сом</x:String>
+    <x:String x:Key="loc.settings.monitor.sampleSum95">95,00 сом</x:String>
     <x:String x:Key="loc.settings.telegram.title">Дүкөн ээсинин Telegram-боту</x:String>
     <x:String x:Key="loc.settings.telegram.desc">Жабылган смена боюнча жыйынтык сизге Telegram'га келет: түшүм, чектер, орточо чек, накталай жана накталай эмес төлөмдөр, акча салуу жана алуу, жетишпестик же ашыкча. Дүкөндөн эле иштейт — ачык IP дарек да, өз сервериңиз да керек эмес.</x:String>
     <x:String x:Key="loc.settings.telegram.wizardButton">Ботту туташтыруу (кадам-кадамы менен)</x:String>
@@ -1496,6 +1503,7 @@
   <x:String x:Key="scalesPlu.change">Өзгөртүү…</x:String>
   <x:String x:Key="scalesPlu.colStatus">Натыйжа</x:String>
   <x:String x:Key="scalesPlu.saveFile">Файлды сактоо…</x:String>
+  <x:String x:Key="scalesPlu.preflight">Жөнөтүүдөн мурун текшерүү</x:String>
   <x:String x:Key="scaleSetup.list.title">Дүкөндөгү таразалар</x:String>
   <x:String x:Key="scaleSetup.list.desc">Ар бир таразанын өз маркасы, дареги жана товар категориялары бар. «Жөндөө…» — ушул таразанын терезеси, «Товарларды жөнөтүү» — анын товарлары ага.</x:String>
   <x:String x:Key="scaleSetup.list.add">+ Тараза кошуу</x:String>

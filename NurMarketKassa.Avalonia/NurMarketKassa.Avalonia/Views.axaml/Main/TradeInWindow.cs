@@ -32,7 +32,8 @@ public sealed class TradeInDeps
         }
         catch (Exception ex)
         {
-            return (false, ex.Message);
+            NurMarketKassa.Services.PosLogger.Log($"TradeInWindow: сбой, показанный пользователю: {ex}", "WARNING"); // 2026-11-13 (Н-4): сырой текст — в журнал, на экран — понятный
+            return (false, NurMarketKassa.Services.ServerOutageMonitor.UserText(ex));
         }
     }
 }

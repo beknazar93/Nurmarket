@@ -804,7 +804,7 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
               if (qty > 1) Padding(padding: const EdgeInsets.only(left: 8), child: head('×${qtyText(qty)}')),
               IconButton(
                 key: ValueKey('drop_$code'),
-                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48), // 2026-11-13 (аудит UX мобилки, п. 3): было compact = 40 dp
                 icon: const Icon(Icons.close_rounded, size: 20),
                 onPressed: () {
                   setState(() {

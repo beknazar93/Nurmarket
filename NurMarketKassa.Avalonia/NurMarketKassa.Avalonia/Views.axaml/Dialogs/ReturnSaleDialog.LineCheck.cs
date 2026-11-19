@@ -110,7 +110,7 @@ public partial class ReturnSaleDialog
                            $"The server did not accept the return items “{titles}”: it did not find them in this receipt. The return was NOT processed — do not pay out. The till has refreshed the receipt from the server: check the items and press “Return” again. If the error repeats, contact support (details in the log).",
                            $"Sunucu «{titles}» iade kalemlerini kabul etmedi: bu fişte bulamadı. İade YAPILMADI — para vermeyin. Kasa fişi sunucudan yeniledi: kalemleri işaretleyip «İade»ye tekrar basın. Hata tekrarlanırsa desteğe bildirin (ayrıntılar günlükte).",
                            $"Server «{titles}» qaytarish pozitsiyalarini qabul qilmadi: ularni bu chekda topmadi. Qaytarish O'TKAZILMADI — pul bermang. Kassa chekni serverdan yangiladi: pozitsiyalarni belgilab, «Qaytarish»ni yana bosing. Xato takrorlansa — texnik yordamga xabar bering (tafsilotlar jurnalda).")
-                   + "\n" + Tr.T("Ответ сервера: ", "Сервердин жообу: ", "Server response: ", "Sunucu yanıtı: ", "Server javobi: ") + ex.Message;
+                   + "\n" + Tr.T("Ответ сервера: ", "Сервердин жообу: ", "Server response: ", "Sunucu yanıtı: ", "Server javobi: ") + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex);
         if (switched)
             PosLogger.Log($"Возврат по продаже {saleId}: кассиру предложено повторить с id строк из поля id.", "SALES");
         PosMessageBox.Show(this, text, Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"), MessageBoxButton.OK, MessageBoxImage.Error);

@@ -414,6 +414,18 @@ public static class ServerOutageMonitor
     public static string UnavailableText => Tr.T("Сервер NurCRM недоступен", "NurCRM сервери жеткиликсиз", "The NurCRM server is unavailable",
         "NurCRM sunucusu kullanılamıyor", "NurCRM serveri mavjud emas");
 
+    /// <summary>2026-11-13 (Н-4): текст сбоя ДЛЯ ЭКРАНА там, где раньше стояло сырое <c>ex.Message</c>. Свои сообщения программы
+    /// (InvalidOperationException / ArgumentException с текстом на языке кассы: «Не выбран поставщик») показываются как есть; всё остальное
+    /// (сеть, сервер, .NET по-английски, «Status: No matching mapping found») — через <see cref="FriendlyError"/>. Сырой текст — в журнал.</summary>
+    public static string UserText(Exception? ex)
+    {
+        if (ex is InvalidOperationException or ArgumentException or NotSupportedException
+            && ex.InnerException is null && !string.IsNullOrWhiteSpace(ex.Message) && ex.Message.Length <= 300
+            && ex.Message.Any(c => c > 127 && char.IsLetter(c)) && !LooksTechnical(ex.Message))
+            return ex.Message.Trim();
+        return FriendlyError(ex);
+    }
+
     /// <summary>2026-11-01 (В-28, аудит «10 из 10»): понятный текст ошибки для экрана вместо сырого <c>ex.Message</c>
     /// («An error occurred while sending the request.», «mock 500»). Сбой сервера или сети — <see cref="UnavailableText"/> и совет;
     /// отказ сервера 4xx — его текст (он по-русски и по делу); прочее — общая фраза (подробности остаются в журнале).</summary>

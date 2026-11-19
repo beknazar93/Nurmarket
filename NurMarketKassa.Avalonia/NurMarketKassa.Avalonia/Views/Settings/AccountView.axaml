@@ -9,11 +9,7 @@
     <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views/Settings/SettingsSharedStyles.axaml"/>
 
     <!-- 2026-11-01 (контрольный аудит, Д-04): цвет, рамка, радиус, курсор и наведение «главной» — из общего Button.btn-primary (PosDialogStyles); здесь только размеры страницы. -->
-    <Style Selector="Button.btn-primary">
-      <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="HorizontalContentAlignment" Value="Center"/>
-      <Setter Property="VerticalContentAlignment" Value="Center"/>
-    </Style>
+    <!-- 2026-11-13 (Д-1): местные описания кнопок удалены — вид один на всю программу (nur-primary / nur-secondary и их псевдонимы, PosDialogStyles.axaml). -->
 
     <Style Selector="Button.btn-danger">
       <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/>
@@ -38,7 +34,7 @@
       <StackPanel Classes="SettingsCardList" Spacing="18" MaxWidth="{DynamicResource SettingsPageMaxWidth}" HorizontalAlignment="Stretch">
 
         <!-- Хедер -->
-        <Border Classes="SettingsHeaderCard" Padding="12">
+        <Border Classes="SettingsHeaderCard">
           <Grid ColumnDefinitions="Auto,*,Auto">
             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12">
               <Border Width="36" Height="36" CornerRadius="8" Background="{DynamicResource BrushAccentSoft}"
@@ -58,7 +54,7 @@
         <!-- Компания -->
         <!-- Кто вошёл в кассу (2026-09-24, просьба владельца: «какой аккаунт, логин»). Пароль
              касса не хранит намеренно — его видел бы любой за кассой, см. PurgeLegacySavedPasswords. -->
-        <Border Classes="SettingsCard" Padding="18">
+        <Border Classes="SettingsCard" Padding="16">
           <StackPanel Spacing="10">
             <TextBlock Text="{DynamicResource account.loginCard}" Classes="SettingsCardTitle" FontSize="14"/>
             <!-- 2026-10-21: «Компания» — первой строкой этой карточки, а не отдельной карточкой с одним словом (пакет 3, п. 141). -->
@@ -101,7 +97,7 @@
         </Border>
 
         <!-- Тарифный план -->
-        <Border Classes="SettingsCard" Padding="18">
+        <Border Classes="SettingsCard" Padding="16">
           <StackPanel Spacing="6">
             <TextBlock Text="{DynamicResource account.planLabel}" Classes="SettingsCardTitle" FontSize="14"/>
             <TextBlock x:Name="PlanNameText" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
@@ -110,12 +106,12 @@
         </Border>
 
         <!-- 2026-10-05, владелец: «добавь в тарифе Старт описание Стандарта и сравнение в аккаунте». Только на «Старте». -->
-        <Border x:Name="PlanCompareCard" Classes="SettingsCard" Padding="18" IsVisible="False">
+        <Border x:Name="PlanCompareCard" Classes="SettingsCard" Padding="16" IsVisible="False">
           <StackPanel x:Name="PlanCompareHost" Spacing="10"/>
         </Border>
 
         <!-- Срок действия -->
-        <Border Classes="SettingsCard" Padding="18">
+        <Border Classes="SettingsCard" Padding="16">
           <StackPanel Spacing="8">
             <TextBlock Text="{DynamicResource account.expiryLabel}" Classes="SettingsCardTitle" FontSize="14"/>
             <TextBlock x:Name="ExpiryDatesText" FontSize="13" Foreground="{DynamicResource BrushTextSoft}"/>
@@ -126,7 +122,7 @@
         </Border>
 
         <!-- Доп. услуги -->
-        <Border Classes="SettingsCard" Padding="18">
+        <Border Classes="SettingsCard" Padding="16">
           <StackPanel Spacing="12">
             <TextBlock Text="{DynamicResource account.servicesLabel}" Classes="SettingsCardTitle" FontSize="14"/>
             <ItemsControl x:Name="ServicesList">
@@ -144,7 +140,7 @@
 
         <!-- 2026-09-13, по просьбе владельца — перенос текущего каталога в автономный (офлайн)
              режим на этом же ПК, если клиент решит перейти с онлайна на офлайн. -->
-        <Border Classes="SettingsCard" Padding="18">
+        <Border Classes="SettingsCard" Padding="16">
           <Grid ColumnDefinitions="*,Auto">
             <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center" Margin="0,0,12,0">
               <TextBlock Text="{DynamicResource migrateOffline.cardLabel}" Classes="SettingsCardTitle" FontSize="14"/>
@@ -159,7 +155,7 @@
         </Border>
 
         <!-- Выход -->
-        <Border Classes="SettingsCard" Padding="18">
+        <Border Classes="SettingsCard" Padding="16">
           <Grid ColumnDefinitions="*,Auto">
             <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center">
               <TextBlock Text="{DynamicResource account.logoutLabel}" Classes="SettingsCardTitle" FontSize="14"/>

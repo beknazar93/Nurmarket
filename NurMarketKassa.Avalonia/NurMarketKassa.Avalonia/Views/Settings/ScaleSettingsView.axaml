@@ -119,7 +119,7 @@
                 <!-- Заголовок страницы прижат влево — по одной вертикали с содержимым
                      карточек ниже. По центру он плавал: при переходе между вкладками название
                      прыгало из стороны в сторону вслед за длиной строки. -->
-                <Border x:Name="HeaderCard" Classes="SettingsHeaderCard" Padding="12">
+                <Border x:Name="HeaderCard" Classes="SettingsHeaderCard">
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Spacing="12">
                         <Border Width="36" Height="36" CornerRadius="8" Background="{DynamicResource BrushWarningSoft}"
                                 BorderBrush="{DynamicResource BrushWarning}" BorderThickness="1">
@@ -167,7 +167,7 @@
 
                 <!-- ========== 1. Весы на кассе (взвешивание) ========== -->
                 <StackPanel x:Name="WeighingSection" Spacing="10">
-                <Border Classes="SettingsCard" Padding="14">
+                <Border Classes="SettingsCard" Padding="16">
                     <StackPanel Spacing="14">
                         <StackPanel Spacing="4">
                             <TextBlock Text="{DynamicResource scaleSetup.weighing.title}" Classes="SettingsCardTitle"/>
@@ -253,7 +253,7 @@
                      на которых лежит товар (ComWeightScaleService). Протокол — как у основных.
                      2026-09-29, владелец: «убери это» — блок скрыт; показывается, только если
                      доп. весы уже включены (чтобы их можно было выключить). -->
-                <Border x:Name="ExtraScalesCard" x:FieldModifier="public" Classes="SettingsCard" Padding="14" IsVisible="False">
+                <Border x:Name="ExtraScalesCard" x:FieldModifier="public" Classes="SettingsCard" Padding="16" IsVisible="False">
                     <StackPanel Spacing="12">
                         <TextBlock x:Name="ExtraScalesTitle" x:FieldModifier="public" Text="{DynamicResource scaleSetup.extraScalesTitle}"
                                    FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
@@ -294,7 +294,7 @@
                     <!-- 2026-09-28 (просьба владельца): несколько весов, у каждых свои марка, адрес,
                          способ отправки и категории. Настройки одних весов — в окне
                          LabelScaleEditWindow («Настроить…»). -->
-                    <Border Classes="SettingsCard" Padding="14">
+                    <Border Classes="SettingsCard" Padding="16">
                         <StackPanel Spacing="10">
                             <TextBlock Text="{DynamicResource scaleSetup.list.title}" Classes="SettingsCardTitle"/>
                             <TextBlock Text="{DynamicResource scaleSetup.list.desc}" Classes="SettingsCardBody"/>
@@ -317,7 +317,7 @@
                 <!-- ========== 4. Дисплей цены покупателя ==========
                      Отдельная COM-коробочка с LED/VFD-табло, не второй монитор (см. PoleDisplayService, 2026-09-04). -->
                 <StackPanel x:Name="DisplaySection" Spacing="10">
-                <Border Classes="SettingsCard" Padding="14">
+                <Border Classes="SettingsCard" Padding="16">
                     <StackPanel Spacing="14">
 
                         <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Left" VerticalAlignment="Center">
@@ -386,7 +386,7 @@
                 </StackPanel>
 
                 <!-- 2026-11-12 (аудит Д-20): «Сохранить» — в подвале карточки справа со скруглёнными углами (раньше одна по центру); пояснение слева, с переносом. -->
-                <Border x:Name="SaveBlock" Classes="SettingsCard" Padding="14" Margin="0,4,0,0">
+                <Border x:Name="SaveBlock" Classes="SettingsCard" Padding="16" Margin="0,4,0,0">
                     <!-- 2026-11-12: Grid.ColumnSpacing в Avalonia 11.2 нет (сборка падала AVLN2000) — промежуток 12 отступом кнопки -->
                     <Grid ColumnDefinitions="*,Auto">
                         <TextBlock x:Name="SaveStatusText" x:FieldModifier="public" Grid.Column="0"

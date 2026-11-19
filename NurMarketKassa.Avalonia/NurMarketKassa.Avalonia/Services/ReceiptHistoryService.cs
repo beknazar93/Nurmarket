@@ -55,6 +55,12 @@ public sealed class ReceiptHistoryEntry
     /// офлайн-очереди пусто.</summary>
     public string Status { get; init; } = "";
 
+    /// <summary>2026-11-14 (ответ Умара 13.11 вечер, П0-3): return_status продажи с сервера — «none» / «partial» / «full». У долгового чека после частичного возврата status остаётся «debt»,
+    /// а возврат виден здесь (и в статусе partially_returned). У записей офлайн-очереди пусто.</summary>
+    public string ReturnStatus { get; init; } = "";
+
+    public bool IsPartiallyReturned => !IsLocal && (Status == "partially_returned" || ReturnStatus == "partial");
+
     public string? Cashier { get; init; }
 
     /// <summary>Первый товар чека — для строки списка.</summary>
@@ -479,6 +485,7 @@ public static class ReceiptHistoryService
                 Total = RowTotal(row),
                 PaymentMethod = Str(row, "payment_method") ?? "",
                 Status = status,
+                ReturnStatus = (Str(row, "return_status") ?? "").ToLowerInvariant(), // 2026-11-14: «возвращён частично» и у долгового чека
                 Cashier = CartDisplayHelper.TryCashierName(row),
                 FirstItemName = firstItem,
                 SearchText = firstItem,
@@ -648,6 +655,7 @@ public static class ReceiptHistoryService
                     Total = RowTotal(row),
                     PaymentMethod = Str(row, "payment_method") ?? "",
                     Status = status,
+                    ReturnStatus = (Str(row, "return_status") ?? "").ToLowerInvariant(), // 2026-11-14
                     Cashier = CartDisplayHelper.TryCashierName(row),
                     FirstItemName = Str(row, "first_item_name") ?? "",
                 });
@@ -985,7 +993,7 @@ public static class ReceiptHistoryService
         {
             PosLogger.Log($"История чеков: «Отправить на сервер» не удалось: {ex}", "OFFLINE");
             return (false, Tr.T("Не удалось отправить чек: ", "Чекти жөнөтүү мүмкүн болгон жок: ", "Could not send the receipt: ",
-                "Fiş gönderilemedi: ", "Chekni yuborib bo'lmadi: ") + ex.Message);
+                "Fiş gönderilemedi: ", "Chekni yuborib bo'lmadi: ") + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex));
         }
     }
 
@@ -1098,10 +1106,16 @@ public static class ReceiptHistoryService
         if (IsReturnedOrCanceled(entry))
             return Tr.T("Возврат / отменён", "Кайтарылды / жокко чыгарылды", "Returned / canceled", "İade / iptal", "Qaytarilgan / bekor qilingan");
 
+        // 2026-11-14 (ответ Умара 13.11 вечер, П0-3): «Возвращён частично» — и по статусу partially_returned, и по return_status=partial (у долгового чека статус остаётся «debt»).
+        if (entry.IsPartiallyReturned)
+        {
+            var partial = Tr.T("Возвращён частично", "Жарым-жартылай кайтарылды", "Partially returned", "Kısmen iade edildi", "Qisman qaytarilgan");
+            return entry.Status == "debt" ? Tr.T("В долг", "Карызга", "On credit", "Veresiye", "Qarzga") + " · " + partial : partial;
+        }
+
         return entry.Status switch
         {
             "debt" => Tr.T("В долг", "Карызга", "On credit", "Veresiye", "Qarzga"),
-            "partially_returned" => Tr.T("Частичный возврат", "Жарым-жартылай кайтарылды", "Partially returned", "Kısmi iade", "Qisman qaytarilgan"),
             "" or "paid" or "completed" or "closed" or "checked_out" => Tr.T("Оплачен", "Төлөндү", "Paid", "Ödendi", "To'langan"),
             // Незнакомый статус показываем как есть, а не выдаём за «оплачен».
             var other => other,

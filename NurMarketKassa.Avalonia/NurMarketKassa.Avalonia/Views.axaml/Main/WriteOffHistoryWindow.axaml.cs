@@ -46,7 +46,7 @@ public partial class WriteOffHistoryWindow : Window
             {
                 ProductName = row.ProductName,
                 Quantity = row.Quantity,
-                QuantityText = row.Quantity.ToString("0.###", CultureInfo.InvariantCulture),
+                QuantityText = NurMarketKassa.Services.MoneyText.Weight(row.Quantity, "0.###"), // 2026-11-13 (Д-5): запятая (общий формат), было с точкой
                 UnitCost = cost,
                 UnitCostText = cost > 0 ? cost.ToString("N2", CultureInfo.GetCultureInfo("ru-RU")) : "—",
                 Total = cost * row.Quantity,
@@ -83,12 +83,12 @@ public partial class WriteOffHistoryWindow : Window
             CultureInfo.InvariantCulture,
             Tr.T("Записей: {0} · Списано единиц: {1}", "Жазуулар: {0} · Эсептен чыгарылган бирдик: {1}", "Entries: {0} · Units written off: {1}", "Kayıt: {0} · Zayi edilen birim: {1}", "Yozuvlar: {0} · Hisobdan chiqarilgan birliklar: {1}"),
             filtered.Count,
-            totalQty.ToString("0.###", CultureInfo.InvariantCulture));
+            NurMarketKassa.Services.MoneyText.Weight(totalQty, "0.###")); // 2026-11-13 (Д-5): запятая (общий формат), было с точкой
 
         var ru = CultureInfo.GetCultureInfo("ru-RU");
         var totalCost = filtered.Sum(r => r.Total);
         TotalText.Text = Tr.T("Итого списано", "Жалпы эсептен чыгарылганы", "Total written off", "Toplam zayi edilen", "Jami hisobdan chiqarilgan")
-            + $": {totalQty.ToString("0.###", CultureInfo.InvariantCulture)} "
+            + $": {NurMarketKassa.Services.MoneyText.Weight(totalQty, "0.###")} "
             + Tr.T("ед.", "бирд.", "units", "birim", "birlik")
             + " · " + totalCost.ToString("N2", ru) + " " + Tr.T("сом", "сом", "som", "som", "so'm");
         ReasonsText.Text = string.Join("   ·   ", filtered

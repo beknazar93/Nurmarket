@@ -52,6 +52,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
             var sales = new SalesWindow(); // как NavigateToSale_Click; в DI — тот же AddTransient без зависимостей
             var parts = sales.DetachForFinance();
             _mergedSales = sales;
+            // 2026-11-13 (Н-4): «Повторить» в блоке «сервер недоступен» на вкладке «Чеки» — перечитать «Финансы» целиком.
+            sales.HostRetry = () => Refresh_Click(this, new Avalonia.Interactivity.RoutedEventArgs());
             // 2026-11-12 (владелец: «Возврат чеков добавь и программу владельца»): после возврата из «Чеков» — свежий список, плитки и «Возвраты» этого окна.
             sales.HostReload = () => LoadDataAsync(_historyFrom, _historyTo, forceRefresh: true);
 

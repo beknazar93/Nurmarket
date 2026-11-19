@@ -210,6 +210,13 @@ public partial class CloseShiftDialog : Window
                 "Check the difference and close the shift",
                 "Farkı kontrol edip vardiyayı kapatın",
                 "Farqni tekshirib, smenani yoping");
+        // 2026-11-19 (ТЗ Умара по eKassa, п. 2): налоговая не принимает чеки при смене старше 24 часов — напоминание, когда фискализирует сервер.
+        if (NurMarketKassa.Services.Fiscal.FiscalSettings.ServerFiscalizes)
+            Shell.Hint += " · " + Tr.T("Закрывайте смену каждый день (налоговая не принимает чеки при смене старше 24 часов)",
+                "Сменаны күн сайын жабыңыз (24 сааттан эски сменада салык чектерди кабыл албайт)",
+                "Close the shift every day (the tax service rejects receipts when the shift is older than 24 hours)",
+                "Vardiyayı her gün kapatın (24 saatten eski vardiyada vergi dairesi fişleri kabul etmez)",
+                "Smenani har kuni yoping (24 soatdan eski smenada soliq cheklarni qabul qilmaydi)");
     }
 
     /// <summary>Обновление разбивки из фона (см. Totals) — параллельно UpdateSystemBalance.</summary>
@@ -352,6 +359,13 @@ public partial class CloseShiftDialog : Window
                         "+" + MoneyText.Som(debtNonCash),
                         Tr.T("в ящик не входит", "кутуга кирбейт", "not in the drawer", "çekmeceye girmez", "tortmaga kirmaydi")));
 
+                // 2026-11-14 (ответ Умара 13.11 вечер, П0-3): возвраты, ушедшие в уменьшение долга клиента — отдельной строкой; в «в ящике должно быть» не входят.
+                if (_report is { ReturnsDebtOffset: > 0m } debtOffset)
+                    rows.Add(new ShiftOpRow(Tr.T("Возвраты в счёт долга", "Карызга эсептелген кайтаруулар", "Returns offset against debt", "Borca mahsup edilen iadeler", "Qarzga hisoblangan qaytarishlar"),
+                        MoneyText.Som(debtOffset.ReturnsDebtOffset!.Value),
+                        (debtOffset.ReturnsDebtOffsetCount is > 0 ? $"{debtOffset.ReturnsDebtOffsetCount} " + Tr.T("шт. · ", "даана · ", "pcs · ", "adet · ", "dona · ") : "")
+                        + Tr.T("в ящик не входит", "кутуга кирбейт", "not in the drawer", "çekmeceye girmez", "tortmaga kirmaydi")));
+
                 // 2026-10-22 (статьи изъятия): под суммой — разбивка по статьям («Аренда 5 000 · Инкассация 20 000»).
                 static string ByArticle(IReadOnlyList<(string Title, decimal Amount, bool IsCollection)> parts) =>
                     parts.Count == 0 || parts.Count == 1 && parts[0].Title == Tr.T("без статьи", "беренесиз", "no category", "kalemsiz", "moddasiz")
@@ -451,7 +465,7 @@ public partial class CloseShiftDialog : Window
 
     private void SetClosingCashProgrammatically(decimal value)
     {
-        _programmaticClosingCash = value.ToString("0.00", CultureInfo.InvariantCulture);
+        _programmaticClosingCash = NurMarketKassa.Services.MoneyText.Weight(value, "0.00"); // 2026-11-13 (Д-5): запятая (общий формат), было с точкой
         ClosingCashBox.Text = _programmaticClosingCash;
     }
 
@@ -511,7 +525,7 @@ public partial class CloseShiftDialog : Window
     {
         if (SuggestedBalance is not { } expected || _blindCount)
             return;
-        ClosingCashBox.Text = expected.ToString("0.00", CultureInfo.InvariantCulture);
+        ClosingCashBox.Text = NurMarketKassa.Services.MoneyText.Weight(expected, "0.00"); // 2026-11-13 (Д-5): запятая (общий формат), было с точкой
         ClosingCashBox.Focus();
         ClosingCashBox.CaretIndex = ClosingCashBox.Text.Length;
     }

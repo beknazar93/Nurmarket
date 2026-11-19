@@ -30,6 +30,10 @@ public partial class ScaleSettingsView : UserControl
     public ScaleSettingsView()
     {
         InitializeComponent();
+        // 2026-11-19 (живой обход «Настройки → Весы»): окно настроек прячет «Сохранить» страницы (её заменяет закреплённая внизу окна) —
+        // карточка SaveBlock оставалась пустой полосой под содержимым. Видна, только если в ней есть кнопка или надпись.
+        SaveButton.PropertyChanged += (_, e) => { if (e.Property == IsVisibleProperty) UpdateSaveBlockVisibility(); };
+        SaveStatusText.PropertyChanged += (_, e) => { if (e.Property == TextBlock.TextProperty) UpdateSaveBlockVisibility(); };
         // Правила по префиксам стоят в двух местах (кратко — у этикеточных весов, полностью — в
         // разделе «Штрих-код»): поменяли в одном — перерисовываем другое.
         BarcodePanel.RulesChanged += () => LabelRulesPanel.Refresh();
@@ -88,6 +92,10 @@ public partial class ScaleSettingsView : UserControl
     /// куплена (см. TariffGate.CanUseScales) — вызывается и при повторном открытии окна настроек на
     /// случай, если кассир только что купил её в Маркетплейсе (тот же приём, что и
     /// RefreshPaidFeatureVisibility в WarehouseWindow).</summary>
+    /// <summary>2026-11-19: SaveBlock — не у владельца и только когда в нём что-то видно (кнопка или надпись «Сохранено…»).</summary>
+    private void UpdateSaveBlockVisibility() =>
+        SaveBlock.IsVisible = !OwnerSectionMode && (SaveButton.IsVisible || !string.IsNullOrEmpty(SaveStatusText.Text));
+
     public void RefreshPluCardVisibility()
     {
         var allowed = TariffGate.CanUseScales && LabelScalesHere;
@@ -97,7 +105,7 @@ public partial class ScaleSettingsView : UserControl
         TabDisplayButton.IsVisible = !OwnerSectionMode;
         TabBarcodeButton.IsVisible = BarcodeRulesHere;
         HeaderCard.IsVisible = !OwnerSectionMode;
-        SaveBlock.IsVisible = !OwnerSectionMode; // 2026-11-12: у владельца сохранять нечего — у вкладок свои кнопки («Настроить…», запись правил)
+        UpdateSaveBlockVisibility(); // 2026-11-12: у владельца сохранять нечего — у вкладок свои кнопки («Настроить…», запись правил)
         ArrangeSectionTabs();
         // Первый заход: весы у кассы не включены, а этикеточные доступны — открываем их (там же
         // «вес или сумма в штрихкоде»); иначе — весы на кассе.
@@ -185,7 +193,7 @@ public partial class ScaleSettingsView : UserControl
             VerticalAlignment = VerticalAlignment.Top,
             Child = new TextBlock
             {
-                Text = profile.Brand switch { "rongta" => "R", "tm" => "TM", "ai" => "AI", "shtrikhpc" => "РС", _ => "Ш" },
+                Text = profile.Brand switch { "rongta" => "R", "tm" => "TM", "ai" => "AI", "shtrikhpc" => "РС", "massak" => "МК", "cas" => "CAS", _ => "Ш" },
                 FontWeight = FontWeight.Bold,
                 Foreground = Brush("BrushText", Brushes.Black),
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -345,6 +353,8 @@ public partial class ScaleSettingsView : UserControl
     {
         if (p.Brand == ScaleUi.BrandAi)
             return L("файл для программы весов", "тараза программасы үчүн файл", "file for the scale's software", "tartı programı için dosya", "tarozi dasturi uchun fayl");
+        if (p.Brand == ScaleUi.BrandCas && !NurMarketKassa.Services.Hardware.CasScaleSettings.Current.IsNetwork)
+            return NurMarketKassa.Services.Hardware.CasScaleSettings.ModelTitle(NurMarketKassa.Services.Hardware.CasScaleSettings.Current.Model) + " · " + L("файл для CL-Works", "CL-Works үчүн файл", "file for CL-Works", "CL-Works için dosya", "CL-Works uchun fayl"); // 2026-11-13
         if (p.Brand == ScaleUi.BrandShtrikhPc)
             return (string.IsNullOrWhiteSpace(p.Ip)
                        ? L("папка обмена не задана", "алмашуу папкасы коюлган эмес", "exchange folder not set", "alışveriş klasörü ayarlanmamış", "almashuv papkasi belgilanmagan")
@@ -360,7 +370,8 @@ public partial class ScaleSettingsView : UserControl
             "rongta" => p.RongtaSource == "server"
                 ? L("свой сервер кассы", "кассанын өз сервери", "till's own server", "kasanın kendi sunucusu", "kassaning o‘z serveri")
                 : L("через сайт и RLS1000", "сайт жана RLS1000 аркылуу", "via the website and RLS1000", "site ve RLS1000 üzerinden", "sayt va RLS1000 orqali"),
-            "tm" => L("напрямую по сети", "тармак аркылуу түз", "directly over the network", "doğrudan ağ üzerinden", "to‘g‘ridan-to‘g‘ri tarmoq orqali"),
+            "cas" => L("напрямую по сети (не проверено на весах)", "тармак аркылуу түз (таразада текшерилген эмес)", "directly over the network (not verified on a scale)", "doğrudan ağ üzerinden (tartıda doğrulanmadı)", "to‘g‘ridan-to‘g‘ri tarmoq orqali (tarozida tekshirilmagan)"), // 2026-11-13
+            "tm" or "massak" => L("напрямую по сети", "тармак аркылуу түз", "directly over the network", "doğrudan ağ üzerinden", "to‘g‘ridan-to‘g‘ri tarmoq orqali"), // 2026-11-13: и Масса-К
             _ => p.ShtrikhDirect
                 ? L("напрямую по сети", "тармак аркылуу түз", "directly over the network", "doğrudan ağ üzerinden", "to‘g‘ridan-to‘g‘ri tarmoq orqali")
                 : L("через сервер NurCRM", "NurCRM сервери аркылуу", "via the NurCRM server", "NurCRM sunucusu üzerinden", "NurCRM serveri orqali"),

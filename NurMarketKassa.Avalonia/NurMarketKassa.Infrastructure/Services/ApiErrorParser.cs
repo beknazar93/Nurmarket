@@ -5,6 +5,26 @@ namespace NurMarketKassa.Services;
 
 internal static class ApiErrorParser
 {
+    /// <summary>Понятный текст по коду ошибки сервера; null — кода нет в словаре (остаётся текст сервера).</summary>
+    internal static string? Friendly(string? code) => (code ?? "").Trim() switch
+    {
+        "shift_not_owned" => Tr.T("Это смена другого кассира — откройте свою смену.", "Бул башка кассирдин сменасы — өз сменаңызды ачыңыз.", "This is another cashier's shift — open your own shift.", "Bu başka bir kasiyerin vardiyası — kendi vardiyanızı açın.", "Bu boshqa kassirning smenasi — o'z smenangizni oching."),
+        "product_has_history" => Tr.T("Товар нельзя удалить — по нему есть документы. Отправьте его в архив.", "Товарды өчүрүүгө болбойт — ал боюнча документтер бар. Архивге салыңыз.", "The product cannot be deleted — it has documents. Archive it instead.", "Ürün silinemez — belgeleri var. Arşive alın.", "Tovarni o'chirib bo'lmaydi — unda hujjatlar bor. Arxivga o'tkazing."),
+        "offline_too_old" => Tr.T("Продажа старше 7 суток — её проводит владелец с PIN-кодом.", "Сатуу 7 суткадан эски — аны ээси PIN-код менен өткөрөт.", "The sale is older than 7 days — the owner posts it with a PIN.", "Satış 7 günden eski — sahibi PIN ile işler.", "Sotuv 7 sutkadan eski — uni egasi PIN bilan o'tkazadi."),
+        // 2026-11-19 (сверка): тексты fiscal_locked и fiscal_mode_server — в одном месте, FiscalErrors (путь запроса различает чек и возврат там же); эти две строки оставлены для ответов не 409.
+        "fiscal_locked" => Fiscal.FiscalErrors.LockedReturnText,
+        "fiscal_pending" => Tr.T("Подождите — возврат ещё отправляется в налоговую.", "Күтө туруңуз — кайтаруу салыкка жөнөтүлүп жатат.", "Please wait — the return is still being sent to the tax service.", "Bekleyin — iade vergi dairesine gönderiliyor.", "Kuting — qaytarish soliqqa yuborilmoqda."),
+        "fiscal_mode_server" => Fiscal.FiscalErrors.ModeServerText,
+        "method_not_allowed" => Tr.T("Этот способ оплаты не разрешён — выберите другой.", "Бул төлөм ыкмасына уруксат жок — башкасын тандаңыз.", "This payment method is not allowed — choose another.", "Bu ödeme yöntemine izin yok — başkasını seçin.", "Bu to'lov usuliga ruxsat yo'q — boshqasini tanlang."),
+        "edit_window_expired" => Tr.T("Время правки документа вышло.", "Документти оңдоо убактысы бүттү.", "The editing time for this document has expired.", "Belgeyi düzenleme süresi doldu.", "Hujjatni tahrirlash vaqti tugadi."),
+        "has_returns" => Tr.T("По документу уже был возврат — правка и удаление невозможны.", "Документ боюнча кайтаруу болгон — оңдоого жана өчүрүүгө болбойт.", "The document already has a return — it cannot be edited or deleted.", "Belgede iade var — düzenlenemez ve silinemez.", "Hujjat bo'yicha qaytarish bo'lgan — tahrirlash va o'chirib bo'lmaydi."),
+        "debt_already_paid" => Tr.T("Долг по документу уже оплачен — менять нельзя.", "Документ боюнча карыз төлөнгөн — өзгөртүүгө болбойт.", "The debt for this document is already paid — it cannot be changed.", "Belgenin borcu ödenmiş — değiştirilemez.", "Hujjat bo'yicha qarz to'langan — o'zgartirib bo'lmaydi."),
+        "period_closed" => Tr.T("Период закрыт — изменить документ нельзя.", "Мезгил жабык — документти өзгөртүүгө болбойт.", "The period is closed — the document cannot be changed.", "Dönem kapalı — belge değiştirilemez.", "Davr yopiq — hujjatni o'zgartirib bo'lmaydi."),
+        "permission_denied" => Tr.T("Нет прав на это действие — обратитесь к владельцу.", "Бул аракетке укук жок — ээсине кайрылыңыз.", "You do not have permission for this action — ask the owner.", "Bu işlem için yetkiniz yok — sahibine başvurun.", "Bu amalga ruxsat yo'q — egasiga murojaat qiling."),
+        "has_sales_after" => Tr.T("После этого прихода уже были продажи — остаток уйдёт в минус, удалить нельзя.", "Бул кирүүдөн кийин сатуулар болгон — калдык минуска кетет, өчүрүүгө болбойт.", "There were sales after this delivery — the stock would go negative, so it cannot be deleted.", "Bu girişten sonra satış yapılmış — stok eksiye düşer, silinemez.", "Bu kirimdan keyin sotuvlar bo'lgan — qoldiq minusga ketadi, o'chirib bo'lmaydi."),
+        _ => null,
+    };
+
     public static string Parse(HttpResponseMessage response, string? bodyText)
     {
         if (string.IsNullOrWhiteSpace(bodyText))
@@ -27,6 +47,10 @@ internal static class ApiErrorParser
 
             if (root.ValueKind != JsonValueKind.Object)
                 return root.ToString();
+
+            // 2026-11-19 (план «удобство 10 из 10», Л-11): коды ошибок сервера — человеческим языком и что делать (5 языков).
+            if (root.TryGetProperty("code", out var codeEl) && codeEl.ValueKind == JsonValueKind.String && Friendly(codeEl.GetString()) is { } friendly)
+                return friendly;
 
             if (root.TryGetProperty("detail", out var detail))
             {

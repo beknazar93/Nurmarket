@@ -944,7 +944,7 @@ internal static class DebtPaymentRunner
                     "The client was not found on the server — the payment was not made. Refresh the list.", "Müşteri sunucuda bulunamadı — ödeme yapılmadı. Listeyi yenileyin.",
                     "Mijoz serverda topilmadi — to'lov o'tmadi. Ro'yxatni yangilang.");
         return T("Сервер не принял оплату: ", "Сервер төлөмдү кабыл алган жок: ", "The server didn't accept the payment: ",
-            "Sunucu ödemeyi kabul etmedi: ", "Server to'lovni qabul qilmadi: ") + ex.Message;
+            "Sunucu ödemeyi kabul etmedi: ", "Server to'lovni qabul qilmadi: ") + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex);
     }
 
     /// <summary>2026-10-18, десятый круг (п.2, деньги): сколько сервер помнит ключ идемпотентности — по ТЗ бэкенда п.1.5 не меньше
@@ -1194,7 +1194,7 @@ internal static class DebtPaymentRunner
         "Кайталоо болгон жок — бөгөт калат, ачкыч ошол эле. Себеби: ",
         "The retry failed — the lock stays, same key. Reason: ",
         "Tekrar başarısız — kilit duruyor, anahtar aynı. Neden: ",
-        "Qayta urinish muvaffaqiyatsiz — blok qoladi, kalit o'sha. Sababi: ") + ex.Message;
+        "Qayta urinish muvaffaqiyatsiz — blok qoladi, kalit o'sha. Sababi: ") + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex);
 
     public static string NotSentText => T(
         "Сервер NurCRM недоступен — оплата не проведена. Повторите, когда связь появится.", // 2026-11-01 (В-08): единая фраза о сбое сервера

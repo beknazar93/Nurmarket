@@ -43,7 +43,7 @@ internal sealed class DebtAppliedAmountDialog : Window
             FontSize = 13.5, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 0),
         };
         label.Bind(TextBlock.ForegroundProperty, label.GetResourceObservable("BrushText"));
-        _amount = new TextBox { Text = p.Amount.ToString("0.##", CultureInfo.InvariantCulture), FontSize = 20, FontWeight = FontWeight.Bold, Height = 48, MaxLength = 14 };
+        _amount = new TextBox { Text = NurMarketKassa.Services.MoneyText.Weight(p.Amount, "0.##"), FontSize = 20, FontWeight = FontWeight.Bold, Height = 48, MaxLength = 14 }; // 2026-11-13 (Д-5): запятая (общий формат), было с точкой
         _amount.TextChanged += (_, _) => Validate();
         _error.Bind(TextBlock.ForegroundProperty, _error.GetResourceObservable("BrushDanger"));
 

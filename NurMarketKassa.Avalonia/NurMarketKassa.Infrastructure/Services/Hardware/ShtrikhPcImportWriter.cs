@@ -272,6 +272,10 @@ public static class ShtrikhPcImportWriter
         // Ресурсы (картинки) — до товаров, которые на них ссылаются.
         foreach (var line in resourceLines)
             sb.Append(line).Append("\r\n");
+        // 2026-11-19 (ТЗ «Весы РС-200 — форматы этикеток 58×40», п. 1): база форматов — строки <L до строк <D, иначе весы не знают «Формат 58x40/58x30»
+        // и печатают формат по умолчанию. При полной выгрузке (после $$$CLR) заново пишем и стандартные форматы 1–12, файлы которых лежат в Labels.
+        foreach (var fmtLine in FormatLines(settings))
+            sb.Append(fmtLine).Append("\r\n");
         foreach (var line in lines)
             sb.Append(line).Append("\r\n");
         // Кнопки быстрого доступа (главный экран весов): кнопка N = параметр 2000 + N, значение — код товара, 0 — пустая кнопка. Лишние кнопки очищаются,
@@ -293,6 +297,38 @@ public static class ShtrikhPcImportWriter
     // ------------------------------------------------------------------ пути и папка
 
     /// <summary>Путь внутри общей папки: пути файлов в настройках весов заданы относительно неё (руководство, п. 7.4).</summary>
+    /// <summary>Строки базы форматов этикеток: &lt;L код;название;(поля 3–21 пустые);путь к проекту (поле 22). Структура — руководство РС-200, п. 6.2.3.</summary>
+    public static List<string> FormatLines(ShtrikhPcSettings settings)
+    {
+        var prefix = settings.LineStyle switch { ShtrikhPcSettings.LineGlued => "<L", ShtrikhPcSettings.LineSemicolon => "<L;", _ => "<L " };
+        string Line(int code, string name, string file, string field3 = "")
+        {
+            var f = new string[41];
+            Array.Fill(f, "");
+            f[0] = code.ToString(CultureInfo.InvariantCulture);
+            f[1] = name;
+            f[2] = field3;
+            f[21] = "Labels\\" + file;
+            return prefix + string.Join(";", f);
+        }
+        var list = new List<string>();
+        if (settings.ClearBase)
+        {
+            var std = new (int Code, string Name, string File, string F3)[]
+            {
+                (1, "Формат 60x30", "60x30.lpr", ""), (2, "Формат 60x40", "60x40.lpr", ""), (3, "Формат 60x50", "60x50.lpr", ""), (4, "Формат 60x60", "60x60.lpr", ""),
+                (5, "Формат 60x30 РОСТЕСТ", "60x30img.lpr", ""), (6, "Формат 60x40 РОСТЕСТ", "60x40img.lpr", ""), (7, "Формат 60x50 РОСТЕСТ", "60x50img.lpr", ""), (8, "Формат 60x60 РОСТЕСТ", "60x60img.lpr", ""),
+                (9, "Формат 60x30 итоговая", "60x30ttl.lpr", "1"), (10, "Формат 60x40 итоговая", "60x40ttl.lpr", "1"), (11, "Формат 60x50 итоговая", "60x50ttl.lpr", "1"), (12, "Формат 60x60 итоговая", "60x60ttl.lpr", "1"),
+            };
+            foreach (var (code, name, file, f3) in std)
+                if (File.Exists(ResolvePath(settings.Folder, "Labels\\" + file)))
+                    list.Add(Line(code, name, file, f3));
+        }
+        list.Add(Line(ShtrikhPcSettings.LabelFormat58x40, "Формат 58x40", "58x40.lpr"));
+        list.Add(Line(ShtrikhPcSettings.LabelFormat58x30, "Формат 58x30", "58x30.lpr"));
+        return list;
+    }
+
     public static string ResolvePath(string folder, string relative)
     {
         var sub = (relative ?? "").Trim().Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);

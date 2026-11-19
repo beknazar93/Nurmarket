@@ -92,6 +92,7 @@ public partial class ShtrikhScaleSettingsWindow : Window
     {
         InitializeComponent();
         BuildHeader();
+        BuildQuickTab(); // 2026-11-13 (Н-3): первая вкладка — три шага простыми словами
         BuildKeyboardTab();
         BuildStatusTab();
         BuildSystemTab();
@@ -124,29 +125,86 @@ public partial class ShtrikhScaleSettingsWindow : Window
     // Общие строительные блоки
     // =====================================================================================
 
+    private TextBox _ipBox = null!;
+    private ScaleQuickView _quick = null!;
+    /// <summary>2026-11-13 (Н-3): «Проверить связь и состояние» — подробная проверка (опознание, гудок, состояние) во вкладке «Для мастера».</summary>
+    private Button CheckButton = null!;
+
     private void BuildHeader()
     {
-        var prefs = UserPreferences.Instance;
-        ConnectionText.Text = L("Весы: ", "Тараза: ", "Scale: ", "Tartı: ", "Tarozi: ")
-            + $"{prefs.ScaleNetworkIp}:{prefs.ScaleLanPort.ToString(CultureInfo.InvariantCulture)}"
-            + L(" · адрес, порт и пароль — в Настройки → Весы", " · дарек, порт жана сырсөз — Жөндөөлөр → Таразада",
-                " · address, port and password are in Settings → Scales", " · adres, port ve şifre: Ayarlar → Tartı",
-                " · manzil, port va parol — Sozlamalar → Tarozi");
-        CheckButton.Content = L("Проверить связь", "Байланышты текшерүү", "Check connection", "Bağlantıyı kontrol et", "Aloqani tekshirish");
-        IntroText.Text = L(
-            "Здесь те же настройки, что в программе Штрих-М «Тест драйвера весов». Сначала «Прочитать с весов», поменяйте нужное и нажмите «Записать в весы» — отправятся только изменённые значения.",
-            "Бул жерде Штрих-М «Таразалар драйверинин тести» программасындагы жөндөөлөр. Адегенде «Таразадан окуу», керектүүсүн өзгөртүп «Таразага жазуу» басыңыз — өзгөргөн маанилер гана жөнөтүлөт.",
-            "These are the same settings as in the Shtrih-M “scale driver test” program. First “Read from scale”, change what you need and press “Write to scale” — only changed values are sent.",
-            "Bunlar Shtrih-M “tartı sürücüsü testi” programındaki ayarlardır. Önce “Tartıdan oku”, gerekeni değiştirin ve “Tartıya yaz”a basın — yalnızca değişen değerler gönderilir.",
-            "Bu yerda Shtrih-M «tarozi drayveri testi» dasturidagi sozlamalar. Avval «Tarozidan o‘qish», keraklisini o‘zgartiring va «Taroziga yozish»ni bosing — faqat o‘zgargan qiymatlar yuboriladi.");
+        UpdateConnectionText();
+        CheckButton = MakeButton(L("Проверить связь и состояние", "Байланышты жана абалды текшерүү", "Check connection and status", "Bağlantıyı ve durumu kontrol et", "Aloqa va holatni tekshirish"), false, Check_Click);
 
-        KeyboardTab.Header = L("Клавиатура", "Клавиатура", "Keyboard", "Klavye", "Klaviatura");
-        StatusTab.Header = L("Состояние", "Абалы", "Status", "Durum", "Holat");
-        SystemTab.Header = L("Система", "Система", "System", "Sistem", "Tizim");
-        GoodsTab.Header = L("Товары", "Товарлар", "Goods", "Ürünler", "Tovarlar");
-        PrintTab.Header = L("Печать и этикетка", "Басып чыгаруу жана этикетка", "Printing & label", "Baskı ve etiket", "Chop etish va yorliq");
+        // 2026-11-13 (Н-3): вкладки — «Быстрая настройка» / «Этикетка и печать» / «Штрих-код» / «Клавиши» / «Для мастера».
+        QuickTab.Header = ScaleUi.QuickTabTitle;
+        PrintTab.Header = L("Этикетка и печать", "Этикетка жана басып чыгаруу", "Label & printing", "Etiket ve baskı", "Yorliq va chop etish");
         BarcodeTab.Header = L("Штрих-код", "Штрих-код", "Barcode", "Barkod", "Shtrix-kod");
-        TextsTab.Header = L("Тексты", "Тексттер", "Texts", "Metinler", "Matnlar");
+        KeyboardTab.Header = L("Клавиши", "Баскычтар", "Keys", "Tuşlar", "Tugmalar");
+        MasterTab.Header = ScaleUi.MasterTabTitle;
+        Tabs.SelectionChanged += (_, e) => { if (ReferenceEquals(e.Source, Tabs)) UpdateIntro(); };
+        UpdateIntro();
+    }
+
+    /// <summary>2026-11-13 (Н-3): в шапке только адрес весов — порт и пароль (Настройки → Весы) продавцу на первом экране не нужны.</summary>
+    private void UpdateConnectionText()
+    {
+        var ip = ScaleIpText().Trim();
+        ConnectionText.Text = L("Весы: ", "Тараза: ", "Scale: ", "Tartı: ", "Tarozi: ") + (ip.Length > 0 ? ip : "—");
+    }
+
+    /// <summary>2026-11-13 (Д-7, Н-3): вступление — одна-две строки: на «Быстрой настройке» — про три шага, на остальных вкладках —
+    /// как читать и записывать параметры весов.</summary>
+    private void UpdateIntro()
+    {
+        ConnectionText.IsVisible = Tabs.SelectedIndex > 0; // адрес на первой вкладке виден в шаге 1 — строка шапки не нужна (место на 1024×600)
+        IntroText.Text = Tabs.SelectedIndex <= 0
+            ? L("Весы Штрих-ПРИНТ: касса сама отправляет товары на весы. Пройдите три шага ниже.",
+                "Штрих-ПРИНТ таразасы: касса товарларды таразага өзү жөнөтөт. Төмөнкү үч кадамды аткарыңыз.",
+                "Shtrih-PRINT scale: the till sends goods to the scale itself. Follow the three steps below.",
+                "Shtrih-PRINT tartı: kasa ürünleri tartıya kendisi gönderir. Aşağıdaki üç adımı izleyin.",
+                "Shtrix-PRINT tarozisi: kassa tovarlarni taroziga o‘zi yuboradi. Quyidagi uch qadamni bajaring.")
+            : L("Сначала «Прочитать с весов», поменяйте нужное и нажмите «Записать в весы» — отправятся только изменённые значения.",
+                "Адегенде «Таразадан окуу», керектүүсүн өзгөртүп «Таразага жазуу» басыңыз — өзгөртүлгөн маанилер гана жөнөтүлөт.",
+                "First “Read from scale”, change what you need and press “Write to scale” — only changed values are sent.",
+                "Önce “Tartıdan oku”, gerekeni değiştirin ve “Tartıya yaz”a basın — yalnızca değişen değerler gönderilir.",
+                "Avval «Tarozidan o‘qish», keraklisini o‘zgartiring va «Taroziga yozish»ni bosing — faqat o‘zgargan qiymatlar yuboriladi.");
+    }
+
+    /// <summary>2026-11-13 (Н-3): «Быстрая настройка» — общий блок ScaleUi.QuickSetup: адрес весов (тот же, что в Настройки → Весы),
+    /// «Проверить связь» (общая проверка по марке: опознание и гудок, без пароля), «Отправить товары…» и «Проверить этикетку».</summary>
+    private void BuildQuickTab()
+    {
+        _ipBox = new TextBox { Text = ScaleIpText(), Watermark = "192.168.1.50", MinWidth = 220 };
+        _ipBox.LostFocus += (_, _) => SaveIp();
+        _quick = ScaleUi.QuickSetup(this, new ScaleQuickOptions
+        {
+            Brand = ScaleUi.BrandShtrikh,
+            WhereLabel = L("Адрес весов (IP)", "Таразанын дареги (IP)", "Scale address (IP)", "Tartı adresi (IP)", "Tarozi manzili (IP)"),
+            WhereBox = _ipBox,
+            Save = SaveIp,
+            Find = async () =>
+            {
+                if (await ScaleUi.OpenScanAsync(this, ScaleUi.BrandShtrikh).ConfigureAwait(true))
+                {
+                    _ipBox.Text = ScaleIpText();
+                    UpdateConnectionText();
+                    _quick.RefreshFromLastCheck();
+                }
+            },
+            SendGoods = () => ScaleUi.OpenScalesWindow(this, ScaleUi.BrandShtrikh),
+            CheckLabel = () => Tabs.SelectedItem = BarcodeTab,
+            ShowResult = ShowResult,
+        });
+        QuickHost.Content = _quick.Root;
+    }
+
+    /// <summary>Адрес из поля шага 1 — в те же настройки, что Настройки → Весы (ScaleNetworkIp); файл пишется, только если адрес изменился.</summary>
+    private void SaveIp()
+    {
+        var ip = (_ipBox.Text ?? "").Trim();
+        if (!string.Equals(ip, ScaleIpText().Trim(), StringComparison.Ordinal))
+            ScaleUi.ApplyIpToBrand(ScaleUi.BrandShtrikh, ip);
+        UpdateConnectionText();
     }
 
     private static Border Card(string title, string? hint, out StackPanel body)
@@ -164,7 +222,8 @@ public partial class ShtrikhScaleSettingsWindow : Window
     // в весы») — по одной на карточке; «Записать клавишу», «Заблокировать», «Обновить», «Синхронизировать», «Показать» — обводкой.
     private static Button MakeButton(string text, bool primary, EventHandler<RoutedEventArgs> onClick)
     {
-        var button = new Button { Content = text, Classes = { primary ? "btn-primary" : "btn-ok" } };
+        // 2026-11-13 (Д-7): общие кнопки программы — nur-primary / nur-secondary (PosDialogStyles).
+        var button = new Button { Content = text, Classes = { primary ? "nur-primary" : "nur-secondary" } };
         button.Click += onClick;
         return button;
     }
@@ -354,8 +413,9 @@ public partial class ShtrikhScaleSettingsWindow : Window
             // 2026-10-31 (стресс-тест 1.17.68): пустой IP показывал «Не задан IP-адрес весов. (Parameter 'host')» с .NET-хвостом, только по-русски.
             PosLogger.Log($"Настройки весов Штрих-ПРИНТ: {ex.Message}", "SCALES");
             ShowResult(string.IsNullOrWhiteSpace(ScaleIpText())
-                ? L("Не задан IP-адрес весов. Укажите его в Настройки → Весы.", "Таразанын IP-дареги көрсөтүлгөн эмес. Аны Жөндөөлөр → Таразадан жазыңыз.", "The scale IP address is not set. Enter it in Settings → Scales.",
-                    "Tartının IP adresi girilmemiş. Ayarlar → Tartı'dan girin.", "Tarozining IP-manzili ko'rsatilmagan. Uni Sozlamalar → Tarozida kiriting.")
+                // 2026-11-13 (Н-3): адрес вписывается прямо здесь — шаг 1 «Быстрой настройки».
+                ? L("Адрес весов ещё не задан. Впишите его на вкладке «Быстрая настройка» (шаг 1).", "Таразанын дареги али коюлган эмес. Аны «Тез жөндөө» өтмөгүнө жазыңыз (1-кадам).", "The scale address is not set yet. Enter it on the “Quick setup” tab (step 1).",
+                    "Tartı adresi henüz girilmemiş. «Hızlı kurulum» sekmesinde girin (1. adım).", "Tarozi manzili hali kiritilmagan. Uni «Tez sozlash» bo‘limida kiriting (1-qadam).")
                 : L("Это не похоже на IP-адрес весов. Проверьте его в Настройки → Весы.", "Бул таразанын IP-дарегине окшобойт. Аны Жөндөөлөр → Таразадан текшериңиз.", "This does not look like a scale IP address. Check it in Settings → Scales.",
                     "Bu bir tartı IP adresine benzemiyor. Ayarlar → Tartı'dan kontrol edin.", "Bu tarozi IP-manziliga o'xshamaydi. Uni Sozlamalar → Tarozida tekshiring."), true);
         }
@@ -723,7 +783,7 @@ public partial class ShtrikhScaleSettingsWindow : Window
     }
 
     private string FormatPrice(long mde) =>
-        DecimalDigits >= 2 ? (mde / 100m).ToString("0.00", CultureInfo.CurrentCulture) : mde.ToString(CultureInfo.CurrentCulture);
+        DecimalDigits >= 2 ? MoneyText.Weight(mde / 100m, "0.00") : mde.ToString(CultureInfo.CurrentCulture); // 2026-11-13 (Д-5/Д-7): запятая — общий форматтер MoneyText
 
     private bool TryGetHotkeyValue(out long value, out string error)
     {
@@ -914,6 +974,7 @@ public partial class ShtrikhScaleSettingsWindow : Window
         _statusText = new TextBlock { Classes = { "label" }, FontFamily = new FontFamily("Consolas, Segoe UI"), FontSize = 13 };
         body.Children.Add(_statusText);
         body.Children.Add(ButtonRow(
+            CheckButton,
             MakeButton(L("Обновить", "Жаңыртуу", "Refresh", "Yenile", "Yangilash"), false, async (_, _) => await RunAsync(async scale =>
             {
                 await LoadStatusAsync(scale).ConfigureAwait(false);
@@ -922,7 +983,7 @@ public partial class ShtrikhScaleSettingsWindow : Window
             MakeButton(L("Узнать вес", "Салмакты билүү", "Get weight", "Ağırlığı al", "Vaznni bilish"), false, async (_, _) => await RunAsync(async scale =>
             {
                 var grams = await scale.GetWeightGramsAsync().ConfigureAwait(false);
-                return L("Вес: ", "Салмак: ", "Weight: ", "Ağırlık: ", "Vazn: ") + (grams / 1000m).ToString("0.000", CultureInfo.CurrentCulture) + L(" кг", " кг", " kg", " kg", " kg");
+                return L("Вес: ", "Салмак: ", "Weight: ", "Ağırlık: ", "Vazn: ") + MoneyText.Weight(grams / 1000m, "0.000") + L(" кг", " кг", " kg", " kg", " kg");
             }).ConfigureAwait(true)),
             MakeButton(L("Состояние принтера", "Принтердин абалы", "Printer status", "Yazıcı durumu", "Printer holati"), false, async (_, _) => await RunAsync(async scale =>
             {
@@ -1344,8 +1405,8 @@ public partial class ShtrikhScaleSettingsWindow : Window
             var what = product?.Title ?? (_sampleName.Length > 0 ? _sampleName : L("товар с кодом ", "коду бар товар ", "item with code ", "kodlu ürün ", "kodli tovar ") + parsed.ProductCode.TrimStart('0'));
             _sampleVerdict.Text = "✓ " + L("Касса прочитает: ", "Касса окуйт: ", "The till reads: ", "Kasa okur: ", "Kassa o‘qiydi: ") + what + " · "
                 + (parsed.Kind == NurMarketKassa.Core.Domain.WeightBarcodeValueKind.Weight
-                    ? parsed.Value.ToString("0.000", CultureInfo.CurrentCulture) + L(" кг", " кг", " kg", " kg", " kg")
-                    : parsed.Value.ToString("0.00", CultureInfo.CurrentCulture) + L(" сом", " сом", " som", " som", " so‘m"))
+                    ? MoneyText.Weight(parsed.Value, "0.000") + L(" кг", " кг", " kg", " kg", " kg")
+                    : MoneyText.Amount(parsed.Value) + L(" сом", " сом", " som", " som", " so‘m"))
                 + (product is null ? L(" (товара с таким кодом в каталоге кассы нет)", " (мындай коддуу товар кассанын каталогунда жок)", " (no item with this code in the till catalog)", " (kasa kataloğunda bu kodla ürün yok)", " (kassa katalogida bunday kodli tovar yo‘q)") : "");
             _sampleVerdict.Foreground = ThemeBrush("BrushSuccess", Brushes.Green);
         }

@@ -103,7 +103,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                                     if (string.IsNullOrWhiteSpace(name))
                                         name = Tr.T("Товар без названия", "Аталышы жок товар", "Unnamed item", "Adsız ürün", "Nomsiz mahsulot");
                                     decimal qty = line.TryGetProperty("quantity", out var q) ? ParseDecimal(q) : 0;
-                                    summary.Add(qty == 1m ? name : $"{name} ×{qty.ToString("0.###", CultureInfo.InvariantCulture)}");
+                                    summary.Add(qty == 1m ? name : $"{name} ×{NurMarketKassa.Services.MoneyText.Weight(qty, "0.###")}");
                                 }
                             }
 
@@ -136,6 +136,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
         private void UpdateCollections(List<SaleItem> sales, List<RefundItem> refunds)
         {
+            StateBlock.ShowOver(SalesGrid, null); // 2026-11-13 (Н-4): пришёл новый список — блок «сервер недоступен» убираем
             // 2026-09-29, стресс-тест: одной перерисовкой таблицы, а не на каждую строку (O(N²),
             // см. ListCollectionView.DeferRefresh и FinanceWindow.UpdateCollections).
             using (SalesView.DeferRefresh())
@@ -427,7 +428,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     {
                         foreach (var line in items.EnumerateArray())
                         {
-                            string name = line.TryGetProperty("product_name", out var n) ? n.GetString() ?? "?" : "?";
+                            // 2026-11-19: название строки — тем же общим разбором, что в первой загрузке (Д-14); раньше здесь читался только product_name и перетирал названия на «?»
+                            string name = CartDisplayHelper.ItemName(line);
+                            if (string.IsNullOrWhiteSpace(name))
+                                name = Tr.T("Товар без названия", "Аталышы жок товар", "Unnamed item", "Adsız ürün", "Nomsiz mahsulot");
                             decimal qty = line.TryGetProperty("quantity", out var q) ? ParseDecimal(q) : 0;
                             // "price"/"total" aren't real fields on a sale line — CartDisplayHelper
                             // (used successfully during checkout) reads the price from "unit_price".
@@ -446,7 +450,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                                 cost += (decimal)product.PurchasePrice * qty;
 
                             lines.Add((name, total, (int)qty));
-                            summary.Add(qty == 1m ? name : $"{name} ×{qty.ToString("0.###", CultureInfo.InvariantCulture)}");
+                            summary.Add(qty == 1m ? name : $"{name} ×{NurMarketKassa.Services.MoneyText.Weight(qty, "0.###")}"); // 2026-11-19: запятая, как в первой загрузке (Д-5)
                         }
                     }
 
@@ -643,6 +647,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 PopupReceiptHost.Content = SaleReceiptCardView.Build(card);
                 EnsurePopupActionBar();
                 ShowPopupReturnActions(receiptId, receiptNumber, json); // 2026-11-12: «Возврат» и «Правка возвратов» — только в программе владельца
+                ShowPopupFiscal(json); // 2026-11-14 (П0-1): «Фискальный чек (ККМ)» — только при включённой фискализации
 
                 PopupTitle.Text = Tr.T("Чек ", "Чек ", "Receipt ", "Fiş ", "Chek ") + receiptNumber;
                 _currentReceiptJson = json;
@@ -944,21 +949,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
         private static string Som => Tr.T("сом", "сом", "som", "som", "so'm");
 
         /// <summary>Читаемая подпись способа оплаты на языке интерфейса — сервер отдаёт технические ключи (cash/transfer/…).</summary>
-        private static string NormalizePaymentMethodLabel(string method)
-        {
-            var key = (method ?? "").Trim().ToLowerInvariant();
-            return key switch
-            {
-                "" => Tr.T("Не указано", "Көрсөтүлгөн эмес", "Not specified", "Belirtilmemiş", "Ko'rsatilmagan"),
-                "cash" => Tr.T("Наличные", "Накталай", "Cash", "Nakit", "Naqd"),
-                "transfer" or "card" => Tr.T("Перевод", "Которуу", "Transfer", "Nakitsiz", "Naqdsiz"),
-                "mbank" => "MBank",
-                "mixed" => Tr.T("Смешанный", "Аралаш", "Mixed", "Karışık", "Aralash"),
-                "debt" => Tr.T("Долг", "Карыз", "Debt", "Borç", "Qarz"),
-                _ when key.Contains("нал") => Tr.T("Наличные", "Накталай", "Cash", "Nakit", "Naqd"),
-                _ => char.ToUpperInvariant(method![0]) + method[1..],
-            };
-        }
+        // 2026-11-13 (Д-5): одна таблица названий с «Финансами» — раньше здесь «transfer» назывался «Перевод» (в «Финансах», «Сводке»
+        // и окне оплаты — «Безналичные»), а «offset» выводился по-английски.
+        private static string NormalizePaymentMethodLabel(string method) => FinanceWindow.NormalizePaymentMethodLabel(method);
 
         public class RefundItem
         {

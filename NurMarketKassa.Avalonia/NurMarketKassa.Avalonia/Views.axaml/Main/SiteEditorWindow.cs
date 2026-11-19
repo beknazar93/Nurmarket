@@ -382,9 +382,10 @@ public sealed partial class SiteEditorWindow : Window, IOwnerSection, IOwnerSect
         }
         catch (ApiException ex) when (ex.StatusCode is 403 or 404)
         {
+            NurMarketKassa.Services.PosLogger.Log($"SiteEditorWindow: сбой, показанный пользователю: {ex}", "WARNING"); // 2026-11-13 (Н-4): сырой текст — в журнал, на экран — понятный
             // Услуга «Онлайн витрина» не подключена (или сервер старый) — показываем нынешний вид только для просмотра.
             _locked = true;
-            var reason = ex.Payload is { } p && p.ValueKind == JsonValueKind.Object && p.TryGetProperty("detail", out var d) ? d.GetString() : ex.Message;
+            var reason = ex.Payload is { } p && p.ValueKind == JsonValueKind.Object && p.TryGetProperty("detail", out var d) ? d.GetString() : NurMarketKassa.Services.ServerOutageMonitor.UserText(ex);
             _bannerText.Text = T("Сохранять изменения пока нельзя — сервер NurCRM ответил: «", "Өзгөртүүлөрдү азырынча сактоого болбойт — NurCRM сервери жооп берди: «",
                                  "Changes can't be saved yet — the NurCRM server replied: “", "Değişiklikler henüz kaydedilemiyor — NurCRM sunucusu yanıt verdi: «",
                                  "O'zgarishlarni hozircha saqlab bo'lmaydi — NurCRM serveri javob berdi: «")

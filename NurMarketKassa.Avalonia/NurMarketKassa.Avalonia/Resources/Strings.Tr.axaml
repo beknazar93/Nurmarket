@@ -120,6 +120,13 @@
   <x:String x:Key="mainWindow.checkCustomerDisplayTooltip">Müşteri ekranını kontrol et</x:String>
   <x:String x:Key="mainWindow.onScreenKeyboardTooltip">Ekran klavyesi</x:String>
   <x:String x:Key="mainWindow.hotkeysTooltip">Kısayol tuşları</x:String>
+  <!-- 2026-11-13 (Н-1, Н-2): шпаргалка клавиш, подсказка пустого чека, мастер первого запуска и учебная продажа -->
+  <x:String x:Key="mainWindow.hotkeysCheatSheet">Kasa tuşları (?)</x:String>
+  <x:String x:Key="csh.cart.scanTitle">Ürünü okutun</x:String>
+  <x:String x:Key="csh.cart.scanHint">Tarayıcı ekranın her yerinden çalışır.&#x0a;Ya da arama alanına kod / ad yazın.</x:String>
+  <x:String x:Key="csh.cart.keysLink">Tuşlar: ?</x:String>
+  <x:String x:Key="csh.menu.firstRunWizard">İlk başlangıç sihirbazı</x:String>
+  <x:String x:Key="csh.menu.trainingSale">Eğitim satışı</x:String>
   <x:String x:Key="hotkeyGroup.title">Kısayol</x:String>
   <x:String x:Key="header.labelCustomerDisplay">Ekran</x:String>
   <x:String x:Key="header.labelTheme">Tema</x:String>
@@ -866,7 +873,7 @@
   <x:String x:Key="posSettings.monitor.sampleCoffee">Taze kahve</x:String>
   <x:String x:Key="posSettings.monitor.sampleMilk">Süt 1 L</x:String>
   <x:String x:Key="posSettings.monitor.qtyShort">Adet</x:String>
-  <x:String x:Key="posSettings.monitor.samplePayable">Ödenecek: 400.00 som</x:String>
+  <x:String x:Key="posSettings.monitor.samplePayable">Ödenecek: 400,00 som</x:String>
   <x:String x:Key="posSettings.monitor.screenContentTitle">Ekran içeriği</x:String>
   <x:String x:Key="posSettings.monitor.companyLogo">Şirket logosu</x:String>
   <x:String x:Key="posSettings.monitor.itemCount">Ürün sayısı</x:String>
@@ -1352,9 +1359,9 @@
     <x:String x:Key="loc.owner.zeroMoney">0,00 som</x:String>
     <x:String x:Key="loc.settings.monitor.samplePositions">2 kalem</x:String>
     <x:String x:Key="loc.settings.monitor.sampleQty2">×2 adet</x:String>
-    <x:String x:Key="loc.settings.monitor.sampleSum320">320.00 som</x:String>
+    <x:String x:Key="loc.settings.monitor.sampleSum320">320,00 som</x:String>
     <x:String x:Key="loc.settings.monitor.sampleQty1">×1 adet</x:String>
-    <x:String x:Key="loc.settings.monitor.sampleSum95">95.00 som</x:String>
+    <x:String x:Key="loc.settings.monitor.sampleSum95">95,00 som</x:String>
     <x:String x:Key="loc.settings.telegram.title">İşletme sahibinin Telegram botu</x:String>
     <x:String x:Key="loc.settings.telegram.desc">Kapanan vardiyanın özeti size Telegram'dan gelir: ciro, fişler, ortalama fiş, nakit ve nakitsiz ödemeler, para girişleri ve çıkışları, kasa açığı veya fazlası. Mağazadan çalışır — sabit IP'ye de kendi sunucunuza da gerek yoktur.</x:String>
     <x:String x:Key="loc.settings.telegram.wizardButton">Botu bağla (adım adım)</x:String>
@@ -1496,6 +1503,7 @@
   <x:String x:Key="scalesPlu.change">Değiştir…</x:String>
   <x:String x:Key="scalesPlu.colStatus">Sonuç</x:String>
   <x:String x:Key="scalesPlu.saveFile">Dosyayı kaydet…</x:String>
+  <x:String x:Key="scalesPlu.preflight">Göndermeden önce kontrol</x:String>
   <x:String x:Key="scaleSetup.list.title">Mağazadaki tartılar</x:String>
   <x:String x:Key="scaleSetup.list.desc">Her tartının kendi markası, adresi ve ürün kategorileri vardır. «Ayarla…» o tartının penceresi, «Ürünleri gönder» onun ürünlerini ona gönderir.</x:String>
   <x:String x:Key="scaleSetup.list.add">+ Tartı ekle</x:String>

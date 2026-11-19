@@ -78,4 +78,22 @@
       </Transitions>
     </Setter>
   </Style>
+  <!-- 2026-11-13 (Д-1, согласие владельца 13.11): выделенная строка таблицы — цвет темы, везде одинаково. Было: синяя подсветка Fluent
+       с белым текстом (история покупок клиента и др.), а в окнах — три своих варианта (BrushPanelPressed, BrushSurfaceSubtle, BrushAccentSoft).
+       Выбранная — мягкий акцент темы (BrushAccentSoft, как выделение текста в полях), наведение — мягкий фон панели; текст — обычный цвет темы.
+       Окно со своими цветами строк (приёмка: «ниже закупки») описывает их у себя — местный стиль главнее. -->
+  <Style Selector="DataGridRow:pointerover /template/ Rectangle#BackgroundRectangle">
+    <Setter Property="Fill" Value="{DynamicResource BrushPanelSoft}"/>
+    <Setter Property="Opacity" Value="1"/>
+  </Style>
+  <Style Selector="DataGridRow:selected /template/ Rectangle#BackgroundRectangle">
+    <Setter Property="Fill" Value="{DynamicResource BrushAccentSoft}"/>
+    <Setter Property="Opacity" Value="1"/>
+  </Style>
+  <Style Selector="DataGridRow:selected, DataGridRow:pointerover">
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+  </Style>
+  <Style Selector="DataGridRow:selected DataGridCell, DataGridRow:pointerover DataGridCell">
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+  </Style>
 </Styles>

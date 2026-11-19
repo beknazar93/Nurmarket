@@ -350,6 +350,26 @@ public sealed class SideMenuViewModel : ViewModelBase
         NavigateTradeInAction?.Invoke();
     });
 
+    /// <summary>2026-11-13 (Н-1, «Первый час»): «Мастер первого запуска» и «Учебная продажа» в группе «Помощь»; окна открывает главное окно кассы.</summary>
+    public Action? NavigateFirstRunWizardAction { get; set; }
+
+    public Action? NavigateTrainingSaleAction { get; set; }
+
+    private ICommand? _navigateFirstRunWizardCommand;
+    private ICommand? _navigateTrainingSaleCommand;
+
+    public ICommand NavigateFirstRunWizardCommand => _navigateFirstRunWizardCommand ??= new RelayCommand(() =>
+    {
+        CloseMenuCommand.Execute(null);
+        NavigateFirstRunWizardAction?.Invoke();
+    });
+
+    public ICommand NavigateTrainingSaleCommand => _navigateTrainingSaleCommand ??= new RelayCommand(() =>
+    {
+        CloseMenuCommand.Execute(null);
+        NavigateTrainingSaleAction?.Invoke();
+    });
+
     public bool ShowRepair => NavigateRepairAction != null
                               && NurMarketKassa.Services.UserPreferences.Instance.RepairUnlocked
                               && !NurMarketKassa.Services.SectionVisibility.IsHidden("kassa.repair");
@@ -367,6 +387,9 @@ public sealed class SideMenuViewModel : ViewModelBase
         OnPropertyChanged(nameof(ShowRental));
         OnPropertyChanged(nameof(ShowRepair));  // 2026-11-13
         OnPropertyChanged(nameof(ShowTradeIn)); // 2026-11-13
+        // 2026-11-13 (живая проверка доступов, ошибка 1): «Настройки» и «Удалено из чека» (CanViewSettings — вычисляемое свойство) не обновлялись на лету, пока право не менялось
+        // перезаходом. Все вычисляемые права меню уведомляются при каждом пересчёте (остальные — сохраняемые, ниже).
+        OnPropertyChanged(nameof(CanViewSettings));
         // 2026-09-26, разделение программ: склад, продажи, финансы, зарплата, ABC, клиенты, CRM и
         // пополнение — в программе владельца. В кассе они остаются только в автономном режиме
         // (см. AppMode.OwnerSectionsInKassa).
@@ -384,7 +407,10 @@ public sealed class SideMenuViewModel : ViewModelBase
         CanViewSalary = (_permissions?.HasPermission(PosPermissions.ViewSettings) ?? true) && NurMarketKassa.Services.TariffGate.CanUseSalary && owner;
         CanViewSales = (_permissions?.HasPermission(PosPermissions.ViewSales) ?? true) && NurMarketKassa.Services.TariffGate.CanUseSalesAnalytics && owner;
         CanViewClients = (_permissions?.HasPermission(PosPermissions.ViewClients) ?? true) && NurMarketKassa.Services.TariffGate.CanViewClients && owner;
-        CanViewPayDebt = (_permissions?.HasPermission(PosPermissions.ViewSales) ?? true) && NurMarketKassa.Services.TariffGate.CanUseDebts;
+        // 2026-11-13 (живая проверка доступов, замечание 7): «Оплата долга» — как «Клиенты и долги» на сайте: скрыта, когда выключены и «Клиенты», и «Долги».
+        CanViewPayDebt = (_permissions?.HasPermission(PosPermissions.ViewSales) ?? true)
+                         && ((_permissions?.HasPermission(PosPermissions.ViewClients) ?? true) || (_permissions?.HasPermission(PosPermissions.ViewDebts) ?? true))
+                         && NurMarketKassa.Services.TariffGate.CanUseDebts;
         CanViewCrm = NurMarketKassa.Services.TariffGate.CanUseService && owner;
         // 2026-10-27, аудит С-17: «Логи и ошибки» — только с правом «Настройки» (владелец/админ).
         CanViewErrorLogs = NurMarketKassa.Services.TariffGate.CanUseService && (_permissions?.HasPermission(PosPermissions.ViewSettings) ?? true);

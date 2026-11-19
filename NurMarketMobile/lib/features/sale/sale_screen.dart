@@ -61,6 +61,7 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
 
   /// 13.10, владелец: «в чеке отдельное таб-окно» — «Товары» и «Чек» отдельными вкладками.
   bool _showCheck = false;
+  bool _wide = false; // 2026-11-13: ширина >= 840 dp — раскладка «товары | чек» (ставит build)
 
   @override
   void dispose() {
@@ -281,7 +282,7 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
 
   /// Дошли почти до конца плиток — окно растёт на страницу.
   void _onScrollMore() {
-    if (_showCheck || !_hasMore || _moreBusy || !_scroll.hasClients) return;
+    if ((_showCheck && !_wide) || !_hasMore || _moreBusy || !_scroll.hasClients) return; // 2026-11-13: на планшете чек всегда рядом, прокрутка плиток идёт всегда
     if (_scroll.position.extentAfter < 900) {
       _moreBusy = true;
       _limit += _page;
@@ -426,25 +427,11 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
       if (!ln.custom) inCart[ln.productId] = (inCart[ln.productId] ?? 0) + ln.qty;
     }
     final textScale = MediaQuery.textScalerOf(context).scale(10) / 10;
-    return Column(
-      children: [
-        ScreenTitle(l.newCheck, back: false),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          child: SegmentedButton<bool>(
-            showSelectedIcon: false,
-            segments: [
-              ButtonSegment(value: false, icon: const Icon(Icons.grid_view_rounded, size: 18), label: Text(l.productsTitle)),
-              ButtonSegment(value: true, icon: const Icon(Icons.receipt_long_rounded, size: 18), label: Text(l.checkTab(cart.count))),
-            ],
-            selected: {_showCheck},
-            onSelectionChanged: (v) {
-              _hideNotice();
-              setState(() => _showCheck = v.first);
-            },
-          ),
-        ),
-        if (!_showCheck) ...[
+    // 2026-11-13 (аудит UX мобилки, п. 2): планшет и телефон в ландшафте — товары слева, чек справа (раньше вкладки «Товары / Чек» и на 10 дюймах)
+    final wide = MediaQuery.sizeOf(context).width >= 840;
+    _wide = wide;
+    final showCheck = !wide && _showCheck;
+    final productsHeader = <Widget>[
           const LinkBanner(catalog: true, margin: EdgeInsets.fromLTRB(16, 0, 16, 8)), // 2026-10-29 (аудит, п. 5): «Остатки на ЧЧ:ММ»
           // 2026-11-05 (аудит №4, М6-22): смена закрыта — кнопка прямо здесь, а не «Главная → Открыть смену → Продажа» (4 лишних касания)
           if (!ref.watch(shiftProvider).isOpen && !ref.watch(shiftProvider).loading) _shiftClosedBar(context),
@@ -541,12 +528,8 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
               ],
             ),
           ),
-        ],
-        Expanded(
-          child: CustomScrollView(
-            controller: _scroll,
-            slivers: [
-              if (!_showCheck)
+    ];
+    final productSlivers = <Widget>[
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
                   sliver: _products.isEmpty
@@ -587,7 +570,8 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
                           }),
                         ),
                 ),
-              if (_showCheck) ...[
+    ];
+    final checkSlivers = <Widget>[
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
@@ -667,20 +651,62 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
                           Icon(Icons.shopping_cart_outlined, size: 52, color: p.textSoft),
                           const SizedBox(height: 12),
                           Text(l.cartEmptyHint, textAlign: TextAlign.center, style: TextStyle(color: p.textSoft, height: 1.35)),
-                          const SizedBox(height: 16),
-                          OutlinedButton(
-                            style: OutlinedButton.styleFrom(minimumSize: const Size(160, 48)),
-                            onPressed: () => setState(() => _showCheck = false),
-                            child: Text(l.toProductsBtn),
-                          ),
+                          // 2026-11-13 (аудит UX мобилки, п. 2): на планшете товары рядом — кнопка «К товарам» не нужна
+                          if (!wide) ...[
+                            const SizedBox(height: 16),
+                            OutlinedButton(
+                              style: OutlinedButton.styleFrom(minimumSize: const Size(160, 48)),
+                              onPressed: () => setState(() => _showCheck = false),
+                              child: Text(l.toProductsBtn),
+                            ),
+                          ],
                         ],
                       ),
                     ),
                   ),
-              ],
+    ];
+    return Column(
+      children: [
+        ScreenTitle(l.newCheck, back: false),
+        if (!wide)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: SegmentedButton<bool>(
+            showSelectedIcon: false,
+            segments: [
+              ButtonSegment(value: false, icon: const Icon(Icons.grid_view_rounded, size: 18), label: Text(l.productsTitle)),
+              ButtonSegment(value: true, icon: const Icon(Icons.receipt_long_rounded, size: 18), label: Text(l.checkTab(cart.count))),
             ],
+            selected: {_showCheck},
+            onSelectionChanged: (v) {
+              _hideNotice();
+              setState(() => _showCheck = v.first);
+            },
           ),
         ),
+        if (wide)
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  flex: 5,
+                  child: Column(
+                    children: [
+                      ...productsHeader,
+                      Expanded(child: CustomScrollView(controller: _scroll, slivers: productSlivers)),
+                    ],
+                  ),
+                ),
+                VerticalDivider(width: 1, color: p.border),
+                Expanded(flex: 4, child: CustomScrollView(slivers: checkSlivers)),
+              ],
+            ),
+          )
+        else ...[
+          if (!showCheck) ...productsHeader,
+          Expanded(child: CustomScrollView(controller: _scroll, slivers: showCheck ? checkSlivers : productSlivers)),
+        ],
         Container(
           key: _payBarKey,
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),

@@ -154,7 +154,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         HoldReceiptCommand = DeferCartCommand;
         DeleteReceiptCommand = new AsyncRelayCommand(DeleteActiveReceiptAsync, CanDeleteActiveReceiptCore);
         ClearCartCommand = new AsyncRelayCommand(ClearCartAsync, () => HasItems && !IsBusy);
-        NewReceiptCommand = new RelayCommand(CreateNewReceipt);
+        NewReceiptCommand = new RelayCommand(() => { if (!BlockedInTraining()) CreateNewReceipt(); }); // 2026-11-13 (Н-1): в учебном режиме чек один
         SelectReceiptTabCommand = new RelayCommand<ReceiptTabVm>(SelectReceiptTab, tab => tab != null && !tab.IsActive);
         RemoveLineCommand = new AsyncRelayCommand<CartLineItemVm>(RemoveLineAsync, line => line != null && !string.IsNullOrEmpty(line.ItemId));
         IncreaseQuantityCommand = new RelayCommand<CartLineItemVm>(IncreaseQuantity, CanChangeLineQuantity);
@@ -175,7 +175,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         DecreaseManualQuantityCommand = new RelayCommand(DecreaseManualQuantity);
         ToggleMoreActionsCommand = new RelayCommand(() => IsMoreActionsVisible = !IsMoreActionsVisible);
         OpenDeferredCartsCommand = new AsyncRelayCommand(OpenDeferredCartsAsync, () => !IsBusy);
-        OpenPayDebtCommand = new RelayCommand(() => _openPayDebt?.Invoke());
+        OpenPayDebtCommand = new RelayCommand(() => { if (!BlockedInTraining()) _openPayDebt?.Invoke(); }); // 2026-11-13 (Н-1)
         ApplyOrderDiscountCommand = new AsyncRelayCommand(ApplyOrderDiscountAsync, () => HasItems && !IsBusy);
         AddCustomItemCommand = new AsyncRelayCommand(AddCustomItemAsync);
         // 2026-11-06 (аудит №5, Л5-09): быстрые товары идут тем же путём, что скан и каталог (_addProductFromCatalog окна): открытая смена, проверка просрочки
@@ -197,6 +197,8 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         _languageChanged = () => _dispatcher.InvokeAsync(() =>
         {
             OnPropertyChanged(nameof(PayButtonText));
+            OnPropertyChanged(nameof(QuickProductsTitle)); // 2026-11-13 (Н-2)
+            OnPropertyChanged(nameof(PendingQuantityText));
             OnPropertyChanged(nameof(SubtotalDisplay));
             OnPropertyChanged(nameof(DiscountDisplay));
             OnPropertyChanged(nameof(TotalDisplay));
@@ -274,6 +276,49 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
 
     public bool HasQuickProducts => UserPreferences.Instance.ShowQuickProducts && QuickProducts.Count > 0;
 
+    private bool _quickProductsAreFrequent;
+
+    /// <summary>2026-11-13 (Н-2): заголовок блока в пустом чеке — «Быстрые товары» (отмечены ★) или «Частые товары» (избранного нет — по продажам этой кассы).</summary>
+    public string QuickProductsTitle => _quickProductsAreFrequent
+        ? Tr.T("Частые товары", "Көп сатылган товарлар", "Frequent products", "Sık satılan ürünler", "Ko'p sotiladigan mahsulotlar")
+        : Tr.T("Быстрые товары", "Ыкчам товарлар", "Quick products", "Hızlı ürünler", "Tezkor mahsulotlar");
+
+    private static DateTime _frequentAtUtc;
+    private static List<string> _frequentIds = new();
+
+    /// <summary>До 8 товаров, которые чаще всего были в чеках этой кассы за 14 дней (по числу строк продаж, а не по количеству: килограммы не перевешивают штуки).
+    /// Список товаров пересчитывается не чаще раза в 10 минут; сами плитки (цена, остаток) берутся из текущего каталога.</summary>
+    private static IReadOnlyList<CatalogProductTileVm> LoadFrequentTiles()
+    {
+        try
+        {
+            if (DateTime.UtcNow - _frequentAtUtc > TimeSpan.FromMinutes(10))
+            {
+                _frequentIds = SoldLineItemsStore.LoadSince(DateTime.UtcNow.AddDays(-14))
+                    .Where(l => !string.IsNullOrWhiteSpace(l.ProductId))
+                    .GroupBy(l => l.ProductId, StringComparer.OrdinalIgnoreCase)
+                    .OrderByDescending(g => g.Count())
+                    .Take(24)
+                    .Select(g => g.Key)
+                    .ToList();
+                _frequentAtUtc = DateTime.UtcNow;
+            }
+            if (_frequentIds.Count == 0)
+                return Array.Empty<CatalogProductTileVm>();
+            var wanted = new HashSet<string>(_frequentIds, StringComparer.OrdinalIgnoreCase);
+            var byId = new Dictionary<string, CatalogProductTileVm>(StringComparer.OrdinalIgnoreCase);
+            foreach (var tile in CatalogCacheService.Products.ToArray())
+                if (tile?.Id is { Length: > 0 } id && wanted.Contains(id))
+                    byId[id] = tile;
+            return _frequentIds.Where(byId.ContainsKey).Select(id => byId[id]).Take(8).ToList();
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Частые товары не посчитаны: {ex.Message}", "WARNING");
+            return Array.Empty<CatalogProductTileVm>();
+        }
+    }
+
     public ICommand AddQuickProductCommand { get; private set; } = null!;
 
     /// <summary>Перечитывает избранное из каталога. Вызывается при старте и когда каталог
@@ -283,12 +328,18 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         try
         {
             var favourites = LocalProductRepository.Instance.LoadFavoriteTiles();
+            // 2026-11-13 (Н-2): избранного (★) нет — в пустом чеке лежат товары, которые эта касса продавала чаще всего за две недели.
+            var frequent = favourites.Count == 0;
+            if (frequent)
+                favourites = LoadFrequentTiles();
 
             QuickProducts.Clear();
             foreach (var product in favourites)
                 QuickProducts.Add(product);
 
+            _quickProductsAreFrequent = frequent && favourites.Count > 0;
             OnPropertyChanged(nameof(HasQuickProducts));
+            OnPropertyChanged(nameof(QuickProductsTitle));
 
         }
         catch (Exception ex)
@@ -311,7 +362,27 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
     public string ManualQuantity
     {
         get => _manualQuantity;
-        set => SetProperty(ref _manualQuantity, value ?? "1");
+        set
+        {
+            if (!SetProperty(ref _manualQuantity, value ?? "1"))
+                return;
+            // 2026-11-13 (Н-2): метка «× 3 — следующий товар» под чеком (нижнего поля количества в виде «Классика» больше нет).
+            OnPropertyChanged(nameof(HasPendingQuantity));
+            OnPropertyChanged(nameof(PendingQuantityText));
+        }
+    }
+
+    /// <summary>2026-11-13 (Н-2): набрано количество для следующего товара («3*» или поле «Количество») — не 1.</summary>
+    public bool HasPendingQuantity => !string.IsNullOrWhiteSpace(_manualQuantity) && _manualQuantity.Trim() != "1";
+
+    public string PendingQuantityText => Tr.T($"× {_manualQuantity} — следующий товар", $"× {_manualQuantity} — кийинки товар", $"× {_manualQuantity} — next item",
+        $"× {_manualQuantity} — sonraki ürün", $"× {_manualQuantity} — keyingi mahsulot");
+
+    /// <summary>2026-11-13 (Н-2): Esc — сбросить набранное «N*» (количество снова 1).</summary>
+    public void ResetPendingQuantity()
+    {
+        if (HasPendingQuantity)
+            ManualQuantity = "1";
     }
 
     public string ActiveReceiptTitle
@@ -889,7 +960,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
             {
                 var productId = CartDisplayHelper.TryProductId(it);
                 var itemId = CartDisplayHelper.TryItemId(it);
-                if (string.IsNullOrEmpty(productId) || string.IsNullOrEmpty(itemId) || CartDisplayHelper.IsCustomLine(it) || ProductSaleUnits.LineKey(it) is not null)
+                if (string.IsNullOrEmpty(productId) || string.IsNullOrEmpty(itemId) || !ReceiptSnapshotCartEditor.IsPriceLevelEligible(it)) // 2026-11-14: и упаковки/варианты — не в quote
                     continue;
                 if (it.TryGetProperty(ReceiptSnapshotCartEditor.PriceLevelField, out var mark) && mark.ValueKind == JsonValueKind.String && mark.GetString() == level)
                     continue;
@@ -1315,6 +1386,13 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
     /// строка не добавляется (на сервере продажа не пройдёт). Опт — по режиму «Оптовый» чека, если у упаковки есть оптовая цена.</summary>
     private async Task AddScannedSaleUnitAsync(CatalogProductTileVm product, ProductSaleUnits.Unit unit)
     {
+        // 2026-11-14 (ответ Умара 13.11 вечер): сервер знает упаковку только по id — без id не продаём, говорим понятно.
+        if (!unit.HasServerId)
+        {
+            await RunOnUiThreadAsync(() => _prompts.ShowWarning(SaleUnitNotSavedException.Text)).ConfigureAwait(false);
+            return;
+        }
+
         var qty = ParseQuantity(ManualQuantity, false);
         if (qty > MaxLineQuantity)
         {
@@ -1351,6 +1429,11 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
     {
         if (product is null || unit is null || quantity <= 0)
             return;
+        if (!unit.HasServerId) // 2026-11-14: упаковка без id ещё не сохранена на сервере
+        {
+            _prompts.ShowWarning(SaleUnitNotSavedException.Text);
+            return;
+        }
 
         try
         {
@@ -1755,6 +1838,27 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
 
     private async Task AddByBarcodeAsync(string barcode)
     {
+        // 2026-11-13 (Н-2, одно поле ввода): «3*код», «1,5*код» — количество перед кодом; «3*» отдельно — количество для следующего скана.
+        // Количество кладётся в то же поле «Количество», из которого его берёт обычное добавление (правила дробных единиц и остатка — те же).
+        string? prefixQuantityText = null;
+        if (ScanQuantityPrefix.TryParse(barcode, out var prefixQuantity, out var prefixRest))
+        {
+            var text = ScanQuantityPrefix.QuantityText(prefixQuantity);
+            if (prefixRest.Length == 0)
+            {
+                await RunOnUiThreadAsync(() =>
+                {
+                    ManualQuantity = text;
+                    CartMessage = Tr.T($"Количество {text} — отсканируйте товар (Esc — отмена).", $"Саны {text} — товарды сканерлеңиз (Esc — жокко чыгаруу).",
+                        $"Quantity {text} — scan the product (Esc to cancel).", $"Miktar {text} — ürünü okutun (Esc — iptal).", $"Miqdor {text} — mahsulotni skanerlang (Esc — bekor qilish).");
+                }).ConfigureAwait(false);
+                return;
+            }
+            prefixQuantityText = text;
+            barcode = prefixRest;
+            await RunOnUiThreadAsync(() => ManualQuantity = text).ConfigureAwait(false);
+        }
+        var quantityBeforeScan = ManualQuantity;
         await RunOnUiThreadAsync(() => IsBusy = true).ConfigureAwait(false);
         try
         {
@@ -1923,7 +2027,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
             if (!await ScanMessages.ConfirmUnknownCodeAsync(_prompts, barcode).ConfigureAwait(true))
                 return;
 
-            if (_onBarcodeNotFound != null)
+            if (_onBarcodeNotFound != null && !TrainingMode.IsActive) // 2026-11-13 (Н-1): в учебном режиме новый товар не заводим — только сообщение ниже
             {
                 // Неизвестный штрих-код (2026-09-07): вместо голого предупреждения — предложить
                 // добавить товар на склад (карточка с подставленным кодом) или пропустить.
@@ -1942,6 +2046,21 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         }
         finally
         {
+            // 2026-11-13 (Н-2): количество из «N*» не было использовано (весовая этикетка — вес в самом коде; товар не найден) — не оставляем его следующему товару.
+            if (quantityBeforeScan != "1" && ManualQuantity == quantityBeforeScan && (prefixQuantityText is not null || ScanQuantityPrefix.LooksLikeScaleLabel(barcode)))
+            {
+                var scaleLabel = ScanQuantityPrefix.LooksLikeScaleLabel(barcode);
+                await RunOnUiThreadAsync(() =>
+                {
+                    ManualQuantity = "1";
+                    if (scaleLabel)
+                        CartMessage = Tr.T("Весовая этикетка: вес взят из штрихкода, количество перед «*» не применено.",
+                            "Салмак этикеткасы: салмак штрихкоддон алынды, «*» алдындагы сан колдонулган жок.",
+                            "Scale label: the weight comes from the barcode, the quantity before “*” was not applied.",
+                            "Terazi etiketi: ağırlık barkoddan alındı, «*» önündeki miktar uygulanmadı.",
+                            "Tarozi yorlig'i: vazn shtrix-koddan olindi, «*» oldidagi miqdor qo'llanmadi.");
+                }).ConfigureAwait(false);
+            }
             await RunOnUiThreadAsync(() => IsBusy = false).ConfigureAwait(false);
         }
     }
@@ -2097,7 +2216,8 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         if (_permissions is not null && !_permissions.HasPermission(PosPermissions.Sale))
         {
             PosLogger.Log($"Permission denied: {PosPermissions.Sale}", "WARNING");
-            _prompts.ShowWarning(NurMarketKassa.Services.PermissionService.CashierWorkDeniedMessage(PosPermissions.Sale));
+            // 2026-11-13 (живая проверка доступов, ошибка 3): при can_use_pos=false называем «Работа на кассе», а не включённую «Продажу».
+            _prompts.ShowWarning(NurMarketKassa.Services.PermissionService.DeniedMessage(_permissions, PosPermissions.Sale));
             return;
         }
 
@@ -2264,6 +2384,92 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         return changes;
     }
 
+    /// <summary>2026-11-13 (Н-1): учебная продажа. Окно оплаты настоящее (чтобы новичок увидел его таким, каким оно будет), но после «Оплатить» чек просто очищается.
+    /// НЕ вызывается: сверка цен с сервером, проверка/открытие смены, проверка склада, служба оплаты (сервер и офлайн-очередь), печать, денежный ящик, история продаж,
+    /// журнал убытка, баллы, обновление остатков каталога, событие PaymentCommitted. Клиенты (долг) в окне не подключены — способ «в долг» без клиента не проходит.</summary>
+    /// <summary>2026-11-13 (Н-1): действия с настоящими данными (отложенные чеки, новый чек, оплата долга) в учебном режиме не выполняются — строка под чеком объясняет почему.</summary>
+    private bool BlockedInTraining()
+    {
+        if (!TrainingMode.IsActive)
+            return false;
+        _dispatcher.Post(() => CartMessage = TrainingMode.BlockedText);
+        return true;
+    }
+
+    /// <summary>2026-11-13 (Н-1): в учебный режим можно войти только с одним пустым чеком — настоящие товары в чеке учебная оплата стёрла бы.</summary>
+    public bool CanEnterTraining => _sessions.Count <= 1 && Lines.Count == 0 && !IsBusy;
+
+    /// <summary>2026-11-13 (Н-1): выход из учебного режима — учебные товары из чека убираются (без журнала удалений).</summary>
+    public void ClearTrainingReceipt()
+    {
+        try
+        {
+            if (Lines.Count == 0)
+                return;
+            _cart.ResetForNewReceipt();
+            _orderDiscountPercent = "";
+            _orderDiscountSum = "";
+            SyncLinesAndTotals();
+            CartMessage = "";
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Учебный режим: чек не очищен при выходе: {ex.Message}", "TRAINING");
+        }
+    }
+
+    private async Task TrainingPayAsync(string? preferredMethod)
+    {
+        await RunOnUiThreadAsync(() => IsBusy = true).ConfigureAwait(true);
+        try
+        {
+            var totals = CartTotalsCalculator.Calculate(_cart.Root);
+            // Флажок «Печатать чек» не трогаем (он запоминается в настройках кассира); печати в учебном режиме нет в любом случае.
+            var checkoutVm = new CheckoutViewModel(totals, _orderDiscountPercent, _orderDiscountSum);
+            if (preferredMethod == "transfer")
+                checkoutVm.IsTransfer = true;
+            checkoutVm.PriceChangeNotice = Tr.T(
+                "Учебный режим: оплата не настоящая. Введите, сколько дал покупатель, и нажмите «Оплатить» (Enter).",
+                "Окуу режими: төлөм чыныгы эмес. Сатып алуучу канча бергенин жазып, «Төлөө» (Enter) баскычын басыңыз.",
+                "Training mode: the payment is not real. Enter how much the customer gave and press “Pay” (Enter).",
+                "Eğitim modu: ödeme gerçek değil. Müşterinin verdiği tutarı girip «Öde»ye (Enter) basın.",
+                "O'quv rejimi: to'lov haqiqiy emas. Xaridor qancha berganini kiriting va «To'lash» (Enter) tugmasini bosing.");
+            checkoutVm.ScanSink = EnqueueBarcode;
+            checkoutVm.HasRentableItems = false;
+            var confirmed = await _windowService.ShowDialogAsync<CheckoutViewModel, bool?>(checkoutVm).ConfigureAwait(false);
+            if (confirmed != true || !TrainingMode.IsActive)
+            {
+                PosLogger.Log("Учебный режим: оплата отменена.", "TRAINING");
+                return;
+            }
+
+            var total = checkoutVm.EffectiveTotalDue;
+            PosLogger.Log($"Учебный режим: учебная продажа на {total:0.00} ({_cart.LineCount} поз., способ {checkoutVm.PaymentMethod}) — никуда не записана.", "TRAINING");
+            await RunOnUiThreadAsync(() =>
+            {
+                _cart.ResetForNewReceipt();
+                _orderDiscountPercent = "";
+                _orderDiscountSum = "";
+                SyncLinesAndTotals();
+                CartMessage = Tr.T(
+                    $"Учебная продажа на {total:0.00} прошла. Деньги и товары не учтены — так же пройдёт настоящая продажа.",
+                    $"{total:0.00} суммасындагы окуу сатуусу өттү. Акча жана товарлар эсепке алынган жок — чыныгы сатуу да ушундай өтөт.",
+                    $"The training sale of {total:0.00} is done. Money and stock were not recorded — a real sale goes the same way.",
+                    $"{total:0.00} tutarındaki eğitim satışı tamamlandı. Para ve stok kaydedilmedi — gerçek satış da böyle geçer.",
+                    $"{total:0.00} summalik o'quv sotuvi o'tdi. Pul va tovarlar hisobga olinmadi — haqiqiy sotuv ham shunday o'tadi.");
+                TrainingMode.NoteSaleDone();
+            }).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Учебный режим: учебная оплата не прошла: {ex.GetType().Name}: {ex.Message}", "TRAINING");
+        }
+        finally
+        {
+            await RunOnUiThreadAsync(() => IsBusy = false).ConfigureAwait(false);
+        }
+    }
+
     /// <param name="priceRetry">2026-10-27: сколько раз подряд сервер отклонил чек (409 price_changed) и мы вернули кассира в окно оплаты.</param>
     /// <summary>2026-10-27 (Д-6): последнее сообщение «Цена изменилась…» — окно оплаты показывает его у себя (CheckoutViewModel.PriceChangeNotice).</summary>
     private string? _priceChangeNotice;
@@ -2279,6 +2485,13 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
 
         if (Lines.Count == 0)
             return;
+
+        // 2026-11-13 (Н-1): учебный режим — отдельный путь без сервера, смены, склада, очереди и журналов (ни одна строка ниже не выполняется).
+        if (TrainingMode.IsActive)
+        {
+            await TrainingPayAsync(preferredMethod).ConfigureAwait(false);
+            return;
+        }
 
         // 2026-10-27 (ревью денег, К-6): «занято» ДО сверки цен (она идёт до 2 с): за это время кассир не должен нажать «+», удалить строку или
         // переключить вкладку — чек под ногами у оплаты не меняется. Снимается в finally основной оплаты ниже, а при раннем выходе (или сбое
@@ -2515,6 +2728,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
                 ConsultantCommissionEnabled = checkoutVm.ConsultantCommissionEnabledForApi,
                 ConsultantCommissionPercent = checkoutVm.ConsultantCommissionPercentForApi,
                 ConsultantName = checkoutVm.ConsultantNameForReceipt,
+                ClientObjectId = checkoutVm.ClientObjectIdForApi, // 2026-11-14: объект прораба (хозмаг)
                 // 2026-09-28, продажа №1136: сумма, которую кассир видел и взял, — с ней сервис
                 // оплаты сверяет итог запроса/серверной корзины перед отправкой.
                 ExpectedTotal = checkoutVm.EffectiveTotalDue,
@@ -2596,6 +2810,40 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
                         "The credit sale without a connection was canceled. The receipt is kept — choose another payment method or try again later.",
                         "Bağlantısız veresiye satış iptal edildi. Fiş kayıtlı — başka bir ödeme yöntemi seçin veya daha sonra tekrar deneyin.",
                         "Aloqasiz «qarzga» sotuv bekor qilindi. Chek saqlandi — boshqa to'lov usulini tanlang yoki keyinroq qayta urinib ko'ring."));
+                }
+            }
+
+            // 2026-11-14 (ответ Умара 13.11 вечер): клиент превысил лимит долга (409 credit_limit_exceeded). Владелец/админ может провести продажу с override_credit_limit — спрашиваем;
+            // кассир видит текст ошибки (ниже). Согласие касается только этой оплаты.
+            if (!result.IsSuccess && result.CreditLimitExceeded && EmployeeAccessGate.CurrentUserIsOwnerOrAdmin())
+            {
+                if (_checkoutUiFlow != null)
+                {
+                    await _checkoutUiFlow.ClosePaymentProcessingAsync().ConfigureAwait(false);
+                    paymentStatusActive = false;
+                }
+                var allowOver = await _prompts.ConfirmAsync(result.ErrorMessage ?? "",
+                    Tr.T("Провести с превышением", "Ашыруу менен өткөрүү", "Record over the limit", "Limiti aşarak kaydet", "Limitdan oshirib o'tkazish"),
+                    Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish")).ConfigureAwait(false);
+                if (allowOver)
+                {
+                    payRequest.OverrideCreditLimit = true;
+                    PosLogger.Log("PAY: владелец/админ подтвердил продажу в долг сверх лимита клиента (override_credit_limit).", "PAYMENT");
+                    if (_checkoutUiFlow != null)
+                    {
+                        await _checkoutUiFlow.ShowPaymentProcessingAsync(totals.TotalDue, paymentWait.Snapshot).ConfigureAwait(false);
+                        paymentStatusActive = true;
+                    }
+                    result = await _checkout.CheckoutAsync(payRequest).ConfigureAwait(false);
+                }
+                else
+                {
+                    PosLogger.Log("PAY: владелец отказался проводить продажу сверх лимита долга.", "PAYMENT");
+                    result = PosCheckoutResult.Failed(Tr.T("Продажа «в долг» не проведена: превышен лимит долга клиента. Чек сохранён — выберите другой способ оплаты или уменьшите долг.",
+                        "«Карызга» сатуу өткөрүлгөн жок: кардардын карыз лимити ашты. Чек сакталды — башка төлөм ыкмасын тандаңыз же карызды азайтыңыз.",
+                        "The credit sale was not recorded: the client's debt limit is exceeded. The receipt is kept — choose another payment method or reduce the debt.",
+                        "Veresiye satış kaydedilmedi: müşterinin borç limiti aşıldı. Fiş saklandı — başka bir ödeme yöntemi seçin veya borcu azaltın.",
+                        "«Qarzga» sotuv o'tkazilmadi: mijozning qarz limiti oshdi. Chek saqlandi — boshqa to'lov usulini tanlang yoki qarzni kamaytiring."));
                 }
             }
 
@@ -3207,6 +3455,8 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
     /// (см. MainWindow.HandleSubscriptionExpiredDuringSessionAsync, в другой сборке).</summary>
     public async Task DeferCartAsync()
     {
+        if (BlockedInTraining())
+            return;
         await RunOnUiThreadAsync(() => IsBusy = true).ConfigureAwait(false);
         try
         {
@@ -3282,6 +3532,8 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
 
     private async Task RestoreLastHeldReceiptAsync()
     {
+        if (BlockedInTraining())
+            return;
         await RunOnUiThreadAsync(() => IsBusy = true).ConfigureAwait(false);
         try
         {
@@ -3653,7 +3905,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
     {
         try
         {
-            if (items.Count == 0)
+            if (items.Count == 0 || TrainingMode.IsActive) // 2026-11-13 (Н-1): учебный режим — в журнал удалений и «Подозрительные операции» ничего не пишем
                 return;
             var at = DateTimeOffset.Now;
             var batchId = items.Count > 1 ? Guid.NewGuid().ToString("N") : null;
@@ -3781,7 +4033,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
             $"Stock limit reached: {formattedLimit} {line.Unit}.", $"Stok sınırına ulaşıldı: {formattedLimit} {line.Unit}.",
             $"Qoldiq chegarasiga yetildi: {formattedLimit} {line.Unit}.");
 
-        if (_replenishStock == null || string.IsNullOrWhiteSpace(line.ProductId))
+        if (_replenishStock == null || TrainingMode.IsActive || string.IsNullOrWhiteSpace(line.ProductId)) // 2026-11-13 (Н-1): учебный режим склад не пополняет
         {
             ResetQuantityInput(line);
             _prompts.ShowWarning(CartMessage);
@@ -3985,11 +4237,11 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         if (_permissions is null || _permissions.HasPermission(PosPermissions.EditPrice))
             return true;
         PosLogger.Log($"Permission denied: {PosPermissions.EditPrice} (оптовая цена)", "WARNING");
-        _prompts.ShowWarning(Tr.T("Оптовая цена доступна сотруднику с правом «Изменение цены в кассе». Попросите владельца включить его в Настройки → Сотрудники.",
-            "Дүң баа «Кассада баасын өзгөртүү» укугу бар кызматкерге жеткиликтүү. Ээсинен аны Жөндөөлөр → Кызматкерлер бөлүмүндө күйгүзүүнү сураңыз.",
-            "The wholesale price is available to staff with the “Price change at checkout” permission. Ask the owner to enable it in Settings → Employees.",
-            "Toptan fiyat «Kasada fiyat değiştirme» yetkisi olan çalışanlara açıktır. Sahibinden Ayarlar → Çalışanlar bölümünde açmasını isteyin.",
-            "Ulgurji narx «Kassada narxni o'zgartirish» huquqiga ega xodimga ochiq. Egasidan Sozlamalar → Xodimlar bo'limida yoqishni so'rang."));
+        _prompts.ShowWarning(Tr.T("Оптовая цена доступна сотруднику с правом «Изменение цены в кассе». Попросите владельца включить его в программе владельца: Управление → Сотрудники.", // 2026-11-13: сотрудники теперь в программе владельца
+            "Дүң баа «Кассада баасын өзгөртүү» укугу бар кызматкерге жеткиликтүү. Ээсинен аны ээсинин программасында күйгүзүүнү сураңыз: Башкаруу → Кызматкерлер.",
+            "The wholesale price is available to staff with the “Price change at checkout” permission. Ask the owner to enable it in the owner's program: Management → Employees.",
+            "Toptan fiyat «Kasada fiyat değiştirme» yetkisi olan çalışanlara açıktır. Sahibinden sahibin programında açmasını isteyin: Yönetim → Personel.",
+            "Ulgurji narx «Kassada narxni o'zgartirish» huquqiga ega xodimga ochiq. Egasidan uni egasining dasturida yoqishni so'rang: Boshqaruv → Xodimlar."));
         return false;
     }
 
@@ -3998,7 +4250,8 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         if (_permissions is null || _permissions.HasPermission(permission))
             return true;
         PosLogger.Log($"Permission denied: {permission}", "WARNING");
-        _prompts.ShowWarning(Tr.T("Недостаточно прав для выполнения этой операции.", "Бул операцияны аткарууга укук жетишсиз.", "Insufficient permissions to perform this operation.", "Bu işlemi gerçekleştirmek için yetkiniz yok.", "Bu amalni bajarish uchun huquq yetarli emas."));
+        // 2026-11-13 (живая проверка доступов, замечание 5): отказ называет право (скидка, удаление из чека и т. д.), а не общее «Недостаточно прав».
+        _prompts.ShowWarning(NurMarketKassa.Services.PermissionService.DeniedMessage(_permissions, permission));
         return false;
     }
 
@@ -4647,6 +4900,8 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
 
     private async Task OpenDeferredCartsAsync()
     {
+        if (BlockedInTraining())
+            return;
         if (_openDeferredCarts is null)
             return;
 

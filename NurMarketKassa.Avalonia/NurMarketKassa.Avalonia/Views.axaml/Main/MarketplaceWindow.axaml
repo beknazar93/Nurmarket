@@ -11,20 +11,7 @@
 
     <Window.Styles>
         <!-- 2026-10-19, этап О7: «Закрыть» — обводкой (была серая). -->
-        <Style Selector="Button.btn-secondary">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Padding" Value="14,8"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-        <Style Selector="Button.btn-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-        </Style>
+        <!-- 2026-11-13 (Д-1): местные описания кнопок удалены — вид один на всю программу (nur-primary / nur-secondary и их псевдонимы, PosDialogStyles.axaml). -->
     </Window.Styles>
 
     <DockPanel>

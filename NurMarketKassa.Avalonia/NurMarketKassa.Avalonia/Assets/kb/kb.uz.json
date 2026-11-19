@@ -2213,6 +2213,123 @@
      ]
     },
     {
+     "title": "Kassir eslatmasi",
+     "articles": [
+      {
+       "id": "весы-памятка-rongta",
+       "title": "Eslatma: Rongta tarozisi — qanday yuborish, tekshirish va shtrix-kod chiqmasa nima qilish",
+       "text": "Kassir uchun qisqacha. Batafsil — «Rongta tarozisi: ulash va shtrix-kod» maqolasida.\nШаг 1. «Tovarlar» → «Tarozilar» → Rongta tarozisining «Tovarlarni yuborish» tugmasi. Yuqorida tarozi manzili va «aloqa bor» turadi (yo‘q bo‘lsa — «Aloqani tekshirish»).\nШаг 2. Jadvalda kerakli tovarlar belgilangan, PLU ustuni hammasida to‘ldirilgan. «Yuborishdan oldin tekshirish»ni bosing: «Tuzatish» tugmali izohlar ro‘yxati.\nШаг 3. «Taroziga yuborish»ni bosing. Pastda «Taroziga yuborildi: N» chiqadi. Yuborish ketayotganda oynani yopmang.\nШаг 4. Tekshiruv: tarozida tovarni PLU bo‘yicha chaqiring, yuk qo‘ying, sinov yorlig‘ini chop eting — nomi, narxi va vazni to‘g‘ri bo‘lishi kerak.\nШаг 5. Yorliqni kassada skanerlang: o‘sha tovar o‘sha vazn va summa bilan ochilishi kerak.\nШаг 6. Shtrix-kodsiz yorliq (qimmat tovar, summa 1000 so‘mdan oshadi): 02 shtrix-kod turi summani sig‘dira olmaydi. «Rongta tarozi sozlamalari» → «Shtrix-kod» → «Tuzatish: 07 turi» → yana «Taroziga yuborish».\nШаг 7. Kassa yorliqni tanimaydi («… kodli tovar topilmadi»): bo‘lim/prefiks 20–29 bo‘lishi kerak, tovarning «ShKdagi kodi» esa yorliqdagidek. «Yuborishdan oldin tekshirish» → «Tuzatish», keyin qayta yuboring.\nШаг 8. Tarozi javob bermayapti: yoqilganmi, sozlamalar menyusida emasmi, tarmoq bir xilmi (manzil 192.168.1.x). Keyinroq takrorlang.",
+       "keywords": [
+        "памятка",
+        "rongta",
+        "ронгта",
+        "отправить на весы",
+        "нет штрихкода",
+        "касса не узнаёт этикетку",
+        "тип 07",
+        "проверка"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-памятка-штрих-принт",
+       "title": "Eslatma: Shtrix-PRINT tarozisi — qanday yuborish, tekshirish va xato chiqsa nima qilish",
+       "text": "Kassir uchun qisqacha. Batafsil — «Shtrix-PRINT (Shtrix-M)» guruhi maqolalarida.\nШаг 1. «Tovarlar» → «Tarozilar» → Shtrix-PRINT tarozisining «Tovarlarni yuborish» tugmasi. Usul nom ostida: «To‘g‘ridan-to‘g‘ri tarmoq orqali» (kassa o‘zi yozadi) yoki «NurCRM serveri orqali».\nШаг 2. «Aloqani tekshirish»: tarozi «pik» qiladi va modelini ko‘rsatadi. Javob bo‘lmasa — kabel va manzilni tekshiring.\nШаг 3. Tarozi oddiy rejimda bo‘lishi kerak (dasturlashda emas) — aks holda «Tarozi band».\nШаг 4. Tovarlarni belgilang, «Yuborishdan oldin tekshirish»ni bosing (PLU, «ShKdagi kod», narxlar), so‘ng «Taroziga yuborish». «Natija» ustunida «✓ yuborildi» yoki sabab turadi.\nШаг 5. Tekshiruv: tarozida tovarni tugma yoki PLU bilan tanlang, yorliq chop eting, kassada skanerlang — o‘sha tovar, vazn va summa.\nШаг 6. Yorliq shtrix-kodsiz yoki kassa uni tanimaydi: «Yorliq shtrix-kodi…» → «Tarozidan o‘qish» → «Kassaga moslash» → «Taroziga yozish». Prefiks — 20–29.\nШаг 7. «NurCRM serveri orqali» ro‘yxatni faqat serverga uzatadi: ekranli RS-200 tarozilari tovarlarni bu yo‘l bilan olmaydi — ular uchun alohida «Shtrix RS-200» markasi bor.\nШаг 8. «Narx tarozi chegarasidan yuqori» — tarozida verguldan keyingi xonalarni kamaytiring yoki tovar narxini o‘zgartiring.",
+       "keywords": [
+        "памятка",
+        "штрих-принт",
+        "штрих-м",
+        "отправить на весы",
+        "весы заняты",
+        "нет штрихкода",
+        "касса не узнаёт этикетку"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-памятка-штрих-рс200",
+       "title": "Eslatma: Shtrix RS-200 tarozisi — tovarlarni qanday yuborish va tarozi qabul qilganini tekshirish",
+       "text": "Kassir uchun qisqacha. RS-200 — Windows kompyuteri: kassa u bilan tarozining umumiy papkasida fayl almashadi.\nШаг 1. «Tovarlar» → «Tarozilar» → «Shtrix RS-200» tarozisining «Tovarlarni yuborish» tugmasi. Nom ostida papka yo‘li turadi (masalan \\\\192.168.0.10\\Shared). «Aloqani tekshirish» papka mavjudligini ko‘rsatadi.\nШаг 2. Tovarlarni belgilang, «Yuborishdan oldin tekshirish»ni bosing, so‘ng «Taroziga yuborish». Kassa tarozi papkasiga fayl va bayroq-faylni yozadi.\nШаг 3. Kuting: tarozi faylni bir necha daqiqada o‘zi oladi (tarozidagi «Обновление» muddati). Tezroq — tarozida «Система и печать» → «Импорт данных».\nШаг 4. Tekshiruv: tarozida tovarni toping (qidiruv yoki plitka), yorliq chop eting, kassada skanerlang.\nШаг 5. «Oldingi yuklash hali qabul qilinmagan» — tarozi oldingi faylni olmagan: kuting yoki tarozida «Импорт данных»ni bosing, so‘ng qayta yuboring.\nШаг 6. «Ruxsat yo‘q / papka topilmadi»: tarozi yoqilgan, bir xil tarmoqda, Shared papkasi umumiy foydalanishga ochiq, tarozining Windows logini va paroli sozlamalarda kiritilgan.\nШаг 7. Tovar tarozining bosh ekranida ko‘rinmaydi — u ekran stsenariysida yo‘q: qidiruv bilan toping. «To‘liq yuklash» tarozi bazasini tozalaydi — faqat egasining qarori bilan.\nШаг 8. Kassa yorliqni tanimaydi: prefiks 20–29, «Kod-Vazn» formati va kod xonalari soni «Sozlamalar → Tarozilar → Yorliq shtrix-kodi → Shtrix RS-200» dagidek bo‘lsin.",
+       "keywords": [
+        "памятка",
+        "рс-200",
+        "рс200",
+        "штрих рс-200",
+        "pcscale",
+        "папка весов",
+        "импорт данных",
+        "касса не узнаёт этикетку"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-памятка-tm-30f",
+       "title": "Eslatma: TM-30F (Dahua) tarozisi — qanday yuborish, tekshirish va xato chiqsa nima qilish",
+       "text": "Kassir uchun qisqacha. Batafsil — «TM-30F (Dahua)» guruhi maqolalarida.\nШаг 1. Kompyuterda «Russkiy Masshtab» dasturini yoping: u tarozini band qiladi, kassa yubora olmaydi.\nШаг 2. «Tovarlar» → «Tarozilar» → TM-30F tarozisining «Tovarlarni yuborish» tugmasi → «Aloqani tekshirish» (4001 port).\nШаг 3. Tovarlarni belgilang, «Yuborishdan oldin tekshirish»ni bosing, so‘ng «Taroziga yuborish». Yuborish vaqtida tugma — «To‘xtatish».\nШаг 4. «Natija» ustunida har bir tovarda «✓ yuborildi». Birortasida to‘xtasa — sababini tuzatib qayta yuboring.\nШаг 5. Tekshiruv: tarozida tovarni PLU bo‘yicha chaqiring, yorliq chop eting, narxni tekshiring (so‘mda; 10 yoki 100 baravar katta/kichik bo‘lsa — «Price point» mos emas).\nШаг 6. Yorliqni kassada skanerlang: o‘sha tovar, vazn va summa.\nШаг 7. Yorliq shtrix-kodsiz yoki kassa uni tanimaydi: «TM-30F tarozi sozlamalari» → «Shtrix-kod» → «Kassa uchun tavsiya», so‘ng tarozidagi format — «Russkiy Masshtab» da (Barcode → Download). Prefiks 20–29.\nШаг 8. Tarozi javob bermayapti: yoqilganmi, manzil kassa tarmog‘idanmi, «Russkiy Masshtab» yopilganmi. Zaxira yo‘l — «Russkiy Masshtab» uchun «Faylni saqlash».",
+       "keywords": [
+        "памятка",
+        "tm-30f",
+        "dahua",
+        "русский масштаб",
+        "отправить на весы",
+        "price point",
+        "нет штрихкода",
+        "касса не узнаёт этикетку"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-памятка-ai-весы",
+       "title": "Eslatma: AI tarozi — tovarlar ro‘yxati faylini qanday olish va taroziga yuklash",
+       "text": "Kassir uchun qisqacha. AI tarozilarda umumiy tarmoq protokoli yo‘q, shuning uchun kassa fayl tayyorlaydi, uni tarozingiz dasturi yuklaydi.\nШаг 1. «Tovarlar» → «Tarozilar» → «AI tarozi» markasidagi tarozi → «Tovarlarni yuborish» (asosiy tugma «Tarozi uchun faylni saqlash» deb ataladi).\nШаг 2. Tovarlarni belgilang, har birida PLU bo‘lishi kerak. «Yuborishdan oldin tekshirish» kimda yo‘qligini ko‘rsatadi, «Tuzatish» raqam beradi.\nШаг 3. «Tarozi uchun faylni saqlash»ni bosing — kassa CSV saqlaydi (PLU; nomi; birligi; narxi). Fayl qayerga saqlanganini eslab qoling.\nШаг 4. Tarozingiz dasturini oching va bu faylni uning yo‘riqnomasi bo‘yicha yuklang (tovarlarni import qilish).\nШаг 5. Tekshiruv: tarozida tovarni toping, nomi va narxini tekshiring, sinov yorlig‘ini chop eting.\nШаг 6. Yorliqni kassada skanerlang: o‘sha tovar. Bo‘lmasa — tarozida shtrix-kod «prefiks 20–29 + 5 xonali kod + 5 xonali vazn yoki summa» bo‘lishi kerak.\nШаг 7. Narxlar o‘zgardi — faylni qayta tayyorlab yuklang: AI tarozilar uchun avtoyuborish yo‘q.",
+       "keywords": [
+        "памятка",
+        "ai весы",
+        "csv",
+        "импорт товаров",
+        "нет штрихкода",
+        "касса не узнаёт этикетку"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-памятка-massa-k",
+       "title": "Eslatma: Massa-K tarozisi — qanday ulash, yuborish va tekshirish",
+       "text": "Kassir uchun qisqacha. Yorliq chop etadigan Massa-K tarozilari mos: R va SL seriyalari (masalan MK-RP10, MK-RL10). VP/VPM tarozilari hozircha qo‘llab-quvvatlanmaydi, yorliq chop etmaydigan MK-A21 ga tovarlar yuklanmaydi.\n1-qadam. Tarozining o‘zida tarmoqni (Ethernet) yoqing: kassa kompyuteri bilan bir tarmoqdan IP, port 5001.\n2-qadam. «Tovarlar» → «Tarozi» → «Massa-K» markasi → «Massa-K tarozi sozlamalari» → «Tez sozlash»: tarozi IP'sini kiriting va «Aloqani tekshirish»ni bosing. «Massa-K tarozisi aloqada» va seriya raqami chiqishi kerak. Bu faqat o‘qish — tarozida hech narsa o‘zgarmaydi.\n3-qadam. «Usta uchun» yorlig‘ida «Sinov paketini jurnalga»ni bosing: kadrlar faqat massak-exchange.log jurnal fayliga yoziladi, taroziga hech narsa ketmaydi.\n4-qadam. «Tarozi» oynasida BITTA vaznli tovarni belgilang (uning PLU raqami bo‘lishi kerak) va «Taroziga yuborish»ni bosing. Kassa tasdiq so‘raydi — «Yuborish»ni bosing. Donali tovarlar Massa-K ga yuborilmaydi, qatorda ogohlantirish bo‘ladi.\n5-qadam. Tarozida tovarni PLU bo‘yicha toping: nomi va narxi to‘g‘rimi? Yorliq chop etib, kassada skanerlang: o‘sha tovar va o‘sha vazn ochilishi kerak.\n6-qadam. Hammasi to‘g‘ri bo‘lsa — «Massa-K tarozi sozlamalari» → «Usta uchun» → «Tarozida tekshirildi: yorliq to‘g‘ri chiqdi»ni belgilang. Shundan keyin qolgan tovarlarni yuborish mumkin.\n7-qadam. «Ulanish yo‘q»: IP, kabel, 5001 port, tarozi yoqilgan va kassa bilan bir tarmoqda ekanini tekshiring. Biror narsa noto‘g‘ri bo‘lsa (narx ×100, nom bo‘sh) — ustaga «Almashuv jurnali» faylini (massak-exchange.log) yuboring.",
+       "keywords": [
+        "памятка",
+        "масса-к",
+        "massa-k",
+        "масса к",
+        "отправить на весы",
+        "проверить связь",
+        "пробный пакет",
+        "проверено на весах",
+        "нет подключения"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-памятка-cas",
+       "title": "Eslatma: CAS tarozisi — qanday ulash, yuborish va bo‘lmasa nima qilish",
+       "text": "Kassir uchun qisqacha. CAS tarozilari hali jonli tarozida tekshirilmagan — birinchi yuborishni bitta tovar bilan qiling.\n1-qadam. «Sozlamalar → Tarozi» → «CAS» plitkasi → «CAS tarozi sozlamalari» → «Tez sozlash» varag‘i. Modelni tanlang: CL5000J va CL3000 ni kassa tarmoq orqali to‘ldiradi; CL5500, CL5200, CL7200 va LP-1.6 uchun faqat CL-Works dasturiga fayl tayyorlanadi.\n2-qadam. Faqat CL5000J / CL3000 uchun: tarozi IP'sini kiriting (tarozida 1913 menyu; dastlabki uch son kompyuterniki kabi) va «Aloqani tekshirish»ni bosing. Tugma faqat holatni o‘qiydi, tarozida hech narsani o‘zgartirmaydi. Aloqa yo‘q bo‘lsa — kabel, IP, 20304 port va tarozi menyuda emasligini tekshiring.\n3-qadam. «Tovarlar» → «Tarozi» → CAS markasi. Tovarlarni belgilang (birinchi marta — bittasini), PLU ustuni to‘ldirilgan bo‘lsin. Ogohlantirish bo‘lsa «Yuborishdan oldin tekshirish» → «Tuzatish».\n4-qadam. CL5000J / CL3000: «Taroziga yuborish»ni bosing va tasdiqlang. «Tarozi qabul qildi: N» chiqquncha kuting. CL5500 / CL5200 / CL7200 / LP-1.6: «CL-Works uchun faylni saqlash», so‘ng CL-Works da «Fayl → Import → CSV», tovarlarni tekshiring va «Ma’lumot almashuvi → Ma’lumotlarni uzatish».\n5-qadam. Tekshirish: tarozida tovarni PLU bo‘yicha chaqiring — nomi va narxi to‘g‘ri; sinov yorlig‘ini chop etib, kassada skanerlang: o‘sha tovar, o‘sha vazn va summa.\n6-qadam. Kassa yorliqni tanimaydi («… kodli tovar topilmadi»): tarozida prefiks raqamli (20–29) bo‘lim yaratilgan bo‘lishi kerak, shtrix-kod formati CAS sozlamalarining «Shtrix-kod» varag‘idagidek (masalan DDIIIIIWWWWWC), tovarning «Shtrix-koddagi kodi» yorliqdagidek bo‘lishi kerak. Tuzatib, qayta yuboring.\n7-qadam. Tarozi rad etdi («89, 97, 84… xato») yoki javob bermadi: tarozi yoqilgan, menyuda emas, bir xil tarmoq. CAS sozlamalarida «Usta uchun» varag‘i → «Almashuv jurnali» — cas-exchange.log faylini ustaga ko‘rsating.\nKassa taroziga faqat tovar kartochkalarini (PLU) yozadi. Xotirani, bo‘limlarni, shtrix-kod va yorliq formatlarini o‘chirmaydi va o‘zgartirmaydi — ularni tarozining o‘zida yoki CL-Works da o‘rnatiladi.",
+       "keywords": [
+        "памятка",
+        "cas",
+        "кас",
+        "cl5000j",
+        "cl3000",
+        "cl-works",
+        "отправить на весы",
+        "касса не узнаёт этикетку",
+        "весы не отвечают",
+        "проверить связь"
+       ],
+       "images": []
+      }
+     ]
+    },
+    {
      "title": "Shtrix-PRINT (Shtrix-M)",
      "articles": [
       {

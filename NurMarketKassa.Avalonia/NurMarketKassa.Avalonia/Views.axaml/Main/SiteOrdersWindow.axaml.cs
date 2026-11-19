@@ -1084,7 +1084,7 @@ public partial class SiteOrdersWindow : Window, IOwnerSection, IOwnerSectionExce
             ShowNotice(Tr.T("Статус не сменён", "Статус өзгөргөн жок", "Status not changed", "Durum değiştirilmedi", "Holat o'zgarmadi")
                        + ": " + (IsNoConnection(ex)
                            ? Tr.T("нет связи с сервером", "сервер менен байланыш жок", "no connection to the server", "sunucuyla bağlantı yok", "server bilan aloqa yo'q")
-                           : ex.Message), success: false);
+                           : NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)), success: false);
         }
         finally
         {

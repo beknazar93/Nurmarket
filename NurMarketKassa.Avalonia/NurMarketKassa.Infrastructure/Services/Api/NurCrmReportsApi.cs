@@ -91,7 +91,9 @@ public static class NurCrmReportsApi
         // «Возврат от клиента» — ReturnEditFlows.Bar / ShowCustomerReturnsAsync (2026-11-11).
         ReturnEditState? Edit = null,
         // 2026-11-11 (живой показ 1.17.85, Д-7: «Возврат №7328e9cf»): свой номер документа возврата, если сервер его присылает (number / doc_number / return_number).
-        string? Number = null);
+        string? Number = null,
+        // 2026-11-14 (П0-1): фискальные реквизиты возврата (fiscal_* ответа сервера); null — сервер полей не прислал (старый сервер).
+        NurMarketKassa.Services.Fiscal.FiscalRequisites? Fiscal = null);
 
     /// <summary>GET api/main/pos/returns/?date_from&amp;date_to&amp;shift&amp;sale.
     ///
@@ -172,7 +174,7 @@ public static class NurCrmReportsApi
                         Long(row, "sale_number"),
                         Dec(row, "amount") ?? 0m,
                         row.TryGetProperty("is_full", out var full) && full.ValueKind == JsonValueKind.True,
-                        Str(row, "cashier"),
+                        Str(row, "cashier_name") ?? Str(row, "cashier_display") ?? Str(row, "cashier"), // 2026-11-13 (Л-5): имя кассира, если сервер его присылает (иначе прежнее поле — id или имя)
                         Str(row, "shift"),
                         Str(row, "created_at") is { } at
                             && DateTimeOffset.TryParse(at, CultureInfo.InvariantCulture, DateTimeStyles.None, out var created)
@@ -182,7 +184,8 @@ public static class NurCrmReportsApi
                         qty,
                         ReasonOf(row) ?? (itemReasons.Count > 0 ? string.Join("; ", itemReasons) : null),
                         ReturnEditState.Parse(row),
-                        Str(row, "number") ?? Str(row, "doc_number") ?? Str(row, "return_number")));
+                        Str(row, "number") ?? Str(row, "doc_number") ?? Str(row, "return_number"),
+                        row.TryGetProperty("fiscal_status", out _) ? NurMarketKassa.Services.Fiscal.FiscalRequisites.Parse(row) : null));
                 }
 
                 var hasNext = data.ValueKind == JsonValueKind.Object

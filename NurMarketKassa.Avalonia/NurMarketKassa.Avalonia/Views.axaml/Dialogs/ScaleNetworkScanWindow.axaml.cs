@@ -366,7 +366,7 @@ public partial class ScaleNetworkScanWindow : Window
             Content = L("Использовать для…", "Колдонуу…", "Use for…", "Şunun için kullan…", "Foydalanish…"),
             // 2026-10-22 (модалки, пакет 3): кнопки строк — обводкой (раньше жёлтая в каждой найденной строке; жёлтая в окне
             // одна — «Начать поиск»), 44 px; меню — общий вид row-menu (пункты 44 px).
-            Classes = { "btn-ok" },
+            Classes = { "nur-secondary" } /* 2026-11-13 (Д-1): общая вторичная вместо местной btn-ok */,
             VerticalAlignment = VerticalAlignment.Center,
             Padding = new Thickness(10, 5),
         };

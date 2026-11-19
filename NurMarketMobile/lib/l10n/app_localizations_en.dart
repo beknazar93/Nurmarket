@@ -7353,4 +7353,28 @@ class AppLocalizationsEn extends AppLocalizations {
   String logoutCartAsk(int lines, int held) {
     return 'Items in the receipt: $lines, held receipts: $held. They will be lost on sign-out; every line is written to “Removed from receipt”.';
   }
+
+  @override
+  String get apiForbidden =>
+      'You don\'t have permission for this action. Ask the owner.';
+
+  @override
+  String get apiNotFound =>
+      'Not found — the record may have been deleted. Refresh the list.';
+
+  @override
+  String get apiThrottled => 'Too many requests. Wait a minute and try again.';
+
+  @override
+  String get apiFieldRequired => 'Fill in the required field.';
+
+  @override
+  String get apiNumberInvalid => 'Enter a number.';
+
+  @override
+  String get apiAlreadyExists => 'This record already exists.';
+
+  @override
+  String get receiptOfflineNote =>
+      'Receipt saved offline — it will be sent to the server automatically';
 }

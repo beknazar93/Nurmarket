@@ -135,12 +135,20 @@
                     <TextBlock x:Name="BrandAddressText" FontSize="13" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
                     <TextBlock x:Name="ConnectionStateText" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
                     <TextBlock x:Name="SubtitleText" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}" Margin="0,2,0,0"/>
+                    <!-- 2026-11-13: автоотправка изменённых товаров на весы (только на этом компьютере) и подпись «последняя автоотправка»; в шапке — в нижней полосе не хватало ширины. -->
+                    <WrapPanel Margin="0,2,0,0">
+                        <CheckBox x:Name="AutoSendCheck" FontSize="{DynamicResource NurFontCaption}" Margin="0,0,10,0" Click="AutoSendCheck_Click"/>
+                        <TextBlock x:Name="AutoSendInfoText" FontSize="{DynamicResource NurFontCaption}" TextWrapping="Wrap" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource BrushTextSoft}"/>
+                    </WrapPanel>
                 </StackPanel>
                 <WrapPanel Grid.Column="2" VerticalAlignment="Top" HorizontalAlignment="Right" MaxWidth="340" Margin="12,0,0,0">
                     <Button x:Name="CheckConnectionButton" Classes="SecondaryActionButton" Margin="0,0,8,6"
                             Content="{DynamicResource scaleSetup.btn.check}" Click="CheckConnection_Click"/>
-                    <Button Classes="SecondaryActionButton" Margin="0,0,0,6"
+                    <Button Classes="SecondaryActionButton" Margin="0,0,8,6"
                             Content="{DynamicResource scalesPlu.change}" Click="ChangeSetup_Click"/>
+                    <!-- 2026-11-13: «Как подключить / памятка» — меню: пошаговая инструкция с анимацией (ScaleGuideWindow) и памятка кассира из базы знаний. -->
+                    <Button x:Name="GuideButton" Classes="nur-secondary SecondaryActionButton" Margin="0,0,0,6"/>
                 </WrapPanel>
             </Grid>
         </Border>
@@ -287,7 +295,7 @@
 
         <!-- Действия и ход отправки -->
         <Border Grid.Row="5" Classes="Strip" Margin="0,10,0,0">
-            <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+            <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
                 <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="6" Margin="0,0,12,0">
                     <ProgressBar x:Name="SendProgress" Height="6" Minimum="0" Maximum="1" IsVisible="False"
                                  Foreground="{DynamicResource BrushAccent}"/>
@@ -299,13 +307,17 @@
                         <TextBlock x:Name="RongtaCheckText" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushText}"/>
                     </Border>
                 </StackPanel>
+                <!-- 2026-11-13: проверка перед отправкой — список замечаний одним окном -->
+                <Button Grid.Column="1" x:Name="PreflightButton" Classes="nur-secondary SecondaryActionButton" Height="44"
+                        Margin="0,0,10,0" VerticalAlignment="Center" Click="Preflight_Click"
+                        Content="{DynamicResource scalesPlu.preflight}"/>
                 <!-- 2026-09-30: лист кнопок весов — печать на A4 и сохранение в Word -->
-                <Button Grid.Column="1" x:Name="KeySheetButton" Classes="SecondaryActionButton" Height="44"
+                <Button Grid.Column="2" x:Name="KeySheetButton" Classes="SecondaryActionButton" Height="44"
                         Margin="0,0,10,0" VerticalAlignment="Center" Click="KeySheet_Click"/>
-                <Button Grid.Column="2" x:Name="SaveFileButton" Classes="SecondaryActionButton" Height="44"
+                <Button Grid.Column="3" x:Name="SaveFileButton" Classes="SecondaryActionButton" Height="44"
                         Margin="0,0,10,0" VerticalAlignment="Center"
                         Content="{DynamicResource scalesPlu.saveFile}" Click="SaveFile_Click"/>
-                <Button Grid.Column="3" x:Name="SendButton" Content="{DynamicResource scalesPlu.sendButton}"
+                <Button Grid.Column="4" x:Name="SendButton" Content="{DynamicResource scalesPlu.sendButton}"
                         Classes="PrimaryActionButton" VerticalAlignment="Center" Click="Send_Click"/>
             </Grid>
         </Border>

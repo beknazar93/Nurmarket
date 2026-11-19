@@ -49,35 +49,9 @@
                  цены «Основного» помещаются без прокрутки и в карточке 85 % экрана. -->
             <Setter Property="Margin" Value="0"/>
         </Style>
-        <Style Selector="Button.PrimaryButton">
-            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Padding" Value="18,10"/>
-        </Style>
+        <!-- 2026-11-13 (Д-1): местные описания кнопок удалены — вид один на всю программу (nur-primary / nur-secondary и их псевдонимы, PosDialogStyles.axaml). -->
         <!-- 2026-11-06 (В12, Д4-10): неактивная «Добавить/Сохранить» — без жёлтой заливки (раньше только прозрачность 0,6, и кнопка оставалась заметной): обводка и приглушённый текст -->
-        <Style Selector="Button.PrimaryButton:disabled /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
-        </Style>
         <!-- 2026-10-18, этап 5: второстепенные кнопки — обводкой, как modal-secondary в остальных модалках. -->
-        <Style Selector="Button.SecondaryButton">
-            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Padding" Value="14,8"/>
-            <!-- 2026-10-22 (модалки, пакет 3): 44 px — касание пальцем. -->
-            <Setter Property="MinHeight" Value="44"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-        </Style>
         <!-- 2026-10-18, этап 5 (снимки): выбранный пункт списков «Горячая клавиша» / «Категория» / «Бренд» — у кнопки оба
              класса (SecondaryButton + PrimaryButton), и SecondaryButton, объявленный ниже PrimaryButton, перекрывал выделение. -->
         <!-- 2026-10-20 (правило 2 docs/owner-redesign-plan.md): выбранное — тёмно-синей заливкой с белым текстом, как modal-seg

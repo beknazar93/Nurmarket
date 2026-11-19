@@ -50,13 +50,14 @@ public static class SupplierQuickCreate
             }
             catch (ApiException ex)
             {
-                return ex.Message;
+                NurMarketKassa.Services.PosLogger.Log($"SupplierQuickCreate: сбой, показанный пользователю: {ex}", "WARNING"); // 2026-11-13 (Н-4): сырой текст — в журнал, на экран — понятный
+                return NurMarketKassa.Services.ServerOutageMonitor.UserText(ex);
             }
             catch (Exception ex)
             {
                 PosLogger.Log($"Приёмка: поставщик не создан: {ex}", "WARNING");
                 return T("Не удалось добавить поставщика: ", "Жеткирүүчүнү кошуу мүмкүн болгон жок: ", "Could not add the supplier: ", "Tedarikçi eklenemedi: ",
-                    "Yetkazib beruvchini qo'shib bo'lmadi: ") + ex.Message;
+                    "Yetkazib beruvchini qo'shib bo'lmadi: ") + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex);
             }
         }
 

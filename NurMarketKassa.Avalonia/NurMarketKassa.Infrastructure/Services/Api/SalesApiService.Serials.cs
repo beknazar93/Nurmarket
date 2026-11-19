@@ -13,6 +13,10 @@ public interface IPosSerialsApi
 
     /// <summary>GET api/main/serials/?serial=… — где продан номер: продан / возвращён / гарантия / повтор (офлайн-чек). Ищет по связи с продажей, а не по номеру чека.</summary>
     Task<ServerSerialLookup> SerialLookupAsync(string serial, CancellationToken ct = default);
+
+    /// <summary>2026-11-14 (ответ Умара 13.11 вечер): GET api/main/serials/?tail=… — поиск по ХВОСТУ номера (последние цифры, от <see cref="ServerSerials.MinTailLength"/> знаков).
+    /// Реализация по умолчанию — точный поиск (для заглушек тестов).</summary>
+    Task<ServerSerialLookup> SerialTailLookupAsync(string tail, CancellationToken ct = default) => SerialLookupAsync(tail, ct);
 }
 
 public sealed partial class SalesApiService : IPosSerialsApi
@@ -38,13 +42,17 @@ public sealed partial class SalesApiService : IPosSerialsApi
         return _client.RequestAsync(HttpMethod.Post, $"api/main/pos/sales/{c}/items/{i}/serials/", body, null, ct, TimeSpan.FromSeconds(20));
     }
 
-    public async Task<ServerSerialLookup> SerialLookupAsync(string serial, CancellationToken ct = default)
+    public Task<ServerSerialLookup> SerialLookupAsync(string serial, CancellationToken ct = default) => LookupAsync("serial", serial, ct);
+
+    public Task<ServerSerialLookup> SerialTailLookupAsync(string tail, CancellationToken ct = default) => LookupAsync("tail", tail, ct);
+
+    private async Task<ServerSerialLookup> LookupAsync(string param, string? value, CancellationToken ct)
     {
-        var text = (serial ?? "").Trim();
+        var text = (value ?? "").Trim();
         if (text.Length == 0)
             return new ServerSerialLookup { Serial = "" };
         var d = await _client.RequestAsync(HttpMethod.Get, "api/main/serials/", null,
-            new Dictionary<string, string> { ["serial"] = text }, ct, TimeSpan.FromSeconds(12)).ConfigureAwait(false);
+            new Dictionary<string, string> { [param] = text }, ct, TimeSpan.FromSeconds(12)).ConfigureAwait(false);
         return ServerSerials.ParseLookup(d, text);
     }
 }

@@ -15,53 +15,8 @@
          длиннее русских) мог обрезаться;
          теперь высота больше, явный FontSize, TextWrapping разрешён вместо жёсткого обрезания. -->
     <Window.Styles>
-        <Style Selector="Button.PrimaryActionButton">
-            <Setter Property="Height" Value="54" />
-            <Setter Property="Background" Value="{DynamicResource BrushAccent}" />
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="FontSize" Value="15" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" CornerRadius="{DynamicResource SettingsButtonRadius}">
-                            <ContentPresenter Content="{TemplateBinding Content}"
-                                              HorizontalAlignment="Center" VerticalAlignment="Center"
-                                              Margin="20,8" TextBlock.TextAlignment="Center" TextBlock.TextWrapping="Wrap" />
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+        <!-- 2026-11-13 (Д-1): местные описания кнопок удалены — вид один на всю программу (nur-primary / nur-secondary и их псевдонимы, PosDialogStyles.axaml). -->
         <!-- 2026-10-21: выключенная главная (нет связи с сервером поддержки) — серая, не жёлтая (пакет 3, п. 143). -->
-        <Style Selector="Button.PrimaryActionButton:disabled">
-            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}" />
-            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}" />
-            <Setter Property="Cursor" Value="Arrow" />
-        </Style>
-        <Style Selector="Button.SecondaryActionButton">
-            <Setter Property="Height" Value="44" />
-            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}" />
-            <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="FontSize" Value="14" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{DynamicResource SettingsButtonRadius}">
-                            <ContentPresenter Content="{TemplateBinding Content}"
-                                              HorizontalAlignment="Center" VerticalAlignment="Center"
-                                              Margin="16,8" TextBlock.TextAlignment="Center" TextBlock.TextWrapping="Wrap" />
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
     </Window.Styles>
 
     <!-- 2026-10-16: сторонняя программа удалённого доступа убрана (кнопки запуска и скачивания). Единственный способ

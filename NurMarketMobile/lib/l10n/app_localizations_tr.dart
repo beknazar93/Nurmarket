@@ -7218,4 +7218,28 @@ class AppLocalizationsTr extends AppLocalizations {
   String logoutCartAsk(int lines, int held) {
     return 'Fişteki kalem: $lines, bekletilen fiş: $held. Çıkışta silinecekler; her satır «Fişten silindi» günlüğüne yazılır.';
   }
+
+  @override
+  String get apiForbidden => 'Bu işlem için yetkiniz yok. Sahibine başvurun.';
+
+  @override
+  String get apiNotFound =>
+      'Bulunamadı — kayıt silinmiş olabilir. Listeyi yenileyin.';
+
+  @override
+  String get apiThrottled =>
+      'Çok fazla istek. Bir dakika bekleyip tekrar deneyin.';
+
+  @override
+  String get apiFieldRequired => 'Zorunlu alanı doldurun.';
+
+  @override
+  String get apiNumberInvalid => 'Bir sayı girin.';
+
+  @override
+  String get apiAlreadyExists => 'Bu kayıt zaten var.';
+
+  @override
+  String get receiptOfflineNote =>
+      'Fiş çevrimdışı kaydedildi — sunucuya otomatik gönderilecek';
 }

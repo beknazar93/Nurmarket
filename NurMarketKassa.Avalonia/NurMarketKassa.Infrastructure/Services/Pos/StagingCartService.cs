@@ -176,14 +176,18 @@ public static class StagingCartService
                 {
                     // 2026-11-13 (ответ Умара 13.11, строймаркет): единица продажи — в строке sale_unit и количество в УПАКОВКАХ, сервер списывает qty × factor и ставит цену упаковки.
                     // unit_price уходит только у оптовой строки (цена wholesale_price упаковки выбрана кассиром).
+                    // 2026-11-14 (ответ Умара 13.11 вечер): поле называется sale_unit_id и несёт ТОЛЬКО id единицы (код pack сервер не понимает); у единицы без id — понятная ошибка.
                     var unitBody = new Dictionary<string, string>
                     {
                         ["product_id"] = productId,
                         ["quantity"] = qtyStr,
-                        ["sale_unit"] = saleUnit,
+                        ["sale_unit_id"] = ProductSaleUnits.ServerIdOrThrow(productId, saleUnit),
                     };
                     if (it.TryGetProperty("is_wholesale", out var wholesaleMark) && wholesaleMark.ValueKind == JsonValueKind.True)
+                    {
                         unitBody["unit_price"] = unitPrice;
+                        unitBody["is_wholesale"] = "true"; // 2026-11-14: не обязателен (сервер сравнивает с оптом единицы сам), но безопасен
+                    }
                     if (!string.IsNullOrWhiteSpace(disc))
                         unitBody["discount_total"] = disc;
                     await api.PosAddItemRawAsync(cartId, unitBody, cancellationToken).ConfigureAwait(false);
@@ -232,7 +236,8 @@ public static class StagingCartService
     /// Ошибка номера (serial_already_sold…) пробрасывается как есть — оплата не проводится, кассир видит понятный текст; прочие сбои этого запроса в журнал: продажа важнее, номера остаются в журнале кассы.</summary>
     internal static async Task PushSerialsAsync(ISalesApiService api, string cartId, JsonElement snapshot, CancellationToken cancellationToken)
     {
-        if (!ServerSerials.Enabled || api is not IPosSerialsApi serialsApi)
+        // 2026-11-14 (ответ Умара 13.11 вечер): номера шлём всегда (сервер сохраняет их без флага, флаг включает лишь проверки).
+        if (api is not IPosSerialsApi serialsApi)
             return;
 
         var groups = new List<(string ProductId, string Key, List<string> Serials)>();

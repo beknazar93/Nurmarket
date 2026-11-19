@@ -208,6 +208,18 @@ public partial class ScalesPluWindow
                 accent: PosConfirmAccent.Danger), this).ConfigureAwait(true) == true;
             if (!ok)
                 return;
+            // 2026-11-19 (ТЗ «Весы РС-200», п. 3): очистку нельзя нажать случайно — второй шаг, слово вводится вручную. Форматы этикеток при этом восстанавливаются (строки <L).
+            var word = Tr.T("ОЧИСТИТЬ", "ТАЗАЛОО", "CLEAR", "TEMIZLE", "TOZALASH");
+            var typed = await App.GetRequiredService<NurMarketKassa.Core.Contracts.IUserPrompts>().ConfirmWithCodeAsync(
+                Tr.T("Подтвердите очистку весов", "Таразаны тазалоону ырастаңыз", "Confirm clearing the scale", "Tartı temizlemeyi onaylayın", "Tarozini tozalashni tasdiqlang"),
+                Tr.T($"Введите слово {word}, чтобы очистить товары, картинки и этикетки на весах. Стандартные форматы и «58x40 / 58x30» касса запишет обратно.",
+                     $"Таразадагы товарларды, сүрөттөрдү жана этикеткаларды тазалоо үчүн {word} сөзүн киргизиңиз. Стандарттык форматтарды жана «58x40 / 58x30» касса кайра жазат.",
+                     $"Type {word} to clear the goods, pictures and labels on the scale. The till writes the standard formats and “58x40 / 58x30” back.",
+                     $"Tartıdaki ürünleri, resimleri ve etiketleri temizlemek için {word} yazın. Standart biçimleri ve «58x40 / 58x30» kasa geri yazar.",
+                     $"Tarozidagi tovarlar, rasmlar va yorliqlarni tozalash uchun {word} so‘zini kiriting. Standart formatlar va «58x40 / 58x30» ni kassa qayta yozadi."),
+                t => string.Equals((t ?? "").Trim(), word, StringComparison.OrdinalIgnoreCase)).ConfigureAwait(true);
+            if (!typed)
+                return;
         }
         settings.ClearBase = full;
         // 2026-11-06: точка расширения — готовый PCScale.txt с сервера NurCRM (GET /api/main/products/scale-export/?format=shtrih_pc200, Умар добавит позже).
@@ -238,6 +250,15 @@ public partial class ScalesPluWindow
             if (result.Status == ShtrikhPcWriteStatus.PendingNotAccepted)
             {
                 // Прежний файл весы ещё не приняли: без подтверждения не затираем.
+                // 2026-11-13: автоотправка (_silent) никогда не спрашивает и не затирает: строки — «не отправлено», повтор по очереди (2, 5, 15, 30 минут).
+                if (_silent)
+                {
+                    PosLogger.Log("Автоотправка на весы Штрих РС: предыдущий файл ещё не принят весами — файл не заменён, повтор позже.", "SCALES");
+                    foreach (var row in _allRows.Where(r => r.IsSelected))
+                        row.SetStatus(NotSentText(), RowState.Warning);
+                    StatusText.Text = Tr.T("Предыдущая загрузка ещё не принята весами", "Мурунку жүктөөнү тараза азырынча кабыл алган жок", "The previous upload has not been accepted by the scale yet", "Önceki yükleme henüz tartı tarafından kabul edilmedi", "Oldingi yuklashni tarozi hali qabul qilmadi");
+                    return;
+                }
                 var overwrite = await PosDialogHost.ShowAsync(new PosConfirmDialog(
                     Tr.T("Предыдущая загрузка ещё не принята весами", "Мурунку жүктөөнү тараза азырынча кабыл алган жок", "The previous upload has not been accepted by the scale yet", "Önceki yükleme henüz tartı tarafından kabul edilmedi", "Oldingi yuklashni tarozi hali qabul qilmadi"),
                     Tr.T("В папке весов лежит прежний файл со статусом «не обработан» и флаг-файл. Подождите период «Обновление» на весах или нажмите там «Импорт данных». Заменить файл новым сейчас? Товары из прежнего файла, которых нет в новом, на весы не попадут.",
@@ -332,11 +353,13 @@ public partial class ScalesPluWindow
     /// на эти весы раньше (код из «отправлено», если товар ещё в списке). Полная выгрузка с очисткой — null: на экране только эта отправка.</summary>
     private List<long>? ShtrikhPcScreenOrder(IReadOnlyDictionary<string, ScaleSentPlu> written, bool full)
     {
-        if (full)
+        var hasKeys = _allRows.Any(r => int.TryParse((r.HotkeyText ?? "").Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var k) && k > 0);
+        if (full && !hasKeys)
             return null;
         var sent = LabelScaleStore.Active.SentPlus;
         var order = new List<long>();
-        foreach (var row in _allRows)
+        // 2026-11-19: колонка «Клавиша» раньше игнорировалась для РС-200 (кнопки шли в порядке списка) — товары с номером кнопки идут первыми по возрастанию номера.
+        foreach (var row in _allRows.OrderBy(r => int.TryParse((r.HotkeyText ?? "").Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var k) && k > 0 ? k : int.MaxValue))
         {
             var code = written.TryGetValue(row.Id, out var now) ? now.Code : sent.TryGetValue(row.Id, out var before) ? before.Code : null;
             if (long.TryParse(code, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) && value > 0)

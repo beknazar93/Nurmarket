@@ -607,11 +607,12 @@ internal static class UiKit
     // них есть и наведение по теме (раньше Fluent красил наведённую кнопку серым). Размеры — прежние.
     // 2026-10-22 (модалки, пакет 0): у кнопок UiKit — необязательные isDefault (Enter нажимает её) и isCancel (Esc и ✕
     // ModalShell нажимают её). Раньше в ~25 окнах из кода Esc и Enter не работали. Умолчания — false, вид прежний (46 px).
+    // 2026-11-19 (Д-1): радиус кнопок UiKit не задаётся на месте — берётся из стиля sec-primary/sec-outline (NurRadiusControl темы); локальные 12 перебивали шкалу.
     public static Button Primary(Control host, string text, bool isDefault = false, bool isCancel = false)
     {
         var b = new Button
         {
-            Content = text, Height = 46, Padding = new Thickness(20, 0), CornerRadius = new CornerRadius(12), FontWeight = FontWeight.Bold, FontSize = 14.5,
+            Content = text, Height = 46, Padding = new Thickness(20, 0), FontWeight = FontWeight.Bold, FontSize = 14.5,
             HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, Focusable = false,
             IsDefault = isDefault, IsCancel = isCancel,
         };
@@ -623,7 +624,7 @@ internal static class UiKit
     {
         var b = new Button
         {
-            Content = text, Height = 46, Padding = new Thickness(18, 0), CornerRadius = new CornerRadius(12), BorderThickness = new Thickness(1), FontSize = 14,
+            Content = text, Height = 46, Padding = new Thickness(18, 0), BorderThickness = new Thickness(1), FontSize = 14,
             HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, Focusable = false,
             IsDefault = isDefault, IsCancel = isCancel,
         };
@@ -746,7 +747,8 @@ internal static class UiKit
             host.Children.Add(hint);
         }
 
-        void Update() => hint.IsVisible = changed && grid.ItemsSource is System.Collections.IEnumerable items && !items.GetEnumerator().MoveNext();
+        // 2026-11-13 (Н-4): таблица скрыта (на её месте блок состояния StateBlock.ShowOver) — подсказку «пусто» не показываем.
+        void Update() => hint.IsVisible = changed && grid.IsVisible && grid.ItemsSource is System.Collections.IEnumerable items && !items.GetEnumerator().MoveNext();
 
         void OnChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
         {
@@ -769,6 +771,8 @@ internal static class UiKit
             // У DataGrid своё свойство ItemsSource (он не ItemsControl) — сравниваем по имени.
             if (e.Property.Name == nameof(DataGrid.ItemsSource))
                 Watch();
+            else if (e.Property == Visual.IsVisibleProperty)
+                Update();
         };
         grid.AttachedToVisualTree += (_, _) => Place();
         Watch();

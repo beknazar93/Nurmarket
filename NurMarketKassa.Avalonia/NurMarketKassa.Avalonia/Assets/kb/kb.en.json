@@ -2220,6 +2220,123 @@
      ]
     },
     {
+     "title": "Cashier cheat sheet",
+     "articles": [
+      {
+       "id": "весы-памятка-rongta",
+       "title": "Cheat sheet: Rongta scale — how to send, check, and what to do if there is no barcode",
+       "text": "Short version for the cashier. Details — in the article “Rongta scale: connection and barcode”.\nШаг 1. “Products” → “Scales” → “Send goods” next to the Rongta scale. At the top you see the scale address and “connected” (if not — “Check connection”).\nШаг 2. The needed products are ticked and the PLU column is filled for all. Press “Check before sending”: a list of issues with a “Fix” button.\nШаг 3. Press “Send to the scale”. At the bottom you will see “Sent to the scale: N”. Do not close the window while sending.\nШаг 4. Check: on the scale call the product by PLU, put a load, print a test label — name, price and weight are correct.\nШаг 5. Scan the label with the till: the same product opens with the same weight and amount.\nШаг 6. A label without a barcode (an expensive product, amount over 1000 som): barcode type 02 cannot hold the amount. “Rongta scale settings” → “Barcode” → “Fix: type 07” → “Send to the scale” again.\nШаг 7. The till does not recognise the label (“Product with code … not found”): the department/prefix must be 20–29 and the product's “Barcode code” must be the one on the label. “Check before sending” → “Fix”, then send again.\nШаг 8. The scale does not answer: is it on, not in its settings menu, on the same network (address 192.168.1.x). Try again later.",
+       "keywords": [
+        "памятка",
+        "rongta",
+        "ронгта",
+        "отправить на весы",
+        "нет штрихкода",
+        "касса не узнаёт этикетку",
+        "тип 07",
+        "проверка"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-памятка-штрих-принт",
+       "title": "Cheat sheet: Shtrih-PRINT scale — how to send, check and what to do on errors",
+       "text": "Short version for the cashier. Details — the articles of the “Shtrih-PRINT (Shtrih-M)” group.\nШаг 1. “Products” → “Scales” → “Send goods” next to the Shtrih-PRINT scale. The method is shown under the name: “Directly over the network” (the till writes itself) or “Via the NurCRM server”.\nШаг 2. “Check connection”: the scale beeps and shows its model. No answer — check the cable and the address.\nШаг 3. The scale must be in normal mode (not in programming) — otherwise “The scale is busy”.\nШаг 4. Tick the products, press “Check before sending” (PLU, “Barcode code”, prices), then “Send to the scale”. The “Result” column shows “✓ sent” or the reason.\nШаг 5. Check: on the scale pick the product by key or PLU, print a label, scan it with the till — the same product, weight and amount.\nШаг 6. A label without a barcode or the till does not recognise it: “Label barcode…” → “Read from the scale” → “Match the till” → “Write to the scale”. Prefix — 20–29.\nШаг 7. “Via the NurCRM server” only passes the list to the server: scales with an RS-200 screen do not get products this way — they have their own brand “Shtrih RS-200”.\nШаг 8. “Price above the scale limit” — reduce the decimals on the scale or change the product price.",
+       "keywords": [
+        "памятка",
+        "штрих-принт",
+        "штрих-м",
+        "отправить на весы",
+        "весы заняты",
+        "нет штрихкода",
+        "касса не узнаёт этикетку"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-памятка-штрих-рс200",
+       "title": "Cheat sheet: Shtrih RS-200 scale — how to send products and check the scale accepted them",
+       "text": "Short version for the cashier. The RS-200 is a Windows computer: the till exchanges files with it in the scale's shared folder.\nШаг 1. “Products” → “Scales” → “Send goods” next to the “Shtrih RS-200” scale. Under the name is the folder path (for example \\\\192.168.0.10\\Shared). “Check connection” shows whether the folder is available.\nШаг 2. Tick the products, press “Check before sending”, then “Send to the scale”. The till writes a file and a flag file to the scale folder.\nШаг 3. Wait: the scale picks the file up by itself within a few minutes (the scale's “Update” period). Faster — on the scale “System and printing” → “Import data”.\nШаг 4. Check: on the scale find the product (search or tile), print a label, scan it with the till.\nШаг 5. “The previous upload has not been accepted yet” — the scale did not take the last file: wait or press “Import data” on the scale, then send again.\nШаг 6. “No access / folder not found”: the scale is on, on the same network, the Shared folder is open for sharing, the scale's Windows login and password are entered in the settings.\nШаг 7. The product is not on the scale's main screen — it is not in the screen scenario: find it by search. “Full upload” clears the scale database — only by the owner's decision.\nШаг 8. The till does not recognise the label: prefix 20–29, “Code-Weight” format and the number of code digits as in “Settings → Scales → Label barcode → Shtrih RS-200”.",
+       "keywords": [
+        "памятка",
+        "рс-200",
+        "рс200",
+        "штрих рс-200",
+        "pcscale",
+        "папка весов",
+        "импорт данных",
+        "касса не узнаёт этикетку"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-памятка-tm-30f",
+       "title": "Cheat sheet: TM-30F (Dahua) scale — how to send, check and what to do on errors",
+       "text": "Short version for the cashier. Details — the articles of the “TM-30F (Dahua)” group.\nШаг 1. Close the “Russian Scale” program on the computer: it occupies the scale and the till cannot send.\nШаг 2. “Products” → “Scales” → “Send goods” next to the TM-30F scale → “Check connection” (port 4001).\nШаг 3. Tick the products, press “Check before sending”, then “Send to the scale”. During sending the button reads “Stop”.\nШаг 4. In the “Result” column every product shows “✓ sent”. If it stopped on one — fix the cause and send again.\nШаг 5. Check: on the scale call the product by PLU, print a label, check the price (in som; if it is 10 or 100 times larger or smaller, “Price point” does not match).\nШаг 6. Scan the label with the till: the same product, weight and amount.\nШаг 7. A label without a barcode or the till does not recognise it: “TM-30F scale settings” → “Barcode” → “Recommended for the till”, then the format on the scale — in “Russian Scale” (Barcode → Download). Prefix 20–29.\nШаг 8. The scale does not answer: is it on, is the address from the till's network, is “Russian Scale” closed. The fallback — “Save file” for “Russian Scale”.",
+       "keywords": [
+        "памятка",
+        "tm-30f",
+        "dahua",
+        "русский масштаб",
+        "отправить на весы",
+        "price point",
+        "нет штрихкода",
+        "касса не узнаёт этикетку"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-памятка-ai-весы",
+       "title": "Cheat sheet: AI scales — how to get the product list file and load it into the scale",
+       "text": "Short version for the cashier. AI scales have no common network protocol, so the till prepares a file and your scale's software loads it.\nШаг 1. “Products” → “Scales” → a scale of the “AI scales” brand → “Send goods” (the main button reads “Save file for the scale”).\nШаг 2. Tick the products; each one needs a PLU. “Check before sending” shows who has none, and “Fix” gives a number.\nШаг 3. Press “Save file for the scale” — the till saves a CSV (PLU; name; unit; price). Remember where the file is saved.\nШаг 4. Open your scale's software and load this file following its instructions (product import).\nШаг 5. Check: on the scale find the product, check the name and price, print a test label.\nШаг 6. Scan the label with the till: the same product. If not — the scale must print the barcode “prefix 20–29 + 5-digit code + 5-digit weight or amount”.\nШаг 7. Prices changed — prepare and load the file again: there is no auto-send for AI scales.",
+       "keywords": [
+        "памятка",
+        "ai весы",
+        "csv",
+        "импорт товаров",
+        "нет штрихкода",
+        "касса не узнаёт этикетку"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-памятка-massa-k",
+       "title": "Cheat sheet: Massa-K scales — how to connect, send and check",
+       "text": "Short version for the cashier. Label-printing Massa-K scales of series R and SL fit (for example MK-RP10, MK-RL10). VP/VPM scales are not supported yet, and MK-A21 does not print labels — goods are not loaded to it.\nStep 1. On the scale itself enable the network (Ethernet): an IP from the same network as the till computer, port 5001.\nStep 2. “Products” → “Scales” → brand “Massa-K” → “Massa-K scale settings” → “Quick setup”: enter the scale IP and press “Check connection”. You should see “the Massa-K scale is connected” and a serial number. This only reads — nothing on the scale changes.\nStep 3. Press “Trial packet to the log” (tab “For the technician”): the frames go only to the log file massak-exchange.log, nothing is sent to the scale.\nStep 4. In the “Scales” window tick ONE weighed product (it must have a PLU number) and press “Send to scale”. The till asks for confirmation — press “Send”. Piece goods are not sent to Massa-K; the row shows a warning.\nStep 5. On the scale find the product by PLU: are the name and price right? Print a label and scan it with the till: the same product with the same weight must open.\nStep 6. If all is right — “Massa-K scale settings” → “For the technician” → tick “Verified on the scale: the label came out right”. After that you can send the other goods.\nStep 7. “No connection”: check the IP, the cable, port 5001, that the scale is on and in the same network as the till. If something is wrong (price ×100, empty name) — send the technician the “Exchange log” file (massak-exchange.log).",
+       "keywords": [
+        "памятка",
+        "масса-к",
+        "massa-k",
+        "масса к",
+        "отправить на весы",
+        "проверить связь",
+        "пробный пакет",
+        "проверено на весах",
+        "нет подключения"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-памятка-cas",
+       "title": "Cheat sheet: CAS scale — how to connect, send, and what to do if it fails",
+       "text": "Short version for the cashier. CAS scales have not been verified on a live scale yet — do the first send with a single product.\nStep 1. “Settings → Scales” → the “CAS” tile → “CAS scale settings” → the “Quick setup” tab. Choose the model: the till fills CL5000J and CL3000 over the network; CL5500, CL5200, CL7200 and LP-1.6 only through a file for the CL-Works software.\nStep 2. CL5000J / CL3000 only: enter the scale IP (scale menu 1913; the first three numbers like the computer's) and press “Check connection”. The button only reads the status and changes nothing on the scale. No connection — check the cable, the IP, port 20304 and that the scale is not in a menu.\nStep 3. “Products” → “Scales” → brand CAS. Tick the products (just one the first time), the PLU column is filled. “Check before sending” → “Fix” if there are issues.\nStep 4. CL5000J / CL3000: “Send to the scale” and confirm. Wait for “Accepted by the scale: N”. CL5500 / CL5200 / CL7200 / LP-1.6: “Save file for CL-Works”, then in CL-Works “File → Import → CSV”, check the goods and “Data exchange → Send data”.\nStep 5. Check: on the scale call the product by PLU — name and price are right; print a trial label and scan it with the till: the same product, the same weight and amount.\nStep 6. The till does not recognise the label (“Product with code … not found”): the scale must have a department with the prefix number (20–29), the barcode format must be as on the “Barcode” tab of the CAS settings (for example DDIIIIIWWWWWC), and the product's “Code in barcode” must match the label. Fix and send again.\nStep 7. The scale refused (“error 89, 97, 84…”) or did not answer: the scale is on, not in a menu, same network. In the CAS settings the “For the technician” tab → “Exchange log” — show the cas-exchange.log file to the technician.\nThe till writes only product cards (PLU) to the scale. It does not erase or change the memory, departments, barcode or label formats — those are set on the scale itself or in CL-Works.",
+       "keywords": [
+        "памятка",
+        "cas",
+        "кас",
+        "cl5000j",
+        "cl3000",
+        "cl-works",
+        "отправить на весы",
+        "касса не узнаёт этикетку",
+        "весы не отвечают",
+        "проверить связь"
+       ],
+       "images": []
+      }
+     ]
+    },
+    {
      "title": "Shtrih-PRINT (Shtrikh-M)",
      "articles": [
       {

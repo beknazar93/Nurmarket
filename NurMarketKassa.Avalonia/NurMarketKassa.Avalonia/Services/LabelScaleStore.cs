@@ -65,6 +65,19 @@ public sealed class LabelScaleProfile
     /// закрепит их и покажет владельцу, какой PLU у какого товара).</summary>
     public string? PluPinnedFrom { get; set; }
 
+    /// <summary>2026-11-13 (решение владельца по сравнению с Paloma365): «Отправлять изменения на весы автоматически» — тихо, в фоне, с задержкой
+    /// 1–2 мин, только изменённые товары (ScaleAutoSendService). Профиль, как и весь файл, свой на каждом компьютере, поэтому галочка
+    /// включает автоотправку только на ЭТОМ компьютере (кассе или программе владельца). По умолчанию выключена у всех весов; владелец включает её в окне «Весы» (только марки с прямой отправкой).</summary>
+    public bool AutoSend { get; set; }
+
+    /// <summary>2026-11-13: когда была последняя автоотправка (местное время), сколько товаров ушло и чем закончилась (текст ошибки; пусто — успешно).</summary>
+    public DateTime? AutoSendAt { get; set; }
+    public int AutoSendCount { get; set; }
+    public string? AutoSendError { get; set; }
+
+    /// <summary>2026-11-13: когда автоотправка попробует снова после неудачи (для подписи в окне «Весы»).</summary>
+    public DateTime? AutoSendRetryAt { get; set; }
+
     public LabelScaleProfile Clone() => new()
     {
         Id = Id,
@@ -84,9 +97,14 @@ public sealed class LabelScaleProfile
         // 2026-09-29: без этих полей «Отмена» в окне настроек весов (Restore) стирала бы номера PLU.
         PluNumbers = new Dictionary<string, int>(PluNumbers),
         BarcodeCodes = new Dictionary<string, string>(BarcodeCodes),
-        SentPlus = SentPlus.ToDictionary(kv => kv.Key, kv => new ScaleSentPlu { Plu = kv.Value.Plu, Code = kv.Value.Code, Name = kv.Value.Name }),
+        SentPlus = SentPlus.ToDictionary(kv => kv.Key, kv => new ScaleSentPlu { Plu = kv.Value.Plu, Code = kv.Value.Code, Name = kv.Value.Name, Sig = kv.Value.Sig }),
         PluFromCatalog = PluFromCatalog,
         PluPinnedFrom = PluPinnedFrom,
+        AutoSend = AutoSend,
+        AutoSendAt = AutoSendAt,
+        AutoSendCount = AutoSendCount,
+        AutoSendError = AutoSendError,
+        AutoSendRetryAt = AutoSendRetryAt,
     };
 }
 
@@ -145,6 +163,8 @@ public static class LabelScaleStore
             Port = DefaultPort(brand),
             Password = brand == "shtrikh" ? "0030" : null,
             ShtrikhDirect = Active.ShtrikhDirect,
+            // 2026-11-13: автоотправка изменений у новых весов тоже ВЫКЛЮЧЕНА (решение координатора перед выпуском): владелец включает галочкой в окне «Весы» (только марки с прямой отправкой).
+            AutoSend = false,
         };
         Model.Scales.Add(profile);
         Persist();
@@ -155,8 +175,10 @@ public static class LabelScaleStore
     {
         "tm" => 4001,
         "rongta" => 5001,
+        "massak" => 5001, // 2026-11-13: весы Масса-К — TCP 5001
         "ai" => 0,
         "shtrikhpc" => 0, // 2026-11-06: РС-200 — общая папка, порта нет
+        "cas" => CasProtocol.DefaultPort, // 2026-11-13: CAS — 20304 (как у CL-Works)
         _ => 1111,
     };
 
@@ -185,6 +207,12 @@ public static class LabelScaleStore
                 if (profile.Port is > 0 and <= 65535)
                     prefs.TmScalePort = profile.Port;
                 break;
+            case "massak":
+                // 2026-11-13: весы Масса-К (серии R/SL)
+                prefs.MassaKScaleIp = profile.Ip;
+                if (profile.Port is > 0 and <= 65535)
+                    prefs.MassaKScalePort = profile.Port;
+                break;
             case "rongta":
                 prefs.RongtaScaleIp = profile.Ip;
                 if (profile.Port is > 0 and <= 65535)
@@ -201,6 +229,14 @@ public static class LabelScaleStore
                 pc.Login = profile.PcLogin ?? "";
                 pc.Password = WindowsDpapiHelper.UnprotectFromBase64(profile.PcPasswordProtected);
                 ShtrikhPcSettings.Save(pc);
+                break;
+            case "cas":
+                // 2026-11-13: CAS — адрес и порт в CasScaleSettings (модель и остальное — общие для кассы, не в профиле)
+                var cas = CasScaleSettings.Current;
+                cas.Ip = profile.Ip ?? "";
+                if (profile.Port is > 0 and <= 65535)
+                    cas.Port = profile.Port;
+                CasScaleSettings.Save(cas);
                 break;
             case "shtrikh":
                 prefs.ScaleNetworkIp = profile.Ip;
@@ -234,6 +270,10 @@ public static class LabelScaleStore
                 profile.Ip = prefs.TmScaleIp ?? "";
                 profile.Port = prefs.TmScalePort;
                 break;
+            case "massak":
+                profile.Ip = prefs.MassaKScaleIp ?? "";
+                profile.Port = prefs.MassaKScalePort;
+                break;
             case "rongta":
                 profile.Ip = !string.IsNullOrWhiteSpace(prefs.RongtaScaleIp) ? prefs.RongtaScaleIp! : "";
                 profile.Port = prefs.RongtaScalePort;
@@ -246,6 +286,11 @@ public static class LabelScaleStore
                 profile.PcLogin = pcNow.Login;
                 profile.PcPasswordProtected = string.IsNullOrEmpty(pcNow.Password) ? null : WindowsDpapiHelper.ProtectToBase64(pcNow.Password);
                 profile.Port = 0;
+                break;
+            case "cas":
+                var casNow = CasScaleSettings.Current;
+                profile.Ip = casNow.Ip;
+                profile.Port = casNow.Port;
                 break;
             case "shtrikh":
                 profile.Ip = prefs.ScaleNetworkIp ?? "";
@@ -283,7 +328,7 @@ public static class LabelScaleStore
             .Select(kv => (kv.Value.Code!, kv.Key)));
     }
 
-    private static string NormalizeBrand(string? brand) => brand is "rongta" or "tm" or "ai" or "shtrikhpc" ? brand : "shtrikh";
+    private static string NormalizeBrand(string? brand) => brand is "rongta" or "tm" or "ai" or "shtrikhpc" or "massak" or "cas" ? brand : "shtrikh";
 
     // ------------------------------------------------------------------ файл
 

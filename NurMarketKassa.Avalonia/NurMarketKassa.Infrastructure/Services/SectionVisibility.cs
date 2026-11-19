@@ -59,6 +59,7 @@ public static class SectionVisibility
         ("supplierreturns", Tr.T("Возвраты поставщикам", "Жеткирүүчүлөргө кайтаруулар", "Returns to suppliers", "Tedarikçiye iadeler", "Yetkazib beruvchilarga qaytarishlar")),
         ("branches", Tr.T("Филиалы", "Филиалдар", "Branches", "Şubeler", "Filiallar")),
         ("losssales", Tr.T("Продажи в убыток", "Зыян менен сатуулар", "Sales at a loss", "Zararına satışlar", "Zarariga sotuvlar")),
+        ("fiscalreport", Tr.T("Продажи без фискального чека", "Фискалдык чексиз сатуулар", "Sales without a fiscal receipt", "Mali fişsiz satışlar", "Fiskal chekisiz sotuvlar")), // 2026-11-14 (П0-1)
         ("sizesreport", Tr.T("Размеры и цвета", "Өлчөмдөр жана түстөр", "Sizes and colours", "Bedenler ve renkler", "O'lchamlar va ranglar")),
         ("salereturn", Tr.T("Возврат товаров по чеку", "Чек боюнча товар кайтаруу", "Return goods by receipt", "Fişe göre ürün iadesi", "Chek bo'yicha tovar qaytarish")), // 2026-11-10
         ("debts", Tr.T("Долги клиентов", "Кардарлардын карыздары", "Customer debts", "Müşteri borçları", "Mijozlar qarzlari")),

@@ -786,7 +786,7 @@ public sealed class CustomerDisplayItemViewModel
         QuantityText = $"×{NurMarketKassa.Services.MoneyText.Weight(quantity)} {unit}"; // 2026-11-12 (Д-5): запятая вместо точки
         UnitPriceText = MoneyText.Som((quantity == 0 ? 0 : lineTotal / quantity));
         TotalText = MoneyText.Som(lineTotal);
-        QuantityValueText = quantity.ToString("0.###", CultureInfo.InvariantCulture);
+        QuantityValueText = NurMarketKassa.Services.MoneyText.Weight(quantity, "0.###"); // 2026-11-13 (Д-5): запятая (общий формат), было с точкой
         UnitText = unit;
         UnitPriceNumberText = CustomerDisplayViewModel.Money(quantity == 0 ? 0 : lineTotal / quantity);
         TotalNumberText = CustomerDisplayViewModel.Money(lineTotal);

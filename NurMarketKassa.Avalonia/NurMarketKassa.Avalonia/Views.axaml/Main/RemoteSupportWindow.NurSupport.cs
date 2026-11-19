@@ -64,6 +64,8 @@ public partial class RemoteSupportWindow
             Content = T("Получить код для поддержки", "Колдоо үчүн код алуу", "Get a code for support", "Destek için kod al", "Yordam uchun kod olish"),
             Classes = { "PrimaryActionButton" }, HorizontalAlignment = HorizontalAlignment.Stretch,
         };
+        // 2026-11-13 (Д-1/Д-8): главное действие окна — высота «главное действие» шкалы (52; местный стиль давал 54).
+        _nurStart.Bind(MinHeightProperty, _nurStart.GetResourceObservable("NurHeightLarge"));
         _nurStart.Click += async (_, _) => await StartNurSupportAsync().ConfigureAwait(true);
         // 2026-10-21: сервер недоступен — «Получить код» выключена, вместо неё можно проверить связь ещё раз (пакет 3, п. 143).
         _nurRetry = new Button
@@ -201,10 +203,17 @@ public partial class RemoteSupportWindow
                 PosLogger.Log($"Поддержка: номер не скопирован: {ex.Message}", "WARNING");
             }
         };
+        // 2026-11-13 (Л-9): «Написать в поддержку» — обращение одной кнопкой (описание, журнал без секретов, версия, компания, снимок по желанию).
+        var write = new Button
+        {
+            Content = T("Написать в поддержку", "Колдоого жазуу", "Contact support", "Destek ile iletişim", "Yordamga yozish"),
+            Classes = { "nur-primary" }, HorizontalAlignment = HorizontalAlignment.Stretch,
+        };
+        write.Click += async (_, _) => await SupportRequestWindow.ShowAsync(Owner as Window ?? GetTopLevel(this) as Window, "меню").ConfigureAwait(true);
         card.Child = new StackPanel
         {
             Spacing = 8,
-            Children = { title, phone, hint, whatsApp, copy },
+            Children = { title, write, phone, hint, whatsApp, copy },
         };
         return card;
     }

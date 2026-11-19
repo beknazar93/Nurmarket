@@ -1,6 +1,7 @@
 using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
@@ -54,9 +55,13 @@ public partial class ShtrikhPcSettingsWindow : Window
     private TextBlock _unknownText = null!;
     private TextBlock _quickText = null!;
     private Button _sendButton = null!;
-    private Button _restoreButton = null!;
-    private Button _revertButton = null!;
-    private Button _saveFileButton = null!;
+    // 2026-11-13 (Д-7): редкие действия — пункты меню «Ещё» (было 7 кнопок в два ряда).
+    private MenuItem _restoreButton = null!;
+    private MenuItem _revertButton = null!;
+    private MenuItem _saveFileButton = null!;
+    private ScaleQuickView _quick = null!;
+    /// <summary>2026-11-13 (Н-3): «Для мастера» — логин и пароль папки, протокол 22222, файлы обмена, отчётность, прочие параметры.</summary>
+    private readonly StackPanel _masterPanel = new() { Spacing = 12, Margin = new Thickness(0, 10, 8, 10) };
     private Button _readButton = null!;
 
     public ShtrikhPcSettingsWindow()
@@ -65,32 +70,57 @@ public partial class ShtrikhPcSettingsWindow : Window
         Opened += (_, _) => this.FitToKassaScreen();
         Title = L("Настройки весов Штрих РС-200", "Штрих РС-200 таразасынын жөндөөлөрү", "Shtrikh RS-200 scale settings", "Shtrikh RS-200 tartı ayarları", "Shtrix RS-200 tarozi sozlamalari");
         TitleText.Text = Title;
+        // 2026-11-13 (Д-7, Н-3): вступление — одна строка простыми словами. Про чтение и отправку параметров — подсказка панели
+        // параметров (ParamsHintText) на вкладках с параметрами; Config.txt, файл импорта и параметр 814 — вкладка «Для мастера».
         IntroText.Text = L(
-            "Настройки весов хранятся в файле Config.txt. Касса читает его с весов (или с флешки), показывает параметры понятными подписями и записывает ТОЛЬКО то, что вы изменили — файлом импорта (на весах должен быть включён «Импорт конфигурации», параметр 814). Сначала нажмите «Прочитать с весов».",
-            "Тараза жөндөөлөрү Config.txt файлында сакталат. Касса аны таразадан (же флешкеден) окуйт, параметрлерди түшүнүктүү аталыштар менен көрсөтөт жана сиз өзгөрткөндү гана жазат — импорт файлы менен (таразада «Конфигурацияны импорттоо», 814-параметр күйгүзүлгөн болушу керек). Адегенде «Таразадан окуу» басыңыз.",
-            "The scale settings live in the Config.txt file. The till reads it from the scale (or a USB stick), shows the parameters with clear labels and writes ONLY what you changed — as an import file (the scale must have “Import configuration” on, parameter 814). First press “Read from the scale”.",
-            "Tartı ayarları Config.txt dosyasında durur. Kasa onu tartıdan (veya USB bellekten) okur, parametreleri anlaşılır etiketlerle gösterir ve YALNIZCA değiştirdiğinizi içe aktarma dosyasıyla yazar (tartıda «Yapılandırmayı içe aktar» açık olmalı, parametre 814). Önce «Tartıdan oku»ya basın.",
-            "Tarozi sozlamalari Config.txt faylida saqlanadi. Kassa uni tarozidan (yoki fleshkadan) o‘qiydi, parametrlarni tushunarli nomlar bilan ko‘rsatadi va FAQAT o‘zgartirganingizni import fayli bilan yozadi (tarozida «Konfiguratsiyani import» yoqilgan bo‘lishi kerak, 814-parametr). Avval «Tarozidan o‘qish» ni bosing.");
+            "Весы Штрих РС-200: касса передаёт товары через общую папку весов. Пройдите три шага ниже.",
+            "Штрих РС-200 таразасы: касса товарларды таразанын жалпы папкасы аркылуу берет. Төмөнкү үч кадамды аткарыңыз.",
+            "Shtrikh RS-200 scale: the till passes goods through the scale's shared folder. Follow the three steps below.",
+            "Shtrikh RS-200 tartı: kasa ürünleri tartının paylaşım klasörü üzerinden aktarır. Aşağıdaki üç adımı izleyin.",
+            "Shtrix RS-200 tarozisi: kassa tovarlarni tarozining umumiy papkasi orqali uzatadi. Quyidagi uch qadamni bajaring.");
 
         BuildActionBar();
-        Tabs.Items.Add(MakeTab(L("Подключение", "Туташуу", "Connection", "Bağlantı", "Ulanish"), BuildConnectionTab()));
+        // 2026-11-13 (Д-7 + Н-3): было 8 вкладок — стало 5. «Быстрая настройка» (три шага, общий блок ScaleUi.QuickSetup) / «Общие» /
+        // «Штрих-код» (третья — ShowBarcodeTab) / «Печать и экран» (печать + быстрый доступ и экран) / «Для мастера» (логин папки,
+        // протокол, обмен файлами, отчётность, дополнительные и прочие параметры). Карточки и параметры те же — сменилась только раскладка.
+        Tabs.Items.Add(MakeTab(QuickTabTitle, BuildQuickTab()));
         Tabs.Items.Add(MakeTab(L("Общие", "Жалпы", "General", "Genel", "Umumiy"), BuildParamTab(ShtrikhPcTab.General)));
         Tabs.Items.Add(MakeTab(L("Штрих-код", "Штрих-код", "Barcode", "Barkod", "Shtrix-kod"), BuildBarcodeTab()));
-        Tabs.Items.Add(MakeTab(L("Печать", "Басып чыгаруу", "Printing", "Yazdırma", "Chop etish"), BuildParamTab(ShtrikhPcTab.Print)));
-        Tabs.Items.Add(MakeTab(L("Быстрый доступ и экран", "Тез жеткиликтүүлүк жана экран", "Quick access and screen", "Hızlı erişim ve ekran", "Tez kirish va ekran"), BuildQuickTab()));
-        Tabs.Items.Add(MakeTab(L("Обмен файлами", "Файл алмашуу", "File exchange", "Dosya değişimi", "Fayl almashuvi"), BuildExchangeTab()));
-        Tabs.Items.Add(MakeTab(L("Отчётность", "Отчёттуулук", "Reports", "Raporlar", "Hisobotlar"), BuildParamTab(ShtrikhPcTab.Reports)));
-        Tabs.Items.Add(MakeTab(L("Дополнительно", "Кошумча", "Advanced", "Gelişmiş", "Qo‘shimcha"), BuildAdvancedTab()));
+        Tabs.Items.Add(MakeTab(L("Печать и экран", "Басып чыгаруу жана экран", "Printing and screen", "Yazdırma ve ekran", "Chop etish va ekran"),
+            MoveCards(BuildQuickKeysTab(), BuildParamTab(ShtrikhPcTab.Print))));
+        MoveCards(BuildExchangeTab(), _masterPanel);
+        MoveCards(BuildParamTab(ShtrikhPcTab.Reports), _masterPanel);
+        MoveCards(BuildAdvancedTab(), _masterPanel);
+        Tabs.Items.Add(MakeTab(MasterTabTitle, _masterPanel));
+        IntroOnFirstTab(Tabs, IntroText, ConnectionText);
+        // Панель «Прочитать / Отправить изменения / Ещё» относится к параметрам весов — на «Быстрой настройке» её нет (там три шага и одна главная кнопка).
+        Tabs.SelectionChanged += (_, e) => { if (ReferenceEquals(e.Source, Tabs)) ParamsBar.IsVisible = Tabs.SelectedIndex > 0; };
+        ParamsBar.IsVisible = Tabs.SelectedIndex > 0;
         UpdateHeader();
         SetEditorsEnabled(false);
         UpdateState();
-        ShowResult(L("Нажмите «Прочитать с весов» (или «Открыть Config.txt…» с флешки), чтобы увидеть настройки.", "Жөндөөлөрдү көрүү үчүн «Таразадан окуу» (же флешкедеги «Config.txt ачуу…») басыңыз.", "Press “Read from the scale” (or “Open Config.txt…” from a USB stick) to see the settings.", "Ayarları görmek için «Tartıdan oku»ya (veya USB bellekten «Config.txt aç…»a) basın.", "Sozlamalarni ko‘rish uchun «Tarozidan o‘qish» ni (yoki fleshkadan «Config.txt ochish…» ni) bosing."), false);
+        // 2026-11-13 (Н-3): окно открывается на «Быстрой настройке» — подсказка внизу про шаги, а не про чтение Config.txt.
+        ShowResult(L("Укажите папку весов и нажмите «Проверить связь».", "Таразанын папкасын көрсөтүп, «Байланышты текшерүү» басыңыз.", "Enter the scale folder and press “Check connection”.", "Tartı klasörünü girip «Bağlantıyı kontrol et»e basın.", "Tarozi papkasini ko‘rsating va «Aloqani tekshirish» ni bosing."), false);
     }
 
     /// <summary>2026-11-07: открыть окно сразу на вкладке «Штрих-код» (как у окон Rongta / TM-30F).</summary>
     public void ShowBarcodeTab() => Tabs.SelectedIndex = 2;
 
     private static TabItem MakeTab(string header, Control content) => new() { Header = header, Content = new ScrollViewer { Content = content } };
+
+    /// <summary>2026-11-13 (Д-7): две прежние вкладки — одной: карточки вкладки <paramref name="from"/> дописываются в конец <paramref name="to"/>.</summary>
+    private static Panel MoveCards(Control from, Panel to)
+    {
+        if (from is Panel source)
+        {
+            foreach (var child in source.Children.ToList())
+            {
+                source.Children.Remove(child);
+                to.Children.Add(child);
+            }
+        }
+        return to;
+    }
 
     // =====================================================================================
     // Панель действий
@@ -99,17 +129,32 @@ public partial class ShtrikhPcSettingsWindow : Window
     private void BuildActionBar()
     {
         _readButton = MakeButton(L("Прочитать с весов", "Таразадан окуу", "Read from the scale", "Tartıdan oku", "Tarozidan o‘qish"), false, async (_, _) => await ReadFromScalesAsync().ConfigureAwait(true));
-        var open = MakeButton(L("Открыть Config.txt…", "Config.txt ачуу…", "Open Config.txt…", "Config.txt aç…", "Config.txt ochish…"), false, async (_, _) => await ReadFromFileAsync().ConfigureAwait(true));
         _sendButton = MakeButton(L("Отправить изменения в весы", "Өзгөртүүлөрдү таразага жөнөтүү", "Send the changes to the scale", "Değişiklikleri tartıya gönder", "O‘zgarishlarni taroziga yuborish"), true, async (_, _) => await SendAsync().ConfigureAwait(true));
-        _saveFileButton = MakeButton(L("Сохранить файл настроек…", "Жөндөөлөр файлын сактоо…", "Save the settings file…", "Ayar dosyasını kaydet…", "Sozlamalar faylini saqlash…"), false, async (_, _) => await SaveFileAsync().ConfigureAwait(true));
-        _revertButton = MakeButton(L("Отменить правки в окне", "Терезедеги оңдоолорду жокко чыгаруу", "Discard edits in the window", "Penceredeki düzenlemeleri iptal et", "Oynadagi tahrirlarni bekor qilish"), false, (_, _) => RevertEdits());
-        _restoreButton = MakeButton(L("Вернуть на весах прочитанное", "Таразада окулганды кайтаруу", "Restore what was read on the scale", "Tartıda okunanı geri yükle", "Tarozida o‘qilganni qaytarish"), false, async (_, _) => await RestoreAsync().ConfigureAwait(true));
-        var compare = MakeButton(L("Сверка с кассой", "Кассa менен салыштыруу", "Compare with the till", "Kasa ile karşılaştır", "Kassa bilan solishtirish"), false, (_, _) => RunCompare(true));
-        foreach (var b in new Control[] { _readButton, open, _sendButton, _saveFileButton, _revertButton, _restoreButton, compare })
+        // 2026-11-13 (Д-7): 7 кнопок в два ряда → «Прочитать с весов», «Отправить изменения в весы» (единственная акцентная) и «Ещё»
+        // с редкими действиями. «Сверка с кассой» осталась на вкладке «Штрих-код». Обработчики и правила включения (UpdateState) прежние.
+        MenuItem Item(string text, Action onClick)
+        {
+            var item = new MenuItem { Header = text };
+            item.Click += (_, _) => onClick();
+            return item;
+        }
+        var openItem = Item(L("Открыть Config.txt…", "Config.txt ачуу…", "Open Config.txt…", "Config.txt aç…", "Config.txt ochish…"), async () => await ReadFromFileAsync().ConfigureAwait(true));
+        _saveFileButton = Item(L("Сохранить файл настроек…", "Жөндөөлөр файлын сактоо…", "Save the settings file…", "Ayar dosyasını kaydet…", "Sozlamalar faylini saqlash…"), async () => await SaveFileAsync().ConfigureAwait(true));
+        _revertButton = Item(L("Отменить правки в окне", "Терезедеги оңдоолорду жокко чыгаруу", "Discard edits in the window", "Penceredeki düzenlemeleri iptal et", "Oynadagi tahrirlarni bekor qilish"), RevertEdits);
+        _restoreButton = Item(L("Вернуть на весах прочитанное", "Таразада окулганды кайтаруу", "Restore what was read on the scale", "Tartıda okunanı geri yükle", "Tarozida o‘qilganni qaytarish"), async () => await RestoreAsync().ConfigureAwait(true));
+        var more = MakeButton(L("Ещё ▾", "Дагы ▾", "More ▾", "Diğer ▾", "Yana ▾"), false, (_, _) => { });
+        more.Flyout = new MenuFlyout { Placement = PlacementMode.BottomEdgeAlignedLeft, ItemsSource = new[] { openItem, _saveFileButton, _revertButton, _restoreButton } };
+        foreach (var b in new Control[] { _readButton, _sendButton, more })
         {
             b.Margin = new Thickness(0, 0, 8, 6);
             ActionBar.Children.Add(b);
         }
+        ParamsHintText.Text = L(
+            "Параметры самих весов: сначала «Прочитать с весов», поменяйте нужное и нажмите «Отправить изменения в весы» — уйдёт только изменённое.",
+            "Таразанын өз параметрлери: адегенде «Таразадан окуу», керектүүсүн өзгөртүп, «Өзгөртүүлөрдү таразага жөнөтүү» басыңыз — өзгөртүлгөнү гана кетет.",
+            "The scale's own parameters: first “Read from the scale”, change what you need and press “Send the changes to the scale” — only the changes are sent.",
+            "Tartının kendi parametreleri: önce «Tartıdan oku», gerekeni değiştirin ve «Değişiklikleri tartıya gönder»e basın — yalnızca değişenler gider.",
+            "Tarozining o‘z parametrlari: avval «Tarozidan o‘qish», keraklisini o‘zgartiring va «O‘zgarishlarni taroziga yuborish» ni bosing — faqat o‘zgarganlari ketadi.");
     }
 
     private void UpdateHeader()
@@ -151,9 +196,9 @@ public partial class ShtrikhPcSettingsWindow : Window
     // Подключение
     // =====================================================================================
 
-    private Control BuildConnectionTab()
+    private Control BuildQuickTab()
     {
-        var panel = new StackPanel { Spacing = 12, Margin = new Thickness(0, 10, 8, 10) };
+        var panel = _masterPanel;
         var s = ShtrikhPcSettings.Current;
 
         var card = Card(L("Папка весов (общая папка Shared)", "Таразанын папкасы (Shared жалпы папкасы)", "Scale folder (the shared folder Shared)", "Tartı klasörü (Shared paylaşım klasörü)", "Tarozi papkasi (Shared umumiy papkasi)"),
@@ -168,11 +213,23 @@ public partial class ShtrikhPcSettingsWindow : Window
         _passwordBox = new TextBox { Text = s.Password, PasswordChar = '●', MinWidth = 320 };
         foreach (var box in new[] { _folderBox, _loginBox, _passwordBox })
             box.LostFocus += (_, _) => SaveConnection();
-        body.Children.Add(Row(L("Папка весов", "Таразанын папкасы", "Scale folder", "Tartı klasörü", "Tarozi papkasi"), _folderBox));
+        // 2026-11-13 (Н-3): поле папки — на «Быстрой настройке» (шаг 1); здесь, у мастера, — логин и пароль общей папки и инструкция.
+        _quick = QuickSetup(this, new ScaleQuickOptions
+        {
+            Brand = BrandShtrikhPc,
+            WhereLabel = L("Папка весов", "Таразанын папкасы", "Scale folder", "Tartı klasörü", "Tarozi papkasi"),
+            WhereBox = _folderBox,
+            Save = SaveConnection,
+            FindText = L("Выбрать папку…", "Папканы тандоо…", "Choose the folder…", "Klasörü seç…", "Papkani tanlash…"),
+            Find = BrowseFolderAsync,
+            SendGoods = () => OpenScalesWindow(this, BrandShtrikhPc),
+            CheckLabel = ShowBarcodeTab,
+            ShowResult = ShowResult,
+        });
         body.Children.Add(Row(L("Логин Windows весов", "Таразанын Windows логини", "Scale Windows login", "Tartı Windows kullanıcı adı", "Tarozi Windows logini"), _loginBox));
         body.Children.Add(Row(L("Пароль", "Сырсөз", "Password", "Şifre", "Parol"), _passwordBox));
         body.Children.Add(ButtonRow(
-            MakeButton(L("Проверить связь", "Байланышты текшерүү", "Check connection", "Bağlantıyı kontrol et", "Aloqani tekshirish"), false, async (_, _) => await CheckFolderAsync().ConfigureAwait(true)),
+            MakeButton(L("Проверить папку", "Папканы текшерүү", "Check the folder", "Klasörü kontrol et", "Papkani tekshirish"), false, async (_, _) => await CheckFolderAsync().ConfigureAwait(true)),
             MakeButton(L("Инструкция по подключению", "Туташуу боюнча нускама", "Connection guide", "Bağlantı kılavuzu", "Ulanish bo‘yicha qo‘llanma"), false, async (_, _) => await new ScaleGuideWindow(BrandShtrikhPc).ShowDialog(this).ConfigureAwait(true))));
         panel.Children.Add(card);
 
@@ -193,7 +250,24 @@ public partial class ShtrikhPcSettingsWindow : Window
         pBody.Children.Add(ButtonRow(MakeButton(L("Проверить протокол обмена (порт 22222)", "Алмашуу протоколун текшерүү (22222 порту)", "Check the exchange protocol (port 22222)", "Değişim protokolünü kontrol et (port 22222)", "Almashuv protokolini tekshirish (22222 port)"), false, async (_, _) => await ProbeAsync().ConfigureAwait(true))));
         pBody.Children.Add(_probeText);
         panel.Children.Add(protocol);
-        return panel;
+        return _quick.Root;
+    }
+
+    /// <summary>2026-11-13 (Н-3): «Выбрать папку…» на шаге 1 — обычное окно выбора папки (сетевая папка весов видна в «Сети»).</summary>
+    private async Task BrowseFolderAsync()
+    {
+        if (StorageProvider is not { CanPickFolder: true } provider)
+            return;
+        var folders = await provider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = L("Папка обмена весов", "Таразанын алмашуу папкасы", "Scale exchange folder", "Tartı alışveriş klasörü", "Tarozi almashuv papkasi"),
+            AllowMultiple = false,
+        }).ConfigureAwait(true);
+        if (folders.Count == 0 || folders[0].TryGetLocalPath() is not { } path)
+            return;
+        _folderBox.Text = path;
+        SaveConnection();
+        _quick.RefreshFromLastCheck();
     }
 
     private void SaveConnection()
@@ -476,7 +550,7 @@ public partial class ShtrikhPcSettingsWindow : Window
         return BuildParamTab(ShtrikhPcTab.Barcode, new Control[] { compareCard }, new Control[] { exampleCard });
     }
 
-    private Control BuildQuickTab()
+    private Control BuildQuickKeysTab()
     {
         _quickText = Text("", "hint");
         var quickCard = Card(L("Кнопки быстрого доступа", "Тез жеткиликтүүлүк баскычтары", "Quick-access keys", "Hızlı erişim tuşları", "Tez kirish tugmalari"), null, out var qBody);
@@ -584,10 +658,25 @@ public partial class ShtrikhPcSettingsWindow : Window
         SetEditorsEnabled(true);
         UpdateState();
         PosLogger.Log($"Весы РС-200: прочитаны настройки ({_baseline.Count} параметров) из {result.Path}", "SCALES");
-        var import = _baseline.GetInt(814, 0) == 1;
+        // 2026-11-19 (ТЗ «Весы РС-200», п. 4): параметра нет в файле — «неизвестно», а не «выключен»; файл старше суток — предупреждение (весы обновляют Export.txt только по ручной кнопке).
+        var importKnown = _baseline.Has(814);
+        var import = !importKnown || _baseline.GetInt(814, 0) == 1;
+        var stale = result.FileTime is { } ft && DateTime.Now - ft > TimeSpan.FromHours(24);
+        var staleNote = stale
+            ? " ⚠ " + L("Настройки прочитаны из старого файла. На весах: «Система и печать» → «Экспорт данных».",
+                "Жөндөөлөр эски файлдан окулду. Таразада: «Система и печать» → «Экспорт данных».",
+                "Settings were read from an old file. On the scale: “System and printing” → “Export data”.",
+                "Ayarlar eski dosyadan okundu. Tartıda: «Система и печать» → «Экспорт данных».",
+                "Sozlamalar eski fayldan o‘qildi. Tarozida: «Система и печать» → «Экспорт данных».")
+            : "";
+        var unknownNote = importKnown ? "" : " " + L("Параметры 814–818 в файле не найдены — «Импорт» неизвестен: проверьте на весах.",
+            "814–818 параметрлери файлда жок — «Импорт» белгисиз: таразада текшериңиз.",
+            "Parameters 814–818 are not in the file — “Import” is unknown: check on the scale.",
+            "814–818 parametreleri dosyada yok — «İçe aktar» bilinmiyor: tartıda kontrol edin.",
+            "814–818 parametrlari faylda yo‘q — «Import» noma’lum: tarozida tekshiring.");
         RunCompare(false);
         ShowResult(L($"Прочитано параметров: {_baseline.Count} (файл {result.Path}).", $"Параметрлер окулду: {_baseline.Count} (файл {result.Path}).", $"Parameters read: {_baseline.Count} (file {result.Path}).", $"Okunan parametre: {_baseline.Count} (dosya {result.Path}).", $"O‘qilgan parametrlar: {_baseline.Count} (fayl {result.Path}).")
-            + (import ? "" : " ⚠ " + ImportDisabledText()), !import);
+            + (import ? "" : " ⚠ " + ImportDisabledText()) + unknownNote + staleNote, !import || stale);
     }
 
     private static string ImportDisabledText() => L(

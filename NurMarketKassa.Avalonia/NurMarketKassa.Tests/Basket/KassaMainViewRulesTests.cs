@@ -57,15 +57,18 @@ public sealed class KassaMainViewRulesTests
     }
 
     [Fact]
-    public void SingleInputRow_IsOff_UntilFlagFileExists()
+    public void SingleInputRow_IsOnByDefault_OffFlagFileReturnsTwoFields() // 2026-11-13 (Н-2): одно поле — по умолчанию, откат файлом .off
     {
         var root = Path.Combine(Path.GetTempPath(), "nm-single-input-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         try
         {
-            KassaMainViewRules.SingleInputRowEnabled(root).Should().BeFalse("по умолчанию нижняя строка ввода на месте");
+            KassaMainViewRules.SingleInputRowEnabled(root).Should().BeTrue("по умолчанию в кассе одно поле ввода");
             File.WriteAllText(Path.Combine(root, KassaMainViewRules.SingleInputFlagFile), "");
-            KassaMainViewRules.SingleInputRowEnabled(root).Should().BeTrue();
+            KassaMainViewRules.SingleInputRowEnabled(root).Should().BeTrue("старый файл-признак .on ничего не ломает");
+            File.WriteAllText(Path.Combine(root, KassaMainViewRules.SingleInputOffFlagFile), "");
+            KassaMainViewRules.SingleInputRowEnabled(root).Should().BeFalse("файл .off возвращает прежние два поля");
+            KassaMainViewRules.SearchTooltip().Should().Contain("3*");
             KassaMainViewRules.SearchWatermark(true).Should().NotBeNullOrWhiteSpace();
             KassaMainViewRules.SearchWatermark(false).Should().BeEmpty();
         }

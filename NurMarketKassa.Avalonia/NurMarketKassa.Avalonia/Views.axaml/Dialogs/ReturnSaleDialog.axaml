@@ -122,17 +122,15 @@
 
         <!-- БЛОК 1: Чеки продаж -->
         <DockPanel Grid.Column="0" LastChildFill="True">
-          <TextBlock DockPanel.Dock="Top" Text="{DynamicResource returnSale.step1}"
-                     FontWeight="Bold" FontSize="16" Foreground="{DynamicResource BrushText}" Margin="0,0,0,8"/>
-
-          <!-- Поиск и фильтры -->
-          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,10">
-            <TextBox x:Name="SearchReceiptBox" Classes="ModernInput" Width="180" Watermark="{DynamicResource common.searchWatermark}"
-                     TextChanged="SearchReceiptBox_TextChanged"/>
-            <!-- 2026-10-22 (модалки, пакет 1): кнопки рядом с поиском — 44 px, как поле (было 38). -->
-            <Button Content="{DynamicResource common.refresh}" Classes="btn-secondary" Padding="12,0" Height="44" Click="RefreshSales_Click"/>
-            <Button x:Name="MoreSalesButton" Classes="btn-secondary" Content="{DynamicResource csh.cart.more}" Padding="12,0" Height="44" Click="MoreSales_Click"/>
-          </StackPanel>
+          <!-- 2026-11-13 (Л-5): поле «номер» убрано — единое поле поиска (номер, сумма, дата, товар, клиент, телефон, карта) строится кодом под этой строкой (BuildFilterUi);
+               «Обновить» и «Ещё» — в строке заголовка шага 1 (как «Все» и «Снять выбор» у шага 2). -->
+          <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,8,Auto" Margin="0,0,0,8">
+            <TextBlock Text="{DynamicResource returnSale.step1}" TextWrapping="Wrap" VerticalAlignment="Center"
+                       FontWeight="Bold" FontSize="16" Foreground="{DynamicResource BrushText}" Margin="0,0,8,0"/>
+            <!-- 2026-10-22 (модалки, пакет 1): кнопки — 44 px, как поле (было 38). -->
+            <Button Grid.Column="1" Content="{DynamicResource common.refresh}" Classes="btn-secondary" Padding="12,0" Height="44" Click="RefreshSales_Click"/>
+            <Button x:Name="MoreSalesButton" Grid.Column="3" Classes="btn-secondary" Content="{DynamicResource csh.cart.more}" Padding="12,0" Height="44" Click="MoreSales_Click"/>
+          </Grid>
 
           <!-- Таблица чеков -->
           <Border BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" CornerRadius="10" ClipToBounds="True">
@@ -307,12 +305,16 @@
       <!-- Нижняя панель управления -->
       <!-- 2026-11-12 (аудит Fable, С-16): «Ввести номер вручную» и кнопки «Оконный режим / Закрыть» — в одном ряду (были два ряда: −56 px высоты на 1024×600). -->
       <Grid Grid.Row="3" Margin="0,12,0,0" ColumnDefinitions="*,Auto">
-        <Expander Grid.Column="0" VerticalAlignment="Top" Header="{DynamicResource returnSale.manualIdHeader}" Foreground="{DynamicResource BrushTextSoft}" FontSize="13">
-          <StackPanel Margin="0,10,0,0" Spacing="10" Orientation="Horizontal">
-            <TextBox x:Name="SaleIdBox" Classes="ModernInput" Width="220" Watermark="{DynamicResource returnSale.saleIdWatermark}"/>
-            <Button Content="{DynamicResource returnSale.loadReceipt}" Classes="btn-secondary" Height="44" Padding="16,0" Click="LoadById_Click"/>
-          </StackPanel>
-        </Expander>
+        <!-- 2026-11-13 (Л-5): «Нет чека?» — объяснение, что делать без чека (возврат без исходной продажи сервер пока не принимает); текст — в коде. -->
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Top">
+          <Expander VerticalAlignment="Top" Header="{DynamicResource returnSale.manualIdHeader}" Foreground="{DynamicResource BrushTextSoft}" FontSize="13">
+            <StackPanel Margin="0,10,0,0" Spacing="10" Orientation="Horizontal">
+              <TextBox x:Name="SaleIdBox" Classes="ModernInput" Width="220" Watermark="{DynamicResource returnSale.saleIdWatermark}"/>
+              <Button Content="{DynamicResource returnSale.loadReceipt}" Classes="btn-secondary" Height="44" Padding="16,0" Click="LoadById_Click"/>
+            </StackPanel>
+          </Expander>
+          <Button x:Name="NoReceiptButton" Classes="nur-ghost" Height="44" Padding="12,0" VerticalAlignment="Top" Click="NoReceipt_Click"/>
+        </StackPanel>
 
         <!-- 2026-10-22 (модалки, пакет 1): «Оконный режим» и «Закрыть» — 44 px (было 42). -->
         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top" Spacing="10" Margin="12,0,0,0">

@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<TestSequence>
+  <Test Name="NurMarketKassa.UiTests.Perf.SpeedBudgetUiTests.PaymentDialog_Open_StaysWithinBudget" DisplayName="NurMarketKassa.UiTests.Perf.SpeedBudgetUiTests.PaymentDialog_Open_StaysWithinBudget" Source="C:\Users\User\Desktop\Nurmarket\NurMarketKassa.Avalonia\NurMarketKassa.UiTests\bin\Debug\net8.0-windows\NurMarketKassa.UiTests.dll" Completed="True" />
+  <Test Name="NurMarketKassa.UiTests.Perf.SpeedBudgetUiTests.Startup_CashierWindow_ReachesFirstFrame_WithinBudget" DisplayName="NurMarketKassa.UiTests.Perf.SpeedBudgetUiTests.Startup_CashierWindow_ReachesFirstFrame_WithinBudget" Source="C:\Users\User\Desktop\Nurmarket\NurMarketKassa.Avalonia\NurMarketKassa.UiTests\bin\Debug\net8.0-windows\NurMarketKassa.UiTests.dll" Completed="False" />
+</TestSequence>

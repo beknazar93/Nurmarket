@@ -227,10 +227,20 @@ public sealed class ProductImportMapping
                 result.Set(ProductImportField.Sale, i, MappingConfidence.Medium);
         }
 
+        // 2026-11-13 (Л-10): выгрузка знакомой программы (1С, МойСклад, Poster, Loyverse, Paloma365, Umag) — столбцы по её готовому профилю.
+        if (ImportSourceProfiles.Detect(headers) is { } profile)
+        {
+            profile.Apply(result, headers);
+            result.Source = profile;
+        }
+
         if (table is not null)
             result.Refine(table);
         return result;
     }
+
+    /// <summary>2026-11-13 (Л-10): программа, чей профиль применён (определена по заголовкам или выбрана в окне); null — обычный файл.</summary>
+    public ImportSourceProfile? Source { get; internal set; }
 
     // ------------------------------------------------------------------ проверка по данным (2026-10-30)
 
@@ -379,6 +389,7 @@ public sealed class ProductImportMapping
             if (auto.ConfidenceOf(field) == MappingConfidence.High)
                 remembered.Set(field, column, MappingConfidence.High);
         }
+        remembered.Source = auto.Source; // 2026-11-13 (Л-10)
         if (table is not null)
             remembered.Refine(table);
         return remembered;

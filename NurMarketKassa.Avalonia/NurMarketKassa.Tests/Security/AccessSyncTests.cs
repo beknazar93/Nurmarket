@@ -13,7 +13,7 @@ namespace NurMarketKassa.Tests.Security;
 
 /// <summary>2026-11-11, владелец: «доступы даются из сайта и из программы владельца — синхронизацию с сайтом, и маркетплейс тоже».
 /// Фоновая проверка AccessSync: изменение прав на сервере применяется без перезапуска (PermissionsChanged, HasPermission); серверный отзыв платной функции
-/// снимает доступ, а функция, открытая ключом, остаётся; проверка не идёт при открытом чеке; события чаще раза в 20 с не дают лишних запросов;
+/// снимает доступ, а функция, открытая ключом, остаётся; проверка идёт и при открытом чеке (2026-11-13), но не во время оплаты; события чаще раза в 20 с не дают лишних запросов;
 /// PermissionRecheck (перечитывание при отказе) работает как раньше. Сервер — WireMock.</summary>
 [Collection("CloudSyncSerial")]
 public sealed class AccessSyncTests : IDisposable
@@ -119,6 +119,151 @@ public sealed class AccessSyncTests : IDisposable
         }
     }
 
+    /// <summary>2026-11-13 (живая проверка доступов, ошибка 2): пока в чеке есть товары, права применяются в обе стороны (раньше — не применялись вовсе).</summary>
+    [Fact]
+    public async Task Rights_change_both_ways_while_check_is_open()
+    {
+        Restub(warehouse: true);
+        await LoginAsync();
+        var permissions = new PermissionService(_auth!, new NoAutonomous());
+        (await AccessSync.CheckNowAsync("timer")).Should().BeTrue();
+        permissions.HasPermission(PosPermissions.ViewProducts).Should().BeTrue();
+
+        SyncCenter.OpenCheck = true; // кассир собирает чек
+        var changed = 0;
+        void OnChanged() => Interlocked.Increment(ref changed);
+        PermissionRecheck.PermissionsChanged += OnChanged;
+        try
+        {
+            Restub(warehouse: false); // владелец отнял право
+            (await AccessSync.CheckNowAsync("events")).Should().BeTrue();
+            permissions.HasPermission(PosPermissions.ViewProducts).Should().BeFalse("отнятое право действует при открытом чеке");
+            changed.Should().Be(1);
+
+            Restub(warehouse: true); // и вернул
+            (await AccessSync.CheckNowAsync("events")).Should().BeTrue();
+            permissions.HasPermission(PosPermissions.ViewProducts).Should().BeTrue("возвращённое право работает без «Отложить»");
+            changed.Should().Be(2);
+        }
+        finally
+        {
+            PermissionRecheck.PermissionsChanged -= OnChanged;
+            SyncCenter.OpenCheck = false;
+        }
+    }
+
+    private void RestubProfileJson(string userFlagsJson)
+    {
+        _server.Server.ResetMappings();
+        _server.Json("POST", "/api/users/auth/login/", 200,
+            "{\"access\":\"test-access\",\"refresh\":\"test-refresh\",\"user\":{\"id\":\"u7\",\"email\":\"seller@test.kg\",\"full_name\":\"Продавец\",\"role\":\"salesperson\",\"can_view_cashier\":true}}");
+        _server.Json("GET", "/api/users/profile/", 200,
+            "{\"id\":\"u7\",\"email\":\"seller@test.kg\",\"full_name\":\"Продавец\",\"role\":\"salesperson\"," + userFlagsJson + ",\"company\":{\"id\":\"c-test\",\"name\":\"Тест\"}}");
+        StubAddons();
+    }
+
+    private const string AllCashierRights = "\"can_view_cashier\":true,\"can_view_sale\":true,\"can_view_shifts\":true,\"can_view_market_discount\":true,\"can_view_market_delete_cart_item\":true,\"can_use_pos\":true";
+
+    /// <summary>2026-11-13 (живая проверка доступов, ошибки 2 и 3, замечания 4–5): при открытом чеке отнятые права действуют, выданные — возвращаются; отказ называет само право;
+    /// «Работа на кассе» (can_use_pos=false) называется своим именем, а не «Продажа»; подсказка — «Управление → Сотрудники».</summary>
+    [Fact]
+    public async Task Open_check_revoke_and_return_of_rights_use_fresh_rights_and_named_denials()
+    {
+        var oldLanguage = UserPreferences.Instance.Language;
+        UserPreferences.Instance.Language = AppLanguage.Russian;
+        try
+        {
+            RestubProfileJson(AllCashierRights);
+            await LoginAsync();
+            var permissions = new PermissionService(_auth!, new NoAutonomous());
+            (await AccessSync.CheckNowAsync("timer")).Should().BeTrue();
+            permissions.HasPermission(PosPermissions.ApplyDiscount).Should().BeTrue();
+            permissions.HasPermission(PosPermissions.Sale).Should().BeTrue();
+
+            SyncCenter.OpenCheck = true; // в чеке есть товары
+            // отняли скидку, удаление из чека и «Работу на кассе»
+            RestubProfileJson("\"can_view_cashier\":true,\"can_view_sale\":true,\"can_view_shifts\":true,\"can_use_pos\":false");
+            (await AccessSync.CheckNowAsync("events")).Should().BeTrue();
+            permissions.HasPermission(PosPermissions.ApplyDiscount).Should().BeFalse("отнятая скидка действует сразу, а не через 5 минут");
+            permissions.HasPermission(PosPermissions.DeleteCartItem).Should().BeFalse();
+            permissions.HasPermission(PosPermissions.UsePos).Should().BeFalse();
+            permissions.HasPermission(PosPermissions.Sale).Should().BeFalse("can_use_pos=false закрывает продажу");
+
+            var sale = PermissionService.DeniedMessage(permissions, PosPermissions.Sale);
+            sale.Should().Contain("«Работа на кассе»").And.NotContain("«Продажа»", "«Продажа» у сотрудника включена — называть нужно «Работа на кассе»");
+            PermissionService.DeniedMessage(permissions, PosPermissions.ViewShifts).Should().Contain("«Работа на кассе»");
+            PermissionService.DeniedMessage(permissions, PosPermissions.ApplyDiscount).Should().Contain("«Скидка в кассе»");
+            PermissionService.DeniedMessage(permissions, PosPermissions.DeleteCartItem).Should().Contain("«Удаление позиций из корзины»");
+            PermissionService.DeniedMessage(permissions, PosPermissions.ViewSettings).Should().Contain("«Настройки»");
+            sale.Should().Contain("Управление → Сотрудники").And.NotContain("Настройки → Сотрудники");
+
+            // вернули всё — без «Отложить» и перезапуска
+            RestubProfileJson(AllCashierRights);
+            (await AccessSync.CheckNowAsync("events")).Should().BeTrue();
+            permissions.HasPermission(PosPermissions.ApplyDiscount).Should().BeTrue("возвращённое право работает при открытом чеке");
+            permissions.HasPermission(PosPermissions.DeleteCartItem).Should().BeTrue();
+            permissions.HasPermission(PosPermissions.UsePos).Should().BeTrue();
+            permissions.HasPermission(PosPermissions.Sale).Should().BeTrue();
+        }
+        finally
+        {
+            UserPreferences.Instance.Language = oldLanguage;
+            SyncCenter.OpenCheck = false;
+        }
+    }
+
+    [Fact]
+    public async Task Sale_off_with_pos_on_names_sale_and_owner_never_loses_pos()
+    {
+        var oldLanguage = UserPreferences.Instance.Language;
+        UserPreferences.Instance.Language = AppLanguage.Russian;
+        try
+        {
+            // «Продажа» не выдана, но «Работа на кассе» открыта и выдано другое личное право — отказ называет «Продажа»
+            RestubProfileJson("\"can_view_cashier\":true,\"can_view_shifts\":true,\"can_use_pos\":true");
+            await LoginAsync();
+            (await AccessSync.CheckNowAsync("timer")).Should().BeTrue();
+            var permissions = new PermissionService(_auth!, new NoAutonomous());
+            permissions.HasPermission(PosPermissions.Sale).Should().BeFalse();
+            permissions.HasPermission(PosPermissions.UsePos).Should().BeTrue();
+            PermissionService.DeniedMessage(permissions, PosPermissions.Sale).Should().Contain("«Продажа»").And.NotContain("«Работа на кассе»");
+
+            // у владельца can_use_pos=false ничего не закрывает
+            using var owner = System.Text.Json.JsonDocument.Parse("{\"id\":\"1\",\"role\":\"owner\",\"can_use_pos\":false}");
+            PermissionService.IsPosUseAllowed(owner.RootElement).Should().BeTrue();
+            using var cashier = System.Text.Json.JsonDocument.Parse("{\"id\":\"2\",\"role\":\"cashier\",\"can_use_pos\":false}");
+            PermissionService.IsPosUseAllowed(cashier.RootElement).Should().BeFalse();
+            using var oldServer = System.Text.Json.JsonDocument.Parse("{\"id\":\"3\",\"role\":\"cashier\"}");
+            PermissionService.IsPosUseAllowed(oldServer.RootElement).Should().BeTrue("поля нет (старый сервер) — не закрываем");
+        }
+        finally
+        {
+            UserPreferences.Instance.Language = oldLanguage;
+        }
+    }
+
+    [Fact]
+    public void Denied_message_for_unknown_right_stays_generic_and_all_hints_point_to_owner_program()
+    {
+        var oldLanguage = UserPreferences.Instance.Language;
+        try
+        {
+            foreach (var lang in new[] { AppLanguage.Russian, AppLanguage.Kyrgyz, AppLanguage.English, AppLanguage.Turkish, AppLanguage.Uzbek })
+            {
+                UserPreferences.Instance.Language = lang;
+                var named = PermissionService.DeniedMessage(null, PosPermissions.ApplyDiscount);
+                named.Should().NotBeNullOrWhiteSpace();
+                named.Should().NotContain("🔐", "старая подсказка «Настройки → Сотрудники → 🔐» заменена");
+                PermissionService.CashierWorkDeniedMessage(PosPermissions.UsePos).Should().NotBeNullOrWhiteSpace().And.NotContain("🔐");
+                PermissionService.DeniedMessage(null, "can_something_unknown").Should().NotBeNullOrWhiteSpace();
+            }
+        }
+        finally
+        {
+            UserPreferences.Instance.Language = oldLanguage;
+        }
+    }
+
     [Fact]
     public async Task Server_revoke_removes_addon_but_key_purchase_stays()
     {
@@ -138,20 +283,26 @@ public sealed class AccessSyncTests : IDisposable
     }
 
     [Fact]
-    public async Task No_check_while_check_is_open_and_events_are_rate_limited()
+    public async Task Open_check_does_not_block_check_but_payment_does_and_events_are_rate_limited()
     {
         Restub(warehouse: false);
         await LoginAsync();
         var atStart = Requests("/api/users/profile/");
+        // 2026-11-13 (живая проверка доступов, ошибка 2): открытый чек проверку НЕ останавливает; останавливает только оплата (BusyProbe).
         SyncCenter.OpenCheck = true;
-        (await AccessSync.CheckNowAsync("timer")).Should().BeFalse("во время работы с открытым чеком/оплаты проверка не идёт");
+        AccessSync.BusyProbe = () => true;
+        (await AccessSync.CheckNowAsync("timer")).Should().BeFalse("во время оплаты проверка не идёт");
         Requests("/api/users/profile/").Should().Be(atStart);
+        AccessSync.BusyProbe = null;
+        (await AccessSync.CheckNowAsync("timer")).Should().BeTrue("открытый чек проверку прав не останавливает");
+        Requests("/api/users/profile/").Should().Be(atStart + 1);
         SyncCenter.OpenCheck = false;
+        AccessSync.ResetForTests(); // сброс отметки времени последней проверки
 
         AccessSync.MarkStartedForTests(true);
         (await AccessSync.CheckNowAsync("timer")).Should().BeTrue();
         var profileCalls = Requests("/api/users/profile/");
-        profileCalls.Should().Be(atStart + 1, "одна проверка — один запрос профиля");
+        profileCalls.Should().Be(atStart + 2, "одна проверка — один запрос профиля");
         for (var i = 0; i < 10; i++)
             AccessSync.Kick("focus");
         AccessSync.TakeWakeForTests().Should().BeFalse("события чаще раза в 20 с после проверки запросов не вызывают");

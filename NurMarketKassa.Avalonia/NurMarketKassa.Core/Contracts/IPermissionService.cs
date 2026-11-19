@@ -29,6 +29,10 @@ public static class PosPermissions
     public const string ViewShifts = "can_view_shifts";
     public const string ViewCashier = "can_view_cashier";
 
+    /// <summary>2026-11-13 (живая проверка доступов, ошибка 3): «Работа на кассе» (can_use_pos) — сервер может явно закрыть её сотруднику (false). Отдельное право только для текста отказа:
+    /// закрытая «Работа на кассе» закрывает «Продажу», «Смены» и «Интерфейс кассира», но называть в отказе нужно именно её (PermissionService.DeniedMessage).</summary>
+    public const string UsePos = "can_use_pos";
+
     /// <summary>2026-10-30: «Редактор документов закупок» — правка проведённых накладных прихода. Пока ТОЛЬКО у владельца (роль owner в профиле);
     /// сотрудникам не выдаётся (в доступах — «пока только владелец»). Проверка — PermissionService.CanEditPurchaseDocuments.</summary>
     public const string EditPurchaseDocuments = "can_edit_purchase_documents";
@@ -49,6 +53,9 @@ public static class PosPermissions
     public const string ViewProducts = "can_view_products";
     public const string ViewAnalytics = "can_view_analytics";
     public const string ViewClients = "can_view_clients";
+
+    /// <summary>2026-11-13: «Долги: просмотр» (can_view_debts) — вместе с «Клиентами» это сайтовое «Клиенты и долги»; «Оплата долга» в меню кассы скрывается, когда выключены оба.</summary>
+    public const string ViewDebts = "can_view_debts";
     public const string ViewOrders = "can_view_orders";
 
     /// <summary>Разделы, которые сайт владельцу показывает всегда (при входе владельца сайт сам

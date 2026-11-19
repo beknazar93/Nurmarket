@@ -134,6 +134,8 @@ public partial class ReceiptHistoryWindow : Window
             actions.Children.Insert(actions.Children.IndexOf(ActionBarHost) + 1, _returnsEdit.View);
         if (ActionBarHost.Parent is Panel actionsElectronics)
             InitElectronics(actionsElectronics); // 2026-11-12 (ЭЛ3): кнопка «Гарантийный талон» (только сфера «Электроника»)
+        if (ActionBarHost.Parent is Panel actionsFiscal)
+            InitFiscal(actionsFiscal); // 2026-11-14 (П0-1): карточка «Фискальный чек (ККМ)» — только при включённой фискализации компании
         _returnsEdit.Changed = async () =>
         {
             ReturnWasOpened = true; // главное окно пересчитает остаток смены
@@ -437,6 +439,7 @@ public partial class ReceiptHistoryWindow : Window
         _loadCts?.Cancel();
         var cts = new CancellationTokenSource();
         _loadCts = cts;
+        StateBlock.ShowOver(ReceiptsList, null); // 2026-11-13 (Н-4): новая загрузка — блок ошибки убираем
 
         LoadingBar.IsVisible = true;
         Avalonia.Threading.DispatcherTimer.RunOnce(() =>
@@ -490,8 +493,20 @@ public partial class ReceiptHistoryWindow : Window
         catch (Exception ex)
         {
             PosLogger.Log($"История чеков не загружена: {ex}", "WARNING");
-            NoticeText.Text = Tr.T("Не удалось загрузить чеки: ", "Чектерди жүктөө мүмкүн болгон жок: ", "Could not load the receipts: ", "Fişler yüklenemedi: ", "Cheklarni yuklab bo'lmadi: ") + ex.Message;
-            NoticeBorder.IsVisible = true;
+            // 2026-11-13 (Н-4): список пуст — общий блок ошибки с «Повторить» на месте списка (а не жёлтая полоса с сырым текстом .NET);
+            // чеки этой кассы уже показаны — полоса над списком с понятной причиной.
+            if (_rows.Count == 0 && StateBlock.ShowOver(ReceiptsList, StateBlock.Failure(this, ex,
+                    Tr.T("Не удалось загрузить чеки", "Чектерди жүктөө мүмкүн болгон жок", "Could not load the receipts", "Fişler yüklenemedi", "Cheklarni yuklab bo'lmadi"),
+                    () => _ = LoadAsync())))
+            {
+                NoticeBorder.IsVisible = false;
+                EmptyText.IsVisible = false;
+            }
+            else
+            {
+            NoticeText.Text = Tr.T("Не удалось загрузить чеки: ", "Чектерди жүктөө мүмкүн болгон жок: ", "Could not load the receipts: ", "Fişler yüklenemedi: ", "Cheklarni yuklab bo'lmadi: ") + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex);
+                NoticeBorder.IsVisible = true;
+            }
         }
         finally
         {
@@ -602,6 +617,7 @@ public partial class ReceiptHistoryWindow : Window
         DetailsPanel.IsVisible = false;
         SelectHintText.IsVisible = true;
         UpdateWarrantyButton(null); // 2026-11-12 (ЭЛ3)
+        HideFiscalCard(); // 2026-11-14 (П0-1)
     }
 
     private async Task ShowDetailsAsync(RowVm row)
@@ -618,6 +634,7 @@ public partial class ReceiptHistoryWindow : Window
         DetailsPanel.IsVisible = true;
         FillHeader(row);
         UpdateWarrantyButton(row); // 2026-11-12 (ЭЛ3): талон — у чека с серийными номерами (сфера «Электроника»)
+        HideFiscalCard(); // 2026-11-14 (П0-1): реквизиты прежнего чека — не показываем у нового
         ReceiptPaperHost.IsVisible = false;
         ReceiptPaperHost.Content = null;
         _card = null;
@@ -640,6 +657,7 @@ public partial class ReceiptHistoryWindow : Window
             _shownDetailId = row.Entry.Id;
             FillDetails(row, detail);
             UpdateWarrantyButton(row); // 2026-11-13 (сервер sn1311): карточка чека с serial_numbers / warranty_until загружена — талон по ней
+            ShowFiscalCard(detail); // 2026-11-14 (П0-1): fiscal_* карточки чека
             _bar.IsReady = _card != null;
             DocReceiptButton.IsEnabled = DocWaybillButton.IsEnabled = true;
         }
@@ -652,7 +670,7 @@ public partial class ReceiptHistoryWindow : Window
             if (!ReferenceEquals(_selected, row))
                 return;
             PosLogger.Log($"История чеков: состав чека {row.Entry.Id} не загружен: {ex.Message}", "WARNING");
-            DetailErrorText.Text = Tr.T("Не удалось загрузить состав чека: ", "Чектин курамын жүктөө мүмкүн болгон жок: ", "Could not load the receipt items: ", "Fiş içeriği yüklenemedi: ", "Chek tarkibini yuklab bo'lmadi: ") + (ex is ServerNotAnsweringException ? ServerOutageMonitor.FriendlyError(ex) : ex.Message); // 2026-11-03 (ревью Н-4)
+            DetailErrorText.Text = Tr.T("Не удалось загрузить состав чека: ", "Чектин курамын жүктөө мүмкүн болгон жок: ", "Could not load the receipt items: ", "Fiş içeriği yüklenemedi: ", "Chek tarkibini yuklab bo'lmadi: ") + (ex is ServerNotAnsweringException ? ServerOutageMonitor.FriendlyError(ex) : NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)); // 2026-11-03 (ревью Н-4)
             DetailErrorText.IsVisible = true;
         }
         finally
@@ -790,7 +808,7 @@ public partial class ReceiptHistoryWindow : Window
         {
             PosLogger.Log($"История чеков: «Отправить на сервер» упало: {ex}", "OFFLINE");
             result = (false, Tr.T("Не удалось отправить чек: ", "Чекти жөнөтүү мүмкүн болгон жок: ", "Could not send the receipt: ",
-                "Fiş gönderilemedi: ", "Chekni yuborib bo'lmadi: ") + ex.Message);
+                "Fiş gönderilemedi: ", "Chekni yuborib bo'lmadi: ") + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex));
         }
         finally
         {
@@ -1304,7 +1322,7 @@ public partial class ReceiptHistoryWindow : Window
         catch (Exception ex)
         {
             PosLogger.Log($"История чеков: окно возврата не открылось: {ex}", "WARNING");
-            ShowAction(Tr.T("Не удалось открыть возврат: ", "Кайтарууну ачуу мүмкүн болгон жок: ", "Could not open the return: ", "İade açılamadı: ", "Qaytarishni ochib bo'lmadi: ") + ex.Message, ok: false);
+            ShowAction(Tr.T("Не удалось открыть возврат: ", "Кайтарууну ачуу мүмкүн болгон жок: ", "Could not open the return: ", "İade açılamadı: ", "Qaytarishni ochib bo'lmadi: ") + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex), ok: false);
             return;
         }
 

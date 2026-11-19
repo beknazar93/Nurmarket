@@ -481,19 +481,19 @@ class _GeminiKeysScreenState extends ConsumerState<GeminiKeysScreen> {
                 ),
                 IconButton(
                   tooltip: l.gkMoveUp,
-                  visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints(minWidth: 48, minHeight: 48), // 2026-11-13 (аудит UX мобилки, п. 3): было compact = 40 dp
                   icon: const Icon(Icons.arrow_upward_rounded, size: 20),
                   onPressed: i == 0 ? null : () => _move(i, -1),
                 ),
                 IconButton(
                   tooltip: l.gkMoveDown,
-                  visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints(minWidth: 48, minHeight: 48), // 2026-11-13 (аудит UX мобилки, п. 3): было compact = 40 dp
                   icon: const Icon(Icons.arrow_downward_rounded, size: 20),
                   onPressed: i == _rows.length - 1 ? null : () => _move(i, 1),
                 ),
                 IconButton(
                   tooltip: l.gkDelete,
-                  visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints(minWidth: 48, minHeight: 48), // 2026-11-13 (аудит UX мобилки, п. 3): было compact = 40 dp
                   icon: Icon(
                     Icons.delete_outline_rounded,
                     size: 20,

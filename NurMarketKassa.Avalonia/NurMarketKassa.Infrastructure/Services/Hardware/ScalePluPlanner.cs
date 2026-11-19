@@ -18,6 +18,10 @@ public sealed class ScaleSentPlu
 
     /// <summary>Название товара на момент отправки — для проверки «в старой ячейке лежит именно он».</summary>
     public string? Name { get; set; }
+
+    /// <summary>2026-11-13: отпечаток товара (название, цена, единица, PLU, код) на момент отправки — по нему автоотправка
+    /// видит, что товар изменился (<see cref="ScaleAutoSendSignature"/>). null — отправлен до автоотправки.</summary>
+    public string? Sig { get; set; }
 }
 
 /// <summary>Товар переехал: в прошлый раз был записан в ячейку <see cref="From"/>, сейчас — в <see cref="To"/>.</summary>
@@ -253,7 +257,7 @@ public static class ScalePluPlanner
         foreach (var id in overwritten)
             lastSent.Remove(id);
         foreach (var (id, now) in writtenNow)
-            lastSent[id] = new ScaleSentPlu { Plu = now.Plu, Code = now.Code, Name = now.Name };
+            lastSent[id] = new ScaleSentPlu { Plu = now.Plu, Code = now.Code, Name = now.Name, Sig = now.Sig };
     }
 
     private static bool TryCode(string? text, out long code) =>

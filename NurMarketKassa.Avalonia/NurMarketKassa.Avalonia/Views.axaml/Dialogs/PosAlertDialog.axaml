@@ -35,10 +35,15 @@
     </dlg:ModalShell.Footer>
 
     <!-- Отступ справа: полоса прокрутки длинного текста («Касса обновлена») не ложится на буквы. -->
-    <TextBlock x:Name="MessageText" Margin="0,0,14,0"
-               FontSize="14" TextWrapping="Wrap"
-               Foreground="{DynamicResource BrushTextSoft}"
-               HorizontalAlignment="Stretch"
-               TextAlignment="Left"/>
+    <!-- 2026-11-13 (Л-9): в окне ошибки — «Написать в поддержку» под текстом (журнал без секретов, версия, компания уходят сами). -->
+    <StackPanel Spacing="12">
+      <TextBlock x:Name="MessageText" Margin="0,0,14,0"
+                 FontSize="14" TextWrapping="Wrap"
+                 Foreground="{DynamicResource BrushTextSoft}"
+                 HorizontalAlignment="Stretch"
+                 TextAlignment="Left"/>
+      <Button x:Name="SupportButton" Classes="nur-ghost" HorizontalAlignment="Left"
+              IsVisible="False" Click="SupportButton_Click"/>
+    </StackPanel>
   </dlg:ModalShell>
 </Window>

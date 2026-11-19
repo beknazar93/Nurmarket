@@ -51,6 +51,10 @@ public static class SerialJournal
                 if (serials.Count == 0)
                     continue;
                 var months = ReadMonths(item);
+                // 2026-11-14 (ответ Умара 13.11 вечер): «гарантия до» из ответа сервера (warranty_until строки) главнее расчёта кассы.
+                var serverUntil = ServerSerials.LineWarrantyUntil(item);
+                if (months == 0 && serverUntil is { } su)
+                    months = ServerSerials.MonthsBetween(soldAt, su);
                 foreach (var serial in serials)
                     result.Add(new SerialRecord
                     {
@@ -61,7 +65,7 @@ public static class SerialJournal
                         Title = CartDisplayHelper.ItemName(item).Trim(),
                         Serial = serial,
                         WarrantyMonths = months,
-                        WarrantyUntil = months > 0 ? WarrantyCard.WarrantyUntil(soldAt, months) : null,
+                        WarrantyUntil = serverUntil ?? (months > 0 ? WarrantyCard.WarrantyUntil(soldAt, months) : null),
                     });
             }
         }

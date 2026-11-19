@@ -30,6 +30,17 @@ public partial class LabelScaleSetupPanel : UserControl
     private ShtrikhPcFieldsView _pcFields = null!;
     private Button _pcGuideButton = null!;
 
+    // 2026-11-13: весы Масса-К (серии R/SL) — плитка и поля адреса создаются кодом, как у РС-200 (разметку панели не трогаем).
+    private RadioButton _brandMassaKTile = null!;
+    private StackPanel _massaKFields = null!;
+    private TextBox _massaKIpBox = null!;
+    private TextBox _massaKPortBox = null!;
+
+    // 2026-11-13: весы CAS (CL5000J/CL3000 по сети, остальные CL — файл для CL-Works) — плитка и поле адреса создаются кодом; модель, порт и остальное — в окне «Настройки весов CAS».
+    private RadioButton _brandCasTile = null!;
+    private StackPanel _casFields = null!;
+    private TextBox _casIpBox = null!;
+
     /// <summary>Поля хоть раз заполнены из настроек. До этого SaveFields ничего не пишет — иначе
     /// пустые поля ещё не открытой панели затёрли бы сохранённые адреса.</summary>
     private bool _hasLoaded;
@@ -38,6 +49,99 @@ public partial class LabelScaleSetupPanel : UserControl
     {
         InitializeComponent();
         AddShtrikhPcParts();
+        AddMassaKParts();
+        AddCasParts();
+    }
+
+    /// <summary>2026-11-13: плитка «CAS» и поле IP. Модель (сеть или файл для CL-Works), порт 20304, префикс и знаки цены — «Настройки весов…» → окно CAS. НЕ ПРОВЕРЕНО на весах.</summary>
+    private void AddCasParts()
+    {
+        _brandCasTile = new RadioButton { Classes = { "BrandTile" }, GroupName = "LabelScaleBrand" };
+        _brandCasTile.Click += BrandTile_Click;
+        var tileGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto") };
+        tileGrid.Children.Add(new Border { Classes = { "tileBadge" }, Child = new TextBlock { Classes = { "tileBadgeText" }, Text = "CAS" } });
+        var tileTexts = new StackPanel { VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center, Spacing = 2 };
+        tileTexts.Children.Add(new TextBlock { Classes = { "tileTitle" }, Text = "CAS" });
+        tileTexts.Children.Add(new TextBlock { Classes = { "tileSub" }, Text = L("CL5000J, CL3000: по сети; CL5500, CL5200, CL7200, LP-1.6: файл для CL-Works", "CL5000J, CL3000: тармак аркылуу; CL5500, CL5200, CL7200, LP-1.6: CL-Works үчүн файл", "CL5000J, CL3000: over the network; CL5500, CL5200, CL7200, LP-1.6: file for CL-Works", "CL5000J, CL3000: ağ üzerinden; CL5500, CL5200, CL7200, LP-1.6: CL-Works için dosya", "CL5000J, CL3000: tarmoq orqali; CL5500, CL5200, CL7200, LP-1.6: CL-Works uchun fayl") });
+        Grid.SetColumn(tileTexts, 1);
+        tileGrid.Children.Add(tileTexts);
+        var tick = new TextBlock { Classes = { "tileCheck" }, Text = "✓" };
+        Grid.SetColumn(tick, 2);
+        tileGrid.Children.Add(tick);
+        _brandCasTile.Content = tileGrid;
+        if (BrandShtrikhTile.Parent is Panel tiles)
+            tiles.Children.Add(_brandCasTile);
+
+        _casIpBox = new TextBox { Classes = { "ModernTextBox" }, Height = 36, Watermark = "192.168.1.80" };
+        _casIpBox.TextChanged += IpBox_TextChanged;
+        _casIpBox.LostFocus += Field_LostFocus;
+        _casFields = new StackPanel { Spacing = 10 };
+        var ipColumn = new StackPanel();
+        ipColumn.Children.Add(new TextBlock { Classes = { "FieldLabel" }, Text = L("IP-адрес весов (для моделей по сети)", "Таразанын IP-дареги (тармак аркылуу моделдер үчүн)", "Scale IP address (for network models)", "Tartı IP adresi (ağ modelleri için)", "Tarozi IP manzili (tarmoq modellari uchun)") });
+        ipColumn.Children.Add(_casIpBox);
+        _casFields.Children.Add(ipColumn);
+        _casFields.Children.Add(new TextBlock
+        {
+            Classes = { "SettingsCardBody" },
+            FontSize = 12,
+            Text = L("Модель, порт, префикс штрихкода и знаки цены — «Настройки весов…» → «Быстрая настройка». CL5000J и CL3000 касса заполняет по сети (по документу CAS, на весах пока не проверено); для CL5500, CL5200, CL7200 и LP-1.6 она готовит файл для CL-Works.",
+                "Модель, порт, штрих-код префикси жана баанын белгилери — «Тараза жөндөөлөрү…» → «Ыкчам жөндөө». CL5000J жана CL3000 таразаларын касса тармак аркылуу толтурат (CAS документи боюнча, таразада азырынча текшерилген эмес); CL5500, CL5200, CL7200 жана LP-1.6 үчүн CL-Works'ко файл даярдайт.",
+                "Model, port, barcode prefix and price decimals — “Scale settings…” → “Quick setup”. The till fills the CL5000J and CL3000 over the network (per the CAS document, not verified on a scale yet); for CL5500, CL5200, CL7200 and LP-1.6 it prepares a file for CL-Works.",
+                "Model, port, barkod öneki ve fiyat ondalığı — «Tartı ayarları…» → «Hızlı kurulum». CL5000J ve CL3000'i kasa ağ üzerinden doldurur (CAS belgesine göre, tartıda henüz doğrulanmadı); CL5500, CL5200, CL7200 ve LP-1.6 için CL-Works dosyası hazırlar.",
+                "Model, port, shtrix-kod prefiksi va narx kasrlari — «Tarozi sozlamalari…» → «Tez sozlash». CL5000J va CL3000 ni kassa tarmoq orqali to‘ldiradi (CAS hujjatiga ko‘ra, tarozida hali tekshirilmagan); CL5500, CL5200, CL7200 va LP-1.6 uchun CL-Works fayli tayyorlanadi."),
+        });
+        if (TmFields.Parent is Panel fields)
+            fields.Children.Insert(fields.Children.IndexOf(TmFields) + 1, _casFields);
+    }
+
+    /// <summary>2026-11-13: плитка «Масса-К» (серии R/SL), поля IP и порта (TCP 5001) и подсказка. Протокол открытый (massa.ru), на живых весах не проверен.</summary>
+    private void AddMassaKParts()
+    {
+        _brandMassaKTile = new RadioButton { Classes = { "BrandTile" }, GroupName = "LabelScaleBrand" };
+        _brandMassaKTile.Click += BrandTile_Click;
+        var tileGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto") };
+        tileGrid.Children.Add(new Border { Classes = { "tileBadge" }, Child = new TextBlock { Classes = { "tileBadgeText" }, Text = "МК" } });
+        var tileTexts = new StackPanel { VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center, Spacing = 2 };
+        tileTexts.Children.Add(new TextBlock { Classes = { "tileTitle" }, Text = ScaleUi.BrandTitle(ScaleUi.BrandMassaK) });
+        tileTexts.Children.Add(new TextBlock { Classes = { "tileSub" }, Text = L("Серии R, SL (MK-RP10, MK-RL10…): прямо по сети", "R, SL сериялары (MK-RP10, MK-RL10…): тармак аркылуу түз", "R, SL series (MK-RP10, MK-RL10…): directly over the network", "R, SL serisi (MK-RP10, MK-RL10…): doğrudan ağ üzerinden", "R, SL seriyalari (MK-RP10, MK-RL10…): tarmoq orqali to‘g‘ridan-to‘g‘ri") });
+        Grid.SetColumn(tileTexts, 1);
+        tileGrid.Children.Add(tileTexts);
+        var tick = new TextBlock { Classes = { "tileCheck" }, Text = "✓" };
+        Grid.SetColumn(tick, 2);
+        tileGrid.Children.Add(tick);
+        _brandMassaKTile.Content = tileGrid;
+        if (BrandShtrikhTile.Parent is Panel tiles)
+            tiles.Children.Add(_brandMassaKTile);
+
+        _massaKIpBox = new TextBox { Classes = { "ModernTextBox" }, Height = 36, Watermark = "192.168.0.150" };
+        _massaKIpBox.TextChanged += IpBox_TextChanged;
+        _massaKIpBox.LostFocus += Field_LostFocus;
+        _massaKPortBox = new TextBox { Classes = { "ModernTextBox" }, Height = 36, Watermark = "5001" };
+        _massaKPortBox.LostFocus += Field_LostFocus;
+        var ipColumn = new StackPanel();
+        ipColumn.Children.Add(new TextBlock { Classes = { "FieldLabel" }, Text = L("IP-адрес весов", "Таразанын IP-дареги", "Scale IP address", "Tartı IP adresi", "Tarozi IP manzili") });
+        ipColumn.Children.Add(_massaKIpBox);
+        var portColumn = new StackPanel();
+        portColumn.Children.Add(new TextBlock { Classes = { "FieldLabel" }, Text = L("TCP-порт", "TCP-порт", "TCP port", "TCP portu", "TCP port") });
+        portColumn.Children.Add(_massaKPortBox);
+        Grid.SetColumn(portColumn, 2);
+        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,12,100") };
+        row.Children.Add(ipColumn);
+        row.Children.Add(portColumn);
+        _massaKFields = new StackPanel { Spacing = 10 };
+        _massaKFields.Children.Add(row);
+        _massaKFields.Children.Add(new TextBlock
+        {
+            Classes = { "SettingsCardBody" },
+            FontSize = 12,
+            Text = L("Касса сама пишет весовые товары на весы Масса-К (серии R, SL) по сети, порт по умолчанию 5001; справочник весов не стирается. Протокол открытый, но на живых весах ещё не проверен — «Настройки весов…» → «Быстрая настройка».",
+                "Касса салмактуу товарларды Масса-К (R, SL сериялары) таразасына тармак аркылуу өзү жазат, демейки порт 5001; тараза справочниги өчүрүлбөйт. Протокол ачык, бирок жандуу таразада азырынча текшерилген эмес — «Тараза жөндөөлөрү…» → «Ыкчам жөндөө».",
+                "The till writes weighed goods to the Massa-K scale (R, SL series) itself over the network, default port 5001; the scale's directory is not erased. The protocol is open but not yet verified on live scales — “Scale settings…” → “Quick setup”.",
+                "Kasa tartılı ürünleri Massa-K tartıya (R, SL serisi) ağ üzerinden kendisi yazar, varsayılan port 5001; tartının rehberi silinmez. Protokol açık ama canlı tartıda henüz doğrulanmadı — «Tartı ayarları…» → «Hızlı kurulum».",
+                "Kassa vaznli tovarlarni Massa-K tarozisiga (R, SL seriyalari) tarmoq orqali o‘zi yozadi, standart port 5001; tarozi ma’lumotnomasi o‘chirilmaydi. Protokol ochiq, lekin jonli tarozida hali tekshirilmagan — «Tarozi sozlamalari…» → «Tez sozlash»."),
+        });
+        if (TmFields.Parent is Panel fields)
+            fields.Children.Insert(fields.Children.IndexOf(TmFields) + 1, _massaKFields);
     }
 
     /// <summary>2026-11-06: плитка марки «Штрих РС-200», её поля подключения и кнопка «Инструкция подключения».</summary>
@@ -99,6 +203,11 @@ public partial class LabelScaleSetupPanel : UserControl
             BrandTmTile.IsChecked = _brand == ScaleUi.BrandTm;
             BrandAiTile.IsChecked = _brand == ScaleUi.BrandAi;
             _brandPcTile.IsChecked = _brand == ScaleUi.BrandShtrikhPc;
+            _brandMassaKTile.IsChecked = _brand == ScaleUi.BrandMassaK; // 2026-11-13
+            _massaKIpBox.Text = prefs.MassaKScaleIp ?? "";
+            _massaKPortBox.Text = prefs.MassaKScalePort.ToString(CultureInfo.InvariantCulture);
+            _brandCasTile.IsChecked = _brand == ScaleUi.BrandCas; // 2026-11-13
+            _casIpBox.Text = NurMarketKassa.Services.Hardware.CasScaleSettings.Current.Ip;
             _pcFields.Load();
 
             ShtrikhIpBox.Text = prefs.ScaleNetworkIp ?? "";
@@ -133,6 +242,8 @@ public partial class LabelScaleSetupPanel : UserControl
         RongtaFields.IsVisible = _brand == ScaleUi.BrandRongta;
         TmFields.IsVisible = _brand == ScaleUi.BrandTm;
         AiFields.IsVisible = _brand == ScaleUi.BrandAi;
+        _massaKFields.IsVisible = _brand == ScaleUi.BrandMassaK; // 2026-11-13
+        _casFields.IsVisible = _brand == ScaleUi.BrandCas; // 2026-11-13
         _pcFields.IsVisible = _brand == ScaleUi.BrandShtrikhPc;
         _pcFields.AdvancedPart.IsVisible = _brand == ScaleUi.BrandShtrikhPc;
 
@@ -145,7 +256,7 @@ public partial class LabelScaleSetupPanel : UserControl
         // 2026-11-06: у РС-200 нет поиска по сети — вместо него инструкция подключения
         // 2026-11-07 (живая проверка 1.17.81, Б-F1): кнопка «Настройки весов…» у РС-200 была скрыта — окно параметров (Config.txt) нельзя было открыть; теперь видна у всех марок, кроме AI.
         var isPc = _brand == ScaleUi.BrandShtrikhPc;
-        FindButton.IsVisible = hasNetwork && !isPc;
+        FindButton.IsVisible = hasNetwork && !isPc && _brand != ScaleUi.BrandMassaK && _brand != ScaleUi.BrandCas; // 2026-11-13: поиска Масса-К и CAS в сети пока нет
         DeviceSettingsButton.IsVisible = hasNetwork;
         _pcGuideButton.IsVisible = isPc;
         SendButton.IsVisible = !IsDialogMode;
@@ -193,6 +304,8 @@ public partial class LabelScaleSetupPanel : UserControl
     {
         ScaleUi.BrandRongta => RongtaIpBox,
         ScaleUi.BrandTm => TmIpBox,
+        ScaleUi.BrandMassaK => _massaKIpBox, // 2026-11-13
+        ScaleUi.BrandCas => _casIpBox, // 2026-11-13
         ScaleUi.BrandAi => null,
         ScaleUi.BrandShtrikhPc => null, // 2026-11-06: вместо IP — папка обмена
         _ => ShtrikhIpBox,
@@ -279,6 +392,19 @@ public partial class LabelScaleSetupPanel : UserControl
         if (TryPort(TmPortBox.Text, out var tmPort))
             prefs.TmScalePort = tmPort;
 
+        prefs.MassaKScaleIp = (_massaKIpBox.Text ?? "").Trim(); // 2026-11-13
+        if (TryPort(_massaKPortBox.Text, out var massaKPort))
+            prefs.MassaKScalePort = massaKPort;
+
+        // 2026-11-13: CAS — только адрес (остальное в окне CAS); не пишем настройки, пока адрес не менялся
+        var casIp = (_casIpBox.Text ?? "").Trim();
+        var cas = NurMarketKassa.Services.Hardware.CasScaleSettings.Current;
+        if (!string.Equals(cas.Ip, casIp, StringComparison.Ordinal))
+        {
+            cas.Ip = casIp;
+            NurMarketKassa.Services.Hardware.CasScaleSettings.Save(cas);
+        }
+
         prefs.SaveToDisk();
         _pcFields.Save(); // 2026-11-06: папка обмена весов РС-200
         UpdateStatus();
@@ -296,6 +422,8 @@ public partial class LabelScaleSetupPanel : UserControl
             : sender == BrandTmTile ? ScaleUi.BrandTm
             : sender == BrandAiTile ? ScaleUi.BrandAi
             : sender == _brandPcTile ? ScaleUi.BrandShtrikhPc
+            : sender == _brandMassaKTile ? ScaleUi.BrandMassaK // 2026-11-13
+            : sender == _brandCasTile ? ScaleUi.BrandCas // 2026-11-13
             : ScaleUi.BrandShtrikh;
         SaveFields();
         _brand = brand;

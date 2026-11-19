@@ -12,7 +12,7 @@
   <Style Selector="Border.SettingsCard">
     <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
     <Setter Property="CornerRadius" Value="{DynamicResource SettingsCardRadius}"/>
-    <Setter Property="Padding" Value="20"/>
+    <Setter Property="Padding" Value="16"/>
     <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
     <Setter Property="BorderThickness" Value="1"/>
     <Setter Property="BoxShadow" Value="0 4 12 0 #1A000000"/>
@@ -21,6 +21,8 @@
     <Setter Property="HorizontalAlignment" Value="Stretch"/>
   </Style>
 
+  <!-- 2026-11-19 (единые отступы окон): шесть страниц (Печать, Весы, Экран, Аккаунт, Обновления, Общие) ставили шапке Padding="12" —
+       текст шапки стоял на 4 px левее карточек под ней (16). Местные 12 убраны, у всех — этот стиль. -->
   <Style Selector="Border.SettingsHeaderCard">
     <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
     <Setter Property="CornerRadius" Value="{DynamicResource SettingsCardRadius}"/>
@@ -95,17 +97,20 @@
   <Style Selector="CheckBox.ToggleSwitch">
     <Setter Property="Cursor" Value="Hand"/>
     <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-    <Setter Property="FontSize" Value="14"/>
+    <Setter Property="FontSize" Value="{DynamicResource NurFontBody}"/>
     <!-- 2026-10-27, аудит владельца С-5: область нажатия переключателя 32 → 44; поле -6 сверху и снизу оставляет место в строке прежним (рисунок
          по центру, как был). Где у переключателя свой Margin — он важнее, и строка станет на 12 выше, но цель тоже 44. -->
-    <Setter Property="Height" Value="44"/>
+    <Setter Property="Height" Value="{DynamicResource NurHeightControl}"/>
     <Setter Property="Margin" Value="0,-6"/>
     <Setter Property="VerticalAlignment" Value="Top"/>
     <Setter Property="Template">
       <ControlTemplate TargetType="CheckBox">
         <Grid ColumnDefinitions="Auto,*" Background="Transparent">
+          <!-- 2026-11-19 (единые отступы окон, живой обход «Настройки → Экран»): у переключателя без подписи справа оставались пустые 14 px
+               (Margin дорожки 10 + отступ подписи 4) — переключатели стояли на 14 px дальше от правого края карточки, чем всё остальное.
+               Промежуток перенесён в отступ подписи, а пустая подпись скрыта — без подписи справа ничего не остаётся, с подписью — как было. -->
           <Border x:Name="track" Width="46" Height="26" CornerRadius="13"
-                  Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" Margin="0,0,10,0"/>
+                  Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"/>
           <Ellipse x:Name="dot" Width="20" Height="20" Fill="#FFFFFF"
                    HorizontalAlignment="Left" VerticalAlignment="Center" Margin="3,0,0,0"/>
           <!-- Content обязательно пробрасывать вручную: у безымянного ContentPresenter
@@ -113,7 +118,8 @@
                Content, не выводились вовсе — например «Применять к экрану кассира» в
                «Кастомизации» выглядел голым переключателем без единого слова. -->
           <ContentPresenter Grid.Column="1" Content="{TemplateBinding Content}"
-                            VerticalAlignment="Center" Margin="4,0,0,0"
+                            IsVisible="{TemplateBinding Content, Converter={x:Static ObjectConverters.IsNotNull}}"
+                            VerticalAlignment="Center" Margin="14,0,0,0"
                             TextElement.Foreground="{TemplateBinding Foreground}"/>
         </Grid>
       </ControlTemplate>
@@ -139,8 +145,8 @@
     <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
     <Setter Property="Padding" Value="18,10"/>
-    <Setter Property="FontSize" Value="14"/>
-    <Setter Property="MinHeight" Value="42"/>
+    <Setter Property="FontSize" Value="{DynamicResource NurFontBody}"/>
+    <Setter Property="MinHeight" Value="{DynamicResource NurHeightControl}"/>
     <Setter Property="Cursor" Value="Hand"/>
     <Setter Property="VerticalAlignment" Value="Top"/>
     <Setter Property="Template">
@@ -167,24 +173,24 @@
 
   <!-- 2026-10-19, этап О7: поля ввода и списки — фон поля темы (BrushInput) с заметной рамкой, а не серые залитые плашки. -->
   <Style Selector="TextBox.ModernTextBox">
-    <Setter Property="Height" Value="42"/>
+    <Setter Property="Height" Value="{DynamicResource NurHeightControl}"/>
     <Setter Property="Padding" Value="12,8"/>
     <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource BrushInputBorder}"/>
     <Setter Property="BorderThickness" Value="1"/>
-    <Setter Property="FontSize" Value="14"/>
+    <Setter Property="FontSize" Value="{DynamicResource NurFontBody}"/>
     <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
     <Setter Property="CaretBrush" Value="{DynamicResource BrushText}"/>
     <Setter Property="VerticalAlignment" Value="Top"/>
   </Style>
 
   <Style Selector="ComboBox.TouchComboBox">
-    <Setter Property="Height" Value="42"/>
+    <Setter Property="Height" Value="{DynamicResource NurHeightControl}"/>
     <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
     <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource BrushInputBorder}"/>
     <Setter Property="BorderThickness" Value="1"/>
-    <Setter Property="FontSize" Value="14"/>
+    <Setter Property="FontSize" Value="{DynamicResource NurFontBody}"/>
     <Setter Property="Padding" Value="8,6"/>
     <Setter Property="Cursor" Value="Hand"/>
     <Setter Property="VerticalAlignment" Value="Top"/>
@@ -193,8 +199,8 @@
   <!-- 2026-10-19, этап О7: второстепенные кнопки Настроек — обводкой, как sec-outline (были серые залитые). Главная
        («Сохранить» и т.п.) остаётся жёлтой — одна на странице. -->
   <Style Selector="Button.SettingsFlatButton">
-    <Setter Property="Height" Value="42"/>
-    <Setter Property="FontSize" Value="14"/>
+    <Setter Property="Height" Value="{DynamicResource NurHeightControl}"/>
+    <Setter Property="FontSize" Value="{DynamicResource NurFontBody}"/>
     <Setter Property="FontWeight" Value="SemiBold"/>
     <Setter Property="Padding" Value="14,0"/>
     <Setter Property="Background" Value="Transparent"/>
@@ -226,34 +232,7 @@
   <!-- 2026-10-19, этап О7: кнопки без своего стиля в страницах Настроек (btn-secondary, SecondaryButton) были серыми
        кнопками Fluent («+ Добавить роль», «Загрузить с сайта», «Удалить» у ролей) — теперь обводкой, как sec-outline.
        Страница со своим стилем этих классов (Маркетплейс, Экран) задаёт его ниже include и перекрывает этот. -->
-  <Style Selector="Button.btn-secondary, Button.SecondaryButton">
-    <Setter Property="MinHeight" Value="38"/>
-    <Setter Property="Padding" Value="14,0"/>
-    <Setter Property="FontWeight" Value="SemiBold"/>
-    <Setter Property="Background" Value="Transparent"/>
-    <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
-    <Setter Property="BorderThickness" Value="1"/>
-    <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-    <Setter Property="HorizontalContentAlignment" Value="Center"/>
-    <Setter Property="VerticalContentAlignment" Value="Center"/>
-    <Setter Property="Cursor" Value="Hand"/>
-  </Style>
-  <Style Selector="Button.btn-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.SecondaryButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-    <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-    <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
-  </Style>
-  <Style Selector="Button.btn-secondary:pressed /template/ ContentPresenter#PART_ContentPresenter, Button.SecondaryButton:pressed /template/ ContentPresenter#PART_ContentPresenter">
-    <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}"/>
-    <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-    <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
-  </Style>
-  <Style Selector="Button.btn-secondary:disabled /template/ ContentPresenter#PART_ContentPresenter, Button.SecondaryButton:disabled /template/ ContentPresenter#PART_ContentPresenter">
-    <Setter Property="Background" Value="Transparent"/>
-    <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
-    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
-  </Style>
+  <!-- 2026-11-13 (Д-1): местные описания кнопок удалены — вид один на всю программу (nur-primary / nur-secondary и их псевдонимы, PosDialogStyles.axaml). -->
 
   <Style Selector="Border.AlertBlock">
     <Setter Property="CornerRadius" Value="{DynamicResource NurRadiusControl}"/>
@@ -271,12 +250,12 @@
        IsChecked" (см. HotkeyOptionsPanel в ProductEditDialog). -->
   <!-- 2026-10-19, этап О7: шапка группы — белая (цвет панели) с рамкой, как карточка; наведение — мягкий фон (была серая). -->
   <Style Selector="ToggleButton.SettingsGroupHeader">
-    <Setter Property="MinHeight" Value="44"/> <!-- 2026-10-27, С-5: было 40 -->
+    <Setter Property="MinHeight" Value="{DynamicResource NurHeightControl}"/> <!-- 2026-10-27, С-5: было 40 -->
     <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
     <Setter Property="BorderThickness" Value="1"/>
-    <Setter Property="CornerRadius" Value="10"/>
-    <Setter Property="Padding" Value="12,10"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource NurRadiusControl}"/>
+    <Setter Property="Padding" Value="16,10"/> <!-- 2026-11-19: было 12,10 — по линии карточек настроек (16) -->
     <Setter Property="HorizontalAlignment" Value="Stretch"/>
     <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
     <Setter Property="Cursor" Value="Hand"/>
@@ -309,7 +288,7 @@
     <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
     <Setter Property="BorderThickness" Value="1,0,1,1"/>
     <Setter Property="CornerRadius" Value="0,0,10,10"/>
-    <Setter Property="Padding" Value="14,12"/>
+    <Setter Property="Padding" Value="16,12"/> <!-- 2026-11-19: было 14,12 — по линии карточек настроек (16) -->
   </Style>
 
 </Styles>

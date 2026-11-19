@@ -378,6 +378,11 @@ public sealed partial class SalesApiService : ISalesApiService
         return new List<JsonElement>();
     }
 
+    /// <summary>2026-11-19 (eKassa, ТЗ Умара 18.11): фискальный чек продажи — сервер ждёт ответа eKassa до 45 с, поэтому запрос ждёт до 60 с.</summary>
+    public Task<JsonElement> PosFiscalReceiptAsync(string saleId, CancellationToken ct = default) =>
+        _client.RequestAsync(HttpMethod.Get, $"api/main/pos/sales/{Uri.EscapeDataString(saleId.Trim())}/receipt/", null,
+            new Dictionary<string, string> { ["wait_ekassa"] = "1", ["receipt_text"] = "1" }, ct, TimeSpan.FromSeconds(60));
+
     public async Task<JsonElement> PosSaleGetAsync(string saleId, CancellationToken ct = default)
     {
         var id = Uri.EscapeDataString(saleId.Trim());

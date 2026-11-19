@@ -87,6 +87,9 @@ public static class ScreenCatalog
         new("stock-transfer", ScreenKind.Dialog, () => new StockTransferDialog()),
         new("cash-history", ScreenKind.Dialog, () => new CashHistoryDialog()),
         new("deferred-carts", ScreenKind.Dialog, () => new DeferredCartsDialog()),
+        // 2026-11-13 (Н-2, Н-1): шпаргалка клавиш кассы и мастер первого запуска (первый шаг; действия шагов — пустые, окна кассы не открываются).
+        new("hotkeys-cheatsheet", ScreenKind.Dialog, () => new KassaHotkeysWindow()),
+        new("first-run-wizard", ScreenKind.Dialog, () => new FirstRunWizardWindow()),
     ];
 
     public static ScreenDef Get(string name) => All.Single(s => s.Name == name);

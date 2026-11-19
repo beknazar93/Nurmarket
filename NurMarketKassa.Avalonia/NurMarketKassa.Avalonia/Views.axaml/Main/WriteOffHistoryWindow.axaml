@@ -21,18 +21,7 @@
             <Setter Property="FocusAdorner" Value="{x:Null}"/>
         </Style>
 
-        <Style Selector="Button.SecondaryButton">
-            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Padding" Value="16,8"/>
-        </Style>
-        <Style Selector="Button.SecondaryButton:pointerover">
-            <Setter Property="Background" Value="{DynamicResource BrushBorderStrong}"/>
-        </Style>
+        <!-- 2026-11-13 (Д-1): местные описания кнопок удалены — вид один на всю программу (nur-primary / nur-secondary и их псевдонимы, PosDialogStyles.axaml). -->
 
         <Style Selector="DataGrid">
             <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
@@ -54,12 +43,7 @@
             <Setter Property="CornerRadius" Value="6"/>
             <Setter Property="Margin" Value="2,1"/>
         </Style>
-        <Style Selector="DataGridRow:pointerover">
-            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
-        </Style>
-        <Style Selector="DataGridRow:selected, DataGridRow:pointerover">
-            <Setter Property="Foreground" Value="White"/>
-        </Style>
+        <!-- 2026-11-13 (Д-1): выделенная и наведённая строка — общий стиль программы (Themes/AppControlStyles.axaml), местный удалён. -->
     </Window.Styles>
 
     <Grid Margin="20" RowDefinitions="Auto,Auto,Auto,*,Auto">

@@ -198,68 +198,16 @@
         </Style>
 
         <!-- Кастомный стиль кнопок -->
-        <Style Selector="Button.PrimaryButton">
-            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="FontSize" Value="15"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Padding" Value="20,10"/>
+        <!-- 2026-11-13 (Д-1): местные описания кнопок удалены — вид один на всю программу (nur-primary / nur-secondary и их псевдонимы, PosDialogStyles.axaml). -->
+        <!-- Фокус кнопки по-прежнему не берут: Enter сканера не должен нажимать кнопку. -->
+        <Style Selector="Button.PrimaryButton, Button.SecondaryButton">
             <Setter Property="Focusable" Value="False"/>
         </Style>
         <!-- 2026-10-19, О9 (аудит, проблема 2): одна жёлтая на вкладку (PrimaryButton — как sec-primary: наведение темнее,
              выключенная — нейтральная, не серая Fluent), остальные — обводкой (SecondaryButton — как sec-outline, была серая
              заливка). Фокус по-прежнему не берут: Enter сканера не должен нажимать кнопку. -->
-        <Style Selector="Button.PrimaryButton">
-            <Setter Property="MinHeight" Value="44"/> <!-- 2026-10-27, С-5: было 40 -->
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-        </Style>
-        <Style Selector="Button.PrimaryButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
-        </Style>
-        <Style Selector="Button.PrimaryButton:pressed /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrushAccentPressed}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
-        </Style>
-        <Style Selector="Button.PrimaryButton:disabled /template/ ContentPresenter#PART_ContentPresenter">
-            <!-- 2026-11-06 (В12, Д4-10): неактивная кнопка — без заливки (раньше серая заливка была заметнее активной): только тонкая обводка и приглушённый текст -->
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
-        </Style>
 
-        <Style Selector="Button.SecondaryButton">
-            <Setter Property="MinHeight" Value="44"/> <!-- 2026-10-27, аудит владельца С-5: «Назад / Вперёд / Обновить / Массовая загрузка» 30–36 → 44 -->
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Padding" Value="14,8"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="Focusable" Value="False"/>
-        </Style>
-        <Style Selector="Button.SecondaryButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
-        </Style>
-        <Style Selector="Button.SecondaryButton:pressed /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
-        </Style>
         <!-- 2026-10-27: прозрачность выключенной 0.45 → 0,7: в тёмной теме надпись выключенной кнопки была 1,5–2,5:1 (нужно ≥3:1). -->
-        <Style Selector="Button.SecondaryButton:disabled /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Opacity" Value="0.7"/>
-        </Style>
         <!-- 2026-11-06 (В12, Д4-22): редкие действия приёмки («Убрать», «Наценка…», «Очистить», «Этикетки») — тихие кнопки без рамки: главными остаются поле скана, «Из списка» и «Новый товар». -->
         <Style Selector="Button.SecondaryButton.tool-quiet">
             <Setter Property="BorderThickness" Value="0"/>
@@ -1579,9 +1527,9 @@
                                     <DataGridTemplateColumn.CellEditingTemplate>
                                         <DataTemplate>
                                             <StackPanel VerticalAlignment="Center" Spacing="2">
-                                                <TextBox Text="{ReflectionBinding QtyInputText, Mode=TwoWay, Converter={x:Static views:WarehouseWindow.CommaDecimal}}" Height="28" MinHeight="0" Padding="6,0"
+                                                <TextBox Text="{ReflectionBinding QtyInputText, Mode=TwoWay, Converter={x:Static views:WarehouseWindow.CommaDecimal}}" Height="{DynamicResource ReceivingCellHeight}" MinHeight="0" Padding="6,0"
                                                          VerticalContentAlignment="Center" HorizontalContentAlignment="Right" FontSize="14"/>
-                                                <TextBox Classes="rcv-pieces" IsVisible="{ReflectionBinding PackMode}" Height="28" MinHeight="0" Padding="6,0" FontSize="13"
+                                                <TextBox Classes="rcv-pieces" IsVisible="{ReflectionBinding PackMode}" Height="{DynamicResource ReceivingCellHeight}" MinHeight="0" Padding="6,0" FontSize="13"
                                                          VerticalContentAlignment="Center" HorizontalContentAlignment="Right" Watermark="{x:Static views:WarehouseWindow.PackPiecesHintText}"
                                                          Text="{ReflectionBinding PiecesInputText, Mode=TwoWay, Converter={x:Static views:WarehouseWindow.CommaDecimal}}"/>
                                                 <TextBlock FontSize="11.5" FontWeight="SemiBold" HorizontalAlignment="Right" TextAlignment="Right" TextTrimming="CharacterEllipsis" Cursor="Hand"
@@ -1610,7 +1558,7 @@
                                     <DataGridTemplateColumn.CellEditingTemplate>
                                         <DataTemplate>
                                             <StackPanel VerticalAlignment="Center" Spacing="2">
-                                                <TextBox Text="{ReflectionBinding PurchaseInputText, Mode=TwoWay, Converter={x:Static views:WarehouseWindow.CommaDecimal}}" Height="28" MinHeight="0" Padding="6,0"
+                                                <TextBox Text="{ReflectionBinding PurchaseInputText, Mode=TwoWay, Converter={x:Static views:WarehouseWindow.CommaDecimal}}" Height="{DynamicResource ReceivingCellHeight}" MinHeight="0" Padding="6,0"
                                                          VerticalContentAlignment="Center" HorizontalContentAlignment="Right" FontSize="14"/>
                                                 <TextBlock FontSize="11.5" FontWeight="Normal" HorizontalAlignment="Right" TextAlignment="Right" TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis"
                                                            Foreground="{DynamicResource BrushTextSoft}" Text="{ReflectionBinding PackPriceNote}" IsVisible="{ReflectionBinding PackMode}"/>

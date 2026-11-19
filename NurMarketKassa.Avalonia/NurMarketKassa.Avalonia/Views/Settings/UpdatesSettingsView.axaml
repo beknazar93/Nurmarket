@@ -54,7 +54,7 @@
       <StackPanel Classes="SettingsCardList" Spacing="10" MaxWidth="{DynamicResource SettingsPageMaxWidth}" HorizontalAlignment="Stretch">
 
         <!-- Заголовок страницы и главный переключатель прижаты влево -->
-        <Border Classes="SettingsHeaderCard" Padding="12">
+        <Border Classes="SettingsHeaderCard">
           <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Spacing="12">
             <!-- 2026-10-22, брендбук NUR CRM: логотип на странице «О программе / Обновления» (было: значок обновления). -->
             <brand:BrandLogo Kind="Horizontal" Variant="Auto" Width="110" VerticalAlignment="Center"/>
@@ -66,7 +66,7 @@
         </Border>
 
         <!-- Единая карточка версий и обновлений -->
-        <Border Classes="SettingsCard" Padding="14">
+        <Border Classes="SettingsCard" Padding="16">
           <StackPanel Spacing="14">
             <TextBlock Text="{DynamicResource posSettings.updates.systemStatus}" Classes="SettingsCardTitle" FontSize="14"/>
 
@@ -116,7 +116,7 @@
         <!-- Что нового в установленной версии. Раньше на этом экране описания не было вовсе:
              список изменений показывался ОДИН раз всплывающим окном сразу после обновления
              (MainWindow.ShowWhatsNewIfUpdated) и больше нигде не открывался. -->
-        <Border Classes="SettingsCard" Padding="14">
+        <Border Classes="SettingsCard" Padding="16">
           <StackPanel Spacing="8">
             <TextBlock x:Name="WhatsNewTitleText" x:FieldModifier="public"
                        Classes="SettingsCardTitle" FontSize="14"/>
@@ -139,7 +139,7 @@
 
         <!-- 2026-09-30: программа владельца на этом компьютере — поставить или убрать ярлык
              (при установке выбирают «обе программы» или «только касса», здесь можно передумать). -->
-        <Border x:Name="OwnerAppCard" Classes="SettingsCard" Padding="14">
+        <Border x:Name="OwnerAppCard" Classes="SettingsCard" Padding="16">
           <StackPanel Spacing="10">
             <TextBlock x:Name="OwnerAppTitle" Classes="SettingsCardTitle" FontSize="14"/>
             <TextBlock x:Name="OwnerAppDesc" Classes="SettingsCardBody" FontSize="12"
@@ -154,7 +154,7 @@
 
         <!-- Тестовые версии (2026-09-24): код тестировщика включает канал с pre-release. -->
         <!-- 2026-10-21: у программы владельца блок скрыт (UpdatesSettingsView.axaml.cs, пакет 3, п. 141). -->
-        <Border x:Name="TesterCard" Classes="SettingsCard" Padding="14">
+        <Border x:Name="TesterCard" Classes="SettingsCard" Padding="16">
           <StackPanel Spacing="10">
             <TextBlock Text="{DynamicResource updates.testerTitle}" Classes="SettingsCardTitle" FontSize="14"/>
             <TextBlock Text="{DynamicResource updates.testerDesc}"
@@ -182,7 +182,7 @@
         </Border>
 
         <!-- Откат на прошлую версию -->
-        <Border Classes="SettingsCard" Padding="14">
+        <Border Classes="SettingsCard" Padding="16">
           <StackPanel Spacing="10">
             <TextBlock Text="{DynamicResource updates.rollbackTitle}" Classes="SettingsCardTitle" FontSize="14"/>
             <TextBlock Text="{DynamicResource updates.rollbackDesc}"
@@ -199,7 +199,7 @@
         </Border>
 
         <!-- Карточка диагностики -->
-        <Border Classes="SettingsCard" Padding="14">
+        <Border Classes="SettingsCard" Padding="16">
           <StackPanel Spacing="8">
             <TextBlock Text="{DynamicResource posSettings.updates.diagnosticsTitle}" Classes="SettingsCardTitle" FontSize="14"/>
             <TextBlock Text="{DynamicResource posSettings.updates.diagnosticsDesc}"

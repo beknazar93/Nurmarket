@@ -294,8 +294,9 @@ public class AuthViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            ErrorMessage = Tr.T($"Не удалось выполнить вход: {ex.Message}", $"Кирүү мүмкүн болгон жок: {ex.Message}",
-                $"Could not sign in: {ex.Message}", $"Giriş yapılamadı: {ex.Message}", $"Tizimga kirib bo'lmadi: {ex.Message}");
+            NurMarketKassa.Services.PosLogger.Log($"AuthViewModel: сбой, показанный пользователю: {ex}", "WARNING"); // 2026-11-13 (Н-4): сырой текст — в журнал, на экран — понятный
+            ErrorMessage = Tr.T($"Не удалось выполнить вход: {NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)}", $"Кирүү мүмкүн болгон жок: {NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)}",
+                $"Could not sign in: {NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)}", $"Giriş yapılamadı: {NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)}", $"Tizimga kirib bo'lmadi: {NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)}");
         }
         finally
         {
@@ -331,8 +332,9 @@ public class AuthViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            ErrorMessage = Tr.T($"Не удалось восстановить сессию: {ex.Message}", $"Сессияны калыбына келтирүү мүмкүн болгон жок: {ex.Message}",
-                $"Could not restore the session: {ex.Message}", $"Oturum geri yüklenemedi: {ex.Message}", $"Sessiyani tiklab bo'lmadi: {ex.Message}");
+            NurMarketKassa.Services.PosLogger.Log($"AuthViewModel: сбой, показанный пользователю: {ex}", "WARNING"); // 2026-11-13 (Н-4): сырой текст — в журнал, на экран — понятный
+            ErrorMessage = Tr.T($"Не удалось восстановить сессию: {NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)}", $"Сессияны калыбына келтирүү мүмкүн болгон жок: {NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)}",
+                $"Could not restore the session: {NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)}", $"Oturum geri yüklenemedi: {NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)}", $"Sessiyani tiklab bo'lmadi: {NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)}");
         }
         finally
         {

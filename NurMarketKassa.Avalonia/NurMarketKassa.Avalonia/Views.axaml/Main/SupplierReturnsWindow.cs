@@ -580,6 +580,44 @@ public sealed class SupplierReturnDialog : Window
         Opened += async (_, _) => await LoadSuppliersAsync().ConfigureAwait(true);
     }
 
+    // 2026-11-13 (Л-5): «Поставщику» из окна возврата покупателю — товары и количества, которые подставятся в режиме «Со склада», когда выбран поставщик.
+    private List<(string ProductId, string Name, double Qty)>? _preset;
+
+    /// <summary>2026-11-13 (Л-5): окно открыто из возврата покупателю с исходом «Поставщику»: режим «Со склада», причина (обычно «брак»), товар и количество — после выбора поставщика.
+    /// Это только подстановка: поставщика выбирает и возврат проводит человек обычным путём (кнопка «Оформить возврат»).</summary>
+    public void ApplyPreset(IReadOnlyList<(string ProductId, string Name, double Qty)> lines, string reason)
+    {
+        _preset = lines.ToList();
+        _byReceipt = false;
+        _reason = reason;
+        BuildChips();
+        var names = string.Join(", ", _preset.Select(p => $"{p.Name} × {p.Qty.ToString("0.###", CultureInfo.GetCultureInfo("ru-RU"))}"));
+        _lines.Children.Add(Hint(T($"Выберите поставщика — товар подставится: {names}.", $"Жеткирүүчүнү тандаңыз — товар коюлат: {names}.",
+            $"Choose the supplier — the item will be filled in: {names}.", $"Tedarikçiyi seçin — ürün eklenecek: {names}.", $"Yetkazib beruvchini tanlang — mahsulot qo'yiladi: {names}.")));
+    }
+
+    private void ApplyPresetQuantities()
+    {
+        if (_preset is not { Count: > 0 } preset)
+            return;
+        var missing = new List<string>();
+        foreach (var p in preset)
+        {
+            var row = _rows.FirstOrDefault(r => string.Equals(r.ProductId, p.ProductId, StringComparison.OrdinalIgnoreCase));
+            if (row is null || row.Max <= 0)
+                missing.Add(p.Name);
+            else
+                row.Qty.Text = Math.Min(p.Qty, row.Max).ToString("0.###", CultureInfo.InvariantCulture);
+        }
+        if (missing.Count > 0)
+            _lines.Children.Insert(0, Hint(T($"У этого поставщика нет на складе: {string.Join(", ", missing)}. Выберите другого поставщика или оформите возврат на сайте.",
+                $"Бул жеткирүүчүдө кампада жок: {string.Join(", ", missing)}. Башка жеткирүүчүнү тандаңыз же сайтта тариздеңиз.",
+                $"This supplier has no stock of: {string.Join(", ", missing)}. Choose another supplier or process the return on the website.",
+                $"Bu tedarikçide stokta yok: {string.Join(", ", missing)}. Başka tedarikçi seçin veya siteden iade yapın.",
+                $"Bu yetkazib beruvchida omborda yo'q: {string.Join(", ", missing)}. Boshqa yetkazib beruvchini tanlang yoki saytda rasmiylashtiring.")));
+        UpdateTotal();
+    }
+
     private TextBlock Label(string text)
     {
         var t = new TextBlock { Text = text, FontSize = 13, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 6, 0, 0) };
@@ -758,6 +796,7 @@ public sealed class SupplierReturnDialog : Window
                         SupplierReturnsWindow.Num(p, "quantity"), null, T("на складе", "кампада", "in stock", "stokta", "omborda"));
                 if (_rows.Count == 0)
                     _lines.Children.Add(Hint(T("У этого поставщика нет товаров на складе.", "Бул жеткирүүчүнүн кампада товары жок.", "This supplier has no products in stock.", "Bu tedarikçinin stokta ürünü yok.", "Bu yetkazib beruvchining omborda mahsuloti yo'q.")));
+                ApplyPresetQuantities();
             }
         }
         catch (Exception ex)

@@ -149,7 +149,7 @@ public sealed class ProfitPayWindow : Window
         catch (Exception ex)
         {
             PosLogger.Log($"Зарплата от прибыли: не загружено: {ex}", "WARNING");
-            ShowError(T("Не удалось загрузить данные", "Маалыматтарды жүктөө мүмкүн болгон жок", "Could not load the data", "Veriler yüklenemedi", "Ma'lumotlarni yuklab bo'lmadi") + ": " + ex.Message);
+            ShowError(T("Не удалось загрузить данные", "Маалыматтарды жүктөө мүмкүн болгон жок", "Could not load the data", "Veriler yüklenemedi", "Ma'lumotlarni yuklab bo'lmadi") + ": " + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex));
         }
         finally
         {

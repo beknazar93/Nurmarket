@@ -614,6 +614,13 @@ public partial class ShiftDetailsDialog : Window
                 $"Sunucu iadeleri verilenden fazla kaydetti — {Money(serverOver)}",
                 $"Server qaytarishlarni berilganidan ko'p yozdi — {Money(serverOver)}")
             : "") + (serverOver > 0.005 && prevLine.Length > 0 ? "\n" : "") + prevLine;
+        // 2026-11-14 (ответ Умара 13.11 вечер, П0-3): возвраты, ушедшие в уменьшение долга клиента, — отдельной строкой; в «в ящике должно быть» не входят (деньги не выдавались).
+        if (_report is { ReturnsDebtOffset: > 0m } debtOffset)
+        {
+            var debtOffsetLine = DebtOffsetText(debtOffset.ReturnsDebtOffset!.Value, debtOffset.ReturnsDebtOffsetCount, Money((double)debtOffset.ReturnsDebtOffset!.Value));
+            ReturnsOverText.Text = string.IsNullOrEmpty(ReturnsOverText.Text) ? debtOffsetLine : ReturnsOverText.Text + "\n" + debtOffsetLine;
+            ReturnsOverText.IsVisible = true;
+        }
         WriteOffsText.Text = writeOffs > 0.005 ? Money(writeOffs) : "—";
         ExpenseText.Text = expenses > 0.005 ? Money(expenses) : "—";
         DebtPaidText.Text = debtPaid > 0.005 ? Money(debtPaid) : "—";
@@ -832,6 +839,17 @@ public partial class ShiftDetailsDialog : Window
     /// начальную сумму и расхождение факта с ожидаемым остатком (нужны для сверки кассы, но
     /// на самом диалоге не показываются — там уже есть отдельный расчёт до закрытия, см.
     /// CloseShiftDialog).</summary>
+    /// <summary>2026-11-14: строка «Возвраты в счёт долга: 300,00 сом (2) — в ящик не входят» (экран X/Z и печать).</summary>
+    internal static string DebtOffsetText(decimal amount, int? count, string money)
+    {
+        var n = count is > 0 ? $" ({count})" : "";
+        return Tr.T($"Возвраты в счёт долга: {money}{n} — в ящик не входят",
+            $"Карызга эсептелген кайтаруулар: {money}{n} — кутуга кирбейт",
+            $"Returns offset against debt: {money}{n} — not in the drawer",
+            $"Borca mahsup edilen iadeler: {money}{n} — çekmeceye girmez",
+            $"Qarzga hisoblangan qaytarishlar: {money}{n} — tortmaga kirmaydi");
+    }
+
     private async void Print_Click(object? sender, RoutedEventArgs e)
     {
         if (_shift is null || PrintButton is null)
@@ -943,6 +961,9 @@ public partial class ShiftDetailsDialog : Window
         }
         if (returns is { Sum: > 0m } ret)
             sb.AppendLine($"{Tr.T("Возвраты", "Кайтаруулар", "Returns", "İadeler", "Qaytarishlar")}: {ret.Count} / {ret.Sum.ToString("0.00", CultureInfo.InvariantCulture)} {Som}");
+        // 2026-11-14 (ответ Умара 13.11 вечер, П0-3): возвраты в счёт долга — отдельной строкой (в ящик не входят).
+        if (server is { ReturnsDebtOffset: > 0m } debtOffsetPrint)
+            sb.AppendLine(DebtOffsetText(debtOffsetPrint.ReturnsDebtOffset!.Value, debtOffsetPrint.ReturnsDebtOffsetCount, debtOffsetPrint.ReturnsDebtOffset!.Value.ToString("0.00", CultureInfo.InvariantCulture) + " " + Som));
         sb.AppendLine("------------------------------");
 
         // Внесения и изъятия из денежного ящика. Раньше отчёт их не знал вовсе: «ожидаемый

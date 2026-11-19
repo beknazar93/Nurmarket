@@ -15,7 +15,8 @@ namespace NurMarketKassa.Services;
 /// Сами ИИ и бот ничего не меняют без подтверждения владельца — подтверждение показывают они (см. ProductActionPlan).</summary>
 public static class ProductActions
 {
-    public sealed record Result(bool Ok, string Message, bool Partial = false);
+    /// <summary>2026-11-14 (Л-6): Queued — списание принято без связи и стоит в очереди «Неотправленного» (на сервере ещё не проведено).</summary>
+    public sealed record Result(bool Ok, string Message, bool Partial = false, bool Queued = false);
 
     /// <summary>Учёт остатков (документ ревизии). Задаётся приложением при запуске.</summary>
     public static IInventoryApiService? InventoryApi { get; set; }
@@ -77,6 +78,12 @@ public static class ProductActions
         if (InventoryApi is not { } api)
             return new Result(false, T("Учёт остатков недоступен в этом режиме.", "Бул режимде калдыкты эсепке алуу жеткиликсиз.", "Stock accounting is not available in this mode.", "Stok takibi bu modda kullanılamıyor.", "Bu rejimda qoldiq hisobi mavjud emas."));
 
+        // 2026-11-14 (Л-6): чистое списание («минус N», без «точного количества» и без подтверждённого ожидаемого остатка) при аварии сервера/автономном режиме — в офлайн-очередь
+        // (StockOpsQueue): остаток в кассе уменьшается сразу, на сервер уйдёт само один раз. Приход и «точное количество» без связи не принимаем — они считаются от серверного остатка.
+        var offlineWriteOff = delta is < 0 && setTo is null && expectedCurrent is null;
+        if (offlineWriteOff && OfflineModeHelper.SellLocally)
+            return OfflineWriteOff.TryQueue(product, -delta!.Value, reason, historyReason, actor);
+
         double current;
         try
         {
@@ -88,6 +95,8 @@ public static class ProductActions
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             PosLogger.Log($"Действие с товаром: остаток «{product.Title}» не получен ({ex.Message}).", "WARNING");
+            if (offlineWriteOff && ex is System.Net.Http.HttpRequestException or TimeoutException or IOException)
+                return OfflineWriteOff.TryQueue(product, -delta!.Value, reason, historyReason, actor); // 2026-11-14 (Л-6): чтение остатка было GET — ничего не отправлено, безопасно поставить в очередь
             return new Result(false, T("Сервер NurCRM недоступен — остаток не получен, ничего не изменено.", "NurCRM сервери жеткиликсиз — калдык алынган жок, эч нерсе өзгөргөн жок.", "The NurCRM server is unavailable — nothing changed.", "NurCRM sunucusu kullanılamıyor — hiçbir şey değişmedi.", "NurCRM serveri mavjud emas — hech narsa o'zgarmadi.")); // 2026-11-01 (В-08): единая фраза о сбое сервера
         }
 

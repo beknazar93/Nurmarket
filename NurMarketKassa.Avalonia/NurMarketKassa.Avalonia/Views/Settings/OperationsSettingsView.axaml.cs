@@ -41,6 +41,8 @@ public partial class OperationsSettingsView : UserControl
         OpsCardList.Children.Add(new PurchaseEditSettingsCard());
         // 2026-11-09: «Спрашивать количество при повторном скане» (Склад → Приёмка и Закупки → Приём товара) — один тумблер, по умолчанию ВКЛ.
         OpsCardList.Children.Add(new ReceivingRepeatScanSettingsCard());
+        // 2026-11-14 (П0-1): «Налоги и ККМ» — режим фискализации, ставки НДС и НсП; только владелец и администратор, только когда сервер знает fiscal_kassa (FiscalSettingsCard).
+        OpsCardList.Children.Add(new FiscalSettingsCard());
         // 2026-10-30: тумблеры возможностей Нур Советника — карточка из кода сразу за карточкой Telegram-бота и ключей ИИ.
         OpsCardList.Children.Insert(OpsCardList.Children.IndexOf(TelegramCard) + 1, new AdvisorSettingsCard());
         AttachedToVisualTree += Lan_Attached;
@@ -633,7 +635,8 @@ public partial class OperationsSettingsView : UserControl
         }
         catch (Exception ex)
         {
-            TelegramStatusText.Text = Tr.T("Не удалось разослать напоминания: ", "Эскертмелерди жөнөтүү мүмкүн болгон жок: ", "Couldn't send reminders: ", "Hatırlatmalar gönderilemedi: ", "Eslatmalarni yuborib bo'lmadi: ") + ex.Message;
+            NurMarketKassa.Services.PosLogger.Log($"OperationsSettingsView: сбой, показанный пользователю: {ex}", "WARNING"); // 2026-11-13 (Н-4): сырой текст — в журнал, на экран — понятный
+            TelegramStatusText.Text = Tr.T("Не удалось разослать напоминания: ", "Эскертмелерди жөнөтүү мүмкүн болгон жок: ", "Couldn't send reminders: ", "Hatırlatmalar gönderilemedi: ", "Eslatmalarni yuborib bo'lmadi: ") + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex);
         }
         finally
         {
@@ -763,7 +766,8 @@ public partial class OperationsSettingsView : UserControl
         }
         catch (Exception ex)
         {
-            TelegramAiStatusText.Text = "https://aistudio.google.com/app/apikey — " + ex.Message;
+            NurMarketKassa.Services.PosLogger.Log($"OperationsSettingsView: сбой, показанный пользователю: {ex}", "WARNING"); // 2026-11-13 (Н-4): сырой текст — в журнал, на экран — понятный
+            TelegramAiStatusText.Text = "https://aistudio.google.com/app/apikey — " + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex);
         }
     }
 
@@ -825,7 +829,8 @@ public partial class OperationsSettingsView : UserControl
         }
         catch (Exception ex)
         {
-            status.Text = url + " — " + ex.Message;
+            NurMarketKassa.Services.PosLogger.Log($"OperationsSettingsView: сбой, показанный пользователю: {ex}", "WARNING"); // 2026-11-13 (Н-4): сырой текст — в журнал, на экран — понятный
+            status.Text = url + " — " + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex);
         }
     }
 

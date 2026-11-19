@@ -143,7 +143,10 @@ public partial class ReceiptHistoryWindow
         try
         {
             await Task.Delay(500, cts.Token).ConfigureAwait(true);
-            var found = await api.SerialLookupAsync(query, cts.Token).ConfigureAwait(true);
+            // 2026-11-14 (ответ Умара 13.11 вечер): 4+ цифр — поиск по хвосту номера (последние цифры), иначе точный номер.
+            var found = ServerSerials.IsTailQuery(query)
+                ? await api.SerialTailLookupAsync(query, cts.Token).ConfigureAwait(true)
+                : await api.SerialLookupAsync(query, cts.Token).ConfigureAwait(true);
             if (cts.IsCancellationRequested)
                 return;
             _serverHits = found.Results.ToList();

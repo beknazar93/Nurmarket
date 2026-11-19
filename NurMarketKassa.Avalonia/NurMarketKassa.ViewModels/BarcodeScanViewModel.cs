@@ -133,10 +133,11 @@ public sealed class BarcodeScanViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            ScanErrorMessage = string.IsNullOrWhiteSpace(ex.Message)
+            NurMarketKassa.Services.PosLogger.Log($"BarcodeScanViewModel: сбой, показанный пользователю: {ex}", "WARNING"); // 2026-11-13 (Н-4): сырой текст — в журнал, на экран — понятный
+            ScanErrorMessage = string.IsNullOrWhiteSpace(NurMarketKassa.Services.ServerOutageMonitor.UserText(ex))
                 ? Tr.T("Ошибка при обработке штрих-кода.", "Штрихкодду иштетүүдө ката кетти.",
                     "Error processing the barcode.", "Barkod işlenirken hata oluştu.", "Shtrix-kodni qayta ishlashda xato.")
-                : ex.Message;
+                : NurMarketKassa.Services.ServerOutageMonitor.UserText(ex);
             return false;
         }
         finally
@@ -183,10 +184,11 @@ public sealed class BarcodeScanViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            ScanErrorMessage = string.IsNullOrWhiteSpace(ex.Message)
+            NurMarketKassa.Services.PosLogger.Log($"BarcodeScanViewModel: сбой, показанный пользователю: {ex}", "WARNING"); // 2026-11-13 (Н-4): сырой текст — в журнал, на экран — понятный
+            ScanErrorMessage = string.IsNullOrWhiteSpace(NurMarketKassa.Services.ServerOutageMonitor.UserText(ex))
                 ? Tr.T("Ошибка при обработке штрих-кода.", "Штрихкодду иштетүүдө ката кетти.",
                     "Error processing the barcode.", "Barkod işlenirken hata oluştu.", "Shtrix-kodni qayta ishlashda xato.")
-                : ex.Message;
+                : NurMarketKassa.Services.ServerOutageMonitor.UserText(ex);
             return false;
         }
         finally

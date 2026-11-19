@@ -251,6 +251,10 @@ public sealed class ProductEditRequest
     /// <summary>2026-11-13 (сервер sn1311): warranty_months — гарантия в месяцах (null вместе с <see cref="SendWarrantyMonths"/> = убрать гарантию). Пишется только при <see cref="SendWarrantyMonths"/>.</summary>
     public int? WarrantyMonths { get; set; }
     public bool SendWarrantyMonths { get; set; }
+    /// <summary>2026-11-14 (П0-1, ответ Умара 13.11 вечер): vat_rate товара в процентах (null вместе с <see cref="SendVatRate"/> = «ставка компании»). Пишется только если владелец менял ставку
+    /// в карточке и у компании включена фискализация; иначе поле в запрос не попадает.</summary>
+    public decimal? VatRate { get; set; }
+    public bool SendVatRate { get; set; }
     /// <summary>2026-10-20, владелец: поставщик товара — поле «client» товара NurCRM (id поставщика из clients/?type=suppliers;
     /// так его пишет форма товара сайта). null — поле не трогаем (кассир поставщика не менял), "" — убрать поставщика.</summary>
     public string? SupplierId { get; set; }

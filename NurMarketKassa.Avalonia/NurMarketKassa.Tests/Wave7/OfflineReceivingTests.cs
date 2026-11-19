@@ -203,8 +203,12 @@ public sealed class OfflineReceivingTests : IDisposable
         first["comment"]!.GetValue<string>().Should().Contain("Принято " + received.ToString("dd.MM.yyyy HH:mm"), "в документе — время приёма, а не отправки");
         second["comment"]!.GetValue<string>().Should().Be(first["comment"]!.GetValue<string>(), "тот же ключ — то же тело");
         second["idempotency_key"]!.GetValue<string>().Should().Be(first["idempotency_key"]!.GetValue<string>());
-        foreach (var field in new[] { "created_at", "received_at", "sold_at" })
-            first.ContainsKey(field).Should().BeFalse("сервер не принимает дату прихода — не придумываем поле (вопрос Умару)");
+        // 2026-11-14 (ответ Умара 13.11, П0-2): сервер принимает offline:true + received_at — дата приёма идёт в приход, историю и долг; повтор — то же значение.
+        first["offline"]!.GetValue<bool>().Should().BeTrue();
+        DateTimeOffset.Parse(first["received_at"]!.GetValue<string>()).LocalDateTime.Should().BeCloseTo(received, TimeSpan.FromSeconds(1));
+        second["received_at"]!.GetValue<string>().Should().Be(first["received_at"]!.GetValue<string>());
+        foreach (var field in new[] { "created_at", "sold_at" })
+            first.ContainsKey(field).Should().BeFalse("лишних полей даты не придумываем");
     }
 
     [Fact]

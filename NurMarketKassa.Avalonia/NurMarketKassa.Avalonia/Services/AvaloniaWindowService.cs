@@ -119,7 +119,17 @@ public sealed class AvaloniaWindowService : IWindowService
     private static Window? GetDialogOwner(Window dialog)
     {
         if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop)
+        {
+#if !NURANDROID
+            // 2026-11-19 (Н-1/Н-2, сценарии окон в Avalonia.Headless): настольного жизненного цикла нет — владелец окна оплаты: верхняя модалка / последнее активное окно,
+            // иначе видимое окно кассы. В обычной программе (Windows, Linux) сюда не попадаем — там жизненный цикл настольный и поиск ниже прежний.
+            if (ModalWindowManager.PreferredOwner() is { IsVisible: true } headlessOwner && !ReferenceEquals(headlessOwner, dialog))
+                return headlessOwner;
+            if (App.AppHost?.Services.GetService<MainWindowHostBridge>()?.Window is Window { IsVisible: true } kassa && !ReferenceEquals(kassa, dialog))
+                return kassa;
+#endif
             return null;
+        }
 
         // MainWindow can temporarily still reference a closed login window during
         // navigation. Passing such a window to Avalonia ShowDialog reaches a null

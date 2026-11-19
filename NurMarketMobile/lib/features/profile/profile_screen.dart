@@ -398,9 +398,7 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
               .take(100)
               .toList();
           if (rows.isEmpty) {
-            return Center(
-              child: Text(l.nothingToSend, style: TextStyle(color: pal.textSoft)),
-            );
+            return EmptyState(icon: Icons.cloud_done_outlined, text: l.nothingToSend); // 2026-11-13 (аудит UX мобилки, п. 5)
           }
           final list = ListView.separated(
             padding: const EdgeInsets.all(16),

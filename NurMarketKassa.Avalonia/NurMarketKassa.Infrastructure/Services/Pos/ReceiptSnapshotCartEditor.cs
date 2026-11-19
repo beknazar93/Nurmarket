@@ -118,6 +118,9 @@ public static class ReceiptSnapshotCartEditor
             throw new ArgumentOutOfRangeException(nameof(qty), "Количество должно быть больше нуля.");
         if (unit.Factor <= 0m)
             throw new ArgumentOutOfRangeException(nameof(unit), "Множитель единицы продажи должен быть больше нуля.");
+        // 2026-11-14 (ответ Умара 13.11 вечер): сервер знает единицу только по id; без id упаковкой не продаём (код pack серверу не годится).
+        if (!unit.HasServerId)
+            throw new SaleUnitNotSavedException();
 
         EnsureCart(cart);
         var root = ParseRoot(cart);
@@ -357,14 +360,21 @@ public static class ReceiptSnapshotCartEditor
         return true;
     }
 
-    /// <summary>В чеке есть строки, которым ещё не поставлена цена этого уровня (без упаковок и «Доп. услуг»).</summary>
+    /// <summary>2026-11-14 (ответ Умара 13.11 вечер): quote не знает единиц продажи, упаковок и вариантов («пересчёт только для строк без единицы/упаковки/варианта»), сервер такие строки по уровню тоже не пересчитывает.
+    /// Строка подходит для цены уровня, если она обычная: с товаром, не «Доп. услуга», без sale_unit / sale_package_id / варианта.</summary>
+    public static bool IsPriceLevelEligible(JsonElement it) =>
+        !CartDisplayHelper.IsCustomLine(it) && ProductSaleUnits.LineKey(it) is null
+        && string.IsNullOrWhiteSpace(CartDisplayHelper.SalePackageId(it)) && string.IsNullOrWhiteSpace(CartDisplayHelper.ServerVariantId(it))
+        && !string.IsNullOrEmpty(CartDisplayHelper.TryProductId(it));
+
+    /// <summary>В чеке есть строки, которым ещё не поставлена цена этого уровня (без упаковок, вариантов и «Доп. услуг»).</summary>
     public static bool HasLinesWithoutPriceLevel(ICartService cart, string levelId)
     {
         if (!cart.HasCart)
             return false;
         foreach (var it in CartDisplayHelper.EnumerateItems(cart.Root))
         {
-            if (CartDisplayHelper.IsCustomLine(it) || ProductSaleUnits.LineKey(it) is not null || string.IsNullOrEmpty(CartDisplayHelper.TryProductId(it)))
+            if (!IsPriceLevelEligible(it))
                 continue;
             if (!(it.TryGetProperty(PriceLevelField, out var m) && m.ValueKind == JsonValueKind.String
                   && string.Equals(m.GetString(), levelId, StringComparison.Ordinal)))

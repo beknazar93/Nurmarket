@@ -179,6 +179,8 @@ public sealed class ScreenFixesTests
     [InlineData("shtrikhpc", typeof(ShtrikhPcSettingsWindow))]
     [InlineData("rongta", typeof(RongtaScaleSettingsWindow))]
     [InlineData("tm", typeof(TmScaleSettingsWindow))]
+    [InlineData("massak", typeof(MassaKScaleSettingsWindow))] // 2026-11-13
+    [InlineData("cas", typeof(CasScaleSettingsWindow))] // 2026-11-14: весы CAS
     [InlineData("shtrikh", typeof(ShtrikhScaleSettingsWindow))]
     [InlineData("что-то-неизвестное", typeof(ShtrikhScaleSettingsWindow))]
     public void ScaleSettings_WindowByBrand(string brand, Type expected) =>
@@ -197,7 +199,7 @@ public sealed class ScreenFixesTests
             window.ShowBarcodeTab();
             using var _ = UiShot.Render(window);
             var tabs = UiDrive.Find<TabControl>(window, "Tabs");
-            tabs.Items.Count.Should().Be(8);
+            tabs.Items.Count.Should().Be(5); // 2026-11-13 (Д-7 + Н-3): было 8 вкладок — стало 5, «Штрих-код» по-прежнему третья
             tabs.SelectedIndex.Should().Be(2);
         }
         finally

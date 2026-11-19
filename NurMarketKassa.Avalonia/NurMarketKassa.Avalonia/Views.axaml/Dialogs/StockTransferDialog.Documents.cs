@@ -89,7 +89,7 @@ public partial class StockTransferDialog
         catch (System.Exception ex)
         {
             PosLogger.Log($"Перемещение {_transfer?.Number}: данные документа не прочитаны ({ex})", "WARNING");
-            SayDoc(T("Документ не создан: ", "Документ түзүлгөн жок: ", "The document was not created: ", "Belge oluşturulamadı: ", "Hujjat yaratilmadi: ") + ex.Message);
+            SayDoc(T("Документ не создан: ", "Документ түзүлгөн жок: ", "The document was not created: ", "Belge oluşturulamadı: ", "Hujjat yaratilmadi: ") + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex));
             return;
         }
         if (data is null)
@@ -115,7 +115,7 @@ public partial class StockTransferDialog
         catch (System.Exception ex)
         {
             PosLogger.Log($"Перемещение {_transfer?.Number}: документ не создан ({ex})", "WARNING");
-            SayDoc(T("Документ не создан: ", "Документ түзүлгөн жок: ", "The document was not created: ", "Belge oluşturulamadı: ", "Hujjat yaratilmadi: ") + ex.Message);
+            SayDoc(T("Документ не создан: ", "Документ түзүлгөн жок: ", "The document was not created: ", "Belge oluşturulamadı: ", "Hujjat yaratilmadi: ") + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex));
         }
         finally
         {
@@ -201,7 +201,7 @@ public partial class StockTransferDialog
         catch (System.Exception ex)
         {
             PosLogger.Log($"Перемещение {_transfer?.Number}: печать документа не удалась ({ex.Message}).", "WARNING");
-            SayDoc(ex.Message);
+            SayDoc(NurMarketKassa.Services.ServerOutageMonitor.UserText(ex));
         }
     }
 

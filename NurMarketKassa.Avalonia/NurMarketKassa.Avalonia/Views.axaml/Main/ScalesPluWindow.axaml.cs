@@ -107,6 +107,7 @@ public partial class ScalesPluWindow : Window
         InitKeySheetControls();
         FillProfileCombo();
         ApplyBrandVisibility();
+        InitGuideMenu(); // 2026-11-13: «Как подключить / памятка»
         LoadRows();
         ApplyResponsiveLayout();
         // 2026-09-29: первый запуск после обновления — закрепить номера, которые уже на весах.
@@ -217,6 +218,8 @@ public partial class ScalesPluWindow : Window
             BrandTm => "TM",
             BrandAi => "AI",
             BrandShtrikhPc => "РС",
+            BrandMassaK => "МК", // 2026-11-13
+            BrandCas => "CAS", // 2026-11-13
             _ => "Ш",
         };
         BrandNameText.Text = ScaleUi.LabelBrandTitle(_brand);
@@ -224,7 +227,7 @@ public partial class ScalesPluWindow : Window
         CheckConnectionButton.IsVisible = !IsFileBrand;
 
         // Адрес с опечаткой / из чужой сети — видно сразу, до отправки (владелец ввёл 192.169.0.150).
-        var (ipLevel, ipText) = IsFileBrand || IsShtrikhPc ? (ScaleIpLevel.None, "") : ScaleUi.CheckScaleIp(ScaleUi.IpOf(_brand));
+        var (ipLevel, ipText) = IsFileBrand || IsShtrikhPc || IsCasFile ? (ScaleIpLevel.None, "") : ScaleUi.CheckScaleIp(ScaleUi.IpOf(_brand));
         var state = ScaleUi.LastCheckOf(_brand);
         if (IsFileBrand)
         {
@@ -251,7 +254,7 @@ public partial class ScalesPluWindow : Window
     /// Колонки DataGrid не попадают в поля по x:Name — ищем по Tag.</summary>
     private void ApplyDirectLanVisibility()
     {
-        var direct = (_brand == BrandShtrikh && ShtrikhDirect) || IsDahuaWire || IsShtrikhPc; // 2026-11-06: у РС-200 «Код в ШК» — код товара в файле импорта
+        var direct = (_brand == BrandShtrikh && ShtrikhDirect) || IsDahuaWire || IsShtrikhPc || IsCas; // 2026-11-06: у РС-200 «Код в ШК» — код товара в файле импорта
         var barcodeColumn = ProductsGrid.Columns.FirstOrDefault(c => Equals(c.Tag, "BarcodeCode"));
         if (barcodeColumn is not null)
             barcodeColumn.IsVisible = direct;
@@ -289,6 +292,16 @@ public partial class ScalesPluWindow : Window
         if (IsShtrikhPc)
         {
             UpdateShtrikhPcBarcodeExample(row);
+            return;
+        }
+        if (IsMassaK)
+        {
+            UpdateMassaKBarcodeExample(row); // 2026-11-13
+            return;
+        }
+        if (IsCas)
+        {
+            UpdateCasBarcodeExample(row); // 2026-11-13
             return;
         }
         if (IsTm)
@@ -340,6 +353,16 @@ public partial class ScalesPluWindow : Window
     /// первого отмеченного товара — там формат ШК весов читается, правится и записывается.</summary>
     private async void BarcodeSettings_Click(object? sender, RoutedEventArgs e)
     {
+        if (IsCas)
+        {
+            // 2026-11-13: CAS — «Настройки весов CAS» на вкладке «Штрих-код»
+            var casWindow = new NurMarketKassa.AvaloniaHost.Views.Dialogs.CasScaleSettingsWindow();
+            casWindow.ShowBarcodeTab();
+            await casWindow.ShowDialog(this).ConfigureAwait(true);
+            UpdateBarcodeExample();
+            return;
+        }
+
         if (IsShtrikhPc)
         {
             await ShowShtrikhPcBarcodeSettingsAsync().ConfigureAwait(true);
@@ -474,10 +497,13 @@ public partial class ScalesPluWindow : Window
         UpdateHeader();
         SendButton.Content = isAi ? Tr.T("Сохранить файл для весов", "Файлды тараза үчүн сактоо", "Save file for the scale", "Tartı için dosyayı kaydet", "Tarozi uchun faylni saqlash")
             : IsShtrikhPc ? Tr.T("Отправить в весы", "Таразага жөнөтүү", "Send to the scale", "Tartıya gönder", "Taroziga yuborish")
+            : IsCasFile ? CasSaveFileText() // 2026-11-13: CAS без сети — главная кнопка сохраняет файл для CL-Works
             : _sendButtonDefaultText;
         // У AI-весов главная кнопка уже сохраняет файл — вторая такая же не нужна.
-        SaveFileButton.IsVisible = !isAi;
-        SaveFileButton.Content = IsTm || IsShtrikhPc
+        SaveFileButton.IsVisible = !isAi && !IsCasFile; // 2026-11-13: у CAS без сети главная кнопка уже сохраняет файл
+        SaveFileButton.Content = IsCas ? CasSaveFileText() // 2026-11-13: у CAS по сети файл для CL-Works — запасной путь
+            : IsMassaK ? MassaKSaveFileText() // 2026-11-13: у Масса-К вместо файла — пробный пакет в журнал
+            : IsTm || IsShtrikhPc
             ? Tr.T("Сохранить файл ▾", "Файлды сактоо ▾", "Save file ▾", "Dosyayı kaydet ▾", "Faylni saqlash ▾")
             : Tr.T("Сохранить CSV", "CSV сактоо", "Save CSV", "CSV kaydet", "CSV saqlash");
 
@@ -485,6 +511,8 @@ public partial class ScalesPluWindow : Window
         {
             // 2026-11-06: РС-200 — обмен файлом через общую папку весов
             BrandShtrikhPc => ShtrikhPcSubtitle(),
+            BrandMassaK => MassaKSubtitle(), // 2026-11-13
+            BrandCas => CasSubtitle(), // 2026-11-13
             // 2026-09-29: номера PLU закреплены за товарами (ScalesPluWindow.PinnedPlu.cs) — «подряд» больше нет.
             BrandTm => Tr.T(
                 "Отмеченные товары уйдут прямо на весы по сети. У каждого товара постоянный номер PLU (колонка PLU) — отправки его не меняют; в штрих-код этикетки весы напечатают «Код в ШК». Запасной путь — файл для «Русского масштаба» («Сохранить файл»).",
@@ -526,11 +554,24 @@ public partial class ScalesPluWindow : Window
         };
         // 2026-09-29: колонка PLU зависит от марки и способа отправки (кто нумерует ячейки).
         RefreshPluNumbers();
+        UpdateAutoSendControls(); // 2026-11-13: галочка автоотправки зависит от марки и способа отправки
     }
 
     /// <summary>«Сохранить файл…»: CSV для любых весов; у TM-30F — выбор CSV или DIGI_TOP2000.</summary>
     private void SaveFile_Click(object? sender, RoutedEventArgs e)
     {
+        if (IsCas)
+        {
+            _ = SaveCasFileAsync(); // 2026-11-13: файл для CL-Works
+            return;
+        }
+
+        if (IsMassaK)
+        {
+            _ = MassaKDryRunAsync(); // 2026-11-13: пробный пакет — кадры только в журнал, весам ничего не уходит
+            return;
+        }
+
         if (IsShtrikhPc)
         {
             ShowShtrikhPcSaveMenu();
@@ -578,8 +619,19 @@ public partial class ScalesPluWindow : Window
 
     private void Close_Click(object? sender, RoutedEventArgs e) => Close();
 
+    private bool _pcDefaultModeApplied;
+
     private void LoadRows()
     {
+        // 2026-11-19 (жалоба владельца «загружаются всего 120 весовых»): у Штрих РС-200 по умолчанию «Все товары в кг», а не только «Весовые на сайте» — остальные весовые не пропадают из выгрузки.
+        if (!_pcDefaultModeApplied && IsShtrikhPc)
+        {
+            _pcDefaultModeApplied = true;
+            _showMode = ShowMode.AllKg;
+            _fillingShowCombo = true;
+            try { ShowCombo.SelectedIndex = 1; }
+            finally { _fillingShowCombo = false; }
+        }
         var profile = LabelScaleStore.Active;
         // 2026-09-30: по умолчанию — только весовые на сайте (ScalesPluWindow.KeySheet.cs, «Показать»).
         var anyMustWeigh = NurMarketKassa.Services.CatalogCacheService.Products.Any(p => p.MustWeigh);
@@ -817,7 +869,7 @@ public partial class ScalesPluWindow : Window
     /// которому касса потом найдёт товар (LocalCartService.FindByEmbeddedCode): при раскладке
     /// компании «по PLU» — PLU товара, при «по коду» — «Код товара»/артикул, если это число.
     /// Пусто — у товара нет ни того, ни другого; тогда при выгрузке берётся номер ячейки ПЛУ.</summary>
-    private static string DefaultBarcodeCode(NurMarketKassa.Models.Pos.CatalogProductTileVm p)
+    internal static string DefaultBarcodeCode(NurMarketKassa.Models.Pos.CatalogProductTileVm p) // 2026-11-13: internal — отпечаток товара для автоотправки (ScaleAutoSendService)
     {
         if (string.Equals(NurMarketKassa.Core.Application.WeightBarcodeParser.Layout, "code", StringComparison.OrdinalIgnoreCase))
         {
@@ -883,6 +935,23 @@ public partial class ScalesPluWindow : Window
         if (IsShtrikhPc)
         {
             await SendToShtrikhPcAsync().ConfigureAwait(true);
+            return;
+        }
+
+        // 2026-11-13: весы Масса-К (серии R/SL) — одиночные записи по TCP 5001 с подтверждением
+        if (IsMassaK)
+        {
+            await SendToMassaKAsync(dryRun: false).ConfigureAwait(true);
+            return;
+        }
+
+        // 2026-11-13: весы CAS — CL5000J/CL3000 по сети (CasProtocol), остальные модели — файл для CL-Works
+        if (IsCas)
+        {
+            if (IsCasLan)
+                await SendToCasAsync().ConfigureAwait(true);
+            else
+                await SaveCasFileAsync().ConfigureAwait(true);
             return;
         }
 
@@ -1404,7 +1473,7 @@ public partial class ScalesPluWindow : Window
             pluStart = 1;
 
         var (records, problems, keyMap) = BuildTmRecords(selectedIds, pluStart);
-        if (problems.Count > 0)
+        if (problems.Count > 0 && !_silent) // 2026-11-13: автоотправка (_silent) пропускает ошибочные строки и отправляет остальные — иначе одна ошибка держала бы все изменения
         {
             // Частичную выгрузку не делаем: иначе на весах окажется «половина» списка и сдвиг клавиш.
             StatusText.Text = Tr.T("Не отправлено — исправьте: ", "Жөнөтүлгөн жок — оңдоңуз: ", "Not sent — fix: ", "Gönderilmedi — düzeltin: ", "Yuborilmadi — tuzating: ")
@@ -1441,8 +1510,8 @@ public partial class ScalesPluWindow : Window
                 StatusText.Text = Tr.T($"Отправка на весы: {p.Done} из {p.Total}…", $"Таразага жөнөтүү: {p.Total} ичинен {p.Done}…", $"Sending to the scale: {p.Done} of {p.Total}…", $"Tartıya gönderiliyor: {p.Done} / {p.Total}…", $"Taroziga yuborilmoqda: {p.Total} dan {p.Done}…");
             });
             var result = await scale.UploadPlusAsync(records, DahuaPricePoint, mode, progress, _tmCts.Token).ConfigureAwait(true);
-            // 2026-11-12: автоотправки на весы нет — в журнал явно, что товары переотправлены по кнопке.
-            PosLogger.Log($"{brandLog}: товары переотправлены на весы вручную (кнопка «Отправить на весы»)", "SCALES");
+            // 2026-11-12: в журнал явно, что товары переотправлены по кнопке. 2026-11-13: теперь бывает и автоотправка.
+            PosLogger.Log($"{brandLog}: товары переотправлены на весы " + (_silent ? "автоматически (изменения каталога)" : "вручную (кнопка «Отправить на весы»)"), "SCALES");
             PosLogger.Log($"{brandLog}: выгрузка PLU {scale.Host}:{scale.Port}: всего {result.Total}, отправлено {result.Sent}, ответов {result.Acknowledged}, без маркера {result.UnframedReplies}, повторов {result.Retries}, ошибка {result.Error} {result.Detail}", "SCALES");
 
             // Результат по строкам: принятые — ✓, строка, на которой остановились, — ✗, остальные — не отправлены.
@@ -1476,7 +1545,7 @@ public partial class ScalesPluWindow : Window
             // 2026-09-30: клавиши быстрого вызова из колонки «Клавиша» — страницами «!0L» (клавиша → PLU
             // ячейки товара). Только если товары записаны и клавиши заданы.
             var hotkeyNote = "";
-            if (result.Ok)
+            if (result.Ok && !_silent) // 2026-11-13: автоотправка клавиши не пишет — отправляется часть списка, раскладка была записана ручной отправкой
             {
                 // Кнопка = PLU; вписанная в «Клавиша» — важнее (ScalesPluWindow.KeySheet.cs).
                 // 2026-09-30: у Rongta кнопки вызывают ячейки по таблице «!0L» (224 кнопки = 112 × 2); после

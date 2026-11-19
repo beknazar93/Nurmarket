@@ -85,7 +85,7 @@ public partial class MainWindow
 
     internal async Task AddProductFromCatalogAsync(CatalogProductTileVm vm, string? lineNameOverride = null)
     {
-        if (!_session.IsShiftOpen)
+        if (!_session.IsShiftOpen && !TrainingMode.IsActive) // 2026-11-13 (Н-1): в учебном режиме смену не открываем
         {
             await OpenShiftAsync().ConfigureAwait(true);
             if (!_session.IsShiftOpen)
@@ -93,7 +93,7 @@ public partial class MainWindow
         }
 
         // 2026-11-05 (волна 2-А, функция 1): просроченный товар — «Продать всё равно? / Убрать» (или PIN владельца) по настройке; логика в ExpiredSaleGuard.
-        if (!await ExpiredSaleGuard.ConfirmAsync(PosDialogHost.ResolveOwner(this), vm.Id, vm.Title).ConfigureAwait(true))
+        if (!TrainingMode.IsActive && !await ExpiredSaleGuard.ConfirmAsync(PosDialogHost.ResolveOwner(this), vm.Id, vm.Title).ConfigureAwait(true))
             return;
 
         var cart = ResolveCartService();
@@ -252,7 +252,7 @@ public partial class MainWindow
         // (UserPreferences.ResetManualAddQtyAfterAdd, включено по умолчанию), поэтому здесь ничего досбрасывать не нужно.
         // 2026-10-26 (ХМ2): дробная единица «Хозтоваров» (2.5 м) не округляется до целого и в поле количества.
         _viewModel.Basket.ManualQuantity = mustWeigh || QuantityRules.ForTile(vm) != null
-            ? qtyToAdd.ToString("0.###", CultureInfo.InvariantCulture)
+            ? MoneyText.Qty(qtyToAdd) // 2026-11-13 (Д-5): количество в чеке — с запятой («1,25»), одна функция показа
             : qtyToAdd.ToString("0", CultureInfo.InvariantCulture);
         // 2026-11-12 (ЭЛ2, сфера «Электроника»): товар из категории «с серийником» — сначала IMEI / серийные номера (по одному на штуку).
         // Отмена окна — товар не добавляется; «Пропустить» — добавляется без номера. В других сферах блок не выполняется.
@@ -323,7 +323,7 @@ public partial class MainWindow
     /// диалог взвешивания здесь не нужен, вес известен из штрих-кода.</summary>
     internal async Task AddWeighedProductWithKnownWeightAsync(CatalogProductTileVm vm, double weightKg)
     {
-        if (!_session.IsShiftOpen)
+        if (!_session.IsShiftOpen && !TrainingMode.IsActive) // 2026-11-13 (Н-1): в учебном режиме смену не открываем
         {
             await OpenShiftAsync().ConfigureAwait(true);
             if (!_session.IsShiftOpen)
@@ -334,7 +334,7 @@ public partial class MainWindow
             return;
 
         // 2026-11-05 (ревью волн 0–3, В4): весовые этикетки (мясо, сыр, колбаса) — главный случай просрочки; проверка та же, что в AddProductFromCatalogAsync.
-        if (!await ExpiredSaleGuard.ConfirmAsync(PosDialogHost.ResolveOwner(this), vm.Id, vm.Title).ConfigureAwait(true))
+        if (!TrainingMode.IsActive && !await ExpiredSaleGuard.ConfirmAsync(PosDialogHost.ResolveOwner(this), vm.Id, vm.Title).ConfigureAwait(true))
             return;
 
         var cart = ResolveCartService();
@@ -348,7 +348,7 @@ public partial class MainWindow
                 return;
         }
 
-        _viewModel.Basket.ManualQuantity = weightKg.ToString("0.###", CultureInfo.InvariantCulture);
+        _viewModel.Basket.ManualQuantity = MoneyText.Qty(weightKg); // 2026-11-13 (Д-5): вес — с запятой
         _viewModel.Basket.AddProductFromCatalog(vm);
     }
 
@@ -492,7 +492,8 @@ public partial class MainWindow
         }
         catch (Exception ex)
         {
-            printError = ex.Message;
+            printError = ServerOutageMonitor.UserText(ex); // 2026-11-13 (Н-4): на экран — понятный текст, сырой — в журнал
+            PosLogger.Log($"Печать чека операции не удалась: {ex.GetType().Name}: {ex.Message}", "WARNING");
         }
 
         if (printError is not null)
@@ -899,7 +900,7 @@ public partial class MainWindow
         if (entries.Count == 0)
             return false;
 
-        if (!_session.IsShiftOpen)
+        if (!_session.IsShiftOpen && !TrainingMode.IsActive) // 2026-11-13 (Н-1): в учебном режиме смену не открываем
         {
             await OpenShiftAsync().ConfigureAwait(true);
             if (!_session.IsShiftOpen)
@@ -921,7 +922,7 @@ public partial class MainWindow
 
     private async Task<bool> OpenDeferredAsSeparateAsync(DeferredCartEntry entry)
     {
-        if (!_session.IsShiftOpen)
+        if (!_session.IsShiftOpen && !TrainingMode.IsActive) // 2026-11-13 (Н-1): в учебном режиме смену не открываем
         {
             await OpenShiftAsync().ConfigureAwait(true);
             if (!_session.IsShiftOpen)
@@ -1180,6 +1181,8 @@ public partial class MainWindow
         string? excludeDeferredEntryId = null,
         bool allowOverride = false)
     {
+        if (TrainingMode.IsActive) // 2026-11-13 (Н-1): учебная продажа остаток не проверяет и склад не трогает
+            return true;
         var warehouse = StockAvailabilityService.GetWarehouseQuantity(productId);
         var deferred = StockAvailabilityService.CalculateReservedQuantity(productId, excludeDeferredEntryId);
         var otherOpenReceipts = _viewModel.Basket.GetQuantityInOtherOpenReceipts(productId);
@@ -1266,6 +1269,8 @@ public partial class MainWindow
     private async Task<bool> TryReplenishStockForOverrideAsync(
         CatalogProductTileVm vm, double suggestedQty, bool mustWeigh)
     {
+        if (TrainingMode.IsActive) // 2026-11-13 (Н-1): учебная продажа остаток не проверяет и склад не трогает
+            return true;
         var addDialog = new AddStockQuantityDialog(vm.Title, suggestedQty, mustWeigh);
         var owner = PosDialogHost.ResolveOwner(this);
         var addQty = await addDialog.ShowDialog<double?>(owner).ConfigureAwait(true);
@@ -1438,11 +1443,12 @@ public partial class MainWindow
         }
         catch (Exception ex)
         {
+            PosLogger.Log($"Смена кассира: вход не выполнен ({ex.GetType().Name}: {ex.Message}).", "WARNING"); // 2026-11-13 (Н-4): сырой текст — в журнал
             await RestoreSavedLoginAsync().ConfigureAwait(true);
             apiClient.RestoreSessionState(oldState);
             return (SwitchCashierOutcome.InvalidCredentials,
-                Tr.T($"Не удалось выполнить вход: {ex.Message}", $"Кирүү мүмкүн болгон жок: {ex.Message}",
-                    $"Could not sign in: {ex.Message}", $"Giriş yapılamadı: {ex.Message}", $"Tizimga kirib bo'lmadi: {ex.Message}"));
+                Tr.T($"Не удалось выполнить вход: {ServerOutageMonitor.UserText(ex)}", $"Кирүү мүмкүн болгон жок: {ServerOutageMonitor.UserText(ex)}",
+                    $"Could not sign in: {ServerOutageMonitor.UserText(ex)}", $"Giriş yapılamadı: {ServerOutageMonitor.UserText(ex)}", $"Tizimga kirib bo'lmadi: {ServerOutageMonitor.UserText(ex)}"));
         }
 
         if (!result.IsSuccess || result.Session is null)
@@ -1519,8 +1525,8 @@ public partial class MainWindow
                 apiClient.RestoreSessionState(oldState);
                 await RestoreSavedLoginAsync().ConfigureAwait(true);
                 return (SwitchCashierOutcome.InvalidCredentials,
-                    Tr.T($"Не удалось закрыть смену: {ex.Message}", $"Сменаны жабуу мүмкүн болгон жок: {ex.Message}",
-                        $"Could not close the shift: {ex.Message}", $"Vardiya kapatılamadı: {ex.Message}", $"Smenani yopib bo'lmadi: {ex.Message}"));
+                    Tr.T($"Не удалось закрыть смену: {ServerOutageMonitor.UserText(ex)}", $"Сменаны жабуу мүмкүн болгон жок: {ServerOutageMonitor.UserText(ex)}",
+                        $"Could not close the shift: {ServerOutageMonitor.UserText(ex)}", $"Vardiya kapatılamadı: {ServerOutageMonitor.UserText(ex)}", $"Smenani yopib bo'lmadi: {ServerOutageMonitor.UserText(ex)}"));
             }
             if (_session.IsShiftOpen)
             {

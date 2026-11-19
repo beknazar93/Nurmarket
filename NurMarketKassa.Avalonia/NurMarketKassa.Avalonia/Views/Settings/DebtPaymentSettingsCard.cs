@@ -29,7 +29,7 @@ public sealed class DebtPaymentSettingsCard : Border
     public DebtPaymentSettingsCard()
     {
         Classes.Add("SettingsCard");
-        Padding = new Thickness(14);
+        Padding = new Thickness(16); // 2026-11-19: как у всех карточек настроек (SettingsCard — 16), было 14
         IsVisible = TariffGate.CanUseDebts;
         var stack = new StackPanel { Spacing = 6 };
         stack.Children.Add(new TextBlock

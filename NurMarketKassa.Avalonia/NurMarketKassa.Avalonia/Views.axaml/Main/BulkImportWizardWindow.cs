@@ -157,6 +157,7 @@ public sealed partial class BulkImportWizardWindow : Window
         Title = T("Массовая загрузка товаров", "Товарларды жаппай жүктөө", "Bulk product import", "Toplu ürün yükleme", "Mahsulotlarni ommaviy yuklash");
         SectionCards.AsModal(this, 1240);
         MinWidth = 640;
+        InitOnboarding(); // 2026-11-13 (Л-10): источник файла, демо-магазин, клиенты, «что дальше»
 
         _pickFile = SectionCards.Secondary(T("Выбрать файл…", "Файлды тандоо…", "Choose file…", "Dosya seç…", "Faylni tanlash…"));
         _paste = SectionCards.Secondary(T("Вставить из буфера", "Буферден коюу", "Paste from clipboard", "Panodan yapıştır", "Buferdan qo'yish"));
@@ -198,7 +199,7 @@ public sealed partial class BulkImportWizardWindow : Window
 
         // ---- шаг 1: файл
         var step1 = new WrapPanel { Orientation = Orientation.Horizontal };
-        foreach (var c in new Control[] { _pickFile, _paste, _tplXlsx, _tplCsv, _hintToggle, _oldImport })
+        foreach (var c in new Control[] { _pickFile, _paste, _tplXlsx, _tplCsv, _hintToggle, _demoBtn, _clientsBtn, _oldImport })
         {
             c.Margin = new Thickness(0, 0, 8, 6);
             step1.Children.Add(c);
@@ -253,7 +254,7 @@ public sealed partial class BulkImportWizardWindow : Window
         AddSetting(_cardsCheck);
         AddSetting(_mergeNameCheck);
         AddSetting(_checkBtn);
-        _mapPanel.Child = new StackPanel { Spacing = 4, Children = { mapTitle, _mapWrap, _modeNote, settings } };
+        _mapPanel.Child = new StackPanel { Spacing = 4, Children = { _sourceRow, _sourceNote, mapTitle, _mapWrap, _modeNote, settings } };
 
         // ---- шаг 3: итог, действия, таблица
         foreach (var (filter, _) in new[] { (Filter.All, 0), (Filter.Receipt, 0), (Filter.New, 0), (Filter.Error, 0), (Filter.Warning, 0), (Filter.Merged, 0) })
@@ -308,6 +309,7 @@ public sealed partial class BulkImportWizardWindow : Window
         root.Children.Add(_mapPanel);
         root.Children.Add(_status);
         root.Children.Add(_bar);
+        root.Children.Add(_nextPanel); // 2026-11-13 (Л-10): «что дальше» после загрузки
         root.Children.Add(_tiles);
         root.Children.Add(_errGroups);
         root.Children.Add(_opsPanel);

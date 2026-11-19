@@ -623,10 +623,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               child: _items.isEmpty
                   ? ListView(
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.all(32),
-                          child: Center(child: Text(l.noNotifications)),
-                        ),
+                        SizedBox(height: 320, child: EmptyState(icon: Icons.notifications_none_rounded, text: l.noNotifications)), // 2026-11-13 (аудит UX мобилки, п. 5)
                       ],
                     )
                   : ListView.separated(

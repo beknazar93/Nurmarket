@@ -82,7 +82,18 @@ public static class ServerSerials
     public const int MaxPerLine = 500;
     public const int MaxLength = 64;
 
-    /// <summary>Слать ли серийники серверу (флаг компании electronics_2026_11 из capabilities; подменяется в проверках).</summary>
+    /// <summary>2026-11-14 (ответ Умара 13.11 вечер): поиск по хвосту номера (<c>serials/?tail=</c>) — от 4 знаков.</summary>
+    public const int MinTailLength = 4;
+
+    /// <summary>Искать ли запрос как ХВОСТ номера: от <see cref="MinTailLength"/> и только цифры (последние цифры IMEI/серийного номера). Буквенные номера ищутся точно (<c>serial=</c>).</summary>
+    public static bool IsTailQuery(string? query)
+    {
+        var q = (query ?? "").Trim();
+        return q.Length >= MinTailLength && q.All(char.IsDigit);
+    }
+
+    /// <summary>Включены ли ПРОВЕРКИ сервера по серийникам (флаг компании electronics_2026_11 из capabilities — читается и из <c>company_flags</c>; подменяется в проверках).
+    /// 2026-11-14 (ответ Умара 13.11 вечер): сами номера сервер сохраняет всегда, поэтому в продажу они уходят и без флага; флаг нужен только возвратам и подсказкам кассе.</summary>
     public static bool Enabled => ElectronicsProfile.ServerFlagEnabled();
 
     /// <summary>Номера без пустых и повторов (без учёта регистра и пробелов, как у сервера), порядок сохранён.</summary>
@@ -114,6 +125,50 @@ public static class ServerSerials
         foreach (var s in list.Take(MaxPerLine))
             arr.Add(s);
         return arr;
+    }
+
+    /// <summary>2026-11-14 (ответ Умара 13.11 вечер): ответ pos/checkout/ несёт в строках <c>serial_numbers</c> и <c>warranty_until</c> — гарантийный талон и чек печатаются из него сразу.
+    /// Кладёт в строки снимка чека (по товару) <c>warranty_until</c> сервера и, если у строки нет своих номеров, его <c>serial_numbers</c>. Ответа/полей нет — снимок без изменений.</summary>
+    public static string WithServerLines(string? cartJson, JsonElement checkoutResponse)
+    {
+        if (string.IsNullOrWhiteSpace(cartJson) || checkoutResponse.ValueKind != JsonValueKind.Object)
+            return cartJson ?? "";
+        try
+        {
+            var serverLines = CartDisplayHelper.EnumerateSaleLineItems(checkoutResponse)
+                .Where(l => LineWarrantyUntil(l) is not null || LineSerials(l).Count > 0).ToList();
+            if (serverLines.Count == 0 || JsonNode.Parse(cartJson) is not JsonObject root || root["items"] is not JsonArray items)
+                return cartJson;
+            var changed = false;
+            foreach (var node in items)
+            {
+                if (node is not JsonObject line)
+                    continue;
+                var pid = CartDisplayHelper.TryProductId(JsonSerializer.SerializeToElement(line));
+                if (string.IsNullOrEmpty(pid))
+                    continue;
+                var mine = serverLines.Where(l => string.Equals(CartDisplayHelper.TryProductId(l), pid, StringComparison.OrdinalIgnoreCase)).ToList();
+                if (mine.Count == 0)
+                    continue;
+                if (mine.Select(l => l.TryGetProperty("warranty_until", out var w) && w.ValueKind == JsonValueKind.String ? w.GetString() : null).FirstOrDefault(s => !string.IsNullOrWhiteSpace(s)) is { } until
+                    && line["warranty_until"] is null)
+                {
+                    line["warranty_until"] = until;
+                    changed = true;
+                }
+                if (SerialJournal.ReadSerials(JsonSerializer.SerializeToElement(line)).Count == 0)
+                    if (ToJson(mine.SelectMany(LineSerials)) is { } serials)
+                    {
+                        line["serial_numbers"] = serials;
+                        changed = true;
+                    }
+            }
+            return changed ? root.ToJsonString() : cartJson;
+        }
+        catch (JsonException)
+        {
+            return cartJson;
+        }
     }
 
     /// <summary>Номера строки чека с сервера (<c>serial_numbers</c>).</summary>

@@ -435,6 +435,9 @@ public partial class SideMenuView : UserControl
         ["MiLogs"] = "логи лог ошибки журнал log logs errors лог ката hata xato jurnal",
         ["MiSupport"] = "поддержка помощь техподдержка удалённая support help remote колдоо жардам destek yardım yordam",
         ["MiKnowledgeBase"] = "база знаний справка инструкция помощь faq knowledge help билим bilgi bilim yordam",
+        // 2026-11-13 (Н-1): мастер первого запуска и учебная продажа — слова поиска на 5 языках.
+        ["MiFirstRunWizard"] = "мастер первый запуск начало настройка помощь wizard first start setup чебер биринчи ишке киргизүү sihirbaz ilk başlangıç usta birinchi ishga tushirish",
+        ["MiTrainingSale"] = "учебная продажа учебный режим обучение тренировка помощь training sale practice demo окуу сатуу режим eğitim satışı o'quv sotuvi",
         ["MiCashOperation"] = "внесение изъятие деньги касса наличные cash in out акча салуу алуу nakit kirim chiqim pul",
         ["MiFindCloseShift"] = "закрыть смену смена close shift сменаны жабуу vardiya kapat smena yopish",
         ["MiFindOpenShift"] = "открыть смену смена open shift сменаны ачуу vardiya aç smena ochish",

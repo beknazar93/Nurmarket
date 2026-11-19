@@ -63,6 +63,11 @@ public static class PaymentErrorMessages
             if (ServerErrorCodes.SerialFriendly(api) is { } serialText)
                 return serialText;
 
+            // 2026-11-14 (ответ Умара 13.11 вечер): sale_unit_conflict / sale_unit_not_found / quantity_step_mismatch / quantity_below_min / object_not_found / credit_limit_exceeded — понятный текст
+            // (до общего «корзина не найдена» для 404: object_not_found и sale_unit_not_found тоже 404). Предложение «провести с превышением лимита» — только в быстрой оплате (BasketPanelViewModel спрашивает владельца).
+            if (ServerErrorCodes.HardwareFriendly(api) is { } hardwareText)
+                return hardwareText;
+
             if (LooksLikeDiscountError(api.Message))
                 return DiscountFailure;
 

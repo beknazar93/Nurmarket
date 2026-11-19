@@ -65,12 +65,21 @@ public partial class CatalogPanelView : UserControl, ICatalogKeyboardSurface
                     pagedVm.PropertyChanged += OnPageChanged;
             };
         }
-        // 2026-11-06 (В7, Д4-03): признак «одна строка Скан или поиск» (файл single-input-row.on) — поле поиска принимает и скан, и ручной ввод кода/названия:
+        // 2026-11-06 (В7, Д4-03): «одна строка ввода» — поле поиска принимает и скан, и ручной ввод кода/названия:
         // Enter, не разобранный окном как скан сканера (оно разбирает быстрый набор раньше и помечает Enter обработанным), добавляет введённое в чек, как «Добавить».
-        if (KassaMainViewRules.SingleInputRowEnabled())
+        // 2026-11-13 (Н-2, решение владельца): включено по умолчанию (откат — файл single-input-row.off); подсказка поля — на языке кассы и меняется вместе с ним.
+        if (KassaMainViewRules.SingleInputRowEnabled() && !OperatingSystem.IsAndroid()) // 2026-11-13 (Н-2): на Android нижняя строка остаётся — в ней кнопка камеры-сканера
         {
-            ProductSearchBox.Watermark = KassaMainViewRules.SearchWatermark(true);
+            _singleInput = true;
+            ApplySingleInputTexts();
             ProductSearchBox.KeyDown += ProductSearchBox_KeyDown;
+            AttachedToVisualTree += (_, _) =>
+            {
+                Tr.LanguageChanged -= OnLanguageChangedSingleInput;
+                Tr.LanguageChanged += OnLanguageChangedSingleInput;
+                ApplySingleInputTexts();
+            };
+            DetachedFromVisualTree += (_, _) => Tr.LanguageChanged -= OnLanguageChangedSingleInput;
         }
         if (OperatingSystem.IsAndroid())
         {
@@ -131,6 +140,20 @@ public partial class CatalogPanelView : UserControl, ICatalogKeyboardSurface
         }
     }
 
+    private bool _singleInput;
+
+    private void OnLanguageChangedSingleInput() => Dispatcher.UIThread.Post(ApplySingleInputTexts);
+
+    private void ApplySingleInputTexts()
+    {
+        if (!_singleInput)
+            return;
+        ProductSearchBox.Watermark = KassaMainViewRules.SearchWatermark(true);
+        ToolTip.SetTip(ProductSearchBox, KassaMainViewRules.SearchTooltip());
+    }
+
+    /// <summary>2026-11-13 (Н-2): Enter в единственном поле ввода. Код (цифры) и «3*код» / «3*» — сразу в чек, как раньше «Добавить».
+    /// Название: найден один товар — он в чек; несколько — рамка встаёт на первый (дальше стрелки и Num +), окно «товар не найден — добавить?» по названию не выскакивает.</summary>
     private void ProductSearchBox_KeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key != Key.Enter || e.KeyModifiers != KeyModifiers.None || e.Handled)
@@ -140,9 +163,36 @@ public partial class CatalogPanelView : UserControl, ICatalogKeyboardSurface
             || (TopLevel.GetTopLevel(this)?.DataContext as MainWindowViewModel)?.Basket is not { } basket)
             return;
         e.Handled = true;
-        catalog.SearchText = "";
-        basket.EnqueueBarcode(text);
+        var hasPrefix = ScanQuantityPrefix.TryParse(text, out var quantity, out var rest);
+        var code = hasPrefix ? rest : text;
+        if (code.Length == 0 || LooksLikeCode(code))
+        {
+            catalog.SearchText = "";
+            basket.EnqueueBarcode(text);
+            return;
+        }
+        // Название. «3*молоко» — количество запоминаем, в поле остаётся название (список уже отфильтрован по нему или отфильтруется сейчас).
+        if (hasPrefix)
+        {
+            basket.ManualQuantity = ScanQuantityPrefix.QuantityText(quantity);
+            catalog.SearchText = code;
+            return;
+        }
+        if (catalog.Products.Count == 1 && catalog.IsSearchActive)
+        {
+            var only = catalog.Products[0];
+            catalog.SearchText = "";
+            if (catalog.SelectProductCommand.CanExecute(only))
+                catalog.SelectProductCommand.Execute(only);
+            return;
+        }
+        if (catalog.Products.Count > 1)
+            TryEnterCatalogNavigation();
     }
+
+    /// <summary>Похоже на код, а не на название: только цифры и знаки штрихкода, не короче 4 знаков (так же считает сканер, MinBarcodeLen).</summary>
+    internal static bool LooksLikeCode(string text) =>
+        text.Length >= 4 && text.All(ch => char.IsAsciiDigit(ch) || ch is '-' or '.' or '/' or '_');
 
     /// <summary>2026-10-05, владелец (Android): «добавь сканер при поиске товара» — код с камеры уходит в поиск
     /// каталога (найдётся по штрихкоду, как при ручном вводе).</summary>

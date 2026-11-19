@@ -382,7 +382,7 @@ internal sealed class ShtrikhPcBarcodeCard : Border
     public ShtrikhPcBarcodeCard()
     {
         Classes.Add("SettingsCard");
-        Padding = new Thickness(14);
+        Padding = new Thickness(16); // 2026-11-19: как у всех карточек настроек (SettingsCard — 16), было 14
         var root = new StackPanel { Spacing = 10 };
         root.Children.Add(new TextBlock
         {

@@ -314,7 +314,7 @@ public sealed class OwnerReceiptReturnUiTests : IDisposable
         try
         {
             // аудит 12.11, Д-14: в колонке «Чек» — названия товаров (поле name), а не «?»
-            RunUntil(() => UiDrive.AllText(window).Contains("Сахар ×2.5")).Should().BeTrue(UiDrive.AllText(window));
+            RunUntil(() => UiDrive.AllText(window).Contains("Сахар ×2,5")).Should().BeTrue(UiDrive.AllText(window)); // 2026-11-19: дробное количество с запятой (Д-5)
             UiDrive.AllText(window).Should().NotContain("? ×");
             var popup = await OpenCardAsync(window, "s-703", "№003703");
             var ret = InPopup<Button>(popup, "ReceiptReturnButton");

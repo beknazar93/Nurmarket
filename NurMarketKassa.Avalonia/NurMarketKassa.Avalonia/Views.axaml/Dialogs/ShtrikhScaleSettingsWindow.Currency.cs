@@ -38,12 +38,14 @@ public partial class ShtrikhScaleSettingsWindow
     private int _labelNameLines = 2;     // D3h
     private int _labelMessageLines = 1;  // из 11h
 
+    /// <summary>2026-11-13 (Д-7): «Валюта» и «Макет этикетки» — больше не отдельные вкладки, а разделы вкладки «Этикетка и печать»
+    /// (было 9 вкладок); заголовок раздела — строкой над его карточками.</summary>
     private TabItem AddCodeTab(string header, out StackPanel panel)
     {
-        panel = new StackPanel { Spacing = 12, Margin = new Thickness(0, 10, 8, 10) };
-        var tab = new TabItem { Header = header, Content = new ScrollViewer { Content = panel } };
-        Tabs.Items.Add(tab);
-        return tab;
+        panel = new StackPanel { Spacing = 12 };
+        LabelExtraPanel.Children.Add(new TextBlock { Text = header, Classes = { "cardTitle" }, Margin = new Thickness(0, 8, 0, 0) });
+        LabelExtraPanel.Children.Add(panel);
+        return PrintTab;
     }
 
     /// <summary>Короткое название элемента этикетки на языке кассы. Неизменяемые надписи

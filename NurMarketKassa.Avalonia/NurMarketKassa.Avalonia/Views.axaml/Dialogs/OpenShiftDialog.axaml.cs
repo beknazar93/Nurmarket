@@ -122,7 +122,7 @@ public partial class OpenShiftDialog : Window
         _settingProgrammatically = true;
         try
         {
-            OpeningCashBox.Text = balance.ToString("0.00", CultureInfo.InvariantCulture);
+            OpeningCashBox.Text = NurMarketKassa.Services.MoneyText.Weight(balance, "0.00"); // 2026-11-13 (Д-5): запятая (общий формат), было с точкой
         }
         finally
         {
@@ -138,7 +138,7 @@ public partial class OpenShiftDialog : Window
         {
             SystemBalanceText.Text = ShiftBalanceHelper.FormatBalance(SuggestedBalance);
             _settingProgrammatically = true;
-            OpeningCashBox.Text = SuggestedBalance.Value.ToString("0.00", CultureInfo.InvariantCulture);
+            OpeningCashBox.Text = NurMarketKassa.Services.MoneyText.Weight(SuggestedBalance.Value, "0.00"); // 2026-11-13 (Д-5): запятая (общий формат), было с точкой
             _settingProgrammatically = false;
         }
         else
@@ -200,7 +200,7 @@ public partial class OpenShiftDialog : Window
             if (emptyField)
             {
                 _settingProgrammatically = true;
-                try { OpeningCashBox.Text = "0.00"; }
+                try { OpeningCashBox.Text = "0,00"; } // 2026-11-13 (Д-5): запятая
                 finally { _settingProgrammatically = false; }
             }
         }

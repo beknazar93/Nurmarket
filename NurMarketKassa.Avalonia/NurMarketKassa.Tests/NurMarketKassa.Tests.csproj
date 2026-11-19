@@ -41,6 +41,8 @@
     <!-- 2026-11-06 (В11, программа владельца): чистая логика без Avalonia — список одним событием, высота столбца графика, итог перемещения, уплотнение кучи и учёт закрытых разделов. -->
     <Compile Include="..\NurMarketKassa.Avalonia\Services\BulkObservableCollection.cs" Link="Linked\BulkObservableCollection.cs" />
     <Compile Include="..\NurMarketKassa.Avalonia\Services\ChartBarHeight.cs" Link="Linked\ChartBarHeight.cs" />
+    <!-- 2026-11-13 (Н-2): количество «3 *» перед сканом — чистая логика без окон -->
+    <Compile Include="..\NurMarketKassa.Avalonia\Services\TypedQuantityTracker.cs" Link="Linked\TypedQuantityTracker.cs" />
     <Compile Include="..\NurMarketKassa.Avalonia\Services\TransferSummaryText.cs" Link="Linked\TransferSummaryText.cs" />
     <Compile Include="..\NurMarketKassa.Avalonia\Services\OwnerMemoryTrim.cs" Link="Linked\OwnerMemoryTrim.cs" />
     <Compile Include="..\NurMarketKassa.Avalonia\Services\ClosedObjectWatch.cs" Link="Linked\ClosedObjectWatch.cs" />

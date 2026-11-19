@@ -90,11 +90,11 @@ public sealed partial class BasketPanelViewModel
                 // Сервер ответил отказом — связь есть, память тут не поможет.
                 PosLogger.Log($"QR клиента {masked}: сервер отказал ({ex.StatusCode}): {ex.Message}", "WARNING");
                 await RunOnUiThreadAsync(() => CartMessage = Tr.T(
-                    $"Клиента {phone} найти не удалось: {ex.Message} Продажу можно продолжить без клиента.",
-                    $"{phone} кардарын табуу мүмкүн болгон жок: {ex.Message} Сатууну кардарсыз улантсаңыз болот.",
-                    $"Could not find customer {phone}: {ex.Message} You can continue the sale without a customer.",
-                    $"{phone} müşterisi bulunamadı: {ex.Message} Satışa müşterisiz devam edebilirsiniz.",
-                    $"{phone} mijozini topib bo'lmadi: {ex.Message} Sotuvni mijozsiz davom ettirish mumkin.")).ConfigureAwait(false);
+                    $"Клиента {phone} найти не удалось: {ServerOutageMonitor.UserText(ex)} Продажу можно продолжить без клиента.",
+                    $"{phone} кардарын табуу мүмкүн болгон жок: {ServerOutageMonitor.UserText(ex)} Сатууну кардарсыз улантсаңыз болот.",
+                    $"Could not find customer {phone}: {ServerOutageMonitor.UserText(ex)} You can continue the sale without a customer.",
+                    $"{phone} müşterisi bulunamadı: {ServerOutageMonitor.UserText(ex)} Satışa müşterisiz devam edebilirsiniz.",
+                    $"{phone} mijozini topib bo'lmadi: {ServerOutageMonitor.UserText(ex)} Sotuvni mijozsiz davom ettirish mumkin.")).ConfigureAwait(false);
                 return;
             }
             catch (Exception ex)
@@ -208,11 +208,11 @@ public sealed partial class BasketPanelViewModel
             PosLogger.Log($"QR клиента (одноразовый): сервер отказал ({ex.StatusCode}): {ex.Message}", "WARNING");
             await RunOnUiThreadAsync(() => CartMessage = Tr.T(
                 // Сервер сам пишет «попросите клиента обновить QR» — свою такую же фразу не добавляем.
-                $"QR клиента не принят: {ex.Message} Продажу можно продолжить без клиента.",
-                $"Кардардын QR коду кабыл алынган жок: {ex.Message} Сатып алуучудан тиркемеде кодду жаңыртууну сураныңыз. Сатууну кардарсыз улантсаңыз болот.",
-                $"Customer QR not accepted: {ex.Message} Ask the customer to refresh the code in the app. You can continue the sale without a customer.",
-                $"Müşteri QR'ı kabul edilmedi: {ex.Message} Müşteriden uygulamada kodu yenilemesini isteyin. Satışa müşterisiz devam edebilirsiniz.",
-                $"Mijoz QR kodi qabul qilinmadi: {ex.Message} Xaridordan ilovada kodni yangilashini so'rang. Sotuvni mijozsiz davom ettirish mumkin.")).ConfigureAwait(false);
+                $"QR клиента не принят: {ServerOutageMonitor.UserText(ex)} Продажу можно продолжить без клиента.",
+                $"Кардардын QR коду кабыл алынган жок: {ServerOutageMonitor.UserText(ex)} Сатып алуучудан тиркемеде кодду жаңыртууну сураныңыз. Сатууну кардарсыз улантсаңыз болот.",
+                $"Customer QR not accepted: {ServerOutageMonitor.UserText(ex)} Ask the customer to refresh the code in the app. You can continue the sale without a customer.",
+                $"Müşteri QR'ı kabul edilmedi: {ServerOutageMonitor.UserText(ex)} Müşteriden uygulamada kodu yenilemesini isteyin. Satışa müşterisiz devam edebilirsiniz.",
+                $"Mijoz QR kodi qabul qilinmadi: {ServerOutageMonitor.UserText(ex)} Xaridordan ilovada kodni yangilashini so'rang. Sotuvni mijozsiz davom ettirish mumkin.")).ConfigureAwait(false);
             return;
         }
         catch (Exception ex)

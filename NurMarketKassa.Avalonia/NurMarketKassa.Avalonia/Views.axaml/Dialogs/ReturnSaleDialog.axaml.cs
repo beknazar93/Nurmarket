@@ -158,19 +158,21 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
     public bool CanReturnSelected => !IsBusy && Lines.Any(x => x.CanReturn && x.IsSelected);
 
     /// <summary>2026-10-19, К1: пустой список чеков — подсказка вместо пустой таблицы.</summary>
-    public bool HasNoSales => !IsBusy && FilteredSales.Count == 0;
+    public bool HasNoSales => !IsBusy && FilteredSales.Count == 0 && !StateBlock.IsOver(SalesDataGrid); // 2026-11-13 (Н-4): при блоке ошибки «чеков нет» не пишем
 
     public string NoSalesTitle => string.IsNullOrWhiteSpace(_searchFilter)
         ? Tr.T("Чеков пока нет", "Азырынча чектер жок", "No receipts yet", "Henüz fiş yok", "Hozircha cheklar yo'q")
         : Tr.T("Чек не найден", "Чек табылган жок", "Receipt not found", "Fiş bulunamadı", "Chek topilmadi");
 
     public string NoSalesHint => string.IsNullOrWhiteSpace(_searchFilter)
-        ? Tr.T("Нажмите «Обновить» или введите номер чека в поиске.", "«Жаңыртуу» баскычын басыңыз же издөөгө чектин номерин жазыңыз.",
-            "Press “Refresh” or type the receipt number in the search.", "«Yenile»ye basın veya aramaya fiş numarasını yazın.",
-            "«Yangilash»ni bosing yoki qidiruvga chek raqamini yozing.")
-        : Tr.T("Проверьте номер или нажмите «Ещё», чтобы загрузить более старые чеки.", "Номерди текшериңиз же эски чектерди жүктөө үчүн «Дагы» баскычын басыңыз.",
-            "Check the number or press “More” to load older receipts.", "Numarayı kontrol edin veya eski fişleri yüklemek için «Daha fazla»ya basın.",
-            "Raqamni tekshiring yoki eski cheklarni yuklash uchun «Yana»ni bosing.");
+        ? Tr.T("Нажмите «Обновить» или найдите чек: номер, сумма, дата, товар, клиент, телефон.", "«Жаңыртуу» баскычын басыңыз же чекти издеңиз: номер, сумма, дата, товар, кардар, телефон.",
+            "Press “Refresh” or find the receipt: number, amount, date, product, client, phone.", "«Yenile»ye basın veya fişi arayın: numara, tutar, tarih, ürün, müşteri, telefon.",
+            "«Yangilash»ni bosing yoki chekni qidiring: raqam, summa, sana, mahsulot, mijoz, telefon.")
+        : Tr.T("Не нашли? Проверьте номер, сумму или дату либо нажмите «Ещё» — загрузятся более старые чеки. Чека нет совсем — кнопка «Нет чека?» ниже.",
+            "Табылган жокпу? Номерди, сумманы же датаны текшериңиз же «Дагы» баскычын басыңыз — эски чектер жүктөлөт. Чек такыр жок болсо — төмөндөгү «Чек жокпу?» баскычы.",
+            "Not found? Check the number, amount or date, or press “More” to load older receipts. No receipt at all — see “No receipt?” below.",
+            "Bulamadınız mı? Numarayı, tutarı veya tarihi kontrol edin ya da eski fişler için «Daha fazla»ya basın. Fiş hiç yoksa — aşağıdaki «Fiş yok mu?» düğmesi.",
+            "Topilmadimi? Raqam, summa yoki sanani tekshiring yoki eski cheklar uchun «Yana»ni bosing. Chek umuman yo'q bo'lsa — pastdagi «Chek yo'qmi?» tugmasi.");
 
     private void RaiseSelectionState()
     {
@@ -246,6 +248,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         _currentUserId = App.CurrentUserId;
         DataContext = this;
         BuildFilterUi(); // 2026-11-10: поле «Товар», «Фильтры (N)», панель фильтров и счётчик над таблицей чеков
+        InitNoReceiptButton(); // 2026-11-13 (Л-5): «Нет чека?»
         Lines.CollectionChanged += (_, _) => UpdateReceiptChrome();
         // 2026-10-19, К1: состояние «Вернуть выбранные» и пустого списка чеков — по отметкам строк и списку.
         Lines.CollectionChanged += (_, e) =>
@@ -361,22 +364,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         ShowErr(msg);
     }
 
-    private void SearchReceiptBox_TextChanged(object? sender, TextChangedEventArgs e)
-    {
-        _searchFilter = SearchReceiptBox.Text ?? "";
-        ApplySalesFilter();
-
-        // Номер, которого нет среди загруженных чеков, — ищем на сервере (2026-09-28, BE-08).
-        _numberLookupCts?.Cancel();
-        _numberLookupCts = null;
-        if (FilteredSales.Count == 0
-            && NurCrmReportsApi.ParseSaleNumber(_searchFilter) is { } saleNumber
-            && Sales.Any(s => !string.IsNullOrWhiteSpace(s.ReceiptNumber)))
-        {
-            _numberLookupCts = new CancellationTokenSource();
-            _ = LookupSaleByNumberAsync(saleNumber, _numberLookupCts.Token);
-        }
-    }
+    // 2026-11-13 (Л-5): обработчик поля «номер» убран — единое поле поиска (ReturnProductSearchBox) см. ReturnSaleDialog.Filters.cs (RebuildProductQuery, StartNumberLookup).
 
     private void OnPropertyChanged([CallerMemberName] string? name = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));

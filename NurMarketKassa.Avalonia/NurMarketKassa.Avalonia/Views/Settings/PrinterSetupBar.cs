@@ -58,7 +58,9 @@ public sealed class PrinterSetupBar : StackPanel
         };
         ToolTip.SetTip(DriverButton, PrinterDriverLinks.WhenNeededText);
 
-        var driverNote = new TextBlock { Text = PrinterDriverLinks.WhenNeededText, FontSize = 11.5, TextWrapping = TextWrapping.Wrap };
+        // 2026-11-19 (живой обход «Настройки → Печать»): абзац «Драйвер производителя нужен только…» стоял на странице дважды — под кнопками
+        // принтера чеков и принтера этикеток. Оставлен один — у принтера чеков (карточка видна всегда); у этикеток тот же текст — подсказка кнопки.
+        var driverNote = new TextBlock { Text = PrinterDriverLinks.WhenNeededText, FontSize = 11.5, TextWrapping = TextWrapping.Wrap, IsVisible = role != PrinterRole.Label };
         driverNote.Bind(TextBlock.ForegroundProperty, driverNote.GetResourceObservable("BrushTextSoft"));
         Children.Add(_hint);
         Children.Add(ButtonRow(WizardButton, DiagnosticsButton, DriverButton));

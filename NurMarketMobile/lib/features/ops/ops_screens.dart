@@ -372,12 +372,7 @@ class _DebtsScreenState extends ConsumerState<DebtsScreen> {
                   ],
                   const SizedBox(height: 8),
                   if (rows.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Center(
-                        child: Text(l.noDebts, style: TextStyle(color: pal.textSoft)),
-                      ),
-                    ),
+                    EmptyState(icon: Icons.handshake_outlined, text: l.noDebts), // 2026-11-13 (аудит UX мобилки, п. 5)
                   for (final d in rows)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 6),
@@ -463,9 +458,7 @@ class _HeldScreenState extends ConsumerState<HeldScreen> {
       body: _rows == null
           ? const Center(child: CircularProgressIndicator())
           : _rows!.isEmpty
-          ? Center(
-              child: Text(l.heldEmpty, style: TextStyle(color: pal.textSoft)),
-            )
+          ? EmptyState(icon: Icons.pause_circle_outline_rounded, text: l.heldEmpty) // 2026-11-13 (аудит UX мобилки, п. 5)
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [

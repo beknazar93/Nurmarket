@@ -54,6 +54,10 @@ public sealed class PosCheckoutRequest
     /// <summary>2026-10-30 (приёмка 1.17.66, «Важно» 1): кассир выбрал «Отложить в очередь» после «Сервер занят» — чек ставится в офлайн-очередь с прежним ключом без обращения к серверу
     /// (и без объявления аварии). Только для наличных/безнала.</summary>
     public bool DeferToQueue { get; set; }
+    /// <summary>2026-11-14 (ответ Умара 13.11 вечер): объект клиента-прораба (id из GET clients/&lt;id&gt;/objects/) — поле <c>object</c> в pos/checkout/; null — без объекта. Только быстрый путь (pos/checkout/).</summary>
+    public string? ClientObjectId { get; init; }
+    /// <summary>2026-11-14: владелец/админ подтвердил продажу «в долг» сверх лимита клиента — <c>override_credit_limit: true</c> в pos/checkout/ (после 409 credit_limit_exceeded).</summary>
+    public bool OverrideCreditLimit { get; set; }
     /// <summary>2026-11-01 (К-08, code-review): состояние ожидания ЭТОЙ оплаты для окна «Проводим оплату…» (создаёт окно кассы; сервис оплаты заполняет).</summary>
     public PaymentWaitState? Wait { get; init; }
 }
@@ -129,6 +133,10 @@ public sealed class PosCheckoutResult
     /// <summary>2026-11-05 (сервер ceba67c, warnings.lines_merged): продажа проведена, сервер объединил одинаковые строки чека — ненавязчивый тост «одинаковые строки объединены». null — нет.</summary>
     public string? ServerWarningNote { get; set; }
 
+    /// <summary>2026-11-14 (ответ Умара 13.11 вечер): сервер ответил 409 credit_limit_exceeded — продажа «в долг» НЕ проведена, клиент превысил лимит долга. Владелец/админ может провести с
+    /// <see cref="PosCheckoutRequest.OverrideCreditLimit"/>; ErrorMessage — понятный текст.</summary>
+    public bool CreditLimitExceeded { get; init; }
+
     public static PosCheckoutResult Succeeded(
         double total,
         string? cartJson,
@@ -178,6 +186,10 @@ public sealed class PosCheckoutResult
     /// <summary>2026-10-30: сервер занят (429) — вопрос кассиру «Повторить / Отложить в очередь» (см. <see cref="ServerBusy"/>).</summary>
     public static PosCheckoutResult ServerBusyFailure(string question, bool canDeferToQueue) =>
         new() { IsSuccess = false, ErrorMessage = question, ServerBusy = true, CanDeferToQueue = canDeferToQueue };
+
+    /// <summary>2026-11-14: отказ сервера 409 credit_limit_exceeded (см. <see cref="CreditLimitExceeded"/>).</summary>
+    public static PosCheckoutResult CreditLimitFailure(string error) =>
+        new() { IsSuccess = false, ErrorMessage = error, CreditLimitExceeded = true };
 
     /// <summary>2026-10-27: отказ сервера 409 price_changed (заголовок X-NurMarket-Strict-Price).</summary>
     public static PosCheckoutResult PriceChangedFailure(string error, IReadOnlyList<ServerPriceMismatch> changes) =>

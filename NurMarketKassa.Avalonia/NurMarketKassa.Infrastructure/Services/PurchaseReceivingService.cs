@@ -223,9 +223,27 @@ public sealed class PurchaseReceivingService
         var sendKey = st.BeginSend();
         body["idempotency_key"] = sendKey;
         await AddDocumentFieldsAsync(body, sendKey, st, ct).ConfigureAwait(false);
+        // 2026-11-14 (ответ Умара 13.11, П0-2): приход, принятый заметно раньше отправки (без связи), уходит с "offline": true и "received_at" — сервер ставит эту дату в приход,
+        // историю закупок, расход из кассы и срок долга поставщику. Время приёма у задачи фиксировано (CreatedAt + поправка часов), поэтому повтор уходит с тем же телом.
+        var offlineStamp = ReceivedAtStamp(st);
+        if (offlineStamp is not null)
+        {
+            body["offline"] = true;
+            body["received_at"] = offlineStamp;
+        }
         try
         {
-            var response = await Api.CreateSupplierReceiptAsync(supplier.Id, body, ct).ConfigureAwait(false);
+            JsonElement response;
+            try
+            {
+                response = await Api.CreateSupplierReceiptAsync(supplier.Id, body, ct).ConfigureAwait(false);
+            }
+            catch (ApiException ex) when (ex.StatusCode == 423 && IsShiftClosed(ex) && body.Remove("shift"))
+            {
+                // Смена прихода уже закрыта (reason=shift_closed): по ответу Умара проводим без смены, тем же ключом (прошлый отказ в журнале ключей не остаётся).
+                PosLogger.Log("Приход из очереди: смена закрыта (423 shift_closed) — повтор без поля shift.", "STOCK");
+                response = await Api.CreateSupplierReceiptAsync(supplier.Id, body, ct).ConfigureAwait(false);
+            }
             var id = Str(response, "id");
             double? total = Num(response, "total_amount") is > 0 and var serverTotal ? serverTotal : null;
             var at = SupplierApiService.Date(Str(response, "created_at") ?? "");
@@ -251,6 +269,17 @@ public sealed class PurchaseReceivingService
             return (false, null, null, null, null);
         }
     }
+
+    /// <summary>2026-11-14: время приёма для поля received_at (ISO со смещением) — только если приход принят больше 2 минут назад; иначе null (обычный приход, как раньше).</summary>
+    internal static string? ReceivedAtStamp(ReceivingPostState st) =>
+        st.ReceivedAt is { } r && DateTime.Now - r > TimeSpan.FromMinutes(2)
+            ? new DateTimeOffset(DateTime.SpecifyKind(r, DateTimeKind.Local)).ToString("yyyy-MM-ddTHH:mm:sszzz", CultureInfo.InvariantCulture)
+            : null;
+
+    /// <summary>2026-11-14: 423 period_closed с reason=shift_closed — смена закрыта, приход проводят без поля shift.</summary>
+    internal static bool IsShiftClosed(ApiException ex) =>
+        (ex.Payload is { ValueKind: JsonValueKind.Object } p && p.ToString().Contains("shift_closed", StringComparison.OrdinalIgnoreCase))
+        || ex.Message.Contains("shift_closed", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>2026-11-07 (Б-П1): ответ прихода показывает цену продажи по каждой строке; не совпала с введённой — сервер пересчитал её по карточке (Н-04) и накладная на сервере покажет не то, что ввели.
     /// В журнал — одна строка; окна накладной тогда берут цену и наценку из журнала кассы (ReceiptPriceView).</summary>

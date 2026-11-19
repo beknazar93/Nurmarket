@@ -847,10 +847,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
               child: rows.isEmpty
                   ? ListView(
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.all(32),
-                          child: Center(child: Text(l.empty)),
-                        ),
+                        SizedBox(height: 320, child: EmptyState(icon: Icons.inbox_outlined, text: l.empty)), // 2026-11-13 (аудит UX мобилки, п. 5)
                       ],
                     )
                   : ListView.separated(
@@ -1618,7 +1615,7 @@ class _DeletionsScreenState extends ConsumerState<DeletionsScreen> {
       body: rows == null
           ? const Center(child: CircularProgressIndicator())
           : rows.isEmpty
-          ? Center(child: Text(l.noDeletions))
+          ? EmptyState(icon: Icons.delete_outline_rounded, text: l.noDeletions) // 2026-11-13 (аудит UX мобилки, п. 5)
           : ListView.separated(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
               itemCount: rows.length,

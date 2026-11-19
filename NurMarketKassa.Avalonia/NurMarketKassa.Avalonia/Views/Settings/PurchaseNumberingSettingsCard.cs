@@ -31,7 +31,7 @@ public sealed class PurchaseNumberingSettingsCard : Border
     public PurchaseNumberingSettingsCard()
     {
         Classes.Add("SettingsCard");
-        Padding = new Thickness(14);
+        Padding = new Thickness(16); // 2026-11-19: как у всех карточек настроек (SettingsCard — 16), было 14
         var stack = new StackPanel { Spacing = 8 };
         stack.Children.Add(new TextBlock { Text = T("Нумерация закупок", "Сатып алуулардын номерлери", "Purchase numbering", "Alım numaralandırma", "Xaridlar raqamlanishi"), Classes = { "SettingsCardTitle" }, FontSize = 14 });
         stack.Children.Add(Hint(T("Номер документа: тип-год-порядок, например ПР-2026-000123. Порядок считается по истории сервера (по дате создания), поэтому на всех кассах номер один и тот же. Временная нумерация — пока NurCRM не присвоит номера сам.",

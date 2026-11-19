@@ -111,7 +111,7 @@ public partial class WarehouseWindow
         // 2026-11-05 (аудит №4, Д4-21): «Архив» был пилюлей ~22 px (MinHeight = 0) — цель касания ниже 24 px (WCAG 2.5.8); теперь 40 px и отступ от сегмента слева.
         archiveButton.Margin = new Thickness(12, 0, 0, 6);
         archiveButton.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
-        archiveButton.MinHeight = 40;
+        // 2026-11-13 (Д-1): своя высота 40 убрана — высота общей вторичной кнопки (NurHeightControl, 44).
         archiveButton.Padding = new Thickness(16, 0);
         ToolTip.SetTip(archiveButton, T("Товары, отправленные в архив: посмотреть и вернуть", "Архивге жөнөтүлгөн товарлар: карап чыгуу жана кайтаруу", "Products sent to the archive: view and restore", "Arşive gönderilen ürünler: görüntüle ve geri al", "Arxivga yuborilgan mahsulotlar: ko'rish va qaytarish"));
         archiveButton.Click += async (_, _) =>

@@ -129,7 +129,7 @@ public sealed class ElectronicsServerTests : IDisposable
         QuickCheckoutBody.TryBuild(cart, "cash", "100000", null, null, Shift, null, false, null, false, out _);
 
     [Fact]
-    public void Checkout_SendsSerialNumbers_WithFlag_AndNothingWithout()
+    public void Checkout_SendsSerialNumbers_WithFlag_AndAlsoWithoutIt()
     {
         var pid = Guid.NewGuid().ToString();
         var cart = CartWithSerials(pid, (2, new[] { Imei, "F2LXK0QJ1234" }));
@@ -137,9 +137,10 @@ public sealed class ElectronicsServerTests : IDisposable
         var on = Quick(cart)!;
         on["items"]![0]!["serial_numbers"]!.AsArray().Select(x => x!.GetValue<string>()).Should().Equal(Imei, "F2LXK0QJ1234");
 
+        // 2026-11-14 (ответ Умара 13.11 вечер): сервер сохраняет serial_numbers ВСЕГДА, флаг включает только проверки — номера уходят и без флага.
         ElectronicsProfile.ServerFlagEnabled = () => false;
         var off = Quick(cart)!;
-        off.ToJsonString().Should().NotContain("serial_numbers").And.NotContain(Imei, "без флага компании тело продажи прежнее");
+        off["items"]![0]!["serial_numbers"]!.AsArray().Select(x => x!.GetValue<string>()).Should().Equal(Imei, "F2LXK0QJ1234");
     }
 
     [Fact]
@@ -193,7 +194,7 @@ public sealed class ElectronicsServerTests : IDisposable
     }
 
     [Fact]
-    public async Task OldPath_PushesMergedSerialsToTheServerLine_AfterAddItem_OnlyWithFlag()
+    public async Task OldPath_PushesMergedSerialsToTheServerLine_AfterAddItem_WithOrWithoutFlag()
     {
         var pid = Guid.NewGuid().ToString();
         _fake.Json("POST", "/api/main/pos/sales/cart-9/add-item/", 200, "{}");
@@ -210,7 +211,7 @@ public sealed class ElectronicsServerTests : IDisposable
         _fake.Server.ResetLogEntries();
         ElectronicsProfile.ServerFlagEnabled = () => false;
         await StagingCartService.PushItemsFromSnapshotAsync(new SalesApiService(api), "cart-9", cart, default);
-        Requests(_fake, "POST", "/serials/").Should().BeEmpty("без флага компании серийники на сервер не уходят");
+        Requests(_fake, "POST", "/serials/").Should().ContainSingle("2026-11-14: номера шлём и без флага компании (сервер сохраняет их всегда)");
     }
 
     // ───────────── 4. ошибки сервера ─────────────

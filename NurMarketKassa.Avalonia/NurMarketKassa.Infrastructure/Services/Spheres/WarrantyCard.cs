@@ -23,6 +23,16 @@ public static class WarrantyCard
     {
         if (!ElectronicsProfile.IsActive)
             return new List<string>();
+        // 2026-11-14 (ответ Умара 13.11 вечер): строка уже несёт «гарантия до» с сервера (из ответа pos/checkout/) — печатаем её дату, а не пересчёт кассы.
+        if (ServerSerials.LineWarrantyUntil(item) is { } serverUntil && SerialJournal.ReadSerials(item) is { Count: > 0 } serials)
+        {
+            var lines = new List<string>();
+            foreach (var serial in serials)
+                foreach (var part in ReceiptLineLayout.WrapLeft($"{ImeiValidator.LabelFor(serial)}: {serial}", width))
+                    lines.Add(part);
+            lines.Add(WarrantyUntilLine(serverUntil));
+            return lines;
+        }
         return Compose(SerialJournal.ReadSerials(item), SerialJournal.ReadMonths(item), saleDate, width);
     }
 

@@ -20,12 +20,26 @@ public static partial class SensitiveDataRedactor
         // 2026-11-06: В3 Б-4 — токен Telegram-бота («123456789:AAH…») и ключ Google/Gemini («AIza…») без подписи «token=» (в адресе запроса, тексте ошибки) тоже закрываем.
         result = TelegramBotToken().Replace(result, Mask);
         result = GoogleApiKey().Replace(result, Mask);
+        // 2026-11-13 (Л-9): JWT («eyJ….eyJ….подпись») без подписи «token=» (в адресе, заголовке, тексте ошибки) — тоже закрываем.
+        result = JwtToken().Replace(result, Mask);
         result = EmailAddress().Replace(result, match => MaskEmail(match.Value));
         result = ConnectionStringSecret().Replace(result, match =>
             $"{match.Groups["key"].Value}={Mask}");
         // 2026-11-05 (аудит №3, Н-08): телефоны клиентов без подписи «phone=» (в тексте ошибок, названиях действий) — оставляем только последние 2 цифры.
         result = PhoneNumber().Replace(result, match => MaskPhone(match.Value));
         return result;
+    }
+
+    /// <summary>2026-11-13 (Л-9): только ключи доступа (Bearer, JWT, токен бота, ключ Google) — для текста, который человек сам пишет в поддержку:
+    /// телефон для связи и почту оставляем, а то, что нельзя показывать никому, закрываем.</summary>
+    public static string RedactCredentials(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return value ?? string.Empty;
+        var result = BearerToken().Replace(value, "Bearer ***");
+        result = TelegramBotToken().Replace(result, Mask);
+        result = GoogleApiKey().Replace(result, Mask);
+        return JwtToken().Replace(result, Mask);
     }
 
     private static string MaskPhone(string phone)
@@ -49,12 +63,12 @@ public static partial class SensitiveDataRedactor
     }
 
     [GeneratedRegex(
-        "(?<prefix>[\\\"']?(?:password|cashier_password|pin|token|access_token|refresh_token|authorization|email|phone|whatsapp_phone|inn|address)[\\\"']?\\s*[:=]\\s*[\\\"'])(?:[^\\\"']*)(?<suffix>[\\\"'])",
+        "(?<prefix>[\\\"']?(?:password|cashier_password|pin|token|access_token|refresh_token|authorization|secret|api_key|apikey|cookie|email|phone|whatsapp_phone|inn|address)[\\\"']?\\s*[:=]\\s*[\\\"'])(?:[^\\\"']*)(?<suffix>[\\\"'])",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex QuotedSecret();
 
     [GeneratedRegex(
-        "(?<prefix>(?:password|cashier_password|pin|token|access_token|refresh_token|authorization|email|phone|whatsapp_phone|inn|address)\\s*[:=]\\s*)(?:[^;}\\]\\r\\n]+)",
+        "(?<prefix>(?:password|cashier_password|pin|token|access_token|refresh_token|authorization|secret|api_key|apikey|cookie|email|phone|whatsapp_phone|inn|address)\\s*[:=]\\s*)(?:[^;}\\]\\r\\n]+)",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex PlainSecret();
 
@@ -64,6 +78,10 @@ public static partial class SensitiveDataRedactor
     /// <summary>Токен бота: номер бота (6–12 цифр), двоеточие, 30+ знаков секрета (после «bot» в адресе api.telegram.org/bot123…:AA…/ тоже). Время «12:34:56» и суммы не подходят — секрет длинный.</summary>
     [GeneratedRegex("(?<!\\d)\\d{6,12}:[A-Za-z0-9_-]{30,}", RegexOptions.CultureInvariant)]
     private static partial Regex TelegramBotToken();
+
+    /// <summary>2026-11-13: JWT — три части base64url через точку, первые две начинаются с «eyJ» (заголовок и данные в JSON).</summary>
+    [GeneratedRegex("eyJ[A-Za-z0-9_-]{8,}\\.eyJ[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{4,}", RegexOptions.CultureInvariant)]
+    private static partial Regex JwtToken();
 
     /// <summary>Ключ Google API / Gemini: «AIza» и 35 знаков.</summary>
     [GeneratedRegex("AIza[0-9A-Za-z_-]{35}", RegexOptions.CultureInvariant)]

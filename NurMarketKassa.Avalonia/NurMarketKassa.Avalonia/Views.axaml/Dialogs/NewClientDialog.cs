@@ -228,7 +228,8 @@ public sealed class NewClientDialog : Window
         }
         catch (Exception ex)
         {
-            error = ex.Message;
+            NurMarketKassa.Services.PosLogger.Log($"NewClientDialog: сбой, показанный пользователю: {ex}", "WARNING"); // 2026-11-13 (Н-4): сырой текст — в журнал, на экран — понятный
+            error = NurMarketKassa.Services.ServerOutageMonitor.UserText(ex);
         }
         _saving = false;
         _cancel.IsEnabled = true;

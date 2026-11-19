@@ -12,26 +12,8 @@
         FontFamily="Segoe UI, Inter, Noto Sans"
         Background="{DynamicResource DialogWindowBackground}">
     <Window.Styles>
-        <Style Selector="Button.PrimaryButton">
-            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Padding" Value="16,8"/>
-        </Style>
+        <!-- 2026-11-13 (Д-1): местные описания кнопок удалены — вид один на всю программу (nur-primary / nur-secondary и их псевдонимы, PosDialogStyles.axaml). -->
         <!-- 2026-10-27: прозрачность выключенной 0.5 → 0,7: в тёмной теме надпись выключенной кнопки была 1,5–2,5:1 (нужно ≥3:1). -->
-        <Style Selector="Button.PrimaryButton:disabled">
-            <Setter Property="Opacity" Value="0.7"/>
-        </Style>
-        <Style Selector="Button.SecondaryButton">
-            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Padding" Value="16,8"/>
-        </Style>
         <Style Selector="DataGrid">
             <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>

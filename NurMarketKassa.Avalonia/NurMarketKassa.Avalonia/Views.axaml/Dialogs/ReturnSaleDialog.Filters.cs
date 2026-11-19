@@ -38,6 +38,8 @@ public partial class ReturnSaleDialog
     private Border? _filterHost;
     private TextBlock? _countText;
     private SaleProductQuery? _productQuery;
+    /// <summary>2026-11-13 (Л-5): разобранный запрос единого поля поиска (номер / сумма / дата / клиент / телефон / карта).</summary>
+    private ReturnSearchQuery _search = new(null, DateTime.Now);
     private string _deepNote = "";
     private bool _preselectOnFill;
     private CancellationTokenSource? _productDebounce;
@@ -61,10 +63,19 @@ public partial class ReturnSaleDialog
         _productBox = new TextBox
         {
             Classes = { "ModernInput" },
-            Watermark = FT("Товар: название, штрихкод, артикул", "Товар: аты, штрихкод, артикул", "Product: name, barcode, SKU", "Ürün: ad, barkod, stok kodu", "Mahsulot: nomi, shtrixkod, artikul"),
+            // 2026-11-13 (Л-5): ОДНО поле поиска чека — номер, сумма, дата, товар, клиент, последние 4 цифры карты или телефона (раньше «номер» и «товар» были двумя полями).
+            Watermark = FT("№, сумма, дата, товар, клиент, телефон", "№, сумма, дата, товар, кардар, телефон",
+                "No., amount, date, product, client, phone", "No, tutar, tarih, ürün, müşteri, telefon",
+                "№, summa, sana, mahsulot, mijoz, telefon"),
         };
+        // 2026-11-13 (Л-5): полная подсказка — во всплывающей (в строке места мало на 1024 px)
+        Avalonia.Controls.ToolTip.SetTip(_productBox, FT("Один поиск: номер чека, сумма, дата (12.11), товар (название, штрихкод, артикул), имя клиента, последние 4 цифры телефона или карты",
+            "Бир издөө: чектин номери, сумма, дата (12.11), товар (аты, штрихкод, артикул), кардардын аты, телефондун же картанын акыркы 4 цифрасы",
+            "One search: receipt number, amount, date (12.11), product (name, barcode, SKU), client name, last 4 digits of phone or card",
+            "Tek arama: fiş no, tutar, tarih (12.11), ürün (ad, barkod, stok kodu), müşteri adı, telefon veya kartın son 4 hanesi",
+            "Bitta qidiruv: chek raqami, summa, sana (12.11), mahsulot (nomi, shtrixkod, artikul), mijoz ismi, telefon yoki kartaning oxirgi 4 raqami"));
         _productBox.Name = "ReturnProductSearchBox";
-        Avalonia.Automation.AutomationProperties.SetName(_productBox, FT("Поиск чека по товару", "Товар боюнча чек издөө", "Find a receipt by product", "Ürüne göre fiş ara", "Mahsulot bo'yicha chek qidirish"));
+        Avalonia.Automation.AutomationProperties.SetName(_productBox, FT("Поиск чека", "Чек издөө", "Find a receipt", "Fiş ara", "Chek qidirish"));
         _productBox.TextChanged += (_, _) => OnProductTextChanged();
         _productBox.KeyDown += (_, e) =>
         {
@@ -122,8 +133,8 @@ public partial class ReturnSaleDialog
         _countText.Bind(TextBlock.ForegroundProperty, _countText.GetResourceObservable("BrushTextSoft"));
         DockPanel.SetDock(_countText, Dock.Top);
 
-        // После шапки «1. Найдите чек» и строки поиска — до таблицы.
-        var at = Math.Min(2, salesBlock.Children.Count);
+        // После шапки «1. Найдите чек» (в ней же «Обновить» и «Ещё») — до таблицы. 2026-11-13 (Л-5): старой строки «номер + Обновить + Ещё» больше нет — индекс 1, а не 2.
+        var at = Math.Min(1, salesBlock.Children.Count);
         salesBlock.Children.Insert(at, _countText);
         salesBlock.Children.Insert(at, _filterHost);
         salesBlock.Children.Insert(at, row);
@@ -176,11 +187,12 @@ public partial class ReturnSaleDialog
         try
         {
             if (!immediate)
-                await Task.Delay(300, ct).ConfigureAwait(true);
+                await Task.Delay(250, ct).ConfigureAwait(true);
             if (ct.IsCancellationRequested)
                 return;
             RebuildProductQuery();
             ApplySalesFilter();
+            StartNumberLookup();
             StartDeepProductSearch();
         }
         catch (OperationCanceledException)
@@ -188,10 +200,62 @@ public partial class ReturnSaleDialog
         }
     }
 
-    /// <summary>Запрос «Товар» → SaleProductQuery: название — по словам, штрихкод/артикул/код — по каталогу кассы (точно).</summary>
+    /// <summary>2026-11-13 (Л-5): номер, которого нет среди загруженных чеков, ищем на сервере (?number=, 2026-09-28, BE-08) — раньше это делало отдельное поле «номер».</summary>
+    private void StartNumberLookup()
+    {
+        _numberLookupCts?.Cancel();
+        _numberLookupCts = null;
+        if (FilteredSales.Count == 0
+            && NurMarketKassa.Services.Api.NurCrmReportsApi.ParseSaleNumber(_searchFilter) is { } saleNumber
+            && Sales.Any(s => !string.IsNullOrWhiteSpace(s.ReceiptNumber)))
+        {
+            _numberLookupCts = new CancellationTokenSource();
+            _ = LookupSaleByNumberAsync(saleNumber, _numberLookupCts.Token);
+        }
+    }
+
+    /// <summary>2026-11-13 (Л-5): телефон клиента из чека (сервер называет поле по-разному; клиент может быть и объектом).</summary>
+    internal static string? ClientPhoneOf(JsonElement row)
+    {
+        if (row.ValueKind != JsonValueKind.Object)
+            return null;
+        foreach (var key in new[] { "client_phone", "debt_client_phone", "customer_phone", "phone" })
+            if (StrOf(row, key) is { } v)
+                return v;
+        return row.TryGetProperty("client", out var client) && client.ValueKind == JsonValueKind.Object ? StrOf(client, "phone") : null;
+    }
+
+    /// <summary>2026-11-13 (Л-5): последние цифры карты оплаты, если сервер их присылает (поле чека или строки оплаты).</summary>
+    internal static string? CardLast4Of(JsonElement row)
+    {
+        if (row.ValueKind != JsonValueKind.Object)
+            return null;
+        static string? Pick(JsonElement o)
+        {
+            foreach (var key in new[] { "card_last4", "card_last_digits", "payment_card_last4", "card_mask", "card_number" })
+                if (StrOf(o, key) is { } v)
+                {
+                    var digits = new string(v.Where(char.IsAsciiDigit).ToArray());
+                    if (digits.Length >= 4)
+                        return digits[^4..];
+                }
+            return null;
+        }
+        if (Pick(row) is { } own)
+            return own;
+        if (row.TryGetProperty("payments", out var pays) && pays.ValueKind == JsonValueKind.Array)
+            foreach (var p in pays.EnumerateArray())
+                if (Pick(p) is { } fromPay)
+                    return fromPay;
+        return null;
+    }
+
+    /// <summary>Запрос поиска → SaleProductQuery (товар: название — по словам, штрихкод/артикул/код — по каталогу кассы, точно) и ReturnSearchQuery (номер, сумма, дата, клиент, телефон, карта).</summary>
     private void RebuildProductQuery()
     {
         var text = (_productBox?.Text ?? "").Trim();
+        _searchFilter = text; // 2026-11-13 (Л-5): единая строка поиска (заголовки «Чек не найден» и поиск номера на сервере)
+        _search = new ReturnSearchQuery(text, DateTime.Now);
         ListFilter.Product = text.Length == 0 ? null : text;
         if (text.Length == 0)
         {
@@ -217,7 +281,7 @@ public partial class ReturnSaleDialog
     private bool PassesListFilters(ReturnSaleListItemVm item, DateTime now, out string? hit)
     {
         hit = null;
-        var row = new SaleListFilter.Row(item.SaleDate, item.TotalAmount, item.PaymentMethod, item.Status, item.ReturnStatus, item.Cashier, item.ClientName);
+        var row = new SaleListFilter.Row(item.SaleDate, item.TotalAmount, item.PaymentMethod, item.Status, item.ReturnStatus, item.Cashier, item.ClientName, item.ClientPhone);
         // Период уже применён сервером (date_from/date_to); здесь он нужен в режиме клиента (его чеки приходят без периода).
         var filter = ListFilter;
         var periodWas = filter.Period;
@@ -232,10 +296,10 @@ public partial class ReturnSaleDialog
         {
             filter.Period = periodWas;
         }
-        if (_productQuery is not { IsEmpty: false } pq)
-            return true;
-        hit = pq.FirstMatch(LinesFor(item));
-        return hit is not null;
+        // 2026-11-13 (Л-5): товар — лишь одно из условий единого поля поиска («или» с номером, суммой, датой, клиентом…); решает ApplySalesFilter. Здесь только найденная позиция для подписи.
+        if (_productQuery is { IsEmpty: false } pq)
+            hit = pq.FirstMatch(LinesFor(item));
+        return true;
     }
 
     private IEnumerable<(string? Name, string? ProductId)> LinesFor(ReturnSaleListItemVm item)
@@ -292,6 +356,12 @@ public partial class ReturnSaleDialog
     {
         if (sale.ValueKind != JsonValueKind.Object)
             return;
+        // 2026-11-13 (Л-5): телефон клиента и последние цифры карты — из карточки чека, если в строке списка их не было (поиск по телефону / карте).
+        if (Sales.FirstOrDefault(s => string.Equals(s.SaleId, saleId, StringComparison.OrdinalIgnoreCase)) is { } listed)
+        {
+            listed.ClientPhone ??= ClientPhoneOf(sale);
+            listed.CardLast4 ??= CardLast4Of(sale);
+        }
         var lines = CartDisplayHelper.EnumerateSaleLineItems(sale)
             .Select(l => ((string?)CartDisplayHelper.ItemName(l), CartDisplayHelper.TryProductId(l))).ToList();
         if (lines.Count == 0)
@@ -307,6 +377,13 @@ public partial class ReturnSaleDialog
         _deepSearchCts?.Cancel();
         if (_productQuery is not { IsEmpty: false } || OfflineModeHelper.IsServerOutage)
         {
+            UpdateFilterCount();
+            return;
+        }
+        // 2026-11-13 (Л-5): набрано число/сумма/дата/телефон и такие чеки уже нашлись — карточки не догружаем (раньше каждый набранный номер гнал до 150 запросов).
+        if (_search.LooksLikeNumbers && FilteredSales.Count > 0)
+        {
+            _deepNote = "";
             UpdateFilterCount();
             return;
         }
@@ -435,6 +512,8 @@ public partial class ReturnSaleDialog
             ClientName = StrOf(row, "client_name") ?? StrOf(row, "client_display") ?? StrOf(row, "debt_client_name"),
             ClientId = StrOf(row, "client"),
             FirstItemName = StrOf(row, "first_item_name"),
+            ClientPhone = ClientPhoneOf(row),
+            CardLast4 = CardLast4Of(row),
         };
     }
 

@@ -201,7 +201,7 @@ internal sealed class OfflineOperationsWindow : Window
         RecalcReturn();
     }
 
-    private static string Q(double v) => v.ToString("0.###", CultureInfo.InvariantCulture);
+    private static string Q(double v) => NurMarketKassa.Services.MoneyText.Weight(v, "0.###"); // 2026-11-13 (Д-5): запятая (общий формат), было с точкой
 
     private void RecalcReturn()
     {
@@ -405,7 +405,7 @@ internal sealed class OfflineOperationsWindow : Window
     {
         _client = _clientsList.SelectedIndex is >= 0 and var i && i < _clientsShown.Count ? _clientsShown[i] : null;
         if (_client != null && OfflineClientCache.KnownDebt(_client, false) is { } known && known > 0.005m && string.IsNullOrWhiteSpace(_amount.Text))
-            _amount.Text = known.ToString("0.##", CultureInfo.InvariantCulture);
+            _amount.Text = NurMarketKassa.Services.MoneyText.Weight(known, "0.##"); // 2026-11-13 (Д-5): запятая (общий формат), было с точкой
         RecalcDebt();
     }
 

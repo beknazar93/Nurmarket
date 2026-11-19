@@ -14,25 +14,7 @@
          знаний бота поддержки NurCRM (Assets/kb/kb.json), к ним — снимки настоящих окон кассы и
          программы владельца (Assets/kb/*.png). Слева поиск и разделы, справа статья. -->
     <Window.Styles>
-        <Style Selector="Button.SecondaryActionButton">
-            <Setter Property="Height" Value="36" />
-            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}" />
-            <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{DynamicResource SettingsButtonRadius}">
-                            <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="14,0" />
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+        <!-- 2026-11-13 (Д-1): местные описания кнопок удалены — вид один на всю программу (nur-primary / nur-secondary и их псевдонимы, PosDialogStyles.axaml). -->
         <Style Selector="TextBlock.navSection">
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="FontWeight" Value="Bold"/>

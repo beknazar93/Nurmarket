@@ -414,7 +414,7 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            ErrorMessage = Tr.T("Не удалось загрузить клиентов: ", "Клиенттерди жүктөө мүмкүн болгон жок: ", "Could not load clients: ", "Müşteriler yüklenemedi: ", "Mijozlarni yuklab bo'lmadi: ") + ex.Message;
+            ErrorMessage = Tr.T("Не удалось загрузить клиентов: ", "Клиенттерди жүктөө мүмкүн болгон жок: ", "Could not load clients: ", "Müşteriler yüklenemedi: ", "Mijozlarni yuklab bo'lmadi: ") + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex);
             PosLogger.Log($"PayDebt clients load failed: {ex}", "WARNING");
         }
     }
@@ -597,13 +597,14 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
         }
         catch (ApiException ex)
         {
+            NurMarketKassa.Services.PosLogger.Log($"PayDebtDialog: сбой, показанный пользователю: {ex}", "WARNING"); // 2026-11-13 (Н-4): сырой текст — в журнал, на экран — понятный
             if (gen == _debtLoadGen)
-                ErrorMessage = ex.Message;
+                ErrorMessage = NurMarketKassa.Services.ServerOutageMonitor.UserText(ex);
         }
         catch (Exception ex)
         {
             if (gen == _debtLoadGen)
-                ErrorMessage = Tr.T("Не удалось загрузить долги клиента: ", "Клиенттин карызын жүктөө мүмкүн болгон жок: ", "Could not load the client's debts: ", "Müşteri borçları yüklenemedi: ", "Mijozning qarzlarini yuklab bo'lmadi: ") + ex.Message;
+                ErrorMessage = Tr.T("Не удалось загрузить долги клиента: ", "Клиенттин карызын жүктөө мүмкүн болгон жок: ", "Could not load the client's debts: ", "Müşteri borçları yüklenemedi: ", "Mijozning qarzlarini yuklab bo'lmadi: ") + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex);
             PosLogger.Log($"PayDebt sales load failed: {ex}", "WARNING");
         }
         return false;
@@ -1295,8 +1296,9 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
             // 2026-10-19, К1: подписи сумм — «14 000,00 сом» (MoneyText); AmountToPayText (поле ввода) — прежнее «0.00».
             AmountDisplay = MoneyText.Som(amount),
             AmountToPayText = amountText,
-            SaleRemaining = TryGetDouble(element, "debt_remaining") ?? amount,
-            SaleRemainingFromServer = TryGetDouble(element, "debt_remaining") is not null,
+            // 2026-11-14 (ответ Умара 13.11 вечер, П0-3): debt_remaining = remaining_debt = debt_amount — одно значение; remaining_debt принимаем как то же поле.
+            SaleRemaining = TryGetDouble(element, "debt_remaining") ?? TryGetDouble(element, "remaining_debt") ?? amount,
+            SaleRemainingFromServer = TryGetDouble(element, "debt_remaining") is not null || TryGetDouble(element, "remaining_debt") is not null,
             OriginalAmountDisplay = MoneyText.Som(amount),
             OriginalAmount = amount, // 2026-10-23 (аудит, круг 8, В-3): для сверки «долга без продажи» с чеком
         };

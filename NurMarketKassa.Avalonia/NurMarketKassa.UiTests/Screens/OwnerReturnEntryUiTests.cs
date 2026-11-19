@@ -315,6 +315,8 @@ public sealed class OwnerReturnEntryUiTests : IDisposable
     {
         UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
         StubSales();
+        // 2026-11-19: «Последние продажи» «Сводки» рисуются только после ответа отчёта (без него — «Сервер недоступен»); отчёт — пустой, но успешный
+        UiFake.Server.Json("GET", "/api/main/analytics/market/", 200, "{}");
         await LoginAsync();
         var shell = new OwnerShellWindow();
         try
@@ -322,7 +324,7 @@ public sealed class OwnerReturnEntryUiTests : IDisposable
             shell.Show();
             Button? more = null;
             RunUntil(() => (more = shell.GetVisualDescendants().OfType<Button>().FirstOrDefault(b => b.Name == "RecentSaleMenuButton" && b.IsEffectivelyVisible)) is not null, 15000)
-                .Should().BeTrue("у строки «Последних продаж» — видимая кнопка «⋯» (аудит С-19: на сенсорном экране правую кнопку не найти)");
+                .Should().BeTrue("у строки «Последних продаж» — видимая кнопка «⋯» (аудит С-19: на сенсорном экране правую кнопку не найти) {0}", UiDrive.AllText(shell));
             Press(more!);
             UiShot.Settle(3);
             var row = more!.FindAncestorOfType<Border>()!;

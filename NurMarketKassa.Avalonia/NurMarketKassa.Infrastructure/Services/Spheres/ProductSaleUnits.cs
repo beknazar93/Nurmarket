@@ -27,8 +27,12 @@ public static class ProductSaleUnits
         public decimal? Price { get; set; }
         public decimal? WholesalePrice { get; set; }
 
-        /// <summary>Что уходит на сервер в поле <c>sale_unit</c>: id единицы, а если сервер его не прислал — её код (<c>pack</c>).</summary>
+        /// <summary>Ключ единицы в строке чека кассы: id единицы, а если сервер его не прислал — её код (<c>pack</c>); по нему единицу находят в карточке.</summary>
         public string Key => !string.IsNullOrWhiteSpace(Id) ? Id!.Trim() : UnitCode.Trim();
+
+        /// <summary>2026-11-14 (ответ Умара 13.11 вечер, строймаркет): сервер понимает ТОЛЬКО id единицы (<c>sale_unit_id</c> в add-item, <c>sale_unit</c>/<c>sale_unit_id</c> в pos/checkout), код <c>pack</c> — нет.
+        /// Единица без id ещё не сохранена на сервере — упаковкой её продавать нельзя.</summary>
+        public bool HasServerId => !string.IsNullOrWhiteSpace(Id);
 
         /// <summary>Подпись для чека и экрана: «Упаковка 1,44 м²» (без единицы товара — просто «Упаковка ×1,44»).</summary>
         public string Label(string? baseUnit)
@@ -100,6 +104,15 @@ public static class ProductSaleUnits
         var units = For(productId);
         return units.FirstOrDefault(u => string.Equals(u.Key, k, StringComparison.OrdinalIgnoreCase))
                ?? units.FirstOrDefault(u => string.Equals(u.UnitCode?.Trim(), k, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>2026-11-14: id единицы для сервера по ключу строки (id или код). Единица найдена, но без id — <see cref="SaleUnitNotSavedException"/> (код <c>pack</c> сервер не понимает);
+    /// единицы нет в памяти кассы (после перезапуска, офлайн-очередь) — ключ уходит как есть (кассой он записан как id).</summary>
+    public static string ServerIdOrThrow(string? productId, string key)
+    {
+        if (Find(productId, key) is { } unit)
+            return unit.HasServerId ? unit.Id!.Trim() : throw new SaleUnitNotSavedException();
+        return key.Trim();
     }
 
     /// <summary>Скан штрихкода упаковки: товар и единица, чей <c>barcode</c> равен коду. null — такого кода у единиц нет.</summary>
@@ -268,4 +281,17 @@ public static class ProductSaleUnits
             _loaded = true;
         }
     }
+}
+
+/// <summary>2026-11-14 (ответ Умара 13.11 вечер): упаковка (единица продажи) без id — она ещё не сохранена на сервере, продать её нельзя. Сообщение — на языке кассы.</summary>
+public sealed class SaleUnitNotSavedException : ApiException
+{
+    public SaleUnitNotSavedException() : base(Text, 400) { }
+
+    public static string Text => Tr.T(
+        "Упаковка ещё не сохранена на сервере. Обновите каталог или сохраните товар в NurCRM и попробуйте снова.",
+        "Таңгак серверде азырынча сакталган эмес. Каталогду жаңыртыңыз же товарды NurCRMде сактап, кайра аракет кылыңыз.",
+        "The pack is not saved on the server yet. Refresh the catalog or save the product in NurCRM and try again.",
+        "Paket henüz sunucuya kaydedilmedi. Kataloğu yenileyin veya ürünü NurCRM'de kaydedip tekrar deneyin.",
+        "Qadoq hali serverda saqlanmagan. Katalogni yangilang yoki mahsulotni NurCRMda saqlab, qayta urinib ko'ring.");
 }

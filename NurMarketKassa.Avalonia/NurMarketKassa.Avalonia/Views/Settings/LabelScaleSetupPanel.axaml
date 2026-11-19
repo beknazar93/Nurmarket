@@ -140,7 +140,7 @@
     <StackPanel Spacing="10">
 
         <!-- 1. Марка весов -->
-        <Border Classes="SettingsCard" Padding="14">
+        <Border Classes="SettingsCard" Padding="16">
             <StackPanel Spacing="10">
                 <TextBlock Text="{DynamicResource scaleSetup.label.title}" Classes="SettingsCardTitle" FontSize="14"/>
                 <TextBlock Text="{DynamicResource scaleSetup.label.desc}" Classes="SettingsCardBody"/>
@@ -191,7 +191,7 @@
         </Border>
 
         <!-- 2. Подключение выбранной марки -->
-        <Border Classes="SettingsCard" Padding="14">
+        <Border Classes="SettingsCard" Padding="16">
             <StackPanel Spacing="12">
                 <TextBlock x:Name="ConnectionTitle" Classes="SettingsCardTitle" FontSize="14"/>
 

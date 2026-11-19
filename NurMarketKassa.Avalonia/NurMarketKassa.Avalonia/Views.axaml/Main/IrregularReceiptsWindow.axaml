@@ -18,41 +18,8 @@
          у столбцов даты/времени — ширина под заголовок на всех языках, примечание — переносом. -->
 
     <Window.Styles>
-        <Style Selector="Button.PrimaryActionButton">
-            <Setter Property="Height" Value="36" />
-            <Setter Property="Background" Value="{DynamicResource BrushAccent}" />
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" CornerRadius="{DynamicResource SettingsButtonRadius}">
-                            <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="15,0" />
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+        <!-- 2026-11-13 (Д-1): местные описания кнопок удалены — вид один на всю программу (nur-primary / nur-secondary и их псевдонимы, PosDialogStyles.axaml). -->
 
-        <Style Selector="Button.SecondaryActionButton">
-            <Setter Property="Height" Value="36" />
-            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}" />
-            <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{DynamicResource SettingsButtonRadius}">
-                            <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="12,0" />
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
 
         <Style Selector="DataGrid.ModernGrid">
             <Setter Property="Background" Value="#00FFFFFF" />
@@ -114,9 +81,9 @@
         <Grid Grid.Row="3">
             <DataGrid x:Name="ReceiptsGrid" Classes="ModernGrid" AutoGenerateColumns="False" IsReadOnly="True">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="{DynamicResource common.date}" Width="84" MinWidth="76" Binding="{ReflectionBinding DateText}"/>
-                    <DataGridTextColumn Header="{DynamicResource common.time}" Width="76" MinWidth="70" Binding="{ReflectionBinding TimeText}"/>
-                    <DataGridTemplateColumn Header="{DynamicResource irregular.colStatus}" Width="230">
+                    <DataGridTextColumn Header="{DynamicResource common.date}" Width="92" MinWidth="84" Binding="{ReflectionBinding DateText}"/>
+                    <DataGridTextColumn Header="{DynamicResource common.time}" Width="96" MinWidth="88" Binding="{ReflectionBinding TimeText}"/>
+                    <DataGridTemplateColumn Header="{DynamicResource irregular.colStatus}" Width="210">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <Border Classes="StatusBadge" Classes.pending="{ReflectionBinding IsPending}"
@@ -135,7 +102,7 @@
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
                     <DataGridTextColumn Header="{DynamicResource common.amount}" Width="120" MinWidth="104" Binding="{ReflectionBinding TotalText}"/>
-                    <DataGridTemplateColumn Header="{DynamicResource irregular.colActions}" Width="500">
+                    <DataGridTemplateColumn Header="{DynamicResource irregular.colActions}" Width="Auto" MinWidth="300">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">

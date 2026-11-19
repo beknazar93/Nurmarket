@@ -2215,6 +2215,123 @@
      ]
     },
     {
+     "title": "Kasiyer notu",
+     "articles": [
+      {
+       "id": "весы-памятка-rongta",
+       "title": "Not: Rongta tartı — nasıl gönderilir, kontrol edilir ve barkod yoksa ne yapılır",
+       "text": "Kasiyer için kısaca. Ayrıntılar — «Rongta tartı: bağlantı ve barkod» makalesinde.\nШаг 1. «Ürünler» → «Tartılar» → Rongta tartının «Ürünleri gönder» düğmesi. Üstte tartı adresi ve «bağlantı var» yazar (yoksa — «Bağlantıyı kontrol et»).\nШаг 2. Tabloda gerekli ürünler işaretli, PLU sütunu hepsinde dolu. «Göndermeden önce kontrol»e basın: «Düzelt» düğmeli sorun listesi.\nШаг 3. «Tartıya gönder»e basın. Altta «Tartıya gönderildi: N» görünür. Gönderim sürerken pencereyi kapatmayın.\nШаг 4. Kontrol: tartıda ürünü PLU ile çağırın, yük koyun, deneme etiketi basın — ad, fiyat ve ağırlık doğru olmalı.\nШаг 5. Etiketi kasayla okutun: aynı ürün aynı ağırlık ve tutarla açılmalı.\nШаг 6. Barkodsuz etiket (pahalı ürün, tutar 1000 som üstü): 02 barkod türü tutarı alamaz. «Rongta tartı ayarları» → «Barkod» → «Düzelt: tür 07» → yeniden «Tartıya gönder».\nШаг 7. Kasa etiketi tanımıyor («… kodlu ürün bulunamadı»): bölüm/önek 20–29 olmalı, ürünün «Barkod kodu» etiketteki gibi olmalı. «Göndermeden önce kontrol» → «Düzelt», sonra yeniden gönderin.\nШаг 8. Tartı yanıt vermiyor: açık mı, ayar menüsünde mi, aynı ağda mı (adres 192.168.1.x). Daha sonra tekrar deneyin.",
+       "keywords": [
+        "памятка",
+        "rongta",
+        "ронгта",
+        "отправить на весы",
+        "нет штрихкода",
+        "касса не узнаёт этикетку",
+        "тип 07",
+        "проверка"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-памятка-штрих-принт",
+       "title": "Not: Shtrih-PRINT tartı — nasıl gönderilir, kontrol edilir ve hata olursa ne yapılır",
+       "text": "Kasiyer için kısaca. Ayrıntılar — «Shtrih-PRINT (Shtrih-M)» grubunun makalelerinde.\nШаг 1. «Ürünler» → «Tartılar» → Shtrih-PRINT tartının «Ürünleri gönder» düğmesi. Yol adın altında yazar: «Doğrudan ağ üzerinden» (kasa kendisi yazar) veya «NurCRM sunucusu üzerinden».\nШаг 2. «Bağlantıyı kontrol et»: tartı bip sesi verir ve modelini gösterir. Yanıt yoksa — kabloyu ve adresi kontrol edin.\nШаг 3. Tartı normal modda olmalı (programlamada değil) — aksi halde «Tartı meşgul».\nШаг 4. Ürünleri işaretleyin, «Göndermeden önce kontrol»e basın (PLU, «Barkod kodu», fiyatlar), sonra «Tartıya gönder». «Sonuç» sütununda «✓ gönderildi» veya neden yazar.\nШаг 5. Kontrol: tartıda ürünü tuşla veya PLU ile seçin, etiket basın, kasayla okutun — aynı ürün, ağırlık ve tutar.\nШаг 6. Etiket barkodsuz veya kasa tanımıyor: «Etiket barkodu…» → «Tartıdan oku» → «Kasaya uydur» → «Tartıya yaz». Önek — 20–29.\nШаг 7. «NurCRM sunucusu üzerinden» listeyi yalnızca sunucuya iletir: ekranlı RS-200 tartılar ürünleri bu yolla almaz — onlar için ayrı «Shtrih RS-200» markası var.\nШаг 8. «Fiyat tartı sınırının üzerinde» — tartıda virgülden sonraki haneleri azaltın veya ürün fiyatını değiştirin.",
+       "keywords": [
+        "памятка",
+        "штрих-принт",
+        "штрих-м",
+        "отправить на весы",
+        "весы заняты",
+        "нет штрихкода",
+        "касса не узнаёт этикетку"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-памятка-штрих-рс200",
+       "title": "Not: Shtrih RS-200 tartı — ürünler nasıl gönderilir ve tartının aldığı nasıl kontrol edilir",
+       "text": "Kasiyer için kısaca. RS-200 bir Windows bilgisayarıdır: kasa onunla tartının paylaşım klasöründe dosya alışverişi yapar.\nШаг 1. «Ürünler» → «Tartılar» → «Shtrih RS-200» tartının «Ürünleri gönder» düğmesi. Adın altında klasör yolu yazar (örneğin \\\\192.168.0.10\\Shared). «Bağlantıyı kontrol et» klasörün erişilebilir olup olmadığını gösterir.\nШаг 2. Ürünleri işaretleyin, «Göndermeden önce kontrol»e basın, sonra «Tartıya gönder». Kasa tartı klasörüne dosyayı ve bayrak dosyasını yazar.\nШаг 3. Bekleyin: tartı dosyayı birkaç dakika içinde kendisi alır (tartıdaki «Обновление» süresi). Daha hızlı — tartıda «Система и печать» → «Импорт данных».\nШаг 4. Kontrol: tartıda ürünü bulun (arama veya karo), etiket basın, kasayla okutun.\nШаг 5. «Önceki yükleme henüz kabul edilmedi» — tartı önceki dosyayı almadı: bekleyin veya tartıda «Импорт данных»a basın, sonra yeniden gönderin.\nШаг 6. «Erişim yok / klasör bulunamadı»: tartı açık, aynı ağda, Shared klasörü paylaşıma açık, tartının Windows kullanıcı adı ve şifresi ayarlarda girilmiş.\nШаг 7. Ürün tartının ana ekranında görünmüyor — ekran senaryosunda yok: aramayla bulun. «Tam yükleme» tartının veritabanını temizler — yalnızca sahibin kararıyla.\nШаг 8. Kasa etiketi tanımıyor: önek 20–29, «Kod-Ağırlık» biçimi ve kod hane sayısı «Ayarlar → Tartılar → Etiket barkodu → Shtrih RS-200» ile aynı olmalı.",
+       "keywords": [
+        "памятка",
+        "рс-200",
+        "рс200",
+        "штрих рс-200",
+        "pcscale",
+        "папка весов",
+        "импорт данных",
+        "касса не узнаёт этикетку"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-памятка-tm-30f",
+       "title": "Not: TM-30F (Dahua) tartı — nasıl gönderilir, kontrol edilir ve hata olursa ne yapılır",
+       "text": "Kasiyer için kısaca. Ayrıntılar — «TM-30F (Dahua)» grubunun makalelerinde.\nШаг 1. Bilgisayarda «Russkiy Masshtab» programını kapatın: tartıyı meşgul eder, kasa gönderemez.\nШаг 2. «Ürünler» → «Tartılar» → TM-30F tartının «Ürünleri gönder» düğmesi → «Bağlantıyı kontrol et» (port 4001).\nШаг 3. Ürünleri işaretleyin, «Göndermeden önce kontrol»e basın, sonra «Tartıya gönder». Gönderim sırasında düğme «Durdur» olur.\nШаг 4. «Sonuç» sütununda her üründe «✓ gönderildi» yazar. Birinde durduysa — nedeni düzeltip yeniden gönderin.\nШаг 5. Kontrol: tartıda ürünü PLU ile çağırın, etiket basın, fiyatı kontrol edin (som cinsinden; 10 veya 100 kat büyük/küçükse «Price point» uyuşmuyor).\nШаг 6. Etiketi kasayla okutun: aynı ürün, ağırlık ve tutar.\nШаг 7. Etiket barkodsuz veya kasa tanımıyor: «TM-30F tartı ayarları» → «Barkod» → «Kasa için önerilen», sonra tartıdaki biçim — «Russkiy Masshtab»da (Barcode → Download). Önek 20–29.\nШаг 8. Tartı yanıt vermiyor: açık mı, adres kasanın ağından mı, «Russkiy Masshtab» kapalı mı. Yedek yol — «Russkiy Masshtab» için «Dosyayı kaydet».",
+       "keywords": [
+        "памятка",
+        "tm-30f",
+        "dahua",
+        "русский масштаб",
+        "отправить на весы",
+        "price point",
+        "нет штрихкода",
+        "касса не узнаёт этикетку"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-памятка-ai-весы",
+       "title": "Not: AI tartı — ürün listesi dosyası nasıl alınır ve tartıya yüklenir",
+       "text": "Kasiyer için kısaca. AI tartıların ortak ağ protokolü yoktur; bu yüzden kasa dosya hazırlar, tartınızın programı yükler.\nШаг 1. «Ürünler» → «Tartılar» → «AI tartı» markalı tartı → «Ürünleri gönder» (ana düğme «Tartı için dosyayı kaydet» adını taşır).\nШаг 2. Ürünleri işaretleyin, her birinin PLU'su olmalı. «Göndermeden önce kontrol» kimde olmadığını gösterir, «Düzelt» numara verir.\nШаг 3. «Tartı için dosyayı kaydet»e basın — kasa CSV kaydeder (PLU; ad; birim; fiyat). Dosyanın nereye kaydedildiğini unutmayın.\nШаг 4. Tartınızın programını açın ve bu dosyayı kılavuzuna göre yükleyin (ürün içe aktarma).\nШаг 5. Kontrol: tartıda ürünü bulun, adı ve fiyatı kontrol edin, deneme etiketi basın.\nШаг 6. Etiketi kasayla okutun: aynı ürün. Olmazsa — tartıda barkod «önek 20–29 + 5 haneli kod + 5 haneli ağırlık veya tutar» olmalı.\nШаг 7. Fiyatlar değişti — dosyayı yeniden hazırlayıp yükleyin: AI tartılar için otomatik gönderim yok.",
+       "keywords": [
+        "памятка",
+        "ai весы",
+        "csv",
+        "импорт товаров",
+        "нет штрихкода",
+        "касса не узнаёт этикетку"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-памятка-massa-k",
+       "title": "Not: Massa-K tartı — nasıl bağlanır, gönderilir ve kontrol edilir",
+       "text": "Kasiyer için kısaca. Etiket basan Massa-K tartılar uygundur: R ve SL serisi (örneğin MK-RP10, MK-RL10). VP/VPM tartılar henüz desteklenmiyor, etiket basmayan MK-A21'e ürün yüklenmez.\nAdım 1. Tartının kendisinde ağı (Ethernet) açın: kasa bilgisayarıyla aynı ağdan bir IP, port 5001.\nAdım 2. «Ürünler» → «Tartılar» → «Massa-K» markası → «Massa-K tartı ayarları» → «Hızlı kurulum»: tartı IP'sini girip «Bağlantıyı kontrol et»e basın. «Massa-K tartısı bağlı» ve seri numarası görünmeli. Bu yalnızca okumadır — tartıda hiçbir şey değişmez.\nAdım 3. «Teknisyen için» sekmesinde «Deneme paketini günlüğe»ye basın: çerçeveler yalnızca massak-exchange.log günlük dosyasına yazılır, tartıya hiçbir şey gitmez.\nAdım 4. «Tartı» penceresinde TEK bir tartılı ürün işaretleyin (PLU numarası olmalı) ve «Tartıya gönder»e basın. Kasa onay ister — «Gönder»e basın. Adetli ürünler Massa-K'ya gönderilmez, satırda uyarı olur.\nAdım 5. Tartıda ürünü PLU ile bulun: ad ve fiyat doğru mu? Etiket basıp kasayla okutun: aynı ürün ve aynı ağırlık açılmalı.\nAdım 6. Her şey doğruysa — «Massa-K tartı ayarları» → «Teknisyen için» → «Tartıda doğrulandı: etiket doğru çıktı»yı işaretleyin. Bundan sonra diğer ürünleri gönderebilirsiniz.\nAdım 7. «Bağlantı yok»: IP'yi, kabloyu, 5001 portunu, tartının açık ve kasayla aynı ağda olduğunu kontrol edin. Bir şey yanlışsa (fiyat ×100, boş ad) — ustaya «İletişim günlüğü» dosyasını (massak-exchange.log) gönderin.",
+       "keywords": [
+        "памятка",
+        "масса-к",
+        "massa-k",
+        "масса к",
+        "отправить на весы",
+        "проверить связь",
+        "пробный пакет",
+        "проверено на весах",
+        "нет подключения"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-памятка-cas",
+       "title": "Not: CAS tartı — nasıl bağlanır, gönderilir ve olmazsa ne yapılır",
+       "text": "Kasiyer için kısaca. CAS tartılar henüz canlı tartıda doğrulanmadı — ilk gönderimi tek ürünle yapın.\nAdım 1. «Ayarlar → Tartı» → «CAS» kutucuğu → «CAS tartı ayarları» → «Hızlı kurulum» sekmesi. Modeli seçin: CL5000J ve CL3000'i kasa ağ üzerinden doldurur; CL5500, CL5200, CL7200 ve LP-1.6 için yalnızca CL-Works programına dosya hazırlanır.\nAdım 2. Yalnızca CL5000J / CL3000: tartının IP'sini girin (tartıda menü 1913; ilk üç sayı bilgisayarınki gibi) ve «Bağlantıyı kontrol et»e basın. Düğme yalnızca durumu okur, tartıda hiçbir şeyi değiştirmez. Bağlantı yoksa kabloyu, IP'yi, 20304 portunu ve tartının menüde olmadığını kontrol edin.\nAdım 3. «Ürünler» → «Tartı» → CAS markası. Ürünleri işaretleyin (ilk seferde tek ürün), PLU sütunu dolu olsun. Uyarı varsa «Göndermeden önce kontrol» → «Düzelt».\nAdım 4. CL5000J / CL3000: «Tartıya gönder» ve onaylayın. «Tartı kabul etti: N» çıkana kadar bekleyin. CL5500 / CL5200 / CL7200 / LP-1.6: «CL-Works için dosyayı kaydet», sonra CL-Works'te «Dosya → İçe aktar → CSV», ürünleri kontrol edin ve «Veri alışverişi → Verileri gönder».\nAdım 5. Kontrol: tartıda ürünü PLU ile çağırın — ad ve fiyat doğru; deneme etiketi basıp kasada okutun: aynı ürün, aynı ağırlık ve tutar.\nAdım 6. Kasa etiketi tanımıyor («… kodlu ürün bulunamadı»): tartıda önek numaralı (20–29) bir reyon tanımlı olmalı, barkod biçimi CAS ayarlarının «Barkod» sekmesindeki gibi olmalı (örneğin DDIIIIIWWWWWC), ürünün «Barkoddaki kod»u etiketteki gibi olmalı. Düzeltip yeniden gönderin.\nAdım 7. Tartı reddetti («hata 89, 97, 84…») veya yanıt vermedi: tartı açık, menüde değil, aynı ağda. CAS ayarlarında «Teknisyen için» sekmesi → «İletişim günlüğü» — cas-exchange.log dosyasını ustaya gösterin.\nKasa tartıya yalnızca ürün kartlarını (PLU) yazar. Belleği, reyonları, barkod ve etiket biçimlerini silmez ve değiştirmez — onlar tartının kendisinde veya CL-Works'te ayarlanır.",
+       "keywords": [
+        "памятка",
+        "cas",
+        "кас",
+        "cl5000j",
+        "cl3000",
+        "cl-works",
+        "отправить на весы",
+        "касса не узнаёт этикетку",
+        "весы не отвечают",
+        "проверить связь"
+       ],
+       "images": []
+      }
+     ]
+    },
+    {
      "title": "Shtrih-PRINT (Shtrikh-M)",
      "articles": [
       {

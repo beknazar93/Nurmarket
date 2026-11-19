@@ -9,26 +9,7 @@
         Background="{DynamicResource BrushPanel}">
 
   <Window.Styles>
-    <Style Selector="Button.btn-ok">
-      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
-      <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="Padding" Value="14,7"/>
-      <!-- 2026-10-22 (модалки, пакет 3): кнопки, поля и списки — 44 px (касание пальцем). -->
-      <Setter Property="MinHeight" Value="44"/>
-      <Setter Property="VerticalContentAlignment" Value="Center"/>
-      <Setter Property="Cursor" Value="Hand"/>
-    </Style>
-    <!-- 2026-11-01 (контрольный аудит, Д-04): цвет, рамка, радиус и курсор «главной» — из общего Button.btn-primary (PosDialogStyles); здесь только размеры окна. -->
-    <Style Selector="Button.btn-primary">
-      <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="Padding" Value="14,7"/>
-      <Setter Property="MinHeight" Value="44"/>
-      <Setter Property="VerticalContentAlignment" Value="Center"/>
-    </Style>
+    <!-- 2026-11-13 (Д-1): местные btn-ok / btn-primary удалены — кнопки окна общие: nur-primary и nur-secondary (PosDialogStyles.axaml). -->
     <Style Selector="Border.card">
       <Setter Property="Background" Value="{DynamicResource BrushDialogPanel}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
@@ -77,7 +58,7 @@
     <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,8">
       <TextBlock x:Name="SubnetLabel" Classes="label" Margin="0,0,10,0"/>
       <ComboBox Grid.Column="1" x:Name="SubnetBox" HorizontalAlignment="Stretch" MinHeight="44"/>
-      <Button Grid.Column="2" x:Name="StartButton" Classes="btn-primary" Margin="10,0,0,0" Click="Start_Click"/>
+      <Button Grid.Column="2" x:Name="StartButton" Classes="nur-primary" Margin="10,0,0,0" Click="Start_Click"/>
     </Grid>
 
     <Border Grid.Row="2" x:Name="ForeignPanel" Classes="card" Padding="12,10" Margin="0,0,0,8" IsVisible="False">
@@ -119,7 +100,7 @@
         <TextBlock x:Name="ResultText" TextWrapping="Wrap" FontSize="13" Foreground="{DynamicResource BrushText}"/>
       </Border>
       <!-- 2026-10-22 (модалки, пакет 3): Esc = «Закрыть» (IsCancel). -->
-      <Button Grid.Column="1" Classes="btn-ok" Margin="10,0,0,0" VerticalAlignment="Center" IsCancel="True"
+      <Button Grid.Column="1" Classes="nur-secondary" Margin="10,0,0,0" VerticalAlignment="Center" IsCancel="True"
               Content="{DynamicResource common.close}" Click="Close_Click"/>
     </Grid>
   </Grid>

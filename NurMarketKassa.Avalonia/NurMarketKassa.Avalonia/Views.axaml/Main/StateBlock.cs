@@ -96,7 +96,7 @@ public static class StateBlock
             Soft(text);
             var more = new Button
             {
-                Content = DetailsText, FontSize = 12, MinHeight = 32, Padding = new Thickness(10, 0), Background = Brushes.Transparent,
+                Content = DetailsText, FontSize = 12, MinHeight = 44, /* 2026-11-13 (Н-6): цель касания 44 */ Padding = new Thickness(10, 0), Background = Brushes.Transparent,
                 BorderThickness = new Thickness(0), HorizontalAlignment = HorizontalAlignment.Center, Focusable = true,
             };
             more.Bind(Button.ForegroundProperty, more.GetResourceObservable("BrushTextSoft"));
@@ -106,6 +106,42 @@ public static class StateBlock
         }
         return Shell(kind, panel, string.IsNullOrWhiteSpace(body) ? title : title + ". " + body);
     }
+
+    // 2026-11-13 (Н-4): блок состояния НА МЕСТЕ списка — в той же ячейке, что и таблица; сама таблица на это время скрыта
+    // (иначе под блоком видна подсказка «пусто» и пустые заголовки). Раньше «Продажи», «Финансы», «История чеков» писали сбой
+    // красной полосой внизу окна, далеко от списка.
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Control, Border> Overlays = new();
+
+    /// <summary>Показывает <paramref name="block"/> вместо списка <paramref name="list"/> (null — убрать блок и вернуть список).
+    /// false — список стоит не в панели (блок поставить некуда): вызывающий показывает текст по-старому.</summary>
+    public static bool ShowOver(Control list, Control? block)
+    {
+        if (Overlays.TryGetValue(list, out var old))
+        {
+            (old.Parent as Panel)?.Children.Remove(old);
+            old.Child = null;
+            Overlays.Remove(list);
+        }
+        if (block is null)
+        {
+            list.IsVisible = true;
+            return true;
+        }
+        if (list.Parent is not Panel host)
+            return false;
+        var cover = new Border { Child = block, ZIndex = 5 };
+        Grid.SetRow(cover, Grid.GetRow(list));
+        Grid.SetColumn(cover, Grid.GetColumn(list));
+        Grid.SetRowSpan(cover, Grid.GetRowSpan(list));
+        Grid.SetColumnSpan(cover, Grid.GetColumnSpan(list));
+        host.Children.Add(cover);
+        Overlays.Add(list, cover);
+        list.IsVisible = false;
+        return true;
+    }
+
+    /// <summary>Стоит ли сейчас блок состояния вместо списка.</summary>
+    public static bool IsOver(Control list) => Overlays.TryGetValue(list, out _);
 
     /// <summary>Технический текст для техподдержки: тип сбоя, сообщение и поля ответа сервера; не более 600 знаков. null — нечего показать.</summary>
     public static string? TechnicalDetails(Exception? ex)
@@ -143,7 +179,7 @@ public static class StateBlock
         var circle = new Border { Width = 48, Height = 48, CornerRadius = new CornerRadius(24), HorizontalAlignment = HorizontalAlignment.Center };
         circle.Bind(Border.BackgroundProperty, circle.GetResourceObservable(danger ? "BrushDangerSoft" : "BrushPanelSoft"));
         var glyph = new TextBlock { Text = fallbackGlyph, FontSize = 22, FontWeight = FontWeight.Bold, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-        glyph.Bind(TextBlock.ForegroundProperty, glyph.GetResourceObservable(danger ? "BrushDanger" : "BrushTextSoft"));
+        glyph.Bind(TextBlock.ForegroundProperty, glyph.GetResourceObservable(danger ? "BrushDangerOnSoft" : "BrushTextSoft")); // 2026-11-13 (Н-6): на мягком красном — читаемый красный
         if (!danger && Application.Current?.TryFindResource(iconKey, out var geo) == true && geo is Geometry g)
         {
             var icon = new PathIcon { Data = g, Width = 22, Height = 22, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };

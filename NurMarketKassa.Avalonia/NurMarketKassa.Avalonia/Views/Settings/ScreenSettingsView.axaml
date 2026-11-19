@@ -39,20 +39,7 @@
     </Style>
 
     <!-- 2026-10-19, этап О7: обводкой, без серой заливки. -->
-    <Style Selector="Button.SecondaryButton">
-      <Setter Property="Background" Value="Transparent"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
-      <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="Cursor" Value="Hand"/>
-    </Style>
-    <Style Selector="Button.SecondaryButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-    </Style>
+    <!-- 2026-11-13 (Д-1): местные описания кнопок удалены — вид один на всю программу (nur-primary / nur-secondary и их псевдонимы, PosDialogStyles.axaml). -->
 
   </UserControl.Styles>
 
@@ -63,7 +50,7 @@
       <StackPanel x:Name="CardList" Classes="SettingsCardList" Spacing="10" MaxWidth="{DynamicResource SettingsPageMaxWidth}" HorizontalAlignment="Stretch">
 
         <!-- Заголовок страницы и главный переключатель прижаты влево -->
-        <Border Classes="SettingsHeaderCard" Padding="12">
+        <Border Classes="SettingsHeaderCard">
           <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Spacing="12">
             <Border Width="36" Height="36" CornerRadius="8" Background="{DynamicResource BrushAccentSoft}"
                     BorderBrush="{DynamicResource BrushAccent}" BorderThickness="1">
@@ -83,7 +70,7 @@
              миниатюра рисуется цветами текущей темы. Выбор применяется сразу, без перезапуска.
              2026-09-29, владелец: «вид кассы убери в настройках и оставь только в маркетплейсе» —
              карточка скрыта, выбор вида — только Маркетплейс → «Виды кассы». -->
-        <Border Classes="SettingsCard" Padding="14" IsVisible="False">
+        <Border Classes="SettingsCard" Padding="16" IsVisible="False">
           <StackPanel Spacing="4">
             <TextBlock Text="{DynamicResource posSettings.screen.layoutMode}" Classes="SettingsCardTitle" FontSize="14"/>
             <TextBlock Text="{DynamicResource posSettings.screen.layoutModeDesc}"
@@ -352,7 +339,7 @@
         </StackPanel>
 
         <!-- Блок 2: Данные магазина в чеке -->
-        <Border Classes="SettingsCard" Padding="14">
+        <Border Classes="SettingsCard" Padding="16">
           <StackPanel Spacing="12">
             <TextBlock Text="{DynamicResource posSettings.screen.receiptDataTitle}" Classes="SettingsCardTitle" FontSize="14"/>
 
@@ -375,6 +362,12 @@
                          ToolTip.Tip="{DynamicResource posSettings.screen.storeAddressTooltip}"/>
               </StackPanel>
             </Grid>
+
+            <!-- 2026-11-19: ИНН магазина для чека — раньше поля не было, значение брал только сервер и затирал каждым обновлением -->
+            <StackPanel Spacing="4" Margin="0,4,0,0">
+              <TextBlock Text="ИНН / STIR / TIN" Classes="FieldLabel"/>
+              <TextBox x:Name="StoreInnBox" x:FieldModifier="public" Classes="ModernTextBox" Height="44" MaxLength="20"/>
+            </StackPanel>
 
             <!-- ИНН в чеке -->
             <Grid ColumnDefinitions="*,Auto" Margin="0,4,0,0">

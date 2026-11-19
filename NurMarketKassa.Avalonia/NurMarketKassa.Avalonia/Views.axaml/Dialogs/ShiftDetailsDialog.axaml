@@ -287,7 +287,7 @@
           <!-- 2026-11-06: В6 Д4-18 — абзац-пояснение («Итого по товарам…») спрятан за кнопкой «?» у заголовка: две «выручки» рядом сбивали. -->
           <Grid ColumnDefinitions="*,Auto">
             <TextBlock x:Name="ShiftProductsTitle" Grid.Column="0" VerticalAlignment="Center" FontSize="12.5" Foreground="{DynamicResource BrushTextSoft}"/>
-            <ToggleButton x:Name="ShiftProductsNoteToggle" Grid.Column="1" Content="?" Width="40" Height="40" Padding="0" FontWeight="SemiBold"
+            <ToggleButton x:Name="ShiftProductsNoteToggle" Grid.Column="1" Content="?" Width="44" Height="44" Padding="0" FontWeight="SemiBold"
                           AutomationProperties.Name="?" Focusable="False"/>
           </Grid>
           <Border IsVisible="{Binding #ShiftProductsNoteToggle.IsChecked}">

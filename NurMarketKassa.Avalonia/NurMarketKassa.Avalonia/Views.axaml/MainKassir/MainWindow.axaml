@@ -348,6 +348,28 @@
              её обрезало и прятало под значками); с 23:45 красная — и фон, и текст (раньше текст оставался жёлтым). -->
         <!-- 2026-10-23 (аудит Б-3): фон/рамка заданы стилем, а не атрибутом — локальное значение перебивало красный стиль,
              и при >23 ч фон оставался жёлтым. Кнопка на красном уровне — основная (контрастная). -->
+        <!-- 2026-11-13 (Н-1): учебный режим — жёлтая полоса под шапкой на всю ширину: «деньги не учитываются», подсказка шага и выход из режима.
+             Видимость и тексты ставит MainWindow.Training.cs (ApplyTrainingBar); в обычной работе полосы нет. -->
+        <Border x:Name="TrainingBar" DockPanel.Dock="Bottom" IsVisible="False"
+                Padding="16,8"
+                Background="{DynamicResource BrushWarningSoft}"
+                BorderBrush="{DynamicResource BrushWarning}"
+                BorderThickness="0,0,0,2"
+                AutomationProperties.LiveSetting="Polite">
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
+                    <TextBlock x:Name="TrainingBarTitle" FontSize="{DynamicResource NurFontSubtitle}" FontWeight="Bold"
+                               Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="TrainingBarHint" FontSize="{DynamicResource NurFontBody}"
+                               Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
+                </StackPanel>
+                <Button Grid.Column="1" x:Name="TrainingExitButton" Classes="nur-secondary" Margin="12,0,0,0"
+                        MinHeight="{DynamicResource NurHeightControl}" VerticalAlignment="Center"
+                        Click="TrainingExit_Click">
+                    <TextBlock x:Name="TrainingExitText" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                </Button>
+            </Grid>
+        </Border>
         <Border DockPanel.Dock="Bottom" Padding="12,5" Classes="shift-age-bar"
                 Classes.shiftAgeRed="{Binding Toolbar.Status.IsShiftAgeRed}"
                 BorderThickness="0,0,0,1"
@@ -594,6 +616,13 @@
                                           Click="OpenHotkeySettings_Click">
                                     <MenuItem.Icon>
                                         <PathIcon Data="{StaticResource IconBolt}" Width="18" Height="18"/>
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <!-- 2026-11-13 (Н-2): шпаргалка клавиш (то же окно открывают «?» и F1). -->
+                                <MenuItem Classes="header-menu-item" Header="{DynamicResource mainWindow.hotkeysCheatSheet}"
+                                          Click="OpenHotkeysCheatSheet_Click">
+                                    <MenuItem.Icon>
+                                        <PathIcon Data="{StaticResource IconKeyboard}" Width="18" Height="18"/>
                                     </MenuItem.Icon>
                                 </MenuItem>
                             </MenuFlyout>

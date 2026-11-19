@@ -22,13 +22,14 @@
              без серой заливки; жёлтая на экране продажи одна — «Оплатить». -->
         <Style Selector="Button.cart-action">
             <Setter Property="Focusable" Value="False"/>
-            <Setter Property="Height" Value="44"/>
+            <!-- 2026-11-13 (Н-2): кнопки под чеком выше и читаемее — 48 px (было 44), шрифт 14 (было 12,5), значок 16. -->
+            <Setter Property="Height" Value="48"/>
             <Setter Property="Padding" Value="8,4"/>
             <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-            <Setter Property="FontSize" Value="12.5"/> <!-- 2026-11-12 (Д-5): шрифт кнопок под чеком не меньше 12,5 (было 12) -->
+            <Setter Property="FontSize" Value="{DynamicResource NurFontBody}"/> <!-- 2026-11-13 (Н-2): 14 по шкале Д-8 (было 12,5) -->
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
@@ -111,11 +112,12 @@
             <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource NurRadiusControl}"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="Cursor" Value="Hand"/>
             <!-- 2026-11-01 (Д-07): высота — стилем (раньше Height=56 на кнопке), чтобы класс окна "shortscreen" мог её уменьшить. -->
-            <Setter Property="Height" Value="56"/>
+            <!-- 2026-11-13 (Н-2): «Оплатить» — главная кнопка экрана: 64 px (было 56); особое значение вне шкалы высот Д-8 (решение координатора). -->
+            <Setter Property="Height" Value="64"/>
         </Style>
 
         <Style Selector="ListBox.cart-list">
@@ -228,9 +230,10 @@
         <!-- 2026-10-18, ревью отклика кнопок: выключенная главная — нейтральный мягкий фон и приглушённый текст без
              прозрачности (бледно-жёлтая почти не отличалась от включённой). -->
         <Style Selector="Button.cart-accent:disabled /template/ ContentPresenter#PART_ContentPresenter">
-            <!-- 2026-11-05 (аудит №4, Д4-10): «Оплатить» при пустом чеке — без заливки, с рамкой. -->
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <!-- 2026-11-13 (Н-2, решение владельца; Д4-10 «без заливки, с рамкой» отменено): «Оплатить» при пустом чеке — мягкая заливка акцентом:
+                 кнопка и в покое читается как главная на экране (раньше ярче неё была «Открыть смену»), полная заливка появляется с первым товаром. -->
+            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
         </Style>
@@ -451,7 +454,7 @@
         <Style Selector=".compact TextBlock.cart-action-text">
             <Setter Property="TextWrapping" Value="Wrap"/>
             <Setter Property="MaxLines" Value="2"/>
-            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontSize" Value="13"/> <!-- 2026-11-13 (Н-2): было 12 -->
             <Setter Property="TextAlignment" Value="Center"/>
         </Style>
         <!-- 2026-11-01 (аудит «10 из 10», Д-07): «Классика» на 1024×600 показывала 1,5 строки чека. Класс окна "shortscreen" (высота &lt; 640,
@@ -469,11 +472,12 @@
         <Style Selector=".shortscreen Grid.cart-entry-row RepeatButton">
             <Setter Property="Height" Value="40"/>
         </Style>
+        <!-- 2026-11-13 (Н-2): и на низком экране цель касания не меньше 44 px (было 40), «Оплатить» — 52 (было 48). -->
         <Style Selector=".shortscreen Button.cart-action">
-            <Setter Property="Height" Value="40"/>
+            <Setter Property="Height" Value="44"/>
         </Style>
         <Style Selector=".shortscreen Button.cart-accent">
-            <Setter Property="Height" Value="48"/>
+            <Setter Property="Height" Value="52"/>
         </Style>
         <Style Selector=".shortscreen Border.cart-tabs-row">
             <Setter Property="MinHeight" Value="46"/>
@@ -505,7 +509,7 @@
         <Style Selector=".headernarrow TextBlock.cart-action-text">
             <Setter Property="TextWrapping" Value="Wrap"/>
             <Setter Property="MaxLines" Value="2"/>
-            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontSize" Value="13"/> <!-- 2026-11-13 (Н-2): было 12 -->
             <Setter Property="TextAlignment" Value="Center"/>
         </Style>
     </UserControl.Styles>
@@ -603,21 +607,34 @@
                             Spacing="8"
                             Margin="16"
                             IsVisible="{Binding IsEmpty}">
-                    <PathIcon Width="52"
-                              Height="52"
+                    <!-- 2026-11-13 (Н-2): пустой чек говорит, что делать: «Отсканируйте товар» (значок штрихкода), куда вводить код руками и где шпаргалка клавиш. -->
+                    <PathIcon Width="56"
+                              Height="56"
                               HorizontalAlignment="Center"
-                              Foreground="{DynamicResource BrushTextSoft}"
-                              Data="M7,18C5.89,18 5,18.89 5,20A2,2 0 0,0 7,22A2,2 0 0,0 9,20C9,18.89 8.1,18 7,18M17,18C15.89,18 15,18.89 15,20A2,2 0 0,0 17,22A2,2 0 0,0 19,20C19,18.89 18.1,18 17,18M7.17,14.75L7.92,16H17.55C18.3,16 18.96,15.59 19.3,14.97L23.16,7.96L21.42,7H21.41L20.3,9L17.55,14H8.34L7.68,12.88L7.04,11.8L4.38,6.59L3.43,4.75L2.5,3H0V5H1.25L5.12,13.19L3.67,15.83C3.25,16.57 3.79,17.5 4.64,17.5H19V15.5H5.07L6.17,13.5L7.17,14.75Z"/>
-                    <TextBlock Text="{DynamicResource csh.cart.empty}"
-                               FontSize="18"
+                              Foreground="{DynamicResource BrushAccentStrong}"
+                              Data="M2,6H4V18H2V6M5,6H6V18H5V6M7,6H10V18H7V6M11,6H12V18H11V6M14,6H16V18H14V6M17,6H20V18H17V6M21,6H22V18H21V6Z"/>
+                    <TextBlock x:Name="EmptyCartTitle"
+                               Text="{DynamicResource csh.cart.scanTitle}"
+                               FontSize="{DynamicResource NurFontTitle}"
                                FontWeight="Bold"
                                Foreground="{DynamicResource BrushText}"
-                               TextAlignment="Center"/>
-                    <TextBlock Text="{DynamicResource csh.cart.emptyHint}"
-                               FontSize="13"
+                               TextAlignment="Center"
+                               TextWrapping="Wrap"/>
+                    <TextBlock x:Name="EmptyCartHint"
+                               Text="{DynamicResource csh.cart.scanHint}"
+                               FontSize="{DynamicResource NurFontBody}"
                                Foreground="{DynamicResource BrushTextSoft}"
                                TextAlignment="Center"
                                TextWrapping="Wrap"/>
+                    <Button x:Name="EmptyCartKeysLink"
+                            Classes="nur-ghost"
+                            Focusable="False"
+                            HorizontalAlignment="Center"
+                            MinHeight="{DynamicResource NurHeightControl}"
+                            IsVisible="{OnPlatform True, Android=False}"
+                            Content="{DynamicResource csh.cart.keysLink}"
+                            ToolTip.Tip="{DynamicResource mainWindow.hotkeysCheatSheet}"
+                            Click="EmptyCartKeysLink_Click"/>
 
                     <!-- Товары, отмеченные звёздочкой в каталоге. Пока чек пуст, половина
                          экрана всё равно ничем не занята — пусть на ней лежит то, что кассир
@@ -627,8 +644,8 @@
                         <Grid ColumnDefinitions="*,Auto,*" Margin="10,0">
                             <Rectangle Grid.Column="0" Height="1" VerticalAlignment="Center"
                                        Fill="{DynamicResource BrushCatalogTileBorder}"/>
-                            <TextBlock Grid.Column="1" Text="{DynamicResource csh.cart.quickProducts}"
-                                       FontSize="12"
+                            <TextBlock Grid.Column="1" Text="{Binding QuickProductsTitle}"
+                                       FontSize="{DynamicResource NurFontCaption}"
                                        FontWeight="SemiBold"
                                        Margin="10,0"
                                        Foreground="{DynamicResource BrushTextSoft}"/>
@@ -636,7 +653,7 @@
                                        Fill="{DynamicResource BrushCatalogTileBorder}"/>
                         </Grid>
                         <!-- 2026-11-06 (В7, Д4-09): плитки 160×72 (были 134×66), название в две строки, цена справа внизу; ряд — до 520. -->
-                        <ItemsControl ItemsSource="{Binding QuickProducts}" MaxWidth="520">
+                        <ItemsControl ItemsSource="{Binding QuickProducts}" MaxWidth="540">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center"/>
@@ -650,7 +667,7 @@
                                          можно нажать. Вид взят у карточки каталога — один и тот же
                                          товар должен выглядеть одинаково с обеих сторон экрана. -->
                                     <!-- 2026-09-30: быстрый товар без фокуса — иначе Enter сканера добавлял его ещё раз. -->
-                                    <Button Width="160" Height="72"
+                                    <Button Width="168" Height="80"
                                             Focusable="False"
                                             Margin="4"
                                             Padding="10,6"
@@ -665,7 +682,7 @@
                                             CommandParameter="{Binding}">
                                         <Grid RowDefinitions="*,Auto" VerticalAlignment="Stretch">
                                             <TextBlock Text="{Binding Title}"
-                                                       FontSize="12"
+                                                       FontSize="{DynamicResource NurFontBody}"
                                                        FontWeight="SemiBold"
                                                        TextWrapping="Wrap"
                                                        MaxLines="2"
@@ -1039,9 +1056,9 @@
                               MinWidth="0"
                               HorizontalAlignment="Stretch">
                             <PathIcon Grid.Column="0"
-                                      Width="14"
-                                      Height="14"
-                                      Margin="0,0,4,0"
+                                      Width="16"
+                                      Height="16"
+                                      Margin="0,0,5,0"
                                       VerticalAlignment="Center"
                                       Data="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M16.2,16.2L11,13V7H12.5V12.2L17,14.9L16.2,16.2Z"/>
                             <TextBlock x:Name="DeferLabel"
@@ -1062,9 +1079,9 @@
                               MinWidth="0"
                               HorizontalAlignment="Stretch">
                             <PathIcon Grid.Column="0"
-                                      Width="14"
-                                      Height="14"
-                                      Margin="0,0,4,0"
+                                      Width="16"
+                                      Height="16"
+                                      Margin="0,0,5,0"
                                       VerticalAlignment="Center"
                                       Data="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M7,6H17V19H7V6M9,8V17H11V8H9M13,8V17H15V8H13Z"/>
                             <TextBlock Grid.Column="1"
@@ -1085,9 +1102,9 @@
                               MinWidth="0"
                               HorizontalAlignment="Stretch">
                             <PathIcon Grid.Column="0"
-                                      Width="14"
-                                      Height="14"
-                                      Margin="0,0,4,0"
+                                      Width="16"
+                                      Height="16"
+                                      Margin="0,0,5,0"
                                       VerticalAlignment="Center"
                                       Data="M17,13H13V17H11V13H7V11H11V7H13V11H17M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
                             <TextBlock Grid.Column="1"
@@ -1107,9 +1124,9 @@
                               MinWidth="0"
                               HorizontalAlignment="Stretch">
                             <PathIcon Grid.Column="0"
-                                      Width="14"
-                                      Height="14"
-                                      Margin="0,0,4,0"
+                                      Width="16"
+                                      Height="16"
+                                      Margin="0,0,5,0"
                                       VerticalAlignment="Center"
                                       Data="M12,16A2,2 0 0,1 14,18A2,2 0 0,1 12,20A2,2 0 0,1 10,18A2,2 0 0,1 12,16M12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12A2,2 0 0,1 12,10M12,4A2,2 0 0,1 14,6A2,2 0 0,1 12,8A2,2 0 0,1 10,6A2,2 0 0,1 12,4Z"/>
                             <TextBlock Grid.Column="1"
@@ -1233,6 +1250,21 @@
 
                 <!-- Сообщения корзины -->
                 <StackPanel Grid.Row="4">
+                    <!-- 2026-11-13 (Н-2): набрано «3*» — количество ждёт следующий товар (Esc сбрасывает). -->
+                    <Border x:Name="PendingQuantityChip"
+                            IsVisible="{Binding HasPendingQuantity}"
+                            HorizontalAlignment="Left"
+                            Margin="0,0,0,4"
+                            Padding="10,3"
+                            CornerRadius="{DynamicResource NurRadiusSmall}"
+                            Background="{DynamicResource BrushAccentSoft}"
+                            BorderBrush="{DynamicResource BrushAccent}"
+                            BorderThickness="1">
+                        <TextBlock Text="{Binding PendingQuantityText}"
+                                   FontSize="{DynamicResource NurFontBody}"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource BrushText}"/>
+                    </Border>
                     <TextBlock Text="{Binding CartMessage}"
                                FontSize="12"
                                Foreground="{DynamicResource BrushUiStatusOk}"
@@ -1305,11 +1337,11 @@
                     <StackPanel Orientation="Horizontal"
                                 Spacing="10"
                                 HorizontalAlignment="Center">
-                        <PathIcon Width="20"
-                                  Height="20"
+                        <PathIcon Width="24"
+                                  Height="24"
                                   Data="M20,8H4V6H20M20,18H4V12H20M20,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V6C22,4.89 21.1,4 20,4Z"/>
                         <TextBlock Text="{Binding PayButtonText}"
-                                   FontSize="19"
+                                   FontSize="{DynamicResource NurFontTitle}"
                                    FontWeight="Bold"
                                    VerticalAlignment="Center"/>
                         <!-- 2026-11-06 (В7, Д4-05): значок клавиши оплаты («Enter» или назначенная в «Горячих»); рамка и цвет — от кнопки (в выключенной она тоже блёклая). Текст ставит

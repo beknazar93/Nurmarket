@@ -84,6 +84,7 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
 
         // Фоновый sync и правки в Складе теперь доходят до плиток (2026-09-07, см. RepublishFromLocalAsync).
         CatalogCacheService.CatalogChanged += OnCatalogChangedExternally;
+        DemoStoreCatalog.Changed += OnCatalogChangedExternally; // 2026-11-13 (Л-10): демо-магазин включили/выключили — плитки перечитать
         CatalogCacheService.ServerAnswered += ClearOfflineBannerIfServerAnswered; // 2026-11-07 (Б-B1): плашка «автономный режим» гаснет после первого ответа сервера
         ServerOutageMonitor.StateChanged += OnServerLinkChanged;
 
@@ -125,6 +126,7 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
         if (Interlocked.Exchange(ref _disposed, 1) != 0)
             return;
         CatalogCacheService.CatalogChanged -= OnCatalogChangedExternally;
+        DemoStoreCatalog.Changed -= OnCatalogChangedExternally;
         CatalogCacheService.ServerAnswered -= ClearOfflineBannerIfServerAnswered;
         ServerOutageMonitor.StateChanged -= OnServerLinkChanged;
         MarketSpheres.Changed -= _marketSpheresChanged;
@@ -509,7 +511,7 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
             if (!string.IsNullOrWhiteSpace(f.Kind) && f.Kind != CatalogFilterViewModel.AllProducts)
                 parts.Add(f.Kind switch
                 {
-                    CatalogFilterViewModel.WeightedProducts => Tr.T("Весовые", "Таразалуу", "Weighted", "Tartılı", "Tortiladigan"),
+                    CatalogFilterViewModel.WeightedProducts => Tr.T("Весовые", "Салмактуу", "Weighted", "Tartılı", "Tortiladigan") /* 2026-11-13 (Д-5): в ky одно слово «Салмактуу» — как вкладка каталога и карточка товара */,
                     CatalogFilterViewModel.PieceProducts => Tr.T("Штучные", "Даналык", "Per piece", "Adetli", "Donali"),
                     CatalogFilterViewModel.FavoriteProducts => Tr.T("Избранные", "Тандалгандар", "Favourites", "Favoriler", "Saralanganlar"),
                     _ => f.Kind,
@@ -1106,6 +1108,10 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
 
     private void PublishProducts(List<CatalogProductTileVm> products, bool keepPage = false)
     {
+        // 2026-11-13 (Л-10): учебные товары демо-магазина (Id «demo-N», только в памяти) — только пока включён и демо-набор, и учебный режим:
+        // вне учебного режима продажа такого товара ушла бы на сервер, поэтому «демо без учебного режима» плиток не показывает.
+        if (DemoStoreCatalog.IsVisible)
+            products = products.Concat(DemoStoreCatalog.BuildTiles()).ToList();
         _allProducts = products;
         if (!keepPage)
             ResetCurrentPage();

@@ -167,7 +167,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
         private Button CreateFiltersToggle()
         {
-            var b = new Button { Height = 36, Padding = new Thickness(12, 0) };
+            var b = new Button { Height = 44, Padding = new Thickness(12, 0) }; // 2026-11-13 (Н-6): цель касания 44 (было 36)
             b.Classes.Add("sec-outline");
             b.Name = "SalesFiltersToggle";
             b.Click += (_, _) =>

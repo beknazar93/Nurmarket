@@ -246,7 +246,7 @@ public sealed class ShiftHistoryViewModel : INotifyPropertyChanged
         {
             PosLogger.Log($"ShiftHistory LoadAsync failed: {ex}", "SHIFTS");
             PosMessageBox.Show(_owner,
-                Tr.T($"Не удалось загрузить данные: {ex.Message}", $"Маалыматтарды жүктөө мүмкүн болгон жок: {ex.Message}", $"Could not load data: {ex.Message}", $"Veriler yüklenemedi: {ex.Message}", $"Ma'lumotlarni yuklab bo'lmadi: {ex.Message}"),
+                Tr.T($"Не удалось загрузить данные: {NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)}", $"Маалыматтарды жүктөө мүмкүн болгон жок: {NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)}", $"Could not load data: {NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)}", $"Veriler yüklenemedi: {NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)}", $"Ma'lumotlarni yuklab bo'lmadi: {NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)}"),
                 Tr.T("История смен", "Сменалардын тарыхы", "Shift history", "Vardiya geçmişi", "Smenalar tarixi"),
                 MessageBoxButton.OK, MessageBoxImage.Warning);
         }

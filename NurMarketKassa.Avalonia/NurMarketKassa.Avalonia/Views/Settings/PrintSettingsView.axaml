@@ -76,7 +76,7 @@
       <StackPanel Classes="SettingsCardList" Spacing="10" MaxWidth="{DynamicResource SettingsPageMaxWidth}" HorizontalAlignment="Stretch">
 
         <!-- Заголовок страницы и главный переключатель прижаты влево -->
-        <Border Classes="SettingsHeaderCard" Padding="12">
+        <Border Classes="SettingsHeaderCard">
           <StackPanel Spacing="10">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Spacing="12">
               <Border Width="36" Height="36" CornerRadius="8" Background="{DynamicResource BrushWarningSoft}"
@@ -106,7 +106,7 @@
         <!-- 2026-11-01 (просьба владельца: «2 принтера разной модели одновременно, штрихкоды сразу на выбранный принтер»):
              два явных выбора. Принтер чеков — в блоке «Оборудование» ниже (виден, пока включена печать чека), принтер этикеток —
              здесь, всегда: этикетки печатаются независимо от чеков. Подписи — в коде (5 языков). -->
-        <Border Classes="SettingsCard" Padding="14">
+        <Border Classes="SettingsCard" Padding="16">
           <StackPanel Spacing="8">
             <TextBlock x:Name="LabelPrinterTitleText" x:FieldModifier="public" Classes="SettingsCardTitle" FontSize="14"/>
             <TextBlock x:Name="LabelPrinterHintText" x:FieldModifier="public" FontSize="12" TextWrapping="Wrap"
@@ -125,7 +125,9 @@
             <ContentControl x:Name="LabelNetHost" x:FieldModifier="public" Margin="0,4,0,0"/>
             <!-- 2026-11-13: мастер, диагностика и драйвер — для принтера этикеток. -->
             <ContentControl x:Name="LabelSetupHost" x:FieldModifier="public"/>
+            <!-- 2026-11-19 (живой обход): пустая строка (принтер не выбран) оставляла внизу карточки пустую полосу — пустую не показываем. -->
             <TextBlock x:Name="LabelPrinterKindText" x:FieldModifier="public" FontSize="12" TextWrapping="Wrap"
+                       IsVisible="{Binding $self.Text, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                        Foreground="{DynamicResource BrushTextSoft}"/>
             <TextBlock x:Name="LabelPrinterWarnText" x:FieldModifier="public" FontSize="12" TextWrapping="Wrap"
                        Foreground="{DynamicResource BrushWarning}" IsVisible="False"/>
@@ -138,7 +140,7 @@
         <StackPanel Spacing="10" IsVisible="{Binding #ReceiptEnabledCheck.IsChecked}">
 
         <!-- Единый блок оборудования -->
-        <Border Classes="SettingsCard" Padding="14">
+        <Border Classes="SettingsCard" Padding="16">
           <StackPanel Spacing="12">
             <TextBlock Text="{DynamicResource posSettings.print.equipmentTitle}" Classes="SettingsCardTitle" FontSize="14"/>
 
@@ -245,7 +247,7 @@
 
         <!-- Блок 1: текстовый чек (когда выбран Текстовый режим). 2026-10-19, этап О7: кодировка, кодовая страница и ESC R —
              язык специалиста — в раскрывающемся «Дополнительно: команды принтера», по умолчанию свёрнуто. -->
-        <Border Classes="SettingsCard" Padding="14" IsVisible="{Binding #TextModeRadio.IsChecked}">
+        <Border Classes="SettingsCard" Padding="16" IsVisible="{Binding #TextModeRadio.IsChecked}">
           <StackPanel Spacing="12">
             <TextBlock Text="{DynamicResource posSettings.print.escPosParams}" Classes="SettingsCardTitle" FontSize="14"/>
             <StackPanel Spacing="0">
@@ -320,7 +322,7 @@
         </Border>
 
         <!-- Блок 2: Настройки чека (шрифт, размер, что печатать) — видны всегда, не только в графическом режиме -->
-        <Border Classes="SettingsCard" Padding="14">
+        <Border Classes="SettingsCard" Padding="16">
           <StackPanel Spacing="12">
             <Grid ColumnDefinitions="*,Auto">
               <TextBlock Text="{DynamicResource posSettings.print.receiptSettings}" Classes="SettingsCardTitle" FontSize="14" VerticalAlignment="Center"/>
@@ -409,7 +411,7 @@
         </Border>
 
         <!-- Статус печати -->
-        <Border Classes="SettingsCard" Padding="12">
+        <Border Classes="SettingsCard" Padding="16">
           <StackPanel Spacing="6">
             <TextBlock Text="{DynamicResource posSettings.print.logAndStatus}" Classes="SettingsCardTitle" FontSize="13"/>
             <TextBox x:Name="StatusText" x:FieldModifier="public"

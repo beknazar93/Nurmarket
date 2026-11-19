@@ -182,8 +182,8 @@ public partial class CartRemovalReasonDialog : Window
         Close(true);
     }
 
-    private static string FormatQuantity(double quantity) =>
-        quantity.ToString(Math.Abs(quantity - Math.Round(quantity)) < 1e-9 ? "0" : "0.###", CultureInfo.InvariantCulture);
+    // 2026-11-13 (Д-5): общий формат количества (запятая) вместо местной копии с точкой.
+    private static string FormatQuantity(double quantity) => MoneyText.Qty(quantity);
 
     // 2026-10-20 (живой аудит кассы, К18): «243 615,05 сом» (MoneyText) вместо «243 615.05 сом» с точкой.
     internal static string FormatMoney(double amount) => MoneyText.Som(amount);

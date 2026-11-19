@@ -402,8 +402,9 @@ internal static class ScaleBarcodeRules
             : Kg(qty);
     }
 
-    public static string Kg(double kg) => kg.ToString("0.000", CultureInfo.CurrentCulture) + Tr.T(" кг", " кг", " kg", " kg", " kg");
-    public static string Money(double som) => som.ToString("0.00", CultureInfo.CurrentCulture);
+    // 2026-11-13 (Д-5/Д-7, решение координатора): вес и сумма в окнах весов — общим форматтером MoneyText (запятая, «1 265,00»), а не культурой потока (выходила точка).
+    public static string Kg(double kg) => MoneyText.Weight(kg, "0.000") + Tr.T(" кг", " кг", " kg", " kg", " kg");
+    public static string Money(double som) => MoneyText.Amount(som);
     public static string Som() => Tr.T("сом", "сом", "som", "som", "so‘m");
 
     /// <summary>Правило префикса одним словом для сводки: «вес» / «сумма» / «спросит».</summary>

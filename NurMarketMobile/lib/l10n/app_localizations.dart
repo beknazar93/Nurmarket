@@ -12423,6 +12423,48 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'В чеке позиций: {lines}, отложено чеков: {held}. При выходе они пропадут; каждая строка будет записана в «Удалено из чека».'**
   String logoutCartAsk(int lines, int held);
+
+  /// No description provided for @apiForbidden.
+  ///
+  /// In ru, this message translates to:
+  /// **'Недостаточно прав для этого действия. Обратитесь к владельцу.'**
+  String get apiForbidden;
+
+  /// No description provided for @apiNotFound.
+  ///
+  /// In ru, this message translates to:
+  /// **'Не найдено — возможно, запись уже удалена. Обновите список.'**
+  String get apiNotFound;
+
+  /// No description provided for @apiThrottled.
+  ///
+  /// In ru, this message translates to:
+  /// **'Слишком много запросов. Подождите минуту и повторите.'**
+  String get apiThrottled;
+
+  /// No description provided for @apiFieldRequired.
+  ///
+  /// In ru, this message translates to:
+  /// **'Заполните обязательное поле.'**
+  String get apiFieldRequired;
+
+  /// No description provided for @apiNumberInvalid.
+  ///
+  /// In ru, this message translates to:
+  /// **'Введите число.'**
+  String get apiNumberInvalid;
+
+  /// No description provided for @apiAlreadyExists.
+  ///
+  /// In ru, this message translates to:
+  /// **'Такая запись уже есть.'**
+  String get apiAlreadyExists;
+
+  /// No description provided for @receiptOfflineNote.
+  ///
+  /// In ru, this message translates to:
+  /// **'Чек сохранён без связи — уйдёт на сервер автоматически'**
+  String get receiptOfflineNote;
 }
 
 class _AppLocalizationsDelegate

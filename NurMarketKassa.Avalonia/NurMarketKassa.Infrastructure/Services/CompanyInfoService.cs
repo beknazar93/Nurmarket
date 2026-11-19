@@ -479,7 +479,9 @@ public static class CompanyInfoService
             return;
         }
 
-        prefs.StoreInn = company.Inn ?? string.Empty;
+        // 2026-11-19: ИНН, введённый вручную, не затирается сервером (брать с сервера только когда локального нет).
+        if (string.IsNullOrWhiteSpace(prefs.StoreInn))
+            prefs.StoreInn = company.Inn ?? string.Empty;
         if (string.IsNullOrWhiteSpace(prefs.StoreAddress))
             prefs.StoreAddress = company.Address ?? string.Empty;
         if (!string.IsNullOrWhiteSpace(company.EndDate))

@@ -419,6 +419,9 @@ public partial class App : Application
             };
 
             NurMarketKassa.AvaloniaHost.Services.MemoryDiagnostics.Start(); // 2026-11-05 (аудит №3, Р3-01): раз в 5 минут — память в журнал
+            NurMarketKassa.AvaloniaHost.Services.ScaleAutoSendService.Start(); // 2026-11-13: автоотправка изменённых товаров на весы (только у весов с включённой галочкой)
+            // 2026-11-13 (Л-12): раз в сутки в фоне — сверка «касса ↔ сервер»; кассиру тост ТОЛЬКО при расхождениях, подробности — запись WARNING в «Логи и ошибки»; сама ничего не правит.
+            NurMarketKassa.Services.DailyReconciliation.Start(report => MainStatusViewModel.TryShowInfoToast(report.ShortText, warning: true));
             AppDomain.CurrentDomain.ProcessExit += (_, _) =>
             {
                 try { NurMarketKassa.Services.DatabaseService.CheckpointWal(); }
@@ -473,6 +476,38 @@ public partial class App : Application
             SalesApi = AppHost.Services.GetRequiredService<ISalesApiService>();
             ShiftApi = AppHost.Services.GetRequiredService<IShiftApiService>();
             AuthApi = AppHost.Services.GetRequiredService<IAuthApiService>();
+            // 2026-11-19 (eKassa, ТЗ Умара п. 4): фискальный чек не получен — жёлтое предупреждение; владельцу и админу — «Повторить отправку» (POST ekassa/retry/).
+            FiscalServerReceipt.NotSent += isReturn => Avalonia.Threading.Dispatcher.UIThread.Post(async () =>
+            {
+                try
+                {
+                    var prompts = AppHost!.Services.GetRequiredService<IUserPrompts>();
+                    var role = "";
+                    var payload = AuthApi.UserPayload;
+                    var user = payload.ValueKind == System.Text.Json.JsonValueKind.Object && payload.TryGetProperty("user", out var u0) && u0.ValueKind == System.Text.Json.JsonValueKind.Object ? u0 : payload;
+                    if (user.ValueKind == System.Text.Json.JsonValueKind.Object && user.TryGetProperty("role", out var r) && r.ValueKind == System.Text.Json.JsonValueKind.String)
+                        role = r.GetString() ?? "";
+                    var canRetry = role.Equals("owner", StringComparison.OrdinalIgnoreCase) || role.Equals("admin", StringComparison.OrdinalIgnoreCase);
+                    var what = isReturn
+                        ? Tr.T("Возврат не ушёл в налоговую.", "Кайтаруу салыкка жөнөгөн жок.", "The return did not reach the tax service.", "İade vergi dairesine gitmedi.", "Qaytarish soliqqa ketmadi.")
+                        : Tr.T("Чек не ушёл в налоговую.", "Чек салыкка жөнөгөн жок.", "The receipt did not reach the tax service.", "Fiş vergi dairesine gitmedi.", "Chek soliqqa ketmadi.");
+                    if (!canRetry)
+                    {
+                        prompts.ShowWarning(what + " " + Tr.T("Сервер отправит его повторно. Сообщите администратору.", "Сервер аны кайра жөнөтөт. Администраторго айтыңыз.", "The server will resend it. Tell the administrator.", "Sunucu yeniden gönderecek. Yöneticiye bildirin.", "Server uni qayta yuboradi. Administratorga xabar bering."));
+                        return;
+                    }
+                    var again = await prompts.ConfirmAsync(what + " " + Tr.T("Сервер отправит его повторно. Повторить отправку сейчас?", "Сервер аны кайра жөнөтөт. Азыр кайра жөнөтөбүзбү?", "The server will resend it. Retry now?", "Sunucu yeniden gönderecek. Şimdi tekrar denensin mi?", "Server uni qayta yuboradi. Hozir qayta yuboraylikmi?"),
+                        Tr.T("Повторить отправку", "Кайра жөнөтүү", "Retry", "Tekrar dene", "Qayta yuborish"), Tr.T("Позже", "Кийинчерээк", "Later", "Sonra", "Keyinroq")).ConfigureAwait(true);
+                    if (!again) return;
+                    await AppHost.Services.GetRequiredService<NurMarketKassa.Services.NurMarketApiClient>()
+                        .RequestAsync(System.Net.Http.HttpMethod.Post, "api/ekassa/retry/", new Dictionary<string, object?>(), null, default, TimeSpan.FromSeconds(60)).ConfigureAwait(true);
+                    prompts.ShowToast(Tr.T("Повторная отправка запущена.", "Кайра жөнөтүү башталды.", "Retry started.", "Yeniden gönderim başladı.", "Qayta yuborish boshlandi."));
+                }
+                catch (Exception ex)
+                {
+                    PosLogger.Log($"eKassa: предупреждение/повтор не выполнены: {ex.Message}", "WARNING");
+                }
+            });
             AuditDb = AppHost.Services.GetRequiredService<MySqlAuditService>();
 
             NurMarketKassa.App.InitializeFromHost(

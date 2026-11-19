@@ -120,6 +120,13 @@
   <x:String x:Key="mainWindow.checkCustomerDisplayTooltip">Проверить экран покупателя</x:String>
   <x:String x:Key="mainWindow.onScreenKeyboardTooltip">Экранная клавиатура</x:String>
   <x:String x:Key="mainWindow.hotkeysTooltip">Горячие клавиши</x:String>
+  <!-- 2026-11-13 (Н-1, Н-2): шпаргалка клавиш, подсказка пустого чека, мастер первого запуска и учебная продажа -->
+  <x:String x:Key="mainWindow.hotkeysCheatSheet">Клавиши кассы (?)</x:String>
+  <x:String x:Key="csh.cart.scanTitle">Отсканируйте товар</x:String>
+  <x:String x:Key="csh.cart.scanHint">Сканер работает из любого места экрана.&#x0a;Или введите код / название в поле поиска.</x:String>
+  <x:String x:Key="csh.cart.keysLink">Клавиши: ?</x:String>
+  <x:String x:Key="csh.menu.firstRunWizard">Мастер первого запуска</x:String>
+  <x:String x:Key="csh.menu.trainingSale">Учебная продажа</x:String>
   <x:String x:Key="hotkeyGroup.title">Горячая клавиша</x:String>
   <x:String x:Key="header.labelCustomerDisplay">Экран</x:String>
   <x:String x:Key="header.labelTheme">Тема</x:String>
@@ -866,7 +873,7 @@
   <x:String x:Key="posSettings.monitor.sampleCoffee">Кофе натуральный</x:String>
   <x:String x:Key="posSettings.monitor.sampleMilk">Молоко 1 л</x:String>
   <x:String x:Key="posSettings.monitor.qtyShort">Кол-во</x:String>
-  <x:String x:Key="posSettings.monitor.samplePayable">К оплате: 400.00 сом</x:String>
+  <x:String x:Key="posSettings.monitor.samplePayable">К оплате: 400,00 сом</x:String>
   <x:String x:Key="posSettings.monitor.screenContentTitle">Содержимое экрана</x:String>
   <x:String x:Key="posSettings.monitor.companyLogo">Логотип компании</x:String>
   <x:String x:Key="posSettings.monitor.itemCount">Количество товаров</x:String>
@@ -1352,9 +1359,9 @@
     <x:String x:Key="loc.owner.zeroMoney">0,00 сом</x:String>
     <x:String x:Key="loc.settings.monitor.samplePositions">2 поз.</x:String>
     <x:String x:Key="loc.settings.monitor.sampleQty2">×2 шт</x:String>
-    <x:String x:Key="loc.settings.monitor.sampleSum320">320.00 сом</x:String>
+    <x:String x:Key="loc.settings.monitor.sampleSum320">320,00 сом</x:String>
     <x:String x:Key="loc.settings.monitor.sampleQty1">×1 шт</x:String>
-    <x:String x:Key="loc.settings.monitor.sampleSum95">95.00 сом</x:String>
+    <x:String x:Key="loc.settings.monitor.sampleSum95">95,00 сом</x:String>
     <x:String x:Key="loc.settings.telegram.title">Телеграм-бот владельца</x:String>
     <x:String x:Key="loc.settings.telegram.desc">Сводка по закрытой смене приходит вам в Telegram: выручка, чеки, средний чек, наличные и безналичные, внесения и изъятия, недостача или излишек. Работает из магазина без белого IP и без своего сервера.</x:String>
     <x:String x:Key="loc.settings.telegram.wizardButton">Подключить бота (пошагово)</x:String>
@@ -1496,6 +1503,7 @@
   <x:String x:Key="scalesPlu.change">Изменить…</x:String>
   <x:String x:Key="scalesPlu.colStatus">Результат</x:String>
   <x:String x:Key="scalesPlu.saveFile">Сохранить файл…</x:String>
+  <x:String x:Key="scalesPlu.preflight">Проверка перед отправкой</x:String>
   <x:String x:Key="scaleSetup.list.title">Весы в магазине</x:String>
   <x:String x:Key="scaleSetup.list.desc">У каждых весов свои марка, адрес и категории товаров. «Настроить…» — окно этих весов, «Отправить товары» — их товары на них.</x:String>
   <x:String x:Key="scaleSetup.list.add">+ Добавить весы</x:String>

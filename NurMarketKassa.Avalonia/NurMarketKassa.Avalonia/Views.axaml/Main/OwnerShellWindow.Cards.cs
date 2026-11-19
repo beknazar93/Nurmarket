@@ -39,6 +39,7 @@ public partial class OwnerShellWindow
 
     private void ApplyChart(JsonElement report, DateTime from, DateTime to)
     {
+        RemoveOverviewOfflineBlock(); // 2026-11-13 (Н-4)
         ChartBars.Children.Clear();
         ChartBars.ColumnDefinitions.Clear();
         ChartBars.RowDefinitions = new RowDefinitions("*,Auto");
@@ -676,7 +677,7 @@ public partial class OwnerShellWindow
             more.Click += (_, e) =>
             {
                 e.Handled = true;
-                menu.Open(more);
+                menu.Open(line); // 2026-11-19: меню привязано к строке; Avalonia 11.2 не даёт открыть его на другом элементе («Cannot show ContentMenu on a different control») — кнопка «⋯» падала
             };
             Grid.SetColumn(more, row.ColumnDefinitions.Count - 1);
             row.Children.Add(more);
@@ -852,6 +853,16 @@ public partial class OwnerShellWindow
         ApplyTexts();
         _ = RefreshAsync(supersede: true); // 2026-11-03 (С-13): смена периода отменяет идущую загрузку
         _ = RefreshAbcAsync();
+    }
+
+    /// <summary>2026-11-13 (Л-13): «Год назад» — переключатель сравнения «год к году» (повторное нажатие возвращает сравнение с прошлым периодом).</summary>
+    private void YearCompare_Click(object? sender, RoutedEventArgs e)
+    {
+        _compareYear = !_compareYear;
+        _compareKey = null;
+        _compareCards = null;
+        ApplyTexts();
+        _ = RefreshAsync(supersede: true);
     }
 
     private void Refresh_Click(object? sender, RoutedEventArgs e)

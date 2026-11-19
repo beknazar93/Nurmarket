@@ -149,7 +149,7 @@ public partial class ProductEditDialog
         }
         catch (Exception ex)
         {
-            _suppliersError = ex.Message;
+            _suppliersError = NurMarketKassa.Services.ServerOutageMonitor.UserText(ex);
             PosLogger.Log($"Карточка товара: список поставщиков не загружен ({ex.GetType().Name}: {ex.Message}).", "WARNING");
         }
         finally
@@ -287,13 +287,14 @@ public partial class ProductEditDialog
         }
         catch (ApiException ex)
         {
-            return ex.Message;
+            NurMarketKassa.Services.PosLogger.Log($"ProductEditDialog.Supplier: сбой, показанный пользователю: {ex}", "WARNING"); // 2026-11-13 (Н-4): сырой текст — в журнал, на экран — понятный
+            return NurMarketKassa.Services.ServerOutageMonitor.UserText(ex);
         }
         catch (Exception ex)
         {
             PosLogger.Log($"Supplier create failed: {ex}", "WARNING");
             return Tr.T("Не удалось добавить поставщика: ", "Жеткирүүчүнү кошуу мүмкүн болгон жок: ", "Could not add the supplier: ", "Tedarikçi eklenemedi: ",
-                "Yetkazib beruvchini qo'shib bo'lmadi: ") + ex.Message;
+                "Yetkazib beruvchini qo'shib bo'lmadi: ") + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex);
         }
     }
 }

@@ -204,6 +204,20 @@ public partial class StockTransferDialog
             {
                 var first = group.First();
                 var quantity = Math.Round(group.Sum(i => i.Quantity), 3);
+                // 2026-11-14 (Л-6): без связи карточку товара на складе отправителя не найти (у филиала свои id) — разрешено только с главного склада (id товара кассы = id главного склада);
+                // остаток сверит сервер при отправке из очереди (нехватка — «Ошибка» в «Неотправленном»).
+                if (OfflineModeHelper.SellLocally)
+                {
+                    if (route.FromId is null && first.ProductId is { Length: > 0 } offlineId)
+                        lines.Add((offlineId, quantity));
+                    else
+                        problems.Add(T($"«{first.ProductName}» — без связи можно перемещать только товары главного склада",
+                            $"«{first.ProductName}» — байланышсыз башкы кампанын товарларын гана жылдырууга болот",
+                            $"“{first.ProductName}” — offline you can only move goods of the main warehouse",
+                            $"«{first.ProductName}» — bağlantısız yalnızca ana depo ürünleri taşınabilir",
+                            $"«{first.ProductName}» — aloqasiz faqat asosiy ombor tovarlarini ko'chirish mumkin"));
+                    continue;
+                }
                 var found = await FindOnSenderAsync(api, route.FromId, first.ProductId, first.Barcode, first.ProductName);
                 if (found is null)
                     problems.Add(T($"«{first.ProductName}» — нет на складе «{route.FromName}»", $"«{first.ProductName}» — «{route.FromName}» кампасында жок",
@@ -239,6 +253,33 @@ public partial class StockTransferDialog
                 $"Kasa deposu, belge {_transfer.Number}", $"Kassa ombori, hujjat {_transfer.Number}");
             if (!string.IsNullOrWhiteSpace(_transfer.Carrier) || !string.IsNullOrWhiteSpace(_transfer.TrackingNumber))
                 comment += " · " + string.Join(" ", new[] { _transfer.Carrier, _transfer.TrackingNumber }.Where(x => !string.IsNullOrWhiteSpace(x)));
+
+            // 2026-11-14 (Л-6): нет связи с сервером — перемещение не теряется, а встаёт в очередь «Неотправленного» с тем же ключом повтора и телом; уйдёт само, когда связь появится
+            // (StockOpsQueue). Ключ — из документа, маршрута, даты и состава: повторное нажатие «Отправить» не поставит второе такое же перемещение.
+            if (OfflineModeHelper.SellLocally)
+            {
+                var offDate = DateTime.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+                var offLines = lines.Select(l => (l.ProductId, l.Quantity)).ToList();
+                var offKey = MakeTransferKey(_transferId, route.FromId, route.ToId, offDate, offLines);
+                var offBody = new Dictionary<string, object?>
+                {
+                    ["from_branch"] = route.FromId,
+                    ["to_branch"] = route.ToId,
+                    ["date"] = offDate,
+                    ["comment"] = (comment.Length > 480 ? comment[..480] : comment) + KeyTag(offKey),
+                    ["items"] = lines.Select(l => new Dictionary<string, object?> { ["product"] = l.ProductId, ["quantity"] = l.Quantity }).ToList(),
+                };
+                if (NurMarketKassa.Services.Api.ServerCapabilities.Has(NurMarketKassa.Services.Api.ServerCapabilities.IdempotencyLookupBonusTransfers))
+                    offBody["idempotency_key"] = offKey;
+                StockOpsQueue.Instance.EnqueueTransfer($"{route.FromName} → {route.ToName} · {lines.Count} " + T("поз.", "поз.", "items", "kalem", "poz."), offKey,
+                    JsonSerializer.Serialize(offBody), qtyTotal, PosApp.CurrentUserDisplayName);
+                ShowWarning(T("Нет связи с сервером. Перемещение принято и уйдёт на сервер само, когда связь появится (см. «Неотправленное»). Остатки на сервере пока прежние.",
+                    "Сервер менен байланыш жок. Жылдыруу кабыл алынды жана байланыш пайда болгондо серверге өзү кетет («Жөнөтүлбөгөндөр» бөлүмүн караңыз). Серверде калдыктар азырынча мурдагыдай.",
+                    "No connection to the server. The transfer was accepted and will go to the server by itself when the connection returns (see “Unsent”). Server stock is unchanged for now.",
+                    "Sunucuyla bağlantı yok. Transfer kabul edildi ve bağlantı gelince sunucuya kendiliğinden gider («Gönderilmeyenler»e bakın). Sunucudaki stok şimdilik aynı.",
+                    "Server bilan aloqa yo'q. Ko'chirish qabul qilindi va aloqa paydo bo'lganda serverga o'zi ketadi («Yuborilmaganlar»ga qarang). Serverdagi qoldiqlar hozircha o'zgarmagan."));
+                return;
+            }
             // 2026-11-01 (аудит 10 из 10, С-05): ключ повтора — из документа, маршрута и состава (тот же при повторе «Отправить» после обрыва) уходит
             // заголовком Idempotency-Key, а его метка « [8 символов]» — в конец комментария. Исход неизвестен (таймаут, обрыв) — сначала ищем СВОЁ
             // перемещение на сервере (метка + склады + состав; номер документа у каждой кассы свой, по нему не ищем) и второй раз не шлём.

@@ -253,9 +253,10 @@ public sealed class SalarySchemeDialog : Window
         }
         catch (Exception ex)
         {
+            NurMarketKassa.Services.PosLogger.Log($"SalarySchemeDialog: сбой, показанный пользователю: {ex}", "WARNING"); // 2026-11-13 (Н-4): сырой текст — в журнал, на экран — понятный
             _statusText.IsVisible = false;
             ShowError(Tr.T("Не удалось загрузить схему", "Схеманы жүктөө мүмкүн болгон жок", "Could not load the scheme",
-                "Şema yüklenemedi", "Sxemani yuklab bo'lmadi") + ": " + ex.Message);
+                "Şema yüklenemedi", "Sxemani yuklab bo'lmadi") + ": " + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex));
         }
     }
 

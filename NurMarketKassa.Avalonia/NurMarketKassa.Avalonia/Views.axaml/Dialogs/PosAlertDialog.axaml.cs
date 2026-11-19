@@ -40,6 +40,9 @@ public partial class PosAlertDialog : Window
         OkButton.Content = isErrorOrWarning ? Tr.T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish") : buttonText ?? Tr.T("Понятно", "Түшүнүктүү", "Got it", "Anladım", "Tushunarli");
         // 2026-10-23: info — предупреждение-напоминание (смена 23 ч), не ошибка: «Отложить ошибку» не нужна.
         DeferButton.IsVisible = isErrorOrWarning && !info;
+        // 2026-11-13 (Л-9): «Написать в поддержку» — только в окне ошибки (не в предупреждении и не в подсказке).
+        SupportButton.Content = Tr.T("Написать в поддержку", "Колдоого жазуу", "Contact support", "Destek ile iletişim", "Yordamga yozish");
+        SupportButton.IsVisible = kind == PosAlertKind.Error && !info;
 
         // 2026-10-16: красная главная кнопка — класс danger оболочки (тот же #DC2626, но с наведением).
         if (kind == PosAlertKind.Error)
@@ -57,6 +60,10 @@ public partial class PosAlertDialog : Window
         var dlg = new PosAlertDialog(title, message, kind, buttonText, info);
         return PosDialogHost.ShowAsync(dlg, owner);
     }
+
+    /// <summary>2026-11-13 (Л-9): обращение в поддержку с текстом этой ошибки (заголовок и сообщение) в описании.</summary>
+    private async void SupportButton_Click(object? sender, RoutedEventArgs e) =>
+        await SupportRequestWindow.ShowAsync(Owner as Window, "окно ошибки", $"{_title}: {_message}").ConfigureAwait(true);
 
     private void OkButton_Click(object? sender, RoutedEventArgs e) => Close(true);
 

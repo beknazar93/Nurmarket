@@ -13,6 +13,22 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
+        "Новый главный экран кассы: Одно поле ввода для кода, названия и количества («3*код»), крупная кнопка «Оплатить»; учебный режим и мастер первого запуска.",
+        "Единый дизайн: Единые кнопки и шкала размеров во всех окнах; окна весов — «Быстрая настройка».",
+        "Понятные ошибки и удобство: Вместо сырого текста ошибки — понятные сообщения; запятая в числах; лучше контраст и крупные кнопки для сенсорного экрана.",
+        "Весы CAS и Масса-К: Добавлена поддержка весов CAS и Масса-К. Протокол на реальных весах пока не проверен — перед отправкой касса просит подтверждение.",
+        "Автоотправка на весы: Товары можно отправлять на весы автоматически (по умолчанию выключено); проверка перед отправкой и памятки кассира.",
+        "Перенос из других программ: Перенос товаров и клиентов из 1С, МойСклад, Poster, Loyverse, Paloma365 и Umag.",
+        "Работа без связи: Экран «Что ждёт отправки»; офлайн-чеки уходят на сервер с настоящей датой продажи; приход и списание работают без связи.",
+        "Возвраты: Быстрый поиск чека, причины возврата и выбор «куда товар».",
+        "Отчёты владельца: Новые отчёты «Кассиры и часы» и сравнение «год назад».",
+        "Фискализация eKassa: Печать чека сервера, QR-код, плашка «Чек не ушёл» и отчёт «Продажи без фискального чека».",
+        "Доступы сотрудников: Права применяются на лету; для сотрудников добавлены права «Работа на кассе» и «Продажа ниже закупки».",
+        "Слоты устройств: Если логин уже занят другой кассой, при входе касса спрашивает, отключить ли ту; старая касса получает понятное сообщение.",
+        "Написать в поддержку: Кнопка «Написать в поддержку» отправляет обращение вместе с журналом кассы.",
+        "Ремонт и Trade-in: В Маркетплейсе появились модули «Ремонт» и «Trade-in».",
+        "Электроника и строймаркет: Сфера «Электроника»: серийные номера и гарантия; строймаркет: упаковки и цена прораба по уровню.",
+        "Мастер принтеров Xprinter: Мастер настройки принтера Xprinter и диагностика принтера.",
         "Остаток «приход в пути»: Запасной путь полной загрузки каталога больше не перетирает остаток товара с «приходом в пути».",
         "Карточки штрихкодов: В программе владельца карточки штрихкодов больше не налезают друг на друга после смены масштаба.",
         "Счётчик «нет штрихкода»: Сразу после генерации штрихкодов счётчик «нет штрихкода» показывает верное число.",
@@ -251,6 +267,22 @@ public static class AppChangelog
 
     public static readonly string[] LatestKy =
     [
+        "Кассанын жаңы башкы экраны: Код, аталыш жана санды киргизүү үчүн бир талаа («3*код»), чоң «Төлөө» баскычы; окутуу режими жана биринчи ишке киргизүү устасы.",
+        "Бирдиктүү дизайн: Бардык терезелерде бирдей баскычтар жана өлчөмдөр шкаласы; тараза терезелери — «Тез жөндөө».",
+        "Түшүнүктүү каталар жана ыңгайлуулук: Ката текстинин ордуна түшүнүктүү билдирүүлөр; сандарда үтүр; контраст жакшырды, сенсордук экран үчүн чоң баскычтар.",
+        "CAS жана Масса-К таразалары: CAS жана Масса-К таразаларына колдоо кошулду. Протокол чыныгы таразаларда али текшерилген жок — жөнөтүү алдында касса ырастоону суранат.",
+        "Таразага автоматтык жөнөтүү: Товарларды таразага автоматтык жөнөтсө болот (демейки өчүк); жөнөтүү алдында текшерүү жана кассир эскертмелери.",
+        "Башка программалардан көчүрүү: Товарларды жана кардарларды 1С, МойСклад, Poster, Loyverse, Paloma365 жана Umag программаларынан көчүрүү.",
+        "Байланышсыз иштөө: «Эмне жөнөтүлүүнү күтүүдө» экраны; офлайн чектер чыныгы сатуу датасы менен серверге кетет; кирим жана чыгым байланышсыз иштейт.",
+        "Кайтаруулар: Чекти тез издөө, кайтаруу себептери жана «товар кайда» тандоосу.",
+        "Ээсинин отчеттору: «Кассирлер жана сааттар» жана «бир жыл мурун» менен салыштыруу жаңы отчеттору.",
+        "eKassa фискалдаштыруу: Сервердин чегин басуу, QR-код, «Чек кетпеди» тилкеси жана «Фискалдык чексиз сатуулар» отчету.",
+        "Кызматкерлердин мүмкүнчүлүктөрү: Укуктар токтоосуз колдонулат; кызматкерлер үчүн «Кассада иштөө» жана «Сатып алуудан төмөн сатуу» укуктары кошулду.",
+        "Түзмөк слоттору: Логин башка кассада ээленген болсо, кирүүдө касса аны өчүрүүнү сурайт; эски касса түшүнүктүү билдирүү алат.",
+        "Колдоого жазуу: «Колдоого жазуу» баскычы кайрылууну касса журналы менен кошо жөнөтөт.",
+        "Оңдоо жана Trade-in: Маркетплейсте «Оңдоо» жана «Trade-in» модулдары пайда болду.",
+        "Электроника жана курулуш дүкөнү: «Электроника» тармагы: сериялык номерлер жана кепилдик; курулуш дүкөнү: таңгактар жана прораб баасы деңгээл боюнча.",
+        "Xprinter принтерлеринин устасы: Xprinter принтерин жөндөө устасы жана принтердин диагностикасы.",
         "Калдык «жолдогу кирим»: Каталогду толук жүктөөнүн запастагы жолу «жолдогу кириму» бар товардын калдыгын мындан ары өчүрбөйт.",
         "Штрих-код карточкалары: Ээсинин программасында масштаб өзгөргөндөн кийин штрих-код карточкалары бири-биринин үстүнө чыкпайт.",
         "«Штрих-код жок» эсептегичи: Штрих-коддорду жараткандан кийин эле «штрих-код жок» эсептегичи туура санды көрсөтөт.",
@@ -487,6 +519,22 @@ public static class AppChangelog
 
     public static readonly string[] LatestEn =
     [
+        "New main till screen: One input field for the code, name and quantity (“3*code”), a large “Pay” button; a training mode and a first-run wizard.",
+        "Unified design: The same buttons and size scale in all windows; scale windows now have “Quick setup”.",
+        "Clear errors and comfort: Clear messages instead of raw error text; a comma in numbers; better contrast and large buttons for touch screens.",
+        "CAS and Massa-K scales: Support for CAS and Massa-K scales was added. The protocol has not yet been tested on real scales — the till asks for confirmation before sending.",
+        "Auto-send to scales: Products can be sent to scales automatically (off by default); a check before sending and cashier tips.",
+        "Moving data from other programs: Move products and customers from 1C, MoySklad, Poster, Loyverse, Paloma365 and Umag.",
+        "Working offline: A “Waiting to be sent” screen; offline receipts reach the server with the real sale date; receiving and write-off work without a connection.",
+        "Returns: Quick receipt search, return reasons and a “where the goods go” choice.",
+        "Owner reports: New “Cashiers and hours” report and a “year ago” comparison.",
+        "eKassa fiscalization: Printing the server receipt, a QR code, a “Receipt not sent” banner and a “Sales without a fiscal receipt” report.",
+        "Employee access: Permissions apply on the fly; the “Work at the till” and “Sell below cost” permissions were added for employees.",
+        "Device slots: If the login is already used by another till, sign-in asks whether to disconnect it; the old till gets a clear message.",
+        "Contact support: The “Contact support” button sends your message together with the till log.",
+        "Repair and Trade-in: The Marketplace now has the “Repair” and “Trade-in” modules.",
+        "Electronics and building store: “Electronics” sphere: serial numbers and warranty; building store: packs and the contractor price by level.",
+        "Xprinter printer wizard: A setup wizard for Xprinter printers and printer diagnostics.",
         "Stock with “goods in transit”: The fallback path of the full catalog load no longer overwrites the stock of a product with “goods in transit”.",
         "Barcode cards: In the owner program, barcode cards no longer overlap after the scale is changed.",
         "“No barcode” counter: Right after barcodes are generated, the “no barcode” counter shows the correct number.",
@@ -723,6 +771,22 @@ public static class AppChangelog
 
     public static readonly string[] LatestTr =
     [
+        "Yeni kasa ana ekranı: Kod, ad ve miktar için tek giriş alanı («3*kod»), büyük «Öde» düğmesi; eğitim modu ve ilk çalıştırma sihirbazı.",
+        "Ortak tasarım: Tüm pencerelerde aynı düğmeler ve boyut ölçeği; terazi pencerelerinde «Hızlı kurulum».",
+        "Anlaşılır hatalar ve kolaylık: Ham hata metni yerine anlaşılır mesajlar; sayılarda virgül; daha iyi kontrast ve dokunmatik ekran için büyük düğmeler.",
+        "CAS ve Massa-K terazileri: CAS ve Massa-K terazileri için destek eklendi. Protokol henüz gerçek terazilerde denenmedi — göndermeden önce kasa onay ister.",
+        "Teraziye otomatik gönderim: Ürünler teraziye otomatik gönderilebilir (varsayılan olarak kapalı); göndermeden önce kontrol ve kasiyer notları.",
+        "Diğer programlardan aktarım: Ürünleri ve müşterileri 1C, MoySklad, Poster, Loyverse, Paloma365 ve Umag programlarından aktarma.",
+        "Bağlantısız çalışma: «Gönderilmeyi bekleyenler» ekranı; çevrimdışı fişler gerçek satış tarihiyle sunucuya gider; mal girişi ve zayiat bağlantısız çalışır.",
+        "İadeler: Hızlı fiş arama, iade nedenleri ve «ürün nereye gidecek» seçimi.",
+        "Sahip raporları: Yeni «Kasiyerler ve saatler» raporu ve «bir yıl önce» karşılaştırması.",
+        "eKassa mali onayı: Sunucu fişinin yazdırılması, QR kod, «Fiş gönderilmedi» uyarısı ve «Mali fişsiz satışlar» raporu.",
+        "Çalışan erişimleri: Yetkiler anında uygulanır; çalışanlar için «Kasada çalışma» ve «Maliyetin altında satış» yetkileri eklendi.",
+        "Cihaz yuvaları: Kullanıcı adı başka bir kasada kullanılıyorsa giriş sırasında diğerinin kapatılıp kapatılmayacağı sorulur; eski kasa anlaşılır bir mesaj alır.",
+        "Destekle iletişim: «Destekle iletişime geç» düğmesi mesajınızı kasa günlüğüyle birlikte gönderir.",
+        "Onarım ve Trade-in: Pazaryerinde «Onarım» ve «Trade-in» modülleri eklendi.",
+        "Elektronik ve yapı market: «Elektronik» alanı: seri numaraları ve garanti; yapı market: paketler ve seviyeye göre usta fiyatı.",
+        "Xprinter yazıcı sihirbazı: Xprinter yazıcıları için kurulum sihirbazı ve yazıcı tanılama.",
         "«Yoldaki mal» stoku: Kataloğun tam yüklenmesinin yedek yolu artık «yoldaki mal» olan ürünün stokunun üzerine yazmaz.",
         "Barkod kartları: Sahip programında ölçek değiştikten sonra barkod kartları artık üst üste binmez.",
         "«Barkod yok» sayacı: Barkodlar üretildikten hemen sonra «barkod yok» sayacı doğru sayıyı gösterir.",
@@ -959,6 +1023,22 @@ public static class AppChangelog
 
     public static readonly string[] LatestUz =
     [
+        "Kassaning yangi bosh ekrani: Kod, nom va miqdor uchun bitta kiritish maydoni («3*kod»), katta «To'lash» tugmasi; o'quv rejimi va birinchi ishga tushirish ustasi.",
+        "Yagona dizayn: Barcha oynalarda bir xil tugmalar va o'lchamlar shkalasi; tarozi oynalari — «Tez sozlash».",
+        "Tushunarli xatolar va qulaylik: Xatoning xom matni o'rniga tushunarli xabarlar; sonlarda vergul; kontrast yaxshilandi, sensorli ekran uchun katta tugmalar.",
+        "CAS va Massa-K tarozilari: CAS va Massa-K tarozilari qo'llab-quvvatlanadi. Protokol haqiqiy tarozilarda hali tekshirilmagan — yuborishdan oldin kassa tasdiqlashni so'raydi.",
+        "Tarozilarga avtomatik yuborish: Tovarlarni tarozilarga avtomatik yuborish mumkin (odatda o'chiq); yuborishdan oldin tekshiruv va kassir eslatmalari.",
+        "Boshqa dasturlardan ko'chirish: Tovarlar va mijozlarni 1C, MoySklad, Poster, Loyverse, Paloma365 va Umag dasturlaridan ko'chirish.",
+        "Aloqasiz ishlash: «Yuborilishini kutayotganlar» ekrani; oflayn cheklar haqiqiy sotuv sanasi bilan serverga ketadi; kirim va hisobdan chiqarish aloqasiz ishlaydi.",
+        "Qaytarishlar: Chekni tez qidirish, qaytarish sabablari va «tovar qayerga» tanlovi.",
+        "Ega hisobotlari: Yangi «Kassirlar va soatlar» hisoboti va «bir yil oldin» bilan taqqoslash.",
+        "eKassa fiskalizatsiyasi: Server chekini chop etish, QR-kod, «Chek ketmadi» lavhasi va «Fiskal cheksiz sotuvlar» hisoboti.",
+        "Xodimlar ruxsatlari: Huquqlar darhol qo'llanadi; xodimlar uchun «Kassada ishlash» va «Xariddan past sotish» huquqlari qo'shildi.",
+        "Qurilma slotlari: Login boshqa kassada band bo'lsa, kirishda kassa uni o'chirishni so'raydi; eski kassa tushunarli xabar oladi.",
+        "Qo'llab-quvvatlashga yozish: «Qo'llab-quvvatlashga yozish» tugmasi murojaatni kassa jurnali bilan birga yuboradi.",
+        "Ta'mirlash va Trade-in: Marketpleysda «Ta'mirlash» va «Trade-in» modullari paydo bo'ldi.",
+        "Elektronika va qurilish do'koni: «Elektronika» sohasi: seriya raqamlari va kafolat; qurilish do'koni: o'ramlar va daraja bo'yicha prorab narxi.",
+        "Xprinter printer ustasi: Xprinter printerlari uchun sozlash ustasi va printer diagnostikasi.",
         "«Yo'ldagi kirim» qoldig'i: Katalogni to'liq yuklashning zaxira yo'li endi «yo'ldagi kirim»li tovar qoldig'ini o'chirib yubormaydi.",
         "Shtrix-kod kartochkalari: Ega dasturida masshtab o'zgargandan keyin shtrix-kod kartochkalari endi bir-birining ustiga chiqmaydi.",
         "«Shtrix-kod yo'q» hisoblagichi: Shtrix-kodlar yaratilgandan so'ng darhol «shtrix-kod yo'q» hisoblagichi to'g'ri sonni ko'rsatadi.",
@@ -1200,6 +1280,7 @@ public static class AppChangelog
     // 2026-11-05: 1.17.76 (добавка) — сверху всех Latest* пункты «Весы: единица суммы в штрихкоде» и «Внешние сервисы», сверху AndroidLatest* — «Внешние сервисы».
     // 2026-11-06: 1.17.77 (добавка) — первым пунктом всех Latest* и AndroidLatest* «Загрузка каталога» (срочный фикс Б-1).
     // 2026-11-06: 1.17.77 (добавка 3, тестовый канал) — после пункта «Загрузка каталога» в Latest*: приёмка без связи, «Неотправленное», защита входа, возврат долгового чека, окно оплаты, быстрее запуск, картинки/ИИ, наценка приёмки, программа владельца; в AndroidLatest* — первые шесть.
+    // 2026-11-19: 2.0.0 (тестовый канал) — сверху всех Latest* 16 пунктов (главный экран, дизайн, ошибки, весы CAS/Масса-К, автоотправка, перенос из 1С и др., офлайн, возвраты, отчёты, eKassa, доступы, слоты, поддержка, Ремонт/Trade-in, Электроника/строймаркет, Xprinter), сверху AndroidLatest* — 10 общих.
     // 2026-11-13: 1.17.86 (тестовый канал) — сверху всех Latest* 17 пунктов (остаток «приход в пути», карточки и счётчик штрихкодов, названия и тип 07 Rongta, весы Rongta/Штрих РС-200, продажа ниже закупки, лента main/changes и ETag, серийные номера и гарантия, упаковки строймаркета, слоты устройств, Ремонт и Trade-in, мастер Xprinter, возвраты и журнал смены, внешний вид, массовая загрузка, сферы), сверху AndroidLatest* — 8 общих.
     // 2026-11-11: 1.17.85 — срочное исправление: сверху всех Latest* 7 пунктов (приём товара: ошибка 1.17.82–1.17.84, ввод и скан, повторный скан и черновик, возвраты, окна, правка штрихкода, филиал), сверху AndroidLatest* — 3 общих.
     // 2026-11-09: 1.17.84 — сверху всех Latest* 4 пункта (приёмка: названия и источники, «Недостаточно прав», редактор этикетки в «Старт», размеры этикеток), сверху AndroidLatest* — 2 общих.
@@ -1254,6 +1335,16 @@ public static class AppChangelog
     // 2026-10-05: Android 1.17.52. Без эмодзи — на Android их шрифт не рисует (снимок владельца: «Кнопка  в поиске»).
     public static readonly string[] AndroidLatest =
     [
+        "Новый главный экран кассы: Одно поле ввода для кода, названия и количества («3*код»), крупная кнопка «Оплатить»; учебный режим и мастер первого запуска.",
+        "Единый дизайн: Единые кнопки и шкала размеров во всех окнах; окна весов — «Быстрая настройка».",
+        "Понятные ошибки и удобство: Вместо сырого текста ошибки — понятные сообщения; запятая в числах; лучше контраст и крупные кнопки для сенсорного экрана.",
+        "Работа без связи: Экран «Что ждёт отправки»; офлайн-чеки уходят на сервер с настоящей датой продажи; приход и списание работают без связи.",
+        "Возвраты: Быстрый поиск чека, причины возврата и выбор «куда товар».",
+        "Фискализация eKassa: Печать чека сервера, QR-код, плашка «Чек не ушёл» и отчёт «Продажи без фискального чека».",
+        "Доступы сотрудников: Права применяются на лету; для сотрудников добавлены права «Работа на кассе» и «Продажа ниже закупки».",
+        "Слоты устройств: Если логин уже занят другой кассой, при входе касса спрашивает, отключить ли ту; старая касса получает понятное сообщение.",
+        "Написать в поддержку: Кнопка «Написать в поддержку» отправляет обращение вместе с журналом кассы.",
+        "Электроника и строймаркет: Сфера «Электроника»: серийные номера и гарантия; строймаркет: упаковки и цена прораба по уровню.",
         "Остаток «приход в пути»: Запасной путь полной загрузки каталога больше не перетирает остаток товара с «приходом в пути».",
         "Продажа ниже закупки: Скидка, после которой цена ниже закупочной, проводится только при праве «Продажа ниже закупки» (can_sell_below_cost).",
         "Синхронизация и права: Каталог обновляется по ленте изменений main/changes, права кэшируются по ETag; PLU весового товара берётся с сервера.",
@@ -1413,6 +1504,16 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestKy =
     [
+        "Кассанын жаңы башкы экраны: Код, аталыш жана санды киргизүү үчүн бир талаа («3*код»), чоң «Төлөө» баскычы; окутуу режими жана биринчи ишке киргизүү устасы.",
+        "Бирдиктүү дизайн: Бардык терезелерде бирдей баскычтар жана өлчөмдөр шкаласы; тараза терезелери — «Тез жөндөө».",
+        "Түшүнүктүү каталар жана ыңгайлуулук: Ката текстинин ордуна түшүнүктүү билдирүүлөр; сандарда үтүр; контраст жакшырды, сенсордук экран үчүн чоң баскычтар.",
+        "Байланышсыз иштөө: «Эмне жөнөтүлүүнү күтүүдө» экраны; офлайн чектер чыныгы сатуу датасы менен серверге кетет; кирим жана чыгым байланышсыз иштейт.",
+        "Кайтаруулар: Чекти тез издөө, кайтаруу себептери жана «товар кайда» тандоосу.",
+        "eKassa фискалдаштыруу: Сервердин чегин басуу, QR-код, «Чек кетпеди» тилкеси жана «Фискалдык чексиз сатуулар» отчету.",
+        "Кызматкерлердин мүмкүнчүлүктөрү: Укуктар токтоосуз колдонулат; кызматкерлер үчүн «Кассада иштөө» жана «Сатып алуудан төмөн сатуу» укуктары кошулду.",
+        "Түзмөк слоттору: Логин башка кассада ээленген болсо, кирүүдө касса аны өчүрүүнү сурайт; эски касса түшүнүктүү билдирүү алат.",
+        "Колдоого жазуу: «Колдоого жазуу» баскычы кайрылууну касса журналы менен кошо жөнөтөт.",
+        "Электроника жана курулуш дүкөнү: «Электроника» тармагы: сериялык номерлер жана кепилдик; курулуш дүкөнү: таңгактар жана прораб баасы деңгээл боюнча.",
         "Калдык «жолдогу кирим»: Каталогду толук жүктөөнүн запастагы жолу «жолдогу кириму» бар товардын калдыгын мындан ары өчүрбөйт.",
         "Сатып алуу баасынан төмөн сатуу: Баа сатып алуу баасынан төмөн болуп калган жеңилдик «Сатып алуудан төмөн сатуу» (can_sell_below_cost) укугу болгондо гана өтөт.",
         "Синхрондоштуруу жана укуктар: Каталог main/changes өзгөрүүлөр лентасы боюнча жаңыланат, укуктар ETag боюнча кэште сакталат; таразалуучу товардын PLU серверден алынат.",
@@ -1570,6 +1671,16 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestEn =
     [
+        "New main till screen: One input field for the code, name and quantity (“3*code”), a large “Pay” button; a training mode and a first-run wizard.",
+        "Unified design: The same buttons and size scale in all windows; scale windows now have “Quick setup”.",
+        "Clear errors and comfort: Clear messages instead of raw error text; a comma in numbers; better contrast and large buttons for touch screens.",
+        "Working offline: A “Waiting to be sent” screen; offline receipts reach the server with the real sale date; receiving and write-off work without a connection.",
+        "Returns: Quick receipt search, return reasons and a “where the goods go” choice.",
+        "eKassa fiscalization: Printing the server receipt, a QR code, a “Receipt not sent” banner and a “Sales without a fiscal receipt” report.",
+        "Employee access: Permissions apply on the fly; the “Work at the till” and “Sell below cost” permissions were added for employees.",
+        "Device slots: If the login is already used by another till, sign-in asks whether to disconnect it; the old till gets a clear message.",
+        "Contact support: The “Contact support” button sends your message together with the till log.",
+        "Electronics and building store: “Electronics” sphere: serial numbers and warranty; building store: packs and the contractor price by level.",
         "Stock with “goods in transit”: The fallback path of the full catalog load no longer overwrites the stock of a product with “goods in transit”.",
         "Selling below cost: A discount that brings the price below the purchase price goes through only with the “Sell below cost” permission (can_sell_below_cost).",
         "Sync and permissions: The catalog updates from the main/changes feed, permissions are cached by ETag; the PLU of a weighed product is taken from the server.",
@@ -1727,6 +1838,16 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestTr =
     [
+        "Yeni kasa ana ekranı: Kod, ad ve miktar için tek giriş alanı («3*kod»), büyük «Öde» düğmesi; eğitim modu ve ilk çalıştırma sihirbazı.",
+        "Ortak tasarım: Tüm pencerelerde aynı düğmeler ve boyut ölçeği; terazi pencerelerinde «Hızlı kurulum».",
+        "Anlaşılır hatalar ve kolaylık: Ham hata metni yerine anlaşılır mesajlar; sayılarda virgül; daha iyi kontrast ve dokunmatik ekran için büyük düğmeler.",
+        "Bağlantısız çalışma: «Gönderilmeyi bekleyenler» ekranı; çevrimdışı fişler gerçek satış tarihiyle sunucuya gider; mal girişi ve zayiat bağlantısız çalışır.",
+        "İadeler: Hızlı fiş arama, iade nedenleri ve «ürün nereye gidecek» seçimi.",
+        "eKassa mali onayı: Sunucu fişinin yazdırılması, QR kod, «Fiş gönderilmedi» uyarısı ve «Mali fişsiz satışlar» raporu.",
+        "Çalışan erişimleri: Yetkiler anında uygulanır; çalışanlar için «Kasada çalışma» ve «Maliyetin altında satış» yetkileri eklendi.",
+        "Cihaz yuvaları: Kullanıcı adı başka bir kasada kullanılıyorsa giriş sırasında diğerinin kapatılıp kapatılmayacağı sorulur; eski kasa anlaşılır bir mesaj alır.",
+        "Destekle iletişim: «Destekle iletişime geç» düğmesi mesajınızı kasa günlüğüyle birlikte gönderir.",
+        "Elektronik ve yapı market: «Elektronik» alanı: seri numaraları ve garanti; yapı market: paketler ve seviyeye göre usta fiyatı.",
         "«Yoldaki mal» stoku: Kataloğun tam yüklenmesinin yedek yolu artık «yoldaki mal» olan ürünün stokunun üzerine yazmaz.",
         "Maliyetin altında satış: Fiyatı alış fiyatının altına düşüren indirim yalnızca «Maliyetin altında satış» (can_sell_below_cost) yetkisiyle yapılır.",
         "Eşitleme ve yetkiler: Katalog main/changes değişiklik akışıyla güncellenir, yetkiler ETag ile önbelleğe alınır; tartılan ürünün PLU değeri sunucudan alınır.",
@@ -1884,6 +2005,16 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestUz =
     [
+        "Kassaning yangi bosh ekrani: Kod, nom va miqdor uchun bitta kiritish maydoni («3*kod»), katta «To'lash» tugmasi; o'quv rejimi va birinchi ishga tushirish ustasi.",
+        "Yagona dizayn: Barcha oynalarda bir xil tugmalar va o'lchamlar shkalasi; tarozi oynalari — «Tez sozlash».",
+        "Tushunarli xatolar va qulaylik: Xatoning xom matni o'rniga tushunarli xabarlar; sonlarda vergul; kontrast yaxshilandi, sensorli ekran uchun katta tugmalar.",
+        "Aloqasiz ishlash: «Yuborilishini kutayotganlar» ekrani; oflayn cheklar haqiqiy sotuv sanasi bilan serverga ketadi; kirim va hisobdan chiqarish aloqasiz ishlaydi.",
+        "Qaytarishlar: Chekni tez qidirish, qaytarish sabablari va «tovar qayerga» tanlovi.",
+        "eKassa fiskalizatsiyasi: Server chekini chop etish, QR-kod, «Chek ketmadi» lavhasi va «Fiskal cheksiz sotuvlar» hisoboti.",
+        "Xodimlar ruxsatlari: Huquqlar darhol qo'llanadi; xodimlar uchun «Kassada ishlash» va «Xariddan past sotish» huquqlari qo'shildi.",
+        "Qurilma slotlari: Login boshqa kassada band bo'lsa, kirishda kassa uni o'chirishni so'raydi; eski kassa tushunarli xabar oladi.",
+        "Qo'llab-quvvatlashga yozish: «Qo'llab-quvvatlashga yozish» tugmasi murojaatni kassa jurnali bilan birga yuboradi.",
+        "Elektronika va qurilish do'koni: «Elektronika» sohasi: seriya raqamlari va kafolat; qurilish do'koni: o'ramlar va daraja bo'yicha prorab narxi.",
         "«Yo'ldagi kirim» qoldig'i: Katalogni to'liq yuklashning zaxira yo'li endi «yo'ldagi kirim»li tovar qoldig'ini o'chirib yubormaydi.",
         "Xarid narxidan past sotuv: Narxni xarid narxidan pastga tushiradigan chegirma faqat «Xariddan past sotish» (can_sell_below_cost) huquqi bilan o'tadi.",
         "Sinxronlash va huquqlar: Katalog main/changes o'zgarishlar lentasi bo'yicha yangilanadi, huquqlar ETag bo'yicha keshlanadi; tarozida tortiladigan tovarning PLU serverdan olinadi.",

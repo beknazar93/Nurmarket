@@ -49,6 +49,8 @@ public static class BackgroundReceiptsHost
             // 2026-11-06: новые товары, заведённые без интернета, — очередь на диске продолжает создание на сервере (в том числе после перезапуска).
             if (App.AppHost?.Services.GetService<ICatalogApiService>() is { } catalogApi)
                 PendingProductQueue.Instance.Resume(catalogApi);
+            // 2026-11-14 (Л-6): списания и перемещения без связи — очередь на диске догружается при восстановлении связи и раз в минуту.
+            StockOpsQueue.Instance.Resume(StockOpsRuntime.Create);
         }
         catch (Exception ex)
         {

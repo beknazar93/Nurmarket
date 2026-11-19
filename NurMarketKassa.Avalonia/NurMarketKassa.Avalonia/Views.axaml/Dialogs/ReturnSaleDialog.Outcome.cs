@@ -475,7 +475,7 @@ public partial class ReturnSaleDialog
             }
             if (reversesLoyalty && ClientLoyaltyStore.RemainingForSale(saleId) is var points && Math.Abs(points) >= 0.005)
             {
-                var p = Math.Abs(points).ToString("0.##", CultureInfo.InvariantCulture);
+                var p = NurMarketKassa.Services.MoneyText.Weight(Math.Abs(points), "0.##"); // 2026-11-13 (Д-5): запятая (общий формат), было с точкой
                 text += "\n" + (points > 0
                     ? Tr.T($"Бонусы клиента: −{p} (начисленные за этот чек будут сняты).", $"Кардардын бонустары: −{p} (бул чек үчүн эсептелгендер алынат).", $"Client bonuses: −{p} (those earned for this receipt will be removed).",
                         $"Müşteri bonusları: −{p} (bu fiş için kazanılanlar silinecek).", $"Mijoz bonuslari: −{p} (bu chek uchun hisoblanganlar olinadi).")

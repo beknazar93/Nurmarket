@@ -29,8 +29,8 @@
              окно, и при переходе с «Экрана» карточки скачком уезжали к краям. -->
         <StackPanel Classes="SettingsCardList" MaxWidth="{DynamicResource SettingsPageMaxWidth}" HorizontalAlignment="Stretch">
           <Border Classes="SettingsHeaderCard">
-            <Grid ColumnDefinitions="48,*">
-              <Border Width="42" Height="42" CornerRadius="10" Background="{DynamicResource BrushWarningSoft}">
+            <Grid ColumnDefinitions="56,*">
+              <Border Width="42" Height="42" CornerRadius="10" HorizontalAlignment="Left" Background="{DynamicResource BrushWarningSoft}">
                 <Path Width="24" Height="24" Stretch="Uniform" Fill="Transparent"
                       Stroke="{DynamicResource BrushWarning}" StrokeThickness="1.6" StrokeLineCap="Round"
                       Data="M3,4 H21 V16 H3 Z M8,20 H16 M12,16 V20 M17,7 H19 V11"
@@ -190,7 +190,7 @@
                       <Grid ColumnDefinitions="2*,*,*" Margin="0,8,0,0">
                         <TextBlock Text="{DynamicResource posSettings.monitor.sampleCoffee}"/>
                         <TextBlock Grid.Column="1" Text="2"/>
-                        <TextBlock Grid.Column="2" Text="320.00"/>
+                        <TextBlock Grid.Column="2" Text="320,00"/>
                       </Grid>
                     </StackPanel>
                   </Grid>
@@ -322,7 +322,9 @@
         </StackPanel>
       </ScrollViewer>
 
+      <!-- 2026-11-19 (отступы): панель кнопок — в той же колонке, что карточки (раньше тянулась на всё окно мимо колонки) -->
       <Border Grid.Row="1" Background="{DynamicResource BrushPanel}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1,1,1,0"
+              MaxWidth="{DynamicResource SettingsPageMaxWidth}" HorizontalAlignment="Stretch"
               Padding="12" Margin="0,12,0,0">
         <!-- 2026-10-19, этап О7: кнопки экрана — обводкой с промежутком (были слипшиеся серые); «Сохранить» — общая жёлтая
              btn-primary (была коричнево-оранжевая BrushWarning). Статус переносится, а не обрезается. -->

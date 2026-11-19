@@ -219,6 +219,8 @@ public sealed class ShtrikhPcScreenTests : IDisposable
                 var f = body.Split(';');
                 switch (line[..2])
                 {
+                    case "<L": // 2026-11-19: база форматов этикеток — весы принимают без ошибок (проверено 16.11)
+                        continue;
                     case "<D":
                         if (f.Length != 34)
                         {

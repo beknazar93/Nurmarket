@@ -403,7 +403,9 @@ public static class OwnerMorningReport
 
     // ── Сборка отчёта ──
 
-    private sealed record SalesFacts(int Checks, int Returned, double ReturnedSum, int Partial, double Discounts, int DiscountChecks, bool Truncated);
+    // 2026-11-13 (Л-13): Facts — чеки дня (кассир, сумма, статус) для плитки «Кассиры вчера»; имена в ИИ не уходят.
+    private sealed record SalesFacts(int Checks, int Returned, double ReturnedSum, int Partial, double Discounts, int DiscountChecks, bool Truncated,
+        IReadOnlyList<OwnerReportsMath.SaleFact> Facts);
 
     private sealed record RemovalFacts(int Count, double Sum, int NoReason, int Clears);
 
@@ -611,6 +613,17 @@ public static class OwnerMorningReport
                 odditiesChecked = true;
                 sources.Add(T("Чеки сервера NurCRM", "NurCRM серверинин чектери", "NurCRM server receipts", "NurCRM sunucu fişleri", "NurCRM server cheklari"));
                 var approx = sales.Truncated ? "≈ " : "";
+                // 2026-11-13 (Л-13): плитка «Кассиры вчера» — лучший по выручке и итог дня (подробно — раздел «Кассиры и часы»); один кассир или чеков нет — плитки нет.
+                var cashierRows = OwnerReportsMath.ByCashier(sales.Facts).Where(r => r.Checks > 0).ToList();
+                if (cashierRows.Count > 1)
+                {
+                    var best = cashierRows[0];
+                    tiles.Add(new Tile("cashiers", T("Кассиры вчера", "Кечээки кассирлер", "Cashiers yesterday", "Dünkü kasiyerler", "Kechagi kassirlar"), $"{best.Cashier} — {Money((double)best.Revenue)}",
+                        Array.Empty<Delta>(),
+                        T($"{approx}кассиров {cashierRows.Count} · чеков {best.Checks} у лучшего · возвратов {cashierRows.Sum(r => r.Returns)}", $"{approx}кассир {cashierRows.Count} · эң мыктыда чек {best.Checks} · кайтаруу {cashierRows.Sum(r => r.Returns)}",
+                            $"{approx}{cashierRows.Count} cashiers · {best.Checks} receipts for the top one · {cashierRows.Sum(r => r.Returns)} returns", $"{approx}{cashierRows.Count} kasiyer · en iyide {best.Checks} fiş · {cashierRows.Sum(r => r.Returns)} iade",
+                            $"{approx}{cashierRows.Count} kassir · eng yaxshisida {best.Checks} chek · {cashierRows.Sum(r => r.Returns)} qaytarish"), false, "sales"));
+                }
                 if (sales.Returned > 0 || sales.Partial > 0)
                 {
                     oddities.Add(new Item(T($"Возвраты и отмены: {approx}{sales.Returned} чек. на {Money(sales.ReturnedSum)}", $"Кайтаруулар жана жокко чыгаруулар: {approx}{sales.Returned} чек, {Money(sales.ReturnedSum)}",
@@ -719,6 +732,7 @@ public static class OwnerMorningReport
         int checks = 0, returned = 0, partial = 0, discountChecks = 0;
         double returnedSum = 0, discounts = 0;
         var truncated = false;
+        var facts = new List<OwnerReportsMath.SaleFact>();
         for (var page = 1; ; page++)
         {
             if (page > maxPages)
@@ -740,6 +754,8 @@ public static class OwnerMorningReport
                 var status = (Str(row, "status") ?? "").ToLowerInvariant();
                 if (status == "new")
                     continue;
+                if (OwnerSalesReportData.TryFact(row, day, day.AddDays(1)) is { } fact)
+                    facts.Add(fact);
                 checks++;
                 if (ReceiptHistoryService.IsReturnedOrCanceled(new ReceiptHistoryEntry { Id = id, Status = status }))
                 {
@@ -762,7 +778,7 @@ public static class OwnerMorningReport
             if (added == 0 || items.Count < pageSize)
                 break;
         }
-        return new SalesFacts(checks, returned, returnedSum, partial, discounts, discountChecks, truncated);
+        return new SalesFacts(checks, returned, returnedSum, partial, discounts, discountChecks, truncated, facts);
     }
 
     /// <summary>Журнал «Удалено из чека» этого ПК (CartRemovalLogStore — сервера для него в NurCRM нет): только своя компания и только

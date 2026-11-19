@@ -75,8 +75,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     // возврата с чеком: окно возвратов чека само покажет «Редактировать / Удалить» или причину, почему нельзя (24 ч, чек в долг, нет признака сервера).
                     CanManage = !string.IsNullOrEmpty(r.SaleId) && (ReceiptReturnActions.Enabled || (withVoided && r.Edit is { HasServerFlags: true })),
                     ProductName = r.ItemsText ?? "—",
-                    QuantityDisplay = r.ItemsQty > 0 ? r.ItemsQty.ToString("0.###", CultureInfo.InvariantCulture) : "",
+                    QuantityDisplay = r.ItemsQty > 0 ? NurMarketKassa.Services.MoneyText.Weight(r.ItemsQty, "0.###") : "", // 2026-11-13 (Д-5): запятая (общий формат), было с точкой
                     Reason = r.Reason ?? "",
+                    Cashier = r.CashierId ?? "", // 2026-11-13 (Л-5): для сводки «по кассирам» (имя, если сервер его присылает)
+                    Fiscal = r.Fiscal, // 2026-11-14 (П0-1): реквизиты ККМ возврата
                     DeletedBy = string.IsNullOrWhiteSpace(r.Reason) ? "—" : r.Reason!,
                 })
                 .ToList();
@@ -112,7 +114,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     if (el.TryGetProperty("quantity", out var qtyProp))
                     {
                         quantity = ParseDecimal(qtyProp);
-                        item.QuantityDisplay = quantity.ToString("0.###", CultureInfo.InvariantCulture);
+                        item.QuantityDisplay = NurMarketKassa.Services.MoneyText.Weight(quantity, "0.###"); // 2026-11-13 (Д-5): запятая (общий формат), было с точкой
                     }
                     if (el.TryGetProperty("deleted_by_display", out var byProp))
                         item.DeletedBy = byProp.GetString() ?? "";
@@ -146,6 +148,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
         private void UpdateCollections(List<SaleItem> sales, List<RefundItem> refunds)
         {
+            StateBlock.ShowOver(SalesGrid, null); // 2026-11-13 (Н-4): пришёл новый список — блок «сервер недоступен» убираем
             // 2026-09-29, стресс-тест: одной перерисовкой таблицы, а не на каждую строку — иначе
             // 12 000 чеков месяца подвешивали окно на полминуты (см. ListCollectionView.DeferRefresh).
             using (SalesView.DeferRefresh())
@@ -160,6 +163,33 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 _refunds.Clear();
                 foreach (var r in refunds) _refunds.Add(r);
             }
+            UpdateRefundsReport(refunds);
+            ApplyRefundsFiscalColumn(); // 2026-11-14 (П0-1): колонка «ККМ» — только при включённой фискализации
+        }
+
+        /// <summary>2026-11-13 (Л-5): отчёт «Возвраты по причинам и кассирам» над таблицей возвратов: число и сумма по каждой причине и каждому кассиру (до 6 строк, остальное — «и ещё N»).
+        /// Только возвраты сервера с точной суммой (не запасной журнал удалений корзины) и без аннулированных.</summary>
+        private void UpdateRefundsReport(List<RefundItem> refunds)
+        {
+            if (RefundsReportText == null)
+                return;
+            var rows = refunds.Where(r => r.IsExact && !r.IsVoided).Select(r => new ReturnReasonRow(r.Reason, r.Cashier, r.TotalAmount)).ToList();
+            if (rows.Count == 0)
+            {
+                RefundsReportText.IsVisible = false;
+                RefundsReportText.Text = "";
+                return;
+            }
+            var (byReason, byCashier) = ReturnReasonReport.Build(rows,
+                Tr.T("без причины", "себепсиз", "no reason", "nedensiz", "sababsiz"), Tr.T("кассир не указан", "кассир көрсөтүлгөн эмес", "cashier not shown", "kasiyer yok", "kassir ko'rsatilmagan"));
+            string Line(IReadOnlyList<ReturnGroup> groups)
+            {
+                var text = string.Join(" · ", groups.Take(6).Select(g => $"{g.Name} — {g.Count} / {NurMarketKassa.Services.MoneyText.Som(g.Sum)}"));
+                return groups.Count > 6 ? text + " · " + Tr.T($"и ещё {groups.Count - 6}", $"дагы {groups.Count - 6}", $"and {groups.Count - 6} more", $"ve {groups.Count - 6} tane daha", $"yana {groups.Count - 6} ta") : text;
+            }
+            RefundsReportText.Text = Tr.T("По причинам: ", "Себептер боюнча: ", "By reason: ", "Nedene göre: ", "Sabab bo'yicha: ") + Line(byReason) + "\n"
+                + Tr.T("По кассирам: ", "Кассирлер боюнча: ", "By cashier: ", "Kasiyere göre: ", "Kassir bo'yicha: ") + Line(byCashier);
+            RefundsReportText.IsVisible = true;
         }
 
         /// <summary>Сводка периода с сервера (возвраты, прибыль — как на сайте); null — нет связи.</summary>
@@ -688,7 +718,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
         private static string Pcs => Tr.T("шт.", "даана", "pcs", "adet", "dona");
         private static string Kg => Tr.T("кг", "кг", "kg", "kg", "kg");
 
-        private static string NormalizePaymentMethodLabel(string method)
+        // 2026-11-13 (Д-5): internal — те же названия способов оплаты берут «Продажи» (была вторая копия со словом «Перевод»).
+        internal static string NormalizePaymentMethodLabel(string method)
         {
             var key = (method ?? "").Trim().ToLowerInvariant();
             return key switch
@@ -1035,6 +1066,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 }
                 ShowReceiptDetailsPopup(receiptNumber ?? "—", items);
                 ShowPopupReturnActions(receiptId, receiptNumber, json); // 2026-11-12: «Возврат» и «Правка возвратов» — только в программе владельца
+                ShowPopupFiscal(receiptId, json); // 2026-11-14 (П0-1): «Фискальный чек (ККМ)» чека и его возвратов — только при включённой фискализации
             }
             catch (Exception ex)
             {
@@ -1389,9 +1421,15 @@ namespace NurMarketKassa.AvaloniaHost.Views
             public string Kind { get; set; } = "";
             public string AmountDisplay => (IsExact ? "" : "≈") + TotalAmount.ToString("N2", CultureInfo.CurrentCulture) + " " + NurMarketKassa.Services.MoneyText.Currency; // 2026-11-01 (Д2-04): валюта на языке интерфейса
             public string Reason { get; set; } = "";
+            /// <summary>2026-11-13 (Л-5): кассир, оформивший возврат (как его отдаёт сервер) — сводка «по кассирам».</summary>
+            public string Cashier { get; set; } = "";
             public string ProductName { get; set; } = "";
             public string QuantityDisplay { get; set; } = "";
             public string DeletedBy { get; set; } = "";
+            /// <summary>2026-11-14 (П0-1): фискальные реквизиты возврата (fiscal_* сервера); null — сервер полей не прислал.</summary>
+            public NurMarketKassa.Services.Fiscal.FiscalRequisites Fiscal { get; set; }
+            /// <summary>2026-11-14: колонка «ККМ» — «Пробит / Не пробит / Ошибка» (только записи сервера; запись журнала удалений корзины — пусто).</summary>
+            public string FiscalText => IsExact ? NurMarketKassa.Services.Fiscal.FiscalStatusNames.Label((Fiscal ?? NurMarketKassa.Services.Fiscal.FiscalRequisites.None).Status) : "";
             /// <summary>2026-11-11: аннулированный возврат (status=all) — с меткой, не в итогах.</summary>
             public bool IsVoided { get; set; }
             /// <summary>2026-11-11: показать кнопку «Правка» (признак pos_return_edit_24h и поля сервера у возврата).</summary>

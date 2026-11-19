@@ -9,45 +9,28 @@
         Background="{DynamicResource BrushPanel}">
 
   <Window.Styles>
-    <Style Selector="Button.btn-ok">
-      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
-      <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="Padding" Value="14,7"/>
-      <!-- 2026-10-22 (модалки, пакет 3): кнопки, поля и вкладки — 44 px (касание пальцем). -->
-      <Setter Property="MinHeight" Value="44"/>
-      <Setter Property="VerticalContentAlignment" Value="Center"/>
-      <Setter Property="Cursor" Value="Hand"/>
-    </Style>
-    <!-- 2026-11-01 (контрольный аудит, Д-04): цвет, рамка, радиус и курсор «главной» — из общего Button.btn-primary (PosDialogStyles); здесь только размеры окна. -->
-    <Style Selector="Button.btn-primary">
-      <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="Padding" Value="14,7"/>
-      <Setter Property="MinHeight" Value="44"/>
-      <Setter Property="VerticalContentAlignment" Value="Center"/>
-    </Style>
+    <!-- 2026-11-13 (Д-7, согласие владельца 13.11): окна весов — в общий вид. Кнопки — общие nur-primary / nur-secondary (PosDialogStyles.axaml),
+         местные описания btn-ok / btn-primary удалены; шрифты, радиусы и высоты — из шкалы Д-8 (App.axaml: NurFont…, NurRadius…, NurHeight…). -->
     <Style Selector="Border.card">
       <Setter Property="Background" Value="{DynamicResource BrushDialogPanel}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
       <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="CornerRadius" Value="{DynamicResource SettingsCardRadius}"/>
-      <Setter Property="Padding" Value="16,14"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource NurRadiusCard}"/>
+      <Setter Property="Padding" Value="{DynamicResource NurPadCard}"/>
     </Style>
     <Style Selector="TextBlock.cardTitle">
-      <Setter Property="FontSize" Value="15"/>
+      <Setter Property="FontSize" Value="{DynamicResource NurFontSubtitle}"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
     </Style>
     <Style Selector="TextBlock.hint">
-      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="FontSize" Value="{DynamicResource NurFontCaption}"/>
       <Setter Property="TextWrapping" Value="Wrap"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
     </Style>
     <Style Selector="TextBlock.label">
-      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="FontSize" Value="{DynamicResource NurFontBody}"/>
       <Setter Property="TextWrapping" Value="Wrap"/>
       <Setter Property="VerticalAlignment" Value="Center"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
@@ -56,37 +39,37 @@
       <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource BrushInputBorder}"/>
-      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-      <Setter Property="MinHeight" Value="44"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource NurRadiusControl}"/>
+      <Setter Property="MinHeight" Value="{DynamicResource NurHeightControl}"/>
       <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
     <Style Selector="NumericUpDown">
-      <Setter Property="MinHeight" Value="44"/>
+      <Setter Property="MinHeight" Value="{DynamicResource NurHeightControl}"/>
     </Style>
     <Style Selector="TabControl.scaletabs TabItem">
-      <Setter Property="FontSize" Value="14"/>
-      <Setter Property="MinHeight" Value="44"/>
+      <Setter Property="FontSize" Value="{DynamicResource NurFontBody}"/>
+      <Setter Property="MinHeight" Value="{DynamicResource NurHeightControl}"/>
       <Setter Property="Padding" Value="10,4"/>
     </Style>
   </Window.Styles>
 
-  <Grid Margin="16" RowDefinitions="Auto,Auto,*,Auto">
+  <Grid Margin="{DynamicResource NurPadCard}" RowDefinitions="Auto,Auto,*,Auto">
     <StackPanel Grid.Row="0" Spacing="2" Margin="0,0,0,8">
-      <TextBlock x:Name="TitleText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+      <TextBlock x:Name="TitleText" FontSize="{DynamicResource NurFontTitle}" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
       <TextBlock x:Name="ConnectionText" Classes="hint"/>
     </StackPanel>
 
-    <TextBlock Grid.Row="1" x:Name="IntroText" Classes="hint" Margin="0,0,0,8"/>
+    <TextBlock Grid.Row="1" x:Name="IntroText" Classes="label" Margin="0,0,0,8"/>
 
     <TabControl Grid.Row="2" x:Name="Tabs" Classes="scaletabs"/>
 
     <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="0,10,0,0">
-      <Border x:Name="ResultBorder" CornerRadius="8" Padding="10,8" BorderThickness="1"
+      <Border x:Name="ResultBorder" CornerRadius="{DynamicResource NurRadiusControl}" Padding="{DynamicResource NurPadButton}" MinHeight="{DynamicResource NurHeightControl}" BorderThickness="1"
               Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}">
-        <TextBlock x:Name="ResultText" TextWrapping="Wrap" FontSize="13" Foreground="{DynamicResource BrushText}"/>
+        <TextBlock x:Name="ResultText" TextWrapping="Wrap" VerticalAlignment="Center" FontSize="{DynamicResource NurFontBody}" Foreground="{DynamicResource BrushText}"/>
       </Border>
       <!-- 2026-10-22 (модалки, пакет 3): Esc = «Закрыть» (IsCancel). -->
-      <Button Grid.Column="1" x:Name="CloseButton" Classes="btn-ok" Margin="10,0,0,0" VerticalAlignment="Center" IsCancel="True"
+      <Button Grid.Column="1" x:Name="CloseButton" Classes="nur-secondary" Margin="10,0,0,0" VerticalAlignment="Center" IsCancel="True"
               Content="{DynamicResource common.close}" Click="Close_Click"/>
     </Grid>
   </Grid>

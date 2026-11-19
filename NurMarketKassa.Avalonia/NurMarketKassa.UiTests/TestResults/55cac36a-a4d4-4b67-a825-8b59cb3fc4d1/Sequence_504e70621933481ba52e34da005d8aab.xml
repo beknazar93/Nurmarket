@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<TestSequence>
+  <Test Name="NurMarketKassa.UiTests.Perf.SpeedBudgetUiTests.CashierWindow_SecondOpen_IsFast" DisplayName="NurMarketKassa.UiTests.Perf.SpeedBudgetUiTests.CashierWindow_SecondOpen_IsFast" Source="C:\Users\User\Desktop\Nurmarket\NurMarketKassa.Avalonia\NurMarketKassa.UiTests\bin\Debug\net8.0-windows\NurMarketKassa.UiTests.dll" Completed="False" />
+</TestSequence>

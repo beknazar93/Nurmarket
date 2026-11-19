@@ -16,6 +16,8 @@ public enum ProductFileKind
     Xlsx,
     Csv,
     Clipboard,
+    /// <summary>2026-11-19 (Л-10): XML 1С (CommerceML: import.xml / offers.xml).</summary>
+    Xml,
 }
 
 /// <summary>Кодировка CSV: «авто» — по BOM, иначе строгий UTF-8, не получилось — Windows-1251.</summary>
@@ -177,6 +179,9 @@ public static class ProductFileReader
             "Eski Excel formati (.xls) qo'llab-quvvatlanmaydi. Faylni .xlsx yoki CSV sifatida saqlang.");
         if (IsOleCompound(bytes))
             return ProductFileReadResult.Fail(xlsMessage);
+        // 2026-11-19 (Л-10, «перенос из 1С»): выгрузка 1С в формате CommerceML (import.xml / offers.xml) — тот же формат, что читает приход (InvoiceXmlParser).
+        if (CommerceMlReader.LooksLike(bytes))
+            return CommerceMlReader.Read(bytes, name);
         if (IsZip(bytes))
             return ReadXlsx(new MemoryStream(bytes, writable: false), name, sheet);
         if (path.EndsWith(".xls", StringComparison.OrdinalIgnoreCase))

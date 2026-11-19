@@ -898,8 +898,8 @@ public partial class PurchasesWindow
             // Очередь закрыта или диск не принял запись: строки остаются в списке, кассир повторит.
             s.Post.Content = postContent;
             PosLogger.Log($"Закупки: приход не поставлен в очередь ({ex.GetType().Name}: {ex.Message}).", "WARNING");
-            ReceiveMessage(ex is InvalidOperationException ? ex.Message
-                : T("Не удалось поставить приход в очередь: ", "Кирүүнү кезекке коюу мүмкүн болгон жок: ", "Could not queue the delivery: ", "Mal kabul kuyruğa alınamadı: ", "Kirimni navbatga qo'yib bo'lmadi: ") + ex.Message, warning: true);
+            ReceiveMessage(ex is InvalidOperationException ? NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)
+                : T("Не удалось поставить приход в очередь: ", "Кирүүнү кезекке коюу мүмкүн болгон жок: ", "Could not queue the delivery: ", "Mal kabul kuyruğa alınamadı: ", "Kirimni navbatga qo'yib bo'lmadi: ") + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex), warning: true);
             return;
         }
 

@@ -316,6 +316,12 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
         PosCheckoutRequest request,
         CancellationToken cancellationToken = default)
     {
+        // 2026-11-13 (Н-1): учебный режим — настоящая оплата запрещена (страховка: учебная продажа идёт мимо службы оплаты, BasketPanelViewModel.TrainingPayAsync).
+        if (TrainingMode.IsActive)
+        {
+            PosLogger.Log("Учебный режим: настоящая оплата отклонена службой оплаты.", "TRAINING");
+            return PosCheckoutResult.Failed(TrainingMode.BlockedText);
+        }
         if (!_cart.HasCart || _cart.LineCount == 0)
             return PosCheckoutResult.Failed(Tr.T("Добавьте товары в корзину.", "Себетке товар кошуңуз.", "Add products to the cart.", "Sepete ürün ekleyin.", "Savatga mahsulot qo'shing."));
 
@@ -1740,6 +1746,7 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
         }
         cartJsonSnapshot = WithConsultantForReceipt(cartJsonSnapshot, request);
         cartJsonSnapshot = WithDebtDueForReceipt(cartJsonSnapshot, request);
+        cartJsonSnapshot = ServerSerials.WithServerLines(cartJsonSnapshot, checkoutResponse); // 2026-11-14: serial_numbers и warranty_until из ответа pos/checkout/ — талон и чек печатаются из них
         // 2026-11-12 (ЭЛ2, сфера «Электроника»): продажа прошла — серийники строк в журнал этой кассы (в других сферах — ничего).
         SerialJournal.RecordSale(saleId, saleNumber?.ToString(CultureInfo.InvariantCulture), DateTime.Now, cartJsonSnapshot);
 
@@ -2484,15 +2491,36 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
     {
         try
         {
+            var receiptText = checkoutResponse.HasValue
+                ? CheckoutResponseHelper.TryReceiptTextFromCheckout(checkoutResponse.Value)
+                : null;
+            // 2026-11-19 (eKassa): сервер пробивает чек сам — печатаем его фискальный текст; не получился — обычный чек и запись в журнал.
+            if (NurMarketKassa.Services.Fiscal.FiscalSettings.ServerFiscalizes && checkoutResponse.HasValue && _salesApi is SalesApiService fiscalApi
+                && CheckoutResponseHelper.TrySaleId(checkoutResponse.Value) is { Length: > 0 } fiscalSaleId)
+            {
+                try
+                {
+                    var answer = await fiscalApi.PosFiscalReceiptAsync(fiscalSaleId).ConfigureAwait(false);
+                    var fiscalText = FiscalServerReceipt.ParseReady(answer, out var fiscalStatus);
+                    if (fiscalText is not null)
+                        receiptText = FiscalServerReceipt.Marker + fiscalText;
+                    else
+                        PosLogger.Log($"eKassa: фискальный чек продажи {fiscalSaleId} не получен (статус {fiscalStatus ?? "—"}) — печатаю обычный чек, сервер отправит повторно.", "WARNING");
+                        if (fiscalText is null) FiscalServerReceipt.RaiseNotSent(false);
+                }
+                catch (Exception fx) when (fx is not OperationCanceledException)
+                {
+                    PosLogger.Log($"eKassa: фискальный чек продажи {fiscalSaleId} не получен: {fx.Message} — печатаю обычный чек.", "WARNING");
+                    FiscalServerReceipt.RaiseNotSent(false);
+                }
+            }
             var printed = await _receiptPrinter.PrintReceiptAsync(new CartSnapshot
             {
                 CartJson = cartJson,
                 OfflineNote = offlineNote,
                 PaymentMethodKey = paymentMethod,
                 CashReceived = cashReceived,
-                ReceiptText = checkoutResponse.HasValue
-                    ? CheckoutResponseHelper.TryReceiptTextFromCheckout(checkoutResponse.Value)
-                    : null,
+                ReceiptText = receiptText,
             }, CancellationToken.None).ConfigureAwait(false);
             PosLogger.Log(printed ? "Receipt printed." : "Receipt printer returned failure.",
                 printed ? "PRINTER" : "WARNING");

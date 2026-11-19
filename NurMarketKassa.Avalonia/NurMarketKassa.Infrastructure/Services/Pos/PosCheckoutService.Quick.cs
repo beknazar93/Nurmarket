@@ -94,7 +94,9 @@ public sealed partial class PosCheckoutService
             request.ConsultantCommissionEnabled,
             request.ConsultantCommissionPercent,
             request.PrintReceipt,
-            out var unsupported);
+            out var unsupported,
+            request.ClientObjectId,
+            request.OverrideCreditLimit);
         if (body == null)
         {
             PosLogger.Log($"PAY quick: не подходит ({unsupported}) — старый путь.", "PAYMENT");
@@ -229,6 +231,18 @@ public sealed partial class PosCheckoutService
                 ClearInFlight(key);
                 PosLogger.Log($"PAY quick: сервер отказал — продажа ниже закупки без права can_sell_below_cost ({ex.StatusCode}). {DescribeQuickError(ex)}", "WARNING");
                 return PosCheckoutResult.Failed(BelowCostGuard.ServerDeniedText(ex, cartJson));
+            }
+            catch (ApiException ex) when (ServerErrorCodes.IsHardwareError(ex))
+            {
+                // 2026-11-14 (ответ Умара 13.11 вечер, строймаркет): упаковка не найдена / конфликт единиц / шаг и минимум количества / чужой объект / лимит долга клиента — отказ ДО записи продажи.
+                // Старым путём это не лечится (он продал бы без этих проверок — в том числе мимо лимита долга), очередью тоже: чек остаётся в кассе, кассиру — понятный текст.
+                // credit_limit_exceeded: владелец/админ может повторить оплату с override_credit_limit (BasketPanelViewModel спрашивает).
+                ForgetQuickKey();
+                ClearInFlight(key);
+                PosLogger.Log($"PAY quick: сервер отказал по строймаркету ({ex.StatusCode}). {DescribeQuickError(ex)}", "WARNING");
+                var ownerCanOverride = EmployeeAccessGate.CurrentUserIsOwnerOrAdmin();
+                var text = ServerErrorCodes.HardwareFriendly(ex, ownerCanOverride) ?? PaymentErrorMessages.ForCashier(ex);
+                return ServerErrorCodes.IsCreditLimitExceeded(ex) ? PosCheckoutResult.CreditLimitFailure(text) : PosCheckoutResult.Failed(text);
             }
             catch (ApiException ex) when (ServerErrorCodes.IsSerialError(ex))
             {
@@ -501,7 +515,8 @@ public sealed partial class PosCheckoutService
             return null;
         return QuickCheckoutBody.TryBuild(
                 _cart.GetRawText(), request.PaymentMethod, request.CashReceived, request.NonCashReceived, request.ClientId, shiftId,
-                request.ConsultantId, request.ConsultantCommissionEnabled, request.ConsultantCommissionPercent, request.PrintReceipt, out _)
+                request.ConsultantId, request.ConsultantCommissionEnabled, request.ConsultantCommissionPercent, request.PrintReceipt, out _,
+                request.ClientObjectId, request.OverrideCreditLimit)
             ?.ToJsonString();
     }
 

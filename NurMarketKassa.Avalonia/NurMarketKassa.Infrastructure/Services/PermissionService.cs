@@ -56,6 +56,10 @@ public sealed class PermissionService : IPermissionService
         if (permission == PosPermissions.SellBelowCost)
             return IsSellBelowCostAllowed(_authApi.UserPayload);
 
+        // 2026-11-13: «Работа на кассе» (can_use_pos) — закрыта только явным false у не-владельца (нужна для текста отказа, см. DeniedMessage).
+        if (permission == PosPermissions.UsePos)
+            return IsPosUseAllowed(_authApi.UserPayload);
+
         // 2026-10-18: «Интерфейс кассира», «Продажа», «Смены» — со своими правилами (не запирать
         // владельца/админа и компании, где доступы сотрудникам не выставлены).
         if (PosPermissions.CashierWork.Contains(permission, StringComparer.OrdinalIgnoreCase))
@@ -237,7 +241,7 @@ public sealed class PermissionService : IPermissionService
 
         // 2026-10-28 (Б-16): сервер может явно закрыть работу на кассе сотруднику полем can_use_pos=false (у всех true). Владельца и
         // админа это не касается (проверено выше). Поля нет (старый сервер) — прежнее поведение.
-        if (user.ValueKind == JsonValueKind.Object && user.TryGetProperty("can_use_pos", out var usePos) && usePos.ValueKind == JsonValueKind.False)
+        if (IsPosClosedByServer(user))
             return false;
 
         var names = ExtractPermissionNames(payload);
@@ -247,22 +251,78 @@ public sealed class PermissionService : IPermissionService
         return !PersonalAccessFlags.Any(names.Contains);
     }
 
-    /// <summary>2026-10-18: понятный отказ по доступу работы на кассе — что включить на сайте.</summary>
+    /// <summary>2026-11-13: сервер явно закрыл «Работу на кассе» полем can_use_pos=false (user — объект пользователя из профиля).</summary>
+    private static bool IsPosClosedByServer(JsonElement user) =>
+        user.ValueKind == JsonValueKind.Object && user.TryGetProperty("can_use_pos", out var usePos) && usePos.ValueKind == JsonValueKind.False;
+
+    /// <summary>2026-11-13: «Работа на кассе» разрешена: владелец/админ — всегда; остальным — если сервер не прислал can_use_pos=false.</summary>
+    public static bool IsPosUseAllowed(JsonElement payload)
+    {
+        if (HasOwnerOrAdminRole(payload))
+            return true;
+        var user = OfflineAuthSessionStore.ResolveUserObject(payload);
+        if (user.ValueKind != JsonValueKind.Object)
+            user = payload;
+        return !IsPosClosedByServer(user);
+    }
+
+    /// <summary>2026-10-18: понятный отказ по доступу работы на кассе — что включить на сайте.
+    /// 2026-11-13: подсказка «Управление → Сотрудники» (сотрудники теперь в программе владельца, а не в «Настройки → Сотрудники»); право «Работа на кассе» (can_use_pos) называется своим именем.</summary>
     public static string CashierWorkDeniedMessage(string permission)
     {
         var (ru, ky, en, tr, uz) = permission switch
         {
             PosPermissions.Sale => ("Продажа", "Сатуу", "Sale", "Satış", "Sotuv"),
             PosPermissions.ViewShifts => ("Смены", "Сменалар", "Shifts", "Vardiyalar", "Smenalar"),
+            PosPermissions.UsePos => ("Работа на кассе", "Кассада иштөө", "Work at the till", "Kasada çalışma", "Kassada ishlash"),
             _ => ("Интерфейс кассира", "Кассир интерфейси", "Cashier interface", "Kasiyer arayüzü", "Kassir interfeysi"),
         };
-        return Tr.T(
-            $"Нет доступа «{ru}». Попросите владельца включить его на сайте app.nurcrm.kg: Сотрудники → ваш сотрудник → Доступы → «{ru}» (или в кассе владельца: Настройки → Сотрудники → 🔐).",
-            $"«{ky}» укугу жок. Ээсинен аны app.nurcrm.kg сайтында күйгүзүүнү сураныңыз: Кызматкерлер → сиздин кызматкер → Укуктар → «{ky}» (же ээсинин кассасында: Жөндөөлөр → Кызматкерлер → 🔐).",
-            $"No “{en}” permission. Ask the owner to turn it on at app.nurcrm.kg: Employees → your employee → Permissions → “{en}” (or in the owner's till: Settings → Employees → 🔐).",
-            $"«{tr}» erişimi yok. Sahibinden app.nurcrm.kg sitesinde açmasını isteyin: Personel → personeliniz → Erişimler → «{tr}» (veya sahibinin kasasında: Ayarlar → Personel → 🔐).",
-            $"«{uz}» huquqi yo'q. Egasidan uni app.nurcrm.kg saytida yoqishni so'rang: Xodimlar → sizning xodimingiz → Huquqlar → «{uz}» (yoki egasining kassasida: Sozlamalar → Xodimlar → 🔐).");
+        return NamedRightMessage(ru, ky, en, tr, uz);
     }
+
+    private static string NamedRightMessage(string ru, string ky, string en, string tr, string uz) => Tr.T(
+        $"Нет доступа «{ru}». Попросите владельца включить его на сайте app.nurcrm.kg: Сотрудники → ваш сотрудник → Доступы → «{ru}» (или в программе владельца: Управление → Сотрудники).",
+        $"«{ky}» укугу жок. Ээсинен аны app.nurcrm.kg сайтында күйгүзүүнү сураныңыз: Кызматкерлер → сиздин кызматкер → Укуктар → «{ky}» (же ээсинин программасында: Башкаруу → Кызматкерлер).",
+        $"No “{en}” permission. Ask the owner to turn it on at app.nurcrm.kg: Employees → your employee → Permissions → “{en}” (or in the owner's program: Management → Employees).",
+        $"«{tr}» erişimi yok. Sahibinden app.nurcrm.kg sitesinde açmasını isteyin: Personel → personeliniz → Erişimler → «{tr}» (veya sahibinin programında: Yönetim → Personel).",
+        $"«{uz}» huquqi yo'q. Egasidan uni app.nurcrm.kg saytida yoqishni so'rang: Xodimlar → sizning xodimingiz → Huquqlar → «{uz}» (yoki egasining dasturida: Boshqaruv → Xodimlar).");
+
+    /// <summary>2026-11-13 (живая проверка доступов, замечание 5): отказ с названием права. «Продажа», «Смены», «Интерфейс кассира» при закрытой «Работе на кассе» (can_use_pos=false) называют именно её —
+    /// раньше кассир видел «Нет доступа «Продажа»», хотя «Продажа» была включена. Остальные права — по названию из формы доступов; неизвестное — общий текст.</summary>
+    public static string DeniedMessage(IPermissionService? permissions, string permission)
+    {
+        if (PosPermissions.CashierWork.Contains(permission, StringComparer.OrdinalIgnoreCase))
+            return CashierWorkDeniedMessage(permissions is not null && !permissions.HasPermission(PosPermissions.UsePos) ? PosPermissions.UsePos : permission);
+        if (permission == PosPermissions.UsePos)
+            return CashierWorkDeniedMessage(permission);
+        var named = permission switch
+        {
+            PosPermissions.ViewSettings => ("Настройки", "Жөндөөлөр", "Settings", "Ayarlar", "Sozlamalar"),
+            PosPermissions.ApplyDiscount => ("Скидка в кассе", "Кассадагы арзандатуу", "Discount at checkout", "Kasada indirim", "Kassada chegirma"),
+            PosPermissions.DeleteCartItem => ("Удаление позиций из корзины", "Себеттен позицияларды өчүрүү", "Removing items from the cart", "Sepetten ürün silme", "Savatdan pozitsiyalarni o'chirish"),
+            PosPermissions.EditPrice => ("Изменение цены в кассе", "Кассада баасын өзгөртүү", "Price change at checkout", "Kasada fiyat değiştirme", "Kassada narxni o'zgartirish"),
+            PosPermissions.ViewScales => ("Интеграция с весами", "Тараза менен интеграция", "Scale integration", "Tartı entegrasyonu", "Tarozi bilan integratsiya"),
+            PosPermissions.ViewLabels => ("Печать штрих-кодов", "Штрихкод басып чыгаруу", "Barcode printing", "Barkod yazdırma", "Shtrix-kod chop etish"),
+            PosPermissions.ViewProducts => ("Склад", "Склад", "Warehouse", "Depo", "Ombor"),
+            PosPermissions.EditProducts => ("Склад: редактирование", "Склад: түзөтүү", "Warehouse: edit", "Depo: düzenleme", "Ombor: tahrirlash"),
+            PosPermissions.ViewAnalytics => ("Аналитика", "Аналитика", "Analytics", "Analitik", "Analitika"),
+            PosPermissions.ViewClients => ("Клиенты", "Кардарлар", "Clients", "Müşteriler", "Mijozlar"),
+            PosPermissions.EmployeeReturn => ("Возврат продаж сотрудником", "Кызматкер тарабынан кайтаруу", "Sales returns by employee", "Personel tarafından iade", "Xodim tomonidan sotuvlarni qaytarish"),
+            PosPermissions.SellBelowCost => ("Продажа ниже закупки", "Сатып алуу баасынан төмөн сатуу", "Selling below cost", "Alış fiyatının altında satış", "Xarid narxidan past sotish"),
+            _ => default((string, string, string, string, string)),
+        };
+        if (named.Item1 is null)
+            return Tr.T("Недостаточно прав для выполнения этой операции.", "Бул операцияны аткарууга укук жетишсиз.", "Insufficient permissions to perform this operation.", "Bu işlemi gerçekleştirmek için yetkiniz yok.", "Bu amalni bajarish uchun huquq yetarli emas.");
+        return NamedRightMessage(named.Item1, named.Item2, named.Item3, named.Item4, named.Item5);
+    }
+
+    /// <summary>2026-11-13: «Интерфейс кассира» отняли, а в чеке есть товары — кассира не обрываем, касса закроется после этого чека.</summary>
+    public static string CashierInterfaceRevokedWithCheckMessage() => Tr.T(
+        "Владелец отключил вам «Интерфейс кассира». Завершите или отложите текущий чек — после этого касса закроется и вернётся к окну входа.",
+        "Ээси сизден «Кассир интерфейси» укугун алып салды. Учурдагы чекти аягына чыгарыңыз же кийинкиге калтырыңыз — андан кийин касса жабылып, кирүү терезесине кайтат.",
+        "The owner turned off your “Cashier interface” permission. Finish or hold the current receipt — then the till will close and return to the sign-in window.",
+        "Sahibi «Kasiyer arayüzü» yetkinizi kapattı. Mevcut fişi tamamlayın veya bekletin — ardından kasa kapanır ve giriş penceresine döner.",
+        "Egasi sizning «Kassir interfeysi» huquqingizni o'chirdi. Joriy chekni yakunlang yoki kechiktiring — shundan keyin kassa yopiladi va kirish oynasiga qaytadi.");
 
     public void Demand(string permission)
     {

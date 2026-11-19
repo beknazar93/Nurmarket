@@ -707,7 +707,7 @@ public sealed class ExchangeWindow : Window
             var left = CartDisplayHelper.LineLooksFullyReturned(item) ? 0 : CartDisplayHelper.RefundableQuantity(item);
             if (row.Qty > left + 1e-6)
             {
-                var leftText = left.ToString("0.###", CultureInfo.InvariantCulture);
+                var leftText = NurMarketKassa.Services.MoneyText.Weight(left, "0.###"); // 2026-11-13 (Д-5): запятая (общий формат), было с точкой
                 PosLogger.Log($"Обмен по продаже {_saleId}: «{row.Line.Title}» — к возврату {row.Qty:0.###}, по чеку осталось {leftText}; обмен не отправлен.", "WARNING");
                 return T($"«{row.Line.Title}»: по чеку к возврату осталось {leftText} — часть уже вернули на другой кассе или на сайте. Закройте окно: чек перечитается, и выберите заново.",
                     $"«{row.Line.Title}»: чек боюнча кайтарууга {leftText} калды — бир бөлүгү башка кассада же сайтта кайтарылган. Терезени жабыңыз: чек кайра окулат, кайра тандаңыз.",
@@ -785,7 +785,7 @@ public sealed class ExchangeWindow : Window
         var qtyPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0) };
         if (step != null)
             qtyPanel.Children.Add(SmallButton("−", () => step(-1), T("Убавить: ", "Азайтуу: ", "Decrease: ", "Azalt: ", "Kamaytirish: ") + title));
-        var q = new TextBlock { Text = "× " + qty.ToString("0.###", CultureInfo.InvariantCulture), FontSize = 14.5, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center, MinWidth = 36, TextAlignment = TextAlignment.Center };
+        var q = new TextBlock { Text = "× " + NurMarketKassa.Services.MoneyText.Weight(qty, "0.###"), FontSize = 14.5, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center, MinWidth = 36, TextAlignment = TextAlignment.Center }; // 2026-11-13 (Д-5): запятая (общий формат), было с точкой
         Use(q, TextBlock.ForegroundProperty, "BrushText");
         qtyPanel.Children.Add(q);
         if (step != null)

@@ -90,14 +90,14 @@ public static class SupportLogService
     public static bool IsConfigured => LoadConfig() is not null;
 
     /// <summary>Подпись к журналу: кто прислал. Без паролей и токенов.</summary>
-    public static string BuildCaption(string? note)
+    public static string BuildCaption(string? note, string title = "📋 Журнал NurCRM")
     {
         var company = CompanyInfoService.LastCompany?.Name;
         if (string.IsNullOrWhiteSpace(company))
             company = UserPreferences.Instance.StoreName;
         var version = Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "?";
         var sb = new StringBuilder()
-            .AppendLine("📋 Журнал NurCRM")
+            .AppendLine(title)
             .AppendLine($"Компания: {(string.IsNullOrWhiteSpace(company) ? "—" : company)}")
             .AppendLine($"Логин: {(string.IsNullOrWhiteSpace(PosApp.CurrentUserId) ? "—" : PosApp.CurrentUserId)}")
             .AppendLine($"Программа: {(AppMode.IsOwner ? "Владелец" : "Касса")} {version}")
@@ -114,7 +114,7 @@ public static class SupportLogService
     {
         var config = LoadConfig();
         if (config is null)
-            return "Бот поддержки ещё не подключён.";
+            return NotConfiguredMessage;
 
         byte[] zip;
         try
@@ -127,14 +127,32 @@ public static class SupportLogService
             return "Не удалось собрать журнал: " + ex.Message;
         }
 
+        return await PostZipAsync(config, zip, BuildCaption(note), "nurmarket-log", ct).ConfigureAwait(false);
+    }
+
+    /// <summary>2026-11-13 (Л-9): обращение из окна «Написать в поддержку» — готовый zip (описание, хвост журнала, снимок) тем же каналом (бот поддержки,
+    /// sendDocument в чат поддержки). null — отправлено, иначе текст ошибки; <see cref="NotConfiguredMessage"/> — бот не подключён.</summary>
+    public static async Task<string?> SendRequestAsync(byte[] zip, string caption, CancellationToken ct = default)
+    {
+        var config = LoadConfig();
+        if (config is null)
+            return NotConfiguredMessage;
+        return await PostZipAsync(config, zip, caption, "nurmarket-request", ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Текст ответа, когда файл настроек бота не найден (по нему окно обращения отличает «не подключено» от сбоя связи).</summary>
+    public const string NotConfiguredMessage = "Бот поддержки ещё не подключён.";
+
+    private static async Task<string?> PostZipAsync(Config config, byte[] zip, string caption, string filePrefix, CancellationToken ct)
+    {
         try
         {
             using var form = new MultipartFormDataContent();
             form.Add(new StringContent(config.ChatId), "chat_id");
-            form.Add(new StringContent(BuildCaption(note)), "caption");
+            form.Add(new StringContent(caption), "caption");
             var file = new ByteArrayContent(zip);
             file.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/zip");
-            form.Add(file, "document", $"nurmarket-log-{SafeName(CompanyInfoService.LastCompany?.Name)}-{DateTime.Now:yyyyMMdd-HHmm}.zip");
+            form.Add(file, "document", $"{filePrefix}-{SafeName(CompanyInfoService.LastCompany?.Name)}-{DateTime.Now:yyyyMMdd-HHmm}.zip");
             using var response = await Http.PostAsync($"https://api.telegram.org/bot{config.Token}/sendDocument", form, ct)
                 .ConfigureAwait(false);
             if (response.IsSuccessStatusCode)
@@ -210,7 +228,12 @@ public static class SupportLogService
             fs.Seek(-MaxLogBytesPerFile, SeekOrigin.End);
         var entry = archive.CreateEntry(entryName, CompressionLevel.Optimal);
         using var es = entry.Open();
-        fs.CopyTo(es);
+        // 2026-11-13 (Л-9): при записи журнал уже очищается, но старые файлы могли быть написаны до очистки — перед отправкой чистим ещё раз.
+        using var reader = new StreamReader(fs, Encoding.UTF8);
+        using var writer = new StreamWriter(es, new UTF8Encoding(false));
+        // Построчно: шаблон телефона допускает пробелы между цифрами и на целом тексте склеивал соседние строки.
+        while (reader.ReadLine() is { } line)
+            writer.WriteLine(SensitiveDataRedactor.Redact(line));
     }
 
     private static string SafeName(string? name)

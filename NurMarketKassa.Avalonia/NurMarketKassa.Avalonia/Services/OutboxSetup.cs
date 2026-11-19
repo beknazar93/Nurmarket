@@ -32,6 +32,8 @@ public static class OutboxSetup
         svc.Register(new ProductOutboxSource());
         svc.Register(new ShiftCloseOutboxSource());
         svc.Register(new CashOperationsOutboxSource());
+        svc.Register(new StockOpsOutboxSource()); // 2026-11-14 (Л-6): списания и перемещения без связи
+        svc.Register(new RevisionDraftOutboxSource()); // 2026-11-14 (Л-6): посчитанная, но не проведённая ревизия (только показ)
         svc.ReachCheck ??= async ct =>
         {
             var auth = App.GetRequiredService<IAuthApiService>();

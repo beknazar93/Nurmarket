@@ -548,7 +548,8 @@ public static class AccountDataIsolation
             var files = new Dictionary<string, string>();
             foreach (var name in new[] { "deferred_carts.json", "cash_history.json", "pending_debt_prepayments.json", "offline_sales_pending.json",
                          "offline_operations.json", "pending_unknown_checkout.json", "loyalty-queue.json", "telegram-inquiries.json", "telegram-customers.json",
-                         Path.Combine("debt-payments", "debt-payments-unknown.json"), "pending-products.json" /* 2026-11-06: новые товары, не дошедшие до сервера */ })
+                         Path.Combine("debt-payments", "debt-payments-unknown.json"), "pending-products.json" /* 2026-11-06: новые товары, не дошедшие до сервера */,
+                         "pending-stock-ops.json" /* 2026-11-14 (Л-6): списания и перемещения без связи */ })
             {
                 var file = Path.Combine(Root, name);
                 if (File.Exists(file))

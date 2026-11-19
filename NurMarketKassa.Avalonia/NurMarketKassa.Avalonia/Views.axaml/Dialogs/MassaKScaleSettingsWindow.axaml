@@ -1,0 +1,76 @@
+﻿<!-- 2026-11-13: «Настройки весов Масса-К» (серии R, SL) — по образцу CasScaleSettingsWindow: вкладки строятся в коде, общие кнопки nur-primary / nur-secondary и шкала размеров Nur* (App.axaml). -->
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.MassaKScaleSettingsWindow"
+        x:CompileBindings="False"
+        Width="900" Height="720" MinWidth="640" MinHeight="480"
+        WindowStartupLocation="CenterOwner"
+        FontFamily="Segoe UI"
+        Background="{DynamicResource BrushPanel}">
+
+  <Window.Styles>
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="{DynamicResource BrushDialogPanel}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource NurRadiusCard}"/>
+      <Setter Property="Padding" Value="{DynamicResource NurPadCard}"/>
+    </Style>
+    <Style Selector="TextBlock.cardTitle">
+      <Setter Property="FontSize" Value="{DynamicResource NurFontSubtitle}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+    <Style Selector="TextBlock.hint">
+      <Setter Property="FontSize" Value="{DynamicResource NurFontCaption}"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+    </Style>
+    <Style Selector="TextBlock.label">
+      <Setter Property="FontSize" Value="{DynamicResource NurFontBody}"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+    <Style Selector="TextBox">
+      <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushInputBorder}"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource NurRadiusControl}"/>
+      <Setter Property="MinHeight" Value="{DynamicResource NurHeightControl}"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="NumericUpDown">
+      <Setter Property="MinHeight" Value="{DynamicResource NurHeightControl}"/>
+    </Style>
+    <Style Selector="ComboBox">
+      <Setter Property="MinHeight" Value="{DynamicResource NurHeightControl}"/>
+    </Style>
+    <Style Selector="TabControl.scaletabs TabItem">
+      <Setter Property="FontSize" Value="{DynamicResource NurFontBody}"/>
+      <Setter Property="MinHeight" Value="{DynamicResource NurHeightControl}"/>
+      <Setter Property="Padding" Value="10,4"/>
+    </Style>
+  </Window.Styles>
+
+  <Grid Margin="{DynamicResource NurPadCard}" RowDefinitions="Auto,Auto,*,Auto">
+    <StackPanel Grid.Row="0" Spacing="2" Margin="0,0,0,8">
+      <TextBlock x:Name="TitleText" FontSize="{DynamicResource NurFontTitle}" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+      <TextBlock x:Name="ConnectionText" Classes="hint"/>
+    </StackPanel>
+
+    <TextBlock Grid.Row="1" x:Name="IntroText" Classes="hint" Margin="0,0,0,8"/>
+
+    <TabControl Grid.Row="2" x:Name="Tabs" Classes="scaletabs"/>
+
+    <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="0,10,0,0">
+      <Border x:Name="ResultBorder" CornerRadius="{DynamicResource NurRadiusControl}" Padding="{DynamicResource NurPadButton}" MinHeight="{DynamicResource NurHeightControl}" BorderThickness="1"
+              Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}">
+        <TextBlock x:Name="ResultText" TextWrapping="Wrap" VerticalAlignment="Center" FontSize="{DynamicResource NurFontBody}" Foreground="{DynamicResource BrushText}"/>
+      </Border>
+      <Button Grid.Column="1" x:Name="CloseButton" Classes="nur-secondary" Margin="10,0,0,0" VerticalAlignment="Center" IsCancel="True"
+              Content="{DynamicResource common.close}" Click="Close_Click"/>
+    </Grid>
+  </Grid>
+</Window>

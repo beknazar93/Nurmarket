@@ -292,6 +292,14 @@ namespace NurMarketKassa.Models
         public bool? CanEditPurchaseDocuments { get; set; }
         public bool? CanUsePos { get; set; }
 
+        /// <summary>2026-11-13 (живая проверка доступов, ошибка 6): «Продажа ниже закупки» (can_sell_below_cost) — владелец выдаёт сотруднику тем же PATCH employees/{id}/, что и сайт.
+        /// Сервер у владельца/админа и у сотрудника без права присылает null — для формы это «не выдано» (false); в запрос поле идёт, только если форма его показала
+        /// (<see cref="SellBelowCostShown"/>), и в <see cref="ChangedFields"/> попадает лишь при изменении (null и false равны).</summary>
+        public bool? CanSellBelowCost { get; set; }
+
+        /// <summary>2026-11-13: переключатель «Продажа ниже закупки» есть в форме (карточка сотрудника прочитана с сервера); при создании сотрудника его нет.</summary>
+        public bool SellBelowCostShown { get; set; }
+
         /// <summary>2026-10-28: только изменившиеся флаги (PATCH не шлёт то, что владелец не трогал, и не затирает чужие правки
         /// другим устройством). original == null — все поля.</summary>
         public Dictionary<string, object> ChangedFields(EmployeeAccessFlags? original)
@@ -337,7 +345,8 @@ namespace NurMarketKassa.Models
          .WithOptional("can_edit_clients", CanEditClients).WithOptional("can_edit_cashbox", CanEditCashbox)
          .WithOptional("can_edit_settings", CanEditSettings).WithOptional("can_edit_procurement", CanEditProcurement)
          .WithOptional("can_edit_documents", CanEditDocuments).WithOptional("can_view_debts", CanViewDebts).WithOptional("can_edit_purchase_documents", CanEditPurchaseDocuments)
-         .WithOptional("can_use_pos", CanUsePos);
+         .WithOptional("can_use_pos", CanUsePos)
+         .WithOptional("can_sell_below_cost", SellBelowCostShown ? CanSellBelowCost ?? false : (bool?)null);
     }
 
     internal static class EmployeeFlagExtensions

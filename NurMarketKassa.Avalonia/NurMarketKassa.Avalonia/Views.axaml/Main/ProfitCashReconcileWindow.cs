@@ -234,6 +234,8 @@ public sealed class ProfitCashReconcileWindow : Window, IOwnerSectionRefresh, IO
                 await Task.Delay(250, ct).ConfigureAwait(true);
             _loadedOnce = true;
             var pnlTask = Get("api/main/analytics/pnl/");
+            // 2026-11-13 (Л-13): прибыль прошлого периода (те же правила, что у «Сводки» и «Кассиров и часов») — строки «↑↓ %» под прибылью; сбой не мешает окну.
+            var prevPnlTask = GetPreviousPnlAsync(api, from, to, ct);
             var cashTask = Get("api/main/analytics/cashflow/");
             var checkTask = Get("api/main/analytics/reconcile/");
             // 2026-10-06, ТЗ ч.12, п. 3.1 (сервер выложил 05.10): доход без задвоения — одна продажа = один доход,
@@ -266,7 +268,7 @@ public sealed class ProfitCashReconcileWindow : Window, IOwnerSectionRefresh, IO
                 _status.Text = "";
                 return;
             }
-            RenderPnl(pnl);
+            RenderPnl(pnl, await prevPnlTask.ConfigureAwait(true), from, to);
             RenderArticles(await articlesTask.ConfigureAwait(true));
             RenderCash(cash);
             RenderFinance(finance);
@@ -294,7 +296,68 @@ public sealed class ProfitCashReconcileWindow : Window, IOwnerSectionRefresh, IO
         }
     }
 
-    private void RenderPnl(JsonElement? data)
+    /// <summary>2026-11-13 (Л-13): отчёт «Прибыль и убытки» за предыдущий период (день к вчера, 7 дней к прошлым 7, месяц к прошлому месяцу, 3 месяца к предыдущим);
+    /// null — сервер не ответил.</summary>
+    private async Task<JsonElement?> GetPreviousPnlAsync(NurMarketApiClient api, DateTime from, DateTime to, CancellationToken ct)
+    {
+        var kind = _period switch
+        {
+            "today" => OwnerReportsMath.PeriodKind.Day,
+            "week" => OwnerReportsMath.PeriodKind.Week,
+            "month" => OwnerReportsMath.PeriodKind.Month,
+            _ => OwnerReportsMath.PeriodKind.Custom,
+        };
+        var (pFrom, pTo) = OwnerReportsMath.ComparePeriod(from, to, kind, OwnerReportsMath.CompareBase.Previous);
+        var query = new Dictionary<string, string>
+        {
+            ["date_from"] = pFrom.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            ["date_to"] = pTo.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+        };
+        try
+        {
+            return await api.RequestAsync(HttpMethod.Get, "api/main/analytics/pnl/", null, query, ct, TimeSpan.FromSeconds(60)).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Прибыль и деньги: прибыль прошлого периода не получена: {ex.Message}", "WARNING");
+            return null;
+        }
+    }
+
+    /// <summary>2026-11-13 (Л-13): блок «Сравнение с прошлым периодом» — выручка, валовая и чистая прибыль со стрелкой ↑↓ и процентом; прошлого нет — блока нет.</summary>
+    private void AddPnlCompare(JsonElement current, JsonElement? previous, DateTime from, DateTime to)
+    {
+        if (previous is not { ValueKind: JsonValueKind.Object } prev)
+            return;
+        var kind = _period switch
+        {
+            "today" => OwnerReportsMath.PeriodKind.Day,
+            "week" => OwnerReportsMath.PeriodKind.Week,
+            "month" => OwnerReportsMath.PeriodKind.Month,
+            _ => OwnerReportsMath.PeriodKind.Custom,
+        };
+        var (pFrom, pTo) = OwnerReportsMath.ComparePeriod(from, to, kind, OwnerReportsMath.CompareBase.Previous);
+        _pnl.Children.Add(Head(Tr.T($"Сравнение: {PeriodRange.Label(pFrom, pTo)}", $"Салыштыруу: {PeriodRange.Label(pFrom, pTo)}", $"Comparison: {PeriodRange.Label(pFrom, pTo)}",
+            $"Karşılaştırma: {PeriodRange.Label(pFrom, pTo)}", $"Taqqoslash: {PeriodRange.Label(pFrom, pTo)}")));
+        foreach (var (title, key) in new[]
+                 {
+                     (Tr.T("Выручка", "Түшүм", "Revenue", "Ciro", "Tushum"), "revenue"),
+                     (ProfitTerms.Gross, "gross_profit"),
+                     (ProfitTerms.Net, "operating_profit"),
+                 })
+        {
+            var cur = (decimal)(Num(current, key) ?? 0);
+            var was = (decimal)(Num(prev, key) ?? 0);
+            // Дельта от отрицательной или нулевой прибыли не считается (сравнивать не с чем) — показываем прежнюю сумму без процента.
+            _pnl.Children.Add(Row(title, OwnerReportsMath.Arrow(OwnerReportsMath.DeltaPercent(cur, was)) + "  ·  " + Tr.T("было", "болгон", "was", "önceki", "oldin") + " " + MoneyText.Som(was), false));
+        }
+    }
+
+    private void RenderPnl(JsonElement? data, JsonElement? previous = null, DateTime from = default, DateTime to = default)
     {
         _pnl.Children.Clear();
         if (data is not { ValueKind: JsonValueKind.Object } d)
@@ -326,6 +389,8 @@ public sealed class ProfitCashReconcileWindow : Window, IOwnerSectionRefresh, IO
         // как считается.
         _pnl.Children.Add(Row(ProfitTerms.Net, Money(d, "operating_profit"), true,
             result: Num(d, "operating_profit") ?? 0));
+        if (from != default)
+            AddPnlCompare(d, previous, from, to);
         _pnl.Children.Add(Soft(ProfitTerms.GrossHow + ".\n" + ProfitTerms.NetHow + "."));
         _pnl.Children.Add(Soft(Tr.T("Закупка товара прибыль не уменьшает, пока товар не продан: в прибыль идёт себестоимость проданных строк.",
             "Товар сатылмайынча сатып алуу пайданы азайтпайт: пайдага сатылган саптардын өздүк наркы кирет.",

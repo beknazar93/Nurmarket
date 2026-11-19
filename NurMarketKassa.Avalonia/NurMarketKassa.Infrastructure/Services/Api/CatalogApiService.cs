@@ -1184,6 +1184,9 @@ public sealed partial class CatalogApiService : ICatalogApiService
             body["track_serials"] = trackSerials;
         if (r.SendWarrantyMonths)
             body["warranty_months"] = r.WarrantyMonths is > 0 ? r.WarrantyMonths : null;
+        // 2026-11-14 (П0-1): ставка НДС товара — только если владелец её менял (null = «ставка компании»), строкой «12.00», как остальные десятичные поля.
+        if (r.SendVatRate)
+            body["vat_rate"] = r.VatRate is { } vatRate ? Fiscal.FiscalFormRules.ToApi(vatRate) : null;
         // 2026-10-20: поставщик товара — «client» (id поставщика или null), как в buildProductPayload сайта; только если выбран в окне.
         if (r.SupplierId is { } supplierId)
             body["client"] = supplierId.Trim().Length == 0 ? null : supplierId.Trim();

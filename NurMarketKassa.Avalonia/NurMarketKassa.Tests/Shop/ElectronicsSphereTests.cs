@@ -301,7 +301,8 @@ public sealed class ElectronicsSphereTests : IDisposable
         var body = QuickCheckoutBody.TryBuild(cart.GetRawText(), "cash", "50000", null, null, shift, null, false, null, false, out _);
         body.Should().NotBeNull();
         var bodyText = body!.ToJsonString();
-        bodyText.Should().NotContain("serial").And.NotContain(ValidImei).And.NotContain("warranty");
+        // 2026-11-19: с 14.11 (ответ Умара 13.11) сервер сохраняет serial_numbers всегда — номера уходят в строку продажи, гарантия (warranty) — нет, она приходит с сервера
+        bodyText.Should().Contain("serial_numbers").And.Contain(ValidImei).And.NotContain("warranty");
 
         ReceiptSnapshotCartEditor.UpdateLineQuantity(cart, itemId, 1);
         using var doc2 = JsonDocument.Parse(cart.GetRawText());

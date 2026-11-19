@@ -23,6 +23,10 @@ internal static partial class ScaleUi
     public const string BrandTm = "tm";
     /// <summary>2026-11-06: весы «Штрих РС-200С2» — обмен файлами через общую папку весов (не сеть по протоколу).</summary>
     public const string BrandShtrikhPc = "shtrikhpc";
+    /// <summary>2026-11-13: весы CAS (CL5000J/CL3000 по сети, остальные CL — файл для CL-Works). Настройки — CasScaleSettings (локально).</summary>
+    public const string BrandCas = "cas";
+    /// <summary>2026-11-13: весы с печатью этикеток АО «Масса-К» (серии R и SL) — обмен по TCP 5001 (MassaKProtocol).</summary>
+    public const string BrandMassaK = "massak";
 
     public static string L(string ru, string ky, string en, string tr, string uz) => OwnerPath(Tr.T(ru, ky, en, tr, uz));
 
@@ -59,7 +63,9 @@ internal static partial class ScaleUi
     /// остальные — обводкой (btn-ok). Высота 44 — в стилях окон.</summary>
     public static Button MakeButton(string text, bool primary, EventHandler<RoutedEventArgs> onClick)
     {
-        var button = new Button { Content = text, Classes = { primary ? "btn-primary" : "btn-ok" } };
+        // 2026-11-13 (Д-7): общие кнопки программы — nur-primary / nur-secondary (PosDialogStyles); прежние имена оставлены рядом
+        // для окон, где ещё есть местный стиль btn-ok («Поиск весов в сети»).
+        var button = new Button { Content = text, Classes = { primary ? "nur-primary" : "nur-secondary", primary ? "btn-primary" : "btn-ok" } };
         button.Click += onClick;
         return button;
     }
@@ -280,19 +286,19 @@ internal static partial class ScaleUi
         }
         else if (isWeight && Math.Abs(parsed.Value - grams / 1000.0) > 0.0005)
         {
-            problems.Add(L($"касса прочтёт {parsed.Value:0.000} кг вместо {grams / 1000.0:0.000} кг — единица веса на весах другая",
-                $"касса {grams / 1000.0:0.000} кг ордуна {parsed.Value:0.000} кг окуйт — таразадагы салмак бирдиги башка",
-                $"the till reads {parsed.Value:0.000} kg instead of {grams / 1000.0:0.000} kg — the scale uses another weight unit",
-                $"kasa {grams / 1000.0:0.000} kg yerine {parsed.Value:0.000} kg okur — tartının ağırlık birimi farklı",
-                $"kassa {grams / 1000.0:0.000} kg o‘rniga {parsed.Value:0.000} kg o‘qiydi — tarozidagi vazn birligi boshqa"));
+            problems.Add(L($"касса прочтёт {MoneyText.Weight(parsed.Value, "0.000")} кг вместо {MoneyText.Weight(grams / 1000.0, "0.000")} кг — единица веса на весах другая",
+                $"касса {MoneyText.Weight(grams / 1000.0, "0.000")} кг ордуна {MoneyText.Weight(parsed.Value, "0.000")} кг окуйт — таразадагы салмак бирдиги башка",
+                $"the till reads {MoneyText.Weight(parsed.Value, "0.000")} kg instead of {MoneyText.Weight(grams / 1000.0, "0.000")} kg — the scale uses another weight unit",
+                $"kasa {MoneyText.Weight(grams / 1000.0, "0.000")} kg yerine {MoneyText.Weight(parsed.Value, "0.000")} kg okur — tartının ağırlık birimi farklı",
+                $"kassa {MoneyText.Weight(grams / 1000.0, "0.000")} kg o‘rniga {MoneyText.Weight(parsed.Value, "0.000")} kg o‘qiydi — tarozidagi vazn birligi boshqa"));
         }
         else if (!isWeight && Math.Abs(parsed.Value - (double)amountSom) > 0.005)
         {
-            problems.Add(L($"касса прочтёт {parsed.Value:0.00} сом вместо {amountSom:0.00} — единица суммы (тыйын/сом) или длина поля не совпадает",
-                $"касса {amountSom:0.00} ордуна {parsed.Value:0.00} сом окуйт — сумманын бирдиги (тыйын/сом) же талаанын узундугу дал келбейт",
-                $"the till reads {parsed.Value:0.00} som instead of {amountSom:0.00} — amount unit (tiyin/som) or field length differs",
-                $"kasa {amountSom:0.00} yerine {parsed.Value:0.00} som okur — tutar birimi (tiyin/som) veya alan uzunluğu farklı",
-                $"kassa {amountSom:0.00} o‘rniga {parsed.Value:0.00} so‘m o‘qiydi — summa birligi (tiyin/so‘m) yoki maydon uzunligi mos emas"));
+            problems.Add(L($"касса прочтёт {MoneyText.Amount(parsed.Value)} сом вместо {MoneyText.Amount(amountSom)} — единица суммы (тыйын/сом) или длина поля не совпадает",
+                $"касса {MoneyText.Amount(amountSom)} ордуна {MoneyText.Amount(parsed.Value)} сом окуйт — сумманын бирдиги (тыйын/сом) же талаанын узундугу дал келбейт",
+                $"the till reads {MoneyText.Amount(parsed.Value)} som instead of {MoneyText.Amount(amountSom)} — amount unit (tiyin/som) or field length differs",
+                $"kasa {MoneyText.Amount(amountSom)} yerine {MoneyText.Amount(parsed.Value)} som okur — tutar birimi (tiyin/som) veya alan uzunluğu farklı",
+                $"kassa {MoneyText.Amount(amountSom)} o‘rniga {MoneyText.Amount(parsed.Value)} so‘m o‘qiydi — summa birligi (tiyin/so‘m) yoki maydon uzunligi mos emas"));
         }
 
         if (problems.Count > 0)
@@ -301,8 +307,9 @@ internal static partial class ScaleUi
         var product = LocalCartService.FindByEmbeddedCode(parsed.ProductCode);
         var what = product?.Title ?? L("товар с кодом ", "коду бар товар ", "item with code ", "kodlu ürün ", "kodli tovar ") + parsed.ProductCode.TrimStart('0');
         var value = gotWeight
-            ? parsed.Value.ToString("0.000", CultureInfo.CurrentCulture) + L(" кг", " кг", " kg", " kg", " kg")
-            : parsed.Value.ToString("0.00", CultureInfo.CurrentCulture) + L(" сом", " сом", " som", " som", " so‘m");
+            // 2026-11-13 (Д-5/Д-7, решение координатора): вес и сумма в окнах весов — общим форматтером MoneyText (запятая, «1 265,00»), а не культурой потока (выходила точка).
+            ? MoneyText.Weight(parsed.Value, "0.000") + L(" кг", " кг", " kg", " kg", " kg")
+            : MoneyText.Amount(parsed.Value) + L(" сом", " сом", " som", " som", " so‘m");
         return (true, L("Касса прочитает: ", "Касса окуйт: ", "The till reads: ", "Kasa okur: ", "Kassa o‘qiydi: ") + what + " · " + value
                       + (product is null ? L(" (товара с таким кодом в каталоге кассы нет — это только пример)", " (мындай коддуу товар кассанын каталогунда жок — бул мисал гана)", " (no item with this code in the till catalog — just an example)", " (kasa kataloğunda bu kodla ürün yok — yalnızca örnek)", " (kassa katalogida bunday kodli tovar yo‘q — faqat namuna)") : ""));
     }
@@ -315,6 +322,8 @@ internal static partial class ScaleUi
         BrandTm => "TM-30F (Dahua)", // 2026-09-28: это весы Dahua (TM-A/TM-F), не JHScale
         BrandAi => L("AI весы", "AI тараза", "AI scales", "AI tartı", "AI tarozi"),
         BrandShtrikhPc => L("Штрих РС-200", "Штрих РС-200", "Shtrih RS-200", "Shtrih RS-200", "Shtrix RS-200"),
+        BrandMassaK => L("Масса-К", "Масса-К", "Massa-K", "Massa-K", "Massa-K"), // 2026-11-13
+        BrandCas => "CAS", // 2026-11-13
         _ => L("Штрих-М", "Штрих-М", "Shtrih-M", "Shtrih-M", "Shtrix-M"),
     };
 
@@ -329,6 +338,15 @@ internal static partial class ScaleUi
                 break;
             case BrandTm:
                 prefs.TmScaleIp = ip;
+                break;
+            case BrandMassaK:
+                prefs.MassaKScaleIp = ip; // 2026-11-13
+                break;
+            case BrandCas:
+                // 2026-11-13: CAS — IP в CasScaleSettings (локально, не в общих настройках)
+                var cas = NurMarketKassa.Services.Hardware.CasScaleSettings.Current;
+                cas.Ip = ip;
+                NurMarketKassa.Services.Hardware.CasScaleSettings.Save(cas);
                 break;
             case BrandShtrikhPc:
                 break; // 2026-11-06: у РС-200 нет IP — только папка обмена (ShtrikhPcSettings.Folder)
@@ -350,6 +368,8 @@ internal static partial class ScaleUi
             BrandRongta => !string.IsNullOrWhiteSpace(prefs.RongtaScaleIp) ? prefs.RongtaScaleIp!
                 : prefs.ScaleBrand == BrandRongta ? prefs.ScaleNetworkIp ?? "" : "",
             BrandTm => prefs.TmScaleIp ?? "",
+            BrandMassaK => prefs.MassaKScaleIp ?? "", // 2026-11-13
+            BrandCas => NurMarketKassa.Services.Hardware.CasScaleSettings.Current.Ip, // 2026-11-13
             // 2026-11-06: у весов РС-200 вместо IP — папка обмена (она же показывается в строке адреса и сверяется при «Проверить связь»)
             BrandShtrikhPc => NurMarketKassa.Services.Hardware.ShtrikhPcSettings.Current.Folder,
             _ => prefs.ScaleNetworkIp ?? "",
@@ -364,6 +384,8 @@ internal static partial class ScaleUi
     {
         BrandRongta => typeof(RongtaScaleSettingsWindow),
         BrandTm => typeof(TmScaleSettingsWindow),
+        BrandMassaK => typeof(MassaKScaleSettingsWindow), // 2026-11-13
+        BrandCas => typeof(CasScaleSettingsWindow), // 2026-11-13: окно собрано в коде (CasScaleSettingsWindow.cs)
         BrandAi => null,
         // 2026-11-06: РС-200 — полное окно параметров конфигурации (Config.txt); пошаговая инструкция подключения открывается кнопкой на вкладке «Подключение»
         BrandShtrikhPc => typeof(ShtrikhPcSettingsWindow),

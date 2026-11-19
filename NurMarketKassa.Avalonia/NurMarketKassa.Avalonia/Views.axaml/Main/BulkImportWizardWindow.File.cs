@@ -36,7 +36,7 @@ public partial class BulkImportWizardWindow
             AllowMultiple = false,
             FileTypeFilter =
             [
-                new FilePickerFileType("Excel / CSV") { Patterns = ["*.xlsx", "*.csv", "*.txt"] },
+                new FilePickerFileType("Excel / CSV") { Patterns = ["*.xlsx", "*.csv", "*.txt", "*.xml"] },
             ],
         });
         if (files.Count == 0)
@@ -113,6 +113,8 @@ public partial class BulkImportWizardWindow
             $"«{name}»{sheet}{enc} · satır: {_table.DataRowCount}, sütun: {_table.ColumnCount}",
             $"«{name}»{sheet}{enc} · qatorlar: {_table.DataRowCount}, ustunlar: {_table.ColumnCount}");
         BuildMappingChoices();
+        UpdateSourceUi(); // 2026-11-13 (Л-10): какая программа узнана
+        _nextPanel.IsVisible = false;
         _mapPanel.IsVisible = true; // развёрнута до «Проверить», потом сворачивается
         await CheckAsync().ConfigureAwait(true);
     }
@@ -459,7 +461,7 @@ public partial class BulkImportWizardWindow
             "Birinchi qator — ustun sarlavhalari: Shtrix-kod, Nomi, Qo'shimcha shtrix-kodlar, Miqdor, Birlik, Xarid, Ustama %, Sotuv narxi, Kategoriya, Vaznli. "
                 + "Faqat «Shtrix-kod» majburiy (yangi mahsulotlar uchun yana «Nomi» va «Sotuv narxi»). «Miqdor»ni yozmasa ham bo'ladi — qoldiq o'zgarmaydi. "
                 + "«Qo'shimcha shtrix-kodlar» — bir katakda ; , bo'shliq yoki | bilan bir nechta kod. Shtrix-kodlar faqat raqam, 4–14 belgi; ustunni matn sifatida saqlang. Namuna uchun «Excel shabloni»ni bosing.");
-        _hintPanel.Child = new StackPanel { Spacing = 4, Children = { title, text } };
+        _hintPanel.Child = new StackPanel { Spacing = 4, Children = { title, text, BuildSourcesHint() } };
     }
 
 }

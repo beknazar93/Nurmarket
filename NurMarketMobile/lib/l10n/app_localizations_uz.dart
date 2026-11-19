@@ -7269,4 +7269,29 @@ class AppLocalizationsUz extends AppLocalizations {
   String logoutCartAsk(int lines, int held) {
     return 'Chekdagi pozitsiyalar: $lines, kechiktirilgan cheklar: $held. Chiqqanda ular yo\'qoladi; har bir qator «Chekdan o\'chirildi» jurnaliga yoziladi.';
   }
+
+  @override
+  String get apiForbidden =>
+      'Bu amal uchun huquq yetarli emas. Egasiga murojaat qiling.';
+
+  @override
+  String get apiNotFound =>
+      'Topilmadi — yozuv o‘chirilgan bo‘lishi mumkin. Ro‘yxatni yangilang.';
+
+  @override
+  String get apiThrottled =>
+      'So‘rovlar juda ko‘p. Bir daqiqa kutib, qayta urinib ko‘ring.';
+
+  @override
+  String get apiFieldRequired => 'Majburiy maydonni to‘ldiring.';
+
+  @override
+  String get apiNumberInvalid => 'Son kiriting.';
+
+  @override
+  String get apiAlreadyExists => 'Bunday yozuv allaqachon mavjud.';
+
+  @override
+  String get receiptOfflineNote =>
+      'Chek aloqasiz saqlandi — serverga o‘zi yuboriladi';
 }

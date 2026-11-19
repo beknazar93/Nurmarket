@@ -149,7 +149,7 @@ public partial class LogsAndErrorsWindow : Window, IOwnerSection
         this[!TransparencyLevelHintProperty] = this.GetResourceObservable("DialogTransparencyHint").ToBinding();
 
         var footer = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 10 };
-        foreach (var button in new[] { RefreshButton, OpenFolderButton, SendSupportButton, CloseButton })
+        foreach (var button in new[] { RefreshButton, OpenFolderButton, SendSupportButton, ReconcileButton, CloseButton })
         {
             ((Panel)button.Parent!).Children.Remove(button);
             button.Classes.Clear();
@@ -188,7 +188,31 @@ public partial class LogsAndErrorsWindow : Window, IOwnerSection
     private void Window_Loaded(object? sender, RoutedEventArgs e)
     {
         SendSupportButton.Content = Tr.T("Отправить в поддержку", "Колдоого жөнөтүү", "Send to support", "Desteğe gönder", "Yordamga yuborish");
+        ReconcileButton.Content = Tr.T("Сверить с сервером", "Сервер менен салыштыруу", "Check against server", "Sunucuyla karşılaştır", "Server bilan solishtirish");
         LoadRows();
+    }
+
+    /// <summary>2026-11-13 (Л-12): сверка «касса ↔ сервер» по кнопке — чеки последних 30 часов, неотправленные, остатки проданных товаров. Ничего не правит;
+    /// расхождения попадают и в журнал (WARNING), поэтому после сверки таблица обновляется.</summary>
+    private async void Reconcile_Click(object? sender, RoutedEventArgs e)
+    {
+        var title = Tr.T("Сверка с сервером", "Сервер менен салыштыруу", "Server check", "Sunucu karşılaştırması", "Server bilan solishtirish");
+        ReconcileButton.IsEnabled = false;
+        try
+        {
+            var report = await DailyReconciliation.RunAndRecordAsync().ConfigureAwait(true);
+            PosMessageBox.Show(this, report.FullText, title, System.Windows.MessageBoxButton.OK,
+                report.Error is not null || report.HasProblems ? System.Windows.MessageBoxImage.Warning : System.Windows.MessageBoxImage.Information);
+            LoadRows();
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Сверка по кнопке: {ex.GetType().Name}: {ex.Message}", "WARNING");
+        }
+        finally
+        {
+            ReconcileButton.IsEnabled = true;
+        }
     }
 
     /// <summary>2026-10-01: журнал и отчёты о сбоях — в Telegram-бот поддержки с названием компании

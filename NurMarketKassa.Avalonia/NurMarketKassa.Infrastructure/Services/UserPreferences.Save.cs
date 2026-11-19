@@ -223,9 +223,17 @@ public sealed partial class UserPreferences
                 TmScaleBarcodePrefix = TmScaleBarcodePrefix,
                 TmScaleDahuaBarcode = TmScaleDahuaBarcode,
                 ShtrikhPcConfig = ShtrikhPcConfig,
+                CasScaleConfig = CasScaleConfig, // 2026-11-13: весы CAS
                 ShtrikhPcPasswordProtected = string.IsNullOrEmpty(ShtrikhPcPassword) ? null : WindowsDpapiHelper.ProtectToBase64(ShtrikhPcPassword),
                 TmScaleSendMode = TmScaleSendMode,
                 TmScaleShelfLifeDays = TmScaleShelfLifeDays,
+                MassaKScaleIp = MassaKScaleIp,
+                MassaKScalePort = MassaKScalePort,
+                MassaKBarcodePrefix = MassaKBarcodePrefix,
+                MassaKShelfLifeDays = MassaKShelfLifeDays,
+                MassaKLatinNames = MassaKLatinNames,
+                MassaKVerified = MassaKVerified,
+                MassaKSkipConfirm = MassaKSkipConfirm,
                 RongtaLanBarcodePrefix = RongtaLanBarcodePrefix,
                 RongtaLanShelfLifeDays = RongtaLanShelfLifeDays,
                 RongtaPricePoint = RongtaPricePoint,
@@ -589,10 +597,18 @@ public sealed partial class UserPreferences
         public int? TmScaleBarcodePrefix { get; set; }
         public string? TmScaleDahuaBarcode { get; set; }
         public string? ShtrikhPcConfig { get; set; }
+        public string? CasScaleConfig { get; set; } // 2026-11-13: весы CAS
         /// <summary>2026-11-06: пароль Windows весов РС-200 — только зашифрованный (DPAPI / PortableSecret).</summary>
         public string? ShtrikhPcPasswordProtected { get; set; }
         public string? TmScaleSendMode { get; set; }
         public int? TmScaleShelfLifeDays { get; set; }
+        public string? MassaKScaleIp { get; set; }
+        public int? MassaKScalePort { get; set; }
+        public int? MassaKBarcodePrefix { get; set; }
+        public int? MassaKShelfLifeDays { get; set; }
+        public bool? MassaKLatinNames { get; set; }
+        public bool? MassaKVerified { get; set; }
+        public bool? MassaKSkipConfirm { get; set; }
         public int? RongtaLanBarcodePrefix { get; set; }
         public int? RongtaLanShelfLifeDays { get; set; }
         public int? RongtaPricePoint { get; set; }

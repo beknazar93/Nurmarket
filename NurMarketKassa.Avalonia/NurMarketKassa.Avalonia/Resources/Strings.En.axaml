@@ -120,6 +120,13 @@
   <x:String x:Key="mainWindow.checkCustomerDisplayTooltip">Check customer display</x:String>
   <x:String x:Key="mainWindow.onScreenKeyboardTooltip">On-screen keyboard</x:String>
   <x:String x:Key="mainWindow.hotkeysTooltip">Hotkeys</x:String>
+  <!-- 2026-11-13 (Н-1, Н-2): шпаргалка клавиш, подсказка пустого чека, мастер первого запуска и учебная продажа -->
+  <x:String x:Key="mainWindow.hotkeysCheatSheet">Till keys (?)</x:String>
+  <x:String x:Key="csh.cart.scanTitle">Scan a product</x:String>
+  <x:String x:Key="csh.cart.scanHint">The scanner works from anywhere on the screen.&#x0a;Or type a code / name in the search field.</x:String>
+  <x:String x:Key="csh.cart.keysLink">Keys: ?</x:String>
+  <x:String x:Key="csh.menu.firstRunWizard">First-start wizard</x:String>
+  <x:String x:Key="csh.menu.trainingSale">Training sale</x:String>
   <x:String x:Key="hotkeyGroup.title">Hotkey</x:String>
   <x:String x:Key="header.labelCustomerDisplay">Display</x:String>
   <x:String x:Key="header.labelTheme">Theme</x:String>
@@ -866,7 +873,7 @@
   <x:String x:Key="posSettings.monitor.sampleCoffee">Ground coffee</x:String>
   <x:String x:Key="posSettings.monitor.sampleMilk">Milk 1 L</x:String>
   <x:String x:Key="posSettings.monitor.qtyShort">Qty</x:String>
-  <x:String x:Key="posSettings.monitor.samplePayable">Due: 400.00 som</x:String>
+  <x:String x:Key="posSettings.monitor.samplePayable">Due: 400,00 som</x:String>
   <x:String x:Key="posSettings.monitor.screenContentTitle">Screen content</x:String>
   <x:String x:Key="posSettings.monitor.companyLogo">Company logo</x:String>
   <x:String x:Key="posSettings.monitor.itemCount">Item count</x:String>
@@ -1294,8 +1301,8 @@
     <x:String x:Key="loc.kassa.addBank.pickPlaceholder">Select a bank from the list</x:String>
     <x:String x:Key="loc.kassa.addBank.orTypeName">or type the bank name yourself</x:String>
     <x:String x:Key="loc.kassa.transfer.weightWatermark">0 kg</x:String>
-    <x:String x:Key="loc.kassa.weigh.quick01">0.1 kg</x:String>
-    <x:String x:Key="loc.kassa.weigh.quick05">0.5 kg</x:String>
+    <x:String x:Key="loc.kassa.weigh.quick01">0,1 kg</x:String>
+    <x:String x:Key="loc.kassa.weigh.quick05">0,5 kg</x:String>
     <x:String x:Key="loc.kassa.weigh.quick1">1 kg</x:String>
     <x:String x:Key="loc.kassa.weigh.quick2">2 kg</x:String>
     <x:String x:Key="loc.kassa.weigh.quick5">5 kg</x:String>
@@ -1349,12 +1356,12 @@
     <x:String x:Key="loc.owner.finance.expenses">Expenses</x:String>
     <!-- 2026-10-19, этап О10: валовая − расходы — «Чистая прибыль» (одни слова во всех отчётах). -->
     <x:String x:Key="loc.owner.finance.profitAfterExpenses">Net profit</x:String>
-    <x:String x:Key="loc.owner.zeroMoney">0.00 som</x:String>
+    <x:String x:Key="loc.owner.zeroMoney">0,00 som</x:String>
     <x:String x:Key="loc.settings.monitor.samplePositions">2 items</x:String>
     <x:String x:Key="loc.settings.monitor.sampleQty2">×2 pcs</x:String>
-    <x:String x:Key="loc.settings.monitor.sampleSum320">320.00 som</x:String>
+    <x:String x:Key="loc.settings.monitor.sampleSum320">320,00 som</x:String>
     <x:String x:Key="loc.settings.monitor.sampleQty1">×1 pc</x:String>
-    <x:String x:Key="loc.settings.monitor.sampleSum95">95.00 som</x:String>
+    <x:String x:Key="loc.settings.monitor.sampleSum95">95,00 som</x:String>
     <x:String x:Key="loc.settings.telegram.title">Owner's Telegram bot</x:String>
     <x:String x:Key="loc.settings.telegram.desc">You get a summary of each closed shift in Telegram: revenue, receipts, average receipt, cash and cashless, cash in and cash out, shortage or surplus. Works right from the store — no public IP or server of your own needed.</x:String>
     <x:String x:Key="loc.settings.telegram.wizardButton">Connect the bot (step by step)</x:String>
@@ -1496,6 +1503,7 @@
   <x:String x:Key="scalesPlu.change">Change…</x:String>
   <x:String x:Key="scalesPlu.colStatus">Result</x:String>
   <x:String x:Key="scalesPlu.saveFile">Save file…</x:String>
+  <x:String x:Key="scalesPlu.preflight">Check before sending</x:String>
   <x:String x:Key="scaleSetup.list.title">Scales in the shop</x:String>
   <x:String x:Key="scaleSetup.list.desc">Each scale has its own brand, address and product categories. “Configure…” opens that scale, “Send goods” sends its goods to it.</x:String>
   <x:String x:Key="scaleSetup.list.add">+ Add a scale</x:String>

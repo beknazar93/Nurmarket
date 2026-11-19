@@ -29,6 +29,49 @@ class ApiText {
   // 2026-11-05 (сервер ceba67c): 400 duplicate_line — тот же товар в чеке по разной цене или в другой единице
   static String get saleDuplicateLine =>
       l?.apiSaleDuplicateLine ?? 'Один товар в чеке с разной ценой или единицей: сервер не может объединить строки. Оставьте одну цену или уберите лишнюю строку.';
+  // 2026-11-13 (аудит UX мобилки, п. 2): стандартные ответы сервера по-английски («This field is required.») и голые коды — человеческим языком
+  static String get forbidden => l?.apiForbidden ?? 'Недостаточно прав для этого действия. Обратитесь к владельцу.';
+  static String get notFound => l?.apiNotFound ?? 'Не найдено — возможно, запись уже удалена. Обновите список.';
+  static String get throttled => l?.apiThrottled ?? 'Слишком много запросов. Подождите минуту и повторите.';
+  static String get fieldRequired => l?.apiFieldRequired ?? 'Заполните обязательное поле.';
+  static String get numberInvalid => l?.apiNumberInvalid ?? 'Введите число.';
+  static String get alreadyExists => l?.apiAlreadyExists ?? 'Такая запись уже есть.';
+
+  /// Стандартная английская фраза сервера (Django REST) → текст на языке приложения; незнакомая фраза возвращается как есть (null — нечего менять).
+  static String? known(String raw) {
+    final t = raw.trim().toLowerCase();
+    if (t.isEmpty) return null;
+    if (t.contains('permission to perform this action') || t == 'forbidden') return forbidden;
+    if (t == 'not found.' || t == 'not found') return notFound;
+    if (t.startsWith('request was throttled')) return throttled;
+    if (t == 'this field is required.' || t.contains('may not be blank') || t.contains('may not be null') || t.contains('field is required')) return fieldRequired;
+    if (t.contains('a valid number is required') || t.contains('a valid integer is required') || t.contains('valid decimal')) return numberInvalid;
+    if (t.contains('already exists')) return alreadyExists;
+    return null;
+  }
+
+  /// Текст ошибки по ответу сервера [data] и коду [code]; null — ответ не разобран, нужен общий текст.
+  static String? friendly(dynamic data, int? code) {
+    if (data is Map) {
+      for (final key in ['detail', 'error', 'message', 'non_field_errors']) {
+        final v = data[key];
+        final s = v is String ? v : (v is List && v.isNotEmpty ? v.join(' ') : '');
+        if (s.isNotEmpty) return known(s) ?? s;
+      }
+      final parts = <String>[];
+      data.forEach((k, v) {
+        final s = v is List ? v.join(' ') : '$v';
+        final k2 = v is List && v.isNotEmpty ? known('${v.first}') : known(s);
+        parts.add(k2 ?? '$k: $s');
+      });
+      if (parts.isNotEmpty) return parts.take(3).join('; ');
+    }
+    if (code == 403) return forbidden;
+    if (code == 404) return notFound;
+    if (code == 429) return throttled;
+    return null;
+  }
+
   static String get auditStale => l?.apiAuditStale ?? 'Ревизия не проведена вовремя — остатки могли измениться. Пересчитайте заново (акт остался черновиком).';
 }
 
@@ -305,17 +348,9 @@ class ApiClient {
   }
 
   static String _describe(DioException e) {
-    final data = e.response?.data;
-    if (data is Map) {
-      for (final key in ['detail', 'error', 'message', 'non_field_errors']) {
-        final v = data[key];
-        if (v is String && v.isNotEmpty) return v;
-        if (v is List && v.isNotEmpty) return v.join(' ');
-      }
-      final parts = <String>[];
-      data.forEach((k, v) => parts.add('$k: ${v is List ? v.join(' ') : v}'));
-      if (parts.isNotEmpty) return parts.take(3).join('; ');
-    }
+    // 2026-11-13 (аудит UX мобилки, п. 2): разбор — в ApiText.friendly (английские фразы сервера по-человечески, 403/404/429 без тела)
+    final said = ApiText.friendly(e.response?.data, e.response?.statusCode);
+    if (said != null) return said;
     switch (e.type) {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.receiveTimeout:
