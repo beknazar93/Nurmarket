@@ -88,6 +88,11 @@ public partial class WarehouseWindow
         // 2026-10-30, просьба владельца: «Поступления и партии» — от кого, когда и по какой накладной пришёл товар (вкладка карточки товара).
         menu.Items.Add(RowMenuItem(Tr.T("Поступления и партии", "Кирүүлөр жана партиялар", "Receipts and batches", "Girişler ve partiler", "Kirimlar va partiyalar"),
             IconReceipts, ProductReceipts_Click, product));
+        // 2026-11-19 (склад К-4/К-8): «Партии» и «Резервы» — только если сервер включил партии / резервы у компании (признаки capabilities); иначе меню прежнее.
+        if (ServerStock.BatchesOn)
+            menu.Items.Add(RowMenuItem(Tr.T("Партии", "Партиялар", "Batches", "Partiler", "Partiyalar"), IconReceipts, ProductBatches_Click, product));
+        if (ServerStock.ReservationsOn)
+            menu.Items.Add(RowMenuItem(Tr.T("Резервы", "Резервдер", "Reservations", "Rezervler", "Zaxiralar"), IconReceipts, ProductReservations_Click, product));
         // 2026-11-01: «Печать этикетки» — сразу, без окна; «Этикетка…» — прежнее окно с предпросмотром и копиями.
         menu.Items.Add(RowMenuItem(Tr.T("Печать этикетки", "Этикетка басып чыгаруу", "Print label", "Etiket yazdır", "Yorliq chop etish"),
             IconLabel, QuickLabel_Click, product));

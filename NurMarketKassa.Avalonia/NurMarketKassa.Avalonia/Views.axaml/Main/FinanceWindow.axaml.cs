@@ -284,6 +284,14 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 }
             };
 
+            // 2026-11-19 (оценка владельца 19.11: «Аналитика» открывалась на «Сегодня» — графики пустые): раздел «Аналитика» открывается за месяц.
+            if (_isAnalyticsSection && (CustomDatePill.Parent as Panel)?.Children.OfType<RadioButton>().FirstOrDefault(r => "Month".Equals(r.Tag)) is { } monthPill)
+            {
+                _historyFrom = PeriodRange.MonthFrom(ServerClock.Today);
+                _historyTo = ServerClock.Today;
+                monthPill.IsChecked = true;
+                _quickDatePill = monthPill;
+            }
             SyncDatePickers(_historyFrom, _historyTo);
             CustomDatePill.IsChecked = false;
             await LoadDataAsync(_historyFrom, _historyTo);

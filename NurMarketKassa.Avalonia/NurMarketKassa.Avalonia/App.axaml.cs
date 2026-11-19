@@ -353,6 +353,8 @@ public partial class App : Application
             return sb.ToString();
         };
         ProductActions.RequestCatalogRefresh = () => AppHost?.Services.GetService<SyncService>()?.RequestCatalogSyncNow();
+        // 2026-11-19 (ответ Умара 19.11): после удаления прихода сервер возвращает закупочную цену (deltas.purchase_price) — короткая плашка владельцу «Закупочная цена возвращена: было X → стало Y».
+        PurchasePriceDelta.Notifier = text => Avalonia.Threading.Dispatcher.UIThread.Post(() => AppHost?.Services.GetService<NurMarketKassa.Core.Contracts.IUserPrompts>()?.ShowToast(text));
         // Действие ИИ «photo» — тот же поиск фото, что у кнопки «Найди фото» советника (Open Food Facts, затем интернет).
         ProductActionPlan.PhotoFinder = async (product, token) =>
         {

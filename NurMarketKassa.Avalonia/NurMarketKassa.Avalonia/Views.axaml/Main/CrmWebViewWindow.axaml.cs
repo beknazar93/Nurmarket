@@ -59,8 +59,18 @@ public partial class CrmWebViewWindow : Window, IOwnerSection
         var browser = Tr.T("Открыть в браузере", "Браузерде ачуу", "Open in browser", "Tarayıcıda aç", "Brauzerda ochish");
         OpenInBrowserButton.Content = browser;
         Avalonia.Automation.AutomationProperties.SetName(OpenInBrowserButton, browser);
+        ErrorRetryButton.Content = Tr.T("Повторить", "Кайталоо", "Retry", "Tekrar dene", "Qayta urinish");
         if (!IsWhatsApp)
+        {
+            // 2026-11-19 (оценка владельца 19.11, «NurCRM» < 7): понятное пояснение над сайтом, а не голая страница.
+            PurposeText.IsVisible = true;
+            PurposeText.Text = Tr.T("Личный кабинет NurCRM на сайте: отчёты, настройки и тарифы — прямо в программе. Если сайт просит войти, введите логин и пароль один раз — дальше он вас запомнит.",
+                "NurCRM сайтындагы жеке кабинет: отчёттор, жөндөөлөр жана тарифтер — түз программада. Сайт кирүүнү сурасо, логин менен сырсөздү бир жолу киргизиңиз — кийин ал сизди эстеп калат.",
+                "The NurCRM personal account on the website: reports, settings and plans — right in the program. If the site asks you to sign in, enter your login and password once — it will remember you.",
+                "NurCRM'in sitedeki kişisel hesabı: raporlar, ayarlar ve tarifeler — doğrudan programda. Site giriş isterse kullanıcı adı ve şifreyi bir kez girin — sonra sizi hatırlar.",
+                "NurCRM saytidagi shaxsiy kabinet: hisobotlar, sozlamalar va tariflar — to'g'ridan-to'g'ri dasturda. Sayt kirishni so'rasa, login va parolni bir marta kiriting — keyin u sizni eslab qoladi.");
             return;
+        }
         PurposeText.IsVisible = true;
         PurposeText.Text = Tr.T(
             "WhatsApp магазина прямо в программе — переписка с покупателями и напоминания должникам. Если ниже QR-код — войдите один раз: на телефоне WhatsApp → «Связанные устройства» → «Привязка устройства» и наведите камеру на код.",
@@ -76,10 +86,20 @@ public partial class CrmWebViewWindow : Window, IOwnerSection
     private void OnWebViewReady(CoreWebView2 webView)
     {
         _webView = webView;
-        webView.NavigationCompleted += (_, _) => Dispatcher.UIThread.Post(() =>
+        webView.NavigationCompleted += (_, e) =>
         {
-            LoadingPanel.IsVisible = false;
-        });
+            var ok = e.IsSuccess;
+            var status = e.WebErrorStatus.ToString();
+            Dispatcher.UIThread.Post(() =>
+            {
+                LoadingPanel.IsVisible = false;
+                // 2026-11-19: страница не открылась (нет интернета, сайт недоступен) — понятное состояние с «Повторить», а не пустое белое поле.
+                if (!ok && status is "HostNameNotResolved" or "Disconnected" or "ConnectionAborted" or "ConnectionReset" or "CannotConnect" or "Timeout" or "ServerUnreachable")
+                    ShowOffline();
+                else
+                    ErrorPanel.IsVisible = false;
+            });
+        };
     }
 
     private void OnInitializationFailed(string message)
@@ -90,6 +110,28 @@ public partial class CrmWebViewWindow : Window, IOwnerSection
             ErrorPanel.IsVisible = true;
             ErrorDetailsText.Text = message;
         });
+    }
+
+    private void ShowOffline()
+    {
+        ErrorTitleText.Text = Tr.T("Нет подключения к интернету", "Интернетке байланыш жок", "No internet connection", "İnternet bağlantısı yok", "Internetga ulanish yo'q");
+        ErrorDetailsText.Text = Tr.T("Страница не открылась. Проверьте интернет и нажмите «Повторить» — программа продолжает работать и без этого раздела.",
+            "Барак ачылган жок. Интернетти текшерип, «Кайталоо» баскычын басыңыз — программа бул бөлүмсүз да иштей берет.",
+            "The page did not open. Check the internet and press “Retry” — the program keeps working without this section.",
+            "Sayfa açılmadı. İnterneti kontrol edip «Tekrar dene»ye basın — program bu bölüm olmadan da çalışmaya devam eder.",
+            "Sahifa ochilmadi. Internetni tekshirib, «Qayta urinish»ni bosing — dastur bu bo'limsiz ham ishlayveradi.");
+        ErrorRetryButton.IsVisible = true;
+        ErrorPanel.IsVisible = true;
+    }
+
+    private void Retry_Click(object? sender, RoutedEventArgs e)
+    {
+        ErrorPanel.IsVisible = false;
+        LoadingPanel.IsVisible = true;
+        if (_webView != null)
+            _webView.Navigate(_homeUrl);
+        else
+            WebHost.Navigate(_homeUrl);
     }
 
     private void Back_Click(object? sender, RoutedEventArgs e)
@@ -113,7 +155,14 @@ public partial class CrmWebViewWindow : Window, IOwnerSection
     /// «вперёд» и «обновить страницу» — без них сайтом внутри программы не пользоваться.</summary>
     public void AsOwnerSection()
     {
-        AddressLabel.IsVisible = false;
+        // 2026-11-19: у NurCRM вместо скрытой подписи — понятный заголовок раздела; у WhatsApp по-прежнему скрыт.
+        if (IsWhatsApp)
+            AddressLabel.IsVisible = false;
+        else
+        {
+            AddressLabel.Text = Tr.T("Кабинет NurCRM · app.nurcrm.kg", "NurCRM кабинети · app.nurcrm.kg", "NurCRM account · app.nurcrm.kg", "NurCRM hesabı · app.nurcrm.kg", "NurCRM kabineti · app.nurcrm.kg");
+            AddressLabel.FontSize = 16;
+        }
         CloseButton.IsVisible = false;
         ToolbarBorder.Padding = new Avalonia.Thickness(12, 6);
     }

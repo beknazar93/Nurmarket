@@ -16,10 +16,15 @@ public partial class OperationsSettingsView
     {
         // 2026-11-12 (ЭЛ5): карточка «Обмен и возврат» (срок, дней) есть и в сфере «Электроника»; список категорий «без обмена» — только у «Одежды».
         var electronics = ElectronicsProfile.IsActive;
-        ExchangeRulesCard.IsVisible = MarketSpheres.IsClothing || electronics;
+        ExchangeRulesCard.IsVisible = MarketSpheres.IsClothing || electronics || AutoPartsRules.Active; // 2026-11-20: и «Автозапчасти»
         ExchangeRulesPanel.Children.Clear();
         if (!ExchangeRulesCard.IsVisible)
             return;
+        if (AutoPartsRules.Active)
+        {
+            AddAutoPartsReturnSettings(); // 2026-11-20 (Автозапчасти, часть Б): срок возврата и «не принимать установленные детали и электрику»
+            return;
+        }
 
         var title = new TextBlock { Classes = { "SettingsCardTitle" }, FontSize = 14,
             Text = Tr.T("Обмен и возврат", "Алмаштыруу жана кайтаруу", "Exchange and returns", "Değişim ve iade", "Almashtirish va qaytarish") };

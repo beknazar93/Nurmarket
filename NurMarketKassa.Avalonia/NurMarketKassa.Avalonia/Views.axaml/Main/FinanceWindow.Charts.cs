@@ -283,6 +283,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             // прибыль занижалась на сумму убранных из чека товаров. Настоящие возвраты — это
             // отменённые чеки, в выручку они и так не входят.
             decimal netProfit = _serverSummary?.GrossProfit ?? totalSales - costOfGoods;
+            UpdateAnalyticsTiles(net, totalCount, avg, netProfit); // 2026-11-19: плитки раздела «Аналитика»
             if (NetProfitText != null)
             {
                 NetProfitText.Text = $"{netProfit:N2} {Som}";

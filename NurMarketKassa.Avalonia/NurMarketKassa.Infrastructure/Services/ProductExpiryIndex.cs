@@ -35,6 +35,24 @@ public static class ProductExpiryIndex
             if (!force && (DateTime.UtcNow - _loadedUtc < MaxAge || DateTime.UtcNow - _failedUtc < MaxAge))
                 return _marks;
             var today = DateTime.Today;
+            // 2026-11-19 (склад К-5): при признаке expiry_batches «Скоро истекает» считает сервер по партиям (stock/expiring/). Ответ не распознан или ошибка — прежний отчёт аналитики.
+            if (Api.ServerCapabilities.Has(Api.ServerCapabilities.ExpiryBatches))
+            {
+                try
+                {
+                    if (await StockServerApi.ExpiringAsync(null, ct).ConfigureAwait(false) is { } byBatches)
+                    {
+                        _marks = byBatches.ToDictionary(r => r.ProductId, r => new Mark(r.ProductId, r.Name, r.Date, r.DaysLeft, r.Expired, r.Quantity), StringComparer.OrdinalIgnoreCase);
+                        _loadedUtc = DateTime.UtcNow;
+                        _failedUtc = DateTime.MinValue;
+                        return _marks;
+                    }
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    PosLogger.Log($"Сроки годности: stock/expiring/ не получен ({ex.Message}) — берём отчёт аналитики.", "WARNING");
+                }
+            }
             var report = await PosApp.SalesApi.MarketProductsReportAsync(today, today, ct).ConfigureAwait(false);
             var marks = new Dictionary<string, Mark>(StringComparer.OrdinalIgnoreCase);
             if (report.ValueKind == JsonValueKind.Object && report.TryGetProperty("tables", out var tables)

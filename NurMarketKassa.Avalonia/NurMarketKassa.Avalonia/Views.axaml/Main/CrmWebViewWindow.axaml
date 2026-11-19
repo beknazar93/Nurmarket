@@ -77,12 +77,15 @@
                     Background="{DynamicResource BrushWindowBackdrop}"
                     IsVisible="False">
                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="14" MaxWidth="480">
-                    <TextBlock Text="{DynamicResource crmWebView.errorTitle}" FontSize="18" FontWeight="Bold"
+                    <TextBlock x:Name="ErrorTitleText" Text="{DynamicResource crmWebView.errorTitle}" FontSize="18" FontWeight="Bold"
                                HorizontalAlignment="Center" TextWrapping="Wrap"
                                Foreground="{DynamicResource BrushText}"/>
                     <TextBlock x:Name="ErrorDetailsText" FontSize="13" TextWrapping="Wrap"
                                HorizontalAlignment="Center" TextAlignment="Center"
                                Foreground="{DynamicResource BrushTextSoft}"/>
+                    <!-- 2026-11-19: «Нет интернета» — «Повторить» рядом с «Открыть в браузере». -->
+                    <Button x:Name="ErrorRetryButton" HorizontalAlignment="Center" Click="Retry_Click" Classes="sec-primary"
+                            Padding="16,10" CornerRadius="10" Cursor="Hand" IsVisible="False"/>
                     <!-- 2026-10-21: главная кнопка — общим классом sec-primary (цвет и наведение по теме) (пакет 4, п. 130). -->
                     <Button x:Name="ErrorOpenButton" Content="{DynamicResource crmWebView.openInBrowser}" HorizontalAlignment="Center"
                             Click="OpenInBrowser_Click" Classes="sec-primary"

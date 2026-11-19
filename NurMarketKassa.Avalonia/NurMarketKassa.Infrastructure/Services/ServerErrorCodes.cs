@@ -16,6 +16,9 @@ public static class ServerErrorCodes
     public const string ReadOnly = "read_only";
     public const string PinInvalid = "pin_invalid";
     public const string PinLocked = "pin_locked";
+    // 2026-11-19 (ответ Умара 19.11): у владельца/админа PIN не задан; поле payment.received длиннее 12 цифр → 400 validation_error.
+    public const string PinNotSet = "pin_not_set";
+    public const string ValidationError = "validation_error";
     // 2026-11-13 (сервер sn1311, электроника): проверки серийных номеров в строках продажи — только с флагом компании electronics_2026_11, ошибки «в формате строки» (code, index).
     public const string SerialAlreadySold = "serial_already_sold";
     public const string SerialCountMismatch = "serial_count_mismatch";
@@ -122,6 +125,45 @@ public static class ServerErrorCodes
         return Tr.T($"PIN заблокирован после неверных попыток. Повторите через {m} мин.", $"PIN туура эмес аракеттерден кийин бөгөттөлдү. {m} мүнөттөн кийин кайталаңыз.",
             $"The PIN is locked after wrong attempts. Try again in {m} min.", $"PIN yanlış denemelerden sonra kilitlendi. {m} dk sonra tekrar deneyin.", $"PIN noto'g'ri urinishlardan keyin bloklandi. {m} daqiqadan keyin takrorlang.");
     }
+
+    /// <summary>2026-11-19: PIN владельца/админа не задан — кассир не может подтвердить отправку, пока его не зададут.</summary>
+    public static string PinNotSetText() => Tr.T(
+        "PIN не задан — задайте в Настройки → Сотрудники.",
+        "PIN коюлган эмес — Жөндөөлөр → Кызматкерлер бөлүмүндө коюңуз.",
+        "The PIN is not set — set it in Settings → Employees.",
+        "PIN belirlenmemiş — Ayarlar → Çalışanlar bölümünde belirleyin.",
+        "PIN o'rnatilmagan — Sozlamalar → Xodimlar bo'limida o'rnating.");
+
+    /// <summary>2026-11-19 (ответ Умара 19.11, п. 5): сумма оплаты (payment.received) длиннее 12 цифр — сервер отвечает 400 validation_error и ничего не пишет.
+    /// Поле ищется в fields / errors / вложенном payment и, как запасной путь, в тексте тела.</summary>
+    public static bool IsPaymentReceivedError(Exception? ex)
+    {
+        if (ex is not ApiException { StatusCode: 400 } api)
+            return false;
+        try
+        {
+            if (api.Payload is not { ValueKind: JsonValueKind.Object } p)
+                return api.Message.Contains("payment.received", StringComparison.OrdinalIgnoreCase);
+            var code = Code(p);
+            if (code is not null && code != ValidationError)
+                return false;
+            if (p.TryGetProperty("fields", out var f) && f.ValueKind == JsonValueKind.Object
+                && (f.TryGetProperty("payment.received", out _) || (f.TryGetProperty("payment", out var pf) && pf.ValueKind == JsonValueKind.Object && pf.TryGetProperty("received", out _))))
+                return true;
+            return p.GetRawText().Contains("payment.received", StringComparison.OrdinalIgnoreCase);
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    public static string PaymentReceivedText() => Tr.T(
+        "Проверьте сумму оплаты: в ней больше 12 цифр — похоже на ошибку ввода. Сервер чек не принял, продажа не записана.",
+        "Төлөм суммасын текшериңиз: анда 12 санан ашык — киргизүү катасына окшош. Сервер чекти кабыл алган жок, сатуу жазылган жок.",
+        "Check the payment amount: it has more than 12 digits — it looks like a typing mistake. The server did not accept the receipt, the sale is not recorded.",
+        "Ödeme tutarını kontrol edin: 12 haneden uzun — yazım hatasına benziyor. Sunucu fişi kabul etmedi, satış kaydedilmedi.",
+        "To'lov summasini tekshiring: u 12 raqamdan uzun — kiritish xatosiga o'xshaydi. Server chekni qabul qilmadi, sotuv yozilmadi.");
 
     /// <summary>2026-11-13 (сервер sn1311): ошибка серийного номера строки — (код, объект ошибки). Код ищется в теле ответа и, если там нет, в первом элементе массива
     /// errors / items / lines (сервер отдаёт ошибки строк с полями code, index, serial…). null — это не ошибка серийника.</summary>
@@ -308,6 +350,8 @@ public static class ServerErrorCodes
         ReadOnly => ReadOnlyText(),
         PinInvalid => PinInvalidText(AttemptsLeft(ex)),
         PinLocked => PinLockedText(RetryAfterSeconds(ex)),
+        PinNotSet => PinNotSetText(),
+        ValidationError when IsPaymentReceivedError(ex) => PaymentReceivedText(), // 2026-11-19: «Ошибка сервера» вместо понятного текста
         _ => null,
     };
 }

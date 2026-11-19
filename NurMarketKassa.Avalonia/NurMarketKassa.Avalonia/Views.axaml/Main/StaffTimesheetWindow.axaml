@@ -4,7 +4,7 @@
         x:Class="NurMarketKassa.AvaloniaHost.Views.StaffTimesheetWindow"
         x:CompileBindings="False"
         Title="{DynamicResource staffTimesheet.title}"
-        Height="640" Width="1112"
+        Height="780" Width="1112"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         SystemDecorations="None"
@@ -12,6 +12,7 @@
         Background="{DynamicResource DialogWindowBackground}"
         Loaded="Window_Loaded">
 
+    <!-- 2026-11-20 (ночная проверка кассы): высота окна 640 → 780: при 7 сотрудниках на сетку отметок оставалась одна строка (остальное — только прокруткой). Оболочка всё равно режет окно по высоте экрана. -->
     <!-- 2026-10-22 (аудит новой сборки, П2): было окно в системной рамке Windows с обрезанными заголовками столбцов
          («Смен», «Дней»). Теперь общая оболочка ModalShell: шапка и «Закрыть» закреплены, таблица прокручивается сама,
          заголовки столбцов переносятся на вторую строку, у столбцов есть минимальная ширина. -->

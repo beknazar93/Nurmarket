@@ -607,7 +607,7 @@ public partial class CatalogPanelView : UserControl, ICatalogKeyboardSurface
             return;
         var vm = DataContext as CatalogPanelViewModel;
         var owner = TopLevel.GetTopLevel(this) as Window;
-        var window = new ProductDetailsWindow(product, () => vm?.SelectProductCommand.Execute(product));
+        var window = new ProductDetailsWindow(product, () => vm?.SelectProductCommand.Execute(product), other => vm?.SelectProductCommand.Execute(other));
         if (owner != null)
             await window.ShowDialog(owner).ConfigureAwait(true);
         else

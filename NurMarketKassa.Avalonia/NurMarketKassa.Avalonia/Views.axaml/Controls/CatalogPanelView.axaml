@@ -218,6 +218,10 @@
         <Style Selector=".compact Panel.tile-media, .shortscreen Panel.tile-media">
             <Setter Property="Height" Value="40"/>
         </Style>
+        <!-- 2026-11-20 (АЗ6): строка «номер · ячейка» на плитке «Автозапчастей» — в тесном окне (compact / shortscreen) места под неё нет, там остаётся значок состояния. -->
+        <Style Selector=".compact Panel.tile-part, .shortscreen Panel.tile-part">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
         <Style Selector="TextBlock.tile-mono">
             <Setter Property="FontSize" Value="{DynamicResource NurFontTitle}"/>
         </Style>
@@ -719,8 +723,21 @@
                                                                            VerticalAlignment="Center"/>
                                                             </Border>
                                                         </Panel>
+                                                        <!-- 2026-11-20 (ТЗ «Автозапчасти», АЗ6): значок состояния детали («ОРИГ», «АНАЛОГ», «Б/У») — справа внизу обложки; только в сфере «Автозапчасти» (иначе HasPartBadge = false). -->
+                                                        <Border IsVisible="{Binding HasPartBadge}" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,6,4"
+                                                                Padding="6,1" CornerRadius="{DynamicResource NurRadiusSmall}" Background="{DynamicResource BrushBadgePieceBg}">
+                                                            <TextBlock Text="{Binding PartBadgeText}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource BrushBadgePieceFg}"/>
+                                                        </Border>
                                                     </Panel>
 
+                                                    <!-- 2026-11-20 (АЗ6): каталожный номер и ячейка мелкой строкой внизу области названия (пусто и скрыто вне сферы «Автозапчасти»; в тесном окне — скрыто стилем). -->
+                                                    <Panel Grid.Row="1" Classes="tile-part" VerticalAlignment="Bottom" HorizontalAlignment="Left" Margin="10,0,10,2">
+                                                        <TextBlock Text="{Binding PartLine}"
+                                                                   IsVisible="{Binding HasPartLine}"
+                                                                   FontSize="11"
+                                                                   Foreground="{DynamicResource BrushCatalogMeta}"
+                                                                   TextTrimming="CharacterEllipsis"/>
+                                                    </Panel>
                                                     <TextBlock Grid.Row="1"
                                                                Text="{Binding Title}"
                                                                Margin="10,6,10,0"
@@ -913,6 +930,13 @@
                                                                            Classes.badge-bundle="{Binding IsBundle}"
                                                                            Foreground="{DynamicResource BrushBadgePieceFg}"/>
                                                             </Panel>
+                                                            <!-- 2026-11-20 (АЗ6): «Автозапчасти» — состояние, номер и ячейка одной строкой под названием. -->
+                                                            <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding HasPartLine}">
+                                                                <Border IsVisible="{Binding HasPartBadge}" Padding="6,0" CornerRadius="{DynamicResource NurRadiusSmall}" Background="{DynamicResource BrushBadgePieceBg}" VerticalAlignment="Center">
+                                                                    <TextBlock Text="{Binding PartBadgeText}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource BrushBadgePieceFg}"/>
+                                                                </Border>
+                                                                <TextBlock Text="{Binding PartLine}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextTrimming="CharacterEllipsis"/>
+                                                            </StackPanel>
                                                         </StackPanel>
                                                         <TextBlock Grid.Column="2" Classes="tbl-barcode" Width="130" Text="{Binding Barcode}" FontSize="13"
                                                                    Foreground="{DynamicResource BrushTextSoft}"

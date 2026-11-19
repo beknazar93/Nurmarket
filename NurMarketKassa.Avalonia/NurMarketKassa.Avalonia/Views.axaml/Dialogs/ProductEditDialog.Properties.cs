@@ -577,6 +577,7 @@ public partial class ProductEditDialog
             // 2026-10-20: из той же карточки — поставщик товара (client / client_name), без второго запроса.
             ApplySupplierFromDetail(el);
             ApplySerialsFromDetail(el); // 2026-11-13 (сервер sn1311): track_serials / warranty_months той же карточки
+            ApplyAutoPartFromDetail(el); // 2026-11-20 (АЗ5): attributes / storage_location / related той же карточки
             ApplyVatFromDetail(el); // 2026-11-14 (П0-1): vat_rate той же карточки
             if (el.TryGetProperty("minimum_quantity", out var v) && !_minimumQuantityKnown
                 && double.TryParse(v.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var min))

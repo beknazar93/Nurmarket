@@ -40,7 +40,8 @@ internal sealed class ScannerEnterGuard
         return guard;
     }
 
-    private static long KeyTime() =>
+    /// <summary>2026-11-19: общие «часы клавиши» (метка нажатия от системы, иначе часы) — их же берёт ReceivingRepeatQtyDialog, чтобы паузы мерились одинаково (и тест мог подставить свои).</summary>
+    internal static long KeyTime() =>
         AvaloniaKeyboardWedgeBarcodeService.KeyPressTimestamp() is { } ts ? (long)ts : Environment.TickCount64;
 
     private static bool IsScanChar(Key key) =>

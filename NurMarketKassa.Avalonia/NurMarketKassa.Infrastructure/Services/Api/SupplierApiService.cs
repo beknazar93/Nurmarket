@@ -522,7 +522,8 @@ public sealed class SupplierApiService
             {
                 try
                 {
-                    await SendDeleteReceiptAsync(receiptId, reason, key, version, ct).ConfigureAwait(false);
+                    var deleted = await SendDeleteReceiptAsync(receiptId, reason, key, version, ct).ConfigureAwait(false);
+                    PurchasePriceDelta.Handle(receiptId, deleted); // 2026-11-19 (ответ Умара 19.11): deltas.purchase_price — «Закупочная цена возвращена: было X → стало Y» + обновление каталога
                     return;
                 }
                 catch (ApiException ex) when (attempt == 1 && ex.StatusCode == 428)
@@ -550,7 +551,7 @@ public sealed class SupplierApiService
         }
     }
 
-    private async Task SendDeleteReceiptAsync(string receiptId, string reason, string key, int version, CancellationToken ct)
+    private async Task<JsonElement> SendDeleteReceiptAsync(string receiptId, string reason, string key, int version, CancellationToken ct)
     {
         var headers = new Dictionary<string, string> { ["Idempotency-Key"] = key };
         var body = new Dictionary<string, object?> { ["reason"] = reason.Trim() };
@@ -559,7 +560,8 @@ public sealed class SupplierApiService
             headers["If-Match"] = "\"" + version.ToString(CultureInfo.InvariantCulture) + "\"";
             body["version"] = version;
         }
-        await _api.RequestWithHeadersAsync(HttpMethod.Delete, $"api/main/suppliers/receipts/{Esc(receiptId)}/", body, headers, ct, TimeSpan.FromSeconds(40)).ConfigureAwait(false);
+        var (response, _) = await _api.RequestWithHeadersAsync(HttpMethod.Delete, $"api/main/suppliers/receipts/{Esc(receiptId)}/", body, headers, ct, TimeSpan.FromSeconds(40)).ConfigureAwait(false);
+        return response;
     }
 
     /// <summary>current_version из тела 428/412; null — не прислан.</summary>

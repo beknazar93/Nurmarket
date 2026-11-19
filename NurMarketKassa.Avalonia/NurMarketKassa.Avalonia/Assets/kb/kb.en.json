@@ -562,7 +562,7 @@
       {
        "id": "в2-работа-без-интернета-не-отправлено",
        "title": "Working without internet: “Unsent”, offline receipts, receiving and write-off with no connection",
-       "text": "Шаг 1. Without internet, sell as usual: receipts are saved on the till with the real date and time of the sale and go to the server by themselves when the connection returns.\nШаг 2. Receiving (goods in), write-off and transfer are also remembered without a connection: receiving is sent in the background (“Background receipts”), write-offs and transfers go into a queue, and the stock in the till drops at once.\nШаг 3. Everything that has not reached the server yet is in ☰ → “Unsent” (window “Unsent”): receipts, returns, debt payments, receiving, new products, shift closing, cash in/out, write-offs, transfers. Statuses: “Waiting for connection”, “Sending”, “Error”. Buttons: “Send now”, “Retry”, “More details”, “Copy data”, “Send to support”.\nШаг 4. The server does not accept a receipt older than 7 days by itself: the till warns in advance (“soon 7 days”) and marks such records in red (“Older than 7 days — awaiting owner”). Confirmation with the owner's (admin's) PIN for such receipts will appear in the next update.\nВажно: The queue is stored on the computer's disk. A stocktake that checks the owner's PIN needs a connection to the server.",
+       "text": "Шаг 1. Without internet, sell as usual: receipts are saved on the till with the real date and time of the sale and go to the server by themselves when the connection returns.\nШаг 2. Receiving (goods in), write-off and transfer are also remembered without a connection: receiving is sent in the background (“Background receipts”), write-offs and transfers go into a queue, and the stock in the till drops at once.\nШаг 3. Everything that has not reached the server yet is in ☰ → “Unsent” (window “Unsent”): receipts, returns, debt payments, receiving, new products, shift closing, cash in/out, write-offs, transfers. Statuses: “Waiting for connection”, “Sending”, “Error”. Buttons: “Send now”, “Retry”, “More details”, “Copy data”, “Send to support”.\nШаг 4. The server does not accept a receipt older than 7 days by itself: the till warns in advance (“soon 7 days”) and marks such records in red. Such receipts can be sent with a confirmation by the owner's (admin's) PIN — up to 90 days; while they wait they are labelled “Older than 7 days — confirmation needed”.\nШаг 5. Confirm sending: in the “Unsent” window press “Confirm sending…” on such a receipt (or “Confirm sending (N)…” at the bottom for all of them at once), check the summary and enter the owner's or administrator's PIN. A cashier without a PIN of their own enters the owner's PIN; if the owner or an administrator is signed in to the till, no PIN is asked.\nШаг 6. One PIN entry covers several receipts for 5 minutes; if the time is up, press the button again. With a wrong PIN the till shows how many attempts are left; after 5 mistakes the server blocks the check for 15 minutes. If no PIN is set, the till says: “The PIN is not set — set it in Settings → Employees.” The receipt goes with its real sale date.\nШаг 7. A receipt older than 90 days cannot be sent: “Older than 90 days — it cannot be sent, contact support”. If an accepted receipt was sold below the purchase price or the stock went negative, the till blocks nothing — the window keeps a note “Sent, but: sold below the purchase price / went negative on stock” with the product names. If the payment amount is too large (more than 12 digits), the receipt stays in the queue marked “Check the payment amount”.\nВажно: The queue is stored on the computer's disk. A stocktake that checks the owner's PIN needs a connection to the server.",
        "keywords": [
         "no internet",
         "offline",
@@ -572,7 +572,8 @@
         "receipt older than 7 days",
         "receiving offline",
         "write-off offline",
-        "transfer"
+        "transfer",
+        "confirm sending"
        ],
        "images": []
       },
@@ -663,6 +664,25 @@
          "caption": "Warehouse → “Barcodes” → the “Price tag setup” panel on the right"
         }
        ]
+      },
+      {
+       "id": "в2-партии-сроки-годности-и-резервы",
+       "title": "Batches, expiry dates and reservations",
+       "text": "If the NurCRM server has turned on the “10 out of 10” warehouse for your company (batches, FIFO, expiry dates, reservations), new features appear in the program. Until it is turned on, nothing changes.\nШаг 1. Product batches: ☰ → “Warehouse” → “Products” → “⋯” on the product → “Batches”. The window shows received, quantity in, quantity left, unit cost, expiry date, batch number and supplier. Batches are sorted by expiry: expired ones (“Expired”) and “Expires soon” (within 30 days) are marked.\nШаг 2. Expiry and batch on receipt: “Purchases” → “Receive goods” (or “Warehouse” → “Receiving”) → the “Expiry and batch” button in the product row. Enter the “Expiry date” or the “Production date” and “Shelf life, days”, plus “Batch no.”, then press “Save”.\nШаг 3. The “Expiry date” tile in the Warehouse and the “Expires soon” list are counted by batches. A sale takes the batch with the nearest expiry first, then the oldest; the cost of a receipt line follows these batches. The product card shows “Cost: FIFO”.\nШаг 4. Reservation: “Warehouse” → “Products” → “⋯” → “Reservations”. Enter the product, quantity, comment and “Hold until”, then press “Reserve”. If there is not enough free stock, the program says how much is free and offers “Reserve anyway”. “Release” returns the goods to free stock.\nШаг 5. In the products table, a product with a reservation shows “Free N (reserved M)” under its stock.\nШаг 6. At the till, selling an expired product raises the question “Sell it?” (“Sell anyway” / “Cancel”) or a refusal — as set in the warehouse settings. Selling more than the free stock warns in the same way.\nШаг 7. In the receipt card (Sales and finance → receipt) the “Batches” block shows which batches the goods were sold from, how many, at what cost and until which date.\nВажно: The owner turns the “10 out of 10” warehouse on in the warehouse settings on the server — the till only reads these settings and never turns anything on itself.",
+       "keywords": [
+        "batches",
+        "expiry date",
+        "expires soon",
+        "expired",
+        "reservation",
+        "reserve",
+        "fifo",
+        "cost",
+        "batch number",
+        "free stock",
+        "what is new"
+       ],
+       "images": []
       }
      ]
     },
@@ -756,6 +776,57 @@
         "device slot",
         "login taken by another till",
         "disconnect the other till"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-автозапчасти-каталожный-номер-аналоги",
+       "title": "Auto parts: part number, analogues and selection",
+       "text": "The till has a separate store type for auto parts shops: search by part number, analogues, part condition and shelf cell.\nШаг 1. Choose the store type “Auto parts and accessories”: at first start or in Settings → “Operations” → “Store type” (afterwards only support can change it). Products, prices and stock stay as they are.\nШаг 2. In the product card the “SKU” field is called “Part number”, and below it is the “Auto part” block: condition (Original, OES, Aftermarket, Used, Refurbished), cell, OEM, cross numbers, “Fits” (one car per line, e.g. “Toyota Camry 2012-2017”) and the “Choose analogues” button. The data is saved on the NurCRM server and is visible on all tills.\nШаг 3. Search: in the “Scan, code or name” field type the number the way the customer says it — “0 986 452-041”, “W 712/75”, “04465-0К090” (even with Cyrillic letters). The till removes spaces and dashes and searches by part number, OEM and cross numbers: an exact match comes first, then numbers that start with it or contain it; among equals, items in stock come first, and original ranks above aftermarket and used. The same works in “Warehouse → Products” (the cell is searched there too).\nШаг 4. The product tile shows a condition badge (“OEM”, “AFTER”, “USED”), the part number and the cell in small print (in a narrow window only the badge stays). Tap the “i” icon → “Analogues (N)”: cards with the same number or linked to it, cheapest first, with stock and cell. Enter or a double tap adds the chosen item to the receipt; out of stock rows are grey with the word “None”.\nШаг 5. On the Start plan up to 5 cross numbers per card are comfortable; with more the till only hints about the Standard plan — saving is never blocked.\nВажно: Numbers are stored without spaces and dashes (that is how the server searches), so do not put cross numbers into “Extra barcodes”. Barcode scanning works as before.",
+       "keywords": [
+        "auto parts",
+        "part number",
+        "oem",
+        "cross number",
+        "analogues",
+        "aftermarket",
+        "used",
+        "original",
+        "cell",
+        "fits",
+        "condition",
+        "search by number",
+        "spare parts",
+        "what is new"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-автозапчасти-заказ-под-клиента-и-предоплата",
+       "title": "Auto parts: customer order and prepayment",
+       "text": "The part you need is not in stock: create a customer order, take a prepayment and tell the customer when the part arrives. The section is shown in the “Auto parts and car goods” shop type.\nStep 1. Open menu ☰ → “Customer orders” (owner program: Sales → “Customer orders”) and press “＋ New order”.\nStep 2. Pick the customer from the list or type a name and phone (the phone is needed for the WhatsApp message).\nStep 3. Add parts: find them in the catalog by name or article, or press “＋ On order” and type the part name or number, quantity and price. For a customer marked “Garage / mechanic” the garage price is filled in.\nStep 4. The prepayment is optional: press “50 %” or type an amount. It is a “received in hand” record: it is not posted through the shift, so keep this money apart (in an envelope) until the order is issued.\nStep 5. Enter the delivery date, supplier and a comment, press “Save order”. The status is “New”.\nStep 6. When you have ordered from the supplier press “Mark: Ordered”, when the part arrives “Mark: Arrived”. “WhatsApp message” opens a chat with a ready text: “Your order No. … is ready” or “expected by …”.\nStep 7. When the customer comes press “Process sale”: the parts go into the receipt for the full amount. Take the prepayment from the envelope and put it in the drawer together with the balance — the till shows the amounts. Then mark the order “Issued”.\nStep 8. If the customer refuses: “Cancel order”. With a prepayment the manager PIN is required; return the money to the customer from the envelope.\nOn the Start plan, with 10 or more open orders the till only hints at the Standard plan — you can keep entering orders.",
+       "keywords": [
+        "customer order",
+        "prepayment",
+        "auto parts",
+        "delivery date",
+        "whatsapp",
+        "car parts"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-автозапчасти-гарантия-и-возврат",
+       "title": "Auto parts: warranty and returns",
+       "text": "The owner sets the return period and warranty terms for parts. They are printed at the bottom of the receipt and the till checks them on returns.\nStep 1. Owner: Settings → “Operations” → “Warranty and returns”. The field “Return period, days” (14 by default, the day of purchase is not counted) and the box “Do not accept installed parts and electrical parts”.\nStep 2. Set the warranty in days and the marks “Electrical” and “Installed parts not accepted” on the part. Without a mark the till recognises electrical parts by name (sensor, control unit, relay, starter, alternator, etc.).\nStep 3. The receipt prints “Warranty N days” under the part and a “Warranty and returns” block with your period and terms at the bottom.\nStep 4. On a return the till warns: “The return period has expired (N days)” and/or “Electrical parts are not returnable”. You can continue only with the manager PIN (owner or administrator). Without a connection the PIN cannot be checked — the return is not processed.\nStep 5. If the part is defective or under warranty, choose the return reason “Defective” or “Warranty” — the part will not go back on sale.\nFor used parts “from dismantling” create a separate card per part with quantity 1 and the condition “Used”.",
+       "keywords": [
+        "warranty",
+        "returns",
+        "return period",
+        "electrical",
+        "installed parts",
+        "manager pin",
+        "auto parts"
        ],
        "images": []
       }
@@ -2373,6 +2444,21 @@
          "file": "kassa-settings-scales.png",
          "caption": "The “Additional scales” block"
         }
+       ]
+      },
+      {
+       "id": "настройки-и-оборудование-как-оплатить-подписку-через-elqr",
+       "title": "How to pay for the subscription via ELQR",
+       "text": "Шаг 1. Open “Subscription”: in the till ☰ → “Settings” → “Account” → “Pay for the subscription…”, in the owner app — “Management” → “Subscription”. The button is shown to the owner and administrator when payment is connected for your company.\nШаг 2. Check the plan and the “Subscription until …” line. Choose the term: 1, 3, 6 or 12 months (and the plan, if there are several).\nШаг 3. Click “Pay with ELQR”. The invoice lines appear: the subscription for the chosen term, “Discount” (if set by NurCRM staff), “Bank fee — 30 som” and the “To pay” total.\nШаг 4. Scan the QR in the mobile app of any bank in Kyrgyzstan. On Windows and Android you can click “Open in the bank app”; everywhere — “Copy link”.\nШаг 5. Keep the window open: the status changes “Waiting for payment…” → “Processing…” → “Paid ✓ Subscription extended until …”. The term in the till header updates by itself.\nВажно: The bank fee is a fixed 30 som, paid by the customer, charged once per invoice; there are no discounts for longer terms, renewal is at the plan price. The QR is valid for about 20 minutes (a timer is shown). If time runs out or the payment fails — click “Create a new invoice” and do not use the old QR. If the money was taken but “Paid” does not appear — do not pay again: wait a couple of minutes, open “Subscription” (the status is in “Payment history”) or contact support.",
+       "keywords": [
+        "subscription",
+        "pay subscription",
+        "elqr",
+        "qr",
+        "renew subscription",
+        "bank fee",
+        "plan",
+        "subscription expired"
        ]
       }
      ]

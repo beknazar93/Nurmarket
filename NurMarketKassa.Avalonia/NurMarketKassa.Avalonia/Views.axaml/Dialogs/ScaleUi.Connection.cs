@@ -322,7 +322,11 @@ internal static partial class ScaleUi
 
         if (!IPAddress.TryParse(ip, out _) || ip.Count(c => c == '.') != 3)
         {
-            return (false, L("Введите IP-адрес весов, например 192.168.1.50.", "Таразанын IP-дарегин киргизиңиз, мисалы 192.168.1.50.", "Enter the scale IP address, e.g. 192.168.1.50.", "Tartı IP adresini girin, ör. 192.168.1.50.", "Tarozi IP manzilini kiriting, masalan 192.168.1.50."));
+            var noIp = L("Введите IP-адрес весов, например 192.168.1.50.", "Таразанын IP-дарегин киргизиңиз, мисалы 192.168.1.50.", "Enter the scale IP address, e.g. 192.168.1.50.", "Tartı IP adresini girin, ör. 192.168.1.50.", "Tarozi IP manzilini kiriting, masalan 192.168.1.50.");
+            // 2026-11-20 (ночная проверка кассы): при пустом адресе «Проверить связь» молчала — строка под кнопкой оставалась «Связь ещё не проверялась».
+            // Отказ запоминается как результат проверки, и панель показывает его (LastCheckText).
+            LastChecks[brand] = new ScaleCheckState(DateTime.Now, false, ip, noIp);
+            return (false, noIp);
         }
 
         try

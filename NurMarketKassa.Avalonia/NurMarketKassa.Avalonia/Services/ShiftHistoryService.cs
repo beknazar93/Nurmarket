@@ -36,6 +36,38 @@ public static class ShiftHistoryService
         }
     }
 
+    /// <summary>2026-11-19 («Табель»: вся история смен не грузилась за 20 с): боевой «месячный» загрузчик — страницы списка с конца до начала нужного месяца,
+    /// запоминает скачанное на 5 минут (привязан к входу). Исключение — ошибка страницы (её показывает окно).</summary>
+    public static ShiftMonthLoader Month { get; } = new(
+        async (page, ct) =>
+        {
+            var rows = await NurMarketKassa.AvaloniaHost.App.ShiftApi.ConstructionShiftsPageAsync(page, ct).ConfigureAwait(false);
+            return rows is { } r ? Parse(r) : null;
+        },
+        () => NurMarketKassa.AvaloniaHost.App.AuthApi?.AccessToken,
+        // 2026-11-19 (ответ Умара: признак shifts_month_filter): есть признак — смены месяца одним запросом ?month=YYYY-MM&page_size=100; нет признака — перебор страниц выше.
+        fetchMonthPage: async (year, month, page, ct) =>
+        {
+            var res = await NurMarketKassa.AvaloniaHost.App.ShiftApi.ConstructionShiftsMonthPageAsync(year, month, page, ct).ConfigureAwait(false);
+            return res is { } p ? (Parse(p.Rows), p.HasNext) : null;
+        },
+        monthFilterAvailable: MonthFilterAvailableAsync);
+
+    /// <summary>2026-11-19: у сервера есть признак shifts_month_filter (запрос capabilities кэшируется на 10 минут; нет связи/входа — false, то есть прежний перебор страниц).</summary>
+    private static async Task<bool> MonthFilterAvailableAsync(CancellationToken ct)
+    {
+        try
+        {
+            if (ServerLoyalty.ApiProvider?.Invoke() is not { } api || string.IsNullOrEmpty(api.AccessToken))
+                return false;
+            return await NurMarketKassa.Services.Api.ServerCapabilities.HasAsync(api, NurMarketKassa.Services.Api.ServerCapabilities.ShiftsMonthFilter, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return false;
+        }
+    }
+
     /// <summary>2026-10-31 (стресс-тест 1.17.68, п. 9): последняя загрузка списка смен с сервера не удалась — экран «Смены» говорит «Нет связи»,
     /// а не показывает пустой список без объяснения.</summary>
     public static bool LastLoadFailed { get; private set; }

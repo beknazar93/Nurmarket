@@ -210,6 +210,7 @@ public partial class SideMenuView : UserControl
         OldPurchasesText.Text = purchases;
         AutomationProperties.SetName(OldPurchasesButton, purchases);
         NewDeferredCartsText.Text = Tr.T("Отложенные чеки", "Калтырылган чектер", "Held receipts", "Bekletilen fişler", "Kechiktirilgan cheklar");
+        PartsOrdersText.Text = Tr.T("Заказы под клиента", "Кардарга заказдар", "Customer orders", "Müşteri siparişleri", "Mijozga buyurtmalar"); // 2026-11-20: Автозапчасти
         // 2026-10-20 (живой аудит кассы, К16): X-отчёт — цифры открытой смены без закрытия.
         var xReport = Tr.T("X-отчёт (без закрытия смены)", "X-отчёт (сменаны жаппай)", "X-report (shift stays open)", "X raporu (vardiya açık kalır)", "X-hisobot (smenani yopmasdan)");
         OldXReportText.Text = xReport;
@@ -410,6 +411,7 @@ public partial class SideMenuView : UserControl
         ["MiTradeIn"] = "трейд ин скупка выкуп б/у trade-in buyback used alım sotib olish сатып алуу",
         ["MiEstimate"] = "смета расчёт материала калькулятор стройка ремонт estimate calculator keşif hesap smeta kalkulyator",
         ["MiClients"] = "клиент клиенты покупатель customer client кардар müşteri musteri mijoz xaridor",
+        ["MiPartsOrders"] = "заказ под клиента предоплата запчасти customer order prepayment кардарга заказ sipariş buyurtma",
         ["MiDeferredCarts"] = "отлож отложенные корзина пауза hold held deferred калтыр кийинкиге bekle kechiktir savat",
         ["MiWarehouse"] = "склад товар товары остаток stock warehouse inventory кампа товар depo stok ombor tovar",
         // 2026-10-22 (закупки как в вебе): «закупки», «приход», «поставщик», «накладная» — на 5 языках.

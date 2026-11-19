@@ -4,8 +4,12 @@ using Avalonia.Headless.XUnit;
 using Avalonia.VisualTree;
 using FluentAssertions;
 using NurMarketKassa.AvaloniaHost.Views;
+using NurMarketKassa.Configuration;
 using NurMarketKassa.Models;
 using NurMarketKassa.Services;
+using NurMarketKassa.Services.Api;
+using WireMock.RequestBuilders;
+using WireMock.ResponseBuilders;
 using NurMarketKassa.UiTests.Harness;
 using SkiaSharp;
 using Xunit;
@@ -177,6 +181,197 @@ public sealed class StaffTimesheetWindowTests
             UiDrive.Find<Button>(window, "RetryButton").IsVisible.Should().BeTrue("по лимиту — «Повторить»");
             UiDrive.Find<TextBlock>(window, "StatusText").Text.Should().Contain("Не удалось загрузить смены").And.NotContain("Загрузка");
             calls.Should().BeGreaterThan(0, "Loaded мог запустить загрузку ещё раз — важно лишь, что смены запрашивались");
+        }
+        finally
+        {
+            window.Close();
+            UiShot.Pump();
+            try { Directory.Delete(dir, true); } catch (IOException) { }
+        }
+    }
+
+    /// <summary>2026-11-19: боевой режим — смены грузятся «за месяц»: окно просит загрузчик с начала показанного месяца, пишет «Смены за … загружены», переключение ‹ › просит октябрь;
+    /// на ошибке второй страницы (пришло неполное) — строка с причиной и «Повторить», уже пришедшее остаётся в сетке.</summary>
+    [AvaloniaFact]
+    public async Task MonthMode_AsksFromMonthStart_ShowsLoaded_SwitchAsksPreviousMonth_ErrorKeepsPartial()
+    {
+        await TestHost.WarmAsync();
+        UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
+        var (basic, dir) = MakeDeps();
+        var asked = new List<(DateTime Since, bool Force)>();
+        var fail = false;
+        var shifts = new List<ShiftHistoryEntry>
+        {
+            Shift("u1", "Айгуль Сыдыкова", new DateTime(2026, 11, 5, 9, 0, 0), new DateTime(2026, 11, 5, 17, 0, 0)),
+        };
+        var deps = new TimesheetDeps
+        {
+            MonthShifts = (since, force, progress, ct) =>
+            {
+                asked.Add((since, force));
+                return Task.FromResult(new ShiftMonthResult { Entries = shifts, Failed = fail, Covered = !fail });
+            },
+            Employees = basic.Employees,
+            Marks = basic.Marks,
+            Today = basic.Today,
+            CanEdit = true,
+        };
+        var window = new StaffTimesheetWindow(deps);
+        try
+        {
+            using var _ = UiShot.Render(window, new UiSize(1366, 768));
+            await window.LoadAsync();
+            UiShot.Settle(4);
+            asked.Should().NotBeEmpty();
+            asked.All(a => a.Since == new DateTime(2026, 11, 1)).Should().BeTrue("ноябрь: смены нужны с 1 ноября");
+            UiDrive.Find<TextBlock>(window, "StatusText").Text.Should().Contain("Смены за").And.Contain("загружены");
+            UiDrive.Find<Button>(window, "RetryButton").IsVisible.Should().BeFalse();
+
+            UiDrive.Click(window, UiDrive.Find<Button>(window, "PrevMonthButton"));
+            for (var i = 0; i < 40 && !asked.Any(a => a.Since == new DateTime(2026, 10, 1)); i++)
+            {
+                UiShot.Settle(1);
+                await Task.Delay(25);
+            }
+            asked.Should().Contain(a => a.Since == new DateTime(2026, 10, 1), "переключили месяц — смены просят с 1 октября");
+
+            fail = true;
+            await window.LoadAsync(true);
+            UiShot.Settle(4);
+            UiDrive.Find<Button>(window, "RetryButton").IsVisible.Should().BeTrue("неполная загрузка — «Повторить»");
+            UiDrive.Find<TextBlock>(window, "StatusText").Text.Should().Contain("Не удалось загрузить смены");
+            asked.Last().Force.Should().BeTrue("«Обновить» — заново с сервера");
+        }
+        finally
+        {
+            window.Close();
+            UiShot.Pump();
+            try { Directory.Delete(dir, true); } catch (IOException) { }
+        }
+    }
+
+    private static void Stub(WireMock.Server.WireMockServer server, string method, string path, int status, string body) =>
+        server.Given(Request.Create().WithPath(path).UsingMethod(method))
+            .RespondWith(Response.Create().WithStatusCode(status).WithHeader("Content-Type", "application/json").WithBody(body));
+
+    /// <summary>2026-11-19 (ответ Умара: shifts_month_filter и main/staff/timesheet/): окно на заглушке СЕРВЕРА (WireMock) с боевыми ShiftApiService и ShiftMonthLoader. Сетка видна сразу; смены приходят ОДНИМ запросом
+    /// ?month=2026-11&amp;page_size=100 (без перебора истории); готовый табель сервера добавляет часы дню, где смен нет (Чолпонай, 3 ноября) — отметка «не был» даёт предупреждение; смена Айгуль (5 ноября)
+    /// остаётся по сменам. Сервер ответил ошибкой на месяц и на табель (400 period_invalid) — «Не удалось загрузить смены…» и «Повторить», сетка на месте.</summary>
+    [AvaloniaFact]
+    public async Task ServerStub_MonthRequest_And_ServerTimesheet_GridAtOnce_DataArrives_ErrorShowsRetry()
+    {
+        await TestHost.WarmAsync();
+        UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
+        var (basic, dir) = MakeDeps();
+        using var server = WireMock.Server.WireMockServer.Start();
+        Stub(server, "POST", "/api/users/auth/login/", 200, "{\"access\":\"a\",\"refresh\":\"r\",\"user\":{\"id\":\"u\"}}");
+        var api = new NurMarketApiClient(new AppSettings { ApiBaseUrl = server.Url! });
+        await api.LoginAsync("a@b.kg", "12345678");
+        var shiftApi = new ShiftApiService(api);
+        Stub(server, "GET", "/api/construction/shifts/", 200,
+            "{\"count\":1,\"next\":null,\"results\":[{\"id\":\"s1\",\"cashier\":\"u1\",\"cashier_display\":\"Айгуль Сыдыкова\",\"opened_at\":\"2026-11-05T09:00:00\",\"closed_at\":\"2026-11-05T17:00:00\",\"sales_total\":\"1000\"}]}");
+        Stub(server, "GET", "/api/main/staff/timesheet/", 200,
+            "{\"employees\":[{\"employee\":{\"id\":\"u3\",\"full_name\":\"Чолпонай Эсенгулова\"},\"days\":[{\"date\":\"2026-11-03\",\"worked_minutes\":360,\"late_minutes\":5}]}]}");
+
+        var loader = new ShiftMonthLoader(
+            (_, _) => Task.FromResult<IReadOnlyList<ShiftHistoryEntry>?>(null),
+            fetchMonthPage: async (y, m, p, ct) => await shiftApi.ConstructionShiftsMonthPageAsync(y, m, p, ct) is { } r ? (ShiftHistoryService.Parse(r.Rows), r.HasNext) : null,
+            monthFilterAvailable: _ => Task.FromResult(true));
+        var deps = new TimesheetDeps
+        {
+            MonthShifts = (since, force, progress, ct) => loader.LoadAsync(since, force, progress, ct),
+            Timesheet = async (y, m, ct) => await shiftApi.StaffTimesheetAsync(y, m, ct) is { } raw ? ServerTimesheet.Parse(raw, y, m) : null,
+            Employees = basic.Employees,
+            Marks = basic.Marks,
+            Today = basic.Today,
+            CanEdit = true,
+        };
+        var window = new StaffTimesheetWindow(deps);
+        try
+        {
+            using var _ = UiShot.Render(window, new UiSize(1366, 768));
+            var load = window.LoadAsync();
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            while (sw.Elapsed < TimeSpan.FromSeconds(1) && Cells(window).Count == 0)
+            {
+                UiShot.Settle(1);
+                await Task.Delay(30);
+            }
+            Cells(window).Should().HaveCount(3 * 30, "сетка видна сразу, до ответа сервера");
+            await load.WaitAsync(TimeSpan.FromSeconds(20));
+            UiShot.Settle(4);
+            UiDrive.Find<Button>(window, "RetryButton").IsVisible.Should().BeFalse();
+            UiDrive.Find<TextBlock>(window, "StatusText").Text.Should().Contain("Смены за").And.Contain("загружены");
+            var shiftCalls = server.LogEntries.Where(e => e.RequestMessage.Path == "/api/construction/shifts/").ToList();
+            shiftCalls.Should().HaveCount(1, "месяц — один запрос, а не перебор всей истории");
+            shiftCalls[0].RequestMessage.Query!["month"].Should().Equal("2026-11");
+            shiftCalls[0].RequestMessage.Query["page_size"].Should().Equal("100");
+
+            // Айгуль: смена 5 ноября пришла — «не был» с предупреждением; Чолпонай: смен нет, но табель сервера дал 6 ч — тоже предупреждение
+            var aigul = new DateOnly(2026, 11, 5);
+            window.ApplyMark("u1", "Айгуль Сыдыкова", aigul, TimesheetStatus.Absent, null, null);
+            UiShot.Settle(2);
+            (Avalonia.Automation.AutomationProperties.GetName(CellOf(window, "u1", aigul)) ?? "").Should().Match("*Внимание*");
+            var day3 = new DateOnly(2026, 11, 3);
+            for (var i = 0; i < 60; i++)
+            {
+                window.ApplyMark("u3", "Чолпонай Эсенгулова", day3, TimesheetStatus.Absent, null, null);
+                UiShot.Settle(2);
+                if ((Avalonia.Automation.AutomationProperties.GetName(CellOf(window, "u3", day3)) ?? "").Contains("Внимание"))
+                    break;
+                await Task.Delay(25);
+            }
+            (Avalonia.Automation.AutomationProperties.GetName(CellOf(window, "u3", day3)) ?? "").Should().Match("*Внимание*", "часы из табеля сервера");
+            server.LogEntries.Should().Contain(e => e.RequestMessage.Path == "/api/main/staff/timesheet/" && e.RequestMessage.Query!["month"].Contains("2026-11"));
+
+            // сервер упал: месяц — 500, табель — 400 period_invalid → «Повторить», сетка остаётся
+            server.ResetMappings();
+            Stub(server, "GET", "/api/construction/shifts/", 500, "{\"detail\":\"boom\"}");
+            Stub(server, "GET", "/api/main/staff/timesheet/", 400, "{\"code\":\"period_invalid\"}");
+            await window.LoadAsync(true).WaitAsync(TimeSpan.FromSeconds(60));
+            UiShot.Settle(4);
+            UiDrive.Find<Button>(window, "RetryButton").IsVisible.Should().BeTrue("месяц не пришёл — «Повторить»");
+            UiDrive.Find<TextBlock>(window, "StatusText").Text.Should().Contain("Не удалось загрузить смены");
+            Cells(window).Should().HaveCount(3 * 30);
+        }
+        finally
+        {
+            window.Close();
+            UiShot.Pump();
+            try { Directory.Delete(dir, true); } catch (IOException) { }
+        }
+    }
+
+    /// <summary>2026-11-19: кассир без права «Сотрудники» — сервер отдаёт в табеле только его самого: это обычный ответ, без «Повторить» и без ошибки; чужих строк не появляется.</summary>
+    [AvaloniaFact]
+    public async Task Cashier_ServerTimesheetWithOnlySelf_IsNotAnError()
+    {
+        await TestHost.WarmAsync();
+        UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
+        var (basic, dir) = MakeDeps(canEdit: false, me: "u1");
+        using var doc = System.Text.Json.JsonDocument.Parse(
+            "{\"employee\":\"u1\",\"employee_name\":\"Айгуль Сыдыкова\",\"days\":[{\"date\":\"2026-11-02\",\"worked_minutes\":300}]}");
+        var self = ServerTimesheet.Parse(doc.RootElement, 2026, 11);
+        var deps = new TimesheetDeps
+        {
+            MonthShifts = (_, _, _, _) => Task.FromResult(new ShiftMonthResult { Entries = [], Failed = false, Covered = true }),
+            Timesheet = (_, _, _) => Task.FromResult<ServerTimesheet?>(self),
+            Employees = basic.Employees,
+            Marks = basic.Marks,
+            Today = basic.Today,
+            CanEdit = false,
+            CurrentUserKey = "u1",
+            CurrentUserName = "Айгуль Сыдыкова",
+        };
+        var window = new StaffTimesheetWindow(deps);
+        try
+        {
+            using var _ = UiShot.Render(window, new UiSize(1366, 768));
+            await window.LoadAsync();
+            UiShot.Settle(6);
+            UiDrive.Find<Button>(window, "RetryButton").IsVisible.Should().BeFalse();
+            Cells(window).Select(c => ((ValueTuple<string, string, DateOnly>)c.Tag!).Item1).Distinct().Should().Equal("u1");
+            UiDrive.Find<TextBlock>(window, "StatusText").Text.Should().NotContain("Не удалось");
         }
         finally
         {

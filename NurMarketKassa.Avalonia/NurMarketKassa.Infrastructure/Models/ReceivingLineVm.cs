@@ -81,6 +81,20 @@ public sealed partial class ReceivingLineVm : INotifyPropertyChanged // 2026-11-
         set => Set(ref _productId, value);
     }
 
+    // 2026-11-19 (склад К-5, ответ бэкенда): срок годности и номер партии строки прихода. Уходят на сервер (expires_at / produced_at + shelf_life_days / lot_no) только при признаке
+    // expiry_batches / stock_batches (PurchaseReceivingService.WithEnteredSalePrice); без признака поля не показываются и не отправляются. В черновик приёмки пока не сохраняются.
+    /// <summary>«Срок годности до» (дата).</summary>
+    public DateTime? ExpiresAt { get; set; }
+
+    /// <summary>«Дата выпуска» — вместе со «Сроком хранения, дней» вместо «Срока годности».</summary>
+    public DateTime? ProducedAt { get; set; }
+
+    /// <summary>«Срок хранения, дней» (с даты выпуска).</summary>
+    public int? ShelfLifeDays { get; set; }
+
+    /// <summary>«Партия №» поставщика.</summary>
+    public string LotNo { get; set; } = "";
+
     /// <summary>У отсканированной строки — код со сканера. Вписать руками можно только у нового
     /// товара, добавленного кнопкой «+ Новый товар» (2026-09-26).</summary>
     public string Barcode

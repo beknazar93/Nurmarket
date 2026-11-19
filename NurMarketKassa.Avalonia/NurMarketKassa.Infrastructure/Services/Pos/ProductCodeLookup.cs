@@ -180,6 +180,10 @@ public static class ProductCodeLookup
                 resolved = await ResolveServerResultsAsync(PosApp.CatalogApi, results, forms, PosApp.Settings?.ApiBaseUrl ?? "", ct).ConfigureAwait(true);
             }
 
+            // 2026-11-20 (АЗ3): «Автозапчасти» — каталожный номер ищем на сервере по нормализованному виду (?search= по значениям атрибутов).
+            if (resolved.Tile is null && !resolved.Unavailable && MarketSpheres.IsAutoParts && NurMarketKassa.Core.Application.PartNumbers.LooksLikePart(code))
+                resolved = await ResolvePartOnServerAsync(PosApp.CatalogApi, code, PosApp.Settings?.ApiBaseUrl ?? "", cts.Token).ConfigureAwait(true);
+
             if (resolved.Tile is not { } tile)
                 return new Result(null, resolved.Unavailable);
             PosLogger.Log($"Поиск по коду: '{code}' нет на этом компьютере, найден на сервере — товар {tile.Id}.", "CATALOG");
@@ -436,7 +440,51 @@ public static class ProductCodeLookup
             return new Hit(byMain, HitKind.Barcode);
         if (byAlternate is not null)
             return new Hit(byAlternate, HitKind.Barcode);
-        return byArticle is not null ? new Hit(byArticle, HitKind.Article) : null;
+        if (byArticle is not null)
+            return new Hit(byArticle, HitKind.Article);
+        return FindByPartNumber(catalog, code);
+    }
+
+    /// <summary>2026-11-20 (ТЗ «Автозапчасти», АЗ3): сфера «Автозапчасти» — каталожный номер в любом написании («0 986-452 041», кириллические К/О) находит товар, у которого
+    /// артикул или каталожный номер равен ему после нормализации. Берётся только ОДИН такой товар: с кросс-номерами и несколькими совпадениями решает список поиска, а не скан.</summary>
+    private static Hit? FindByPartNumber(CatalogProductTileVm[] catalog, string code)
+    {
+        if (!MarketSpheres.IsAutoParts)
+            return null;
+        var q = NurMarketKassa.Core.Application.PartNumbers.Norm(code);
+        if (q.Length < 3)
+            return null;
+        CatalogProductTileVm? found = null;
+        foreach (var p in catalog)
+        {
+            var own = NurMarketKassa.Core.Application.PartNumbers.Norm(p.Article);
+            var partNo = p.Part?.PartNo;
+            if (!string.Equals(own, q, StringComparison.Ordinal) && !string.Equals(partNo, q, StringComparison.Ordinal))
+                continue;
+            if (found is not null)
+                return null;
+            found = p;
+        }
+        return found is null ? null : new Hit(found, HitKind.Article);
+    }
+
+    /// <summary>2026-11-20 (АЗ3): номера нет на этом компьютере — спрашиваем сервер: поиск <c>?search=</c> ищет и по значениям атрибутов (там номера хранятся без пробелов и дефисов,
+    /// запрос тоже чистим). Берём карточку, у которой номер совпал целиком (артикул, каталожный номер, OEM, кросс), и записываем её в базу кассы.</summary>
+    private static async Task<ServerResolve> ResolvePartOnServerAsync(ICatalogApiService api, string code, string apiBaseUrl, CancellationToken ct)
+    {
+        var q = NurMarketKassa.Core.Application.PartNumbers.Norm(code);
+        var results = await api.ProductsSearchAsync(q, limit: 5, ct).ConfigureAwait(true);
+        var ids = results.Where(d => !string.IsNullOrEmpty(d.Id)).Select(d => d.Id!).Distinct(StringComparer.OrdinalIgnoreCase).Take(MaxAlternateCardChecks).ToList();
+        var cards = await Task.WhenAll(ids.Select(id => ReadCardAsync(api, id, ct))).ConfigureAwait(true);
+        foreach (var card in cards)
+        {
+            if (card is not { } c || ProductCatalogMapper.TryTile(c, apiBaseUrl) is not { } tile)
+                continue;
+            var numbers = (tile.Part?.Numbers() ?? Enumerable.Empty<string>()).Append(NurMarketKassa.Core.Application.PartNumbers.Norm(tile.Article));
+            if (NurMarketKassa.Core.Application.PartNumbers.Rank(q, numbers) == 0)
+                return new ServerResolve(StoreServerTile(tile, c, null), false);
+        }
+        return new ServerResolve(null, false);
     }
 
     private static bool HasAlternateBarcode(CatalogProductTileVm p, string code)

@@ -136,6 +136,7 @@ public static class SphereCatalog
         Add(HardwareProfile.Create());
         Add(StationeryProfile.Create()); // 2026-11-12: КТ1 — «Канцтовары и книги»
         Add(ElectronicsProfile.Create()); // 2026-11-12: ЭЛ1 — «Электроника и техника»
+        Add(AutoPartsProfile.Create()); // 2026-11-20: АЗ1 — «Автозапчасти и автотовары»
         return map;
     }
 

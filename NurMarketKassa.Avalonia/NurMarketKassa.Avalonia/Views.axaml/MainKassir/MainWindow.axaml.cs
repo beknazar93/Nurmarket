@@ -286,6 +286,7 @@ public partial class MainWindow : Window
         _viewModel.SideMenu.NavigateRepairAction ??= NavigateRepair;
         _viewModel.SideMenu.NavigateTradeInAction ??= NavigateTradeIn;
         _viewModel.SideMenu.NavigateEstimateAction ??= NavigateEstimate; // 2026-11-19: «Смета»
+        _viewModel.SideMenu.NavigatePartsOrdersAction ??= NavigatePartsOrders; // 2026-11-20: «Заказы под клиента» (Автозапчасти)
         // 2026-11-13 (Н-1): «Мастер первого запуска» и «Учебная продажа» в меню «Помощь» (MainWindow.Training.cs).
         _viewModel.SideMenu.NavigateFirstRunWizardAction ??= NavigateFirstRunWizard;
         _viewModel.SideMenu.NavigateTrainingSaleAction ??= NavigateTrainingSale;

@@ -261,6 +261,9 @@ public partial class ReturnSaleDialog
     /// Не запрет: брак принимают и после срока, и из этих категорий.</summary>
     private async Task<bool?> CheckReturnRulesAsync(IReadOnlyList<ReturnSaleLineVm> lines, bool exchange)
     {
+        // 2026-11-20 (Автозапчасти, часть Б): своя проверка — срок возврата и электрика, продолжение по PIN руководителя.
+        if (AutoPartsRules.Active)
+            return await CheckAutoPartsReturnAsync(lines, exchange).ConfigureAwait(true);
         var title = exchange ? Tr.T("Обмен", "Алмаштыруу", "Exchange", "Değişim", "Almashtirish") : Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish");
         if (NonExchangeableRules.IsOutOfTerm(_currentSaleDate))
         {

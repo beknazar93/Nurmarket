@@ -558,14 +558,15 @@
       {
        "id": "в2-работа-без-интернета-не-отправлено",
        "title": "Internetsiz ishlash: «Yuborilmadi», oflayn cheklar, aloqasiz kirim va hisobdan chiqarish",
-       "text": "Шаг 1. Internetsiz odatdagidek soting: cheklar kassada sotuvning haqiqiy sanasi va vaqti bilan yoziladi, aloqa tiklanganda serverga o'zi ketadi.\nШаг 2. Aloqasiz kirim (qabul), hisobdan chiqarish va ko'chirish ham eslab qolinadi: kirim fonda ketadi («Fondagi kirimlar»), hisobdan chiqarish va ko'chirish — navbatga, kassadagi qoldiq darhol kamayadi.\nШаг 3. Serverga hali ketmagan hamma narsa — ☰ → «Yuborilmadi» bo'limida («Yuborilmaganlar» oynasi): cheklar, qaytarishlar, qarz to'lovlari, kirimlar, yangi mahsulotlar, smenani yopish, kiritish/olish, hisobdan chiqarishlar, ko'chirishlar. Holatlar: «Aloqani kutmoqda», «Yuborilmoqda», «Xato». Tugmalar: «Hozir yuborish», «Qayta urinish», «Batafsil», «Ma'lumotni nusxalash», «Yordamga yuborish».\nШаг 4. 7 kundan eski chekni server o'zi qabul qilmaydi: kassa oldindan ogohlantiradi («tez orada 7 kun») va bunday yozuvlarni qizil qiladi («7 kundan eski — egasini kutmoqda»). Bunday cheklar uchun egasining (adminning) PIN kodini tasdiqlash keyingi yangilanishda paydo bo'ladi.\nВажно: Navbat kompyuter diskida saqlanadi. Egasining PIN kodini tekshiradigan inventarizatsiya server bilan aloqani talab qiladi.",
+       "text": "Шаг 1. Internetsiz odatdagidek soting: cheklar kassada sotuvning haqiqiy sanasi va vaqti bilan yoziladi, aloqa tiklanganda serverga o'zi ketadi.\nШаг 2. Aloqasiz kirim (qabul), hisobdan chiqarish va ko'chirish ham eslab qolinadi: kirim fonda ketadi («Fondagi kirimlar»), hisobdan chiqarish va ko'chirish — navbatga, kassadagi qoldiq darhol kamayadi.\nШаг 3. Serverga hali ketmagan hamma narsa — ☰ → «Yuborilmadi» bo'limida («Yuborilmaganlar» oynasi): cheklar, qaytarishlar, qarz to'lovlari, kirimlar, yangi mahsulotlar, smenani yopish, kiritish/olish, hisobdan chiqarishlar, ko'chirishlar. Holatlar: «Aloqani kutmoqda», «Yuborilmoqda», «Xato». Tugmalar: «Hozir yuborish», «Qayta urinish», «Batafsil», «Ma'lumotni nusxalash», «Yordamga yuborish».\nШаг 4. 7 kundan eski chekni server o'zi qabul qilmaydi: kassa oldindan ogohlantiradi («tez orada 7 kun») va bunday yozuvlarni qizil qiladi. Bunday cheklarni egasining (adminning) PIN kodi bilan tasdiqlab yuborish mumkin — 90 kungacha; kutib turganda ular «7 kundan eski — tasdiqlash kerak» deb yoziladi.\nШаг 5. Yuborishni tasdiqlash: «Yuborilmaganlar» oynasida bunday chekning yonidagi «Yuborishni tasdiqlash…» tugmasini bosing (yoki pastdagi «Yuborishni tasdiqlash (N)…» — bunday cheklarning hammasi birdan), xulosani tekshirib, egasi yoki administrator PIN kodini kiriting. O'z PIN kodi yo'q kassir egasining PIN kodini kiritadi; kassaga egasi yoki administrator kirgan bo'lsa, PIN so'ralmaydi.\nШаг 6. Bir marta PIN kiritish 5 daqiqa ichida bir nechta chekka yetadi; vaqt tugasa, tugmani yana bosing. PIN noto'g'ri bo'lsa, kassa nechta urinish qolganini ko'rsatadi; 5 xatodan keyin server tekshiruvni 15 daqiqaga bloklaydi. PIN o'rnatilmagan bo'lsa, kassa aytadi: «PIN o'rnatilmagan — Sozlamalar → Xodimlar bo'limida o'rnating.» Chek sotuvning haqiqiy sanasi bilan ketadi.\nШаг 7. 90 kundan eski chekni yuborib bo'lmaydi: «90 kundan eski — yuborib bo'lmaydi, qo'llab-quvvatlashga murojaat qiling». Qabul qilingan chek xarid narxidan past sotilgan bo'lsa yoki qoldiq minusga ketgan bo'lsa, kassa hech narsani to'smaydi — oynada tovar nomlari bilan «Yuborildi, lekin: xarid narxidan past sotildi / qoldiq bo'yicha minusga ketdi» belgisi qoladi. To'lov summasi juda katta bo'lsa (12 raqamdan uzun), chek «To'lov summasini tekshiring» belgisi bilan navbatda qoladi.\nВажно: Navbat kompyuter diskida saqlanadi. Egasining PIN kodini tekshiradigan inventarizatsiya server bilan aloqani talab qiladi.",
        "keywords": [
         "internetsiz",
         "oflayn",
         "yuborilmadi",
         "navbat",
         "aloqani kutmoqda",
-        "7 kundan eski chek"
+        "7 kundan eski chek",
+        "yuborishni tasdiqlash"
        ],
        "images": []
       },
@@ -650,6 +651,25 @@
          "caption": "Ombor → «Shtrix-kodlar» → o'ngdagi «Narx yorlig'ini sozlash» paneli"
         }
        ]
+      },
+      {
+       "id": "в2-партии-сроки-годности-и-резервы",
+       "title": "Partiyalar, yaroqlilik muddati va zaxiralar",
+       "text": "NurCRM serveri kompaniyangiz uchun «10 dan 10» omborni (partiyalar, FIFO, yaroqlilik muddatlari, zaxiralar) yoqqan bo'lsa, dasturda yangi imkoniyatlar paydo bo'ladi. Ombor yoqilmaguncha hech narsa o'zgarmaydi.\nШаг 1. Mahsulot partiyalari: ☰ → «Ombor» → «Mahsulotlar» → mahsulotdagi «⋯» → «Partiyalar». Oynada kirim, kelgan miqdor, qoldiq, tannarx, yaroqlilik muddati, partiya raqami va yetkazuvchi ko'rinadi. Partiyalar muddat bo'yicha tartiblanadi: muddati o'tganlar («Muddati o'tgan») va «Tez tugaydi» (30 kungacha) belgilanadi.\nШаг 2. Kirimda muddat va partiya: «Xaridlar» → «Tovar qabul qilish» (yoki «Ombor» → «Qabul qilish») → mahsulot qatoridagi «Muddat va partiya» tugmasi. «Yaroqlilik muddati» yoki «Ishlab chiqarilgan sana» va «Saqlash muddati, kun», shuningdek «Partiya №» kiriting, so'ng «Saqlash» bosing.\nШаг 3. Ombordagi «Yaroqlilik muddati» kartochkasi va «Tez tugaydi» ro'yxati partiyalar bo'yicha hisoblanadi. Sotuvda avval muddati eng yaqin partiya, keyin eng eskisi yechiladi; chek qatorining tannarxi shu partiyalar bo'yicha. Mahsulot kartochkasida «Tannarx: FIFO» yozuvi ko'rinadi.\nШаг 4. Zaxira: «Ombor» → «Mahsulotlar» → «⋯» → «Zaxiralar». Mahsulot, miqdor, izoh va «Qadar saqlash» sanasini kiriting, «Zaxiralash» bosing. Bo'sh qoldiq yetmasa, dastur qancha bo'shligini aytadi va «Baribir zaxiralash» ni taklif qiladi. «Olib tashlash» tovarni bo'sh qoldiqqa qaytaradi.\nШаг 5. Mahsulotlar jadvalida zaxirasi bor mahsulotning qoldig'i ostida «Bo'sh N (zaxirada M)» ko'rinadi.\nШаг 6. Kassada muddati o'tgan mahsulot sotilganda «Sotamizmi?» savoli («Baribir sotish» / «Bekor qilish») yoki rad etish chiqadi — ombor sozlamalarida belgilanganidek. Bo'sh qoldiqdan ortiq sotishda ham shunday ogohlantiriladi.\nШаг 7. Chek kartochkasida (Sotuvlar va moliya → chek) «Partiyalar» bloki tovar qaysi partiyalardan, qancha, qanday tannarx bilan va qaysi muddatgacha sotilganini ko'rsatadi.\nВажно: «10 dan 10» omborni egasi serverdagi ombor sozlamalarida yoqadi — kassa bu sozlamalarni faqat o'qiydi, o'zi hech narsani yoqmaydi.",
+       "keywords": [
+        "partiyalar",
+        "yaroqlilik muddati",
+        "tez tugaydi",
+        "muddati o'tgan",
+        "zaxira",
+        "zaxiralash",
+        "fifo",
+        "tannarx",
+        "partiya raqami",
+        "bo'sh qoldiq",
+        "yangiliklar"
+       ],
+       "images": []
       }
      ]
     },
@@ -741,6 +761,57 @@
         "mening murojaatlarim",
         "qurilma slot",
         "login boshqa kassada band"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-автозапчасти-каталожный-номер-аналоги",
+       "title": "Avtoehtiyot qismlar: katalog raqami, analoglar va tanlash",
+       "text": "Kassada avtoehtiyot qismlar do'koni uchun alohida do'kon turi bor: katalog raqami bo'yicha qidirish, analoglar, detalning holati va yacheyka.\nШаг 1. «Avtoehtiyot qismlar va avtotovarlar» do'kon turini tanlang: birinchi ishga tushirishda yoki Sozlamalar → «Operatsiyalar» → «Do'kon sohasi» (keyin do'kon turini faqat texnik yordam o'zgartiradi). Mahsulotlar, narxlar va qoldiqlar o'zgarmaydi.\nШаг 2. Mahsulot kartasida «Artikul» maydoni «Katalog raqami» deb ataladi, uning ostida «Avtoehtiyot qism» bloki bor: holati (Original, OES, Analog, B/U, Qayta tiklangan), yacheyka, OEM, kross-raqamlar, «Mos keladi» (har bir avto alohida qatorda, masalan «Toyota Camry 2012-2017») va «Analoglarni tanlash» tugmasi. Ma'lumotlar NurCRM serverida saqlanadi va barcha kassalarda ko'rinadi.\nШаг 3. Qidirish: «Skan, kod yoki nomi» maydoniga raqamni mijoz aytganidek yozing — «0 986 452-041», «W 712/75», «04465-0К090» (kirill harflari bilan ham bo'ladi). Kassa bo'shliq va chiziqchalarni olib tashlaydi va katalog raqami, OEM hamda kross-raqamlar bo'yicha qidiradi: aniq moslik birinchi, keyin raqamning boshi va ichi; teng bo'lsa — omborda borlari yuqorida, original analog va B/U dan oldin turadi. Xuddi shu «Ombor → Mahsulotlar» da ham (u yerda yacheyka ham qidiriladi).\nШаг 4. Mahsulot kartochkasida holat belgisi («ORIG», «ANALOG», «B/U»), katalog raqami va yacheyka mayda qatorda ko'rinadi (tor oynada faqat belgi qoladi). «i» belgisini bosing → «Analoglar (N)»: umumiy raqamli yoki bog'langan kartalar, narxi o'sish tartibida, qoldig'i va yacheykasi bilan. Enter yoki ikki marta bosish tanlangan mahsulotni chekka qo'shadi; omborda bo'lmasa — qator kulrang va «Yo'q» deb yoziladi.\nШаг 5. «Start» tarifida bitta kartaga 5 tagacha kross-raqam saqlash qulay; ko'p bo'lsa, kassa faqat «Standart» tarifi haqida eslatadi — saqlash to'sib qo'yilmaydi.\nВажно: Raqamlar bo'shliq va chiziqchasiz saqlanadi (server shunday qidiradi), kross-raqamlarni «Qo'shimcha shtrix-kodlar»ga qo'ymang. Shtrix-kodni skanerlash avvalgidek ishlaydi.",
+       "keywords": [
+        "avtoehtiyot qismlar",
+        "katalog raqami",
+        "oem",
+        "kross-raqam",
+        "analoglar",
+        "analog",
+        "b/u",
+        "original",
+        "yacheyka",
+        "mos keladi",
+        "detal holati",
+        "raqam bo'yicha qidirish",
+        "ehtiyot qismlar",
+        "yangiliklar"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-автозапчасти-заказ-под-клиента-и-предоплата",
+       "title": "Avtoehtiyot qismlar: mijozga buyurtma va oldindan to'lov",
+       "text": "Kerakli detal omborda bo'lmasa: mijozga buyurtma rasmiylashtiring, oldindan to'lov oling va detal kelganda xabar bering. Bo'lim «Avtoehtiyot qismlar va avtotovarlar» do'konida ko'rinadi.\nShag 1. ☰ menyusi → «Mijozga buyurtmalar» (egasi dasturida: Sotuvlar → «Mijozga buyurtmalar») ni oching va «＋ Yangi buyurtma» ni bosing.\nShag 2. Mijozni bazadan tanlang yoki ism va telefonni yozing (telefon WhatsApp xabari uchun kerak).\nShag 3. Detallarni qo'shing: katalogdan nomi yoki artikul bo'yicha toping yoki «＋ Buyurtma bilan» ni bosib detal nomi yoki raqamini, sonini va narxini yozing. «STO / usta» belgili mijozga STO narxi qo'yiladi.\nShag 4. Oldindan to'lov majburiy emas: «50 %» ni bosing yoki summani yozing. Bu «qo'lga olindi» yozuvi: smenadan o'tmaydi, shuning uchun pulni buyurtma berilguncha alohida (konvertda) saqlang.\nShag 5. Yetkazish muddati, yetkazib beruvchi va izohni kiriting, «Buyurtmani saqlash» ni bosing. Holati — «Yangi».\nShag 6. Yetkazib beruvchidan buyurtma berganingizda — «Belgilash: Buyurtma berildi», detal kelganda — «Belgilash: Keldi». «WhatsApp xabari» tayyor matn bilan chatni ochadi: «№… buyurtmangiz tayyor» yoki «… gacha kutilmoqda».\nShag 7. Mijoz kelganda «Sotuvni rasmiylashtirish» ni bosing: detallar chekka to'liq summa bilan tushadi. Oldindan to'lovni konvertdan olib, qoldiq bilan birga g'aznaga soling — kassa summalarni ko'rsatadi. So'ng buyurtmani «Berildi» deb belgilang.\nShag 8. Mijoz rad etsa: «Buyurtmani bekor qilish». Oldindan to'lov bo'lsa, rahbar PIN kodi kerak; pulni konvertdan mijozga qaytaring.\n«Start» tarifida 10 va undan ko'p ochiq buyurtmada kassa faqat «Standart» haqida eslatadi — buyurtmalarni kiritishni davom ettirishingiz mumkin.",
+       "keywords": [
+        "mijozga buyurtma",
+        "oldindan to'lov",
+        "ehtiyot qismlar",
+        "yetkazish muddati",
+        "whatsapp",
+        "avtoehtiyot qismlar"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-автозапчасти-гарантия-и-возврат",
+       "title": "Avtoehtiyot qismlar: kafolat va qaytarish",
+       "text": "Ehtiyot qismlar uchun qaytarish muddati va kafolat shartlarini egasi belgilaydi. Ular chek pastiga bosiladi, kassa esa qaytarishda ularni nazorat qiladi.\nShag 1. Egasi: Sozlamalar → «Operatsiyalar» → «Kafolat va qaytarish». «Qaytarish muddati, kun» maydoni (odatda 14, xarid kuni hisoblanmaydi) va «O'rnatilgan detallar va elektrikani qabul qilmaslik» belgisi.\nShag 2. Detalga kafolatni kunlarda va «Elektrika», «O'rnatilgan qabul qilinmaydi» belgilarini qo'ying. Belgi bo'lmasa, kassa elektrikani nomidan aniqlaydi (datchik, boshqaruv bloki, rele, starter, generator va h.k.).\nShag 3. Chekda detal ostiga «Kafolat N kun» bosiladi, pastda esa sizning muddat va shartlaringiz bilan «Kafolat va qaytarish» bloki.\nShag 4. Qaytarishda kassa ogohlantiradi: «Qaytarish muddati o'tdi (N kun)» va/yoki «Elektrika qaytarilmaydi». Davom etish uchun rahbar (egasi yoki administrator) PIN kodi kerak. Aloqa bo'lmasa PIN tekshirilmaydi — qaytarish rasmiylashtirilmaydi.\nShag 5. Detal nuqsonli yoki kafolat bo'yicha bo'lsa, qaytarish sababini «Nuqsonli» yoki «Kafolat» deb tanlang — detal sotuvga qaytmaydi.\nQismlarga ajratishdan olingan ikkinchi qo'l detallar uchun har bir detalga alohida karta oching: soni 1, holati «Ikkinchi qo'l».",
+       "keywords": [
+        "kafolat",
+        "qaytarish",
+        "qaytarish muddati",
+        "elektrika",
+        "o'rnatilgan detallar",
+        "rahbar pin",
+        "avtoehtiyot qismlar"
        ],
        "images": []
       }
@@ -2352,6 +2423,21 @@
          "file": "kassa-settings-scales.png",
          "caption": "«Qo'shimcha tarozilar» bloki"
         }
+       ]
+      },
+      {
+       "id": "настройки-и-оборудование-как-оплатить-подписку-через-elqr",
+       "title": "Obunani ELQR orqali qanday to'lash kerak",
+       "text": "Шаг 1. «Obuna» bo'limini oching: kassada ☰ → «Sozlamalar» → «Hisob» → «Obunani to'lash…», egasi dasturida — «Boshqaruv» → «Obuna». To'lov kompaniyangiz uchun ulangan bo'lsa, tugma egasi va administratorga ko'rinadi.\nШаг 2. Tarif va «Obuna … gacha» qatorini tekshiring. Muddatni tanlang: 1, 3, 6 yoki 12 oy (tariflar bir nechta bo'lsa, tarifni ham).\nШаг 3. «ELQR orqali to'lash» tugmasini bosing. Hisob qatorlari chiqadi: tanlangan muddatga obuna, «Chegirma» (NurCRM ma'muriyati qo'ygan bo'lsa), «Bank komissiyasi — 30 so'm» va «To'lov» jami summasi.\nШаг 4. QR ni Qirg'izistondagi istalgan bankning mobil ilovasida skanerlang. Windows va Android'da «Bank ilovasida ochish» tugmasini bosish mumkin; hamma joyda — «Havolani nusxalash».\nШаг 5. Oynani yopmang: holat «To'lov kutilmoqda…» → «Qayta ishlanmoqda…» → «To'landi ✓ Obuna … gacha uzaytirildi» bo'lib o'zgaradi. Kassa sarlavhasidagi muddat o'zi yangilanadi.\nВажно: Bank komissiyasi qat'iy 30 so'm, uni mijoz to'laydi, har bir hisobga bir marta olinadi; muddat uchun chegirma yo'q, uzaytirish — tarif narxi bo'yicha. QR taxminan 20 daqiqa amal qiladi (ekranda taymer bor). Vaqt tugasa yoki to'lov o'tmasa — «Yangi hisob yaratish» tugmasini bosing, eski QR dan foydalanmang. Pul yechilgan, lekin «To'landi» chiqmagan bo'lsa — qayta to'lamang: bir necha daqiqa kuting, «Obuna» bo'limini oching («To'lovlar tarixi»da holat ko'rinadi) yoki yordamga yozing.",
+       "keywords": [
+        "obuna",
+        "obunani to'lash",
+        "elqr",
+        "qr",
+        "obunani uzaytirish",
+        "bank komissiyasi",
+        "tarif",
+        "obuna tugadi"
        ]
       }
      ]

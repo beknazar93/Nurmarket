@@ -89,6 +89,9 @@ public sealed class OutboxItem
     public bool CanCopy { get; init; } = true;
     public bool CanSupport { get; init; }
 
+    /// <summary>2026-11-19 (ответ Умара 19.11): чек старше 7 суток, сервер отказал offline_too_old и сообщил offline_accept_late — можно подтвердить отправку PIN-кодом владельца/админа.</summary>
+    public bool CanConfirm { get; init; }
+
     /// <summary>Подпись вида на языке интерфейса.</summary>
     public string KindLabel => OutboxText.KindLabel(Kind);
 }

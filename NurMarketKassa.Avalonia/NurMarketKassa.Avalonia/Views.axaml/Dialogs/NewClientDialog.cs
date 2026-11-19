@@ -36,6 +36,7 @@ public sealed class NewClientDialog : Window
     public string Company => (_company?.Text ?? "").Trim();
     public string Inn => (_inn?.Text ?? "").Trim();
     private readonly TextBlock _duplicate = new() { FontSize = 12.5, TextWrapping = TextWrapping.Wrap, IsVisible = false };
+    private readonly TextBlock _phoneWarn = new() { FontSize = 12, IsVisible = false };
     private readonly TextBlock _error = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap };
     private readonly Border _errorBox = new() { CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 10), IsVisible = false };
     private readonly Button _cancel;
@@ -73,6 +74,10 @@ public sealed class NewClientDialog : Window
         _phone = Field(root, T("Телефон *", "Телефон *", "Phone *", "Telefon *", "Telefon *"), "+996 555 123 456");
         Use(_duplicate, TextBlock.ForegroundProperty, "BrushText");
         root.Children.Add(_duplicate);
+        // 2026-11-20 (ночная проверка, Д-5): телефон «123» принимался молча — мягкое предупреждение (не блокирует сохранение).
+        _phoneWarn.Text = T("Проверьте номер телефона", "Телефон номерин текшериңиз", "Check the phone number", "Telefon numarasını kontrol edin", "Telefon raqamini tekshiring");
+        Use(_phoneWarn, TextBlock.ForegroundProperty, "BrushTextSoft");
+        root.Children.Add(_phoneWarn);
         _pickExistingButton.Classes.Add("modal-secondary");
         _pickExistingButton.Content = T("Выбрать существующего", "Бар кардарды тандоо", "Select the existing one", "Mevcut olanı seç", "Mavjudini tanlash");
         _pickExistingButton.Click += (_, _) =>
@@ -183,6 +188,7 @@ public sealed class NewClientDialog : Window
         _errorBox.IsVisible = false;
         // Такой номер уже есть — подсказка с именами (сравниваем последние 9 цифр: «0555…» и «+996 555…» — один номер).
         var digits = Digits(_phone.Text);
+        _phoneWarn.IsVisible = !string.IsNullOrWhiteSpace(_phone.Text) && digits.Length < 7; // 2026-11-20 (Д-5): мягко, без блокировки
         // 2026-10-24 (аудит, круг 8, С-6): совпавших может быть несколько — показываем всех, а не первого.
         var sameAll = digits.Length >= 9 ? _existing.Where(c => Digits(c.Phone) is { Length: >= 9 } d && d[^9..] == digits[^9..]).ToList() : new List<ClientRow>();
         var same = sameAll.FirstOrDefault();

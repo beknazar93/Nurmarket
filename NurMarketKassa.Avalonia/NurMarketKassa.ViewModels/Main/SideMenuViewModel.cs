@@ -380,6 +380,19 @@ public sealed class SideMenuViewModel : ViewModelBase
         NavigateEstimateAction?.Invoke();
     });
 
+    /// <summary>2026-11-20 (сфера «Автозапчасти», часть Б): пункт «Заказы под клиента» в меню ☰ — только в сфере «Автозапчасти».</summary>
+    public Action? NavigatePartsOrdersAction { get; set; }
+
+    private ICommand? _navigatePartsOrdersCommand;
+
+    public ICommand NavigatePartsOrdersCommand => _navigatePartsOrdersCommand ??= new RelayCommand(() =>
+    {
+        CloseMenuCommand.Execute(null);
+        NavigatePartsOrdersAction?.Invoke();
+    });
+
+    public bool ShowPartsOrders => NavigatePartsOrdersAction != null && NurMarketKassa.Services.AutoPartsRules.Active;
+
     public bool ShowEstimate => NavigateEstimateAction != null
                                 && NurMarketKassa.Services.EstimateFeature.IsAvailable
                                 && !NurMarketKassa.Services.SectionVisibility.IsHidden("kassa.estimate");
@@ -402,6 +415,7 @@ public sealed class SideMenuViewModel : ViewModelBase
         OnPropertyChanged(nameof(ShowRepair));  // 2026-11-13
         OnPropertyChanged(nameof(ShowTradeIn)); // 2026-11-13
         OnPropertyChanged(nameof(ShowEstimate)); // 2026-11-19
+        OnPropertyChanged(nameof(ShowPartsOrders)); // 2026-11-20
         // 2026-11-13 (живая проверка доступов, ошибка 1): «Настройки» и «Удалено из чека» (CanViewSettings — вычисляемое свойство) не обновлялись на лету, пока право не менялось
         // перезаходом. Все вычисляемые права меню уведомляются при каждом пересчёте (остальные — сохраняемые, ниже).
         OnPropertyChanged(nameof(CanViewSettings));

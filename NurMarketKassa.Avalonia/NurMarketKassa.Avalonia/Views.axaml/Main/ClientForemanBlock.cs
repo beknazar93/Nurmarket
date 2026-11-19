@@ -51,11 +51,30 @@ public sealed class ClientForemanBlock : UserControl
         };
     }
 
+    /// <summary>2026-11-20: подпись по сфере — «Автозапчасти»: «СТО / мастер», иначе прежнее «прораб».</summary>
+    private void ApplyTexts()
+    {
+        if (!AutoPartsRules.Active)
+        {
+            _label.Text = T("Покупает по оптовой цене (прораб)", "Дүң баада сатып алат (прораб)", "Buys at the wholesale price (foreman)", "Toptan fiyatla alır (usta)", "Ulgurji narxda oladi (prorab)");
+            return;
+        }
+        _label.Text = T("СТО / мастер — покупает по своей цене", "СТО / уста — өз баасында сатып алат", "Garage / mechanic — buys at their own price", "Servis / usta — kendi fiyatıyla alır", "STO / usta — o'z narxida oladi");
+        _defaultHint = T("В чеке такого клиента все детали с ценой СТО идут по ней. Деталь без цены СТО — по рознице (касса подскажет).",
+            "Мындай кардардын чегинде СТО баасы бар бардык тетиктер ошол баа менен. СТО баасы жок тетик — чекене баада (касса кабарлайт).",
+            "In this client's receipt all parts with a garage price go at it. A part without one stays at retail (the till will tell).",
+            "Bu müşterinin fişinde servis fiyatı olan tüm parçalar o fiyattan satılır. Servis fiyatı olmayan parça perakende kalır (kasa uyarır).",
+            "Bunday mijozning chekida STO narxi bor barcha detallar shu narxda. STO narxi yo'q detal — chakana narxda (kassa eslatadi).");
+        _hint.Text = _defaultHint;
+    }
+
     /// <summary>Выбран другой клиент карточки (null — карточка закрыта).</summary>
     public void SetClient(string? clientId)
     {
         _clientId = clientId;
-        IsVisible = !string.IsNullOrWhiteSpace(clientId) && MarketSpheres.IsHardware && MarketSpheres.Profile.ForemanPriceAvailable;
+        // 2026-11-20 (Автозапчасти, часть Б): блок виден и в сфере «Автозапчасти» — подпись «СТО / мастер».
+        IsVisible = !string.IsNullOrWhiteSpace(clientId) && ((MarketSpheres.IsHardware && MarketSpheres.Profile.ForemanPriceAvailable) || AutoPartsRules.Active);
+        ApplyTexts();
         _suppress = true;
         try
         {

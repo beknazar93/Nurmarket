@@ -78,6 +78,25 @@ public sealed class SalesQueueOutboxSource : IOutboxBatchSource
             hint = Tr.T("Чек не потерян: сверьте его с продажами на сервере. Если его там нет — «Повторить».", "Чек жоголгон жок: аны сервердеги сатуулар менен салыштырыңыз. Ал жерде жок болсо — «Кайталоо».",
                 "The receipt is not lost: compare it with the sales on the server. If it is not there — “Retry”.", "Fiş kaybolmadı: sunucudaki satışlarla karşılaştırın. Orada yoksa — «Tekrar dene».", "Chek yo'qolmagan: uni serverdagi sotuvlar bilan solishtiring. U yerda yo'q bo'lsa — «Qayta urinish».");
 
+        // 2026-11-19 (ответ Умара 19.11): сервер сообщил offline_accept_late — старый чек ждёт подтверждения PIN прямо здесь («Подтвердить отправку…»), а не в «Некорректных чеках».
+        var reason = e.LastError;
+        var canConfirm = false;
+        if (failed && SyncService.LateAcceptEnabled)
+        {
+            var late = SyncService.GetLateAcceptState(e);
+            if (late == LateAcceptState.Allowed)
+            {
+                canConfirm = true;
+                hint = null;
+                reason = SyncService.NeedsConfirmText(e);
+            }
+            else if (late == LateAcceptState.TooOld)
+            {
+                hint = null;
+                reason = SyncService.TooOldSupportText();
+            }
+        }
+
         return new OutboxItem
         {
             Source = SourceName,
@@ -89,7 +108,7 @@ public sealed class SalesQueueOutboxSource : IOutboxBatchSource
             LinesCount = lines.Count,
             CreatedAt = e.CreatedAt,
             Status = failed ? OutboxStatus.Error : syncing ? OutboxStatus.Sending : OutboxStatus.Waiting,
-            Reason = e.LastError,
+            Reason = reason,
             Attempts = e.AutoRetries + (e.LastAttemptAt.HasValue ? 1 : 0),
             LastAttemptAt = e.LastAttemptAt,
             Owner = cashier,
@@ -100,6 +119,7 @@ public sealed class SalesQueueOutboxSource : IOutboxBatchSource
             CanRetry = failed && !e.TooOldForServer && !e.CheckoutCompleted,
             CanRemove = false, // чек продажи — деньги: убрать нельзя никому
             CanSupport = true,
+            CanConfirm = canConfirm,
         };
     }
 

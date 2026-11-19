@@ -165,8 +165,20 @@ public sealed class SiteCollectionsWindow : Window, IOwnerSection
         _status.Text = error != null ? SiteReviewsWindow.ErrorText(error) : "";
         if (_items.Count == 0 && error == null)
         {
-            _body.Children.Add(StateBlock.Empty(Tr.T("Коллекций пока нет. Нажмите «Создать коллекцию».", "Азырынча коллекциялар жок. «Коллекция түзүү» баскычын басыңыз.",
-                "No collections yet. Press “New collection”.", "Henüz koleksiyon yok. «Yeni koleksiyon»a basın.", "Hozircha kolleksiyalar yo'q. «Kolleksiya yaratish»ni bosing.")));
+            // 2026-11-19 (оценка владельца 19.11, «Коллекции» < 7): пояснение, «Создать коллекцию» и шаблоны «Новинки», «Акции», «Хиты» (создают черновик с названием на пяти языках — остаётся выбрать товары).
+            _body.Children.Add(StateBlock.Empty(this,
+                Tr.T("Коллекций пока нет", "Азырынча коллекциялар жок", "No collections yet", "Henüz koleksiyon yok", "Hozircha kolleksiyalar yo'q"),
+                Tr.T("Коллекция — подборка товаров на витрине сайта, например «Новинки» или «Акции». Покупателям так проще найти нужное, а вам — продвигать нужные товары.",
+                    "Коллекция — сайттын витринасындагы товарлардын топтому, мисалы «Жаңылыктар» же «Акциялар». Сатып алуучуга керектүүнү табуу оңой, ал эми сизге керектүү товарларды жылдыруу жеңил.",
+                    "A collection is a selection of products on the website showcase, such as “New arrivals” or “Sale”. It helps customers find what they need and helps you promote the right products.",
+                    "Koleksiyon, sitenin vitrinindeki ürün seçkisidir; örneğin «Yeniler» veya «İndirimler». Müşteri aradığını kolay bulur, siz de istediğiniz ürünleri öne çıkarırsınız.",
+                    "Kolleksiya — sayt vitrinasidagi mahsulotlar tanlovi, masalan «Yangiliklar» yoki «Aksiyalar». Xaridor kerakli narsani oson topadi, siz esa kerakli mahsulotlarni ilgari surasiz."),
+                Tr.T("Создать коллекцию", "Коллекция түзүү", "New collection", "Yeni koleksiyon", "Kolleksiya yaratish"),
+                () => OpenEditor(null),
+                Tr.T("Или начните с шаблона:", "Же шаблондон баштаңыз:", "Or start from a template:", "Ya da bir şablonla başlayın:", "Yoki shablondan boshlang:"),
+                (Tr.T("Новинки", "Жаңылыктар", "New arrivals", "Yeniler", "Yangiliklar"), () => OpenTemplate("Новинки", "Жаңылыктар", "New arrivals", "Yeniler", "Yangiliklar")),
+                (Tr.T("Акции", "Акциялар", "Sale", "İndirimler", "Aksiyalar"), () => OpenTemplate("Акции", "Акциялар", "Sale", "İndirimler", "Aksiyalar")),
+                (Tr.T("Хиты", "Хиттер", "Best sellers", "Çok satanlar", "Xitlar"), () => OpenTemplate("Хиты", "Хиттер", "Best sellers", "Çok satanlar", "Xitlar"))));
             return;
         }
 
@@ -269,6 +281,16 @@ public sealed class SiteCollectionsWindow : Window, IOwnerSection
     }
 
     // ------------------------------------------------------------------ правка
+
+    /// <summary>2026-11-19: новая коллекция из шаблона — названия на ru, ky, en, tr, uz подставлены, товары владелец выбирает сам.</summary>
+    private void OpenTemplate(string ru, string ky, string en, string tr, string uz)
+    {
+        OpenEditor(null);
+        var names = new Dictionary<string, string> { ["ru"] = ru, ["ky"] = ky, ["en"] = en, ["tr"] = tr, ["uz"] = uz };
+        foreach (var pair in _titleBoxes)
+            if (names.TryGetValue(pair.Key, out var name))
+                pair.Value.Text = name;
+    }
 
     private void OpenEditor(ShowcaseCollection? c)
     {

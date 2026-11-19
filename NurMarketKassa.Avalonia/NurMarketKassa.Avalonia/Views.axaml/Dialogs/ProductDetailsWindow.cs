@@ -27,6 +27,7 @@ public sealed class ProductDetailsWindow : Window
 {
     private readonly CatalogProductTileVm _product;
     private readonly Action _addToCart;
+    private readonly Action<CatalogProductTileVm>? _addOther; // 2026-11-20 (АЗ6): «Аналоги» — другой товар из окна аналогов кладётся в чек тем же способом
     private readonly TextBlock _description = new() { FontSize = 15, TextWrapping = TextWrapping.Wrap, LineHeight = 22 };
     private readonly Button _toggle = new() { IsVisible = false, HorizontalAlignment = HorizontalAlignment.Left, Padding = new Thickness(0, 8), MinHeight = 44, Background = Brushes.Transparent, BorderThickness = new Thickness(0) };
     private bool _expanded;
@@ -34,10 +35,11 @@ public sealed class ProductDetailsWindow : Window
     private const int CollapsedLines = 6;
     private const int LongTextChars = 260;
 
-    public ProductDetailsWindow(CatalogProductTileVm product, Action addToCart)
+    public ProductDetailsWindow(CatalogProductTileVm product, Action addToCart, Action<CatalogProductTileVm>? addOther = null)
     {
         _product = product;
         _addToCart = addToCart;
+        _addOther = addOther;
         Title = product.Title;
         // 2026-10-22 (модалки, пакет 1): общая оболочка ModalShell (M 672) вместо своей рамки 600 без шапки — название
         // в шапке с ✕ (Esc), тело прокручивается, «Закрыть» / «Добавить в чек» закреплены в подвале (были < 44 px).
@@ -121,11 +123,31 @@ public sealed class ProductDetailsWindow : Window
         var buttons = SectionCards.Buttons(close, add);
         if (MarketSpheres.IsHardware && !product.IsService)
             buttons.Children.Insert(0, BuildCalcButton());
+        // 2026-11-20 (ТЗ «Автозапчасти», АЗ6): «Аналоги (N)» — только в сфере «Автозапчасти».
+        if (AutoPartsProfile.IsActive && !product.IsService && _addOther is not null)
+            buttons.Children.Insert(0, BuildAnalogsButton());
 
         Content = SectionCards.Shell(Tr.T("Товар", "Товар", "Product", "Ürün", "Mahsulot"), null, root, buttons);
 
         if (string.IsNullOrWhiteSpace(product.Description))
             Opened += async (_, _) => await LoadDescriptionAsync().ConfigureAwait(true);
+    }
+
+    /// <summary>2026-11-20 (АЗ6): «Аналоги (N)» — карточки с общим номером или связью; список по цене, добавление в чек одним нажатием.</summary>
+    private Button BuildAnalogsButton()
+    {
+        var analogs = PartAnalogs.Find(_product, CatalogCacheService.Products);
+        var btn = SectionCards.Secondary(Tr.T("Аналоги", "Аналогдор", "Analogues", "Muadiller", "Analoglar") + " (" + analogs.Count + ")");
+        btn.Click += async (_, _) =>
+        {
+            var window = new AnalogsWindow(_product, analogs, other =>
+            {
+                _addOther?.Invoke(other);
+                Close();
+            });
+            await window.ShowDialog(this).ConfigureAwait(true);
+        };
+        return btn;
     }
 
     /// <summary>2026-10-26 (ХМ5): кнопка «Сколько нужно?» открывает калькулятор расхода; «В чек» из него кладёт товар в чек тем же
@@ -275,7 +297,19 @@ public sealed class ProductDetailsWindow : Window
                 rows.Add((label, value.Trim()));
         }
         Add(Tr.T("Штрихкод", "Штрихкод", "Barcode", "Barkod", "Shtrix-kod"), product.Barcode);
-        Add(Tr.T("Артикул", "Артикул", "SKU", "Stok kodu", "Artikul"), product.Article);
+        // 2026-11-20 (АЗ6): «Автозапчасти» — артикул называется «Каталожный номер», ниже состояние, OEM, кросс-номера, ячейка и «подходит к».
+        var part = AutoPartsProfile.IsActive ? product.Part : null;
+        Add(AutoPartsProfile.IsActive ? Tr.T("Каталожный номер", "Каталог номери", "Part number", "Katalog numarası", "Katalog raqami")
+                                      : Tr.T("Артикул", "Артикул", "SKU", "Stok kodu", "Artikul"), product.Article);
+        if (part is not null)
+        {
+            if (part.State.Length > 0)
+                Add(Tr.T("Состояние", "Абалы", "Condition", "Durum", "Holati"), AutoPartsProfile.StateName(part.State));
+            Add("OEM", string.Join(", ", part.Oem));
+            Add(Tr.T("Кросс-номера", "Кросс-номерлер", "Cross numbers", "Çapraz numaralar", "Kross-raqamlar"), string.Join(", ", part.Cross));
+            Add(Tr.T("Ячейка", "Уяча", "Cell", "Göz", "Yacheyka"), part.Location);
+            Add(Tr.T("Подходит к", "Ылайыктуу", "Fits", "Uyumlu", "Mos keladi"), string.Join("; ", part.Fits));
+        }
         Add(Tr.T("Код товара", "Товар коду", "Product code", "Ürün kodu", "Mahsulot kodi"), product.ProductCode);
         Add(Tr.T("Единица измерения", "Өлчөө бирдиги", "Unit", "Birim", "O'lchov birligi"), product.Unit);
         Add(Tr.T("Страна", "Өлкө", "Country", "Ülke", "Mamlakat"), product.Country);

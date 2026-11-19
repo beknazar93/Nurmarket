@@ -586,45 +586,79 @@ public sealed class ProfitCashReconcileWindow : Window, IOwnerSectionRefresh, IO
             (c.TryGetProperty("ok", out var o) && o.ValueKind == JsonValueKind.True) || ZeroDiff(c);
         var allOk = (d.TryGetProperty("all_ok", out var ok) && ok.ValueKind == JsonValueKind.True)
                     || checks.EnumerateArray().All(CheckOk);
+        // 2026-11-19 (оценка владельца 19.11, «Сверка отчётов» — плотная колонка): итог одной плашкой с коротким пояснением и одной кнопкой «Показать подробности»;
+        // расходящиеся проверки — сразу (название и разница), сходящиеся — свёрнутой группой «Сходятся (N)», чеки-примеры и памятка — по кнопке.
+        var bad = checks.EnumerateArray().Where(c => !CheckOk(c)).ToList();
+        var good = checks.EnumerateArray().Where(CheckOk).ToList();
         _checks.Children.Add(Row(allOk
                 ? Tr.T("✅ Все отчёты сходятся", "✅ Бардык отчёттор дал келет", "✅ All reports match", "✅ Tüm raporlar tutuyor", "✅ Barcha hisobotlar mos")
                 : Tr.T("⚠ Есть расхождения", "⚠ Айырмачылыктар бар", "⚠ There are mismatches", "⚠ Uyuşmazlıklar var", "⚠ Farqlar bor"),
             "", !allOk, check: allOk ? CheckState.Ok : CheckState.Warn));
-        foreach (var c in checks.EnumerateArray())
+        var n1 = bad.Count;
+        var n2 = bad.Count + good.Count;
+        _checks.Children.Add(Soft(allOk
+            ? Tr.T($"Проверок: {n2}, расхождений нет.", $"Текшерүү: {n2}, айырмачылык жок.", $"Checks: {n2}, no mismatches.", $"Kontrol: {n2}, uyuşmazlık yok.", $"Tekshiruvlar: {n2}, farq yo'q.")
+            : Tr.T($"Не сошлись {n1} из {n2} проверок: сервер насчитал разные суммы. Это не ошибка кассы — номера чеков пригодятся поддержке NurCRM.",
+                $"{n2} текшерүүнүн {n1} дал келген жок: сервер ар кандай сумма эсептеди. Бул кассанын катасы эмес — чектердин номерлери NurCRM колдоосуна керек.",
+                $"{n1} of {n2} checks do not match: the server counted different totals. This is not a till error — the receipt numbers will help NurCRM support.",
+                $"{n2} kontrolden {n1} tutmuyor: sunucu farklı toplamlar hesapladı. Bu kasa hatası değil — fiş numaraları NurCRM desteğine yardımcı olur.",
+                $"{n2} tekshiruvdan {n1} tasi mos kelmadi: server turli summalarni hisobladi. Bu kassa xatosi emas — chek raqamlari NurCRM yordamiga kerak bo'ladi.")));
+
+        var details = new StackPanel { IsVisible = false, Spacing = 0 };
+        var showMore = UiKit.Ghost(this, ShowDetailsText);
+        showMore.HorizontalAlignment = HorizontalAlignment.Left;
+        showMore.Click += (_, _) =>
         {
-            var good = CheckOk(c);
+            details.IsVisible = !details.IsVisible;
+            showMore.Content = details.IsVisible ? HideDetailsText : ShowDetailsText;
+        };
+
+        foreach (var c in bad)
+        {
             var name = LocalizeCheckName(c.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "");
             var diff = Num(c, "diff") ?? 0;
-            var right = good ? "✅" : "⚠ " + Tr.T("разница ", "айырма ", "diff ", "fark ", "farq ") + diff.ToString("N2", Ru);
-            string? fullIds = null;
-            if (!good && c.TryGetProperty("examples", out var ex) && ex.ValueKind == JsonValueKind.Array && ex.GetArrayLength() > 0)
+            _checks.Children.Add(Row(name, "⚠ " + Tr.T("разница ", "айырма ", "diff ", "fark ", "farq ") + diff.ToString("N2", Ru), false, stacked: true, check: CheckState.Warn));
+            if (c.TryGetProperty("examples", out var ex) && ex.ValueKind == JsonValueKind.Array && ex.GetArrayLength() > 0)
             {
                 // 2026-11-19 (живой обход владельца): вместо сырых UUID — короткие номера (первые 8 знаков, как в «Продажи и финансы»); полный список — по «Показать подробности».
                 var ids = ex.EnumerateArray().Take(8).Select(x => x.ToString()).ToList();
                 var shown = ids.Take(3).Select(ShortReceiptNo).ToList();
-                right += Tr.T(" · чеки: ", " · чектер: ", " · receipts: ", " · fişler: ", " · cheklar: ")
-                         + string.Join(", ", shown) + (ids.Count > shown.Count ? $" +{ids.Count - shown.Count}" : "");
-                fullIds = string.Join(", ", ids.Select(x => "№" + x));
-            }
-            _checks.Children.Add(Row(name, right, false, stacked: !good, check: good ? CheckState.Ok : CheckState.Warn));
-            if (fullIds != null)
-            {
-                var full = Soft(fullIds);
-                full.IsVisible = false;
+                _checks.Children.Add(Soft(Tr.T("Чеки: ", "Чектер: ", "Receipts: ", "Fişler: ", "Cheklar: ")
+                    + string.Join(", ", shown) + (ids.Count > shown.Count ? $" +{ids.Count - shown.Count}" : "")));
+                var full = Soft(name + ": " + string.Join(", ", ids.Select(x => "№" + x)));
                 full.Margin = new Thickness(12, 2, 0, 0);
-                var more = UiKit.Ghost(this, Tr.T("Показать подробности", "Толугураак көрсөтүү", "Show details", "Ayrıntıları göster", "Batafsil ko'rsatish"));
-                more.HorizontalAlignment = HorizontalAlignment.Left;
-                more.Click += (_, _) => full.IsVisible = !full.IsVisible;
-                _checks.Children.Add(more);
-                _checks.Children.Add(full);
+                details.Children.Add(full);
             }
         }
-        _checks.Children.Add(Soft(Tr.T("Сверку считает сервер NurCRM. Расхождение — повод написать в поддержку NurCRM с номерами чеков.",
+
+        if (good.Count > 0)
+        {
+            var okList = new StackPanel { IsVisible = false };
+            foreach (var c in good)
+                okList.Children.Add(Row(LocalizeCheckName(c.TryGetProperty("name", out var n) ? n.GetString() ?? "" : ""), "✅", false, check: CheckState.Ok));
+            var groupTitle = Tr.T($"Сходятся ({good.Count})", $"Дал келет ({good.Count})", $"Match ({good.Count})", $"Tutanlar ({good.Count})", $"Mos keladi ({good.Count})");
+            var okToggle = UiKit.Ghost(this, "▸ " + groupTitle);
+            okToggle.HorizontalAlignment = HorizontalAlignment.Left;
+            okToggle.Click += (_, _) =>
+            {
+                okList.IsVisible = !okList.IsVisible;
+                okToggle.Content = (okList.IsVisible ? "▾ " : "▸ ") + groupTitle;
+            };
+            _checks.Children.Add(okToggle);
+            _checks.Children.Add(okList);
+        }
+
+        details.Children.Add(Soft(Tr.T("Сверку считает сервер NurCRM. Расхождение — повод написать в поддержку NurCRM с номерами чеков.",
             "Салыштырууну NurCRM сервери эсептейт. Айырмачылык болсо — чектердин номерлери менен NurCRM колдоосуна жазыңыз.",
             "The NurCRM server runs the reconciliation. A mismatch is a reason to contact NurCRM support with the receipt numbers.",
             "Mutabakatı NurCRM sunucusu hesaplar. Uyuşmazlık varsa fiş numaralarıyla NurCRM desteğine yazın.",
             "Solishtirishni NurCRM serveri hisoblaydi. Farq bo'lsa — chek raqamlari bilan NurCRM yordamiga yozing.")));
+        _checks.Children.Add(showMore);
+        _checks.Children.Add(details);
     }
+
+    private static string ShowDetailsText => Tr.T("Показать подробности", "Толугураак көрсөтүү", "Show details", "Ayrıntıları göster", "Batafsil ko'rsatish");
+    private static string HideDetailsText => Tr.T("Скрыть подробности", "Жашыруу", "Hide details", "Ayrıntıları gizle", "Yashirish");
 
     /// <summary>2026-11-19: короткий номер чека — как ShortId в «Нерегулярных чеках»: длинный UUID режем до 8 знаков, короткий номер оставляем.</summary>
     private static string ShortReceiptNo(string id) => "№" + (id.Length > 12 ? id[..8].ToUpperInvariant() : id);

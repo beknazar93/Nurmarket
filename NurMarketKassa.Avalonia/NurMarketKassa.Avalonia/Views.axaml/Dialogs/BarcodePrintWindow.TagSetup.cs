@@ -20,6 +20,11 @@ namespace NurMarketKassa.AvaloniaHost.Views.Dialogs;
 public sealed partial class BarcodePrintView
 {
     private const double SidePanelWidth = 340;
+    public const double SideOnWidth = 1240; // 2026-11-19: ширина вкладки, с которой панель справа включается (выключается ниже SideOffWidth — без мигания)
+    public const double SideOffWidth = 1200;
+    // 2026-11-20: в высоком окне (от 900 px) список карточек и без панели не страдает по высоте, а панель отнимает 352 px ширины и ломает колонки настроек (4→2 при РАСШИРЕНИИ окна, LayoutStability) — там панель включается только с 1560 px
+    public const double TallWindowHeight = 900, TallSideOnWidth = 1560, TallSideOffWidth = 1520;
+    private double SideOnNow => (TopLevel.GetTopLevel(this)?.ClientSize.Height ?? 0) >= TallWindowHeight ? TallSideOnWidth : SideOnWidth;
     private bool _sideMode;
     private Grid _rootGrid = null!;
     private StackPanel _settingsLeft = null!;
@@ -237,7 +242,9 @@ public sealed partial class BarcodePrintView
         // Низкое окно (касса 1024×600/640): панели во всю высоту не хватает места — остаётся сворачиваемая карточка над списком.
         var top = TopLevel.GetTopLevel(this)?.ClientSize.Height ?? 0;
         var tall = _sideMode ? top >= 660 : top >= 690;
-        var side = tall && (_sideMode ? width >= 960 : width >= 1000);
+        // 2026-11-19 («как будет в маленьких экранах?»): порог поднят с 1000/960 до 1240/1200 — на 1024×768 панель 340 px оставляла списку ~680 px (2 колонки,
+        // чекбокс «Сканер: добавлять в печать» обрезан); на узких вкладках настройки остаются сворачиваемой карточкой над списком.
+        var side = tall && (_sideMode ? width >= (top >= TallWindowHeight ? TallSideOffWidth : SideOffWidth) : width >= SideOnNow);
         if (side == _sideMode)
             return;
         _sideMode = side;

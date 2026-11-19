@@ -127,6 +127,75 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
         }
     }
 
+    // 2026-11-19 (склад К-8, резервы): поля сервера reserved/available (приходят, только если у компании включены резервы). null — полей нет, вид склада прежний.
+    /// <summary>Сколько товара в резерве.</summary>
+    public double? Reserved { get; set; }
+
+    /// <summary>Свободный остаток (остаток минус резервы).</summary>
+    public double? Available { get; set; }
+
+    private string? _reservedInfo;
+
+    /// <summary>«Свободно 12 (в резерве 3)» — готовая подпись под плашкой остатка (строит ProductCatalogMapper); пусто — резервов нет.</summary>
+    public string? ReservedInfo
+    {
+        get => _reservedInfo;
+        set
+        {
+            if (_reservedInfo == value)
+                return;
+            _reservedInfo = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasReservedInfo));
+        }
+    }
+
+    public bool HasReservedInfo => !string.IsNullOrEmpty(_reservedInfo);
+
+    // 2026-11-20 (ТЗ «Автозапчасти», АЗ6): данные запчасти (состояние, каталожный номер, ячейка) — только в сфере «Автозапчасти»; в остальных сферах всё пусто, плитка прежняя.
+    /// <summary>Данные запчасти товара (<see cref="AutoPartHub"/>); null — не сфера «Автозапчасти» или данных нет.</summary>
+    public AutoPartInfo? Part => AutoPartHub.Of(Id);
+
+    /// <summary>Значок состояния на плитке: «ОРИГ» / «OES» / «АНАЛОГ» / «Б/У» / «ВОССТ»; пусто — не задано.</summary>
+    public string PartBadgeText => Part is { State.Length: > 0 } p ? AutoPartHub.StateBadge?.Invoke(p.State) ?? "" : "";
+
+    public bool HasPartBadge => PartBadgeText.Length > 0;
+
+    /// <summary>Мелкая строка плитки: «0986452041 · яч. A-3-2» (артикул, как он в карточке, и ячейка).</summary>
+    public string PartLine
+    {
+        get
+        {
+            var p = Part;
+            if (p is null)
+                return "";
+            var parts = new List<string>(2);
+            var number = !string.IsNullOrWhiteSpace(Article) ? Article!.Trim() : p.Oem.FirstOrDefault() ?? p.PartNo;
+            if (!string.IsNullOrEmpty(number))
+                parts.Add(number);
+            if (p.Location.Length > 0)
+                parts.Add((AutoPartHub.CellLabel?.Invoke() ?? "") + " " + p.Location);
+            return string.Join(" · ", parts).Trim();
+        }
+    }
+
+    public bool HasPartLine => PartLine.Length > 0;
+
+    /// <summary>«яч. A-3-2» — ячейка склада для таблицы владельца (пусто, если ячейки нет или сфера другая).</summary>
+    public string PartCellText => Part is { Location.Length: > 0 } p ? ((AutoPartHub.CellLabel?.Invoke() ?? "") + " " + p.Location).Trim() : "";
+
+    public bool HasPartCell => PartCellText.Length > 0;
+
+    /// <summary>Рейтинг по номеру запроса (<see cref="NurMarketKassa.Core.Application.PartNumbers.Norm"/>): 0 — номер совпал целиком (артикул, каталожный, OEM, кросс), 1 — начало, 2 — внутри, 3 — нет.</summary>
+    public int PartRank(string partQuery)
+    {
+        if (partQuery.Length == 0)
+            return NurMarketKassa.Core.Application.PartNumbers.NoMatch;
+        var article = NurMarketKassa.Core.Application.PartNumbers.Norm(Article);
+        var info = Part;
+        return NurMarketKassa.Core.Application.PartNumbers.Rank(partQuery, info is null ? new[] { article } : info.Numbers().Append(article));
+    }
+
     /// <summary>Цена числом — для сортировки колонки «Цена» (по строке «1800.00» шло раньше «200.00»).</summary>
     public double PriceValue
     {

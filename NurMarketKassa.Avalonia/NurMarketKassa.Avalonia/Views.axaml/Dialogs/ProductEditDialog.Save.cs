@@ -342,13 +342,14 @@ public partial class ProductEditDialog
                 Kind = _kind,
                 BundleItems = _kind == "bundle" ? _bundleItems.ToList() : null,
             };
+            ApplyAutoPartRequest(request); // 2026-11-20 (ТЗ «Автозапчасти», АЗ4/АЗ5): attributes / storage_location / related_input — только сфера «Автозапчасти» и только изменённое
 
             if (OfflineModeHelper.UseLocalOperations)
             {
                 // 2026-09-09: офлайн (обычный или автономный режим) — товар пишется прямо в
                 // локальную SQLite, минуя ICatalogApiService (реальный HTTP к NurCRM, которого
                 // сейчас нет). Никогда не попадёт на сервер — ожидаемо для автономного режима.
-                LocalProductEditor.SaveLocally(request, _existing?.Id);
+                SaveAutoPartMeta(LocalProductEditor.SaveLocally(request, _existing?.Id)); // 2026-11-20: местные признаки запчасти
             }
             else if (_existing is null)
             {
@@ -411,6 +412,8 @@ public partial class ProductEditDialog
                 var write = await ServerAnswerWait.ForegroundWriteAsync("products/update", t => _catalogApi.UpdateProductAsync(updateId, request, t)).ConfigureAwait(true);
                 SavedProductId = updateId; // 2026-11-07: склад обновит в каталоге только этот товар (без полной загрузки)
                 RememberSerialsAfterSave(updateId, request); // 2026-11-13 (сервер sn1311)
+                RememberAutoPartAfterSave(updateId, request); // 2026-11-20 (АЗ4)
+                SaveAutoPartMeta(updateId); // 2026-11-20: гарантия / «Электрика» / «Установленные не принимаются»
                 if (write.Pending)
                 {
                     var pendingName = request.Name;
@@ -484,6 +487,7 @@ public partial class ProductEditDialog
             var created = await _catalogApi.CreateProductAsync(request, cts.Token).ConfigureAwait(true);
             var realId = ProductCatalogMapper.TryId(created) ?? Guid.NewGuid().ToString("N");
             LocalProductEditor.SaveLocally(request, realId, created); // 2026-11-06 (Б-4): код товара, фото и is_weight — из ответа сервера
+            SaveAutoPartMeta(realId); // 2026-11-20: местные признаки запчасти — когда известен id товара
             if (ProductCatalogMapper.TryId(created) is { Length: > 0 } serverId)
                 SavedProductId = serverId; // 2026-11-07: склад обновит в каталоге только этот товар
         }
@@ -496,9 +500,10 @@ public partial class ProductEditDialog
 
     /// <summary>2026-11-06: товар в локальную базу под временным id и задача создания на сервере — в очередь на диске (PendingProductQueue). Очередь повторяет
     /// с растущей паузой и сразу при возврате связи, переживает перезапуск; приход с временным id дождётся настоящего.</summary>
-    private static void QueueNewProductForServer(ProductEditRequest request, bool maybeSent)
+    private void QueueNewProductForServer(ProductEditRequest request, bool maybeSent)
     {
         var tempId = LocalProductEditor.SaveLocally(request, null);
+        SaveAutoPartMeta(tempId); // 2026-11-20: по временному id (после создания на сервере отметки запчасти придётся поставить заново)
         try
         {
             PendingProductQueue.Instance.Enqueue(request, tempId, maybeSent);

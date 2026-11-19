@@ -492,7 +492,8 @@ public sealed class BarcodesPerfLayoutUiTests : IDisposable
                     cols.Add(panel.Children.OfType<Control>().Where(c => c.Bounds.Width > 0).Select(c => Math.Round(c.Bounds.X)).Distinct().Count());
                 }
                 Log($"resize {pass}: переключений режима {switches}, колонок {cols.Min()}–{cols.Max()}");
-                switches.Should().BeLessThanOrEqualTo(2, $"режим подписей не мигает при плавном изменении размера ({pass})");
+                // 2026-11-19: +2 — панель «Настройка ценника» включается с 1240 px (было с 1000): список сразу сужается на 352 px, и «узкая панель» один раз выключается/включается заново (настоящая смена раскладки, не мигание)
+                switches.Should().BeLessThanOrEqualTo(4, $"режим подписей не мигает при плавном изменении размера ({pass})");
             }
         }
         finally

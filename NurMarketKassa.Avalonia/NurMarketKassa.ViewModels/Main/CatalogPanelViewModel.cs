@@ -1153,14 +1153,19 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
         var variantProductId = query.Length >= 4 && MarketSpheres.IsClothing ? VariantBarcodeIndex.ProductIdFor(query) : null;
         // 2026-10-29: единый поиск SearchMatch — слова в любом порядке, ё=е; если как набрано ничего нет — «Asu»↔«Асу»↔«фыг» (раскладка/транслит).
         var sq = SearchMatch.Prepare(query);
+        var partQuery = isActiveSearch ? PartQuery(query) : ""; // 2026-11-20 (АЗ3): только сфера «Автозапчасти» и запрос, похожий на номер
         List<CatalogProductTileVm> Build(bool fuzzy) => allProducts
             .Where(p => isActiveSearch || MatchesTab(p))
-            .Where(p => MatchesSearch(p, query, sq, fuzzy)
+            .Where(p => MatchesSearch(p, query, sq, fuzzy, partQuery)
                         || (variantProductId != null && string.Equals(p.Id, variantProductId, StringComparison.OrdinalIgnoreCase)))
             .Where(MatchesAdvancedFilter)
             .Where(MatchesHotkeyGroup)
+            // 2026-11-20 (АЗ3): точный номер — в начало, потом начало номера и вхождение; при равенстве — в наличии, оригинал → аналог → Б/У. Без номера порядок прежний (ключ 0).
+            .OrderBy(p => partQuery.Length > 0 ? PartRank(p, partQuery) : 0)
+            .ThenBy(p => partQuery.Length > 0 && p.Quantity <= 0 ? 1 : 0)
+            .ThenBy(p => partQuery.Length > 0 ? PartStateOrder(p) : 0)
             // 2026-10-29 (приёмка 1.17.64, В-4): при поиске сначала названия, где слово запроса — начало слова («Asu» → «Асу…»), потом где внутри, потом остальные.
-            .OrderBy(p => isActiveSearch && !sq.IsEmpty ? sq.TitleRank(p.Title) : 0)
+            .ThenBy(p => isActiveSearch && !sq.IsEmpty ? sq.TitleRank(p.Title) : 0)
             .ThenByDescending(p => p.IsFavorite)
             // 2026-10-30 (оптимизация кассы, Б6): сортировка по названию через OrdinalIgnoreCase — на 15 000 товаров 16 мс вместо 52 (CurrentCultureIgnoreCase), без
             // выделений на сравнение. Порядок «избранные → название» тот же; отличие только у редких «Ё…» и знаков препинания в начале названия.
@@ -1318,18 +1323,34 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
             : 0;
     }
 
-    private static bool IsGrocerySphere => !MarketSpheres.IsClothing && !MarketSpheres.IsServices;
+    // 2026-11-20 (ТЗ «Автозапчасти», АЗ3): у «Автозапчастей» база тоже grocery, но поиск по доп. штрихкодам нужен им (номера аналогов) — признак профиля, а не базы.
+    private static bool IsGrocerySphere => !MarketSpheres.IsClothing && !MarketSpheres.IsServices && !MarketSpheres.IsAutoParts;
+
+    /// <summary>2026-11-20 (АЗ3): нормализованный запрос-номер для сферы «Автозапчасти» («0 986-452 041» → «0986452041»); пусто — не номер или другая сфера.</summary>
+    private static string PartQuery(string query) =>
+        MarketSpheres.IsAutoParts && NurMarketKassa.Core.Application.PartNumbers.LooksLikePart(query) ? NurMarketKassa.Core.Application.PartNumbers.Norm(query) : "";
+
+    /// <summary>Рейтинг товара по номеру: 0 — номер совпал целиком (артикул, каталожный, OEM, кросс), 1 — начало, 2 — внутри, 3 — не совпал.</summary>
+    private static int PartRank(CatalogProductTileVm p, string partQuery) => p.PartRank(partQuery);
+
+    /// <summary>Порядок в выдаче по номеру: в наличии выше, оригинал / OES выше аналога выше Б/У.</summary>
+    private static int PartStateOrder(CatalogProductTileVm p) => (p.Part?.State) switch
+    {
+        "original" => 0, "oes" => 1, "aftermarket" => 2, "refurb" => 3, "used" => 4, _ => 5,
+    };
 
     private static bool MatchesSearch(CatalogProductTileVm product, string query) =>
-        MatchesSearch(product, query, SearchMatch.Prepare(query), false);
+        MatchesSearch(product, query, SearchMatch.Prepare(query), false, PartQuery(query));
 
-    private static bool MatchesSearch(CatalogProductTileVm product, string query, SearchQuery sq, bool fuzzy)
+    private static bool MatchesSearch(CatalogProductTileVm product, string query, SearchQuery sq, bool fuzzy, string partQuery = "")
     {
         if (query.Length < 2)
             return true;
 
         var q = query.ToLowerInvariant();
         return (fuzzy ? sq.MatchesFuzzy(product.SearchKey) : sq.Matches(product.SearchKey))
+               // 2026-11-20 (АЗ3): «Автозапчасти» — номер в любом написании (пробелы, дефисы, кириллица вместо латиницы) находит артикул, OEM и кросс-номера.
+               || (partQuery.Length > 0 && PartRank(product, partQuery) < NurMarketKassa.Core.Application.PartNumbers.NoMatch)
                // 2026-10-06: и доп. штрихкоды товара — скан упаковки с другим штрихкодом в поле поиска тоже находит товар.
                // (не в «Продуктах» — владелец: «главное не трогай продуктовый»)
                || (q.Length >= 4 && !IsGrocerySphere && (product.AlternateBarcodesRaw?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false))

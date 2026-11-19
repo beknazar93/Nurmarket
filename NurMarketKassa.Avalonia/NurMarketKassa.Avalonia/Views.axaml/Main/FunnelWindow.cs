@@ -107,7 +107,7 @@ public sealed class FunnelWindow : Window, IOwnerSection
 
     public FunnelWindow()
     {
-        Title = T("Воронка", "Воронка", "Sales funnel", "Satış hunisi", "Savdo voronkasi");
+        Title = T("Воронка", "Сатуу воронкасы", "Sales funnel", "Satış hunisi", "Savdo voronkasi");
         Width = 1100;
         Height = 760;
         Use(this, BackgroundProperty, "BrushWindowBackdrop");

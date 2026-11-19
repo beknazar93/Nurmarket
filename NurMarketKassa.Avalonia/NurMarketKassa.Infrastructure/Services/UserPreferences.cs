@@ -1293,6 +1293,9 @@ public static class MarketSpheres
     /// <summary>2026-11-12 (КТ1): магазин «Канцтовары и книги». Для других сфер всегда false — их поведение не меняется.</summary>
     public static bool IsStationery => Profile.Id == StationeryProfile.Id;
 
+    /// <summary>2026-11-20 (ТЗ «Автозапчасти», АЗ1): магазин «Автозапчасти и автотовары». Для других сфер всегда false — их поведение не меняется.</summary>
+    public static bool IsAutoParts => Profile.Id == AutoPartsProfile.Id;
+
     /// <summary>2026-10-20, владелец: «добавь возможность проката во всех видах магазина» — прокат есть в любой сфере
     /// (было только «Одежда» и «Услуги»). Убрать — галочкой в «Показывать разделы» (kassa.rental / rentals).</summary>
     public static bool HasRentals => true;

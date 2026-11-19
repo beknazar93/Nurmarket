@@ -1141,7 +1141,7 @@ public sealed partial class CatalogApiService : ICatalogApiService
         },
     };
 
-    private static Dictionary<string, object?> BuildProductBody(ProductEditRequest r)
+    internal static Dictionary<string, object?> BuildProductBody(ProductEditRequest r)
     {
         // 2026-11-11 (ответ Умара): предел цен сервера — продажа/опт 9 999 999,999, закупка 9 999 999 999,9999. Здесь общий путь окна товара, массового импорта, Нур Советника
         // и приёмки: цену выше предела не отправляем (сервер ответил бы ошибкой) — понятный отказ. Поля, которые не отправляются, не проверяются.
@@ -1184,6 +1184,8 @@ public sealed partial class CatalogApiService : ICatalogApiService
             body["track_serials"] = trackSerials;
         if (r.SendWarrantyMonths)
             body["warranty_months"] = r.WarrantyMonths is > 0 ? r.WarrantyMonths : null;
+        // 2026-11-20 (ТЗ «Автозапчасти», АЗ4): attributes / storage_location / related_input — только если окно товара «Автозапчасть» их заполнило; иначе тело запроса прежнее.
+        PartMetaBody.Apply(body, r);
         // 2026-11-14 (П0-1): ставка НДС товара — только если владелец её менял (null = «ставка компании»), строкой «12.00», как остальные десятичные поля.
         if (r.SendVatRate)
             body["vat_rate"] = r.VatRate is { } vatRate ? Fiscal.FiscalFormRules.ToApi(vatRate) : null;

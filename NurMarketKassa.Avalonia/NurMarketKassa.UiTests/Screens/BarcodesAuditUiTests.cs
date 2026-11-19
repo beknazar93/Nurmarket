@@ -280,7 +280,7 @@ public sealed class BarcodesAuditUiTests : IDisposable
             var scroll = view.GetVisualDescendants().OfType<ScrollViewer>().First(x => x.Content is WrapPanel);
             // 2026-11-19 («Неудобства от владельца», п. 11): на вкладке шириной от 1000 px настройки — постоянная панель справа (340 px, во всю высоту), список слева.
             var side = (bool)typeof(BarcodePrintView).GetField("_sideMode", fl)!.GetValue(view)!;
-            side.Should().Be(view.Bounds.Width >= 1000 && section.ClientSize.Height >= 690, $"панель «Настройка ценника» справа — на вкладке от 1000 px в окне не ниже 690 px (сейчас {view.Bounds.Width:0}, окно {section.ClientSize.Height:0})");
+            side.Should().Be(view.Bounds.Width >= BarcodePrintView.SideOnWidth && section.ClientSize.Height >= 690, $"панель «Настройка ценника» справа — на вкладке от {BarcodePrintView.SideOnWidth} px в окне не ниже 690 px (сейчас {view.Bounds.Width:0}, окно {section.ClientSize.Height:0})");
             if (side)
             {
                 body.IsVisible.Should().BeTrue("в боковой панели настройки всегда раскрыты");

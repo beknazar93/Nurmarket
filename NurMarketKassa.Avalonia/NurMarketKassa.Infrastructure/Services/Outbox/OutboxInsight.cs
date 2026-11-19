@@ -95,6 +95,13 @@ public static class OutboxInsight
                         $"Mal kabulü neredeyse {ServerMaxDays} günlük (~{left} gün kaldı): sonra sunucu kendiliğinden kabul etmez. Şimdi gönderin.",
                         $"Kirim deyarli {ServerMaxDays} kunlik (~{left} kun qoldi): keyin server uni o'zi qabul qilmaydi. Hozir yuboring.");
             case OutboxDeadlineLevel.Expired:
+                // 2026-11-19: сервер сообщил offline_accept_late — подтверждение PIN прямо в карточке чека.
+                if (sale && SyncService.LateAcceptEnabled)
+                    return Tr.T($"Старше {ServerMaxDays} суток — нужно подтверждение: нажмите «Подтвердить отправку…» и введите PIN владельца или администратора (дата чека останется настоящей, до {ServerLateMaxDays} суток).",
+                        $"{ServerMaxDays} суткадан эски — ырастоо керек: «Жөнөтүүнү ырастоо…» басып, ээсинин же администратордун PIN кодун киргизиңиз (чектин датасы чыныгы бойдон калат, {ServerLateMaxDays} суткага чейин).",
+                        $"Older than {ServerMaxDays} days — confirmation needed: press “Confirm sending…” and enter the owner's or administrator's PIN (the receipt keeps its real date, up to {ServerLateMaxDays} days).",
+                        $"{ServerMaxDays} günden eski — onay gerekli: «Göndermeyi onayla…»ya basıp sahibin veya yöneticinin PIN'ini girin (fiş gerçek tarihini korur, {ServerLateMaxDays} güne kadar).",
+                        $"{ServerMaxDays} kundan eski — tasdiqlash kerak: «Yuborishni tasdiqlash…»ni bosib, egasi yoki administrator PIN kodini kiriting (chek haqiqiy sanasini saqlaydi, {ServerLateMaxDays} kungacha).");
                 return sale
                     ? Tr.T($"Не принято по сроку: чеку больше {ServerMaxDays} суток, сервер автоматически его не берёт. Что делать: владелец проводит чек по PIN — кнопка «Некорректные чеки» → «Провести по PIN владельца» (дата останется настоящей). Чек и деньги сохранены.",
                         $"Мөөнөтү боюнча кабыл алынган жок: чекке {ServerMaxDays} суткадан ашты, сервер аны автоматтык албайт. Эмне кылуу: ээси чекти PIN менен өткөрөт — «Туура эмес чектер» → «Ээсинин PIN-коду менен өткөрүү» (дата чыныгы бойдон калат). Чек жана акча сакталды.",

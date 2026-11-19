@@ -161,7 +161,7 @@ public sealed class ReceivingRepeatQtyDialog : Window
             finally { _restoring = false; }
             text = clean;
         }
-        var now = Environment.TickCount64;
+        var now = ScannerEnterGuard.KeyTime(); // 2026-11-19: те же часы, что у охранника Enter (раньше TickCount64 — при нагрузке паузы между символами сканера в тесте росли за 60 мс)
         if (now - _lastChangeAt > BurstGapMs)
             _stableText = _prevText; // начало нового набора: то, что было до него, — «устойчивое» число
         _lastChangeAt = now;

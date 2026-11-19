@@ -199,6 +199,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         TariffGate.PacksChanged += rebuildNavigation;
         SectionVisibility.Changed += rebuildNavigation;
         NurMarketKassa.Services.Fiscal.FiscalSettings.Changed += rebuildNavigation; // 2026-11-14 (П0-1): режим фискализации изменился — раздел «Продажи без фискального чека» появляется или пропадает
+        NurMarketKassa.Services.Api.ServerCapabilities.Changed += rebuildNavigation; // 2026-11-19: признаки сервера пришли/изменились — пункт «Подписка» (billing_elqr) появляется или пропадает
         // 2026-11-11 (доступы «с сайта»): доступы изменились на сайте/в программе владельца — меню по новым правам без перезапуска и плашка.
         Action accessChanged = () => { rebuildNavigation(); Avalonia.Threading.Dispatcher.UIThread.Post(NurMarketKassa.AvaloniaHost.Services.AccessSyncNotice.Show); };
         PermissionRecheck.PermissionsChanged += accessChanged;
@@ -207,6 +208,7 @@ public partial class OwnerShellWindow : Window, IMainShell
             TariffGate.PacksChanged -= rebuildNavigation;
             SectionVisibility.Changed -= rebuildNavigation;
             NurMarketKassa.Services.Fiscal.FiscalSettings.Changed -= rebuildNavigation;
+            NurMarketKassa.Services.Api.ServerCapabilities.Changed -= rebuildNavigation;
             PermissionRecheck.PermissionsChanged -= accessChanged;
             // 2026-10-31 (стресс-тест 1.17.68, п. 8): статические ссылки ProductActionPlan на лямбды окна держали закрытое главное окно (WireNavSearch).
             if (ProductActionPlan.OpenProduct?.Target == this) ProductActionPlan.OpenProduct = null;
@@ -882,6 +884,9 @@ public partial class OwnerShellWindow : Window, IMainShell
         // 2026-11-19 (живой обход владельца): пункт открывает диалог, а не раздел — многоточие «Оформить возврат…»
         Add("salereturn", "ReturnIcon", Tr.T("Оформить возврат…", "Кайтарууну тариздөө…", "Process a return…", "İade işle…", "Qaytarishni rasmiylashtirish…"), HasPermissionSafe(PosPermissions.EmployeeReturn),
             () => _ = ReturnSaleLauncher.OpenAsync(this));
+        // 2026-11-20 (сфера «Автозапчасти», часть Б): «Продажи → Заказы под клиента» — список и статусы (продажу из заказа оформляют в кассе); право — «Склад».
+        Add("partsorders", "EstimateIcon", Tr.T("Заказы под клиента", "Кардарга заказдар", "Customer orders", "Müşteri siparişleri", "Mijozga buyurtmalar"), AutoPartsRules.Active,
+            () => { if (Authorize(PosPermissions.ViewProducts)) OpenSection("partsorders", () => new PartsOrdersWindow()); });
         Add("debts", "DebtsIcon", Tr.T("Долги клиентов", "Кардарлардын карыздары", "Customer debts", "Müşteri borçları", "Mijozlar qarzlari"), TariffGate.CanUseDebts,
             OpenDebts);
         // 2026-10-02, владелец: «и админку не забудь — при смене режима админка должна меняться». Прокат —
@@ -964,7 +969,8 @@ public partial class OwnerShellWindow : Window, IMainShell
         // (только Windows: WebView2); на Android откроется приложение WhatsApp.
         // 2026-10-05: воронка и WhatsApp — работа с клиентами, как раздел «Клиенты»: не на «Старте».
         Add("whatsapp", "WhatsAppIcon", "WhatsApp", TariffGate.CanViewClients, OpenWhatsApp);
-        Add("funnel", "FunnelIcon", Tr.T("Воронка", "Воронка", "Sales funnel", "Satış hunisi", "Savdo voronkasi"), TariffGate.CanViewClients,
+        // 2026-11-20: ky «Воронка» была по-русски — «Сатуу воронкасы».
+        Add("funnel", "FunnelIcon", Tr.T("Воронка", "Сатуу воронкасы", "Sales funnel", "Satış hunisi", "Savdo voronkasi"), TariffGate.CanViewClients,
             () => { if (Authorize(PosPermissions.ViewClients)) OpenSection("funnel", () => new FunnelWindow()); });
 
         // 2026-10-06, редизайн меню: «Сервис» → «Управление» — зарплата, сайт NurCRM, покупка функций, настройки.
@@ -977,6 +983,9 @@ public partial class OwnerShellWindow : Window, IMainShell
             () => { if (Authorize(PosPermissions.ViewSettings)) OpenSection("timesheet", () => new StaffTimesheetWindow()); });
         Add("crm", "CrmIcon", "NurCRM", TariffGate.CanUseService,
             () => OpenSection("crm", () => App.GetRequiredService<CrmWebViewWindow>()));
+        // 2026-11-19 (оплата подписки через ELQR): «Подписка» — тариф, «до …», оплата. Только владельцу/админу и только при признаке сервера billing_elqr; кассир видит срок в Настройках → Аккаунт.
+        Add("subscription", "IconCard", Tr.T("Подписка", "Жазылуу", "Subscription", "Abonelik", "Obuna"), SubscriptionWindow.CanOffer(),
+            () => SubscriptionWindow.ShowOrActivate(this));
         Add("marketplace", "MarketplaceIcon", Tr.T("Маркетплейс", "Маркетплейс", "Marketplace", "Pazar yeri", "Marketpleys"), true,
             () => { if (Authorize(PosPermissions.ViewSettings)) OpenSection("marketplace", () => new MarketplaceWindow().AsSection()); });
         // 2026-11-11, запрос владельца «настройки печати тоже в владельца добавь»: «Печать» — те же настройки печати (вкладка «Печать» окна «Настройки»),

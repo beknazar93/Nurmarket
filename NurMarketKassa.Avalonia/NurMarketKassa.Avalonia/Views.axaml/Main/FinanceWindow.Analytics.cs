@@ -33,9 +33,50 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     pieTitle.IsVisible = false;
             }
 
-            var links = BuildAnalyticsLinks();
-            Grid.SetRow(links, 2);
-            ContentGrid.Children.Add(links);
+            // 2026-11-19 (оценка владельца 19.11, «Аналитика» < 7): над графиками — четыре сводные плитки периода (выручка, чеки, средний чек, валовая прибыль);
+            // шесть плиток «Продаж» по-прежнему скрыты (не повторяем их целиком). Цифры — те же, что считает окно (UpdateAnalyticsTiles из расчёта плиток).
+            var host = new StackPanel { Spacing = 0 };
+            host.Children.Add(BuildAnalyticsLinks());
+            host.Children.Add(BuildAnalyticsTiles());
+            Grid.SetRow(host, 2);
+            ContentGrid.Children.Add(host);
+        }
+
+        private TextBlock _anRevenue, _anChecks, _anAvg, _anProfit;
+
+        private Control BuildAnalyticsTiles()
+        {
+            var grid = new Controls.KpiTileGrid { MinTileWidth = 170, Spacing = 8, Margin = new Thickness(0, 0, 0, 12) };
+            Border Tile(string label, out TextBlock value)
+            {
+                var l = new TextBlock { Text = label, TextWrapping = TextWrapping.Wrap };
+                l.Classes.Add("sec-kpi-label");
+                var v = new TextBlock { Text = "—" };
+                v.Classes.Add("sec-kpi-value");
+                var fit = new Viewbox { Child = v };
+                fit.Classes.Add("sec-kpi-fit");
+                var b = new Border { Child = new StackPanel { Spacing = 4, Children = { l, fit } } };
+                b.Classes.Add("sec-kpi");
+                value = v;
+                return b;
+            }
+            grid.Children.Add(Tile(Tr.T("Выручка", "Түшүм", "Revenue", "Ciro", "Tushum"), out _anRevenue));
+            grid.Children.Add(Tile(Tr.T("Чеки", "Чектер", "Receipts", "Fişler", "Cheklar"), out _anChecks));
+            grid.Children.Add(Tile(Tr.T("Средний чек", "Орточо чек", "Average receipt", "Ortalama fiş", "O'rtacha chek"), out _anAvg));
+            grid.Children.Add(Tile(Tr.T("Валовая прибыль", "Дөң пайда", "Gross profit", "Brüt kâr", "Yalpi foyda"), out _anProfit));
+            return grid;
+        }
+
+        /// <summary>Обновить четыре плитки раздела «Аналитика» (в кассе и «Продажах» их нет — ничего не делает).</summary>
+        private void UpdateAnalyticsTiles(decimal revenue, int checks, decimal avg, decimal grossProfit)
+        {
+            if (_anRevenue == null)
+                return;
+            _anRevenue.Text = MoneyText.Som(revenue);
+            _anChecks.Text = checks.ToString();
+            _anAvg.Text = MoneyText.Som(avg);
+            _anProfit.Text = MoneyText.Som(grossProfit);
+            _anProfit.Classes.Set("danger", grossProfit < 0);
         }
 
         /// <summary>Строка под шапкой: что здесь, где каждый чек и долги — кнопками-обводками в те разделы программы владельца.</summary>

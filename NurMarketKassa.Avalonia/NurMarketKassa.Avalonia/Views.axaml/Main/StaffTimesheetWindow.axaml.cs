@@ -17,7 +17,13 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// <summary>Источники данных окна табеля. По умолчанию — боевые (смены с сервера, сотрудники с сервера, файл отметок в AppPaths); тест подставляет свои, сервер не нужен.</summary>
 public sealed class TimesheetDeps
 {
-    public Func<CancellationToken, Task<IReadOnlyList<ShiftHistoryEntry>>> Shifts { get; init; } = async ct => await ShiftHistoryService.LoadAsync(ct, fresh: true).ConfigureAwait(false);
+    /// <summary>2026-11-19: полный список смен разом (тестовая заглушка). null — боевой режим: смены грузятся по месяцам через <see cref="MonthShifts"/> (вся история компании не успевала за 20 с).</summary>
+    public Func<CancellationToken, Task<IReadOnlyList<ShiftHistoryEntry>>>? Shifts { get; init; }
+    /// <summary>2026-11-19: «месячная» загрузка смен: (с какой даты, заново?, прогресс, отмена). По умолчанию — боевой загрузчик страниц с конца.</summary>
+    public Func<DateTime, bool, Action<IReadOnlyList<ShiftHistoryEntry>>?, CancellationToken, Task<ShiftMonthResult>> MonthShifts { get; init; } =
+        (since, force, progress, ct) => ShiftHistoryService.Month.LoadAsync(since, force, progress, ct);
+    /// <summary>2026-11-19: готовый табель сервера (год, месяц, отмена) — запасной источник часов по дням, где смены месяца не пришли. null — не используется (так в тестах, если не задан).</summary>
+    public Func<int, int, CancellationToken, Task<ServerTimesheet?>>? Timesheet { get; init; }
     public Func<CancellationToken, Task<IReadOnlyList<(string Key, string Name)>>> Employees { get; init; } = StaffTimesheetWindow.LoadServerEmployeesAsync;
     public TimesheetMarksService Marks { get; init; } = TimesheetMarksService.Default;
     /// <summary>2026-11-19: сколько ждать смены/сотрудников, прежде чем показать «не удалось, повторить» (тест ставит короче).</summary>
@@ -49,7 +55,7 @@ public partial class StaffTimesheetWindow : Window, IOwnerSectionExcel, IOwnerSe
 
     public StaffTimesheetWindow(TimesheetDeps? deps)
     {
-        _deps = deps ?? new TimesheetDeps { UseCache = true };
+        _deps = deps ?? new TimesheetDeps { UseCache = true, Timesheet = LoadServerTimesheetAsync };
         InitializeComponent();
         TimesheetGrid.ItemsSource = _rows;
         InitMarksUi();
@@ -93,7 +99,8 @@ public partial class StaffTimesheetWindow : Window, IOwnerSectionExcel, IOwnerSe
 
     private async void Window_Loaded(object? sender, RoutedEventArgs e) => await LoadAsync().ConfigureAwait(true);
 
-    private async void Refresh_Click(object? sender, RoutedEventArgs e) => await LoadAsync().ConfigureAwait(true);
+    // 2026-11-19: «Обновить» — смены заново с сервера; «Повторить» и открытие окна докачивают недостающее (кэш страниц живёт 5 минут).
+    private async void Refresh_Click(object? sender, RoutedEventArgs e) => await LoadAsync(true).ConfigureAwait(true);
 
     /// <summary>Раньше был обычный DatePicker (3 отдельных "колеса" день/месяц/год с
     /// подтверждением галочкой во всплывающем окне) — кассир видел нередактируемую надпись
@@ -102,7 +109,13 @@ public partial class StaffTimesheetWindow : Window, IOwnerSectionExcel, IOwnerSe
     /// CalendarDatePicker — обычный календарь-попап с выбором одним кликом, значение применяется
     /// сразу; вдобавок сразу же обновляет таблицу через SelectedDateChanged, не дожидаясь
     /// отдельного нажатия "Обновить".</summary>
-    private void DateFilter_Changed(object? sender, SelectionChangedEventArgs e) => RebuildShifts();
+    private void DateFilter_Changed(object? sender, SelectionChangedEventArgs e)
+    {
+        RebuildShifts();
+        // 2026-11-19: период «с» раньше начала месяца — догрузить более старые смены.
+        if (_deps.Shifts == null && FromDatePicker.SelectedDate is { } f && f.Date < ShiftMonthLoader.MonthStart(_year, _month))
+            _ = EnsureMonthShiftsAsync();
+    }
 
     private void ClearFilter_Click(object? sender, RoutedEventArgs e)
     {
@@ -129,6 +142,46 @@ public partial class StaffTimesheetWindow : Window, IOwnerSectionExcel, IOwnerSe
             PosLogger.Log($"Табель сотрудников: список сотрудников не получен: {ex.Message}", "STAFF");
             return new List<(string, string)>();
         }
+    }
+
+    /// <summary>2026-11-19: боевой источник готового табеля — GET main/staff/timesheet/?month=… (только если у сервера есть признак shifts_month_filter, с которым табель выкатили).
+    /// Нет признака/связи/права, 400 period_invalid — null: окно работает по сменам, как раньше. Кассир без права «Сотрудники» получает только себя — это обычный ответ, не ошибка.</summary>
+    public static async Task<ServerTimesheet?> LoadServerTimesheetAsync(int year, int month, CancellationToken ct)
+    {
+        try
+        {
+            if (NurMarketKassa.Services.ServerLoyalty.ApiProvider?.Invoke() is not { } api || string.IsNullOrEmpty(api.AccessToken)
+                || !await NurMarketKassa.Services.Api.ServerCapabilities.HasAsync(api, NurMarketKassa.Services.Api.ServerCapabilities.ShiftsMonthFilter, ct).ConfigureAwait(false))
+                return null;
+            var raw = await NurMarketKassa.AvaloniaHost.App.ShiftApi.StaffTimesheetAsync(year, month, ct).ConfigureAwait(false);
+            return raw is { } r ? ServerTimesheet.Parse(r, year, month) : null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            PosLogger.Log($"Табель сотрудников: табель сервера за {year}-{month:D2} не получен: {ex.Message}", "STAFF");
+            return null;
+        }
+    }
+
+    /// <summary>2026-11-19: подгрузить табель сервера за показанный месяц и пересобрать «Отметки» (часы по дням без смен). Ошибка/нет данных — тихо, ничего не меняется.</summary>
+    private async Task LoadServerTimesheetFactsAsync(bool force)
+    {
+        if (_deps.Timesheet is not { } source || _deps.Shifts != null)
+            return;
+        var (year, month) = (_year, _month);
+        ServerTimesheet? ts = null;
+        if (!force && _timesheetCache.TryGetValue((year, month), out var cached))
+            ts = cached;
+        else if (await WithLimitAsync(ct => source(year, month, ct), TimeSpan.FromSeconds(8), "табель сервера").ConfigureAwait(true) is { } fresh)
+        {
+            _timesheetCache[(year, month)] = fresh;
+            ts = fresh;
+        }
+        if (ts == null || year != _year || month != _month)
+            return;
+        _serverTimesheet = ts;
+        ReloadMarks();
+        RebuildMarks();
     }
 
     // 2026-11-19 (живой обход владельца): кэш последней удачной загрузки (только боевые источники) — окно рисуется сразу из него, а не висит на «Загрузке…».
@@ -158,7 +211,7 @@ public partial class StaffTimesheetWindow : Window, IOwnerSectionExcel, IOwnerSe
     /// <summary>Загрузить смены, сотрудников и отметки и перестроить обе вкладки.
     /// 2026-11-19: сначала сразу рисуем то, что уже есть (кэш/пусто), смены и сотрудники догружаются с лимитом (<see cref="TimesheetDeps.LoadTimeout"/>);
     /// по таймауту/ошибке — понятная строка и «Повторить», а не вечная «Загрузка…».</summary>
-    public async Task LoadAsync()
+    public async Task LoadAsync(bool force = false)
     {
         var version = ++_loadVersion;
         RetryButton.IsVisible = false;
@@ -174,7 +227,9 @@ public partial class StaffTimesheetWindow : Window, IOwnerSectionExcel, IOwnerSe
             RebuildShifts();
             StatusText.Text = Tr.T("Загрузка смен…", "Смендер жүктөлүүдө…", "Loading shifts…", "Vardiyalar yükleniyor…", "Smenalar yuklanmoqda…");
             var limit = _deps.LoadTimeout;
-            var shiftsTask = WithLimitAsync(_deps.Shifts, limit, "смены");
+            var shiftsVersion = ++_shiftsVersion;
+            var shiftsTask = LoadShiftsAsync(limit, force, shiftsVersion);
+            _ = LoadServerTimesheetFactsAsync(force); // 2026-11-19: готовый табель сервера (~0,03 с) — часы по дням, пока/если смены не пришли
             var employeesTask = WithLimitAsync(_deps.Employees, limit, "сотрудники");
             // сотрудники обычно приходят быстро — сетку показываем сразу, не дожидаясь смен
             var server = await employeesTask.ConfigureAwait(true);
@@ -188,27 +243,10 @@ public partial class StaffTimesheetWindow : Window, IOwnerSectionExcel, IOwnerSe
                 ReloadMarks();
                 RebuildMarks();
             }
-            var shifts = await shiftsTask.ConfigureAwait(true);
+            var (shifts, failed) = await shiftsTask.ConfigureAwait(true);
             if (version != _loadVersion)
                 return;
-            if (shifts != null)
-            {
-                _shifts = shifts.ToList();
-                if (useCache)
-                    _cacheShifts = _shifts;
-            }
-            ReloadMarks();
-            RebuildMarks();
-            RebuildShifts();
-            if (shifts == null)
-            {
-                var month = $"{MonthName(_month)} {_year}";
-                StatusText.Text = Tr.T($"Не удалось загрузить смены за {month}. Повторите.", $"{month} үчүн смендерди жүктөө мүмкүн болгон жок. Кайра аракет кылыңыз.",
-                    $"Could not load shifts for {month}. Try again.", $"{month} için vardiyalar yüklenemedi. Tekrar deneyin.", $"{month} uchun smenalarni yuklab bo'lmadi. Qayta urinib ko'ring.");
-                RetryButton.IsVisible = true;
-            }
-            else
-                StatusText.Text = MarksStatusLine();
+            ApplyShiftsOutcome(shifts, failed, shiftsVersion);
         }
         catch (Exception ex)
         {
@@ -220,6 +258,91 @@ public partial class StaffTimesheetWindow : Window, IOwnerSectionExcel, IOwnerSe
     }
 
     private async void Retry_Click(object? sender, RoutedEventArgs e) => await LoadAsync().ConfigureAwait(true);
+
+    private int _shiftsVersion;
+
+    /// <summary>2026-11-19: с какой даты нужны смены — начало показанного месяца (или период «с» из вкладки «Итоги», если он раньше).</summary>
+    private DateTime ShiftsSince()
+    {
+        var start = ShiftMonthLoader.MonthStart(_year, _month);
+        return FromDatePicker.SelectedDate is { } f && f.Date < start ? f.Date : start;
+    }
+
+    /// <summary>Смены: заглушка теста — целиком, как раньше (с лимитом); боевой режим — страницы с конца до начала месяца, то, что уже пришло, рисуется сразу.
+    /// Failed=true — не всё пришло (Rows — что успели, null — ничего).</summary>
+    private async Task<(IReadOnlyList<ShiftHistoryEntry>? Rows, bool Failed)> LoadShiftsAsync(TimeSpan limit, bool force, int version)
+    {
+        if (_deps.Shifts is { } all)
+        {
+            var rows = await WithLimitAsync(all, limit, "смены").ConfigureAwait(true);
+            return (rows, rows == null);
+        }
+
+        using var cts = new CancellationTokenSource(limit);
+        try
+        {
+            var res = await _deps.MonthShifts(ShiftsSince(), force, part => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (version != _shiftsVersion)
+                    return;
+                _shifts = part.ToList();
+                ReloadMarks();
+                RebuildMarks();
+                RebuildShifts();
+            }), cts.Token).ConfigureAwait(true);
+            return (res.Entries.Count > 0 || !res.Failed ? res.Entries : null, res.Failed);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Табель сотрудников: смены за месяц не получены: {(ex is OperationCanceledException ? $"не за {limit.TotalSeconds:0} с" : ex.Message)}", "STAFF");
+            return (null, true);
+        }
+    }
+
+    /// <summary>Положить пришедшие смены в окно и показать итог: «Смены за … загружены» или причину с «Повторить». Старый ответ (месяц уже сменили) не трогает экран.</summary>
+    private void ApplyShiftsOutcome(IReadOnlyList<ShiftHistoryEntry>? shifts, bool failed, int version)
+    {
+        if (version != _shiftsVersion)
+            return;
+        if (shifts != null)
+        {
+            _shifts = shifts.ToList();
+            if (_deps.UseCache)
+                _cacheShifts = _shifts;
+        }
+        ReloadMarks();
+        RebuildMarks();
+        RebuildShifts();
+        var month = $"{MonthName(_month)} {_year}";
+        if (failed)
+        {
+            StatusText.Text = Tr.T($"Не удалось загрузить смены за {month}. Повторите.", $"{month} үчүн смендерди жүктөө мүмкүн болгон жок. Кайра аракет кылыңыз.",
+                $"Could not load shifts for {month}. Try again.", $"{month} için vardiyalar yüklenemedi. Tekrar deneyin.", $"{month} uchun smenalarni yuklab bo'lmadi. Qayta urinib ko'ring.");
+            RetryButton.IsVisible = true;
+        }
+        else
+        {
+            RetryButton.IsVisible = false;
+            var loaded = Tr.T($"Смены за {month} загружены.", $"{month} үчүн смендер жүктөлдү.", $"Shifts for {month} loaded.", $"{month} vardiyaları yüklendi.", $"{month} uchun smenalar yuklandi.");
+            StatusText.Text = _deps.Shifts != null
+                ? MarksStatusLine()
+                : MarksTabRadio.IsChecked.GetValueOrDefault(true) ? loaded + " " + MarksStatusLine() : loaded + " " + ShiftsStatusLine(StaffTimesheetService.Aggregate(_shifts, FromDatePicker.SelectedDate, ToDatePicker.SelectedDate));
+        }
+    }
+
+    /// <summary>2026-11-19: переключили месяц ‹ › (или период «с» раньше) — докачать недостающие смены; уже скачанное берётся из кэша страниц мгновенно.</summary>
+    private async Task EnsureMonthShiftsAsync()
+    {
+        if (_deps.Shifts != null)
+            return; // заглушка теста уже отдала все смены
+        var version = ++_shiftsVersion;
+        _ = LoadServerTimesheetFactsAsync(false);
+        var month = $"{MonthName(_month)} {_year}";
+        RetryButton.IsVisible = false;
+        StatusText.Text = Tr.T($"Загрузка смен за {month}…", $"{month} үчүн смендер жүктөлүүдө…", $"Loading shifts for {month}…", $"{month} vardiyaları yükleniyor…", $"{month} uchun smenalar yuklanmoqda…");
+        var (rows, failed) = await LoadShiftsAsync(_deps.LoadTimeout, false, version).ConfigureAwait(true);
+        ApplyShiftsOutcome(rows, failed, version);
+    }
 
     /// <summary>Вкладка «Итоги по сменам» — прежняя таблица по закрытым сменам.</summary>
     private void RebuildShifts()

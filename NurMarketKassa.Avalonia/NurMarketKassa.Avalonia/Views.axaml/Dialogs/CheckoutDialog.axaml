@@ -524,10 +524,11 @@
             <Setter Property="Grid.Row" Value="1"/>
             <Setter Property="Grid.Column" Value="0"/>
             <Setter Property="Grid.ColumnSpan" Value="1"/>
-            <Setter Property="Margin" Value="140,0,0,0"/>
+            <!-- 2026-11-20: было 140 при ширине «Отмены» 128; кнопка стала шире (168) — длинные подписи ky/uz с «Esc» не помещались. -->
+            <Setter Property="Margin" Value="180,0,0,0"/>
         </Style>
         <Style Selector=".two-col Button.foot-cancel">
-            <Setter Property="Width" Value="128"/>
+            <Setter Property="Width" Value="168"/>
             <Setter Property="HorizontalAlignment" Value="Left"/>
         </Style>
 
@@ -924,10 +925,11 @@
                         <StackPanel IsVisible="{Binding IsBankSelectionVisible}" Spacing="6">
                             <!-- 2026-11-06 (Д4-15, решение владельца): внутри «Безналичных» сегмент «Карта · QR». Картой через терминал банк и QR не нужны — прячутся;
                                  выбор запоминается (по умолчанию — последний). Кнопки Focusable=False — Enter по-прежнему «Оплатить». -->
+                            <!-- 2026-11-20 (ночная проверка кассы): «Карта» и «QR» были по ширине текста — «Карта» слева, «QR» у середины, посередине дыра; теперь две равные половины. -->
                             <Grid ColumnDefinitions="*,8,*" AutomationProperties.Name="{Binding CardPayText}">
-                                <Button Grid.Column="0" Classes="due-seg" Classes.selected="{Binding IsCardPay}" Focusable="False" Content="{Binding CardPayText}"
+                                <Button Grid.Column="0" HorizontalAlignment="Stretch" Classes="due-seg" Classes.selected="{Binding IsCardPay}" Focusable="False" Content="{Binding CardPayText}"
                                         Command="{Binding SetCardPayCommand}" CommandParameter="card"/>
-                                <Button Grid.Column="2" Classes="due-seg" Classes.selected="{Binding IsQrPay}" Focusable="False" Content="{Binding QrPayText}"
+                                <Button Grid.Column="2" HorizontalAlignment="Stretch" Classes="due-seg" Classes.selected="{Binding IsQrPay}" Focusable="False" Content="{Binding QrPayText}"
                                         Command="{Binding SetCardPayCommand}" CommandParameter="qr"/>
                             </Grid>
                             <TextBlock Text="{Binding CardPayHint}" IsVisible="{Binding IsCardPay}"
@@ -1471,20 +1473,24 @@
                 <Grid ColumnDefinitions="4*,6*" RowDefinitions="Auto,Auto">
                     <!-- Почему «Оплатить» неактивна (в долг — нужен клиент и срок). -->
                     <!-- 2026-11-05 (Д4-13/Д4-12): причина — спокойным цветом, пока кассир не пробовал оплатить; красной она становится после попытки (есть ErrorMessage). -->
+                    <!-- 2026-11-20: MaxLines 2 → 3: «В смешанной оплате обе суммы должны быть больше нуля» в узком месте справа от «Отмены» обрезалось на «должны». -->
                     <TextBlock Classes="foot-reason" Text="{Binding PayBlockedHint}"
                                Classes.err="{Binding HasError}"
                                IsVisible="{Binding HasPayBlockedHint}"
-                               FontSize="12.5" FontWeight="SemiBold" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"
+                               FontSize="12.5" FontWeight="SemiBold" TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis"
                                VerticalAlignment="Center"/>
 
                     <Button IsCancel="True"
                             Click="Cancel_Click"
                             Classes="modal-cancel foot-cancel"
                             MinWidth="96">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock Text="{DynamicResource csh.checkout.cancel}" VerticalAlignment="Center"/>
-                            <Border Classes="key-hint"><TextBlock Text="Esc"/></Border>
-                        </StackPanel>
+                        <!-- 2026-11-20 (ночная проверка кассы): в два столбца кнопка шириной 128 — «Жокко чыгаруу» (ky), «Bekor qilish» (uz) не помещались вместе с «Esc»:
+                             подпись резалась, значок клавиши пропадал. Теперь «Esc» закреплён справа, подпись занимает остаток и при нехватке переносится на 2 строки. -->
+                        <DockPanel LastChildFill="True">
+                            <Border DockPanel.Dock="Right" Classes="key-hint" Margin="8,0,0,0" VerticalAlignment="Center"><TextBlock Text="Esc"/></Border>
+                            <TextBlock Text="{DynamicResource csh.checkout.cancel}" VerticalAlignment="Center" TextAlignment="Center"
+                                       TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
+                        </DockPanel>
                     </Button>
 
                     <!-- 2026-10-24 (приёмка, ПР-9): имя для UIA/экранного чтения = видимый текст кнопки («Получить 1,00 · в долг 3,00»), а не «Enter Оплатить …». -->

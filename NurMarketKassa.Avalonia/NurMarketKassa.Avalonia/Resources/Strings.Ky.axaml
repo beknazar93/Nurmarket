@@ -1118,7 +1118,8 @@
   <x:String x:Key="warehouse.productSearchWatermark">Товардын аты боюнча издөө…</x:String>
   <x:String x:Key="warehouse.colUnit">Өлч. бирд.</x:String>
   <x:String x:Key="warehouse.colCode">Код</x:String>
-  <x:String x:Key="warehouse.colCodeBarcode">Код / штрихкод</x:String>
+  <!-- 2026-11-20: ky совпадало с ru («штрихкод»); в кыргызском интерфейсе везде «штрих-код». -->
+  <x:String x:Key="warehouse.colCodeBarcode">Код / штрих-код</x:String>
   <x:String x:Key="warehouse.colCost">Сатып алуу</x:String>
   <x:String x:Key="warehouse.viewList">Тизме</x:String>
   <x:String x:Key="warehouse.viewTiles">Плиткалар</x:String>

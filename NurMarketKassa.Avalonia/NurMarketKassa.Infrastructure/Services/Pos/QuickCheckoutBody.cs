@@ -187,6 +187,7 @@ public static class QuickCheckoutBody
             if (overrideCreditLimit && string.Equals(method, "debt", StringComparison.OrdinalIgnoreCase))
                 body["override_credit_limit"] = true;
             DeviceIdentity.ApplyTo(body); // 2026-11-05: device_key / device_name / branch — только при признаке сервера checkout_branch
+            ServerStock.ApplyReservationIds(body); // 2026-11-19 (склад К-8): reservation_ids — только при признаке reservations и выбранном резерве (иначе тело прежнее)
             return body;
         }
     }

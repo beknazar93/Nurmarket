@@ -142,6 +142,9 @@ public static class CartReceiptTextBuilder
                     // 2026-11-12 (ЭЛ3, сфера «Электроника»): серийный номер / IMEI и «Гарантия до» под строкой товара; у других сфер — ничего.
                     foreach (var serialLine in WarrantyCard.ItemLines(it, receiptTime ?? DateTime.Now, W))
                         Line(serialLine);
+                    // 2026-11-20 (Автозапчасти, часть Б): «Гарантия N дн.» под позицией; у других сфер null — чек прежний.
+                    if (AutoPartsRules.WarrantyLine(CartDisplayHelper.TryProductId(it)) is { } autoPartsWarranty)
+                        Line(autoPartsWarranty);
 
                     // 2026-10-02: вариант по акции — обычная цена и сумма скидки (цену считает сервер).
                     if (CartDisplayHelper.VariantBasePrice(it) is { } promoBase)
@@ -279,6 +282,10 @@ public static class CartReceiptTextBuilder
                 Line(ReceiptLineLayout.Center(DateTime.Now.ToString("dd.MM.yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture), W));
                 Blank();
             }
+
+            // 2026-11-20 (Автозапчасти, часть Б): блок «Гарантия и возврат» (срок и условия владельца); у других сфер пусто.
+            foreach (var returnLine in AutoPartsRules.ReceiptReturnBlock(W))
+                Line(returnLine);
 
             // ─── Footer ────────────────────────────────────────────────
             Line(ReceiptLineLayout.Center("Спасибо за покупку! :)", W));

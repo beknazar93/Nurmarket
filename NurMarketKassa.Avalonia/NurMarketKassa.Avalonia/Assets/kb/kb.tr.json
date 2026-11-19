@@ -557,14 +557,15 @@
       {
        "id": "в2-работа-без-интернета-не-отправлено",
        "title": "İnternetsiz çalışma: «Gönderilmedi», çevrimdışı fişler, bağlantısız mal kabul ve düşüm",
-       "text": "Шаг 1. İnternet yokken her zamanki gibi satış yapın: fişler kasada gerçek satış tarihi ve saatiyle kaydedilir, bağlantı gelince sunucuya kendiliğinden gider.\nШаг 2. Mal kabul, düşüm ve transfer de bağlantı olmadan hatırlanır: mal kabul arka planda gider («Arka plandaki girişler»), düşüm ve transfer sıraya girer, kasadaki stok hemen azalır.\nШаг 3. Sunucuya henüz gitmeyen her şey ☰ → «Gönderilmedi» bölümünde («Gönderilmeyenler» penceresi): fişler, iadeler, borç ödemeleri, mal kabuller, yeni ürünler, vardiya kapatma, para girişi/çıkışı, düşümler, transferler. Durumlar: «Bağlantı bekliyor», «Gönderiliyor», «Hata». Düğmeler: «Şimdi gönder», «Tekrar dene», «Ayrıntılar», «Verileri kopyala», «Destek ekibine gönder».\nШаг 4. 7 günden eski fişi sunucu kendiliğinden kabul etmez: kasa önceden uyarır («7 gün yaklaşıyor») ve bu kayıtları kırmızıyla işaretler («7 günden eski — sahibi bekleniyor»). Bu fişler için sahibin (yöneticinin) PIN onayı bir sonraki güncellemede gelecek.\nВажно: Sıra bilgisayarın diskinde saklanır. Sahibin PIN'ini kontrol eden sayım, sunucu bağlantısı ister.",
+       "text": "Шаг 1. İnternet yokken her zamanki gibi satış yapın: fişler kasada gerçek satış tarihi ve saatiyle kaydedilir, bağlantı gelince sunucuya kendiliğinden gider.\nШаг 2. Mal kabul, düşüm ve transfer de bağlantı olmadan hatırlanır: mal kabul arka planda gider («Arka plandaki girişler»), düşüm ve transfer sıraya girer, kasadaki stok hemen azalır.\nШаг 3. Sunucuya henüz gitmeyen her şey ☰ → «Gönderilmedi» bölümünde («Gönderilmeyenler» penceresi): fişler, iadeler, borç ödemeleri, mal kabuller, yeni ürünler, vardiya kapatma, para girişi/çıkışı, düşümler, transferler. Durumlar: «Bağlantı bekliyor», «Gönderiliyor», «Hata». Düğmeler: «Şimdi gönder», «Tekrar dene», «Ayrıntılar», «Verileri kopyala», «Destek ekibine gönder».\nШаг 4. 7 günden eski fişi sunucu kendiliğinden kabul etmez: kasa önceden uyarır («7 gün yaklaşıyor») ve bu kayıtları kırmızıyla işaretler. Bu fişler sahibin (yöneticinin) PIN onayıyla gönderilebilir — 90 güne kadar; beklerken «7 günden eski — onay gerekli» yazar.\nШаг 5. Göndermeyi onaylama: «Gönderilmeyenler» penceresinde bu fişte «Göndermeyi onayla…» düğmesine basın (veya altta «Göndermeyi onayla (N)…» — bu fişlerin hepsi birden), özeti kontrol edip sahibin veya yöneticinin PIN'ini girin. Kendi PIN'i olmayan kasiyer sahibin PIN'ini girer; kasaya sahip veya yönetici girmişse PIN sorulmaz.\nШаг 6. Tek PIN girişi 5 dakika boyunca birkaç fişe yeter; süre dolarsa düğmeye tekrar basın. PIN yanlışsa kasa kaç deneme kaldığını gösterir; 5 hatadan sonra sunucu kontrolü 15 dakika engeller. PIN belirlenmemişse kasa şunu söyler: «PIN belirlenmemiş — Ayarlar → Çalışanlar bölümünde belirleyin.» Fiş gerçek satış tarihiyle gider.\nШаг 7. 90 günden eski fiş gönderilemez: «90 günden eski — gönderilemez, destekle iletişime geçin». Kabul edilen fiş alış fiyatının altında satıldıysa veya stok eksiye düştüyse kasa hiçbir şeyi engellemez — pencerede ürün adlarıyla «Gönderildi, ancak: alış fiyatının altında satıldı / stokta eksiye düştü» notu kalır. Ödeme tutarı çok büyükse (12 haneden uzun), fiş «Ödeme tutarını kontrol edin» notuyla kuyrukta kalır.\nВажно: Sıra bilgisayarın diskinde saklanır. Sahibin PIN'ini kontrol eden sayım, sunucu bağlantısı ister.",
        "keywords": [
         "internetsiz",
         "çevrimdışı",
         "gönderilmedi",
         "sıra",
         "bağlantı bekliyor",
-        "7 günden eski fiş"
+        "7 günden eski fiş",
+        "göndermeyi onayla"
        ],
        "images": []
       },
@@ -649,6 +650,25 @@
          "caption": "Depo → «Barkodlar» → sağdaki «Fiyat etiketi ayarı» paneli"
         }
        ]
+      },
+      {
+       "id": "в2-партии-сроки-годности-и-резервы",
+       "title": "Partiler, son kullanma tarihleri ve rezervler",
+       "text": "NurCRM sunucusu şirketiniz için «10 üzerinden 10» depoyu (partiler, FIFO, son kullanma tarihleri, rezervler) açtıysa programda yeni olanaklar belirir. Depo açılana kadar hiçbir şey değişmez.\nШаг 1. Ürün partileri: ☰ → «Depo» → «Ürünler» → üründeki «⋯» → «Partiler». Pencerede giriş, gelen miktar, kalan, maliyet, son kullanma tarihi, parti numarası ve tedarikçi görünür. Partiler tarihe göre sıralanır: süresi geçenler («Süresi geçmiş») ve «Yakında bitiyor» (30 güne kadar) işaretlenir.\nШаг 2. Girişte tarih ve parti: «Satın almalar» → «Mal kabul» (veya «Depo» → «Kabul») → ürün satırındaki «SKT ve parti» düğmesi. «Son kullanma tarihi» veya «Üretim tarihi» ile «Raf ömrü, gün» ve «Parti no.» girin, ardından «Kaydet».\nШаг 3. Depodaki «Son kullanma tarihi» kutusu ve «Yakında bitiyor» listesi partilere göre hesaplanır. Satış önce tarihi en yakın partiyi, sonra en eskisini düşer; fiş satırının maliyeti bu partilere göredir. Ürün kartında «Maliyet: FIFO» yazısı görünür.\nШаг 4. Rezerv: «Depo» → «Ürünler» → «⋯» → «Rezervler». Ürünü, miktarı, yorumu ve «Şu tarihe kadar» günü girip «Rezerve et» düğmesine basın. Serbest stok yetmezse program ne kadar serbest olduğunu söyler ve «Yine de rezerve et» önerir. «Kaldır» ürünü serbest stoğa geri verir.\nШаг 5. Ürünler tablosunda rezervi olan ürünün stoğunun altında «Serbest N (rezervde M)» görünür.\nШаг 6. Kasada süresi geçmiş ürün satılırken «Satılsın mı?» sorusu («Yine de sat» / «İptal») veya ret çıkar — depo ayarlarındaki gibi. Serbest stoğun üstünde satışta da aynı uyarı verilir.\nШаг 7. Fiş kartında (Satışlar ve finans → fiş) «Partiler» bloğu ürünün hangi partilerden, ne kadar, hangi maliyetle ve hangi tarihe kadar satıldığını gösterir.\nВажно: «10 üzerinden 10» depoyu sahibi sunucudaki depo ayarlarından açar — kasa bu ayarları yalnızca okur, kendisi hiçbir şeyi açmaz.",
+       "keywords": [
+        "partiler",
+        "son kullanma tarihi",
+        "yakında bitiyor",
+        "süresi geçmiş",
+        "rezerv",
+        "rezerve et",
+        "fifo",
+        "maliyet",
+        "parti numarası",
+        "serbest stok",
+        "yenilikler"
+       ],
+       "images": []
       }
      ]
     },
@@ -739,6 +759,56 @@
         "başvurularım",
         "cihaz yuvası",
         "kullanıcı adı başka kasada"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-автозапчасти-каталожный-номер-аналоги",
+       "title": "Oto yedek parça: katalog numarası, muadiller ve seçim",
+       "text": "Kasada oto yedek parça mağazaları için ayrı bir mağaza türü var: katalog numarasıyla arama, muadiller, parçanın durumu ve raf gözü.\nШаг 1. «Oto yedek parça ve aksesuar» mağaza türünü seçin: ilk açılışta veya Ayarlar → «İşlemler» → «Mağaza türü» (sonra mağaza türünü yalnızca teknik destek değiştirir). Ürünler, fiyatlar ve stok değişmez.\nШаг 2. Ürün kartında «Stok kodu» alanı «Katalog numarası» olarak adlandırılır, altında «Oto yedek parça» bloğu vardır: durum (Orijinal, OES, Muadil, İkinci el, Yenilenmiş), göz, OEM, çapraz numaralar, «Uyumlu» (her araç bir satır, örn. «Toyota Camry 2012-2017») ve «Muadil seç» düğmesi. Veriler NurCRM sunucusunda saklanır ve tüm kasalarda görünür.\nШаг 3. Arama: «Tara, kod veya ad» alanına numarayı müşterinin söylediği gibi yazın — «0 986 452-041», «W 712/75», «04465-0К090» (Kiril harfleriyle bile). Kasa boşlukları ve tireleri kaldırır, katalog numarası, OEM ve çapraz numaralara göre arar: tam eşleşme ilk sırada, sonra numaranın başı ve içi; eşitlikte stokta olanlar üstte, orijinal muadilden ve ikinci elden önce gelir. Aynısı «Depo → Ürünler» içinde de geçerlidir (orada göz de aranır).\nШаг 4. Ürün kartında durum rozeti («ORJ», «MUADİL», «2.EL»), katalog numarası ve göz küçük satırda görünür (dar pencerede yalnızca rozet kalır). «i» simgesine basın → «Muadiller (N)»: aynı numaralı veya bağlantılı kartlar, ucuzdan pahalıya, stok ve gözle birlikte. Enter veya çift dokunuş seçilen ürünü fişe ekler; stokta yoksa satır gridir ve «Yok» yazar.\nШаг 5. Başlangıç tarifesinde kart başına 5 çapraz numaraya kadar saklamak rahattır; daha fazlasında kasa yalnızca Standart tarifesini hatırlatır — kaydetme engellenmez.\nВажно: Numaralar boşluk ve tire olmadan saklanır (sunucu böyle arar), çapraz numaraları «Ek barkodlar» içine koymayın. Barkod tarama eskisi gibi çalışır.",
+       "keywords": [
+        "oto yedek parça",
+        "katalog numarası",
+        "oem",
+        "çapraz numara",
+        "muadil",
+        "ikinci el",
+        "orijinal",
+        "göz",
+        "uyumlu",
+        "parça durumu",
+        "numarayla arama",
+        "yedek parça",
+        "yenilikler"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-автозапчасти-заказ-под-клиента-и-предоплата",
+       "title": "Oto yedek parça: müşteri siparişi ve ön ödeme",
+       "text": "Gereken parça stokta yoksa: müşteri siparişi açın, ön ödeme alın ve parça geldiğinde müşteriye haber verin. Bölüm «Oto yedek parça ve oto ürünleri» mağaza türünde görünür.\nAdım 1. ☰ menüsü → «Müşteri siparişleri» (sahip programında: Satışlar → «Müşteri siparişleri») açın ve «＋ Yeni sipariş» düğmesine basın.\nAdım 2. Müşteriyi listeden seçin veya ad ve telefon yazın (telefon WhatsApp mesajı için gerekir).\nAdım 3. Parçaları ekleyin: katalogda ad veya parça numarasıyla bulun ya da «＋ Siparişle» düğmesine basıp parça adını veya numarasını, adedi ve fiyatı yazın. «Servis / usta» işaretli müşteri için servis fiyatı yazılır.\nAdım 4. Ön ödeme zorunlu değildir: «50 %» düğmesine basın veya tutar yazın. Bu «elden alındı» kaydıdır: vardiyadan geçmez, bu yüzden parayı sipariş teslim edilene kadar ayrı (zarfta) tutun.\nAdım 5. Teslim tarihini, tedarikçiyi ve yorumu girip «Siparişi kaydet» düğmesine basın. Durum — «Yeni».\nAdım 6. Tedarikçiden sipariş verince «İşaretle: Sipariş verildi», parça gelince «İşaretle: Geldi». «WhatsApp mesajı» hazır metinle sohbeti açar: «… numaralı siparişiniz hazır» veya «… tarihine kadar bekleniyor».\nAdım 7. Müşteri gelince «Satışı yap» düğmesine basın: parçalar fişe tam tutarla eklenir. Ön ödemeyi zarftan alıp kalan tutarla birlikte çekmeceye koyun — kasa tutarları gösterir. Sonra siparişi «Teslim edildi» olarak işaretleyin.\nAdım 8. Müşteri vazgeçerse: «Siparişi iptal et». Ön ödeme varsa yönetici PIN'i gerekir; parayı zarftan müşteriye iade edin.\n«Başlangıç» tarifesinde 10 ve daha fazla açık siparişte kasa yalnızca «Standart» tarifesini hatırlatır — sipariş girmeye devam edebilirsiniz.",
+       "keywords": [
+        "müşteri siparişi",
+        "ön ödeme",
+        "yedek parça",
+        "teslim tarihi",
+        "whatsapp",
+        "oto parça"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-автозапчасти-гарантия-и-возврат",
+       "title": "Oto yedek parça: garanti ve iade",
+       "text": "Parçalar için iade süresini ve garanti koşullarını sahip belirler. Fişin altına basılır, kasa iadede bunları denetler.\nAdım 1. Sahip: Ayarlar → «İşlemler» → «Garanti ve iade». «İade süresi, gün» alanı (varsayılan 14, satın alma günü sayılmaz) ve «Takılmış parçaları ve elektrik aksamını kabul etme» kutusu.\nAdım 2. Parça için garantiyi gün olarak ve «Elektrik», «Takılmış kabul edilmez» işaretlerini verin. İşaret yoksa kasa elektrik aksamını addan tanır (sensör, kontrol ünitesi, röle, marş, alternatör vb.).\nAdım 3. Fişte parçanın altına «Garanti N gün» basılır, altta ise sizin süre ve koşullarınızla «Garanti ve iade» bloğu.\nAdım 4. İadede kasa uyarır: «İade süresi doldu (N gün)» ve/veya «Elektrik aksamı iade edilmez». Devam etmek için yönetici (sahip veya yönetici) PIN'i gerekir. Bağlantı yoksa PIN doğrulanamaz — iade yapılmaz.\nAdım 5. Parça kusurlu veya garanti kapsamındaysa iade nedeni olarak «Kusurlu» veya «Garanti» seçin — parça satışa dönmez.\n«Sökümden» ikinci el parçalar için her parçaya ayrı kart açın: adet 1, durum «İkinci el».",
+       "keywords": [
+        "garanti",
+        "iade",
+        "iade süresi",
+        "elektrik",
+        "takılmış parça",
+        "yönetici pin",
+        "oto parça"
        ],
        "images": []
       }
@@ -2353,6 +2423,21 @@
          "file": "kassa-settings-scales.png",
          "caption": "«Ek tartılar» bölümü"
         }
+       ]
+      },
+      {
+       "id": "настройки-и-оборудование-как-оплатить-подписку-через-elqr",
+       "title": "Aboneliği ELQR ile nasıl ödersiniz",
+       "text": "Шаг 1. «Abonelik» bölümünü açın: kasada ☰ → «Ayarlar» → «Hesap» → «Aboneliği öde…», işletme sahibi programında — «Yönetim» → «Abonelik». Ödeme şirketiniz için bağlıysa düğmeyi işletme sahibi ve yönetici görür.\nШаг 2. Tarifeyi ve «Abonelik bitişi: …» satırını kontrol edin. Süreyi seçin: 1, 3, 6 veya 12 ay (birden fazla varsa tarifeyi de).\nШаг 3. «ELQR ile öde» düğmesine basın. Fatura satırları görünür: seçilen süre için abonelik, «İndirim» (NurCRM yönetimi koyduysa), «Banka komisyonu — 30 som» ve «Ödenecek» toplamı.\nШаг 4. QR'ı Kırgızistan'daki herhangi bir bankanın mobil uygulamasında okutun. Windows ve Android'de «Banka uygulamasında aç» düğmesine basabilirsiniz; her yerde — «Bağlantıyı kopyala».\nШаг 5. Pencereyi kapatmayın: durum «Ödeme bekleniyor…» → «İşleniyor…» → «Ödendi ✓ Abonelik … tarihine uzatıldı» olarak değişir. Kasa başlığındaki süre kendiliğinden güncellenir.\nВажно: Banka komisyonu sabit 30 som'dur, müşteri öder, fatura başına bir kez alınır; süreye göre indirim yoktur, yenileme tarife fiyatı üzerindendir. QR yaklaşık 20 dakika geçerlidir (ekranda sayaç vardır). Süre dolarsa veya ödeme geçmezse — «Yeni fatura oluştur» düğmesine basın, eski QR'ı kullanmayın. Para çekildi ama «Ödendi» çıkmadıysa — tekrar ödemeyin: birkaç dakika bekleyin, «Abonelik» bölümünü açın («Ödeme geçmişi»nde durum görünür) veya destekle iletişime geçin.",
+       "keywords": [
+        "abonelik",
+        "abonelik ödemesi",
+        "elqr",
+        "qr",
+        "aboneliği yenile",
+        "banka komisyonu",
+        "tarife",
+        "abonelik bitti"
        ]
       }
      ]

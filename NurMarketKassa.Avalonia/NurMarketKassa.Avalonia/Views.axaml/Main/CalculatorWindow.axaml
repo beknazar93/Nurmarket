@@ -146,6 +146,8 @@
         <Style Selector="TextBlock.rLabel">
             <Setter Property="FontSize" Value="12.5"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <!-- 2026-11-19 («как будет в маленьких экранах?»): «Прибыль с единицы», «Чтобы заработать столько же, продавайте больше в…» на 800 px не помещались — переносятся -->
+            <Setter Property="TextWrapping" Value="Wrap"/>
         </Style>
         <Style Selector="TextBlock.rValue">
             <Setter Property="FontSize" Value="22"/>
@@ -285,7 +287,7 @@
                             <Border x:Name="ResMainCard" Classes="result main">
                                 <StackPanel>
                                     <TextBlock x:Name="ResPriceLabel" Classes="rLabel"/>
-                                    <TextBlock x:Name="ResPriceValue" Classes="rValue" FontSize="30" Text="—"/>
+                                    <TextBlock x:Name="ResPriceValue" Classes="rValue" FontSize="36" Text="—"/>
                                     <TextBlock x:Name="ResExactPriceText" Classes="rLabel" IsVisible="False" Margin="0,2,0,0"/>
                                 </StackPanel>
                             </Border>
@@ -302,6 +304,18 @@
                                 <TextBlock x:Name="CurrentPriceText" Classes="hint" FontSize="14" Foreground="{DynamicResource BrushText}"/>
                             </Border>
                             <TextBlock x:Name="FormulaHint" Classes="hint"/>
+                            <!-- 2026-11-19 (оценка владельца 19.11, «Калькуляция» < 7: большая пустая зона): пример и «Подставить пример», пока закупка не введена; ниже — последние расчёты. -->
+                            <Border x:Name="ExampleBox" Classes="result" IsVisible="False">
+                                <StackPanel Spacing="8">
+                                    <TextBlock x:Name="ExampleTitle" Classes="h"/>
+                                    <TextBlock x:Name="ExampleText" Classes="hint" FontSize="14" Foreground="{DynamicResource BrushText}"/>
+                                    <Button x:Name="ExampleButton" Classes="primary" MinHeight="36" HorizontalAlignment="Left" Click="Example_Click"/>
+                                </StackPanel>
+                            </Border>
+                            <StackPanel x:Name="HistoryBox" Spacing="6" IsVisible="False">
+                                <TextBlock x:Name="HistoryTitle" Classes="h"/>
+                                <StackPanel x:Name="HistoryList" Spacing="4"/>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
                 </Grid>
@@ -427,7 +441,12 @@
                             <Border Height="1" Background="{DynamicResource BrushBorder}" Margin="0,4"/>
                             <TextBlock x:Name="GoalTitle" Classes="h"/>
                             <StackPanel><TextBlock x:Name="GoalLabel" Classes="label"/><TextBox x:Name="GoalBox" Text="0" TextChanged="BreakEven_Changed"/></StackPanel>
-                            <Button x:Name="FillFromSalesButton" Classes="ghost" Click="FillFromSales_Click"/>
+                            <!-- 2026-11-19: длинная подпись («Взять маржу и средний чек из продаж за 30 дней») на узком разделе переносится, а не обрезается -->
+                            <Button x:Name="FillFromSalesButton" Classes="ghost" Click="FillFromSales_Click">
+                                <Button.ContentTemplate>
+                                    <DataTemplate x:DataType="x:String"><TextBlock Text="{Binding}" TextWrapping="Wrap" TextAlignment="Center"/></DataTemplate>
+                                </Button.ContentTemplate>
+                            </Button>
                             <TextBlock x:Name="FillFromSalesHint" Classes="hint"/>
                         </StackPanel>
                     </Border>

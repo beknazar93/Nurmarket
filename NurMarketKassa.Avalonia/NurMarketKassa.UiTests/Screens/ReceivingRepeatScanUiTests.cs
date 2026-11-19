@@ -62,13 +62,25 @@ public sealed class ReceivingRepeatScanUiTests
     /// <summary>Скан как с USB-сканера: быстрая серия цифр и Enter сразу за ней.</summary>
     private static void ScanInto(Window w, string digits)
     {
-        foreach (var ch in digits)
+        // 2026-11-19: охранник Enter сканера меряет паузы между клавишами (≤ 60 мс) по часам; при нагрузке полного прогона (45 минут, сборки соседей)
+        // цифры «сканера» расходились дальше 60 мс, и Enter считался человеческим (IgnoredScans = 0 — единичный провал). Ставим свои часы: 5 мс на каждый запрос метки.
+        var previous = NurMarketKassa.AvaloniaHost.Services.AvaloniaKeyboardWedgeBarcodeService.KeyPressTimestampProvider;
+        var tick = (ulong)Environment.TickCount64;
+        NurMarketKassa.AvaloniaHost.Services.AvaloniaKeyboardWedgeBarcodeService.KeyPressTimestampProvider = () => tick += 5;
+        try
         {
-            Press(w, Enum.Parse<PhysicalKey>("Digit" + ch));
-            w.KeyTextInput(ch.ToString());
+            foreach (var ch in digits)
+            {
+                Press(w, Enum.Parse<PhysicalKey>("Digit" + ch));
+                w.KeyTextInput(ch.ToString());
+            }
+            Press(w, PhysicalKey.Enter);
+            UiShot.Pump();
         }
-        Press(w, PhysicalKey.Enter);
-        UiShot.Pump();
+        finally
+        {
+            NurMarketKassa.AvaloniaHost.Services.AvaloniaKeyboardWedgeBarcodeService.KeyPressTimestampProvider = previous;
+        }
     }
 
     // ------------------------------------------------------------------ окно «Сколько штук?»

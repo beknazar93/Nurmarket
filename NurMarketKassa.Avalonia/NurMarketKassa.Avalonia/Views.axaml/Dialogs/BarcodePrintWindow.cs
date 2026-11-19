@@ -175,6 +175,42 @@ public sealed partial class BarcodePrintView : UserControl
 
     /// <summary>2026-11-11: во вкладке «Штрихкоды» на 1024 точках панель «поиск · фильтры · категория · сканер» оставляла строке поиска ~70 px. Ниже 1100 px ширины элемента
     /// подписи фильтров, «Сканер…» и ширина списка категорий короче — поиск шире 250 px. В окне «Печать штрихкодов и ценников» (1232 px) вид прежний.</summary>
+    private Grid _toolbar = null!;
+    private Control _filterSegmentCtl = null!;
+    private bool _tightToolbar;
+
+    /// <summary>2026-11-19: вкладка уже ~900 px (планшет/старый монитор 800×800, 1024×768) — поиск и «Сканер» в первой строке, фильтры и категория — во второй (в одну строку поиск сжимался до 64 px или ряд выходил за край).</summary>
+    private void ApplyTightToolbar(bool tight)
+    {
+        if (tight == _tightToolbar || _toolbar is null)
+            return;
+        _tightToolbar = tight;
+        if (tight)
+        {
+            _toolbar.ColumnDefinitions = new ColumnDefinitions("*,Auto");
+            _toolbar.RowDefinitions = new RowDefinitions("Auto,Auto");
+            Grid.SetColumn(_scanCheck, 1);
+            Grid.SetRow(_filterSegmentCtl, 1);
+            Grid.SetColumn(_filterSegmentCtl, 0);
+            _filterSegmentCtl.Margin = new Thickness(0, 8, 0, 0);
+            Grid.SetRow(_categoryCombo, 1);
+            Grid.SetColumn(_categoryCombo, 1);
+            _categoryCombo.Margin = new Thickness(10, 8, 0, 0);
+        }
+        else
+        {
+            _toolbar.RowDefinitions = new RowDefinitions("Auto");
+            _toolbar.ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto");
+            Grid.SetColumn(_scanCheck, 3);
+            Grid.SetRow(_filterSegmentCtl, 0);
+            Grid.SetColumn(_filterSegmentCtl, 1);
+            _filterSegmentCtl.Margin = new Thickness(10, 0, 0, 0);
+            Grid.SetRow(_categoryCombo, 0);
+            Grid.SetColumn(_categoryCombo, 2);
+            _categoryCombo.Margin = new Thickness(10, 0, 0, 0);
+        }
+    }
+
     private void ApplyToolbarWidth(bool narrow)
     {
         if (narrow == _narrowToolbar)
@@ -243,7 +279,10 @@ public sealed partial class BarcodePrintView : UserControl
         FontFamily = new FontFamily("Segoe UI, Inter, Noto Sans");
         HorizontalAlignment = HorizontalAlignment.Stretch; // 2026-11-11: ширину задаёт родитель, не содержимое
         VerticalAlignment = VerticalAlignment.Stretch;
-        MinWidth = embedded ? 820 : 0; // 2026-11-12: уже 820 px вкладка срезается по краю области (без вложенной прокрутки), а не ломает раскладку
+        // 2026-11-12: уже 820 px вкладка срезается по краю области (без вложенной прокрутки), а не ломает раскладку
+        // 2026-11-19 («как будет в маленьких экранах?»): на 800×800 (вкладка ~636 px) срезалось по ~90 px с обеих сторон — кнопки «Печать», «Снять», «Настройки», поиск были недостижимы.
+        // Минимум 560; ниже 900 px ряд «поиск · фильтры · категория · сканер» переносится на две строки (ApplyTightToolbar).
+        MinWidth = embedded ? 560 : 0;
         ClipToBounds = true; // всё, что выйдет за вкладку, обрезается по её краю, а не торчит за соседние элементы
         AddStyles();
 
@@ -325,6 +364,8 @@ public sealed partial class BarcodePrintView : UserControl
         _categoryCombo.Margin = new Thickness(10, 0, 0, 0);
         Grid.SetColumn(_categoryCombo, 2);
         toolbar.Children.Add(_categoryCombo);
+        _toolbar = toolbar;
+        _filterSegmentCtl = filterSegment;
 
         // ---- настройки этикетки
         _settingsToggle = new Button { MinHeight = 44, Padding = new Thickness(14, 0), CornerRadius = new CornerRadius(10), BorderThickness = new Thickness(1), FontSize = 13.5, FontWeight = FontWeight.SemiBold, Focusable = false };
@@ -723,8 +764,11 @@ public sealed partial class BarcodePrintView : UserControl
     /// <summary>Порог узкой панели инструментов и компактных подписей по ширине списка товаров (без боковой панели настроек ценника).</summary>
     private void ApplyListModes(double width)
     {
+        ApplyTightToolbar(_tightToolbar ? width < 960 : width < 900);
         var listWidth = Math.Max(0, width - (_sideMode ? SidePanelWidth + 12 : 0));
-        ApplyToolbarWidth(_narrowToolbar ? listWidth < 1180 : listWidth < 1100); // узкая вкладка «Штрихкоды» (1024) — короткие подписи, поиску остаётся место
+        // 2026-11-20: порог без гистерезиса 1100/1180 — на ширине внутри окна режим зависел от пути (после «масштаб 90→100→90 %» подписи были другими, чем при открытии); режим — функция только ширины
+        // 2026-11-20: во вкладке без боковой панели короткие подписи и ниже SideOnWidth — иначе при расширении режим мигал бы Т→Ф (1100) → Т (панель включилась, список 888) → Ф (список 1100): 3 раза за проход, а на 1100–1240 поиск ужимался до ~90 px
+        ApplyToolbarWidth(listWidth < (_embedded && !_sideMode ? SideOnNow : 1100)); // узкая вкладка «Штрихкоды» (1024) — короткие подписи, поиску остаётся место
         var c = _compact ? listWidth < 1480 : listWidth < 1400;
         if (c == _compact)
             return;

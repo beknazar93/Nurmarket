@@ -34,6 +34,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     returns = ekassa.Select(r => new FiscalRequisites(FiscalRequisites.FromEkassaStatus(r.Status), r.Fd > 0 ? r.Fd.ToString() : null)).ToList();
             }
             FiscalRequisitesCard.Place(PopupFooterPanel, 0, FiscalRequisites.Parse(json), returns);
+            // 2026-11-19 (склад К-4): блок «Партии» из allocations строк чека — только если сервер их отдал.
+            NurMarketKassa.AvaloniaHost.Views.Dialogs.SaleBatchesCard.Place(PopupFooterPanel, 0, json, WarehouseWindow.RevisionShowPurchase);
         }
     }
 }

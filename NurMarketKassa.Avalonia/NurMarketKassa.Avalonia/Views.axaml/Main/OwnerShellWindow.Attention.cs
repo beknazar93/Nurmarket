@@ -7,6 +7,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.Services;
+using NurMarketKassa.Services.Billing;
 
 namespace NurMarketKassa.AvaloniaHost.Views;
 
@@ -146,6 +147,26 @@ public partial class OwnerShellWindow
         AttentionList.Children.Clear();
         var urgent = new List<Control>();
         var waiting = new List<Control>();
+
+        // 2026-11-19 (оплата подписки): за 7/3/1 день до конца подписки — «Подписка заканчивается через N дн.» с «Продлить» (ведёт в «Подписку», если она доступна: признак billing_elqr).
+        // Дата — из профиля компании (без запроса к серверу); просрочена — «Подписка истекла» красным. Без пункта «Подписка» строка без действия.
+        try
+        {
+            if (CompanyInfoService.GetCachedSubscriptionStatus() is { } sub)
+            {
+                var step = BillingAccess.ReminderStep(sub.EndDate, DateTimeOffset.Now);
+                var remind = BillingAccess.ReminderText(sub.EndDate, DateTimeOffset.Now);
+                var day = BillingAccess.Day(sub.EndDate);
+                if (step is int s && s != 0 && remind is not null)
+                    (s <= 3 ? urgent : waiting).Add(AttentionRow(s <= 3, remind,
+                        Tr.T($"Подписка до {day}", $"Жазылуу {day} чейин", $"Subscription until {day}", $"Abonelik bitişi: {day}", $"Obuna {day} gacha"),
+                        Tr.T("Продлить", "Узартуу", "Renew", "Yenile", "Uzaytirish"), "subscription"));
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Сводка: «Требует внимания» — срок подписки не прочитан ({ex.Message}).", "WARNING");
+        }
 
         // Прокат — те же условия, что у значка «Проката» и плашки проката (UpdateRentalAlert; 2026-10-18, О2 — плашка над разделом, не в меню).
         if (RentalDueNotifier.Last is { Count: > 0 } rentals && MarketSpheres.HasRentals) // 2026-10-20: во всех сферах

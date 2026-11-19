@@ -98,3 +98,8 @@ NurMarketKassa.Avalonia/NurMarketKassa.Avalonia/Assets/**/results-*.txt
 # ---- 2026-11-05: замеры (BenchmarkDotNet) и снимки Verify ----
 BenchmarkDotNet.Artifacts/
 *.received.*
+
+# 2026-11-19: чужие коммерческие прайсы-образцы (только для внутренних тестов, не публиковать)
+docs/Образцы/Автозапчасти/*.xlsx
+docs/Образцы/Автозапчасти/*.xls
+docs/Образцы/Автозапчасти/*.zip

@@ -243,9 +243,24 @@ public sealed class SiteReviewsWindow : Window, IOwnerSection
             : "");
         if (_reviews.Count == 0 && error == null)
         {
-            _list.Children.Add(StateBlock.Empty(_filter == ShowcaseExtrasApiService.ReviewPending
-                ? Tr.T("Новых отзывов нет.", "Жаңы пикирлер жок.", "No new reviews.", "Yeni yorum yok.", "Yangi sharhlar yo'q.")
-                : Tr.T("Отзывов нет.", "Пикирлер жок.", "No reviews.", "Yorum yok.", "Sharhlar yo'q.")));
+            // 2026-11-19 (оценка владельца 19.11, «Отзывы» < 7): пояснение, откуда берутся отзывы, и кнопка «Показать все отзывы» (на «Новых»), а не одна серая фраза.
+            var pendingTab = _filter == ShowcaseExtrasApiService.ReviewPending;
+            _list.Children.Add(StateBlock.Empty(this,
+                pendingTab
+                    ? Tr.T("Новых отзывов нет", "Жаңы пикирлер жок", "No new reviews", "Yeni yorum yok", "Yangi sharhlar yo'q")
+                    : Tr.T("Отзывов нет", "Пикирлер жок", "No reviews", "Yorum yok", "Sharhlar yo'q"),
+                Tr.T("Отзывы появляются, когда покупатели оставляют их на сайте магазина под товаром. Новый отзыв ждёт здесь: ответьте на него и одобрите — тогда он станет виден на сайте.",
+                    "Пикирлер сатып алуучулар дүкөндүн сайтында товардын астына калтырганда пайда болот. Жаңы пикир ушул жерде күтөт: жооп бериңиз жана бекитиңиз — ошондо сайтта көрүнөт.",
+                    "Reviews appear when customers leave them under a product on the shop website. A new review waits here: reply and approve it to make it visible on the site.",
+                    "Yorumlar, müşteriler mağaza sitesinde ürünün altına yorum bıraktığında görünür. Yeni yorum burada bekler: yanıtlayıp onaylayın, sitede görünsün.",
+                    "Sharhlar xaridorlar do'kon saytida mahsulot ostida qoldirganda paydo bo'ladi. Yangi sharh shu yerda kutadi: javob bering va tasdiqlang — saytda ko'rinadi."),
+                pendingTab ? Tr.T("Показать все отзывы", "Бардык пикирлерди көрсөтүү", "Show all reviews", "Tüm yorumları göster", "Barcha sharhlarni ko'rsatish") : null,
+                pendingTab ? async () =>
+                {
+                    _filter = "";
+                    BuildStatuses();
+                    await ReloadAsync().ConfigureAwait(true);
+                } : null));
             return;
         }
 

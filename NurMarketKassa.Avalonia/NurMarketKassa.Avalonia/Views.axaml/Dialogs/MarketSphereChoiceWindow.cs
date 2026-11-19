@@ -149,7 +149,7 @@ public sealed class MarketSphereChoiceWindow : Window
         MarketSpheres.Grocery => "IconCart",
         MarketSpheres.Clothing => "IconTag",
         MarketSpheres.Services => "IconSettings",
-        _ => profile.IconKey == "pencil" ? "IconPencil" : profile.IconKey == "phone" ? "IconPhone" : "IconPackage", // 2026-11-12 (ЭЛ1): значок «Электроники»
+        _ => profile.IconKey == "pencil" ? "IconPencil" : profile.IconKey == "phone" ? "IconPhone" : profile.IconKey == "car" ? "IconCar" : "IconPackage", // 2026-11-12 (ЭЛ1): значок «Электроники»; 2026-11-20 (АЗ1): «Автозапчасти»
     };
 
     /// <summary>2026-11-12 (ХМ14): второй шаг «Хозтоваров» — размер магазина (хозмаг у дома / строительный маркет) и «что изменится».</summary>

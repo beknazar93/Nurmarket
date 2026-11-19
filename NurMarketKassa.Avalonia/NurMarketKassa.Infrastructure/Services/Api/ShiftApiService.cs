@@ -322,6 +322,82 @@ public sealed class ShiftApiService : IShiftApiService
         }
     }
 
+    /// <summary>2026-11-19: страница списка смен для «месячной» загрузки табеля (ошибки не глотаем — их показывает окно). Ответ без постраничности (голый массив) — только страница 1.</summary>
+    public async Task<JsonElement?> ConstructionShiftsPageAsync(int page, CancellationToken ct = default)
+    {
+        try
+        {
+            var data = await _client.RequestAsync(
+                HttpMethod.Get,
+                "api/construction/shifts/",
+                null,
+                new Dictionary<string, string> { ["page"] = page.ToString(System.Globalization.CultureInfo.InvariantCulture) },
+                ct).ConfigureAwait(false);
+            if (data.ValueKind == JsonValueKind.Array)
+                return page == 1 ? data.Clone() : null;
+            return data.ValueKind == JsonValueKind.Object
+                   && data.TryGetProperty("results", out var rows)
+                   && rows.ValueKind == JsonValueKind.Array
+                ? rows.Clone()
+                : null;
+        }
+        catch (ApiException ex) when (ex.StatusCode == 404)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>2026-11-19: смены месяца одним запросом (признак shifts_month_filter). Ошибки не глотаем (400 — неверный месяц, сеть) — их разбирает загрузчик.</summary>
+    public async Task<ShiftsMonthPage?> ConstructionShiftsMonthPageAsync(int year, int month, int page, CancellationToken ct = default)
+    {
+        try
+        {
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            var data = await _client.RequestAsync(
+                HttpMethod.Get,
+                "api/construction/shifts/",
+                null,
+                new Dictionary<string, string>
+                {
+                    ["month"] = $"{year:D4}-{month:D2}",
+                    ["page_size"] = "100",
+                    ["page"] = page.ToString(inv),
+                },
+                ct).ConfigureAwait(false);
+            if (data.ValueKind == JsonValueKind.Array)
+                return page == 1 ? new ShiftsMonthPage(data.Clone(), false) : null; // голый массив — без постраничности
+            if (data.ValueKind != JsonValueKind.Object || !data.TryGetProperty("results", out var rows) || rows.ValueKind != JsonValueKind.Array)
+                return null;
+            bool? hasNext = data.TryGetProperty("next", out var next)
+                ? next.ValueKind is JsonValueKind.String && !string.IsNullOrEmpty(next.GetString())
+                : null;
+            return new ShiftsMonthPage(rows.Clone(), hasNext);
+        }
+        catch (ApiException ex) when (ex.StatusCode == 404)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>2026-11-19: готовый табель сервера за месяц (GET api/main/staff/timesheet/?month=YYYY-MM). 404/403 — null (сервер без табеля или нет права: не ошибка); 400 period_invalid и сеть — исключение.</summary>
+    public async Task<JsonElement?> StaffTimesheetAsync(int year, int month, CancellationToken ct = default)
+    {
+        try
+        {
+            var data = await _client.RequestAsync(
+                HttpMethod.Get,
+                "api/main/staff/timesheet/",
+                null,
+                new Dictionary<string, string> { ["month"] = $"{year:D4}-{month:D2}" },
+                ct).ConfigureAwait(false);
+            return data.ValueKind is JsonValueKind.Object or JsonValueKind.Array ? data.Clone() : null;
+        }
+        catch (ApiException ex) when (ex.StatusCode is 404 or 403)
+        {
+            return null;
+        }
+    }
+
     public bool TryGetRecentShiftsList(TimeSpan maxAge, out JsonElement payload)
     {
         lock (_recentListSync)

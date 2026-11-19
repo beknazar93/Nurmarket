@@ -18,7 +18,8 @@ public interface IPosLateAcceptApi
 }
 
 /// <summary>Итог проверки PIN владельца. Token — значение для X-Confirm-Token (значение в журнал не пишется). Rejected — сервер ЯВНО сказал «PIN неверен»; Unauthorized — 401/403 (сессия истекла/нет прав, попытка PIN не тратится).</summary>
-public readonly record struct OwnerPinResult(bool Accepted, bool Rejected, string? Token, string? Error, bool Unauthorized = false, int? AttemptsLeft = null);
+// 2026-11-19: NotSet — сервер сказал pin_not_set (у владельца/админа PIN не задан); ExpiresIn — срок токена в секундах (expires_in, обычно 300).
+public readonly record struct OwnerPinResult(bool Accepted, bool Rejected, string? Token, string? Error, bool Unauthorized = false, int? AttemptsLeft = null, bool NotSet = false, int? ExpiresIn = null);
 
 public sealed partial class SalesApiService : IPosLateAcceptApi
 {
@@ -50,12 +51,17 @@ public sealed partial class SalesApiService : IPosLateAcceptApi
                     return new OwnerPinResult(false, false, null, "session_tokens_in_reply");
                 foreach (var name in ConfirmTokenFieldCandidates)
                     if (response.TryGetProperty(name, out var t)&& t.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(t.GetString()))
-                        return new OwnerPinResult(true, false, t.GetString(), null);
+                        return new OwnerPinResult(true, false, t.GetString(), null, ExpiresIn: ServerErrorCodes.Number(response, "expires_in") is { } exp && exp > 0 ? (int)exp : null);
                 // Токена не нашли: в сообщение — только имена полей ответа (значения могут быть секретом).
                 var keys = string.Join(", ", response.EnumerateObject().Select(p => p.Name));
                 return new OwnerPinResult(false, false, null, "no_token_field: " + keys);
             }
             return new OwnerPinResult(false, false, null, "no_token_field: ответ не объект");
+        }
+        catch (ApiException ex) when (ServerErrorCodes.Is(ex, ServerErrorCodes.PinNotSet))
+        {
+            // 2026-11-19 (ответ Умара 19.11): pin_not_set — у владельца/админа PIN не задан. Это не «неверный PIN» и не «нет прав»: попытка не тратится, кассиру — куда идти.
+            return new OwnerPinResult(false, false, null, "pin_not_set", NotSet: true);
         }
         catch (ApiException ex) when (ex.StatusCode is 401 or 403)
         {

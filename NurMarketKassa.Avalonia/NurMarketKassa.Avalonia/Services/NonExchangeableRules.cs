@@ -12,7 +12,9 @@ public static class NonExchangeableRules
         { "бель", "нижн", "носк", "чулоч", "колготк", "купальн", "парфюм", "духи", "космет", "ювелир", "лекарств", "книг" };
 
     /// <summary>Срок обмена из настроек; 0 — не проверять. Только в сферах «Одежда» и (2026-11-12, ЭЛ5) «Электроника»; у остальных — 0.</summary>
-    public static int DaysLimit => MarketSpheres.IsClothing || ElectronicsProfile.IsActive ? Math.Max(0, UserPreferences.Instance.ExchangeDaysLimit) : 0;
+    // 2026-11-20 (Автозапчасти, часть Б): срок возврата — из настройки владельца автозапчастей (умолчание 14 дн.).
+    public static int DaysLimit => AutoPartsRules.Active ? AutoPartsRules.GetReturnDays()
+        : MarketSpheres.IsClothing || ElectronicsProfile.IsActive ? Math.Max(0, UserPreferences.Instance.ExchangeDaysLimit) : 0;
 
     /// <summary>Сколько дней прошло после дня покупки (день покупки не считается).</summary>
     public static int DaysPassed(DateTime saleDate) => Math.Max(0, (DateTime.Today - saleDate.Date).Days);

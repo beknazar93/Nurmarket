@@ -23,6 +23,8 @@ public partial class StaffTimesheetWindow
     private const double CellW = 46, RowH = 54, NameW = 210, HeadH = 52;
 
     private List<ShiftHistoryEntry> _shifts = new();
+    private ServerTimesheet? _serverTimesheet; // 2026-11-19: готовый табель сервера за показанный месяц (запасной источник часов)
+    private readonly Dictionary<(int Year, int Month), ServerTimesheet> _timesheetCache = new();
     private List<(string Key, string Name)> _serverEmployees = new();
     private List<TimesheetMark> _allMarks = new();
     private List<(string Key, string Name)> _employees = new();
@@ -91,6 +93,11 @@ public partial class StaffTimesheetWindow
         {
             _shiftHours[key] = TimesheetMarksService.ShiftHoursByDay(_shifts, key, name);
             _longShiftDays[key] = TimesheetMarksService.LongShiftDays(_shifts, key, name);
+            // 2026-11-19 (готовый табель сервера): часы по дням, по которым смены месяца ещё не пришли или не пришли совсем, — из табеля сервера. Дни со сменами не трогаем
+            // (кассовое деление смены по календарным дням остаётся как есть, серверный табель относит смену через полночь к дню открытия).
+            if (_serverTimesheet is { } ts && ts.Year == _year && ts.Month == _month)
+                foreach (var (day, hours) in ts.HoursByDay(key, name))
+                    _shiftHours[key].TryAdd(day, hours);
         }
     }
 
@@ -127,6 +134,7 @@ public partial class StaffTimesheetWindow
         _year = Today.Year;
         _month = Today.Month;
         RebuildMarks();
+        _ = EnsureMonthShiftsAsync(); // 2026-11-19: смены за выбранный месяц
     }
 
     private void ShiftMonth(int delta)
@@ -136,6 +144,7 @@ public partial class StaffTimesheetWindow
         _month = d.Month;
         RebuildMarks();
         StatusText.Text = MarksStatusLine();
+        _ = EnsureMonthShiftsAsync(); // 2026-11-19: смены за выбранный месяц (ранее скачанное — из кэша страниц)
     }
 
     private static readonly string[] MonthsRu = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
@@ -717,8 +726,24 @@ public partial class StaffTimesheetWindow
             Placement = PlacementMode.Bottom,
             Content = new ScrollViewer { MaxHeight = 360, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Content = list },
         };
+        _journalFlyout = flyout;
+        if (!_journalEscAttached)
+        {
+            // 2026-11-20 (ночная проверка, Д-7а): Esc в открытом «Журнале изменений» закрывал весь табель (кнопка «Закрыть» — IsCancel). Пока журнал открыт, Esc закрывает только его.
+            _journalEscAttached = true;
+            AddHandler(Avalonia.Input.InputElement.KeyDownEvent, (_, ev) =>
+            {
+                if (ev.Key != Avalonia.Input.Key.Escape || _journalFlyout is not { IsOpen: true } open)
+                    return;
+                open.Hide();
+                ev.Handled = true;
+            }, RoutingStrategies.Tunnel);
+        }
         flyout.ShowAt(anchor);
     }
+
+    private Flyout? _journalFlyout;
+    private bool _journalEscAttached;
 
     private static string SnapText(TimesheetSnapshot? s)
     {

@@ -59,6 +59,9 @@ public partial class CalculatorWindow : Window, IOwnerSection
         BuildChips();
         ApplyTexts();
         _ready = true;
+        // 2026-11-19: расчёт попадает в «Последние расчёты», когда поле закончили править
+        foreach (var box in new[] { CostBox, ModeValueBox, TaxBox })
+            box.LostFocus += (_, _) => CommitHistory();
         RecalcPrice();
         RecalcBatch();
         RecalcBreakEven();
@@ -202,6 +205,16 @@ public partial class CalculatorWindow : Window, IOwnerSection
             "Markup = (price − cost) / cost. Margin = (price − cost) / price. A 30% markup is a 23% margin; a 100% markup is a 50% margin.",
             "Kâr oranı = (fiyat − alış) / alış. Marj = (fiyat − alış) / fiyat. %30 kâr oranı %23 marja, %100 kâr oranı ise %50 marja denk gelir.",
             "Ustama = (narx − xarid) / xarid. Marja = (narx − xarid) / narx. 30% ustama — 23% marja, 100% ustama — 50% marja.");
+
+        // 2026-11-19: пример и история расчётов цены
+        ExampleTitle.Text = Tr.T("Пример", "Мисал", "Example", "Örnek", "Misol");
+        ExampleText.Text = Tr.T("Закупка 100 сом и наценка 30% дают цену 130 сом и прибыль 30 сом с единицы. Введите свою закупку слева — результат появится здесь сразу.",
+            "Сатып алуу 100 сом жана 30% үстөк — баасы 130 сом, бирдиктен пайда 30 сом. Сол жакка өзүңүздүн сатып алуу бааңызды киргизиңиз — жыйынтык ушул жерде дароо чыгат.",
+            "A cost of 100 som with a 30% markup gives a price of 130 som and 30 som profit per unit. Enter your own cost on the left — the result appears here at once.",
+            "100 som alış ve %30 kâr oranı: fiyat 130 som, birim başına kâr 30 som. Solda kendi alış fiyatınızı girin — sonuç hemen burada görünür.",
+            "100 so'm xarid va 30% ustama — narx 130 so'm, birlik boshiga foyda 30 so'm. Chapga o'z xarid narxingizni kiriting — natija shu yerda darhol chiqadi.");
+        ExampleButton.Content = Tr.T("Подставить пример", "Мисалды коюу", "Use the example", "Örneği kullan", "Misolni qo'yish");
+        RenderHistory();
 
         // 2. Партия
         ExtraCostsLabel.Text = Tr.T("Доп. расходы на партию (доставка, таможня), сом", "Партияга кошумча чыгым (жеткирүү, бажы), сом",
@@ -470,6 +483,8 @@ public partial class CalculatorWindow : Window, IOwnerSection
         var tax = Num(TaxBox.Text) / 100;
         SyncTaxChips();
         ResWarning.IsVisible = false;
+        ExampleBox.IsVisible = cost <= 0; // 2026-11-19: пока закупка не введена — пример вместо пустой зоны
+        _lastCalc = null;
 
         double price;
         double exact;
@@ -517,6 +532,8 @@ public partial class CalculatorWindow : Window, IOwnerSection
         ResTaxValue.Text = Money(taxPerUnit);
         ResMarkupValue.Text = cost > 0 ? Percent((price - cost) / cost * 100) : "—";
         ResMarginValue.Text = price > 0 ? Percent((price - cost) / price * 100) : "—";
+        if (cost > 0 && price > 0)
+            _lastCalc = (cost, price, (price - cost) / cost * 100);
 
         if (price > 0 && profit <= 0)
             ShowPriceWarning(Tr.T("Цена не покрывает закупку и налог — каждая продажа в убыток.", "Баа сатып алуу баасын жана салыкты жаппайт — ар бир сатуу зыян алып келет.",
@@ -538,6 +555,52 @@ public partial class CalculatorWindow : Window, IOwnerSection
         {
             CurrentPriceBox.IsVisible = false;
         }
+    }
+
+    // 2026-11-19: последние расчёты цены (пока открыта программа; в общий список попадает расчёт, когда поле ввода закончили править).
+    private static readonly List<(double Cost, double Price, double Markup)> PriceHistory = new();
+    private (double Cost, double Price, double Markup)? _lastCalc;
+
+    private void CommitHistory()
+    {
+        if (_lastCalc is not { } c)
+            return;
+        if (PriceHistory.Count > 0 && Math.Abs(PriceHistory[0].Cost - c.Cost) < 0.005 && Math.Abs(PriceHistory[0].Price - c.Price) < 0.005)
+            return;
+        PriceHistory.Insert(0, c);
+        if (PriceHistory.Count > 5)
+            PriceHistory.RemoveRange(5, PriceHistory.Count - 5);
+        RenderHistory();
+    }
+
+    private void RenderHistory()
+    {
+        HistoryTitle.Text = Tr.T("Последние расчёты", "Акыркы эсептөөлөр", "Recent calculations", "Son hesaplamalar", "So'nggi hisob-kitoblar");
+        HistoryList.Children.Clear();
+        foreach (var h in PriceHistory)
+        {
+            var line = new TextBlock
+            {
+                Text = Tr.T($"Закупка {Money(h.Cost)} → цена {Money(h.Price)} (наценка {Percent(h.Markup)})", $"Сатып алуу {Money(h.Cost)} → баа {Money(h.Price)} (үстөк {Percent(h.Markup)})",
+                    $"Cost {Money(h.Cost)} → price {Money(h.Price)} (markup {Percent(h.Markup)})", $"Alış {Money(h.Cost)} → fiyat {Money(h.Price)} (kâr oranı {Percent(h.Markup)})",
+                    $"Xarid {Money(h.Cost)} → narx {Money(h.Price)} (ustama {Percent(h.Markup)})"),
+                FontSize = 13.5,
+                TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+            };
+            line.Bind(TextBlock.ForegroundProperty, line.GetResourceObservable("BrushText"));
+            HistoryList.Children.Add(line);
+        }
+        HistoryBox.IsVisible = PriceHistory.Count > 0;
+    }
+
+    private void Example_Click(object? sender, RoutedEventArgs e)
+    {
+        // 2026-11-19: пример «закупка 100 сом, наценка 30 %» — подставляется в поля, результат считается сразу.
+        Mode_Click(ModeMarkupButton, new RoutedEventArgs());
+        CostBox.Text = "100";
+        ModeValueBox.Text = "30";
+        RecalcPrice();
+        CommitHistory();
     }
 
     private void ShowPriceWarning(string text)

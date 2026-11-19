@@ -1,3 +1,4 @@
+using System.Windows;
 using Avalonia.Controls;
 using NurMarketKassa.Core.Contracts;
 using NurMarketKassa.Services;
@@ -40,6 +41,10 @@ public static class ExpiredSaleGuard
     {
         try
         {
+            // 2026-11-19 (склад К-5): компания включила политику сервера (expired_sale_policy warn/block) — она главнее местного режима. Без признака и настроек склада — только прежняя проверка ниже.
+            if (ServerStock.CachedPolicies is { } server && server.ExpiredSalePolicy != StockPolicies.Allow && !string.IsNullOrWhiteSpace(productId)
+                && await ConfirmByServerPolicyAsync(owner, productId, title, server.ExpiredSalePolicy).ConfigureAwait(true) is { } decided)
+                return decided;
             var mode = ExpiryModes.Normalize(ShopAutomationSettings.Current.ExpiryMode);
             if (mode == ExpiryModes.Off || string.IsNullOrWhiteSpace(productId))
                 return true;
@@ -80,6 +85,34 @@ public static class ExpiredSaleGuard
         {
             PosLogger.Log($"Просрочка: проверка не выполнена ({ex.GetType().Name}: {ex.Message}) — товар добавлен.", "WARNING");
             return true;
+        }
+    }
+
+    /// <summary>2026-11-19 (склад К-5): решение по политике сервера. null — просрочки нет / срока не знаем: решает прежний местный режим. warn — «Продать всё равно / Отмена»; block — только сообщение, продать нельзя.</summary>
+    private static async Task<bool?> ConfirmByServerPolicyAsync(Window? owner, string productId, string title, string policy)
+    {
+        if (IsRemembered(productId))
+            return true;
+        _ = ProductExpiryIndex.RefreshAsync(false);
+        if (!ProductExpiryIndex.Marks.TryGetValue(productId, out var mark))
+            return null;
+        var caption = Tr.T("Товар просрочен", "Товардын мөөнөтү өткөн", "Product expired", "Ürünün süresi geçmiş", "Mahsulot muddati o'tgan");
+        switch (ServerStock.ExpiredSale(policy, mark.Expired || mark.Date.Date < DateTime.Today))
+        {
+            case StockSaleDecision.Block:
+                PosLogger.Log($"Просрочка: «{title}» (срок {mark.Date:dd.MM.yyyy}) — продажа запрещена политикой склада (block).", "INFO");
+                await PosMessageBox.ShowModalAsync(owner, ServerStock.ExpiredBlockedText(title, mark.Date), caption, MessageBoxButton.OK, MessageBoxImage.Warning).ConfigureAwait(true);
+                return false;
+            case StockSaleDecision.Warn:
+                var sell = await PosDialogs.ConfirmYesNoModalAsync(owner, ServerStock.ExpiredSaleText(title, mark.Date), caption,
+                    confirmText: Tr.T("Продать всё равно", "Баары бир сатуу", "Sell anyway", "Yine de sat", "Baribir sotish"),
+                    cancelText: Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"), danger: true, enterCancels: true).ConfigureAwait(true);
+                PosLogger.Log($"Просрочка: «{title}» (срок {mark.Date:dd.MM.yyyy}) — политика склада warn, кассир {(sell ? "продал" : "отменил")}.", "INFO");
+                if (sell)
+                    Remember(productId);
+                return sell;
+            default:
+                return null;
         }
     }
 

@@ -29,8 +29,11 @@ public static class CheckoutWarnings
                 code = c.GetString();
             if (string.IsNullOrWhiteSpace(code))
                 continue;
+            code = code.Trim().ToLowerInvariant();
+            if (code == "stock_negative")
+                code = NegativeStock; // 2026-11-19 (ответ Умара 19.11, п. 8): сервер шлёт negative_stock; stock_negative — старое имя, принимаем оба
             list.Add(w.ValueKind == JsonValueKind.Object
-                ? new CheckoutWarning(code.Trim().ToLowerInvariant(), Int(w, "index"), Str(w, "product_id"), ServerErrorCodes.Number(w, "price"), ServerErrorCodes.Number(w, "purchase_price"), Int(w, "into"))
+                ? new CheckoutWarning(code, Int(w, "index"), Str(w, "product_id"), ServerErrorCodes.Number(w, "price"), ServerErrorCodes.Number(w, "purchase_price"), Int(w, "into"))
                 : new CheckoutWarning(code.Trim().ToLowerInvariant(), null, null, null, null, null));
         }
         return list;
@@ -76,6 +79,8 @@ public static class CheckoutWarnings
     /// <summary>Досылка из очереди: ответ сервера с предупреждениями — в журнал; «ниже закупки» — ещё и в «Некорректные чеки» (владелец видит). Сбой записи досылку не ломает.</summary>
     public static void HandleReplayResponse(string entryId, string? saleId, JsonElement response)
     {
+        // 2026-11-19 (ответ Умара 19.11, п. 4): below_cost / negative_stock / stock_negative — пометка «Отправлено, но…» в «Неотправленном» (только показ, ничего не блокируется).
+        OutboxSentNotes.Record(entryId, saleId, response);
         var warnings = Parse(response);
         if (warnings.Count == 0)
             return;

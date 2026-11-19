@@ -25,6 +25,7 @@ public partial class AccountView
             list.Children.Insert(index >= 0 ? index : list.Children.Count, card);
         }
 
+        Put(BuildSubscriptionCard()); // 2026-11-19: оплата подписки через ELQR (владелец/админ, признак billing_elqr)
         Put(BuildSpeedCard());
         if (AppMode.IsOwner && IsOwnerRole())
             Put(BuildTariffCard());

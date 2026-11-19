@@ -865,7 +865,8 @@ internal sealed class PurchasesRegistryView : UserControl
             yield return new ColSpec("by", T("Пользователь", "Колдонуучу", "User", "Kullanıcı", "Foydalanuvchi"), 104, 8);
             yield break;
         }
-        yield return new ColSpec("numdate", T("№ / Дата", "№ / Күнү", "№ / Date", "№ / Tarih", "№ / Sana"), 150, 1);
+        // 2026-11-20 (ночная проверка владельца, окно 1024×768): «ПР-2026-000090» в 150 px переносилось («…00009» / «0») — колонка 150 → 168.
+        yield return new ColSpec("numdate", T("№ / Дата", "№ / Күнү", "№ / Date", "№ / Tarih", "№ / Sana"), 168, 1);
         if (_money)
             yield return new ColSpec("supplier", T("Поставщик", "Жеткирүүчү", "Supplier", "Tedarikçi", "Yetkazib beruvchi"), 0, 1, Star: true, Min: 150);
         yield return new ColSpec("supdoc", T("№ накл. пост.", "Жеткирүүчүнүн №", "Supplier inv. №", "Tedarikçi fat. №", "Yetk. yuk xati №"), 112, 4, Star: !_money, Min: !_money ? 120 : 0);

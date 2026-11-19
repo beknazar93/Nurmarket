@@ -7,9 +7,11 @@ using Avalonia.Threading;
 
 namespace Microsoft.Web.WebView2.Core
 {
+    // 2026-11-20: CrmWebViewWindow читает IsSuccess/WebErrorStatus (экран «Нет подключения») — в переносимой сборке страницы нет, всегда успех.
+    public sealed class CoreWebView2NavigationCompletedEventArgs : EventArgs { public bool IsSuccess => true; public string WebErrorStatus => "Unknown"; }
     public sealed class CoreWebView2
     {
-        public event EventHandler<EventArgs>? NavigationCompleted;
+        public event EventHandler<CoreWebView2NavigationCompletedEventArgs>? NavigationCompleted;
         public bool CanGoBack => false;
         public bool CanGoForward => false;
         // 2026-10-05: «Открыть в браузере» открывает текущую страницу (WhatsApp Web / NurCRM) — здесь её нет.
@@ -17,7 +19,7 @@ namespace Microsoft.Web.WebView2.Core
         public void GoBack() { }
         public void GoForward() { }
         public void Reload() { }
-        public void Navigate(string url) => NavigationCompleted?.Invoke(this, EventArgs.Empty);
+        public void Navigate(string url) => NavigationCompleted?.Invoke(this, new CoreWebView2NavigationCompletedEventArgs());
         // 2026-10-20: «Редактор сайта» ограничивает предпросмотр скриптом страницы — здесь страницы нет.
         public Task<string> AddScriptToExecuteOnDocumentCreatedAsync(string javaScript) => Task.FromResult("");
         public Task<string> ExecuteScriptAsync(string javaScript) => Task.FromResult("null");

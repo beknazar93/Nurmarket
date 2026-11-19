@@ -23,6 +23,9 @@ public static class ServerCapabilities
 
     internal static string AccountKey() => (UserPreferences.Instance.LastDataAccountKey ?? "") + "|" + (CompanyInfoService.LastCompany?.Id ?? "");
 
+    /// <summary>2026-11-19: список признаков получен впервые или изменился (вызывается из потока запроса — подписчик сам переходит в UI-поток).</summary>
+    public static event Action? Changed;
+
     /// <summary>Забыть признаки (смена аккаунта, выход).</summary>
     public static void Reset()
     {
@@ -55,6 +58,27 @@ public static class ServerCapabilities
     /// (serial_already_sold / serial_count_mismatch / serial_duplicate_in_line / serial_too_long), отдаёт serial_numbers и warranty_until в чеке и поиск serials/. Включается компании в company/addons/ (как hardware_2026_11);
     /// без флага касса серийники на сервер не шлёт (они остаются в местном журнале), как раньше.</summary>
     public const string Electronics202611 = "electronics_2026_11";
+
+    // 2026-11-19 (ответ бэкенда «склад К-4 К-5 К-8»): склад «10 из 10». Включается для компании на сервере (PUT settings/stock/); без признаков касса и программа владельца работают как раньше.
+    /// <summary>К-4: партии товара (GET products/{id}/batches/), allocations в строке чека.</summary>
+    public const string StockBatches = "stock_batches";
+    /// <summary>К-4: себестоимость по партиям (FIFO/FEFO).</summary>
+    public const string CostingFifo = "costing_fifo";
+    /// <summary>К-5: срок годности и номер партии в строке прихода; stock/expiring/ считает по партиям.</summary>
+    public const string ExpiryBatches = "expiry_batches";
+    /// <summary>К-5: политика продажи из просроченной партии (settings/stock/: expired_sale_policy allow|warn|block).</summary>
+    public const string ExpiredSalePolicy = "expired_sale_policy";
+    /// <summary>К-8: резервы (reservations/), поля reserved/available у товара, политика reserved_sale_policy.</summary>
+    public const string Reservations = "reservations";
+    /// <summary>2026-11-19 (ответ Умара 19.11, п. 5): сервер принимает офлайн-чек старше 7 суток (до 90) по accept_late + X-Confirm-Token из users/auth/pin/verify/.
+    /// Без признака кнопка «Подтвердить отправку…» в «Неотправленном» не показывается (прежнее поведение).</summary>
+    public const string OfflineAcceptLate = "offline_accept_late";
+    /// <summary>2026-11-19 (ответ Умара 19.11, раздел 2): оплата подписки магазином через ELQR (users/billing/…). Экран «Подписка» показывается только при признаке (дальше — config.available).</summary>
+    public const string BillingElqr = "billing_elqr";
+    /// <summary>2026-11-19 (ответ Умара 19.11, п. 1): construction/shifts/?month=YYYY-MM&amp;page_size=100 — смены месяца одним запросом (~1 с). Без признака табель листает историю страницами.</summary>
+    public const string ShiftsMonthFilter = "shifts_month_filter";
+    /// <summary>2026-11-19: то же по датам (?date_from=&amp;date_to=), есть с 03.11.</summary>
+    public const string ShiftsDateFilter = "shifts_date_filter";
 
     /// <summary>2026-11-05: синхронная проверка признака для мест, где ждать сеть нельзя (расчёт «Касса:», тело чека). true — признак есть у ЭТОГО аккаунта; нет списка, он устарел
     /// или запрос не удался — false (поведение «как раньше»). Если список не получен или старше срока, в фоне просит его заново (ServerAddons.Api — тот же клиент, что у бонусов).</summary>
@@ -229,9 +253,16 @@ public static class ServerCapabilities
                 var d = await api.RequestAsync(HttpMethod.Get, "api/main/capabilities/", null, null, ct).ConfigureAwait(false);
                 var set = Parse(d);
                 Fiscal.FiscalSettings.Apply(d, set, account); // 2026-11-14 (П0-1): блок capabilities.fiscal — режим фискализации компании
+                // 2026-11-19 (оплата подписки): список признаков изменился (или получен впервые) — меню программы владельца пересчитывает пункты, зависящие от признаков (billing_elqr → «Подписка»).
+                var changed = !(_cache is { Ok: true } prev && prev.Account == account && prev.Features.SetEquals(set));
                 _cache = (DateTime.UtcNow, account, set, true, false);
+                if (changed)
+                    try { Changed?.Invoke(); } catch (Exception ex) when (ex is not OutOfMemoryException) { PosLogger.Log($"Признаки сервера: обработчик изменения: {ex.Message}", "WARNING"); }
                 _lastError = null;
                 SaveToDisk(account, set); // 2026-11-06 (Л5-01): ответ получен — это новый «последний известный» список (в том числе пустой: сервер реально ответил без признаков)
+                // 2026-11-19 (склад К-5/К-8): признаки политик — в фоне читаем settings/stock/ (только чтение). Без признаков запроса нет.
+                if (set.Contains(ExpiredSalePolicy) || set.Contains(Reservations))
+                    ServerStock.RefreshPoliciesInBackground();
                 return set;
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -274,6 +305,9 @@ public static class ServerCapabilities
                 if (d.TryGetProperty(key, out var part) && part.ValueKind is JsonValueKind.Array or JsonValueKind.Object)
                 {
                     Collect(part, set);
+                    // 2026-11-19: {"capabilities": {"features": {"offline_accept_late": true}}} — признаки одним уровнем глубже
+                    if (part.ValueKind == JsonValueKind.Object && part.TryGetProperty("features", out var inner) && inner.ValueKind is JsonValueKind.Array or JsonValueKind.Object)
+                        Collect(inner, set);
                     recognized = true;
                 }
             Collect(d, set); // и признаки прямо в объекте: {"receipt_edit": true}

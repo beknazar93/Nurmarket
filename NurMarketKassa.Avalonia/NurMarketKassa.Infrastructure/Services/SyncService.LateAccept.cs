@@ -24,9 +24,14 @@ public enum LateAcceptState
 // не блокируем); Error — сервер ответил отказом/ошибкой (4xx, «нет прав», 5xx, непонятный ответ) — это ОТКАЗ, обхода нет.
 public enum LatePinStatus { Ok, Wrong, Locked, Error, Unavailable }
 
-public sealed record LatePinResult(LatePinStatus Status, string? Token, string Message);
+// 2026-11-19: ExpiresInSeconds — срок токена (expires_in, сервер даёт 300 с); TokenRejected — сервер не принял подтверждение (токен просрочен/нет прав): нужно ввести PIN заново;
+// SentWithWarnings — чек принят, но сервер предупредил (ниже закупки / ушло в минус) — текст в OutboxSentNotes.
+public sealed record LatePinResult(LatePinStatus Status, string? Token, string Message, int? ExpiresInSeconds = null);
 
-public sealed record LateAcceptResult(bool Ok, string Message);
+public sealed record LateAcceptResult(bool Ok, string Message, bool TokenRejected = false, bool SentWithWarnings = false);
+
+/// <summary>2026-11-19: итог пакетной отправки одним подтверждением. Remaining — сколько чеков не тронуто (кончился срок токена или он отклонён).</summary>
+public sealed record LateAcceptBatchResult(int Sent, int Failed, int Remaining, bool TokenExpired, string Message);
 
 /// <summary>
 /// 2026-11-01 (К-06, продолжение): чек из офлайн-очереди старше 7 суток сервер не принимает сам (400 offline_too_old, SyncService.QuickReplay.cs), он остаётся
@@ -46,7 +51,8 @@ public sealed partial class SyncService
     private static DateTime _latePinLockedUntilUtc = DateTime.MinValue;
 
     /// <summary>Кнопка «Провести по PIN владельца» вообще разрешена (признак настроек).</summary>
-    public static bool LateAcceptEnabled => UserPreferences.Instance.AcceptLateEnabled;
+    // 2026-11-19: включается, когда сервер сообщил признак offline_accept_late (ответ Умара 19.11); ручной AcceptLateEnabled в user-settings.json оставлен для стенда.
+    public static bool LateAcceptEnabled => UserPreferences.Instance.AcceptLateEnabled || ServerCapabilities.Has(ServerCapabilities.OfflineAcceptLate);
 
     public static LateAcceptState GetLateAcceptState(OfflineSaleEntry entry)
     {
@@ -66,6 +72,16 @@ public sealed partial class SyncService
             || !entry.TooOldForServer)
             return LateAcceptState.MaybePosted;
         return age > LateAcceptMaxAge ? LateAcceptState.TooOld : LateAcceptState.Allowed;
+    }
+
+    /// <summary>Только для тестов: сбросить локальную паузу и счётчик неверных PIN (общие на программу).</summary>
+    internal static void ResetLatePinLockForTests()
+    {
+        lock (LatePinGate)
+        {
+            _latePinFailures = 0;
+            _latePinLockedUntilUtc = DateTime.MinValue;
+        }
     }
 
     /// <summary>Секунд до конца паузы после 3 неверных PIN (0 — можно вводить).</summary>
@@ -150,11 +166,15 @@ public sealed partial class SyncService
                 "PIN kontrolü için yetki yok veya oturum bitti. Kasaya yeniden girin (sahip/yönetici) ve tekrar deneyin. PIN hakkı harcanmadı.",
                 "PIN ni tekshirish huquqi yo'q yoki sessiya tugagan. Kassaga qayta kiring (egasi/administrator) va qayta urining. PIN urinishi sarflanmadi."));
 
+        // 2026-11-19 (ответ Умара 19.11): pin_not_set — PIN владельца/админа не задан. Отказ (обхода нет), попытка не тратится.
+        if (result.NotSet)
+            return new LatePinResult(LatePinStatus.Error, null, ServerErrorCodes.PinNotSetText());
+
         if (result.Accepted && !string.IsNullOrWhiteSpace(result.Token))
         {
             lock (LatePinGate)
                 _latePinFailures = 0;
-            return new LatePinResult(LatePinStatus.Ok, result.Token, "");
+            return new LatePinResult(LatePinStatus.Ok, result.Token, "", result.ExpiresIn);
         }
 
         if (result.Rejected)
@@ -197,7 +217,8 @@ public sealed partial class SyncService
 
     /// <summary>Провести чек по подтверждению владельца: настоящая дата продажи (sold_at), accept_late, тот же ключ идемпотентности.
     /// Успех — чек убран из очереди. Отказ — понятное сообщение, чек остаётся «Требует проверки».</summary>
-    public async Task<LateAcceptResult> SendLateAcceptedAsync(string entryId, string confirmToken, string? approvedBy, CancellationToken ct = default)
+    /// <param name="confirmToken">2026-11-19: null — вошёл владелец/админ, сервер принимает accept_late без X-Confirm-Token (ответ Умара 19.11, п. 3); если он всё же откажет — TokenRejected, касса спросит PIN.</param>
+    public async Task<LateAcceptResult> SendLateAcceptedAsync(string entryId, string? confirmToken, string? approvedBy, CancellationToken ct = default)
     {
         if (!LateAcceptEnabled)
             return new LateAcceptResult(false, NoApiText());
@@ -206,7 +227,7 @@ public sealed partial class SyncService
             return new LateAcceptResult(false, Tr.T("Чек не найден в очереди.", "Чек кезектен табылган жок.", "The receipt was not found in the queue.", "Fiş kuyrukta bulunamadı.", "Chek navbatda topilmadi."));
         var state = GetLateAcceptState(entry);
         if (state == LateAcceptState.TooOld)
-            return new LateAcceptResult(false, TooOld90Text(entry));
+            return new LateAcceptResult(false, TooOldSupportText()); // 2026-11-19: «Старше 90 суток — отправить нельзя, обратитесь в поддержку»
         if (state == LateAcceptState.MaybePosted)
             return new LateAcceptResult(false, MaybePostedText());
         if (state != LateAcceptState.Allowed)
@@ -242,9 +263,11 @@ public sealed partial class SyncService
         catch (ApiException ex)
         {
             var text = DescribeLateRefusal(ex, entry);
+            // 2026-11-19: 401/403 или повторный offline_too_old у чека моложе 90 суток = сервер не принял подтверждение (токен просрочен, чужой, нет прав) — спросить PIN заново.
+            var tokenRejected = ex.StatusCode is 401 or 403 || (IsOfflineTooOld(ex, entry) && DateTimeOffset.Now - entry.CreatedAt <= LateAcceptMaxAge);
             PosLogger.Log($"OFFLINE late-accept: чек {entry.Id} — отказ сервера {ex.StatusCode}: {text}", "WARNING");
-            OfflinePendingSalesStore.Update(entry.Id, e => { e.LastError = text; e.ReviewNeeded = true; });
-            return new LateAcceptResult(false, text);
+            OfflinePendingSalesStore.Update(entry.Id, e => { e.LastError = tokenRejected ? NeedsConfirmText(entry) : text; e.ReviewNeeded = true; });
+            return new LateAcceptResult(false, text, TokenRejected: tokenRejected);
         }
 
         var saleId = CheckoutResponseHelper.TrySaleId(response);
@@ -259,6 +282,13 @@ public sealed partial class SyncService
         PosLogger.Log(
             $"OFFLINE late-accept: чек {entry.Id} от {entry.CreatedAt:yyyy-MM-dd HH:mm} проведён по PIN владельца ({approvedBy ?? "—"}), продажа {saleId ?? "—"}, replayed={replayed}.",
             "OFFLINE");
+        // 2026-11-19 (ответ Умара 19.11, п. 4): чек ниже закупки / с нулевым остатком проводится; warnings below_cost / negative_stock + stock_negative — в журнал и в «Неотправленное».
+        var withWarnings = false;
+        if (!replayed)
+        {
+            CheckoutWarnings.HandleReplayResponse(entry.Id, saleId, response);
+            withWarnings = OutboxSentNotes.HasNote(entry.Id);
+        }
         await ResyncStockAfterReplayAsync(entry, ct).ConfigureAwait(false);
         OfflinePendingSalesStore.MarkSynced(entry.Id, saleId);
         OfflinePendingSalesStore.RemoveSynced(entry.Id);
@@ -272,8 +302,94 @@ public sealed partial class SyncService
             $"Чек сатуу датасы {date} менен өткөрүлдү.",
             $"The receipt was posted with the sale date {date}.",
             $"Fiş {date} satış tarihiyle işlendi.",
-            $"Chek {date} sotuv sanasi bilan o'tkazildi."));
+            $"Chek {date} sotuv sanasi bilan o'tkazildi."), SentWithWarnings: withWarnings);
     }
+
+    /// <summary>2026-11-19: несколько чеков одним подтверждением (токен живёт 5 минут — expires_in). Идёт в переданном порядке (от старых к новым); когда срок токена на исходе (или сервер его отклонил) — останавливается:
+    /// оставшиеся чеки не тронуты и ждут нового подтверждения. confirmToken == null (вошёл владелец/админ) — срок не ограничен.</summary>
+    public async Task<LateAcceptBatchResult> SendLateAcceptedBatchAsync(IReadOnlyList<string> entryIds, string? confirmToken, int? expiresInSeconds, string? approvedBy, CancellationToken ct = default)
+    {
+        var issuedAt = DateTime.UtcNow;
+        var ttl = TimeSpan.FromSeconds(Math.Clamp(expiresInSeconds ?? 300, 30, 900));
+        int sent = 0, failed = 0, index = 0;
+        string? lastFailure = null;
+        var expired = false;
+        for (; index < entryIds.Count; index++)
+        {
+            // Запас 15 с: запрос идёт до 45 с — не начинаем чек, если токен вот-вот истечёт.
+            if (confirmToken is not null && DateTime.UtcNow - issuedAt > ttl - TimeSpan.FromSeconds(15))
+            {
+                expired = true;
+                break;
+            }
+            ct.ThrowIfCancellationRequested();
+            var r = await SendLateAcceptedAsync(entryIds[index], confirmToken, approvedBy, ct).ConfigureAwait(false);
+            if (r.Ok)
+            {
+                sent++;
+                continue;
+            }
+            failed++;
+            lastFailure = r.Message;
+            if (r.TokenRejected)
+            {
+                expired = true;
+                index++;
+                break;
+            }
+            if (IsConnectivityText(r.Message))
+            {
+                index++;
+                break; // связи нет — остальные не мучаем
+            }
+        }
+        var remaining = Math.Max(0, entryIds.Count - index);
+        var message = BatchSummaryText(sent, failed, remaining, expired, lastFailure);
+        PosLogger.Log($"OFFLINE late-accept: пакет — отправлено {sent}, отказов {failed}, не тронуто {remaining}{(expired ? ", подтверждение истекло/отклонено" : "")}.", "OFFLINE");
+        return new LateAcceptBatchResult(sent, failed, remaining, expired, message);
+    }
+
+    private static bool IsConnectivityText(string message) => string.Equals(message, NoConnectionText(), StringComparison.Ordinal);
+
+    private static string BatchSummaryText(int sent, int failed, int remaining, bool expired, string? lastFailure)
+    {
+        var head = Tr.T($"Отправлено: {sent}.", $"Жөнөтүлдү: {sent}.", $"Sent: {sent}.", $"Gönderildi: {sent}.", $"Yuborildi: {sent}.");
+        if (failed == 0 && remaining == 0)
+            return head;
+        var parts = new List<string> { head };
+        if (failed > 0)
+            parts.Add(Tr.T($"Не отправлено: {failed}.", $"Жөнөтүлгөн жок: {failed}.", $"Not sent: {failed}.", $"Gönderilmedi: {failed}.", $"Yuborilmadi: {failed}."));
+        if (remaining > 0)
+            parts.Add(expired
+                ? Tr.T($"Ещё {remaining} чек. ждут: подтверждение действует 5 минут — нажмите «Подтвердить отправку…» и введите PIN ещё раз.",
+                    $"Дагы {remaining} чек күтөт: ырастоо 5 мүнөт иштейт — «Жөнөтүүнү ырастоо…» басып, PIN кодду кайра киргизиңиз.",
+                    $"{remaining} more receipt(s) are waiting: the confirmation lasts 5 minutes — press “Confirm sending…” and enter the PIN again.",
+                    $"{remaining} fiş daha bekliyor: onay 5 dakika geçerli — «Göndermeyi onayla…»ya basıp PIN'i yeniden girin.",
+                    $"Yana {remaining} ta chek kutmoqda: tasdiqlash 5 daqiqa amal qiladi — «Yuborishni tasdiqlash…»ni bosib, PIN ni qayta kiriting.")
+                : Tr.T($"Ещё {remaining} чек. не тронуты.", $"Дагы {remaining} чек тийилген жок.", $"{remaining} more receipt(s) were not touched.", $"{remaining} fiş daha dokunulmadı.", $"Yana {remaining} ta chek tegilmadi."));
+        if (!string.IsNullOrWhiteSpace(lastFailure))
+            parts.Add(lastFailure!);
+        return string.Join(" ", parts);
+    }
+
+    /// <summary>2026-11-19: статус старого чека, пока ждёт подтверждения (ответ Умара 19.11, п. 3): «Старше 7 суток — нужно подтверждение».</summary>
+    public static string NeedsConfirmText(OfflineSaleEntry entry)
+    {
+        var date = entry.CreatedAt.LocalDateTime.ToString("dd.MM.yyyy HH:mm");
+        return Tr.T($"Старше 7 суток — нужно подтверждение (чек от {date}). Нажмите «Подтвердить отправку…» и введите PIN владельца или администратора. Чек и деньги сохранены.",
+            $"7 суткадан эски — ырастоо керек ({date} чеги). «Жөнөтүүнү ырастоо…» басып, ээсинин же администратордун PIN кодун киргизиңиз. Чек жана акча сакталды.",
+            $"Older than 7 days — confirmation needed (receipt from {date}). Press “Confirm sending…” and enter the owner's or administrator's PIN. The receipt and the money are kept.",
+            $"7 günden eski — onay gerekli ({date} tarihli fiş). «Göndermeyi onayla…»ya basıp sahibin veya yöneticinin PIN'ini girin. Fiş ve para saklandı.",
+            $"7 kundan eski — tasdiqlash kerak ({date} dagi chek). «Yuborishni tasdiqlash…»ni bosib, egasi yoki administrator PIN kodini kiriting. Chek va pul saqlandi.");
+    }
+
+    /// <summary>2026-11-19: старше 90 суток — отправить нельзя ни с каким PIN.</summary>
+    public static string TooOldSupportText() => Tr.T(
+        "Старше 90 суток — отправить нельзя, обратитесь в поддержку. Чек и деньги сохранены в кассе.",
+        "90 суткадан эски — жөнөтүүгө болбойт, колдоого кайрылыңыз. Чек жана акча кассада сакталды.",
+        "Older than 90 days — it cannot be sent, contact support. The receipt and the money are kept in the till.",
+        "90 günden eski — gönderilemez, destekle iletişime geçin. Fiş ve para kasada saklandı.",
+        "90 kundan eski — yuborib bo'lmaydi, qo'llab-quvvatlashga murojaat qiling. Chek va pul kassada saqlandi.");
 
     /// <summary>Понятная причина отказа сервера при позднем проведении (старше 90 суток, смена закрыта, нет прав, ключ ещё выполняется…).</summary>
     private static string DescribeLateRefusal(ApiException ex, OfflineSaleEntry entry)
@@ -294,8 +410,9 @@ public sealed partial class SyncService
                 "The server could not process the receipt right now (the request is still running or the server is busy). Wait a minute and retry — the sale will not be duplicated.",
                 "Sunucu fişi şu an işleyemedi (istek hâlâ sürüyor veya sunucu meşgul). Bir dakika bekleyip tekrar deneyin — satış çiftlenmez.",
                 "Server chekni hozir qayta ishlay olmadi (so'rov hali bajarilmoqda yoki server band). Bir daqiqa kutib, qayta urining — sotuv ikkilanmaydi.");
+        // 2026-11-19: offline_too_old при accept_late — либо чек старше 90 суток (late_max_days), либо сервер не принял подтверждение (чек моложе 90 суток).
         if (raw.Contains("offline_too_old") || raw.Contains("late_max_days"))
-            return TooOld90Text(entry);
+            return DateTimeOffset.Now - entry.CreatedAt > LateAcceptMaxAge ? TooOldSupportText() : NeedsConfirmText(entry);
         if (raw.Contains("shift") || raw.Contains("смен"))
             return Tr.T("Сервер отказал: смена этого чека закрыта или не найдена. Проведите продажу на сайте с нужной датой и закройте чек кнопкой «Закрыть без отправки».",
                 "Сервер четке какты: бул чектин сменасы жабык же табылган жок. Сатууну сайтта керектүү датасы менен өткөрүп, чекти «Жөнөтпөй жабуу» менен жабыңыз.",
@@ -322,16 +439,6 @@ public sealed partial class SyncService
         "The receipt may already be posted on the server (sending had started, the reply may have been lost). Check the server's “Receipts”: if the sale is there, close the receipt with “Close without sending”; if not, post it on the website with the right date. It is not resent by PIN so the sale is not duplicated.",
         "Fiş sunucuda zaten işlenmiş olabilir (gönderim başlamıştı, yanıt kaybolmuş olabilir). Sunucudaki «Fişler»den kontrol edin: satış varsa fişi «Göndermeden kapat» ile kapatın; yoksa sitede doğru tarihle işleyin. Satış çiftlenmesin diye PIN ile yeniden gönderilmez.",
         "Chek serverda allaqachon o'tkazilgan bo'lishi mumkin (yuborish boshlangan, javob yo'qolgan bo'lishi mumkin). Serverdagi «Cheklar»dan solishtiring: sotuv bor bo'lsa — chekni «Yubormasdan yopish» bilan yoping; yo'q bo'lsa — saytda kerakli sana bilan o'tkazing. Sotuv ikkilanmasligi uchun PIN bilan qayta yuborilmaydi.");
-
-    private static string TooOld90Text(OfflineSaleEntry entry)
-    {
-        var date = entry.CreatedAt.LocalDateTime.ToString("dd.MM.yyyy HH:mm");
-        return Tr.T($"Чек от {date} старше 90 суток — сервер не примет его ни по какому PIN. Проведите продажу на сайте вручную и закройте чек кнопкой «Закрыть без отправки».",
-            $"{date} чеги 90 суткадан эски — сервер аны эч кандай PIN менен кабыл албайт. Сатууну сайтта кол менен өткөрүп, чекти «Жөнөтпөй жабуу» баскычы менен жабыңыз.",
-            $"The receipt from {date} is older than 90 days — the server will not accept it with any PIN. Post the sale on the website by hand and close the receipt with “Close without sending”.",
-            $"{date} tarihli fiş 90 günden eski — sunucu hiçbir PIN ile kabul etmez. Satışı sitede elle işleyin ve fişi «Göndermeden kapat» ile kapatın.",
-            $"{date} dagi chek 90 kundan eski — server uni hech qanday PIN bilan qabul qilmaydi. Sotuvni saytda qo'lda o'tkazing va chekni «Yubormasdan yopish» bilan yoping.");
-    }
 
     private static string LatePinLockedText(int seconds) => Tr.T(
         $"Слишком много неверных PIN. Подождите {seconds} с и повторите.",

@@ -245,6 +245,10 @@ public partial class MainWindow
                 return;
         }
 
+        // 2026-11-19 (склад К-8): сверх свободного остатка (минус резервы) — по политике склада reserved_sale_policy (warn / block); без признака reservations — молчит.
+        if (!TrainingMode.IsActive && !await ReservedSaleGuard.ConfirmAsync(PosDialogHost.ResolveOwner(this), vm, StockAvailabilityService.GetCurrentCartQuantity(vm.Id, cart) + qtyToAdd).ConfigureAwait(true))
+            return;
+
         // AddProductFromCatalog читает ManualQuantity в момент вызова (см. BasketPanelViewModel.AddProductFromCatalog),
         // поэтому сюда обязательно нужно положить реальное добавляемое количество, а не заглушку "1" —
         // иначе взвешенный товар всегда добавится как "1" вместо настоящего веса.

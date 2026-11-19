@@ -83,7 +83,18 @@ public sealed partial class SyncService
             {
                 PosLogger.Log($"OFFLINE replay quick: чек {entry.Id} от {entry.CreatedAt:yyyy-MM-dd HH:mm} старше срока сервера — {ex.Message}. На проверку (без даты не проводим).", "WARNING");
                 OfflinePendingSalesStore.Update(entry.Id, e => { e.ReviewNeeded = true; e.TooOldForServer = true; }); // 2026-11-01: признак для кнопки «Провести по PIN владельца»
-                throw new ReplayDeferredException(TooOldReviewText(entry)) { NeedsReview = true };
+                // 2026-11-19 (ответ Умара 19.11): сервер принимает такой чек по подтверждению PIN (offline_accept_late) — статус «Старше 7 суток — нужно подтверждение»; старше 90 суток — в поддержку.
+                var tooOldText = !LateAcceptEnabled ? TooOldReviewText(entry)
+                    : DateTimeOffset.Now - entry.CreatedAt > LateAcceptMaxAge ? TooOldSupportText() : NeedsConfirmText(entry);
+                throw new ReplayDeferredException(tooOldText) { NeedsReview = true };
+            }
+            // 2026-11-19 (ответ Умара 19.11, п. 5): payment.received длиннее 12 цифр → 400 validation_error, ничего не записано. Старым путём не идём (то же значение даст то же): чек остаётся
+            // в очереди «Проверьте сумму оплаты» с понятным текстом, деньги и чек сохранены.
+            catch (ApiException ex) when (ServerErrorCodes.IsPaymentReceivedError(ex))
+            {
+                PosLogger.Log($"OFFLINE replay quick: чек {entry.Id} — 400 validation_error по payment.received (сумма оплаты длиннее 12 цифр). На проверку.", "WARNING");
+                OfflinePendingSalesStore.Update(entry.Id, e => e.ReviewNeeded = true);
+                throw new ReplayDeferredException(ServerErrorCodes.PaymentReceivedText()) { NeedsReview = true };
             }
             // 2026-11-13 (сервер bc1112): отказ «скидка ниже закупки без права can_sell_below_cost» — отказ до записи, повтор и старый путь дадут то же самое.
             // Чек не висит в очереди бесконечно и не «ждёт сервер» (403 иначе считался бы «подождём прав»): «Требует проверки» с причиной, владельцу — оповещение.

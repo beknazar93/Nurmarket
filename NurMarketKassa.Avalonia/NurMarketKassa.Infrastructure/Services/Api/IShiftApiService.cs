@@ -3,6 +3,9 @@ using System.Text.Json;
 
 namespace NurMarketKassa.Services.Api;
 
+/// <summary>2026-11-19: одна страница смен месяца. <see cref="Rows"/> — массив строк; <see cref="HasNext"/> — есть ли следующая (поле next ответа), null — ответ не сказал (решает число строк).</summary>
+public sealed record ShiftsMonthPage(JsonElement Rows, bool? HasNext);
+
 /// <summary>
 /// Доменный сервис смен: список касс/смен, открытие и закрытие смены на сервере.
 /// </summary>
@@ -21,6 +24,18 @@ public interface IShiftApiService
     /// только там, где интересует именно ТЕКУЩАЯ открытая смена (баланс/восстановление ID),
     /// а не полная История смен, которой openOnly не подходит.</summary>
     Task<JsonElement> ConstructionShiftsListAsync(bool openOnly = false, CancellationToken ct = default);
+
+    /// <summary>2026-11-19 («Табель»: полный список смен не успевал за 20 с): одна страница списка смен (GET ...shifts/?page=N, по 100, новые первыми) —
+    /// массив строк как в ответе; null — страницы нет (404, конец истории). Ошибка сети/сервера — исключение (в отличие от полного списка, который молча отдаёт неполное).</summary>
+    Task<JsonElement?> ConstructionShiftsPageAsync(int page, CancellationToken ct = default);
+
+    /// <summary>2026-11-19 (ответ Умара, признак shifts_month_filter): смены, открытые в месяце, одним запросом — GET ...shifts/?month=YYYY-MM&amp;page_size=100[&amp;page=N] (~1 с).
+    /// null — страницы нет (404). Неверный месяц — ApiException 400 (validation_error), сеть/сервер — исключение. Без реализации (заглушки тестов) — null.</summary>
+    Task<ShiftsMonthPage?> ConstructionShiftsMonthPageAsync(int year, int month, int page, CancellationToken ct = default) => Task.FromResult<ShiftsMonthPage?>(null);
+
+    /// <summary>2026-11-19 (ответ Умара): готовый табель сервера GET api/main/staff/timesheet/?month=YYYY-MM — «сырой» ответ (разбор — <see cref="ServerTimesheet.Parse"/>).
+    /// Неверный месяц — ApiException 400 (period_invalid). Кассир без права «Сотрудники» получает только себя (это не ошибка). Без реализации — null.</summary>
+    Task<JsonElement?> StaffTimesheetAsync(int year, int month, CancellationToken ct = default) => Task.FromResult<JsonElement?>(null);
 
     /// <summary>GET /api/construction/shifts/{id}/ — одна смена. 2026-09-27, жалоба владельца
     /// «медленно открывает отчёты / Z-отчёт»: полный список смен сервер отдаёт за 2,2–3,7 с

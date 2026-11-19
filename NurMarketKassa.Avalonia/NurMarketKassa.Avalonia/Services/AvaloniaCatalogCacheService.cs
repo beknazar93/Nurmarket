@@ -1121,6 +1121,7 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
             // 2026-09-28: акции товаров (запомнены в TryTile) — на диск, для запуска без интернета.
             PromotionRules.SaveIfDirty();
             ProductSerialRules.SaveIfDirty(); // 2026-11-13 (сервер sn1311): track_serials / warranty_months
+            PartMetaStore.SaveIfDirty(); // 2026-11-20 (АЗ4): данные запчастей
             ProductSaleUnits.SaveIfDirty(); // 2026-11-13: sale_units
 
             if (chunked)

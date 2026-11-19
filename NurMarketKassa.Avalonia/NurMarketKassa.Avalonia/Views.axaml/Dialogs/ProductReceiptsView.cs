@@ -501,6 +501,11 @@ internal sealed class ProductReceiptsView : UserControl
         var pill = SectionCards.Pill(this, it.PillText, bg, fg);
         pill.HorizontalAlignment = HorizontalAlignment.Right;
         pill.Margin = new Thickness(0, 4, 0, 0);
+        // 2026-11-19 (склад К-4): у компании с партиями на сервере «реальных партий нет» неверно — отсылаем к окну «Партии» (Склад → «⋯» → «Партии»).
+        if (ServerStock.BatchesOn)
+            ToolTip.SetTip(pill, T("Оценка по поступлениям. Точные партии, сроки и себестоимость — в Склад → «⋯» → «Партии».", "Кирүүлөр боюнча болжол. Так партиялар, мөөнөттөр жана өздүк баа — Кампа → «⋯» → «Партиялар».",
+                "An estimate from receipts. Exact batches, expiry dates and cost — Warehouse → “⋯” → “Batches”.", "Girişlere göre tahmin. Kesin partiler, SKT ve maliyet — Depo → «⋯» → «Partiler».", "Kirimlar bo'yicha taxmin. Aniq partiyalar, muddatlar va tannarx — Ombor → «⋯» → «Partiyalar»."));
+        else
         ToolTip.SetTip(pill, T($"Оценка по FIFO: раньше пришедший товар продаётся первым, поэтому текущий остаток ({Q(_stock)} {_unit}) считается из самых свежих поступлений. Реальные партии NurCRM не ведёт.",
             $"FIFO боюнча болжол: мурун келген товар биринчи сатылат, ошондуктан учурдагы калдык ({Q(_stock)} {_unit}) эң жаңы кирүүлөрдөн эсептелет. NurCRM чыныгы партияларды жүргүзбөйт.",
             $"FIFO estimate: earlier stock is sold first, so the current stock ({Q(_stock)} {_unit}) is taken from the newest receipts. NurCRM does not track real batches.",

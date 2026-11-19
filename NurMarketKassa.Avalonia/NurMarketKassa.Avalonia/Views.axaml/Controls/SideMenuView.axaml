@@ -1430,6 +1430,14 @@
                                 </Panel>
                             </Button>
                         </Panel>
+                        <Panel Classes="km-cell">
+                            <Button x:Name="MiPartsOrders" Classes="km-tile sales km-act" IsVisible="{Binding ShowPartsOrders}" Command="{Binding NavigatePartsOrdersCommand}">
+                                <StackPanel Classes="km-tile-body">
+                                    <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="M6,3 H18 V21 H6 Z M9,8 H15 M9,12 H15 M9,16 H13"/></Border>
+                                    <TextBlock x:Name="PartsOrdersText" Classes="km-tile-text"/>
+                                </StackPanel>
+                            </Button>
+                        </Panel>
                     </WrapPanel>
                 </StackPanel>
 

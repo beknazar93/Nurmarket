@@ -145,6 +145,10 @@ public static class SaleReceiptTextBuilder
                                  serialRecords ??= SerialJournal.ForSale(Str(sale, "id")), CartDisplayHelper.TryProductId(line), name, w))
                     Line(serialLine);
             }
+
+            // 2026-11-20 (Автозапчасти, часть Б): «Гарантия N дн.» под позицией; у других сфер null — чек прежний.
+            if (AutoPartsRules.WarrantyLine(CartDisplayHelper.TryProductId(line)) is { } autoPartsWarranty)
+                Line(autoPartsWarranty);
         }
 
         Dash();
@@ -274,6 +278,10 @@ public static class SaleReceiptTextBuilder
 
         Line(ReceiptLineLayout.FormatLabelAmount(
             "ИТОГО", ReceiptLineLayout.WithSom(due.ToString("N2", CultureInfo.CurrentCulture)), w));
+
+        // 2026-11-20 (Автозапчасти, часть Б): блок «Гарантия и возврат»; у других сфер пусто.
+        foreach (var returnLine in AutoPartsRules.ReceiptReturnBlock(w))
+            Line(returnLine);
 
         if (anyReturn)
         {

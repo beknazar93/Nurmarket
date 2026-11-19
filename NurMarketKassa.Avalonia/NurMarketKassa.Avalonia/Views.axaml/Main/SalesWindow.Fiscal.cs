@@ -11,7 +11,11 @@ namespace NurMarketKassa.AvaloniaHost.Views
         private void ShowPopupFiscal(JsonElement json)
         {
             if (PopupActionBarHost.Parent is Panel panel)
+            {
                 FiscalRequisitesCard.Place(panel, panel.Children.IndexOf(PopupActionBarHost) + 1, FiscalRequisites.Parse(json));
+                // 2026-11-19 (склад К-4): блок «Партии» из allocations строк чека — только если сервер их отдал.
+                NurMarketKassa.AvaloniaHost.Views.Dialogs.SaleBatchesCard.Place(panel, panel.Children.IndexOf(PopupActionBarHost) + 1, json, WarehouseWindow.RevisionShowPurchase);
+            }
         }
     }
 }

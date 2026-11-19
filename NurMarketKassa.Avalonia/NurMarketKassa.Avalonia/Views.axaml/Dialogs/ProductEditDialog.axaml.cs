@@ -275,6 +275,10 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
         // 2026-10-11 (склад.md, 2.1): подписи вкладки «Доп. штрих-коды» и поля «Минимальный остаток»; значение — с сервера.
         AltBarcodesTab.Header = Tr.T("Доп. штрих-коды", "Кошумча штрихкоддор", "Extra barcodes", "Ek barkodlar", "Qo'shimcha shtrix-kodlar");
         MinimumQuantityLabel.Text = Tr.T("Минимальный остаток", "Минималдуу калдык", "Minimum stock", "Asgari stok", "Minimal qoldiq");
+        // 2026-11-19 (склад К-4): себестоимость по партиям — только при признаке сервера costing_fifo (иначе подпись скрыта, карточка прежняя).
+        CostingFifoNote.Text = Tr.T("Себестоимость: FIFO (по партиям). Закупка здесь — цена последнего прихода.", "Өздүк баа: FIFO (партиялар боюнча). Бул жердеги сатып алуу — акыркы кирүүнүн баасы.",
+            "Cost: FIFO (by batches). Purchase price here is the latest receipt price.", "Maliyet: FIFO (partilere göre). Buradaki alış fiyatı son girişin fiyatıdır.", "Tannarx: FIFO (partiyalar bo'yicha). Bu yerdagi xarid narxi — oxirgi kirim narxi.");
+        CostingFifoNote.IsVisible = ServerStock.FifoOn;
         // 2026-10-29, жалоба владельца «нет цены, количества и единицы»: обязательные поля помечены «*», у нового товара количество названо
         // «начальный остаток» (в подсказке под полем) — понятно, что это сколько штук (кг, литров) лежит сейчас.
         PackQtyLabel.Text = Tr.T("Штук в упаковке", "Таңгактагы штук саны", "Pieces in a pack", "Paketteki adet", "Qadoqdagi dona soni");
@@ -306,6 +310,7 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
             : Tr.T("Остаток *", "Калдык *", "Stock *", "Stok *", "Qoldiq *");
         SalePriceFieldLabel.Text = Tr.T("Цена продажи *", "Сатуу баасы *", "Sale price *", "Satış fiyatı *", "Sotuv narxi *");
         InitSerialsBlock(existing); // 2026-11-13 (сервер sn1311): серийники и гарантия товара — только сфера «Электроника»
+        InitAutoPartBlock(existing); // 2026-11-20 (ТЗ «Автозапчасти», АЗ5): блок «Автозапчасть» — только сфера «Автозапчасти»
         InitVatBlock(existing); // 2026-11-14 (П0-1): «Ставка НДС» товара — только при включённой фискализации
         Opened += (_, _) => _ = LoadMinimumQuantityAsync();
         // 2026-10-07, владелец: «если наименование есть — поставь штрихкод из barcode-list.ru, но дай проверить и сверить».

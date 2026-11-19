@@ -649,12 +649,19 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         if (exactFound is null && c.CodeQuery is { Length: > 0 } codeQuery && ProductCodeLookup.FindLocal(codeQuery)?.Product is { } foundByCode)
             exactFound = c.Products.FirstOrDefault(p => string.Equals(p.Id, foundByCode.Id, StringComparison.OrdinalIgnoreCase)) ?? foundByCode;
         var variantProductId = c.VariantProductId;
+        // 2026-11-20 (ТЗ «Автозапчасти», АЗ3): сфера «Автозапчасти» — запрос-номер («0 986-452 041») ищется по нормализованным артикулу, OEM и кросс-номерам; точный номер — выше.
+        var partQuery = !string.IsNullOrEmpty(query) && MarketSpheres.IsAutoParts && NurMarketKassa.Core.Application.PartNumbers.LooksLikePart(query)
+            ? NurMarketKassa.Core.Application.PartNumbers.Norm(query) : "";
         IEnumerable<CatalogProductTileVm> source = string.IsNullOrEmpty(query)
             ? c.Products
             // 2026-10-29: единый поиск SearchMatch — слова в любом порядке, ё=е, код/артикул/бренд, раскладка и транслит («Asu» → «Асу»).
             : NurMarketKassa.Core.Application.SearchMatch.Products(c.Products, query, p =>
                 (c.ExtraSearch && query.Length >= 4 && (p.AlternateBarcodesRaw?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)) ||
+                (partQuery.Length > 0 && (p.PartRank(partQuery) < NurMarketKassa.Core.Application.PartNumbers.NoMatch
+                    || (p.Part?.Location is { Length: > 0 } cell && NurMarketKassa.Core.Application.PartNumbers.Norm(cell).Contains(partQuery, StringComparison.Ordinal)))) ||
                 (variantProductId != null && string.Equals(p.Id, variantProductId, StringComparison.OrdinalIgnoreCase)));
+        if (partQuery.Length > 0 && !c.HasSort)
+            source = source.OrderBy(p => p.PartRank(partQuery)).ThenBy(p => p.Quantity <= 0 ? 1 : 0).ToList();
         source = c.SaleUnitFilter switch
         {
             "weight" => source.Where(p => p.IsWeighted),

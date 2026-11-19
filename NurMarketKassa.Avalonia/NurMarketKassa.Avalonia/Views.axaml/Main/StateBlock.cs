@@ -53,6 +53,44 @@ public static class StateBlock
         return Shell(StateKind.Empty, panel, string.IsNullOrWhiteSpace(hint) ? title : title + ". " + hint);
     }
 
+    /// <summary>2026-11-19 (оценка владельца 19.11, «Отзывы» и «Коллекции» < 7): пусто с пояснением, главным действием и (необязательно) быстрыми шаблонами
+    /// под подписью <paramref name="templatesCaption"/> — вместо одной серой фразы без кнопки.</summary>
+    public static Control Empty(Control host, string title, string hint, string? actionText, Action? action, string? templatesCaption = null,
+        params (string Text, Action Click)[] templates)
+    {
+        var panel = new StackPanel { Spacing = 8 };
+        panel.Children.Add(Badge("IconSearch", "!", danger: false));
+        panel.Children.Add(Title(title));
+        panel.Children.Add(Body(hint));
+        if (action != null && !string.IsNullOrWhiteSpace(actionText))
+        {
+            var main = UiKit.Primary(host, actionText!);
+            main.HorizontalAlignment = HorizontalAlignment.Center;
+            main.Margin = new Thickness(0, 6, 0, 0);
+            main.Click += (_, _) => action();
+            panel.Children.Add(main);
+        }
+        if (templates.Length > 0)
+        {
+            if (!string.IsNullOrWhiteSpace(templatesCaption))
+            {
+                var caption = Body(templatesCaption!);
+                caption.Margin = new Thickness(0, 8, 0, 0);
+                panel.Children.Add(caption);
+            }
+            var row = new WrapPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
+            foreach (var (text, click) in templates)
+            {
+                var b = UiKit.Ghost(host, text);
+                b.Margin = new Thickness(4);
+                b.Click += (_, _) => click();
+                row.Children.Add(b);
+            }
+            panel.Children.Add(row);
+        }
+        return Shell(StateKind.Empty, panel, title + ". " + hint);
+    }
+
     /// <summary>Сбой загрузки. Сервер/сеть недоступны — карточка «Сервер NurCRM недоступен»; иначе заголовок <paramref name="what"/> («Не удалось загрузить долги»)
     /// и одна понятная причина (<paramref name="reason"/> — своя формулировка окна, например «Нет доступа…», иначе общая). Сырой ответ сервера — только в «Подробнее».</summary>
     public static Control Failure(Control host, Exception? ex, string what, Action? retry, string? reason = null)
@@ -166,7 +204,9 @@ public static class StateBlock
     {
         var shell = new Border
         {
-            Child = content, Tag = kind, Margin = new Thickness(24, 36), MaxWidth = 520, Padding = new Thickness(0),
+            // 2026-11-19 («как будет в маленьких экранах?»): на низком окне (1024×600, 800×600) карточка списка ниже блока — «Повторить» и «Подробнее» уходили за край; теперь блок прокручивается по высоте
+            Child = new ScrollViewer { Content = content, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled, VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto },
+            Tag = kind, Margin = new Thickness(24, 36), MaxWidth = 520, Padding = new Thickness(0),
             HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
         };
         shell.Classes.Add("state-block");

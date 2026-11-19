@@ -80,6 +80,25 @@ public static class DrawerBreakdownBuilder
                     "Sunucu, yukarıdaki satırlarda olmayanları sistem tutarına kattı: iade edilen satış, borç ön ödemeleri, nakitsiz iade. Çekmeceyi bu satıra göre ayarlamayın — nakdi yeniden sayın.",
                     "Server tizim summasiga yuqoridagi qatorlarda yo'q narsalarni qo'shdi: qaytarilgan sotuv, qarz oldindan to'lovlari, naqd emas qaytarish. Tortmani bu qatorga moslamang — naqdni qayta sanang."));
         Row(Tr.T("= В ящике должно быть", "= Кассада болушу керек", "= Should be in the drawer", "= Çekmecede olması gereken", "= Qutida bo'lishi kerak"), expected, "", true);
+        // 2026-11-20 (ночная проверка, Д-2): «+145/−100», «+59/−19» и карточка «Возвраты −119» — не ошибка счёта, а разные слагаемые одной суммы: здесь только НАЛИЧНЫЕ продажи и возвраты
+        // (чек, полностью возвращённый наличными, стоит и «плюсом», и «минусом» — итог ящика от этого не меняется), а карточка «Возвраты» выше считает все способы (карта, в счёт долга).
+        // Объясняем одной строкой, чтобы цифры не выглядели противоречиво.
+        if (returnedSalesCash > 0m || thisShiftReturns != 0m)
+        {
+            var note = new TextBlock
+            {
+                FontSize = 11,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 6, 0, 0),
+                Text = Tr.T("Здесь только наличные. Чек, полностью возвращённый наличными, показан и в продажах, и в возвратах — на «В ящике должно быть» это не влияет. Возвраты на карту и в счёт долга сюда не входят (они только в карточке «Возвраты» выше).",
+                    "Бул жерде накталай гана. Толугу менен накталай кайтарылган чек сатууларда да, кайтарууларда да көрсөтүлөт — «Кассада болушу керек» өзгөрбөйт. Картага жана карызга эсептелген кайтаруулар бул жерде жок (жогорудагы «Кайтаруулар» карточкасында гана).",
+                    "Cash only. A receipt fully returned in cash appears in both sales and returns — this does not change “Should be in the drawer”. Returns to card and against debt are not included here (only in the “Returns” card above).",
+                    "Burada yalnızca nakit. Tamamen nakit iade edilen fiş hem satışlarda hem iadelerde görünür — «Çekmecede olması gereken» değişmez. Karta ve borca yapılan iadeler burada yok (yalnızca yukarıdaki «İadeler» kartında).",
+                    "Bu yerda faqat naqd. To'liq naqd qaytarilgan chek sotuvlarda ham, qaytarishlarda ham ko'rinadi — «Qutida bo'lishi kerak» o'zgarmaydi. Kartaga va qarzga hisoblangan qaytarishlar bu yerda yo'q (faqat yuqoridagi «Qaytarishlar» kartasida).")
+            };
+            note.Bind(TextBlock.ForegroundProperty, note.GetResourceObservable("BrushTextSoft"));
+            panel.Children.Add(note);
+        }
         panel.IsVisible = true;
     }
 }

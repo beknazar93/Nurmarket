@@ -1018,6 +1018,7 @@ public sealed class PurchaseReceivingService
             if (ReceivingPricing.MarkupPercent(l.PurchasePrice, l.SalePrice) is { } markup)
                 item["markup_percent"] = markup;
         }
+        ServerStock.ApplyReceiptBatchFields(item, l.ExpiresAt, l.ProducedAt, l.ShelfLifeDays, l.LotNo); // 2026-11-19 (склад К-5): срок и № партии — только при признаке сервера
         return item;
     }
 

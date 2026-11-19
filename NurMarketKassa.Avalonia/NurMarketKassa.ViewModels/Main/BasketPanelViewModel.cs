@@ -914,7 +914,8 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
 
     // ── 2026-11-12 (ХМ8, ТЗ хозмаг): «цена прораба» — клиент, отмеченный «Покупает по оптовой цене (прораб)» (ClientPriceGroups), в чеке даёт опт по всем
     // строкам, у которых есть оптовая цена (остальные остаются в рознице). Только «Хозтовары»; до ответа сервера по Б-55 (уровни цен) — локальная отметка.
-    private static bool ForemanPriceOn => MarketSpheres.IsHardware && MarketSpheres.Profile.ForemanPriceAvailable;
+    // 2026-11-20 (Автозапчасти, часть Б): та же механика и для сферы «Автозапчасти» — уровень называется «СТО / мастер».
+    private static bool ForemanPriceOn => (MarketSpheres.IsHardware && MarketSpheres.Profile.ForemanPriceAvailable) || AutoPartsRules.Active;
 
     /// <summary>2026-11-13 (проверка, находка «высокая»): у кассира есть право «Изменение цены в кассе» (владелец/админ — всегда), без запроса и сообщения. Опт по ЛОКАЛЬНОЙ отметке «прораб»
     /// меняет цену продажи, поэтому без права отметка цены не меняет — как тумблер «Оптовый» (<see cref="DemandPriceRight"/>). Цены серверного уровня (price_level) назначает владелец на сервере —
@@ -1008,7 +1009,16 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
     {
         var candidates = Lines.Where(l => l.CanWholesale && !l.IsWholesale).ToList();
         if (candidates.Count == 0)
+        {
+            // 2026-11-20 (Автозапчасти): у деталей чека нет цены СТО — остаются по рознице, кассиру подсказка (продажу не блокируем).
+            if (AutoPartsRules.Active && Lines.Any(l => !l.CanWholesale))
+                CartMessage = Tr.T($"Клиент «{client.Name}» ({AutoPartsRules.PriceLevelName}): у товаров нет цены СТО — по рознице.",
+                    $"«{client.Name}» кардары ({AutoPartsRules.PriceLevelName}): товарларда СТО баасы жок — чекене баада.",
+                    $"Customer “{client.Name}” ({AutoPartsRules.PriceLevelName}): no garage price on these items — retail price.",
+                    $"Müşteri «{client.Name}» ({AutoPartsRules.PriceLevelName}): ürünlerde servis fiyatı yok — perakende fiyat.",
+                    $"Mijoz «{client.Name}» ({AutoPartsRules.PriceLevelName}): mahsulotlarda STO narxi yo'q — chakana narxda.");
             return;
+        }
         _applyingWholesaleMode = true;
         try
         {
@@ -1024,6 +1034,11 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         _isWholesaleMode = true;
         OnPropertyChanged(nameof(IsWholesaleMode));
         RememberWholesaleModeLines();
+        if (AutoPartsRules.Active)
+            CartMessage = Tr.T($"Цена «{AutoPartsRules.PriceLevelName}»: {client.Name} — по {candidates.Count} поз.", $"«{AutoPartsRules.PriceLevelName}» баасы: {client.Name} — {candidates.Count} позиция.",
+                $"“{AutoPartsRules.PriceLevelName}” price: {client.Name} — {candidates.Count} lines.", $"«{AutoPartsRules.PriceLevelName}» fiyatı: {client.Name} — {candidates.Count} satır.",
+                $"«{AutoPartsRules.PriceLevelName}» narxi: {client.Name} — {candidates.Count} ta qator.");
+        else
         CartMessage = Tr.T($"Цена прораба: {client.Name} — опт по {candidates.Count} поз.", $"Прораб баасы: {client.Name} — {candidates.Count} позиция дүң баада.",
             $"Foreman price: {client.Name} — wholesale on {candidates.Count} lines.", $"Usta fiyatı: {client.Name} — {candidates.Count} satır toptan.",
             $"Prorab narxi: {client.Name} — {candidates.Count} ta qator ulgurji narxda.");

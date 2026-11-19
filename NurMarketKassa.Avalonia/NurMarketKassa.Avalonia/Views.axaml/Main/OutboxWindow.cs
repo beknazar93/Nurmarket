@@ -67,6 +67,7 @@ public sealed class OutboxWindow : Window
         public Button Copy = null!;
         public Button Support = null!;
         public Button Remove = null!;
+        public Button Confirm = null!; // 2026-11-19: «Подтвердить отправку…» (старый чек, PIN владельца/админа)
         public string StatusBrush = "";
         public string ReasonBrush = "";
         public bool DetailsOpen;
@@ -96,6 +97,11 @@ public sealed class OutboxWindow : Window
     private readonly Button _sendAll;
     private readonly Button _openIrregular;
     private readonly Button _openBackground;
+    private readonly Button _confirmAll; // 2026-11-19: «Подтвердить отправку (N)…» — все старые чеки одним PIN
+    // 2026-11-19: пометки «Отправлено, но: продано ниже закупки / ушло в минус по остатку» (OutboxSentNotes) — остаются в окне после отправки
+    private readonly StackPanel _sentNotes = new() { Spacing = 4 };
+    private readonly Button _sentNotesHide;
+    private readonly Border _sentNotesBox = new() { CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 8), IsVisible = false, BorderThickness = new Thickness(1) };
     private readonly Button _resetFilter; // 2026-11-06 (Б-7): «Сбросить фильтр», когда записи есть, но фильтр их скрыл
     private readonly DispatcherTimer _noticeTimer = new() { Interval = TimeSpan.FromSeconds(3) }; // 2026-11-06 (В-2): «Данные скопированы.» гаснет сама
     private readonly ModalShell _shell;
@@ -174,6 +180,15 @@ public sealed class OutboxWindow : Window
         };
         _openBackground = Small(UiKit.Ghost(this, ""));
         _openBackground.Click += (_, _) => BackgroundReceiptsWindow.ShowOrActivate(this);
+        _confirmAll = Small(UiKit.Primary(this, ""));
+        _confirmAll.IsVisible = false;
+        _confirmAll.Click += async (_, _) => await OnConfirmAsync(_rows.Values.Select(r => r.Item).Where(i => i.CanConfirm).ToList()).ConfigureAwait(true);
+        _sentNotesHide = Small(UiKit.Ghost(this, ""));
+        _sentNotesHide.HorizontalAlignment = HorizontalAlignment.Left;
+        _sentNotesHide.Click += (_, _) => OutboxSentNotes.Clear();
+        _sentNotesBox.Bind(Border.BackgroundProperty, _sentNotesBox.GetResourceObservable("BrushSurfaceSubtle"));
+        _sentNotesBox.Bind(Border.BorderBrushProperty, _sentNotesBox.GetResourceObservable("BrushWarning"));
+        _sentNotesBox.Child = new StackPanel { Spacing = 6, Children = { _sentNotes, _sentNotesHide } };
 
         _kindFilter.SelectionChanged += (_, _) => { if (!_buildingFilters) Refresh(); };
         _statusFilter.SelectionChanged += (_, _) => { if (!_buildingFilters) Refresh(); };
@@ -195,6 +210,7 @@ public sealed class OutboxWindow : Window
         root.Children.Add(_offlineBanner);
         root.Children.Add(filters);
         root.Children.Add(_notice);
+        root.Children.Add(_sentNotesBox);
         root.Children.Add(_scroll);
         root.Children.Add(_more);
         root.Children.Add(_empty);
@@ -203,7 +219,7 @@ public sealed class OutboxWindow : Window
         var close = UiKit.Ghost(this, T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"), isCancel: true);
         close.Click += (_, _) => Close();
         var footer = new WrapPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-        foreach (var c in new Control[] { _openBackground, _openIrregular, _sendAll, close })
+        foreach (var c in new Control[] { _openBackground, _openIrregular, _confirmAll, _sendAll, close })
         {
             c.Margin = new Thickness(8, 0, 0, 0);
             footer.Children.Add(c);
@@ -222,6 +238,7 @@ public sealed class OutboxWindow : Window
         Opened += (_, _) =>
         {
             OutboxService.Default.Changed += OnChanged;
+            OutboxSentNotes.Changed += OnChanged;
             Tr.LanguageChanged += OnLanguageChanged;
             _tick.Tick += (_, _) => Refresh();
             _tick.Start();
@@ -231,6 +248,7 @@ public sealed class OutboxWindow : Window
         Closed += (_, _) =>
         {
             OutboxService.Default.Changed -= OnChanged;
+            OutboxSentNotes.Changed -= OnChanged;
             Tr.LanguageChanged -= OnLanguageChanged;
             _tick.Stop();
             if (ReferenceEquals(_instance, this))
@@ -276,6 +294,7 @@ public sealed class OutboxWindow : Window
             ? T("Сначала новые", "Адегенде жаңылары", "Newest first", "Önce yeniler", "Avval yangilari")
             : T("Сначала старые", "Адегенде эскилери", "Oldest first", "Önce eskiler", "Avval eskilari");
         _openIrregular.Content = T("Некорректные чеки", "Туура эмес чектер", "Irregular receipts", "Hatalı fişler", "Noto'g'ri cheklar");
+        _sentNotesHide.Content = T("Скрыть пометки", "Белгилерди жашыруу", "Hide the notes", "Notları gizle", "Belgilarni yashirish");
         _openBackground.Content = T("Приходы в фоне", "Фондогу кирүүлөр", "Background receivings", "Arka plandaki mal kabulleri", "Fondagi kirimlar");
         _noticeAction.Content = T("Войти", "Кирүү", "Sign in", "Giriş yap", "Kirish");
         // 2026-11-06 (Б-7): текст пустого списка зависит от того, есть ли записи вообще — см. ApplySnapshot.
@@ -380,6 +399,8 @@ public sealed class OutboxWindow : Window
             $"Send all ({all.Count(i => i.Status == OutboxStatus.Waiting && i.CanSend)})", $"Hepsini gönder ({all.Count(i => i.Status == OutboxStatus.Waiting && i.CanSend)})", $"Hammasini yuborish ({all.Count(i => i.Status == OutboxStatus.Waiting && i.CanSend)})");
         _sendAll.IsEnabled = !_batchBusy && all.Any(i => i.Status == OutboxStatus.Waiting && i.CanSend);
         ApplySummary(all);
+        ApplyConfirmAll(all);
+        ApplySentNotes();
 
         var kind = _kindFilter.SelectedIndex is >= 0 and var ki && ki < KindFilters.Length ? KindFilters[ki] : null;
         var status = _statusFilter.SelectedIndex is >= 0 and var si && si < StatusFilters.Length ? StatusFilters[si] : null;
@@ -428,6 +449,39 @@ public sealed class OutboxWindow : Window
         _scroll.IsVisible = shown.Count > 0;
         _openIrregular.IsVisible = all.Any(i => i.Kind == OutboxKind.Sale);
         _openBackground.IsVisible = all.Any(i => i.Kind == OutboxKind.Receiving);
+    }
+
+    /// <summary>2026-11-19: «Подтвердить отправку (N)…» в подвале — только когда есть старые чеки, которые сервер примет по PIN (offline_accept_late).</summary>
+    private void ApplyConfirmAll(IReadOnlyList<OutboxItem> all)
+    {
+        var n = all.Count(i => i.CanConfirm);
+        _confirmAll.IsVisible = n > 0;
+        _confirmAll.IsEnabled = !_batchBusy;
+        _confirmAll.Content = T($"Подтвердить отправку ({n})…", $"Жөнөтүүнү ырастоо ({n})…", $"Confirm sending ({n})…", $"Göndermeyi onayla ({n})…", $"Yuborishni tasdiqlash ({n})…");
+    }
+
+    /// <summary>2026-11-19: показать пометки «Отправлено, но: …» (чек принят, сервер предупредил про цену/остаток). Только показ.</summary>
+    private void ApplySentNotes()
+    {
+        var notes = OutboxSentNotes.Recent;
+        _sentNotesBox.IsVisible = notes.Count > 0;
+        if (notes.Count == 0)
+        {
+            _sentNotes.Children.Clear();
+            return;
+        }
+        var texts = notes.OrderByDescending(n => n.At).Select(n => n.Text).ToList();
+        var same = _sentNotes.Children.Count == texts.Count
+                   && _sentNotes.Children.OfType<TextBlock>().Select(t => t.Text).SequenceEqual(texts);
+        if (same)
+            return;
+        _sentNotes.Children.Clear();
+        foreach (var text in texts)
+        {
+            var tb = new TextBlock { Text = text, FontSize = 13, TextWrapping = TextWrapping.Wrap };
+            tb.Bind(TextBlock.ForegroundProperty, tb.GetResourceObservable("BrushText"));
+            _sentNotes.Children.Add(tb);
+        }
     }
 
     /// <summary>2026-11-14 (Л-6): сводка («чеков в очереди N на сумму…, самая старая запись — …»), предупреждение о сроке 7 суток и плашка с советом при долгом офлайне.</summary>
@@ -493,6 +547,8 @@ public sealed class OutboxWindow : Window
         row.Copy = Small(UiKit.Ghost(this, T("Скопировать данные", "Маалыматты көчүрүү", "Copy data", "Verileri kopyala", "Ma'lumotni nusxalash")));
         row.Support = Small(UiKit.Ghost(this, T("Отправить в поддержку", "Колдоого жөнөтүү", "Send to support", "Desteğe gönder", "Qo'llab-quvvatlashga yuborish")));
         row.Remove = Small(UiKit.Ghost(this, T("Убрать из очереди", "Кезектен алып салуу", "Remove from queue", "Kuyruktan kaldır", "Navbatdan olib tashlash")));
+        row.Confirm = Small(UiKit.Primary(this, T("Подтвердить отправку…", "Жөнөтүүнү ырастоо…", "Confirm sending…", "Göndermeyi onayla…", "Yuborishni tasdiqlash…")));
+        row.Confirm.Click += async (_, _) => await OnConfirmAsync(new[] { row.Item }).ConfigureAwait(true);
         row.Send.Click += async (_, _) => await OnSendAsync(row, retry: false).ConfigureAwait(true);
         row.Retry.Click += async (_, _) => await OnSendAsync(row, retry: true).ConfigureAwait(true);
         row.TakeBack.Click += (_, _) => BackgroundReceiptsWindow.ShowOrActivate(this);
@@ -502,7 +558,7 @@ public sealed class OutboxWindow : Window
         row.Remove.Click += async (_, _) => await OnRemoveAsync(row).ConfigureAwait(true);
 
         var buttons = new WrapPanel { Orientation = Orientation.Horizontal };
-        foreach (var b in new[] { row.Send, row.Retry, row.TakeBack, row.Details, row.Copy, row.Support, row.Remove })
+        foreach (var b in new[] { row.Confirm, row.Send, row.Retry, row.TakeBack, row.Details, row.Copy, row.Support, row.Remove })
         {
             b.Margin = new Thickness(0, 0, 8, 8);
             buttons.Children.Add(b);
@@ -591,6 +647,8 @@ public sealed class OutboxWindow : Window
         row.Send.IsEnabled = !busy;
         row.Retry.IsVisible = item.Status == OutboxStatus.Error && item.CanRetry;
         row.Retry.IsEnabled = !busy;
+        row.Confirm.IsVisible = item.CanConfirm && item.Status == OutboxStatus.Error;
+        row.Confirm.IsEnabled = !busy;
         row.TakeBack.IsVisible = item.CanTakeBack && item.Kind == OutboxKind.Receiving;
         row.Remove.IsVisible = item.CanRemove && item.Status == OutboxStatus.Error && item.Kind != OutboxKind.Sale && _access.IsAdmin;
         row.Remove.IsEnabled = !busy;
@@ -706,6 +764,75 @@ public sealed class OutboxWindow : Window
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             PosLogger.Log($"Неотправленное: «Отправить всё» не удалось: {ex}", "WARNING");
+            ShowNotice(ServerOutageMonitor.FriendlyError(ex), OutboxSendKind.Rejected);
+        }
+        finally
+        {
+            _batchBusy = false;
+            Refresh();
+        }
+    }
+
+    /// <summary>2026-11-19 (ответ Умара 19.11, п. 3): «Подтвердить отправку…» — сводка → PIN владельца/админа (владелец/админ в системе — без PIN) → X-Confirm-Token → повтор тем же ключом
+    /// с accept_late; несколько чеков — одним подтверждением (токен 5 минут). PIN и токен только в памяти.</summary>
+    private async Task OnConfirmAsync(IReadOnlyList<OutboxItem> items)
+    {
+        if (_batchBusy || items.Count == 0)
+            return;
+        _batchBusy = true;
+        _confirmAll.IsEnabled = false;
+        _sendAll.IsEnabled = false;
+        foreach (var r in _rows.Values)
+            Apply(r, r.Item);
+        try
+        {
+            var ordered = items.OrderBy(i => i.CreatedAt).ToList();
+            var total = ordered.Sum(i => i.Amount ?? 0m);
+            var oldest = ordered[0].CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
+            var summary = T($"Чеков: {ordered.Count} на {MoneyText.Som(total)}, самый старый — от {oldest}.\n\nДеньги по чекам приняты в кассе, на сервере продажи пока нет. Чеки уйдут с настоящей датой продажи. Отправляйте, если данные верные.",
+                $"Чектер: {ordered.Count}, {MoneyText.Som(total)}, эң эскиси — {oldest}.\n\nЧектер боюнча акча кассада алынган, серверде сатуу азырынча жок. Чектер сатуунун чыныгы датасы менен кетет. Маалыматтар туура болсо жөнөтүңүз.",
+                $"Receipts: {ordered.Count} worth {MoneyText.Som(total)}, the oldest is from {oldest}.\n\nThe money was taken at the till, the sales are not on the server yet. The receipts go with their real sale date. Send them if the data is correct.",
+                $"Fişler: {ordered.Count}, toplam {MoneyText.Som(total)}, en eskisi {oldest} tarihli.\n\nPara kasada alındı, satışlar henüz sunucuda yok. Fişler gerçek satış tarihiyle gider. Veriler doğruysa gönderin.",
+                $"Cheklar: {ordered.Count} ta, {MoneyText.Som(total)}, eng eskisi — {oldest}.\n\nPul kassada olingan, sotuvlar hali serverda yo'q. Cheklar sotuvning haqiqiy sanasi bilan ketadi. Ma'lumotlar to'g'ri bo'lsa yuboring.");
+            var admin = _access.IsAdmin;
+            if (!await PosConfirmDialog.ShowModalAsync(this,
+                    T("Подтвердить отправку", "Жөнөтүүнү ырастоо", "Confirm sending", "Göndermeyi onayla", "Yuborishni tasdiqlash"),
+                    summary,
+                    admin ? T("Отправить", "Жөнөтүү", "Send", "Gönder", "Yuborish") : T("Ввести PIN", "PIN киргизүү", "Enter PIN", "PIN gir", "PIN kiritish"),
+                    T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"),
+                    PosConfirmAccent.Primary).ConfigureAwait(true))
+                return;
+
+            var sync = App.GetRequiredService<SyncService>();
+            var ids = ordered.Select(i => i.Id).ToList();
+            string? token = null;
+            int? ttl = null;
+            if (!admin)
+            {
+                var pin = await LateAcceptPrompt.AskConfirmTokenAsync(sync, m => ShowNotice(m, OutboxSendKind.Rejected)).ConfigureAwait(true);
+                if (pin is null)
+                    return;
+                token = pin.Token;
+                ttl = pin.ExpiresInSeconds;
+            }
+
+            var result = await sync.SendLateAcceptedBatchAsync(ids, token, ttl, PosApp.CurrentUserDisplayName).ConfigureAwait(true);
+            // Владелец/админ вошёл без PIN, а сервер подтверждение не принял — спросить PIN и дослать оставшиеся.
+            if (admin && result.TokenExpired)
+            {
+                var left = ids.Where(id => OfflinePendingSalesStore.TryGetById(id) is { CheckoutCompleted: false }).ToList();
+                if (left.Count > 0)
+                {
+                    var pin = await LateAcceptPrompt.AskConfirmTokenAsync(sync, m => ShowNotice(m, OutboxSendKind.Rejected)).ConfigureAwait(true);
+                    if (pin is not null)
+                        result = await sync.SendLateAcceptedBatchAsync(left, pin.Token, pin.ExpiresInSeconds, PosApp.CurrentUserDisplayName).ConfigureAwait(true);
+                }
+            }
+            ShowNotice(result.Message, result.Failed == 0 && result.Remaining == 0 ? OutboxSendKind.Sent : OutboxSendKind.Rejected);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            PosLogger.Log($"Неотправленное: «Подтвердить отправку» не удалось: {ex.GetType().Name}: {ex.Message}", "WARNING");
             ShowNotice(ServerOutageMonitor.FriendlyError(ex), OutboxSendKind.Rejected);
         }
         finally

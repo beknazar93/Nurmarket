@@ -251,6 +251,14 @@ public sealed class ProductEditRequest
     /// <summary>2026-11-13 (сервер sn1311): warranty_months — гарантия в месяцах (null вместе с <see cref="SendWarrantyMonths"/> = убрать гарантию). Пишется только при <see cref="SendWarrantyMonths"/>.</summary>
     public int? WarrantyMonths { get; set; }
     public bool SendWarrantyMonths { get; set; }
+    /// <summary>2026-11-20 (ТЗ «Автозапчасти», АЗ4; ответ Умара 19.11): attributes товара целиком (каталожный номер part_no_norm, oem, cross_N, fits_N, condition, part_type + чужие без изменений).
+    /// null — поле не шлём (не сфера «Автозапчасти» или блок в карточке не менялся); пустой список — очистить.</summary>
+    public List<NurMarketKassa.Models.Pos.AutoPartAttr>? Attributes { get; set; }
+    /// <summary>2026-11-20 (АЗ4): ячейка (storage_location) — только при <see cref="SendStorageLocation"/> (пустая строка — очистить).</summary>
+    public string? StorageLocation { get; set; }
+    public bool SendStorageLocation { get; set; }
+    /// <summary>2026-11-20 (АЗ4): related_input — id товаров-аналогов (до 100). null — не шлём; пустой список — убрать связи.</summary>
+    public List<string>? RelatedInput { get; set; }
     /// <summary>2026-11-14 (П0-1, ответ Умара 13.11 вечер): vat_rate товара в процентах (null вместе с <see cref="SendVatRate"/> = «ставка компании»). Пишется только если владелец менял ставку
     /// в карточке и у компании включена фискализация; иначе поле в запрос не попадает.</summary>
     public decimal? VatRate { get; set; }

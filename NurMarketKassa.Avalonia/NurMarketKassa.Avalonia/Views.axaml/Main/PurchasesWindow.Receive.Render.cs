@@ -253,6 +253,26 @@ public partial class PurchasesWindow
             ReceiveMessage(T($"Штрихкод {line.Barcode} сгенерирован.", $"{line.Barcode} штрихкоду түзүлдү.", $"Barcode {line.Barcode} generated.", $"{line.Barcode} barkodu oluşturuldu.", $"{line.Barcode} shtrix-kodi yaratildi."));
         };
         var metaRow = new StackPanel { Orientation = Orientation.Horizontal, Children = { meta, netButton, genButton } };
+        // 2026-11-19 (склад К-5): «Срок годности и партия» — кнопка в строке прихода, только при признаке сервера expiry_batches / stock_batches; без признака строка прежняя.
+        if (ServerStock.ExpiryFieldsOn)
+        {
+            var batchLabel = T("Срок и партия", "Мөөнөт жана партия", "Expiry and batch", "SKT ve parti", "Muddat va partiya");
+            var batchButton = new Button { Content = batchLabel, MinHeight = ReceiveTouchMin(32), Padding = new Thickness(10, 0), Margin = new Thickness(8, 0, 0, 0), FontSize = 12, MaxWidth = 240, Tag = "rcv-batch", Focusable = true };
+            Avalonia.Automation.AutomationProperties.SetName(batchButton, batchLabel + " " + line.ProductName);
+            void PaintBatch()
+            {
+                var summary = NurMarketKassa.AvaloniaHost.Views.Dialogs.ReceivingBatchDialog.Summary(line);
+                batchButton.Content = new TextBlock { Text = summary.Length > 0 ? summary : batchLabel, TextTrimming = TextTrimming.CharacterEllipsis };
+                ToolTip.SetTip(batchButton, summary.Length > 0 ? summary : T("Срок годности и номер партии этого прихода", "Бул кирүүнүн жарактуулук мөөнөтү жана партия номери", "Expiry date and batch number of this receipt", "Bu girişin son kullanma tarihi ve parti numarası", "Ushbu kirimning yaroqlilik muddati va partiya raqami"));
+            }
+            PaintBatch();
+            batchButton.Click += async (_, _) =>
+            {
+                if (await new NurMarketKassa.AvaloniaHost.Views.Dialogs.ReceivingBatchDialog(line).ShowDialog<bool>(PosDialogHost.ResolveOwner(this)).ConfigureAwait(true))
+                    PaintBatch();
+            };
+            metaRow.Children.Add(batchButton);
+        }
         who.Children.Add(metaRow);
         // 2026-11-09 (владелец: «указывать вначале как на старом — база / база NurCRM / неизвестно / из интернета, значками, с подсказкой»): значок источника — первый в строке, перед названием.
         var badge = new ReceivingSourceBadge { Source = line.Source, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 7, 8, 0) };

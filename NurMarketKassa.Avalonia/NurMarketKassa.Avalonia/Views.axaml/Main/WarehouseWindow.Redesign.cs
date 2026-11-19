@@ -137,6 +137,7 @@ public partial class WarehouseWindow
         // поиск и два ряда фильтров занимали ~60 % высоты.
         SizeChanged += (_, _) => ApplyProductsCompact();
         ApplyProductsCompact();
+        ProductsSearchRow.SizeChanged += (_, e) => { if (e.WidthChanged) ApplySearchRowTight(e.NewSize.Width); };
 
         // 2026-10-06, владелец: «сделай редизайн кнопок, расположение, удобство» — «✕» в поиске и двойной щелчок по строке.
         ProductSearchBox.PropertyChanged += (_, e) =>
@@ -155,6 +156,28 @@ public partial class WarehouseWindow
         };
         ToolTip.SetTip(ProductsGrid, T("Двойной щелчок по строке — открыть товар", "Сапты эки жолу басуу — товарды ачуу", "Double-click a row to open the product",
             "Ürünü açmak için satıra çift tıklayın", "Mahsulotni ochish uchun qatorni ikki marta bosing"));
+    }
+
+    private bool _searchRowTight;
+
+    /// <summary>2026-11-19 («как будет в маленьких экранах?»): на строке шириной &lt; 880 px (раздел на 1024×768, 800×800) поиск сжимался до 64 px, потому что четыре «Auto»-колонки
+    /// (счётчик, «Массовая загрузка», «Ценники», «Создать товар») занимали всю ширину. Узкая строка — поиск на всю ширину, счётчик и кнопки вторым рядом (выключается с 940 px).</summary>
+    private void ApplySearchRowTight(double width)
+    {
+        var tight = _searchRowTight ? width < 940 : width < 880;
+        if (tight == _searchRowTight || width <= 0)
+            return;
+        _searchRowTight = tight;
+        var row = ProductsSearchRow;
+        row.RowDefinitions = new RowDefinitions(tight ? "Auto,Auto" : "Auto");
+        Grid.SetColumnSpan(ProductSearchBox, tight ? 5 : 1);
+        ProductSearchBox.Margin = new Thickness(0, 0, 0, tight ? 8 : 0);
+        var below = tight ? 1 : 0;
+        foreach (var c in row.Children.OfType<Control>().Where(x => !ReferenceEquals(x, ProductSearchBox)))
+            Grid.SetRow(c, below);
+        // счётчик «Всего / Найдено» — слева под поиском (колонка 0 — «*», кнопки остаются справа в своих колонках)
+        if (row.Children.OfType<Panel>().FirstOrDefault(p => p.Children.Contains(ProductCountLabel)) is { } counter)
+            Grid.SetColumn(counter, tight ? 0 : 1);
     }
 
     /// <summary>2026-10-22 (аудит 1.17.59, П-И, Б10): компактная вкладка «Товары» на низком окне (высота &lt; 800): плитки без

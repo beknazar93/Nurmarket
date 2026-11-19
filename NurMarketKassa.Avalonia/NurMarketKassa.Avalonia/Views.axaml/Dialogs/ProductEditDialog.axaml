@@ -344,6 +344,8 @@
                                 <StackPanel x:Name="PurchaseStack" Grid.Column="0" Spacing="8" IsVisible="{Binding ShowPurchase}">
                                     <TextBlock Classes="FieldLabel" Text="{DynamicResource product.purchasePriceLabel}"/>
                                     <TextBox Text="{Binding PurchasePrice}"/>
+                                    <!-- 2026-11-19 (склад К-4): при признаке сервера costing_fifo — «Себестоимость: FIFO» (текст и видимость — в коде, ProductEditDialog.axaml.cs). -->
+                                    <TextBlock x:Name="CostingFifoNote" FontSize="12" TextWrapping="Wrap" IsVisible="False" Foreground="{DynamicResource BrushTextSoft}"/>
                                 </StackPanel>
                                 <StackPanel x:Name="MarkupStack" Grid.Column="2" Spacing="8" IsVisible="{Binding ShowPurchase}">
                                     <TextBlock Classes="FieldLabel" Text="{DynamicResource product.markupLabel}"/>
@@ -430,9 +432,11 @@
                         <StackPanel Spacing="20" Margin="0,0,0,240">
                             <StackPanel Spacing="22" HorizontalAlignment="Stretch">
                                 <StackPanel Spacing="8" IsVisible="{Binding !IsQuickAddMode}">
-                                    <TextBlock Classes="FieldLabel" Text="{DynamicResource product.codeLabel}"/>
+                                    <TextBlock x:Name="CodeFieldLabel" Classes="FieldLabel" Text="{DynamicResource product.codeLabel}"/>
                                     <TextBox Text="{Binding Code}" Watermark="{DynamicResource product.articleWatermark}"/>
                                 </StackPanel>
+                                <!-- 2026-11-20 (ТЗ «Автозапчасти», АЗ5): блок «Автозапчасть» (состояние, ячейка, OEM, кросс-номера, «подходит к», аналоги) — видим только в сфере «Автозапчасти», наполняется в ProductEditDialog.AutoPart.cs. -->
+                                <StackPanel x:Name="AutoPartBlock" Spacing="8" HorizontalAlignment="Stretch" IsVisible="False"/>
 
                                 <StackPanel Spacing="8" HorizontalAlignment="Stretch">
                                     <TextBlock Classes="FieldLabel" Text="{DynamicResource product.altBarcodesLabel}"/>

@@ -62,6 +62,7 @@ namespace NurMarketKassa.Services
             PromotionRules.Remember(id, p);
             // 2026-11-13 (сервер sn1311): track_serials и warranty_months карточки — по id товара в product-serials.json (колонок в базе кассы нет). Старый сервер полей не шлёт — ничего не меняется.
             ProductSerialRules.Remember(id, p);
+            PartMetaStore.Remember(id, p); // 2026-11-20 (ТЗ «Автозапчасти», АЗ4): attributes / storage_location / related — для плиток и поиска по номеру
             // 2026-11-13 (ответ Умара 13.11, строймаркет): sale_units — упаковки товара (м² → упаковка 1,44), по id товара в product-sale-units.json.
             ProductSaleUnits.Remember(id, p);
 
@@ -128,6 +129,15 @@ namespace NurMarketKassa.Services
             // 2026-11-06 (В12, Б-8): «Минимальный остаток» карточки — порог «заканчивается» этого товара (если сервер отдаёт поле в списке; иначе общий порог 10).
             if (JsonProps.TryGet(p, props, "minimum_quantity", out var mqEl) && TryGetDouble(mqEl, out double mqVal) && mqVal > 0)
                 vm.MinQuantity = mqVal;
+            // 2026-11-19 (склад К-8): reserved/available у товара — только если сервер их отдал (резервы включены у компании); подпись «Свободно N (в резерве M)» — только при reserved > 0.
+            if (JsonProps.TryGet(p, props, "reserved", out var rsvEl) && TryGetDouble(rsvEl, out double rsvVal))
+            {
+                vm.Reserved = rsvVal;
+                if (JsonProps.TryGet(p, props, "available", out var avlEl) && TryGetDouble(avlEl, out double avlVal))
+                    vm.Available = avlVal;
+                if (rsvVal > 0.0005 && vm.Available is { } free)
+                    vm.ReservedInfo = ServerStock.FreeText(free, rsvVal);
+            }
             if (JsonProps.TryGet(p, props, "alternate_barcodes", out var altArr) && altArr.ValueKind == JsonValueKind.Array)
             {
                 var codes = new System.Collections.Generic.List<string>();
