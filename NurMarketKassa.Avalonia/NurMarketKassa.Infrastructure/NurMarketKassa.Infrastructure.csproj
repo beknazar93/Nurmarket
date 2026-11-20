@@ -26,6 +26,8 @@
 
   <ItemGroup>
     <PackageReference Include="DocumentFormat.OpenXml" Version="3.1.0" />
+    <!-- 2026-11-20: чтение двоичного .xls (прайсы поставщиков автозапчастей), ExcelDataReader 3.7.0 (MIT, ~0,3 МБ); CodePages для старых кодировок уже подключён -->
+    <PackageReference Include="ExcelDataReader" Version="3.7.0" />
     <!-- 2026-10-01: голосовые ответы телеграм-бота — Opus/OGG на чистом C# (TelegramVoice). -->
     <PackageReference Include="Concentus" Version="2.2.2" />
     <PackageReference Include="Concentus.Oggfile" Version="1.0.6" />

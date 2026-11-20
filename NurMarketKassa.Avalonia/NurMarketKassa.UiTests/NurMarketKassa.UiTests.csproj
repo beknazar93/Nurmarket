@@ -37,6 +37,8 @@
     <Compile Include="..\NurMarketKassa.Tests\Infrastructure\FakeNurCrmServer.cs" Link="Linked\FakeNurCrmServer.cs" />
     <Compile Include="..\NurMarketKassa.Tests\Infrastructure\TestDataRoot.cs" Link="Linked\TestDataRoot.cs" />
     <Compile Include="..\NurMarketKassa.Tests\Wave1\ScenarioSupport.cs" Link="Linked\ScenarioSupport.cs" />
+    <!-- 2026-11-20: мини-файл .xls для проверки выбора .xls в мастере «Массовая загрузка» -->
+    <Compile Include="..\NurMarketKassa.Tests\Infrastructure\MiniXls.cs" Link="Linked\MiniXls.cs" />
   </ItemGroup>
 
 </Project>

@@ -591,7 +591,7 @@
       {
        "id": "в2-перенос-товаров-из-1с-мойсклад-poster",
        "title": "1C, MoySklad, Poster, Loyverse, Paloma365, Umag'dan aktarım: «Toplu yükleme»",
-       "text": "Шаг 1. ☰ → «Depo» → «Ürünler» → «Toplu yükleme» bölümünü açın.\nШаг 2. «Dosya seç…» (Excel veya CSV) düğmesine basın ya da hücreleri kopyaladıysanız «Panodan yapıştır»a basın. Eski ikili .xls dosyasını kasa okumaz — onu .xlsx veya CSV olarak kaydedin.\nШаг 3. Dosyanın hangi programdan olduğunu kasa kendisi bulur: 1C, MoySklad, Poster, Loyverse, Paloma365 veya Umag («Dosya hangi programdan?», «Dosyadan belirle»). Tanımazsa programı listeden kendiniz seçin; sütunlar adlarına göre eşlenir.\nШаг 4. Sütunları kontrol edin, «Kontrol et»e, sonra «Yükle»ye basın. Dosyadaki miktar stoğa eklenir (mal kabul); «Yalnızca kartlar ve fiyatlar (girişsiz)» stoğu değiştirmez.\nШаг 5. «Müşteriler ve borçlar» — müşteri listesini Excel/CSV'den aktarır; borçlar kaydedilmez, yalnızca gösterilir.\nШаг 6. «Hangi dosya uygun?» — dosya biçimi hakkında ipucu. «Örnekle gör» — denemek için 30 eğitim ürünü, sunucuya ve veritabanınıza girmez.\nШаг 7. «Eski yükleme (stok değiştirme)» — önceki pencere: dosyadaki miktar ürünün stoğunun yerine geçer. Pencere tektir: düğmeye yeniden basmak onu yalnızca öne getirir.",
+       "text": "Шаг 1. ☰ → «Depo» → «Ürünler» → «Toplu yükleme» bölümünü açın.\nШаг 2. «Dosya seç…» (Excel veya CSV) düğmesine basın ya da hücreleri kopyaladıysanız «Panodan yapıştır»a basın. Eski ikili .xls (Excel 97–2003) de okunur.\nШаг 3. Dosyanın hangi programdan olduğunu kasa kendisi bulur: 1C, MoySklad, Poster, Loyverse, Paloma365 veya Umag («Dosya hangi programdan?», «Dosyadan belirle»). Tanımazsa programı listeden kendiniz seçin; sütunlar adlarına göre eşlenir.\nШаг 4. Sütunları kontrol edin, «Kontrol et»e, sonra «Yükle»ye basın. Dosyadaki miktar stoğa eklenir (mal kabul); «Yalnızca kartlar ve fiyatlar (girişsiz)» stoğu değiştirmez.\nШаг 5. «Müşteriler ve borçlar» — müşteri listesini Excel/CSV'den aktarır; borçlar kaydedilmez, yalnızca gösterilir.\nШаг 6. «Hangi dosya uygun?» — dosya biçimi hakkında ipucu. «Örnekle gör» — denemek için 30 eğitim ürünü, sunucuya ve veritabanınıza girmez.\nШаг 7. «Eski yükleme (stok değiştirme)» — önceki pencere: dosyadaki miktar ürünün stoğunun yerine geçer. Pencere tektir: düğmeye yeniden basmak onu yalnızca öne getirir.",
        "keywords": [
         "aktarım",
         "içe aktarma",
@@ -809,6 +809,21 @@
         "takılmış parça",
         "yönetici pin",
         "oto parça"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-автозапчасти-прайс-поставщика",
+       "title": "Oto yedek parça: tedarikçi fiyat listesi nasıl yüklenir",
+       "text": "Tedarikçi fiyat listesi (Excel veya CSV) «Toplu yükleme»de yüklenir: üst bilgi, grup satırları ve fiyatsız satırlar otomatik atlanır, barkod gerekmez — kasa dahili bir barkod verir.\nAdım 1. .xlsx, .xls (eski Excel) veya .csv dosyası uygundur — açıp yeniden kaydetmeye gerek yok. Windows-1251 CSV'yi kasa kendisi okur.\nAdım 2. Depo → «Toplu yükleme» → «Dosya seç…». «Oto yedek parça» türünde «Tedarikçi fiyat listesi (oto parça)» profili kendiliğinden açılır; açılmazsa «Dosya hangi programdan?» listesinden seçin.\nAdım 3. Bulunan sütunları kontrol edin: parça numarası («Katalog numarası», «Ürün kodu», «Part number»), marka, fiyat, alış, stok. Fiyat listesinde «Ad» sütunu yoksa adın oluşturulacağı sütunları işaretleyin (marka + model + ölçü).\nAdım 4. «Önizleme: ilk 200 satır»a basın: atlanan satırlarda neden yazar («grup», «fiyat yok», «N. satırın tekrarı»); aralık olarak yazılmış stok («20–50», «8'den az») alt sınırıyla kaydedilir, «var» — 1, «yok» — 0, not ile. Toplam: «Oluşturulacak N, güncellenecek M, atlanacak K».\nAdım 5. «Yükle»ye basın. Parça numarası ürün koduna, marka markaya yazılır; OEM, çapraz numaralar, «Uyumlu araçlar», durum, raf ve garanti sütunlar varsa onlardan alınır.\nAdım 6. Aynı fiyat listesini yeniden yükleyebilirsiniz: ürün katalog numarası ve markaya göre bulunur, fiyatlar, marka, parça alanları ve («Mevcut ürünlerin stokunu güncelle» kutusuyla) stok güncellenir — kopya oluşmaz.\nÖnemli: Yüklemede satır sınırı yoktur; önizleme ilk 200 satırı gösterir.",
+       "keywords": [
+        "fiyat listesi",
+        "tedarikçi",
+        "katalog numarası",
+        "toplu yükleme",
+        "xls",
+        "excel",
+        "oto yedek parça"
        ],
        "images": []
       }

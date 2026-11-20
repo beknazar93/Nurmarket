@@ -18,7 +18,7 @@ namespace NurMarketKassa.AvaloniaHost.Services;
 /// используется), магазин 18, ИНН/адрес 12 мягким, плашка «ТОВАРНЫЙ ЧЕК» (11,5, разрядка), пары «подпись — значение» 13, позиции
 /// «n. Название / кол-во × цена — сумма жирно», пунктир, «Сумма без скидки / Скидка» красным, ИТОГО 20/22, оплата, сдача жирно,
 /// «Вернуть до», QR (если сервер выдал ссылку), «Спасибо за покупку!» и «NurMarket», зубцы бумаги 10 px. Возвраты — отдельным блоком.</summary>
-internal static class SaleReceiptCardView
+public static class SaleReceiptCardView
 {
     /// <summary>Ширина бумаги: как в мобилке (макс. 400, у нас 380 — в окнах с карточкой и кнопками). 80 мм ≈ 302 px.</summary>
     public const double DefaultWidth = 380;
@@ -63,6 +63,7 @@ internal static class SaleReceiptCardView
             row.Children.Add(Text(l.QtyPrice, 13, "BrushTextSoft"));
             var tot = Text(l.Total, 13, "BrushText", bold: true);
             tot.Margin = new Thickness(12, 0, 0, 0);
+            tot.TextWrapping = TextWrapping.NoWrap; // 2026-11-20: сумма позиции не рвётся по цифре
             Grid.SetColumn(tot, 1);
             row.Children.Add(tot);
             item.Children.Add(row);
@@ -83,6 +84,7 @@ internal static class SaleReceiptCardView
         total.Children.Add(tl);
         var tv = Text(d.TotalText, 22, "BrushText", bold: true);
         tv.Margin = new Thickness(12, 0, 0, 0);
+        tv.TextWrapping = TextWrapping.NoWrap; // 2026-11-20
         tv.VerticalAlignment = VerticalAlignment.Center;
         Grid.SetColumn(tv, 1);
         total.Children.Add(tv);
@@ -95,7 +97,7 @@ internal static class SaleReceiptCardView
         {
             body.Children.Add(Dash());
             body.Children.Add(Text(d.ReturnsCaption, 14, "BrushWarning", bold: true).With(t => t.Margin = new Thickness(0, 0, 0, 6)));
-            foreach (var r in d.Returns) body.Children.Add(Pair(r.Label, r.Value));
+            foreach (var r in d.Returns) body.Children.Add(r.Meta != null || r.Badge != null ? ReturnCard(r) : Pair(r.Label, r.Value)); // 2026-11-20
         }
 
         if (d.OfflineNote.Length > 0)
@@ -129,16 +131,47 @@ internal static class SaleReceiptCardView
     }
 
     // Подпись слева (мягким), значение справа. accent: 3 — жирное, 1 — цвет долга, 2 — цвет скидки.
+    // 2026-11-20: колонки делит ReceiptPairPanel — раньше «Auto,*» отдавал длинной подписи всю ширину, значение сжималось до нуля (сумма рвалась по цифре).
     private static Control Pair(string label, string value, int accent = 0)
     {
-        var g = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), Margin = new Thickness(0, 1.5) };
+        var g = new ReceiptPairPanel { Margin = new Thickness(0, 1.5) };
         g.Children.Add(Text(label, 13, "BrushTextSoft"));
         // Долг и «Вернуть до» — обычным цветом, как в мобилке (там цвет только у скидки); accent 1 остаётся в модели для печатных/текстовых видов.
         var v = Text(value, 13, accent == 2 ? "BrushDanger" : "BrushText", bold: accent == 3, semi: accent != 3);
         v.TextAlignment = TextAlignment.Right;
-        v.Margin = new Thickness(12, 0, 0, 0);
-        Grid.SetColumn(v, 1);
         g.Children.Add(v);
+        return g;
+    }
+
+    // 2026-11-20: возврат — двухстрочная карточка. Слева (колонка «*»): дата/время, название с переносом по словам (до 3 строк, дальше «…»),
+    // статус (АННУЛИРОВАН) плашкой отдельной строкой; справа (колонка «Auto»): сумма в одну строку, не уже 56 px.
+    private static Control ReturnCard(SaleReceiptCardData.Row r)
+    {
+        var g = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 3) };
+        var left = new StackPanel { Spacing = 1 };
+        if (!string.IsNullOrEmpty(r.Meta)) left.Children.Add(Text(r.Meta!, 12, "BrushTextSoft"));
+        if (r.Label.Length > 0)
+            left.Children.Add(Text(r.Label, 13, "BrushText", semi: true).With(t => { t.MaxLines = 3; t.TextTrimming = TextTrimming.CharacterEllipsis; }));
+        if (!string.IsNullOrEmpty(r.Badge))
+        {
+            var b = new Border { CornerRadius = new CornerRadius(8), Padding = new Thickness(8, 2), BorderThickness = new Thickness(1), HorizontalAlignment = HorizontalAlignment.Left,
+                Margin = new Thickness(0, 2, 0, 0), Child = Text(r.Badge!, 11, "BrushDanger", bold: true) };
+            Res(b, Border.BackgroundProperty, "BrushDangerSoft");
+            Res(b, Border.BorderBrushProperty, "BrushDanger");
+            left.Children.Add(b);
+        }
+        g.Children.Add(left);
+        if (r.Value.Length > 0)
+        {
+            var amount = Text(r.Value, 13, "BrushText", bold: true);
+            amount.TextWrapping = TextWrapping.NoWrap;
+            amount.TextAlignment = TextAlignment.Right;
+            amount.MinWidth = 56;
+            amount.Margin = new Thickness(12, 0, 0, 0);
+            amount.VerticalAlignment = VerticalAlignment.Top;
+            Grid.SetColumn(amount, 1);
+            g.Children.Add(amount);
+        }
         return g;
     }
 
@@ -183,6 +216,43 @@ internal static class SaleReceiptCardView
     private static void Res(Control c, AvaloniaProperty p, string key) => c.Bind(p, c.GetResourceObservable(key));
 
     private static T With<T>(this T t, System.Action<T> a) { a(t); return t; }
+}
+
+/// <summary>2026-11-20: пара «подпись — значение» в одну строку, когда обе части помещаются; иначе ширину делят так, чтобы короткая часть
+/// не сжималась (число/сумма не рвутся по цифре), а длинная переносилась по словам. Правая часть прижата к правому краю карточки.</summary>
+internal sealed class ReceiptPairPanel : Panel
+{
+    private const double Gap = 12;
+
+    private static (double L, double V) Split(double avail, double l, double v)
+    {
+        if (double.IsInfinity(avail) || l + v + Gap <= avail) return (l, v);
+        var room = System.Math.Max(0, avail - Gap);
+        if (v <= avail * 0.4) return (System.Math.Max(0, room - v), v);
+        if (l <= avail * 0.4) return (l, System.Math.Max(0, room - l));
+        return (room / 2, room / 2);
+    }
+
+    protected override Size MeasureOverride(Size availableSize)
+    {
+        if (Children.Count < 2) return base.MeasureOverride(availableSize);
+        Children[0].Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        Children[1].Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        var (lw, vw) = Split(availableSize.Width, Children[0].DesiredSize.Width, Children[1].DesiredSize.Width);
+        Children[0].Measure(new Size(lw, double.PositiveInfinity));
+        Children[1].Measure(new Size(vw, double.PositiveInfinity));
+        var w = double.IsInfinity(availableSize.Width) ? lw + Gap + vw : availableSize.Width;
+        return new Size(w, System.Math.Max(Children[0].DesiredSize.Height, Children[1].DesiredSize.Height));
+    }
+
+    protected override Size ArrangeOverride(Size finalSize)
+    {
+        if (Children.Count < 2) return base.ArrangeOverride(finalSize);
+        var (lw, vw) = Split(finalSize.Width, Children[0].DesiredSize.Width, Children[1].DesiredSize.Width);
+        Children[0].Arrange(new Rect(0, 0, lw, finalSize.Height));
+        Children[1].Arrange(new Rect(System.Math.Max(0, finalSize.Width - vw), 0, vw, finalSize.Height));
+        return finalSize;
+    }
 }
 
 /// <summary>Нижний край чека зубцами, как у отрывной ленты (ZigzagClipper мобилки: зуб 10 px).</summary>

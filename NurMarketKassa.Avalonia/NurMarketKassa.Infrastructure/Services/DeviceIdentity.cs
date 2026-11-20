@@ -35,13 +35,7 @@ public static class DeviceIdentity
                     return _key;
                 try
                 {
-                    var path = FilePath;
-                    if (File.Exists(path) && File.ReadAllText(path).Trim() is { } saved && KeyRule.IsMatch(saved))
-                        return _key = saved;
-                    var fresh = "k" + Guid.NewGuid().ToString("N");
-                    Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-                    File.WriteAllText(path, fresh);
-                    return _key = fresh;
+                    return _key = ReadOrCreate(FilePath);
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
                 {
@@ -50,6 +44,50 @@ public static class DeviceIdentity
                 }
             }
         }
+    }
+
+    /// <summary>2026-11-20 («один аккаунт владельца в кассе и в программе владельца»): ключ ОДИН на ПК — касса и программа владельца читают один файл device-key.txt (общая папка KassaLocal, не папка программы),
+    /// чтобы сервер видел одно устройство, а не два. Если обе программы стартуют впервые одновременно, файл создаёт только одна (CreateNew), вторая читает уже записанный ключ, а не свой.</summary>
+    internal static string ReadOrCreate(string path)
+    {
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            if (TryReadValid(path, out var saved))
+                return saved;
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            var fresh = "k" + Guid.NewGuid().ToString("N");
+            try
+            {
+                // CreateNew — «кто первый создал, тот и победил»; битый/пустой файл удаляем и пробуем снова.
+                if (File.Exists(path))
+                    File.Delete(path);
+                using var fs = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
+                var bytes = System.Text.Encoding.UTF8.GetBytes(fresh);
+                fs.Write(bytes, 0, bytes.Length);
+                return fresh;
+            }
+            catch (IOException) when (attempt < 4)
+            {
+                // Файл только что создала другая программа — читаем его на следующем круге (запись может ещё не завершиться).
+                Thread.Sleep(30);
+            }
+        }
+        throw new IOException("Не удалось создать файл ключа установки.");
+    }
+
+    private static bool TryReadValid(string path, out string key)
+    {
+        key = "";
+        try
+        {
+            if (File.Exists(path) && File.ReadAllText(path).Trim() is { } saved && KeyRule.IsMatch(saved))
+            {
+                key = saved;
+                return true;
+            }
+        }
+        catch (IOException) { /* файл занят другой программой — повтор на следующем круге */ }
+        return false;
     }
 
     /// <summary>Только для тестов: забыть прочитанный ключ.</summary>

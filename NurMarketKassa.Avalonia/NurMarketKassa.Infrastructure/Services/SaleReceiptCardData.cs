@@ -23,7 +23,9 @@ public sealed class SaleReceiptCardData
     public sealed record Line(string Name, string QtyPrice, string Total, string? Discount, string? Returned = null);
 
     /// <summary>Строка блока оплаты. Accent: 0 — обычная, 1 — предупреждающий цвет (долг), 2 — цвет скидки, 3 — жирная (сдача).</summary>
-    public sealed record Row(string Label, string Value, int Accent = 0);
+    /// <summary>2026-11-20: Meta («11.11 16:34») и Badge («АННУЛИРОВАН») заданы только у строки возврата — её рисуют двухстрочной карточкой
+    /// (дата, название с переносом, статус плашкой; сумма справа в одну строку), а не парой «подпись — значение».</summary>
+    public sealed record Row(string Label, string Value, int Accent = 0, string? Meta = null, string? Badge = null);
 
     public string Shop { get; set; } = "";
     public string Inn { get; set; } = "";

@@ -599,7 +599,7 @@
       {
        "id": "в2-перенос-товаров-из-1с-мойсклад-poster",
        "title": "Moving over from 1C, MoySklad, Poster, Loyverse, Paloma365, Umag: “Bulk import”",
-       "text": "Шаг 1. Open ☰ → “Warehouse” → “Products” → “Bulk import”.\nШаг 2. Click “Choose file…” (Excel or CSV), or “Paste from clipboard” if you copied cells. The till does not read the old binary .xls — save it as .xlsx or CSV.\nШаг 3. The till detects by itself which program the file is from: 1C, MoySklad, Poster, Loyverse, Paloma365 or Umag (“Which program is the file from?”, “Detect from file”). If it is not recognised, pick the program from the list yourself; columns are matched by name.\nШаг 4. Check the columns, click “Check”, then “Load”. The quantity from the file is added to the stock (receiving); “Cards and prices only (no receiving)” leaves the stock unchanged.\nШаг 5. “Customers and debts” — moving a customer list from Excel/CSV; debts are not recorded, only shown.\nШаг 6. “Which file fits?” — a hint about the file format. “See an example” — 30 practice products just to try; they do not reach the server or your database.\nШаг 7. “Old import (replace stock)” — the previous window: the quantity from the file replaces the product's stock. There is only one such window: pressing the button again just brings it to the front.",
+       "text": "Шаг 1. Open ☰ → “Warehouse” → “Products” → “Bulk import”.\nШаг 2. Click “Choose file…” (Excel or CSV), or “Paste from clipboard” if you copied cells. The old binary .xls (Excel 97–2003) is read too.\nШаг 3. The till detects by itself which program the file is from: 1C, MoySklad, Poster, Loyverse, Paloma365 or Umag (“Which program is the file from?”, “Detect from file”). If it is not recognised, pick the program from the list yourself; columns are matched by name.\nШаг 4. Check the columns, click “Check”, then “Load”. The quantity from the file is added to the stock (receiving); “Cards and prices only (no receiving)” leaves the stock unchanged.\nШаг 5. “Customers and debts” — moving a customer list from Excel/CSV; debts are not recorded, only shown.\nШаг 6. “Which file fits?” — a hint about the file format. “See an example” — 30 practice products just to try; they do not reach the server or your database.\nШаг 7. “Old import (replace stock)” — the previous window: the quantity from the file replaces the product's stock. There is only one such window: pressing the button again just brings it to the front.",
        "keywords": [
         "transfer",
         "import",
@@ -826,6 +826,22 @@
         "electrical",
         "installed parts",
         "manager pin",
+        "auto parts"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-автозапчасти-прайс-поставщика",
+       "title": "Auto parts: how to load a supplier price list",
+       "text": "A supplier price list (Excel or CSV) is loaded in “Bulk import”: the header, group rows and rows without a price are skipped automatically, and no barcode is needed — the till assigns an internal one.\nStep 1. An .xlsx, .xls (old Excel) or .csv file will do — no need to open and re-save it. A CSV in Windows-1251 is read by the till itself.\nStep 2. Warehouse → “Bulk import” → “Choose file…”. In the “Auto parts” store type the “Supplier price list (auto parts)” profile is switched on automatically; if not, pick it in the “Which program is the file from?” list.\nStep 3. Check the detected columns: part number (“Catalog number”, “Article”, “Part number”), brand, price, purchase, stock. If the price list has no “Name” column, tick the columns the name is built from (brand + model + size).\nStep 4. Press “Preview: first 200 rows”: skipped rows show the reason (“group”, “no price”, “repeat of row N”); a stock range (“20–50”, “less than 8”) is saved as its lower bound, “in stock” as 1, “none” as 0, with a note. The total reads “Will create N, update M, skip K”.\nStep 5. Press “Load”. The part number goes to the article, the brand to the brand; OEM, cross numbers, “Fits”, condition, cell and warranty are taken from the columns if they exist.\nStep 6. You can load the same price list again: a product is found by catalog number and brand, and prices, brand, part data and (with the “Update the stock of existing products” box) stock are updated — no duplicates.\nImportant: The load has no row limit; the preview shows the first 200.",
+       "keywords": [
+        "price list",
+        "supplier price",
+        "import parts",
+        "catalog number",
+        "bulk import",
+        "xls",
+        "excel",
         "auto parts"
        ],
        "images": []

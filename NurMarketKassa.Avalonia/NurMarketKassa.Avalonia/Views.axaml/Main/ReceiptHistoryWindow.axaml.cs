@@ -1164,8 +1164,7 @@ public partial class ReceiptHistoryWindow : Window
                 var what = refund.Whole && refund.Lines.Count == 0
                     ? Tr.T("весь чек", "бүт чек", "whole receipt", "tüm fiş", "butun chek")
                     : string.Join(", ", refund.Lines.Select(l => l.Quantity is > 0 and not 1 ? $"{l.Name} × {l.Quantity.ToString("0.###", Ru)}" : l.Name));
-                rows.Add(new SummaryVm(refund.At.LocalDateTime.ToString("dd.MM HH:mm", CultureInfo.InvariantCulture) + " · " + what,
-                    "−" + SaleReceiptCardData.Fmt(refund.Amount)));
+                rows.Add(new SummaryVm(what, "−" + SaleReceiptCardData.Fmt(refund.Amount), meta: refund.At.LocalDateTime.ToString("dd.MM HH:mm", CultureInfo.InvariantCulture))); // 2026-11-20: дата отдельной строкой карточки возврата
                 var how = new List<string>();
                 if (refund.Cash > 0.005m)
                     how.Add(Tr.T("наличными ", "накталай ", "cash ", "nakit ", "naqd ") + SaleReceiptCardData.Fmt(refund.Cash));
@@ -1179,7 +1178,7 @@ public partial class ReceiptHistoryWindow : Window
             rows.Add(new SummaryVm(Tr.T("Возвращено всего", "Бардыгы кайтарылды", "Returned in total", "Toplam iade", "Jami qaytarildi"),
                 "−" + SaleReceiptCardData.Fmt(ledger.Refunded)));
             foreach (var r in rows)
-                _card.Returns.Add(new SaleReceiptCardData.Row(r.Label, r.Value));
+                _card.Returns.Add(new SaleReceiptCardData.Row(r.Label, r.Value, 0, r.Meta, r.Badge));
             if (!entry.IsLocal) // 2026-11-11: кнопка «Правка возвратов» — по списку возвратов сервера (can_edit/can_void)
                 _ = _returnsEdit.LoadForAsync(entry.Id, entry.ReceiptNumber ?? "");
             return;
@@ -1205,20 +1204,21 @@ public partial class ReceiptHistoryWindow : Window
             if (mine.Count == 0)
                 return;
             _returnsEdit.ShowFor(saleId, _selected?.Entry.ReceiptNumber ?? "", mine);
+            // 2026-11-20: возврат — карточка «дата / название / плашка статуса, сумма справа» (длинная строка с «АННУЛИРОВАН» вылезала за чек, сумма рвалась по цифре)
             var rows = mine.Select(r => new SummaryVm(
-                    (r.CreatedAt?.LocalDateTime.ToString("dd.MM HH:mm", CultureInfo.InvariantCulture) ?? "—")
-                    + (string.IsNullOrWhiteSpace(r.ItemsText)
-                        ? (r.IsFull ? " · " + Tr.T("весь чек", "бүт чек", "whole receipt", "tüm fiş", "butun chek") : "")
-                        : " · " + r.ItemsText)
-                    + (NurMarketKassa.Services.Api.NurCrmReportsApi.IsVoided(r) ? " · " + ReturnEditErrors.VoidedMark() : ""),
-                    NurMarketKassa.Services.Api.NurCrmReportsApi.IsVoided(r) ? "" : "−" + SaleReceiptCardData.Fmt(r.Amount)))
+                    string.IsNullOrWhiteSpace(r.ItemsText)
+                        ? (r.IsFull ? Tr.T("весь чек", "бүт чек", "whole receipt", "tüm fiş", "butun chek") : "")
+                        : r.ItemsText,
+                    NurMarketKassa.Services.Api.NurCrmReportsApi.IsVoided(r) ? "" : "−" + SaleReceiptCardData.Fmt(r.Amount),
+                    meta: r.CreatedAt?.LocalDateTime.ToString("dd.MM HH:mm", CultureInfo.InvariantCulture) ?? "—",
+                    badge: NurMarketKassa.Services.Api.NurCrmReportsApi.IsVoided(r) ? ReturnEditErrors.VoidedMark() : null))
                 .ToList();
             rows.Add(new SummaryVm(Tr.T("По данным сервера", "Сервердин маалыматы боюнча", "According to the server", "Sunucu verilerine göre", "Server ma'lumotlariga ko'ra"), ""));
             if (_card is null || !string.Equals(_selected?.Entry.Id, saleId, StringComparison.OrdinalIgnoreCase))
                 return;
             _card.Returns.Clear();
             foreach (var r in rows)
-                _card.Returns.Add(new SaleReceiptCardData.Row(r.Label, r.Value));
+                _card.Returns.Add(new SaleReceiptCardData.Row(r.Label, r.Value, 0, r.Meta, r.Badge));
             RenderPaper();
         }
         catch (OperationCanceledException)
@@ -1443,13 +1443,19 @@ public partial class ReceiptHistoryWindow : Window
 
     private sealed class SummaryVm
     {
-        public SummaryVm(string label, string value, bool isTotal = false, int accent = 0)
+        public SummaryVm(string label, string value, bool isTotal = false, int accent = 0, string? meta = null, string? badge = null)
         {
             Label = label;
             Value = value;
             IsTotal = isTotal;
             Accent = accent;
+            Meta = meta;
+            Badge = badge;
         }
+
+        /// <summary>2026-11-20: у строки возврата — дата/время и плашка статуса (см. SaleReceiptCardData.Row).</summary>
+        public string? Meta { get; }
+        public string? Badge { get; }
 
         /// <summary>2026-10-27: 0 — обычная, 1 — цвет долга, 2 — цвет скидки, 3 — жирная (сдача); как у SaleReceiptCardData.Row.</summary>
         public int Accent { get; }

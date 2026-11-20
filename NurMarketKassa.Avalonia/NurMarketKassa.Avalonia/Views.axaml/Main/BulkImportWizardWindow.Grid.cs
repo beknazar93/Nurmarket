@@ -42,7 +42,7 @@ public partial class BulkImportWizardWindow
     {
         if (_plan is null)
             return;
-        var m = _mapping;
+        var m = _apOn ? AutoPartsPrepared.TableMapping() : _mapping; // 2026-11-20: прайс автозапчастей — столбцы очищенной таблицы
         var cols = (Barcode: m.ColumnOf(ProductImportField.Barcode), Name: m.ColumnOf(ProductImportField.Name), Qty: m.ColumnOf(ProductImportField.Quantity),
             Purchase: m.ColumnOf(ProductImportField.Purchase), Sale: m.ColumnOf(ProductImportField.Sale), Markup: m.ColumnOf(ProductImportField.Markup), Unit: m.ColumnOf(ProductImportField.Unit));
         _rows = _plan.Rows.Select(r => new ImportRowVm(r, cols.Barcode, cols.Name, cols.Qty, cols.Purchase, cols.Sale, cols.Markup, cols.Unit)).ToList();
@@ -174,7 +174,8 @@ public partial class BulkImportWizardWindow
         _grid.VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto;
 
         _grid.Columns.Add(new DataGridCheckBoxColumn { Header = H(""), Width = new DataGridLength(46), Binding = new Binding(nameof(ImportRowVm.IsChecked)) { Mode = BindingMode.TwoWay } });
-        _grid.Columns.Add(new DataGridTextColumn { Header = H("№"), Width = new DataGridLength(56), IsReadOnly = true, Binding = new Binding(nameof(ImportRowVm.FileRow)) });
+        // 2026-11-20: 56 → 68 px — заголовок «№» не помещался в поле (проверка обрезки текста в окне прайса автозапчастей)
+        _grid.Columns.Add(new DataGridTextColumn { Header = H("№"), Width = new DataGridLength(68), IsReadOnly = true, Binding = new Binding(nameof(ImportRowVm.FileRow)) });
         _grid.Columns.Add(Column(T("Штрихкод", "Штрих-код", "Barcode", "Barkod", "Shtrix-kod"), 150, nameof(ImportRowVm.Barcode), ProductImportField.Barcode, readOnly: true));
         _grid.Columns.Add(Column(T("Название", "Аталышы", "Name", "Ad", "Nomi"), 220, nameof(ImportRowVm.Name), ProductImportField.Name, star: true));
         _grid.Columns.Add(Column(T("Единица", "Бирдик", "Unit", "Birim", "Birlik"), 104, nameof(ImportRowVm.UnitText), ProductImportField.Unit));

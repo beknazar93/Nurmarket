@@ -11,10 +11,16 @@
 /// кыргызским, а сами пункты русскими.</summary>
 public static class AppChangelog
 {
+    // 2026-11-20: 1.17.90 (тестовый канал) — сверху всех Latest* 5 пунктов (импорт прайсов автозапчастей, чек, один аккаунт, закрытие установщиком, ценники), сверху AndroidLatest* — первые два.
     // 2026-11-20: 1.17.89 (тестовый канал) — сверху всех Latest* 3 пункта (Автозапчасти: аналоги, поиск и оплата, окна и меню), сверху AndroidLatest* — первые два.
     // 2026-11-20: 1.17.88 (тестовый канал) — сверху всех Latest* 8 пунктов (табель, подписка, чеки старше 7 суток, склад, Автозапчасти, малые экраны, разделы владельца, исправления), сверху AndroidLatest* — 4 общих.
     public static readonly string[] Latest =
     [
+        "Автозапчасти: импорт прайсов: В мастере «Массовая загрузка» новый профиль «Прайс поставщика (автозапчасти)»: колонки находятся по синонимам, группы и строки без цены пропускаются, остаток вида «10-20» читается диапазоном, повторная загрузка не плодит дубли, читается и старый .xls.",
+        "Чек: возвраты: Строки возвратов в чеке не выходят за край, а сумма не рвётся по цифре.",
+        "Один аккаунт для кассы и владельца: В кассу и в программу владельца можно входить одним аккаунтом владельца; общий ключ устройства создаётся атомарно.",
+        "Закрытие кассы установщиком: Исправлена ошибка при закрытии кассы по сигналу установщика (ObjectDisposedException).",
+        "Штрихкоды и ценники: Раскладка не дрожит при смене масштаба; в новом окне ценника в высоких окнах панель шириной 1560 px.",
         "Автозапчасти: аналоги: Аналоги сохраняются на сервере; подсказка про кросс-номера показывается только на «Старте».",
         "Автозапчасти: поиск и оплата: Поиск «бренд + номер» (Mann W 811/80, Bosch 0 451 103 092); исправлено падение окна оплаты при цене «СТО / мастер».",
         "Автозапчасти: окна и меню: «Заказы под клиента» в меню старого вида; окно «Подробнее» не выходит за низкий экран; отдельный замок запуска для тестовых стендов.",
@@ -291,6 +297,11 @@ public static class AppChangelog
 
     public static readonly string[] LatestKy =
     [
+        "Автобөлүктөр: прайс импорту: «Жапырт жүктөө» устасында жаңы профиль «Жеткирүүчүнүн прайси (автобөлүктөр)»: мамычалар синонимдери боюнча табылат, топтор жана баасы жок саптар өткөрүлөт, «10-20» түрүндөгү калдык диапазон катары окулат, кайра жүктөө кайталанмаларды жаратпайт, эски .xls да окулат.",
+        "Чек: кайтаруулар: Чектеги кайтаруу саптары четтен чыкпайт, сумма цифра боюнча үзүлбөйт.",
+        "Касса жана ээси үчүн бир аккаунт: Кассага да, ээсинин программасына да ээсинин бир аккаунту менен кирүүгө болот; түзмөктүн жалпы ачкычы атомардык түрдө түзүлөт.",
+        "Кассаны орноткуч жапканда: Орноткучтун сигналы боюнча кассаны жапкандагы ката оңдолду (ObjectDisposedException).",
+        "Штрих-коддор жана баа белгилери: Масштабды өзгөрткөндө жайгашуу титиреп калбайт; баа белгисинин жаңы терезесинде бийик терезелерде панель 1560 px.",
         "Автобөлүктөр: аналогдор: Аналогдор серверде сакталат; кросс-номерлер боюнча кеңеш «Старт»та гана көрүнөт.",
         "Автобөлүктөр: издөө жана төлөм: «Бренд + номер» боюнча издөө (Mann W 811/80, Bosch 0 451 103 092); «СТО / уста» баасында төлөм терезесинин кулашы оңдолду.",
         "Автобөлүктөр: терезелер жана меню: «Кардарга заказдар» эски көрүнүштүн менюсунда; «Кененирээк» терезеси аласа экрандан чыкпайт; сыноо стенддери үчүн өзүнчө ишке киргизүү кулпусу.",
@@ -565,6 +576,11 @@ public static class AppChangelog
 
     public static readonly string[] LatestEn =
     [
+        "Auto parts: price list import: The “Bulk import” wizard has a new profile “Supplier price list (auto parts)”: columns are found by synonyms, groups and rows without a price are skipped, a stock like “10-20” is read as a range, re-uploading does not create duplicates, and the old .xls format is readable.",
+        "Receipt: returns: Return lines on the receipt no longer go past the edge, and the total is no longer split in the middle of a number.",
+        "One account for the till and the owner: You can sign in to both the till and the owner program with one owner account; the shared device key is created atomically.",
+        "Closing the till by the installer: Fixed an error when the till is closed by the installer's signal (ObjectDisposedException).",
+        "Barcodes and price tags: The layout no longer jitters when the scale changes; in the new price tag window the panel is 1560 px in tall windows.",
         "Auto parts: analogues: Analogues are saved on the server; the hint about cross numbers is shown only on “Start”.",
         "Auto parts: search and payment: Search by “brand + number” (Mann W 811/80, Bosch 0 451 103 092); fixed the payment window crash at the “Workshop / mechanic” price.",
         "Auto parts: windows and menu: “Customer orders” in the old-style menu; the “Details” window no longer goes off a short screen; a separate startup lock for test stands.",
@@ -839,6 +855,11 @@ public static class AppChangelog
 
     public static readonly string[] LatestTr =
     [
+        "Oto yedek parça: fiyat listesi içe aktarma: «Toplu yükleme» sihirbazında yeni «Tedarikçi fiyat listesi (oto yedek parça)» profili: sütunlar eş anlamlılarla bulunur, grup satırları ve fiyatsız satırlar atlanır, «10-20» gibi stok aralık olarak okunur, yeniden yükleme kopya oluşturmaz, eski .xls da okunur.",
+        "Fiş: iadeler: Fişteki iade satırları kenardan taşmaz, tutar rakamın ortasından bölünmez.",
+        "Kasa ve sahip için tek hesap: Hem kasaya hem sahip programına tek sahip hesabıyla girilebilir; ortak cihaz anahtarı atomik olarak oluşturulur.",
+        "Kurulum programı kasayı kapatırken: Kasa kurulum programının sinyaliyle kapatılırken oluşan hata düzeltildi (ObjectDisposedException).",
+        "Barkodlar ve fiyat etiketleri: Ölçek değişince yerleşim titremez; yeni etiket penceresinde yüksek pencerelerde panel 1560 px.",
         "Oto yedek parça: muadiller: Muadiller sunucuda saklanır; çapraz numara ipucu yalnızca «Başlangıç»ta gösterilir.",
         "Oto yedek parça: arama ve ödeme: «Marka + numara» ile arama (Mann W 811/80, Bosch 0 451 103 092); «Servis / usta» fiyatında ödeme penceresinin çökmesi düzeltildi.",
         "Oto yedek parça: pencereler ve menü: Eski görünüm menüsünde «Müşteri siparişleri»; «Ayrıntılar» penceresi alçak ekranın dışına taşmaz; test düzenekleri için ayrı başlatma kilidi.",
@@ -1113,6 +1134,11 @@ public static class AppChangelog
 
     public static readonly string[] LatestUz =
     [
+        "Avtoehtiyot qismlar: narx-navo importi: «Ommaviy yuklash» ustasida yangi profil «Yetkazib beruvchi narx-navosi (avtoehtiyot qismlar)»: ustunlar sinonimlar bo'yicha topiladi, guruhlar va narxsiz qatorlar o'tkazib yuboriladi, «10-20» ko'rinishidagi qoldiq oraliq sifatida o'qiladi, qayta yuklash dublikat yaratmaydi, eski .xls ham o'qiladi.",
+        "Chek: qaytarishlar: Chekdagi qaytarish qatorlari chetdan chiqmaydi, summa raqam o'rtasidan uzilmaydi.",
+        "Kassa va egasi uchun bitta akkaunt: Kassaga ham, egasi dasturiga ham egasining bitta akkaunti bilan kirish mumkin; qurilmaning umumiy kaliti atomar yaratiladi.",
+        "O'rnatuvchi kassani yopganda: O'rnatuvchi signali bo'yicha kassa yopilganda yuz beradigan xato tuzatildi (ObjectDisposedException).",
+        "Shtrix-kodlar va narx yorliqlari: Masshtab o'zgarganda joylashuv titramaydi; narx yorlig'ining yangi oynasida baland oynalarda panel 1560 px.",
         "Avtoehtiyot qismlar: analoglar: Analoglar serverda saqlanadi; kross-raqamlar haqidagi maslahat faqat «Start»da ko'rsatiladi.",
         "Avtoehtiyot qismlar: qidiruv va to'lov: «Brend + raqam» bo'yicha qidiruv (Mann W 811/80, Bosch 0 451 103 092); «Ustaxona / usta» narxida to'lov oynasining qulashi tuzatildi.",
         "Avtoehtiyot qismlar: oynalar va menyu: «Mijoz buyurtmalari» eski ko'rinish menyusida; «Batafsil» oynasi past ekrandan chiqib ketmaydi; sinov stendlari uchun alohida ishga tushirish qulfi.",
@@ -1448,6 +1474,8 @@ public static class AppChangelog
     // 2026-10-05: Android 1.17.52. Без эмодзи — на Android их шрифт не рисует (снимок владельца: «Кнопка  в поиске»).
     public static readonly string[] AndroidLatest =
     [
+        "Автозапчасти: импорт прайсов: В мастере «Массовая загрузка» новый профиль «Прайс поставщика (автозапчасти)»: колонки находятся по синонимам, группы и строки без цены пропускаются, остаток вида «10-20» читается диапазоном, повторная загрузка не плодит дубли, читается и старый .xls.",
+        "Чек: возвраты: Строки возвратов в чеке не выходят за край, а сумма не рвётся по цифре.",
         "Автозапчасти: аналоги: Аналоги сохраняются на сервере; подсказка про кросс-номера показывается только на «Старте».",
         "Автозапчасти: поиск и оплата: Поиск «бренд + номер» (Mann W 811/80, Bosch 0 451 103 092); исправлено падение окна оплаты при цене «СТО / мастер».",
         "Чеки старше 7 суток: Очередь чеков старше 7 суток: отправка только после подтверждения PIN, с предупреждениями.",
@@ -1623,6 +1651,8 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestKy =
     [
+        "Автобөлүктөр: прайс импорту: «Жапырт жүктөө» устасында жаңы профиль «Жеткирүүчүнүн прайси (автобөлүктөр)»: мамычалар синонимдери боюнча табылат, топтор жана баасы жок саптар өткөрүлөт, «10-20» түрүндөгү калдык диапазон катары окулат, кайра жүктөө кайталанмаларды жаратпайт, эски .xls да окулат.",
+        "Чек: кайтаруулар: Чектеги кайтаруу саптары четтен чыкпайт, сумма цифра боюнча үзүлбөйт.",
         "Автобөлүктөр: аналогдор: Аналогдор серверде сакталат; кросс-номерлер боюнча кеңеш «Старт»та гана көрүнөт.",
         "Автобөлүктөр: издөө жана төлөм: «Бренд + номер» боюнча издөө (Mann W 811/80, Bosch 0 451 103 092); «СТО / уста» баасында төлөм терезесинин кулашы оңдолду.",
         "7 суткадан эски чектер: 7 суткадан эски чектер кезеги: PIN ырастагандан кийин гана жөнөтүлөт, эскертүүлөр менен.",
@@ -1796,6 +1826,8 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestEn =
     [
+        "Auto parts: price list import: The “Bulk import” wizard has a new profile “Supplier price list (auto parts)”: columns are found by synonyms, groups and rows without a price are skipped, a stock like “10-20” is read as a range, re-uploading does not create duplicates, and the old .xls format is readable.",
+        "Receipt: returns: Return lines on the receipt no longer go past the edge, and the total is no longer split in the middle of a number.",
         "Auto parts: analogues: Analogues are saved on the server; the hint about cross numbers is shown only on “Start”.",
         "Auto parts: search and payment: Search by “brand + number” (Mann W 811/80, Bosch 0 451 103 092); fixed the payment window crash at the “Workshop / mechanic” price.",
         "Receipts older than 7 days: Queue of receipts older than 7 days: sent only after PIN confirmation, with warnings.",
@@ -1969,6 +2001,8 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestTr =
     [
+        "Oto yedek parça: fiyat listesi içe aktarma: «Toplu yükleme» sihirbazında yeni «Tedarikçi fiyat listesi (oto yedek parça)» profili: sütunlar eş anlamlılarla bulunur, grup satırları ve fiyatsız satırlar atlanır, «10-20» gibi stok aralık olarak okunur, yeniden yükleme kopya oluşturmaz, eski .xls da okunur.",
+        "Fiş: iadeler: Fişteki iade satırları kenardan taşmaz, tutar rakamın ortasından bölünmez.",
         "Oto yedek parça: muadiller: Muadiller sunucuda saklanır; çapraz numara ipucu yalnızca «Başlangıç»ta gösterilir.",
         "Oto yedek parça: arama ve ödeme: «Marka + numara» ile arama (Mann W 811/80, Bosch 0 451 103 092); «Servis / usta» fiyatında ödeme penceresinin çökmesi düzeltildi.",
         "7 günden eski fişler: 7 günden eski fişlerin kuyruğu: yalnızca PIN onayından sonra, uyarılarla gönderilir.",
@@ -2142,6 +2176,8 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestUz =
     [
+        "Avtoehtiyot qismlar: narx-navo importi: «Ommaviy yuklash» ustasida yangi profil «Yetkazib beruvchi narx-navosi (avtoehtiyot qismlar)»: ustunlar sinonimlar bo'yicha topiladi, guruhlar va narxsiz qatorlar o'tkazib yuboriladi, «10-20» ko'rinishidagi qoldiq oraliq sifatida o'qiladi, qayta yuklash dublikat yaratmaydi, eski .xls ham o'qiladi.",
+        "Chek: qaytarishlar: Chekdagi qaytarish qatorlari chetdan chiqmaydi, summa raqam o'rtasidan uzilmaydi.",
         "Avtoehtiyot qismlar: analoglar: Analoglar serverda saqlanadi; kross-raqamlar haqidagi maslahat faqat «Start»da ko'rsatiladi.",
         "Avtoehtiyot qismlar: qidiruv va to'lov: «Brend + raqam» bo'yicha qidiruv (Mann W 811/80, Bosch 0 451 103 092); «Ustaxona / usta» narxida to'lov oynasining qulashi tuzatildi.",
         "7 kundan eski cheklar: 7 kundan eski cheklar navbati: faqat PIN tasdiqlangandan keyin, ogohlantirishlar bilan yuboriladi.",

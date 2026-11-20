@@ -592,7 +592,7 @@
       {
        "id": "в2-перенос-товаров-из-1с-мойсклад-poster",
        "title": "1C, MoySklad, Poster, Loyverse, Paloma365, Umag'dan ko'chirish: «Ommaviy yuklash»",
-       "text": "Шаг 1. ☰ → «Ombor» → «Mahsulotlar» → «Ommaviy yuklash» bo'limini oching.\nШаг 2. «Faylni tanlash…» (Excel yoki CSV) tugmasini bosing yoki kataklarni nusxalagan bo'lsangiz, «Buferdan qo'yish»ni bosing. Eski ikkilik .xls faylini kassa o'qimaydi — uni .xlsx yoki CSV qilib saqlang.\nШаг 3. Fayl qaysi dasturdan ekanini kassa o'zi aniqlaydi: 1C, MoySklad, Poster, Loyverse, Paloma365 yoki Umag («Fayl qaysi dasturdan?», «Fayl bo'yicha aniqlash»). Tanimasa, dasturni ro'yxatdan o'zingiz tanlang; ustunlar nomi bo'yicha tanlanadi.\nШаг 4. Ustunlarni tekshiring, «Tekshirish»ni, keyin «Yuklash»ni bosing. Fayldagi miqdor qoldiqqa qo'shiladi (kirim); «Faqat kartochkalar va narxlar (kirimsiz)» qoldiqni o'zgartirmaydi.\nШаг 5. «Mijozlar va qarzlar» — mijozlar ro'yxatini Excel/CSV'dan ko'chirish; qarzlar yozilmaydi, faqat ko'rsatiladi.\nШаг 6. «Qanday fayl mos?» — fayl formati bo'yicha maslahat. «Misolda ko'rish» — sinab ko'rish uchun 30 ta o'quv mahsuloti, ular serverga ham, bazangizga ham tushmaydi.\nШаг 7. «Eski yuklash (qoldiqni almashtirish)» — avvalgi oyna: fayldagi miqdor mahsulot qoldig'ini almashtiradi. Oyna bitta: tugmani qayta bosish uni faqat oldinga chiqaradi.",
+       "text": "Шаг 1. ☰ → «Ombor» → «Mahsulotlar» → «Ommaviy yuklash» bo'limini oching.\nШаг 2. «Faylni tanlash…» (Excel yoki CSV) tugmasini bosing yoki kataklarni nusxalagan bo'lsangiz, «Buferdan qo'yish»ni bosing. Eski ikkilik .xls (Excel 97–2003) ham o'qiladi.\nШаг 3. Fayl qaysi dasturdan ekanini kassa o'zi aniqlaydi: 1C, MoySklad, Poster, Loyverse, Paloma365 yoki Umag («Fayl qaysi dasturdan?», «Fayl bo'yicha aniqlash»). Tanimasa, dasturni ro'yxatdan o'zingiz tanlang; ustunlar nomi bo'yicha tanlanadi.\nШаг 4. Ustunlarni tekshiring, «Tekshirish»ni, keyin «Yuklash»ni bosing. Fayldagi miqdor qoldiqqa qo'shiladi (kirim); «Faqat kartochkalar va narxlar (kirimsiz)» qoldiqni o'zgartirmaydi.\nШаг 5. «Mijozlar va qarzlar» — mijozlar ro'yxatini Excel/CSV'dan ko'chirish; qarzlar yozilmaydi, faqat ko'rsatiladi.\nШаг 6. «Qanday fayl mos?» — fayl formati bo'yicha maslahat. «Misolda ko'rish» — sinab ko'rish uchun 30 ta o'quv mahsuloti, ular serverga ham, bazangizga ham tushmaydi.\nШаг 7. «Eski yuklash (qoldiqni almashtirish)» — avvalgi oyna: fayldagi miqdor mahsulot qoldig'ini almashtiradi. Oyna bitta: tugmani qayta bosish uni faqat oldinga chiqaradi.",
        "keywords": [
         "ko'chirish",
         "import",
@@ -811,6 +811,21 @@
         "elektrika",
         "o'rnatilgan detallar",
         "rahbar pin",
+        "avtoehtiyot qismlar"
+       ],
+       "images": []
+      },
+      {
+       "id": "в2-автозапчасти-прайс-поставщика",
+       "title": "Avtoehtiyot qismlar: yetkazib beruvchi prays-listini qanday yuklash",
+       "text": "Yetkazib beruvchi prays-listi (Excel yoki CSV) «Ommaviy yuklash»da yuklanadi: sarlavha, guruh qatorlari va narxsiz qatorlar o'zi o'tkazib yuboriladi, shtrix-kod kerak emas — kassa ichki shtrix-kod beradi.\nShag 1. .xlsx, .xls (eski Excel) yoki .csv fayli mos keladi — ochib, qayta saqlash shart emas. Windows-1251 dagi CSV'ni kassa o'zi o'qiydi.\nShag 2. Ombor → «Ommaviy yuklash» → «Faylni tanlash…». «Avtoehtiyot qismlar» turida «Yetkazib beruvchi prays-listi (avto ehtiyot qismlar)» profili o'zi yoqiladi; yoqilmasa «Fayl qaysi dasturdan?» ro'yxatidan tanlang.\nShag 3. Topilgan ustunlarni tekshiring: detal raqami («Katalog raqami», «Artikul», «Part number»), brend, narx, xarid, qoldiq. Prays-listda «Nomi» ustuni bo'lmasa, nom yig'iladigan ustunlarni belgilang (brend + model + o'lcham).\nShag 4. «Oldindan ko'rish: dastlabki 200 qator»ni bosing: o'tkazib yuborilgan qatorlarda sabab ko'rsatiladi («guruh», «narx yo'q», «N-qator takrori»); oraliqdagi qoldiq («20–50», «8 dan kam») quyi chegarasi bilan yoziladi, «bor» — 1, «yo'q» — 0, belgi bilan. Jami: «Yaratiladi N, yangilanadi M, o'tkaziladi K».\nShag 5. «Yuklash»ni bosing. Detal raqami artikulga, brend — brendga yoziladi; OEM, kross-raqamlar, «Mos keladi», holati, katak va kafolat ustunlar bo'lsa, ulardan olinadi.\nShag 6. Xuddi shu prays-listni qayta yuklash mumkin: tovar katalog raqami va brend bo'yicha topiladi, narxlar, brend, detal maydonlari va («Mavjud mahsulotlar qoldig'ini yangilash» belgisi bilan) qoldiq yangilanadi — takrorlanish bo'lmaydi.\nMuhim: Yuklashda qatorlar soni cheklanmaydi; oldindan ko'rish dastlabki 200 qatorni ko'rsatadi.",
+       "keywords": [
+        "prays",
+        "yetkazib beruvchi",
+        "katalog raqami",
+        "ommaviy yuklash",
+        "xls",
+        "excel",
         "avtoehtiyot qismlar"
        ],
        "images": []

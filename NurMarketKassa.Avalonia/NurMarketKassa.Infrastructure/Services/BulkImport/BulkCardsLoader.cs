@@ -252,6 +252,7 @@ public static class BulkCardsLoader
         }
 
         result.AuthExpired = authExpired == 1;
+        PartMetaStore.SaveIfDirty(); // 2026-11-20: данные запчастей прайса — на диск один раз в конце загрузки
         result.Created = created;
         result.Updated = updated;
         result.Failed = failed;
@@ -333,7 +334,12 @@ public static class BulkCardsLoader
                 AlternateBarcodes = row.AltFull.Count > 0 ? string.Join('\n', row.AltFull.Select(v => v.Barcode)) : null,
                 IsNew = true,
             };
-            await WithRetryAsync(async t => { await api.CreateProductAsync(request, t).ConfigureAwait(false); }, createdBarcode: line.Barcode, api, gate, ct).ConfigureAwait(false);
+            // 2026-11-20: прайс автозапчастей — бренд, артикул (каталожный номер), attributes, ячейка и остаток уходят в тело создания (как у карточки товара).
+            var partData = row.Extra as AutoPartsRowData;
+            partData?.ApplyToCreate(request);
+            System.Text.Json.JsonElement createdCard = default;
+            await WithRetryAsync(async t => { createdCard = await api.CreateProductAsync(request, t).ConfigureAwait(false); }, createdBarcode: line.Barcode, api, gate, ct).ConfigureAwait(false);
+            partData?.AfterSaved(AutoPartsRowData.IdOf(createdCard));
             row.LoadOutcome = "created";
             return Outcome.Created;
         }
@@ -358,12 +364,19 @@ public static class BulkCardsLoader
                 ["quantity"] = v.Quantity,
             }).ToArray();
         }
+        // 2026-11-20: прайс автозапчастей — у существующего товара пишутся только изменившиеся бренд, номера, ячейка, остаток.
+        var existingPart = row.Extra as AutoPartsRowData;
+        existingPart?.AddPatchFields(fields);
         if (fields.Count == 0 || string.IsNullOrWhiteSpace(line.ProductId))
+        {
+            existingPart?.AfterSaved(line.ProductId);
             return Outcome.Updated;
+        }
 
         await WithRetryAsync(async t => { ServerPriceContract.Observe(await api.PatchProductFieldsAsync(line.ProductId!, fields, t).ConfigureAwait(false)); },
             createdBarcode: null, api, gate, ct).ConfigureAwait(false);
         row.LoadOutcome = "updated";
+        existingPart?.AfterSaved(line.ProductId);
         return Outcome.Updated;
     }
 

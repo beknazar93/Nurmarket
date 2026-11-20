@@ -40,6 +40,8 @@ public partial class MainWindow : Window
     private readonly PosHotkeyService _hotkeys = new();
     private readonly IBarcodeInputService _barcodeInputService;
     private readonly CancellationTokenSource _windowCts = new();
+    // 2026-11-20: окно уже закрыто и _windowCts освобождён (закрытие по сигналу установщика, пока OnLoaded стоял на await) — Token брать нельзя.
+    private volatile bool _windowDisposed;
     private readonly ApplicationStateService _applicationStateService = new();
 
     private bool _appInitialized;
@@ -2560,6 +2562,10 @@ public partial class MainWindow : Window
             ShowWhatsNewIfUpdated();
         }
 
+        // 2026-11-20 (журнал 09:53:31, Critical ObjectDisposedException): после await выше окно могли закрыть («Закрытие по сигналу системы/установщика»);
+        // OnClosed освободил _windowCts — монитор подписки и офлайн-льготы запускать не для чего.
+        if (_windowDisposed)
+            return;
         if (!_subscriptionMonitorStarted)
         {
             _subscriptionMonitorStarted = true;
@@ -2965,6 +2971,7 @@ public partial class MainWindow : Window
         _telegramBot?.Stop();
         _customerDisplay.CloseForSession();
         _viewModel.Dispose();
+        _windowDisposed = true;
         _windowCts.Dispose();
         if (ReferenceEquals(_hostBridge.Window, this))
             _hostBridge.Window = null;

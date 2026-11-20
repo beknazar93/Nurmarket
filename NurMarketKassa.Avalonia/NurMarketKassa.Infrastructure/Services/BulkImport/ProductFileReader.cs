@@ -3,6 +3,7 @@ using System.Text;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
+using ExcelDataReader;
 
 namespace NurMarketKassa.Services;
 
@@ -44,6 +45,9 @@ public sealed class ProductFileRow
 
     /// <summary>Биты столбцов (с нуля, первые 64), чья ячейка в .xlsx была ЧИСЛОМ, а не текстом.</summary>
     public ulong NumericMask { get; }
+
+    /// <summary>2026-11-20: данные строки от профиля импорта (например, <see cref="AutoPartsRowData"/> прайса автозапчастей) — уезжают в <see cref="BulkImportRow.Extra"/>.</summary>
+    public object? Tag { get; init; }
 
     public string this[int column] => column >= 0 && column < Cells.Length ? Cells[column] : "";
 
@@ -145,7 +149,7 @@ public static class ProductFileReader
 
     // ------------------------------------------------------------------ вход
 
-    /// <summary>Прочитать файл с диска. Тип определяется по содержимому (zip → .xlsx, старый двоичный .xls → понятная ошибка, иначе CSV).</summary>
+    /// <summary>Прочитать файл с диска. Тип определяется по содержимому (zip → .xlsx, двоичный .xls (OLE) → ExcelDataReader, иначе CSV).</summary>
     /// <param name="sheet">.xlsx: имя листа (по умолчанию — первый видимый).</param>
     /// <param name="delimiter">CSV: разделитель вручную (по умолчанию — по строке заголовков).</param>
     public static ProductFileReadResult ReadFile(string path, string? sheet = null, ProductFileEncoding encoding = ProductFileEncoding.Auto, char? delimiter = null)
@@ -172,20 +176,14 @@ public static class ProductFileReader
         }
 
         var name = Path.GetFileName(path);
-        var xlsMessage = Tr.T("Старый формат Excel (.xls) не читается. Сохраните файл как .xlsx или CSV.",
-            "Эски Excel форматы (.xls) окулбайт. Файлды .xlsx же CSV катары сактаңыз.",
-            "The old Excel format (.xls) is not supported. Save the file as .xlsx or CSV.",
-            "Eski Excel biçimi (.xls) desteklenmiyor. Dosyayı .xlsx veya CSV olarak kaydedin.",
-            "Eski Excel formati (.xls) qo'llab-quvvatlanmaydi. Faylni .xlsx yoki CSV sifatida saqlang.");
+        // 2026-11-20: двоичный .xls (прайсы поставщиков) читает ExcelDataReader — лист → строки так же, как для .xlsx.
         if (IsOleCompound(bytes))
-            return ProductFileReadResult.Fail(xlsMessage);
+            return ReadXls(new MemoryStream(bytes, writable: false), name, sheet);
         // 2026-11-19 (Л-10, «перенос из 1С»): выгрузка 1С в формате CommerceML (import.xml / offers.xml) — тот же формат, что читает приход (InvoiceXmlParser).
         if (CommerceMlReader.LooksLike(bytes))
             return CommerceMlReader.Read(bytes, name);
         if (IsZip(bytes))
             return ReadXlsx(new MemoryStream(bytes, writable: false), name, sheet);
-        if (path.EndsWith(".xls", StringComparison.OrdinalIgnoreCase))
-            return ProductFileReadResult.Fail(xlsMessage);
         if (path.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".xlsm", StringComparison.OrdinalIgnoreCase))
             return ProductFileReadResult.Fail(BrokenFileText);
         return ReadCsv(bytes, name, encoding, delimiter);
@@ -258,6 +256,146 @@ public static class ProductFileReader
         }
     }
 
+    // ------------------------------------------------------------------ .xls (двоичный)
+
+    private static string BrokenXlsText => Tr.T("Файл .xls повреждён или защищён паролем. Снимите защиту, откройте его в Excel и сохраните заново (.xlsx или CSV).",
+        "Файл .xls бузулган же сыр сөз менен корголгон. Коргоону алып, Excel'де ачып, кайра сактаңыз (.xlsx же CSV).",
+        "The .xls file is damaged or password-protected. Remove the protection, open it in Excel and save it again (.xlsx or CSV).",
+        ".xls dosyası bozuk veya parolayla korunuyor. Korumayı kaldırın, Excel'de açıp yeniden kaydedin (.xlsx veya CSV).",
+        ".xls fayli shikastlangan yoki parol bilan himoyalangan. Himoyani olib tashlang, Excel'da ochib qayta saqlang (.xlsx yoki CSV).");
+
+    /// <summary>2026-11-20: двоичный .xls (BIFF, OLE) через ExcelDataReader (MIT). Как и ReadXlsx: первый видимый лист или заданный, числа без экспоненты, пустые строки пропускаются.</summary>
+    public static ProductFileReadResult ReadXls(Stream stream, string fileName, string? sheet = null)
+    {
+        try
+        {
+            // Старые .xls хранят текст в кодовых страницах (Windows-1251 и др.) — провайдер из System.Text.Encoding.CodePages.
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+            var config = new ExcelReaderConfiguration { FallbackEncoding = Encoding.GetEncoding(1251), LeaveOpen = true };
+
+            var visible = new List<(string Name, int Index)>();
+            using (var probe = ExcelReaderFactory.CreateReader(stream, config))
+            {
+                var i = 0;
+                do
+                {
+                    if (!string.Equals(probe.VisibleState, "hidden", StringComparison.OrdinalIgnoreCase) && !string.Equals(probe.VisibleState, "veryhidden", StringComparison.OrdinalIgnoreCase))
+                        visible.Add((probe.Name ?? "", i));
+                    i++;
+                }
+                while (probe.NextResult());
+            }
+            if (visible.Count == 0)
+                return ProductFileReadResult.Fail(Tr.T("В книге нет ни одного видимого листа.", "Китепте бир да көрүнүүчү барак жок.",
+                    "The workbook has no visible sheets.", "Çalışma kitabında görünür sayfa yok.", "Kitobda ko'rinadigan varaq yo'q."));
+            var chosen = visible[0];
+            if (sheet is not null)
+                foreach (var v in visible)
+                    if (string.Equals(v.Name, sheet, StringComparison.OrdinalIgnoreCase))
+                        chosen = v;
+
+            stream.Position = 0;
+            var rows = new List<ProductFileRow>();
+            var columns = 0;
+            var cellsSeen = 0;
+            var errorCells = 0;
+            using (var reader = ExcelReaderFactory.CreateReader(stream, config))
+            {
+                for (var skip = 0; skip < chosen.Index; skip++)
+                    reader.NextResult();
+                var rowNo = 0;
+                var buffer = new List<(int Col, string Text)>(32);
+                while (reader.Read())
+                {
+                    rowNo++;
+                    buffer.Clear();
+                    ulong mask = 0;
+                    for (var col = 0; col < reader.FieldCount; col++)
+                    {
+                        var raw = reader.GetValue(col);
+                        if (raw is null)
+                            continue;
+                        if (++cellsSeen > MaxCells)
+                            throw new ReadLimitException("cells");
+                        var text = XlsCellText(raw, reader.GetNumberFormatString(col), out var numeric, ref errorCells);
+                        if (text.Length == 0)
+                            continue;
+                        buffer.Add((col, text));
+                        if (numeric && col < 64)
+                            mask |= 1UL << col;
+                    }
+                    if (buffer.Count == 0)
+                        continue;
+                    var width = buffer.Max(b => b.Col) + 1;
+                    var values = new string[width];
+                    Array.Fill(values, "");
+                    foreach (var (col, text) in buffer)
+                        values[col] = text.Trim();
+                    if (values.All(v => v.Length == 0))
+                        continue;
+                    if (rows.Count >= MaxRows + 1)
+                        return TooManyRows();
+                    rows.Add(new ProductFileRow(rowNo, values, mask));
+                    columns = Math.Max(columns, width);
+                }
+            }
+
+            var table = new ProductFileTable
+            {
+                Kind = ProductFileKind.Xlsx,
+                FileName = fileName,
+                SheetName = chosen.Name,
+                Sheets = visible.Select(s => s.Name).ToList(),
+                Rows = rows,
+                ColumnCount = columns,
+            };
+            if (errorCells > 0)
+                table.Warnings.Add(Tr.T($"Ячеек с ошибкой Excel (#Н/Д, #ДЕЛ/0! и т. п.): {errorCells} — они прочитаны пустыми.",
+                    $"Excel катасы бар уячыкалар: {errorCells} — бош катары окулду.",
+                    $"Cells with an Excel error (#N/A, #DIV/0! and so on): {errorCells} — read as empty.",
+                    $"Excel hatası olan hücreler: {errorCells} — boş okundu.",
+                    $"Excel xatosi bor kataklar: {errorCells} — bo'sh o'qildi."));
+            table.DetectHeaderRow();
+            return new ProductFileReadResult { Table = table };
+        }
+        catch (ReadLimitException)
+        {
+            return ProductFileReadResult.Fail(Tr.T("Файл слишком большой по числу ячеек. Разделите его на части.", "Файл уячыкалардын саны боюнча өтө чоң. Бөлүктөргө бөлүңүз.",
+                "The file has too many cells. Split it into parts.", "Dosyada çok fazla hücre var. Parçalara bölün.", "Faylda kataklar juda ko'p. Uni qismlarga bo'ling."));
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            PosLogger.Log($"Импорт товаров: .xls не прочитан ({ex.GetType().Name}: {ex.Message}).", "WARNING");
+            return ProductFileReadResult.Fail(BrokenXlsText);
+        }
+    }
+
+    private static string XlsCellText(object raw, string? numberFormat, out bool numeric, ref int errorCells)
+    {
+        numeric = false;
+        switch (raw)
+        {
+            case string s:
+                return s;
+            case bool b:
+                return b ? "TRUE" : "FALSE";
+            case DateTime dt:
+                return dt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            case double or float or decimal or int or long or short or byte:
+                break;
+            default:
+                errorCells++; // ячейка с ошибкой Excel (#Н/Д и т. п.) приходит особым значением
+                return "";
+        }
+        numeric = true;
+        var d = Convert.ToDouble(raw, CultureInfo.InvariantCulture);
+        if (numberFormat is { Length: > 0 } && numberFormat.Contains('%'))
+            return FormatNumber((d * 100).ToString("R", CultureInfo.InvariantCulture)); // 0,25 с форматом «%» → «25»
+        var text = FormatNumber(d.ToString("R", CultureInfo.InvariantCulture));
+        if (numberFormat is { Length: >= 4 } && numberFormat.All(ch => ch == '0') && text.Length < numberFormat.Length && text.All(char.IsAsciiDigit))
+            text = text.PadLeft(numberFormat.Length, '0'); // формат «00000000»: ведущие нули штрихкода на месте
+        return text;
+    }
     private static List<string> ReadSharedStrings(WorkbookPart book)
     {
         var list = new List<string>();

@@ -255,7 +255,7 @@ public sealed partial class BulkImportWizardWindow : Window
         AddSetting(_cardsCheck);
         AddSetting(_mergeNameCheck);
         AddSetting(_checkBtn);
-        _mapPanel.Child = new StackPanel { Spacing = 4, Children = { _sourceRow, _sourceNote, mapTitle, _mapWrap, _modeNote, settings } };
+        _mapPanel.Child = new StackPanel { Spacing = 4, Children = { _sourceRow, _sourceNote, mapTitle, _mapWrap, BuildAutoPartsBox(), _modeNote, settings } };
 
         // ---- шаг 3: итог, действия, таблица
         foreach (var (filter, _) in new[] { (Filter.All, 0), (Filter.Receipt, 0), (Filter.New, 0), (Filter.Error, 0), (Filter.Warning, 0), (Filter.Merged, 0) })

@@ -79,6 +79,12 @@ public partial class BulkImportWizardWindow
         _sourceCombo.Items.Add(T("Определить по файлу", "Файлдан аныктоо", "Detect from the file", "Dosyadan algıla", "Fayldan aniqlash"));
         foreach (var p in ImportSourceProfiles.All)
             _sourceCombo.Items.Add(p.Name);
+        if (AutoPartsProfile.IsActive)
+        {
+            _sourceCombo.Items.Add(AutoPartsPriceImport.ProfileName); // 2026-11-20: прайс поставщика (автозапчасти) — последний пункт
+            _sourceCombo.Width = double.NaN; // длинное название пункта не должно обрезаться (ширина по содержимому, не меньше 250)
+            _sourceCombo.MinWidth = 250;
+        }
         _sourceCombo.SelectedIndex = 0;
         _sourceCombo.SelectionChanged += (_, _) =>
         {
@@ -105,6 +111,15 @@ public partial class BulkImportWizardWindow
         if (_table is null)
             return;
         var idx = _sourceCombo.SelectedIndex;
+        if (AutoPartsProfile.IsActive && idx == ImportSourceProfiles.All.Count + 1)
+        {
+            EnableAutoParts(); // 2026-11-20: прайс поставщика (автозапчасти)
+            _mapping = ProductImportMapping.Resolve(_table.Headers, _table);
+            UpdateSourceNote();
+            ScheduleRecheck();
+            return;
+        }
+        DisableAutoParts();
         if (idx <= 0)
             _mapping = ProductImportMapping.Resolve(_table.Headers, _table);
         else
@@ -127,7 +142,8 @@ public partial class BulkImportWizardWindow
         try
         {
             var src = _mapping.Source;
-            _sourceCombo.SelectedIndex = src is null ? 0 : ImportSourceProfiles.All.ToList().FindIndex(p => p.Id == src.Id) + 1;
+            _sourceCombo.SelectedIndex = _apOn ? ImportSourceProfiles.All.Count + 1
+                : src is null ? 0 : ImportSourceProfiles.All.ToList().FindIndex(p => p.Id == src.Id) + 1;
         }
         finally
         {
@@ -144,7 +160,11 @@ public partial class BulkImportWizardWindow
             return;
         }
         var src = _mapping.Source;
-        if (src is not null)
+        if (_apOn)
+        {
+            _sourceNote.Text = AutoPartsPriceImport.HowTo;
+        }
+        else if (src is not null)
         {
             _sourceNote.Text = T($"Файл из «{src.Name}»: столбцы подобраны по готовому шаблону — проверьте и нажмите «Проверить». ",
                 $"Файл «{src.Name}» программасынан: мамычалар даяр үлгү боюнча тандалды — текшерип, «Текшерүү» басыңыз. ",
@@ -177,9 +197,7 @@ public partial class BulkImportWizardWindow
         var text = new TextBlock { FontSize = 12.5, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 0) };
         text.Bind(TextBlock.ForegroundProperty, text.GetResourceObservable("BrushTextSoft"));
         text.Text = T("Из другой программы: ", "Башка программадан: ", "From another program: ", "Başka bir programdan: ", "Boshqa dasturdan: ")
-            + string.Join("  ·  ", ImportSourceProfiles.All.Select(p => p.Name + " — " + p.HowToExport))
-            + T("  Старый двоичный .xls касса не читает — сохраните его как .xlsx или CSV.", "  Эски экилик .xls форматын касса окубайт — .xlsx же CSV катары сактаңыз.",
-                "  The old binary .xls is not read — save it as .xlsx or CSV.", "  Eski ikili .xls okunmaz — .xlsx veya CSV olarak kaydedin.", "  Eski ikkilik .xls o'qilmaydi — .xlsx yoki CSV sifatida saqlang.");
+            + string.Join("  ·  ", ImportSourceProfiles.All.Select(p => p.Name + " — " + p.HowToExport));
         return text;
     }
 

@@ -36,7 +36,7 @@ public partial class BulkImportWizardWindow
             AllowMultiple = false,
             FileTypeFilter =
             [
-                new FilePickerFileType("Excel / CSV") { Patterns = ["*.xlsx", "*.csv", "*.txt", "*.xml"] },
+                new FilePickerFileType("Excel / CSV") { Patterns = ["*.xlsx", "*.xls", "*.csv", "*.txt", "*.xml"] },
             ],
         });
         if (files.Count == 0)
@@ -104,6 +104,7 @@ public partial class BulkImportWizardWindow
         _loadingFile = true;
         _cardsCheck.IsChecked = !_mapping.HasQuantity; // нет столбца количества — «только карточки и цены» по умолчанию
         _loadingFile = false;
+        AutoSelectAutoParts(); // 2026-11-20: сфера «Автозапчасти» и файл — прайс поставщика: профиль включается сам
         _hintPanel.IsVisible = false;
         var sheet = _table.SheetName is { Length: > 0 } s ? T($" · лист «{s}»", $" · «{s}» барагы", $" · sheet “{s}”", $" · «{s}» sayfası", $" · «{s}» varag'i") : "";
         var enc = _table.EncodingName is { Length: > 0 } e ? $" · {e}" : "";
@@ -282,7 +283,12 @@ public partial class BulkImportWizardWindow
                 _bar.Value = n;
                 _status.Text = T($"Разбор {n:N0} из {total:N0}…", $"Талдоо {n:N0} / {total:N0}…", $"Parsing {n:N0} of {total:N0}…", $"Ayrıştırma {n:N0} / {total:N0}…", $"Tahlil {n:N0} / {total:N0}…");
             });
-            var plan = await BulkImportPlan.BuildAsync(_table, _mapping, ReadSettings(), null, progress, token).ConfigureAwait(true);
+            // 2026-11-20: профиль «Прайс поставщика (автозапчасти)» — план строится по очищенной таблице (без групп и строк без цены, со штрихкодами)
+            var planTable = _table;
+            var planMapping = _mapping;
+            if (_apOn)
+                (planTable, planMapping) = await PrepareAutoPartsAsync(token).ConfigureAwait(true);
+            var plan = await BulkImportPlan.BuildAsync(planTable, planMapping, ReadSettings(), null, progress, token).ConfigureAwait(true);
             _bar.IsVisible = false;
             _plan = plan;
             if (plan.Problem is { } problem)

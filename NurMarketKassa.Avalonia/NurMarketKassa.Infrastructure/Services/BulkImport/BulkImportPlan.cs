@@ -109,6 +109,9 @@ public sealed class BulkImportRow
     /// <summary>Строка файла как есть (для «Скачать строки с ошибками»).</summary>
     public string[] SourceCells { get; internal set; } = [];
 
+    /// <summary>2026-11-20: данные профиля импорта (прайс автозапчастей) из <see cref="ProductFileRow.Tag"/>; загрузчик карточек пишет их вместе с товаром.</summary>
+    public object? Extra { get; internal set; }
+
     /// <summary>2026-10-30: доп. штрихкоды из файла (проверенные, без основного и без повторов).</summary>
     public IReadOnlyList<string> AltBarcodes => _alts;
     internal readonly List<string> _alts = [];
@@ -310,7 +313,7 @@ public sealed class BulkImportPlan
                 progress?.Report(done);
             done++;
 
-            var row = new BulkImportRow { FileRow = src.FileRow, SourceCells = src.Cells, Name = src[cName].Trim() };
+            var row = new BulkImportRow { FileRow = src.FileRow, SourceCells = src.Cells, Name = src[cName].Trim(), Extra = src.Tag };
             rows.Add(row);
 
             // ---- штрихкод
@@ -879,7 +882,8 @@ public sealed class BulkImportPlan
         row.CardsOnly = cols.CardsOnly;
         row.ChPurchase = cols.CardsOnly && !isNew && line.PurchasePrice > 0 && Math.Abs(line.PurchasePrice - line.OriginalPurchasePrice) > 0.004;
         row.ChSale = cols.CardsOnly && !isNew && line.SalePrice > 0 && Math.Abs(line.SalePrice - line.OriginalSalePrice) > 0.004;
-        row.Unchanged = cols.CardsOnly && !isNew && problems.Count == 0 && !row.ChPurchase && !row.ChSale && row.AltAdded == 0;
+        // 2026-11-20: прайс автозапчастей — строка с изменившимися полями запчасти (бренд, ячейка, номера, остаток) тоже пишется.
+        row.Unchanged = cols.CardsOnly && !isNew && problems.Count == 0 && !row.ChPurchase && !row.ChSale && row.AltAdded == 0 && row.Extra is not AutoPartsRowData { NeedsWrite: true };
         return problems.Count == 0;
     }
 
