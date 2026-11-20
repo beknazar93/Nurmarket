@@ -951,6 +951,27 @@
                                        VerticalAlignment="Center"/>
                         </Grid>
                     </Button>
+                    <!-- 2026-11-20 (живая проверка «Автозапчастей»): «Заказы под клиента» были только в «Новом» виде меню, а по умолчанию — «Старое»: кассир пункта не находил. -->
+                    <Button Classes="sidebar-menu-item"
+                            IsVisible="{Binding ShowPartsOrders}"
+                            Command="{Binding NavigatePartsOrdersCommand}">
+                        <Grid ColumnDefinitions="24,12,*" HorizontalAlignment="Stretch">
+                            <Path Grid.Column="0"
+                                  Width="20" Height="20"
+                                  Stretch="Uniform"
+                                  VerticalAlignment="Center"
+                                  Fill="Transparent"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  StrokeThickness="1.6"
+                                  StrokeLineCap="Round"
+                                  StrokeJoin="Round"
+                                  Data="M6,3 H18 V21 H6 Z M9,8 H15 M9,12 H15 M9,16 H13"/>
+                            <TextBlock Grid.Column="2"
+                                       Text="{DynamicResource csh.menu.partsOrders}"
+                                       HorizontalAlignment="Left"
+                                       VerticalAlignment="Center"/>
+                        </Grid>
+                    </Button>
 
                     </StackPanel>
 

@@ -25,6 +25,7 @@
   <x:String x:Key="csh.menu.repair">Оңдоо жана тейлөө</x:String>
   <x:String x:Key="csh.menu.tradeIn">Trade-in / сатып алуу</x:String>
   <x:String x:Key="csh.menu.estimate">Смета</x:String>
+  <x:String x:Key="csh.menu.partsOrders">Кардарга заказдар</x:String>
   <x:String x:Key="csh.menu.settings">Жөндөөлөр</x:String>
   <x:String x:Key="csh.menu.marketplace">Маркетплейс</x:String>
   <x:String x:Key="csh.menu.crm">NurCRM</x:String>

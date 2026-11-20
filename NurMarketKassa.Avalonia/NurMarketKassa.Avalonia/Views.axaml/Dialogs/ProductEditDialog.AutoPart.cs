@@ -185,7 +185,8 @@ public partial class ProductEditDialog
         var count = PartNumbers.ParseList(_apCross.Text).Count;
         _apCrossHint.IsVisible = count > 0;
         _apCrossHint.Text = Tr.T($"Номеров: {count}", $"Номерлер: {count}", $"Numbers: {count}", $"Numara: {count}", $"Raqamlar: {count}")
-                            + (count > AutoPartInfo.SoftCrossLimit ? ". " + AutoPartsProfile.CrossLimitHint : "");
+                            // 2026-11-20 (живая проверка): подсказка про тариф «Стандарт» показывалась и на самом «Стандарте» — теперь только на «Старте».
+                            + (count > AutoPartInfo.SoftCrossLimit && TariffGate.IsStartTariff ? ". " + AutoPartsProfile.CrossLimitHint : "");
     }
 
     /// <summary>Данные блока из полей окна. Чужие атрибуты карточки берутся из известной записи.</summary>

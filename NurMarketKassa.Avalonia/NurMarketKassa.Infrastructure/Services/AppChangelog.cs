@@ -11,9 +11,13 @@
 /// кыргызским, а сами пункты русскими.</summary>
 public static class AppChangelog
 {
+    // 2026-11-20: 1.17.89 (тестовый канал) — сверху всех Latest* 3 пункта (Автозапчасти: аналоги, поиск и оплата, окна и меню), сверху AndroidLatest* — первые два.
     // 2026-11-20: 1.17.88 (тестовый канал) — сверху всех Latest* 8 пунктов (табель, подписка, чеки старше 7 суток, склад, Автозапчасти, малые экраны, разделы владельца, исправления), сверху AndroidLatest* — 4 общих.
     public static readonly string[] Latest =
     [
+        "Автозапчасти: аналоги: Аналоги сохраняются на сервере; подсказка про кросс-номера показывается только на «Старте».",
+        "Автозапчасти: поиск и оплата: Поиск «бренд + номер» (Mann W 811/80, Bosch 0 451 103 092); исправлено падение окна оплаты при цене «СТО / мастер».",
+        "Автозапчасти: окна и меню: «Заказы под клиента» в меню старого вида; окно «Подробнее» не выходит за низкий экран; отдельный замок запуска для тестовых стендов.",
         "Табель за месяц: Табель выбирается за месяц с серверным фильтром; если на сервере уже есть готовый табель — показывается он.",
         "Подписка: Новый экран «Подписка»: оплата через ELQR и учебный банк для проверки.",
         "Чеки старше 7 суток: Очередь чеков старше 7 суток: отправка только после подтверждения PIN, с предупреждениями.",
@@ -287,6 +291,9 @@ public static class AppChangelog
 
     public static readonly string[] LatestKy =
     [
+        "Автобөлүктөр: аналогдор: Аналогдор серверде сакталат; кросс-номерлер боюнча кеңеш «Старт»та гана көрүнөт.",
+        "Автобөлүктөр: издөө жана төлөм: «Бренд + номер» боюнча издөө (Mann W 811/80, Bosch 0 451 103 092); «СТО / уста» баасында төлөм терезесинин кулашы оңдолду.",
+        "Автобөлүктөр: терезелер жана меню: «Кардарга заказдар» эски көрүнүштүн менюсунда; «Кененирээк» терезеси аласа экрандан чыкпайт; сыноо стенддери үчүн өзүнчө ишке киргизүү кулпусу.",
         "Айлык табель: Табель ай боюнча сервердик чыпка менен тандалат; серверде даяр табель болсо, ал көрсөтүлөт.",
         "Жазылуу: Жаңы «Жазылуу» экраны: ELQR аркылуу төлөм жана текшерүү үчүн окуу банкы.",
         "7 суткадан эски чектер: 7 суткадан эски чектер кезеги: PIN ырастагандан кийин гана жөнөтүлөт, эскертүүлөр менен.",
@@ -558,6 +565,9 @@ public static class AppChangelog
 
     public static readonly string[] LatestEn =
     [
+        "Auto parts: analogues: Analogues are saved on the server; the hint about cross numbers is shown only on “Start”.",
+        "Auto parts: search and payment: Search by “brand + number” (Mann W 811/80, Bosch 0 451 103 092); fixed the payment window crash at the “Workshop / mechanic” price.",
+        "Auto parts: windows and menu: “Customer orders” in the old-style menu; the “Details” window no longer goes off a short screen; a separate startup lock for test stands.",
         "Monthly timesheet: The timesheet is picked by month with a server filter; if the server already has a ready timesheet, it is shown.",
         "Subscription: New “Subscription” screen: payment via ELQR and a training bank for testing.",
         "Receipts older than 7 days: Queue of receipts older than 7 days: sent only after PIN confirmation, with warnings.",
@@ -829,6 +839,9 @@ public static class AppChangelog
 
     public static readonly string[] LatestTr =
     [
+        "Oto yedek parça: muadiller: Muadiller sunucuda saklanır; çapraz numara ipucu yalnızca «Başlangıç»ta gösterilir.",
+        "Oto yedek parça: arama ve ödeme: «Marka + numara» ile arama (Mann W 811/80, Bosch 0 451 103 092); «Servis / usta» fiyatında ödeme penceresinin çökmesi düzeltildi.",
+        "Oto yedek parça: pencereler ve menü: Eski görünüm menüsünde «Müşteri siparişleri»; «Ayrıntılar» penceresi alçak ekranın dışına taşmaz; test düzenekleri için ayrı başlatma kilidi.",
         "Aylık puantaj: Puantaj ay bazında sunucu filtresiyle seçilir; sunucuda hazır puantaj varsa o gösterilir.",
         "Abonelik: Yeni «Abonelik» ekranı: ELQR ile ödeme ve deneme için eğitim bankası.",
         "7 günden eski fişler: 7 günden eski fişlerin kuyruğu: yalnızca PIN onayından sonra, uyarılarla gönderilir.",
@@ -1100,6 +1113,9 @@ public static class AppChangelog
 
     public static readonly string[] LatestUz =
     [
+        "Avtoehtiyot qismlar: analoglar: Analoglar serverda saqlanadi; kross-raqamlar haqidagi maslahat faqat «Start»da ko'rsatiladi.",
+        "Avtoehtiyot qismlar: qidiruv va to'lov: «Brend + raqam» bo'yicha qidiruv (Mann W 811/80, Bosch 0 451 103 092); «Ustaxona / usta» narxida to'lov oynasining qulashi tuzatildi.",
+        "Avtoehtiyot qismlar: oynalar va menyu: «Mijoz buyurtmalari» eski ko'rinish menyusida; «Batafsil» oynasi past ekrandan chiqib ketmaydi; sinov stendlari uchun alohida ishga tushirish qulfi.",
         "Oylik tabel: Tabel oy bo'yicha server filtri bilan tanlanadi; serverda tayyor tabel bo'lsa, shu ko'rsatiladi.",
         "Obuna: Yangi «Obuna» ekrani: ELQR orqali to'lov va tekshirish uchun o'quv banki.",
         "7 kundan eski cheklar: 7 kundan eski cheklar navbati: faqat PIN tasdiqlangandan keyin, ogohlantirishlar bilan yuboriladi.",
@@ -1432,6 +1448,8 @@ public static class AppChangelog
     // 2026-10-05: Android 1.17.52. Без эмодзи — на Android их шрифт не рисует (снимок владельца: «Кнопка  в поиске»).
     public static readonly string[] AndroidLatest =
     [
+        "Автозапчасти: аналоги: Аналоги сохраняются на сервере; подсказка про кросс-номера показывается только на «Старте».",
+        "Автозапчасти: поиск и оплата: Поиск «бренд + номер» (Mann W 811/80, Bosch 0 451 103 092); исправлено падение окна оплаты при цене «СТО / мастер».",
         "Чеки старше 7 суток: Очередь чеков старше 7 суток: отправка только после подтверждения PIN, с предупреждениями.",
         "Подписка: Новый экран «Подписка»: оплата через ELQR и учебный банк для проверки.",
         "Автозапчасти: Новая сфера: поиск по каталожному номеру и OEM, аналоги, состояние, ячейка, цена СТО, гарантия и возврат, заказ под клиента с предоплатой.",
@@ -1605,6 +1623,8 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestKy =
     [
+        "Автобөлүктөр: аналогдор: Аналогдор серверде сакталат; кросс-номерлер боюнча кеңеш «Старт»та гана көрүнөт.",
+        "Автобөлүктөр: издөө жана төлөм: «Бренд + номер» боюнча издөө (Mann W 811/80, Bosch 0 451 103 092); «СТО / уста» баасында төлөм терезесинин кулашы оңдолду.",
         "7 суткадан эски чектер: 7 суткадан эски чектер кезеги: PIN ырастагандан кийин гана жөнөтүлөт, эскертүүлөр менен.",
         "Жазылуу: Жаңы «Жазылуу» экраны: ELQR аркылуу төлөм жана текшерүү үчүн окуу банкы.",
         "Автобөлүктөр: Жаңы тармак: каталог номери жана OEM боюнча издөө, аналогдор, абалы, уюча, СТО баасы, кепилдик жана кайтаруу, алдын ала төлөмдүү заказ.",
@@ -1776,6 +1796,8 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestEn =
     [
+        "Auto parts: analogues: Analogues are saved on the server; the hint about cross numbers is shown only on “Start”.",
+        "Auto parts: search and payment: Search by “brand + number” (Mann W 811/80, Bosch 0 451 103 092); fixed the payment window crash at the “Workshop / mechanic” price.",
         "Receipts older than 7 days: Queue of receipts older than 7 days: sent only after PIN confirmation, with warnings.",
         "Subscription: New “Subscription” screen: payment via ELQR and a training bank for testing.",
         "Auto parts: New business type: search by catalogue number and OEM, analogues, condition, bin, workshop price, warranty and returns, customer order with a prepayment.",
@@ -1947,6 +1969,8 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestTr =
     [
+        "Oto yedek parça: muadiller: Muadiller sunucuda saklanır; çapraz numara ipucu yalnızca «Başlangıç»ta gösterilir.",
+        "Oto yedek parça: arama ve ödeme: «Marka + numara» ile arama (Mann W 811/80, Bosch 0 451 103 092); «Servis / usta» fiyatında ödeme penceresinin çökmesi düzeltildi.",
         "7 günden eski fişler: 7 günden eski fişlerin kuyruğu: yalnızca PIN onayından sonra, uyarılarla gönderilir.",
         "Abonelik: Yeni «Abonelik» ekranı: ELQR ile ödeme ve deneme için eğitim bankası.",
         "Oto yedek parça: Yeni sektör: katalog numarası ve OEM ile arama, muadiller, durum, raf, servis fiyatı, garanti ve iade, ön ödemeli müşteri siparişi.",
@@ -2118,6 +2142,8 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestUz =
     [
+        "Avtoehtiyot qismlar: analoglar: Analoglar serverda saqlanadi; kross-raqamlar haqidagi maslahat faqat «Start»da ko'rsatiladi.",
+        "Avtoehtiyot qismlar: qidiruv va to'lov: «Brend + raqam» bo'yicha qidiruv (Mann W 811/80, Bosch 0 451 103 092); «Ustaxona / usta» narxida to'lov oynasining qulashi tuzatildi.",
         "7 kundan eski cheklar: 7 kundan eski cheklar navbati: faqat PIN tasdiqlangandan keyin, ogohlantirishlar bilan yuboriladi.",
         "Obuna: Yangi «Obuna» ekrani: ELQR orqali to'lov va tekshirish uchun o'quv banki.",
         "Avtoehtiyot qismlar: Yangi soha: katalog raqami va OEM bo'yicha qidiruv, analoglar, holati, katak, ustaxona narxi, kafolat va qaytarish, oldindan to'lovli mijoz buyurtmasi.",

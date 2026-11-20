@@ -124,6 +124,9 @@ public sealed class AutoPartInfo
                 {
                     JsonValueKind.String => r.GetString(),
                     JsonValueKind.Number => r.GetRawText(),
+                    // 2026-11-20: у объекта связи {product, kind, …} id товара — в «product» (строка или вложенный объект), «id» — id самой связи.
+                    JsonValueKind.Object when r.TryGetProperty("product", out var prodEl) && prodEl.ValueKind is JsonValueKind.String or JsonValueKind.Number => prodEl.ValueKind == JsonValueKind.String ? prodEl.GetString() : prodEl.GetRawText(),
+                    JsonValueKind.Object when r.TryGetProperty("product", out var prodObj) && prodObj.ValueKind == JsonValueKind.Object && prodObj.TryGetProperty("id", out var prodId) => prodId.ValueKind == JsonValueKind.String ? prodId.GetString() : prodId.GetRawText(),
                     JsonValueKind.Object when r.TryGetProperty("id", out var idEl) => idEl.ValueKind == JsonValueKind.String ? idEl.GetString() : idEl.GetRawText(),
                     _ => null,
                 };

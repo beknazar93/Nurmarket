@@ -25,6 +25,7 @@
   <x:String x:Key="csh.menu.repair">Ta'mirlash va servis</x:String>
   <x:String x:Key="csh.menu.tradeIn">Trade-in / sotib olish</x:String>
   <x:String x:Key="csh.menu.estimate">Smeta</x:String>
+  <x:String x:Key="csh.menu.partsOrders">Mijozga buyurtmalar</x:String>
   <x:String x:Key="csh.menu.settings">Sozlamalar</x:String>
   <x:String x:Key="csh.menu.marketplace">Marketpleys</x:String>
   <x:String x:Key="csh.menu.crm">NurCRM</x:String>

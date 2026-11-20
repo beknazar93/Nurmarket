@@ -4443,6 +4443,10 @@ public partial class MainWindow : Window
     /// своей смены нет — окно «Открыть смену», как при добавлении первого товара.</summary>
     private async Task<bool> EnsureShiftBeforePaymentAsync()
     {
+        // 2026-11-20 (живая проверка «Автозапчастей»): после выбора клиента «СТО / мастер» в окне оплаты чек пересчитывается и PayCoreAsync вызывается заново из фонового потока
+        // (ConfigureAwait(false)) — быстрая сверка смены возвращалась сразу, ApplyShiftAgeUi() трогал пилюлю смены не из UI-потока: «Call from invalid thread», оплата не открывалась.
+        if (!Dispatcher.UIThread.CheckAccess())
+            return await Dispatcher.UIThread.InvokeAsync(EnsureShiftBeforePaymentAsync);
         // 2026-10-22 (аудит новой сборки, П1): смена «открыта», но сервер мог закрыть её сам — быстрая сверка (до 4 с,
         // не чаще раза в 15 с) перед оплатой; чек в корзине при этом не трогаем.
         if (_session.IsShiftOpen)

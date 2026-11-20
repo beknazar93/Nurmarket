@@ -1327,8 +1327,22 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
     private static bool IsGrocerySphere => !MarketSpheres.IsClothing && !MarketSpheres.IsServices && !MarketSpheres.IsAutoParts;
 
     /// <summary>2026-11-20 (АЗ3): нормализованный запрос-номер для сферы «Автозапчасти» («0 986-452 041» → «0986452041»); пусто — не номер или другая сфера.</summary>
-    private static string PartQuery(string query) =>
-        MarketSpheres.IsAutoParts && NurMarketKassa.Core.Application.PartNumbers.LooksLikePart(query) ? NurMarketKassa.Core.Application.PartNumbers.Norm(query) : "";
+    private static string PartQuery(string query)
+    {
+        if (!MarketSpheres.IsAutoParts)
+            return "";
+        // 2026-11-20 (живая проверка «Автозапчастей»): «Mann W 811/80», «Bosch 0 451 103 092» — клиент называет бренд и номер; слово-бренд (латиницей) отбрасываем,
+        // раньше такой запрос не находил ни кросс-номер, ни артикул («Ничего не найдено»). Название по-русски («фильтр 123») номером не считается.
+        var q = query;
+        if (!NurMarketKassa.Core.Application.PartNumbers.LooksLikePart(q))
+        {
+            var stripped = NurMarketKassa.Core.Application.PartNumbers.StripBrand(q);
+            var firstSpace = q.Trim().IndexOf(' ');
+            if (stripped != q.Trim() && firstSpace > 0 && q.Trim()[..firstSpace].All(c => c < 128 && char.IsLetter(c)))
+                q = stripped;
+        }
+        return NurMarketKassa.Core.Application.PartNumbers.LooksLikePart(q) ? NurMarketKassa.Core.Application.PartNumbers.Norm(q) : "";
+    }
 
     /// <summary>Рейтинг товара по номеру: 0 — номер совпал целиком (артикул, каталожный, OEM, кросс), 1 — начало, 2 — внутри, 3 — не совпал.</summary>
     private static int PartRank(CatalogProductTileVm p, string partQuery) => p.PartRank(partQuery);

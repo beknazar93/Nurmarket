@@ -59,6 +59,8 @@ public sealed class ClientForemanBlock : UserControl
             _label.Text = T("Покупает по оптовой цене (прораб)", "Дүң баада сатып алат (прораб)", "Buys at the wholesale price (foreman)", "Toptan fiyatla alır (usta)", "Ulgurji narxda oladi (prorab)");
             return;
         }
+        // 2026-11-20 (живая проверка «Автозапчастей»): имя переключателя для экранного диктора/автоматизации осталось «прораб» — берём подпись сферы.
+        Avalonia.Automation.AutomationProperties.SetName(_toggle, AutoPartsRules.PriceLevelName);
         _label.Text = T("СТО / мастер — покупает по своей цене", "СТО / уста — өз баасында сатып алат", "Garage / mechanic — buys at their own price", "Servis / usta — kendi fiyatıyla alır", "STO / usta — o'z narxida oladi");
         _defaultHint = T("В чеке такого клиента все детали с ценой СТО идут по ней. Деталь без цены СТО — по рознице (касса подскажет).",
             "Мындай кардардын чегинде СТО баасы бар бардык тетиктер ошол баа менен. СТО баасы жок тетик — чекене баада (касса кабарлайт).",

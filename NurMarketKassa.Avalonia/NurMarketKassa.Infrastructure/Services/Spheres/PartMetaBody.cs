@@ -24,6 +24,9 @@ internal static class PartMetaBody
         if (r.SendStorageLocation)
             body["storage_location"] = r.StorageLocation?.Trim() ?? "";
         if (r.RelatedInput is { } related)
-            body["related_input"] = related.Where(id => !string.IsNullOrWhiteSpace(id)).Select(id => id.Trim()).Distinct(StringComparer.Ordinal).Take(100).ToArray();
+            // 2026-11-20 (живая проверка «Автозапчастей»): сервер требует объекты {product, kind}, а не голые id («Связь должна быть объектом {product, kind, ratio?, ratio_unit?, sort_order?}») —
+            // раньше карточка с аналогами не сохранялась вовсе. Аналог товара — kind "analog" (accessory|analog, ТЗ бэкенду 26.10).
+            body["related_input"] = related.Where(id => !string.IsNullOrWhiteSpace(id)).Select(id => id.Trim()).Distinct(StringComparer.Ordinal).Take(100)
+                .Select((id, i) => new Dictionary<string, object?> { ["product"] = id, ["kind"] = "analog", ["sort_order"] = i }).ToArray();
     }
 }

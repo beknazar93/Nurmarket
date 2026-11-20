@@ -32,7 +32,21 @@ public static class AppMode
 
     /// <summary>Добавка к именам общесистемных объектов (защита от второго запуска и сигнал
     /// «покажись»): касса и программа владельца на одном компьютере не должны мешать друг другу.</summary>
-    public static string InstanceSuffix => IsOwner ? "-Owner" : "";
+    // 2026-11-20: стенд с NURMARKET_DATA_ROOT получает свой замок — иначе вторая касса на ПК будила настоящую (работающую) кассу и закрывалась,
+    // а живая проверка на тестовой компании была невозможна без закрытия настоящей кассы.
+    public static string InstanceSuffix => (IsOwner ? "-Owner" : "") + StandSuffix;
+
+    private static string StandSuffix
+    {
+        get
+        {
+            var root = AppPaths.DataRootOverride;
+            if (root is null)
+                return "";
+            var hash = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(root.ToLowerInvariant()));
+            return "-Stand" + Convert.ToHexString(hash, 0, 4);
+        }
+    }
 
     /// <summary>Показывать ли в КАССЕ разделы владельца (склад, продажи, финансы, зарплата, ABC,
     /// клиенты, CRM, пополнение и сроки). При входе через NurCRM — нет: они в программе владельца.

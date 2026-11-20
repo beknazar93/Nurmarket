@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using FluentAssertions;
 using NurMarketKassa.Core.Application;
 using NurMarketKassa.Models.Pos;
@@ -247,7 +247,28 @@ public sealed class AutoPartsSphereTests : IDisposable
         json.Should().Contain("\"attributes\":[{\"key\":\"part_no_norm\",\"value\":\"W71294\"}");
         json.Should().Contain("\"key\":\"cross_1\",\"value\":\"OC983\"").And.Contain("\"key\":\"condition\",\"value\":\"new\"");
         body["storage_location"].Should().Be("A-1-1");
-        ((string[])body["related_input"]!).Should().Equal("8", "9");
+        // 2026-11-20 (живая проверка): сервер принимает связи только объектами {product, kind}, не голыми id.
+        json.Should().Contain("\"related_input\":[{\"product\":\"8\",\"kind\":\"analog\",\"sort_order\":0},{\"product\":\"9\",\"kind\":\"analog\",\"sort_order\":1}]");
+        ((Array)body["related_input"]!).Length.Should().Be(2);
+    }
+
+    [Fact]
+    public void Related_from_server_reads_product_of_link_object()
+    {
+        // 2026-11-20: связь ответа сервера — {id связи, product, kind}; id товара берём из product (строка или объект), а не id самой связи.
+        var info = AutoPartInfo.Parse(JsonDocument.Parse("{\"related\":[{\"id\":\"L1\",\"product\":\"P1\",\"kind\":\"analog\"},{\"id\":\"L2\",\"product\":{\"id\":\"P2\"},\"kind\":\"analog\"},\"P3\"]}").RootElement);
+        info!.Related.Should().Equal("P1", "P2", "P3");
+    }
+
+    [Fact]
+    public void Brand_before_number_is_ignored_in_part_search()
+    {
+        // 2026-11-20: «Mann W 811/80» — бренд и номер вместе — находит кросс-номер так же, как «W 811/80».
+        AutoParts();
+        var m = typeof(NurMarketKassa.ViewModels.Main.CatalogPanelViewModel).GetMethod("PartQuery", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+        ((string)m.Invoke(null, new object[] { "Mann W 811/80" })!).Should().Be("W81180");
+        ((string)m.Invoke(null, new object[] { "Bosch 0 451 103 092" })!).Should().Be("0451103092");
+        ((string)m.Invoke(null, new object[] { "фильтр 123" })!).Should().Be("");
     }
 
     [Fact]

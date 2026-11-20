@@ -25,6 +25,7 @@
   <x:String x:Key="csh.menu.repair">Ремонт и сервис</x:String>
   <x:String x:Key="csh.menu.tradeIn">Trade-in / скупка</x:String>
   <x:String x:Key="csh.menu.estimate">Смета</x:String>
+  <x:String x:Key="csh.menu.partsOrders">Заказы под клиента</x:String>
   <x:String x:Key="csh.menu.settings">Настройки</x:String>
   <x:String x:Key="csh.menu.marketplace">Маркетплейс</x:String>
   <x:String x:Key="csh.menu.crm">NurCRM</x:String>
