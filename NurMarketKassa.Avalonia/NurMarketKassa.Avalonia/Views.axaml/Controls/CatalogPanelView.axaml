@@ -297,6 +297,9 @@
         <!-- 2026-11-20 (обход кассы, п. 21): на 1024×600 название режется («Aos Extra pove…») — его сжимали широкие колонки цены, «сом» и значков.
              Узкий список (tbl-narrow, &lt; 760 px): название переносится на 2–3 строки (MaxLines=3), «сом» скрыт (колонка называется «Цена»),
              блок значков «i»/★ 96 → 80 px, звезда 40 px (зона касания остаётся ≥ 36). Значки и клавиатура на месте. -->
+        <Style Selector="TextBlock.tile-stock-none">
+            <Setter Property="Opacity" Value="0"/>
+        </Style>
         <Style Selector="Grid.tbl-row">
             <Setter Property="Margin" Value="14,0"/>
         </Style>
@@ -600,6 +603,14 @@
                                 Command="{Binding ClearHotkeyGroupFilterCommand}"/>
                     </StackPanel>
                 </Border>
+
+                <!-- 2026-11-21 («Базар», плитки категорий): открыта категория — крупная кнопка «← Все категории» (44 px) и название категории. -->
+                <Grid IsVisible="{Binding InBazaarCategory}" ColumnDefinitions="Auto,12,*" Margin="0,0,0,2">
+                    <Button Grid.Column="0" Classes="main-outline" MinHeight="44" Padding="14,0" Focusable="False"
+                            Content="{Binding BackToCategoriesText}" Command="{Binding BackToCategoriesCommand}"/>
+                    <TextBlock Grid.Column="2" Text="{Binding BazaarCategoryTitle}" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"
+                               Foreground="{DynamicResource BrushText}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                </Grid>
             </StackPanel>
 
             <!-- Тон полотна, а не BrushInputAlt: та кисть задаёт фон ПОЛЕЙ ВВОДА и про тему
@@ -660,7 +671,7 @@
                         </StackPanel>
                     </Border>
 
-                    <Grid IsVisible="{Binding HasProducts}">
+                    <Grid IsVisible="{Binding ShowProductGrid}"> <!-- 2026-11-21 («Базар»): на плитках категорий списка нет -->
                       <!-- 2026-11-06 (В7, Д4-36): видимость плиток и списка — из кода (CatalogPanelView.UpdateViewVisibility): на окне уже 1280 каталог сам показывается списком. -->
                       <ScrollViewer x:Name="CardsScroll"
                                     VerticalScrollBarVisibility="Auto"
@@ -816,8 +827,10 @@
                                                         </StackPanel>
                                                         </Viewbox>
 
+                                                        <!-- 2026-11-21: у услуг строка остатка прозрачная, а не скрытая — место остаётся, и цена на плитке услуги стоит на той же высоте, что у товаров. -->
                                                         <TextBlock Text="{Binding StockInfo}"
-                                                                   IsVisible="{Binding !IsService}"
+                                                                   Classes.tile-stock-none="{Binding IsService}"
+                                                                   MinHeight="16"
                                                                    FontSize="{DynamicResource CatalogTileStockSize}"
                                                                    Classes.stock-low="{Binding IsLowStock}"
                                                                    Classes.stock-out="{Binding Quantity, Converter={x:Static mainViews:WarehouseWindow.IsOutOfStock}}"
@@ -992,14 +1005,17 @@
                                                                    Foreground="{DynamicResource BrushTextSoft}"
                                                                    TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
                                                                    Margin="4,0,12,0"/>
+                                                        <!-- 2026-11-21 (владелец: «наименование и цена не на одном уровне»): остаток и цена — по центру строки, как название (раньше цена липла к верху строки). -->
                                                         <TextBlock Classes="tbl-stock" Text="{Binding StockInfo}" FontSize="13"
                                                                    TextTrimming="CharacterEllipsis"
+                                                                   VerticalAlignment="Center"
                                                                    IsVisible="{Binding !IsService}"
                                                                    Classes.stock-low="{Binding IsLowStock}"
                                                                    Classes.stock-out="{Binding Quantity, Converter={x:Static mainViews:WarehouseWindow.IsOutOfStock}}"
                                                                    Foreground="{DynamicResource BrushCatalogStock}"/>
                                                         <StackPanel Grid.Column="4" Classes="tbl-price" Orientation="Horizontal"
                                                                     HorizontalAlignment="Right"
+                                                                    VerticalAlignment="Center"
                                                                     Spacing="4">
                                                             <TextBlock Classes="tbl-price-amount" Text="{Binding PriceLine, Converter={StaticResource PriceAmountConverter}}"
                                                                        FontSize="18" FontWeight="Bold"
@@ -1051,6 +1067,65 @@
                             </ScrollViewer>
                         </Grid>
                     </Grid>
+
+                    <!-- 2026-11-21 («Базар», модуль «Плитки категорий»): крупные плитки категорий вместо списка товаров. Один тап — товары категории (ниже, обычные плитки);
+                         видны только в корне каталога без поиска и фильтра. Плитка: фото (первый товар с фото) или цвет категории, название, число товаров; цель касания ≥ 100 px.
+                         Сетка — WrapPanel с плитками одного размера (колонки по ширине окна), прокрутка только вертикальная. -->
+                    <ScrollViewer x:Name="BazaarTilesScroll"
+                                  IsVisible="{Binding ShowCategoryTiles}"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <ItemsControl ItemsSource="{Binding CategoryTiles}" Margin="2">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal" HorizontalAlignment="{OnPlatform Left, Android=Center}"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:BazaarCategoryTileVm">
+                                    <Button Classes="main-ghost"
+                                            Focusable="False"
+                                            Padding="0"
+                                            Margin="6"
+                                            Width="164" Height="128"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            HorizontalContentAlignment="Stretch"
+                                            VerticalContentAlignment="Stretch"
+                                            AutomationProperties.Name="{Binding Title}"
+                                            Command="{Binding $parent[UserControl].((vm:CatalogPanelViewModel)DataContext).OpenCategoryCommand}"
+                                            CommandParameter="{Binding}">
+                                        <Border Classes="tile-face"
+                                                Background="{Binding Title, Converter={x:Static conv:TileTintConverter.Instance}}"
+                                                BorderBrush="{DynamicResource BrushCatalogTileBorder}"
+                                                BorderThickness="1"
+                                                CornerRadius="{DynamicResource SettingsCardRadius}"
+                                                ClipToBounds="True">
+                                            <Grid>
+                                                <Border IsVisible="{Binding Cover, Converter={x:Static ObjectConverters.IsNotNull}}" Opacity="0.9">
+                                                    <Image Source="{Binding Cover.ProductImagePath, Converter={x:Static conv:AssetPathToBitmapConverter.Instance}, ConverterParameter=thumb}"
+                                                           Stretch="UniformToFill"/>
+                                                </Border>
+                                                <TextBlock Text="{Binding Title, Converter={x:Static conv:MonogramConverter.Instance}}"
+                                                           IsVisible="{Binding Cover, Converter={x:Static ObjectConverters.IsNull}}"
+                                                           Foreground="{Binding Title, Converter={x:Static conv:TileTintConverter.Instance}, ConverterParameter=fg}"
+                                                           FontSize="34" FontWeight="Bold" Opacity="0.55"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,14,0,0"/>
+                                                <Border VerticalAlignment="Bottom" Padding="10,6" Background="{DynamicResource BrushCatalogTileBg}" Opacity="0.96">
+                                                    <StackPanel Spacing="1">
+                                                        <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource BrushText}"
+                                                                   TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Text="{Binding CountText}" FontSize="12" Foreground="{DynamicResource BrushCatalogMeta}"
+                                                                   TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                                                    </StackPanel>
+                                                </Border>
+                                            </Grid>
+                                        </Border>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
                 </Grid>
             </Border>
 

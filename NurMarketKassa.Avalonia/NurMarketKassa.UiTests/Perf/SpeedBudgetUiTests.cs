@@ -285,4 +285,40 @@ public sealed class SpeedBudgetUiTests : IDisposable
             UiShot.Pump();
         }
     }
+
+    /// <summary>2026-11-21 (жалоба «зависание при переключении вкладок», «оптимизация»): открытие окна «Настройки» и переключение его вкладок (Экран → Печать → Операции → Обновления).</summary>
+    [AvaloniaFact]
+    public async Task SettingsWindow_Open_AndTabs_StayWithinBudget()
+    {
+        await TestHost.WarmAsync();
+        var settings = TestHost.Services.GetRequiredService<PosSettingsWindow>();
+        settings.Width = 1280;
+        settings.Height = 800;
+        var open = Frame(() => settings, out var window);
+        try
+        {
+            Check("Открытие «Настроек» (первое)", open, 8000);
+            var times = new List<double>();
+            for (var round = 0; round < 2; round++)
+            {
+                foreach (var key in new[] { "screen", "print", "operations", "updates", "screen" })
+                {
+                    var sw = Stopwatch.StartNew();
+                    settings.SelectNavTab(key);
+                    for (var k = 0; k < 3; k++)
+                        UiShot.Pump();
+                    sw.Stop();
+                    if (round > 0)
+                        times.Add(sw.Elapsed.TotalMilliseconds);
+                }
+            }
+            Check("Переключение вкладок «Настроек» — медиана", Median(times), 3000);
+            Check("Переключение вкладок «Настроек» — самое долгое", times.Max(), 8000);
+        }
+        finally
+        {
+            window.Close();
+            UiShot.Pump();
+        }
+    }
 }

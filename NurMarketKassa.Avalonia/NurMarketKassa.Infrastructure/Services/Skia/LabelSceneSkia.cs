@@ -72,6 +72,20 @@ public static class LabelSceneSkia
 
     private static void DrawText(SKCanvas canvas, LabelSceneText t)
     {
+        if (t.Rotation == 0)
+        {
+            DrawTextFlat(canvas, t);
+            return;
+        }
+        // 2026-11-21: повёрнутый блок — рамка уже «высота × ширина» вокруг прежнего центра; поворачиваем рисование вокруг него.
+        canvas.Save();
+        canvas.RotateDegrees(t.Rotation, t.X + t.W / 2f, t.Y + t.H / 2f);
+        DrawTextFlat(canvas, t);
+        canvas.Restore();
+    }
+
+    private static void DrawTextFlat(SKCanvas canvas, LabelSceneText t)
+    {
         if (t.SizePt > 0)
         {
             // Ручной размер: перенос по ширине блока, по центру, обрезка по рамке (как DrawTextElement с manualFontSizePx).
@@ -85,7 +99,7 @@ public static class LabelSceneSkia
             foreach (var line in lines)
             {
                 var w = SkiaText.Measure(line, style);
-                SkiaText.Draw(canvas, line, t.X + (t.W - w) / 2f, y, style);
+                SkiaText.Draw(canvas, line, t.X + (t.Align == 0 ? 0 : t.Align == 2 ? t.W - w : (t.W - w) / 2f), y, style);
                 y += lineH;
             }
             canvas.Restore();
@@ -103,7 +117,7 @@ public static class LabelSceneSkia
         var display = SkiaText.Truncate(t.Text, t.W, st);
         var tw = SkiaText.Measure(display, st);
         var th = SkiaText.LineHeight(st);
-        SkiaText.Draw(canvas, display, t.X + Math.Max(0, (t.W - tw) / 2f), t.Y + Math.Max(0, (t.H - th) / 2f), st);
+        SkiaText.Draw(canvas, display, t.X + (t.Align == 0 ? 0 : t.Align == 2 ? Math.Max(0, t.W - tw) : Math.Max(0, (t.W - tw) / 2f)), t.Y + Math.Max(0, (t.H - th) / 2f), st);
     }
 }
 

@@ -116,8 +116,9 @@ internal static partial class ScaleUi
                    ? L("«по коду» — 2 цифры префикса + код 6 + значение 4 + контрольная", "«код боюнча» — 2 префикс + код 6 + маани 4 + текшерүү", "“by code” — 2-digit prefix + code 6 + value 4 + check", "“koda göre” — 2 önek + kod 6 + değer 4 + kontrol", "«kod bo‘yicha» — 2 prefiks + kod 6 + qiymat 4 + nazorat")
                    : L("«по PLU» — 2 цифры префикса + PLU 5 + значение 5 + контрольная", "«PLU боюнча» — 2 префикс + PLU 5 + маани 5 + текшерүү", "“by PLU” — 2-digit prefix + PLU 5 + value 5 + check", "“PLU’ya göre” — 2 önek + PLU 5 + değer 5 + kontrol", "«PLU bo‘yicha» — 2 prefiks + PLU 5 + qiymat 5 + nazorat"))
                + L(", режим ", ", режим ", ", mode ", ", mod ", ", rejim ") + modeText
-               + L(". Префикс — 20…29. ", ". Префикс — 20…29. ", ". Prefix 20…29. ", ". Önek 20…29. ", ". Prefiks 20…29. ")
-               + AmountUnitSentence(); // 2026-11-05: единица суммы (тыйын/сом) видна в каждом окне весов
+               + L(". Префикс — 20…29.", ". Префикс — 20…29.", ". Prefix 20…29.", ". Önek 20…29.", ". Prefiks 20…29.");
+        // 2026-11-21: единицу суммы сюда больше не добавляем — её фраза и так стоит под выбором «Цифры в тыйынах / в сомах» (AmountUnitPicker); раньше
+        // текст (в том числе «Внимание: на сайте стоит…») выводился в окне дважды подряд.
     }
 
     /// <summary>2026-11-05: фраза о единице суммы в штрихкоде — «в тыйынах (7680 = 76,80 сом)» / «в сомах (768 = 768 сом)» — для текущей
@@ -133,7 +134,8 @@ internal static partial class ScaleUi
             : L("Сумма в штрихкоде — в сомах (768 = 768 сом).", "Штрих-коддогу сумма — сом менен (768 = 768 сом).", "The amount in the barcode is in som (768 = 768 som).", "Barkoddaki tutar som cinsinden (768 = 768 som).", "Shtrix-koddagi summa — so‘mda (768 = 768 so‘m).");
         var src = local
             ? L(" Выбрано на этой кассе (важнее сайта).", " Ушул кассада тандалган (сайттан маанилүү).", " Chosen on this till (overrides the website).", " Bu kasada seçildi (siteden önemli).", " Shu kassada tanlangan (saytdan ustun).")
-            : L($" Взято с сайта (scale_barcode_amount_unit = {prefs.ScaleBarcodeAmountUnit}).", $" Сайттан алынды (scale_barcode_amount_unit = {prefs.ScaleBarcodeAmountUnit}).", $" Taken from the website (scale_barcode_amount_unit = {prefs.ScaleBarcodeAmountUnit}).", $" Siteden alındı (scale_barcode_amount_unit = {prefs.ScaleBarcodeAmountUnit}).", $" Saytdan olingan (scale_barcode_amount_unit = {prefs.ScaleBarcodeAmountUnit}).");
+            // 2026-11-21: без технического имени настройки (scale_barcode_amount_unit) — владельцу оно ничего не говорит
+            : L(" Взято с сайта.", " Сайттан алынды.", " Taken from the website.", " Siteden alındı.", " Saytdan olingan.");
         // 2026-11-06 (аудит №5, Л5-02 / А5-01): единица на кассе нужна ТОЛЬКО для чтения цифр этикетки. Суммы весовых строк в чеке сервер округляет по единице компании с сайта —
         // если они разные, кассир должен знать, что на деньги чека выбор кассы не влияет, а настройку сайта стоит поправить.
         var serverUnit = WeightBarcodeParser.ResolveAmountUnit(null, prefs.ScaleBarcodeAmountUnit);
@@ -141,11 +143,12 @@ internal static partial class ScaleUi
         // 2026-11-06: В4 Н-2 — в предупреждении было техническое слово «tiyin»/«som» с сайта; теперь — «в тыйынах» / «в сомах» на языке интерфейса.
         var serverWord = NurMarketKassa.AvaloniaHost.Services.ScaleBarcodeRules.UnitWord(serverUnit);
         var warn = differs
-            ? L($" Внимание: на сайте стоит «{serverWord}» — по ней сервер округляет суммы весовых строк чека. Выбор кассы влияет только на чтение этикетки; для верных сумм исправьте единицу на сайте.",
-                $" Көңүл буруңуз: сайтта «{serverWord}» коюлган — сервер чектеги таразалуу саптардын суммаларын ушуга жараша тегиздейт. Кассадагы тандоо этикетканы окууга гана таасир этет; суммалар туура болушу үчүн сайттагы бирдикти оңдоңуз.",
-                $" Note: the website has “{serverWord}” — the server rounds weighed line totals by it. The till choice only affects reading the label; fix the unit on the website for correct totals.",
-                $" Dikkat: sitede «{serverWord}» ayarlı — sunucu tartılı satır tutarlarını buna göre yuvarlar. Kasadaki seçim yalnızca etiketin okunmasını etkiler; doğru tutarlar için birimi sitede düzeltin.",
-                $" Diqqat: saytda «{serverWord}» o‘rnatilgan — server tarozili qator summalarini shunga ko‘ra yaxlitlaydi. Kassadagi tanlov faqat yorliqni o‘qishga ta’sir qiladi; summalar to‘g‘ri bo‘lishi uchun saytdagi birlikni tuzating.")
+            // 2026-11-21: короче и один раз (были две фразы подряд и повтор в окне); смысл тот же — выбор здесь читает этикетку, суммы чека считает сервер по сайту
+            ? L($" Внимание: на сайте «{serverWord}» — по ней сервер считает суммы чека. Здесь выбор только для чтения этикетки; поправьте единицу на сайте.",
+                $" Көңүл буруңуз: сайтта «{serverWord}» — сервер чектин суммасын ушуга жараша эсептейт. Бул жерде тандоо этикетканы окуу үчүн гана; сайттагы бирдикти оңдоңуз.",
+                $" Note: the website has “{serverWord}” — the server totals the receipt by it. The choice here only reads the label; fix the unit on the website.",
+                $" Dikkat: sitede «{serverWord}» ayarlı — sunucu fiş tutarını buna göre hesaplar. Buradaki seçim yalnızca etiketi okur; birimi sitede düzeltin.",
+                $" Diqqat: saytda «{serverWord}» — server chek summasini shunga ko‘ra hisoblaydi. Bu yerdagi tanlov faqat yorliqni o‘qish uchun; saytdagi birlikni tuzating.")
             : "";
         return main + src + warn;
     }

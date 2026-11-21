@@ -20,7 +20,16 @@ public static class BarcodeGenerator
 
     /// <summary>Новый EAN-13, которого нет среди <paramref name="taken"/> (сравнение без учёта регистра и пробелов).
     /// Дополнительно <paramref name="isTaken"/> — внешняя проверка (например, индекс размеров).</summary>
-    public static string Generate(IEnumerable<string?>? taken = null, Func<string, bool>? isTaken = null)
+    /// <param name="note">2026-11-21: запомнить код как «созданный нашим генератором» — товар с ним получит отметку «Без заводского штрихкода» (<see cref="NoFactoryBarcodes"/>). Массовая генерация отмечает товары сама и передаёт false.</param>
+    public static string Generate(IEnumerable<string?>? taken = null, Func<string, bool>? isTaken = null, bool note = true)
+    {
+        var code = GenerateCore(taken, isTaken);
+        if (note)
+            NoFactoryBarcodes.NoteGenerated(code);
+        return code;
+    }
+
+    private static string GenerateCore(IEnumerable<string?>? taken, Func<string, bool>? isTaken)
     {
         var busy = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (taken is not null)
@@ -40,7 +49,17 @@ public static class BarcodeGenerator
 
     /// <summary>Новый код, свободный в каталоге кассы (основные и дополнительные штрихкоды, размеры) и среди
     /// <paramref name="extraTaken"/> — кодов, уже введённых в открытом окне.</summary>
-    public static string GenerateForCatalog(IEnumerable<string?>? extraTaken = null)
+    public static string GenerateForCatalog(IEnumerable<string?>? extraTaken = null) =>
+        Generate(CatalogTaken(extraTaken), IsVariantCode);
+
+    private static bool IsVariantCode(string code)
+    {
+        try { return VariantBarcodeIndex.Contains(code); }
+        catch { return false; }
+    }
+
+    /// <summary>Занятые коды каталога кассы (основные и дополнительные) и <paramref name="extraTaken"/> (введённые в открытом окне).</summary>
+    private static List<string?> CatalogTaken(IEnumerable<string?>? extraTaken)
     {
         var taken = new List<string?>();
         try
@@ -60,12 +79,49 @@ public static class BarcodeGenerator
         }
         if (extraTaken is not null)
             taken.AddRange(extraTaken);
+        return taken;
+    }
 
-        return Generate(taken, code =>
+    /// <summary>2026-11-21 (ответ Умара 20.11): новый код берётся у сервера (<see cref="ServerBarcodes"/>: POST main/barcodes/next/), запасной — локальный <see cref="Generate"/>, если сервер недоступен или не дал годный код.
+    /// Код, который уже есть в каталоге кассы или в <paramref name="extraTaken"/>, пропускается (сервер коды не резервирует). 409 barcode_duplicate при сохранении — вызывающий берёт следующий код тем же методом.</summary>
+    public static async Task<string> GenerateForCatalogAsync(IEnumerable<string?>? extraTaken = null, CancellationToken ct = default) =>
+        (await GenerateManyForCatalogAsync(1, extraTaken, ct).ConfigureAwait(false))[0];
+
+    /// <summary>То же для <paramref name="count"/> кодов сразу (запрос к серверу — не больше 100 за раз). Всегда возвращает ровно <paramref name="count"/> разных кодов.</summary>
+    public static async Task<IReadOnlyList<string>> GenerateManyForCatalogAsync(int count, IEnumerable<string?>? extraTaken = null, CancellationToken ct = default)
+    {
+        count = Math.Max(1, count);
+        var busy = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var t in CatalogTaken(extraTaken))
+            if (!string.IsNullOrWhiteSpace(t))
+                busy.Add(t.Trim());
+        var result = new List<string>(count);
+        for (var round = 0; round < 3 && result.Count < count; round++)
         {
-            try { return VariantBarcodeIndex.Contains(code); }
-            catch { return false; }
-        });
+            var server = await ServerBarcodes.NextAsync(Math.Min(count - result.Count, ServerBarcodes.MaxCount), ct).ConfigureAwait(false);
+            if (server is null)
+                break; // сервер недоступен — запасной путь
+            var before = result.Count;
+            foreach (var code in server)
+            {
+                if (!ServerBarcodes.LooksUsable(code) || busy.Contains(code) || IsVariantCode(code))
+                    continue;
+                busy.Add(code);
+                result.Add(code);
+                if (result.Count == count)
+                    break;
+            }
+            if (result.Count == before)
+                break; // ничего годного не пришло — не крутимся
+        }
+        while (result.Count < count)
+        {
+            var code = Generate(busy, IsVariantCode);
+            busy.Add(code);
+            result.Add(code);
+        }
+        NoFactoryBarcodes.NoteGenerated(result); // 2026-11-21: коды сервера (barcodes/next) — тоже «наши»
+        return result;
     }
 
     /// <summary>2026-11-10 (владелец: «Генерация штрихкода как в вебе!»): штрихкод новому товару строки приёмки — тот же генератор, что «Сгенерировать» в окне товара
@@ -76,6 +132,15 @@ public static class BarcodeGenerator
         if (!line.CanGenerateBarcode)
             return false;
         line.Barcode = GenerateForCatalog(allLines.Select(l => l.Barcode).ToList());
+        return true;
+    }
+
+    /// <summary>2026-11-21: то же, что <see cref="GenerateForReceivingLine"/>, но код берётся у сервера (запасной — локальный).</summary>
+    public static async Task<bool> GenerateForReceivingLineAsync(Models.ReceivingLineVm line, IEnumerable<Models.ReceivingLineVm> allLines, CancellationToken ct = default)
+    {
+        if (!line.CanGenerateBarcode)
+            return false;
+        line.Barcode = await GenerateForCatalogAsync(allLines.Select(l => l.Barcode).ToList(), ct).ConfigureAwait(false);
         return true;
     }
 

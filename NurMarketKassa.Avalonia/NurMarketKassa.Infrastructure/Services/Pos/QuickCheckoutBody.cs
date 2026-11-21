@@ -168,6 +168,12 @@ public static class QuickCheckoutBody
                 payment["card_amount"] = card.ToString("0.00", CultureInfo.InvariantCulture);
             }
 
+            // 2026-11-21 («Базар», модуль currencies; ответ сервера 20.11 В.19): наличные приняты в валюте (USD/RUB/CNY) — payment.payments[] с amount в сомах и currency / amount_currency / rate.
+            // Валюта лежит в снимке чека (fx_payment) — так она доходит и до офлайн-очереди. Только если принятое в сомах сходится с суммой наличных окна оплаты.
+            if (string.Equals(method, "cash", StringComparison.OrdinalIgnoreCase) && BazaarCurrencies.FromCart(root) is { } fx
+                && decimal.TryParse(received, NumberStyles.Any, CultureInfo.InvariantCulture, out var receivedSom) && Math.Abs(fx.TotalSom - receivedSom) <= 0.01m)
+                payment["payments"] = BazaarCurrencies.ToPayments(fx);
+
             body["payment"] = payment;
 
             // Консультант — те же поля и правила, что у старого пути (PosCheckoutService.AddConsultant).
@@ -186,6 +192,7 @@ public static class QuickCheckoutBody
             // 2026-11-14: владелец подтвердил превышение лимита долга клиента (иначе 409 credit_limit_exceeded). Только «в долг».
             if (overrideCreditLimit && string.Equals(method, "debt", StringComparison.OrdinalIgnoreCase))
                 body["override_credit_limit"] = true;
+            NegativeStockPolicy.ApplyTo(body); // 2026-11-21: «Продавать товар без остатка (в минус)» включено — allow_negative_stock (без него сервер откажет 409 insufficient_stock); до полей устройства: те дописываются в конец (ReplaceDeviceFields)
             DeviceIdentity.ApplyTo(body); // 2026-11-05: device_key / device_name / branch — только при признаке сервера checkout_branch
             ServerStock.ApplyReservationIds(body); // 2026-11-19 (склад К-8): reservation_ids — только при признаке reservations и выбранном резерве (иначе тело прежнее)
             return body;
@@ -208,6 +215,7 @@ public static class QuickCheckoutBody
             {
                 foreach (var name in DeviceFieldNames)
                     o.Remove(name);
+                o.Remove(NegativeStockPolicy.BodyField); // 2026-11-21: настройку могли переключить между первой попыткой и повтором — ключ повтора от неё не зависит
                 // 2026-11-13 (сервер sn1311): серийники в отпечаток не входят — флаг electronics_2026_11 мог «мигнуть» между первой попыткой и повтором, ключ повтора от него не зависит.
                 if (o["items"] is JsonArray items)
                     foreach (var item in items)
@@ -321,6 +329,11 @@ public static class QuickCheckoutBody
         // проверено продажей на тестовом аккаунте (0,79 с против 1,34 с; списались и товар, и размер).
         if (CartDisplayHelper.ServerVariantId(it) is { Length: > 0 } variantId)
             line["variant"] = variantId.Trim();
+        // 2026-11-21 (ответ Умара 21.11, п. 6; миграция 0200): строка — вариант товара (вкус «Клубничный», размер/цвет) — название варианта уходит в items[].variant_name (до 128 знаков), name_snapshot остаётся названием товара.
+        // Два варианта одного товара сервер сольёт в одну строку чека («Клубничный ×1, Лимонный ×2») — итоги от этого не меняются. Строка без поля variant_part (чек, начатый до обновления) уходит как раньше.
+        if (it.TryGetProperty(ReceiptSnapshotCartEditor.VariantPartField, out var variantPart) && variantPart.ValueKind == JsonValueKind.String
+            && ReceiptSnapshotCartEditor.VariantPart(variantPart.GetString(), null) is { } variantName)
+            line["variant_name"] = variantName;
         if (CartDisplayHelper.OptionalDiscountTotalParam(it) is { } lineDiscount)
             line["discount"] = lineDiscount;
         // 2026-10-27 (Б-03 сервера, PRICE_SYNC): цена строки изменена кассиром намеренно — серверу не считать её устаревшей.

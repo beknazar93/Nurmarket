@@ -49,7 +49,7 @@ internal static partial class MarketplaceContent
         ];
         i.HowTo =
         [
-            T("Подключите функцию: «Подключить» (заявка в поддержку) или ввод ключа.", "Функцияны туташтырыңыз: «Туташтыруу» (колдоо кызматына өтүнмө) же ачкыч киргизүү.", "Connect the feature: “Connect” (a request to support) or enter a key.", "Özelliği bağlayın: «Bağla» (destek talebi) veya anahtar girişi.", "Funksiyani ulang: «Ulash» (qo'llab-quvvatlashga ariza) yoki kalit kiritish."),
+            T("Нажмите «Включить» на этой карточке (в сфере «Электроника» модуль уже входит). Если сервер модули не отдаёт — «Подключить» (заявка в поддержку) или ввод ключа.", "Бул карточкадагы «Күйгүзүү» басыңыз («Электроника» чөйрөсүндө модуль кирет). Сервер модулдарды бербесе — «Туташтыруу» (колдоо кызматына өтүнмө) же ачкыч киргизүү.", "Press “Turn on” on this card (in the “Electronics” sphere the module is already included). If the server does not provide modules — “Connect” (a request to support) or enter a key.", "Bu kartta «Aç»a basın («Elektronik» alanında modül zaten dahildir). Sunucu modül vermiyorsa — «Bağla» (destek talebi) veya anahtar girişi.", "Shu kartada «Yoqish» ni bosing («Elektronika» sohasida modul allaqachon kiradi). Server modullarni bermasa — «Ulash» (qo'llab-quvvatlashga ariza) yoki kalit kiritish."),
             T("В меню кассы появится «Ремонт и сервис» — нажмите «Новый приём».", "Касса менюсунда «Оңдоо жана тейлөө» пайда болот — «Жаңы кабыл алуу» басыңыз.", "“Repair and service” appears in the till menu — press “New intake”.", "Kasa menüsünde «Tamir ve servis» görünür — «Yeni kabul»a basın.", "Kassa menyusida «Ta'mirlash va servis» paydo bo'ladi — «Yangi qabul» ni bosing."),
             T("Когда готово — «Готово», сообщение клиенту, при выдаче — оплата и акт.", "Даяр болгондо — «Даяр», кардарга билдирүү, берүүдө — төлөм жана акт.", "When done — “Ready”, a message to the customer, at hand-over — payment and the act.", "Hazır olunca — «Hazır», müşteriye mesaj, teslimde — ödeme ve tutanak.", "Tayyor bo'lganda — «Tayyor», mijozga xabar, topshirishda — to'lov va dalolatnoma."),
         ];
@@ -58,7 +58,7 @@ internal static partial class MarketplaceContent
             T("Магазины электроники, телефонов и бытовой техники", "Электроника, телефон жана тиричилик техникасы дүкөндөрү", "Electronics, phone and appliance shops", "Elektronik, telefon ve beyaz eşya mağazaları", "Elektronika, telefon va maishiy texnika do'konlari"),
             T("Мастерские: часы, обувь, одежда", "Устакана: саат, бут кийим, кийим", "Workshops: watches, shoes, clothes", "Atölyeler: saat, ayakkabı, giysi", "Ustaxonalar: soat, poyabzal, kiyim"),
         ];
-        i.PriceTerms = SupportTerms();
+        i.PriceTerms = MarketplaceModules.For(i.Id, false).ServerMode ? MarketplaceModules.Terms(i.Id) : SupportTerms(); // 2026-11-21: цена модуля — с сервера
     }
 
     private static void TradeIn(MarketplaceItem i)
@@ -100,7 +100,7 @@ internal static partial class MarketplaceContent
         ];
         i.HowTo =
         [
-            T("Подключите функцию: «Подключить» (заявка в поддержку) или ввод ключа.", "Функцияны туташтырыңыз: «Туташтыруу» (колдоо кызматына өтүнмө) же ачкыч киргизүү.", "Connect the feature: “Connect” (a request to support) or enter a key.", "Özelliği bağlayın: «Bağla» (destek talebi) veya anahtar girişi.", "Funksiyani ulang: «Ulash» (qo'llab-quvvatlashga ariza) yoki kalit kiritish."),
+            T("Нажмите «Включить» на этой карточке (в сфере «Электроника» модуль уже входит). Если сервер модули не отдаёт — «Подключить» (заявка в поддержку) или ввод ключа.", "Бул карточкадагы «Күйгүзүү» басыңыз («Электроника» чөйрөсүндө модуль кирет). Сервер модулдарды бербесе — «Туташтыруу» (колдоо кызматына өтүнмө) же ачкыч киргизүү.", "Press “Turn on” on this card (in the “Electronics” sphere the module is already included). If the server does not provide modules — “Connect” (a request to support) or enter a key.", "Bu kartta «Aç»a basın («Elektronik» alanında modül zaten dahildir). Sunucu modül vermiyorsa — «Bağla» (destek talebi) veya anahtar girişi.", "Shu kartada «Yoqish» ni bosing («Elektronika» sohasida modul allaqachon kiradi). Server modullarni bermasa — «Ulash» (qo'llab-quvvatlashga ariza) yoki kalit kiritish."),
             T("В меню кассы появится «Trade-in / скупка» — нажмите «Новый выкуп», заполните данные клиента и устройства.", "Касса менюсунда «Trade-in / сатып алуу» пайда болот — «Жаңы сатып алуу» басып, кардардын жана түзмөктүн маалыматын толтуруңуз.", "“Trade-in / buy-back” appears in the till menu — press “New buy-back” and fill in the customer and device.", "Kasa menüsünde «Trade-in / alım» görünür — «Yeni alım»a basıp müşteri ve cihaz bilgilerini doldurun.", "Kassa menyusida «Trade-in / sotib olish» paydo bo'ladi — «Yangi sotib olish» ni bosib mijoz va qurilma ma'lumotlarini to'ldiring."),
             T("Выплатите из кассы или зачтите в покупку, затем оприходуйте на склад.", "Кассадан төлөңүз же сатып алууга эсептеңиз, анан кампага киргизиңиз.", "Pay out from the till or credit to a purchase, then receive into stock.", "Kasadan ödeyin veya alışverişe mahsup edin, sonra depoya alın.", "Kassadan to'lang yoki xaridga hisobga oling, so'ng omborga kirim qiling."),
         ];
@@ -109,6 +109,6 @@ internal static partial class MarketplaceContent
             T("Магазины электроники, телефонов и техники", "Электроника, телефон жана техника дүкөндөрү", "Electronics, phone and appliance shops", "Elektronik, telefon ve teknik mağazaları", "Elektronika, telefon va texnika do'konlari"),
             T("Комиссионные и скупка б/у", "Комиссиондук жана б/у сатып алуу", "Commission shops and used-goods buy-back", "Komisyon ve ikinci el alım", "Komission do'konlar va b/u sotib olish"),
         ];
-        i.PriceTerms = SupportTerms();
+        i.PriceTerms = MarketplaceModules.For(i.Id, false).ServerMode ? MarketplaceModules.Terms(i.Id) : SupportTerms(); // 2026-11-21: цена модуля — с сервера
     }
 }

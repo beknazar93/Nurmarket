@@ -18,12 +18,12 @@ public partial class WarehouseWindow
         "Yeni ürün için kendi EAN-13 barkodunu oluştur (ürün penceresindeki ve sitedeki gibi). Kod katalogdaki ürünleri ve bu girişin satırlarını tekrarlamaz. Etiket — «Bu giriş için etiketler» düğmesiyle.",
         "Yangi mahsulot uchun o'z EAN-13 shtrix-kodini yaratish (mahsulot oynasidagi va saytdagidek). Kod katalogdagi mahsulotlar va bu qabul qatorlarini takrorlamaydi. Yorliq — «Kirim uchun yorliqlar» tugmasi bilan.");
 
-    private void ReceivingGenerateBarcode_Click(object? sender, RoutedEventArgs e)
+    private async void ReceivingGenerateBarcode_Click(object? sender, RoutedEventArgs e)
     {
         e.Handled = true;
         if ((sender as Control)?.DataContext is not ReceivingLineVm line)
             return;
-        if (!BarcodeGenerator.GenerateForReceivingLine(line, _viewModel.ReceivingLines))
+        if (!await BarcodeGenerator.GenerateForReceivingLineAsync(line, _viewModel.ReceivingLines).ConfigureAwait(true)) // 2026-11-21: код с сервера, запасной — локальный
             return;
         PosLogger.Log($"Приёмка: новому товару «{line.ProductName}» сгенерирован штрихкод {line.Barcode}.", "STOCK");
         _viewModel.ShowReceivingInfo(TR($"Штрихкод {line.Barcode} сгенерирован. Этикетку можно напечатать кнопкой «Этикетки на приход».",

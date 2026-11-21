@@ -849,7 +849,7 @@
                             <StackPanel Spacing="3" VerticalAlignment="Top">
                                 <TextBlock x:Name="CompanyNameText" FontSize="18" FontWeight="Bold" TextWrapping="Wrap" MaxLines="2"
                                            TextTrimming="CharacterEllipsis" Foreground="{DynamicResource BrushText}"/>
-                                <TextBlock x:Name="TariffText" FontSize="12" TextWrapping="Wrap"
+                                <TextBlock x:Name="TariffText" FontSize="12" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"
                                            Foreground="{DynamicResource BrushTextSoft}"/>
                             </StackPanel>
                             <Button Grid.Column="1" x:Name="CollapseButton" Classes="navCollapse" Margin="8,0,0,0"

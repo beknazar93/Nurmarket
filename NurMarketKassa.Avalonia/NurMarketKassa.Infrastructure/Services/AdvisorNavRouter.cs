@@ -92,11 +92,9 @@ public static class AdvisorNavRouter
         "списание|списания|списании|списать|списать товар|эсептен чыгаруу|эсептен чыгар|write off|write-off|writeoff|dusum|stok dusumu|zayiat|hisobdan chiqarish|hisobdan chiqar");
     private static readonly NavTarget WhMovements = Sub(Warehouse, "warehouse.movements", "movements", null, "Перемещение", "Жылдыруу", "Transfers", "Transfer", "Ko'chirish",
         "перемещение|перемещения|перемещении|переместить|перемещать|трансфер|жылдыруу|которуу|transfer|transfers|kochirish|kochirmoq|aktarma|move goods");
-    private static readonly NavTarget WhLabels = Sub(Warehouse, "warehouse.labels", "labels", null, "Редактор этикетки", "Этикетка редактору", "Label editor", "Etiket editörü", "Yorliq muharriri",
-        "этикетка|этикетки|этикетку|этикеток|ценник|ценники|ценников|редактор этикетки|печать ценников|печать этикеток|label|labels|label editor|price tag|price tags|barcode label|etiket|etiketler|etiket editoru|fiyat etiketi|yorliq|yorliqlar|narx yorligi|баа этикеткасы|этикетка редактору");
-    // 2026-11-11: вкладка «Штрихкоды» (массовая печать штрихкодов и ценников) — как «Штрихкоды» в вебе.
-    private static readonly NavTarget WhBarcodes = Sub(Warehouse, "warehouse.barcodes", "barcodes", null, "Штрихкоды", "Штрих-коддор", "Barcodes", "Barkodlar", "Shtrix-kodlar",
-        "штрихкоды|штрихкод|штрих коды|штрих код|массовая печать|массовая печать ценников|массовая печать штрихкодов|печать штрихкодов|ценники и штрихкоды|штрих коддор|штрих коддорду басуу|barcodes|barcode|bulk print|bulk label print|mass print labels|barkodlar|barkod|toplu barkod yazdirma|toplu etiket yazdirma|shtrix kodlar|shtrix kod|ommaviy chop etish|shtrix kodlarni chop etish");
+    // 2026-11-11: вкладка «Штрихкоды» (массовая печать штрихкодов и ценников) — как «Штрихкоды» в вебе. 2026-11-21: единственная вкладка «Ценники и штрихкоды» (печать, редактор, шаблоны); вкладки «Редактор этикетки» больше нет — её слова здесь.
+    private static readonly NavTarget WhBarcodes = Sub(Warehouse, "warehouse.barcodes", "barcodes", null, "Ценники и штрихкоды", "Баа белгилери жана штрих-коддор", "Price tags and barcodes", "Fiyat etiketleri ve barkodlar", "Narx yorliqlari va shtrix-kodlar",
+        "этикетка|этикетки|этикетку|этикеток|ценник|ценники|ценников|редактор этикетки|печать ценников|печать этикеток|label|labels|label editor|price tag|price tags|barcode label|etiket|etiketler|etiket editoru|fiyat etiketi|yorliq|yorliqlar|narx yorligi|баа этикеткасы|этикетка редактору|ценники и штрихкоды|редактор ценников|редактор штрихкодов|шаблоны ценников|штрихкоды|штрихкод|штрих коды|штрих код|массовая печать|массовая печать ценников|массовая печать штрихкодов|печать штрихкодов|ценники и штрихкоды|штрих коддор|штрих коддорду басуу|barcodes|barcode|bulk print|bulk label print|mass print labels|barkodlar|barkod|toplu barkod yazdirma|toplu etiket yazdirma|shtrix kodlar|shtrix kod|ommaviy chop etish|shtrix kodlarni chop etish");
     private static readonly NavTarget WhBulk = Sub(Warehouse, "warehouse.bulk", "bulk", null, "Массовое добавление", "Массалык кошуу", "Bulk add", "Toplu ekleme", "Ommaviy qo'shish",
         "массовое добавление|массовая загрузка|массовое добавить|добавить много товаров|массалык кошуу|bulk add|bulk upload|bulk import|toplu ekleme|toplu yukleme|ommaviy qoshish|ommaviy qoshish");
     private static readonly NavTarget WhLow = Sub(Warehouse, "warehouse.low", "products", "low", "Заканчивается", "Түгөнүп баратат", "Running low", "Tükenmek üzere", "Tugab bormoqda",
@@ -146,7 +144,7 @@ public static class AdvisorNavRouter
             "сводка|сводку|сводки|главная|главную|главной|главная страница|главный экран|обзор|домой|начало|жыйынтык|башкы бет|башкы|home|overview|dashboard|main page|ozet|ana sayfa|genel bakis|bosh sahifa|umumiy korinish|umumiy"),
         S("aiadvisor", "aiadvisor", "Нур Советник", "Нур Кеңешчи", "Nur Advisor", "Nur Danışman", "Nur Maslahatchi",
             "нур советник|советник|советника|кенешчи|нур кенешчи|ии|чат с ии|ии чат|advisor|ai advisor|ai chat|danisman|nur danisman|maslahatchi|nur maslahatchi"),
-        Warehouse, WhReceiving, WhRevision, WhWriteOff, WhMovements, WhLabels, WhBarcodes, WhBulk, WhLow, WhOut, WhExpiry,
+        Warehouse, WhReceiving, WhRevision, WhWriteOff, WhMovements, WhBarcodes, WhBulk, WhLow, WhOut, WhExpiry,
         S("calculator", "calculator", "Калькуляция", "Калькуляция", "Pricing calculator", "Hesaplama", "Kalkulyatsiya",
             "калькуляция|калькуляцию|калькулятор|расчет цены|расчет наценки|pricing calculator|calculator|hesaplama|hesap makinesi|kalkulyatsiya|kalkulyator"),
         S("restock", "restock", "Пополнение и сроки", "Толуктоо жана мөөнөттөр", "Restock & expiry", "Stok yenileme ve SKT", "To'ldirish va muddatlar",

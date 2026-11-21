@@ -17,7 +17,6 @@ public sealed class PriceHintsDialog : Window
     private readonly List<(PriceHint Hint, CheckBox Check)> _rows = new();
     private readonly TextBlock _message = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap, IsVisible = false };
     private readonly Button _apply;
-    private readonly Button _print;
 
     public PriceHintsDialog(IReadOnlyList<PriceHint> hints)
     {
@@ -45,9 +44,7 @@ public sealed class PriceHintsDialog : Window
 
         var close = SectionCards.Cancel(T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"));
         close.Click += (_, _) => Close();
-        _print = SectionCards.Secondary(T("Печать ценников…", "Баа белгилерин басып чыгаруу…", "Print price tags…", "Fiyat etiketi yazdır…", "Narx belgilarini chop etish…"));
-        _print.IsVisible = false;
-        _print.Click += async (_, _) => await BulkPriceTagPrintDialog.Open(this).ConfigureAwait(true);
+        // 2026-11-21: кнопки «Печать ценников…» здесь больше нет — ценники печатаются на вкладке Склада «Ценники и штрихкоды».
         _apply = SectionCards.Primary(T("Поднять выбранные", "Тандалгандарды көтөрүү", "Raise the selected", "Seçilenleri yükselt", "Tanlanganlarni ko'tarish"));
         _apply.Click += async (_, _) => await ApplyAsync().ConfigureAwait(true);
         Content = SectionCards.Shell(Title,
@@ -56,7 +53,7 @@ public sealed class PriceHintsDialog : Window
                 "After the delivery the cost rose but the sale price stayed. We suggest the price with the old markup (or the category's target), rounded up nicely.",
                 "Mal kabulünden sonra alış fiyatı yükseldi, satış fiyatı aynı kaldı. Eski kâr payıyla (veya kategori hedefiyle) «güzel» yukarı yuvarlanmış fiyat öneriyoruz.",
                 "Kirimdan keyin xarid narxi oshdi, sotuv narxi esa avvalgicha qoldi. Avvalgi ustama (yoki kategoriya maqsadi) bilan «chiroyli» yuqoriga yaxlitlangan narx taklif qilamiz."),
-            panel, SectionCards.Buttons(close, _print, _apply));
+            panel, SectionCards.Buttons(close, _apply));
     }
 
     private async Task ApplyAsync()
@@ -101,7 +98,6 @@ public sealed class PriceHintsDialog : Window
         _message.Text = T($"Цены подняты: {ok} из {chosen.Count}.", $"Баалар көтөрүлдү: {ok} / {chosen.Count}.", $"Prices raised: {ok} of {chosen.Count}.", $"Fiyatlar yükseltildi: {ok} / {chosen.Count}.", $"Narxlar ko'tarildi: {ok} / {chosen.Count}.")
                         + (failed.Count > 0 ? "\n" + string.Join("\n", failed.Take(4)) : "");
         _message.IsVisible = true;
-        _print.IsVisible = ok > 0;
         _apply.IsEnabled = _rows.Any(r => r.Check.IsChecked == true);
     }
 

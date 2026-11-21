@@ -343,6 +343,10 @@ public sealed partial class SyncService : IDisposable
                 await ProbeNowAsync(ct).ConfigureAwait(false);
                 if (IsOnline)
                     await SyncPendingAsync(ct).ConfigureAwait(false);
+                // 2026-11-21: режим слабого устройства меняется на лету — период опроса берём заново на каждом шаге (раньше — один раз при запуске цикла).
+                var interval = CurrentSyncInterval;
+                if (timer.Period != interval)
+                    timer.Period = interval;
                 await timer.WaitForNextTickAsync(ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)

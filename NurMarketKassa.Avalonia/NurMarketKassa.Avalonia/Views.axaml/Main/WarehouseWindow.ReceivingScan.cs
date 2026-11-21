@@ -88,19 +88,19 @@ public partial class WarehouseWindow
     private void InitReceivingScan()
     {
         ReceivingHintText.Text = TR(
-            "Сканируйте товары по накладной. Поставщика можно выбрать в любой момент до «Оприходовать». После скана курсор встаёт в «Принято»: число → Enter → цена закупки → Enter → цена продажи → Enter — и снова скан. Незнакомый штрихкод — новая строка: впишите название.",
-            "Накладная боюнча товарларды сканерлеңиз. Жеткирүүчүнү «Кирешеге алуу» басылганга чейин каалаган убакта тандаса болот. Сканерден кийин курсор «Кабыл алынды» уячасына тургандыктан: сан → Enter → сатып алуу баасы → Enter → сатуу баасы → Enter — жана кайра скан. Белгисиз штрихкод — жаңы сап: атын жазыңыз.",
-            "Scan the items of the delivery note. You can pick the supplier at any moment before “Receive”. After a scan the cursor lands in “Received”: number → Enter → purchase price → Enter → sale price → Enter — and scan again. An unknown barcode is a new line: type its name.",
-            "İrsaliyedeki ürünleri okutun. Tedarikçiyi «Stoğa al»dan önce istediğiniz an seçebilirsiniz. Okutmadan sonra imleç «Kabul edilen» hücresinde olur: sayı → Enter → alış fiyatı → Enter → satış fiyatı → Enter — ve yine okutma. Bilinmeyen barkod — yeni satır: adını yazın.",
-            "Nakladnoy bo'yicha mahsulotlarni skanerlang. Yetkazib beruvchini «Kirim qilish»dan oldin istalgan paytda tanlash mumkin. Skanerdan keyin kursor «Qabul qilindi» katakchasida turadi: son → Enter → xarid narxi → Enter → sotuv narxi → Enter — va yana skaner. Notanish shtrix-kod — yangi qator: nomini yozing.");
+            "Сканируйте товары по накладной. Поставщика можно выбрать в любой момент до «Оприходовать». После скана курсор встаёт в поле «Кол-во»: число → Enter → цена закупки → Enter → цена продажи → Enter — и снова скан. Незнакомый штрихкод — новая строка: впишите название.",
+            "Накладная боюнча товарларды сканерлеңиз. Жеткирүүчүнү «Кирешеге алуу» басылганга чейин каалаган убакта тандаса болот. Сканерден кийин курсор «Саны» талаасына тургандыктан: сан → Enter → сатып алуу баасы → Enter → сатуу баасы → Enter — жана кайра скан. Белгисиз штрихкод — жаңы сап: атын жазыңыз.",
+            "Scan the items of the delivery note. You can pick the supplier at any moment before “Receive”. After a scan the cursor lands in the “Qty” field: number → Enter → purchase price → Enter → sale price → Enter — and scan again. An unknown barcode is a new line: type its name.",
+            "İrsaliyedeki ürünleri okutun. Tedarikçiyi «Stoğa al»dan önce istediğiniz an seçebilirsiniz. Okutmadan sonra imleç «Adet» alanında olur: sayı → Enter → alış fiyatı → Enter → satış fiyatı → Enter — ve yine okutma. Bilinmeyen barkod — yeni satır: adını yazın.",
+            "Nakladnoy bo'yicha mahsulotlarni skanerlang. Yetkazib beruvchini «Kirim qilish»dan oldin istalgan paytda tanlash mumkin. Skanerdan keyin kursor «Soni» maydonida turadi: son → Enter → xarid narxi → Enter → sotuv narxi → Enter — va yana skaner. Notanish shtrix-kod — yangi qator: nomini yozing.");
         ReceivingFastNextCheck.Content = TR("Сразу к скану", "Дароо сканерге", "Straight to scan", "Doğrudan okutmaya", "Darhol skanerga");
         // Подсказка вкладки (на низком окне она скрыта) — всплывающей подсказкой поля скана (полный текст); над таблицей — одна короткая строка.
         ToolTip.SetTip(ReceivingScanBox, ReceivingHintText.Text);
-        ReceivingHintText.Text = TR("Как работает: скан → «Принимаем» → Enter → «Закупка» → Enter → снова скан. Цена продажи считается сама: закупка + наценка.",
-            "Кандай иштейт: скан → «Кабыл алабыз» → Enter → «Сатып алуу» → Enter → кайра скан. Сатуу баасы өзү эсептелет: сатып алуу + кошумча.",
-            "How it works: scan → “Receiving” → Enter → “Purchase” → Enter → scan again. The sale price is calculated for you: purchase + markup.",
-            "Nasıl çalışır: okutma → «Alınıyor» → Enter → «Alış» → Enter → yine okutma. Satış fiyatı kendiliğinden hesaplanır: alış + kâr.",
-            "Qanday ishlaydi: skan → «Qabul qilinadi» → Enter → «Xarid» → Enter → yana skan. Sotuv narxi o'zi hisoblanadi: xarid + ustama.");
+        ReceivingHintText.Text = TR("Как работает: скан → «Кол-во» → Enter → «Закупка» → Enter → снова скан. Цена продажи считается сама: закупка + наценка.",
+            "Кандай иштейт: скан → «Саны» → Enter → «Сатып алуу» → Enter → кайра скан. Сатуу баасы өзү эсептелет: сатып алуу + кошумча.",
+            "How it works: scan → “Qty” → Enter → “Purchase” → Enter → scan again. The sale price is calculated for you: purchase + markup.",
+            "Nasıl çalışır: okutma → «Adet» → Enter → «Alış» → Enter → yine okutma. Satış fiyatı kendiliğinden hesaplanır: alış + kâr.",
+            "Qanday ishlaydi: skan → «Soni» → Enter → «Xarid» → Enter → yana skan. Sotuv narxi o'zi hisoblanadi: xarid + ustama.");
         ReceivingHintText.TextWrapping = Avalonia.Media.TextWrapping.NoWrap;
         ReceivingHintText.TextTrimming = Avalonia.Media.TextTrimming.CharacterEllipsis;
         ToolTip.SetTip(ReceivingFastNextCheck, TR("Курсор остаётся в поле скана, каждый скан прибавляет количество из поля рядом.",
@@ -339,7 +339,7 @@ public partial class WarehouseWindow
     {
         try
         {
-            try { ReceivingGrid.CancelEdit(); }
+            try { CancelReceivingEdit(); }
             catch (Exception) { /* строки уже нет в списке — отменять нечего */ }
             var source = ReceivingGrid.ItemsSource;
             ReceivingGrid.ItemsSource = null;
@@ -388,8 +388,6 @@ public partial class WarehouseWindow
         {
             if (!_viewModel.ReceivingLines.Contains(line))
                 return;
-            ReceivingGrid.SelectedItem = line;
-            ReceivingGrid.ScrollIntoView(line, null);
             if (ReceivingFastNextCheck.IsChecked == true)
             {
                 ReceivingScanBox.Focus();
@@ -402,24 +400,11 @@ public partial class WarehouseWindow
     /// <summary>Правка ячейки строки с выделенным текстом (число сразу заменяется набором). Предыдущая правка дописывается.</summary>
     private void BeginReceivingEdit(ReceivingLineVm line, DataGridColumn column)
     {
-        if (!_viewModel.ReceivingLines.Contains(line) || !column.IsVisible)
+        if (!_viewModel.ReceivingLines.Contains(line))
             return;
-        ReceivingGrid.CommitEdit();
-        ReceivingGrid.SelectedItem = line;
-        ReceivingGrid.ScrollIntoView(line, column);
-        ReceivingGrid.CurrentColumn = column;
-        if (!ReceivingGrid.BeginEdit())
-            return;
-        // Редактор появляется после разметки ячейки; фокус и выделение ставим сами — не зависим от версии DataGrid.
-        Dispatcher.UIThread.Post(() =>
-        {
-            var editor = ReceivingGrid.GetVisualDescendants().OfType<TextBox>()
-                .FirstOrDefault(t => t.IsVisible && t.GetVisualAncestors().OfType<DataGridCell>().Any());
-            if (editor is null)
-                return;
-            editor.Focus();
-            editor.SelectAll();
-        }, DispatcherPriority.Input);
+        // 2026-11-21: строки приёмки — карточки (WarehouseWindow.ReceivingCards.cs): фокус ставится в поле карточки по тегу колонки.
+        FocusReceivingCard(line, ReferenceEquals(column, RcvColName) ? "name" : ReferenceEquals(column, RcvColPurchase) ? "purchase" : ReferenceEquals(column, RcvColMarkup) ? "markup"
+            : ReferenceEquals(column, RcvColSale) ? "sale" : "qty");
     }
 
     /// <summary>Enter и Tab в правке ячейки: «Название» → «Принято» → «Закупка» → «Продажа» → поле скана. Остальные ячейки — как в DataGrid.</summary>
@@ -690,7 +675,7 @@ public partial class WarehouseWindow
         if (!double.TryParse(ReceivingQuantityBox.Text?.Replace(',', '.'), System.Globalization.NumberStyles.AllowDecimalPoint | System.Globalization.NumberStyles.AllowLeadingSign | System.Globalization.NumberStyles.AllowLeadingWhite | System.Globalization.NumberStyles.AllowTrailingWhite,
                 System.Globalization.CultureInfo.InvariantCulture, out var quantity) || quantity <= 0)
             quantity = 1;
-        ReceivingGrid.CommitEdit();
+        CommitReceivingEdit();
         var line = _viewModel.AddReceivingProduct(row.Tile, quantity);
         if (row.Item.LastPurchasePrice > 0 && line.PurchasePrice <= 0)
         {
@@ -708,7 +693,7 @@ public partial class WarehouseWindow
     {
         if (sender is Button { Tag: ReceivingLineVm line })
         {
-            ReceivingGrid.CommitEdit();
+            CommitReceivingEdit();
             line.ReturnToAuto();
             RefreshReceivingSummary();
         }
@@ -716,7 +701,7 @@ public partial class WarehouseWindow
 
     private async void ReceivingMarkup_Click(object? sender, RoutedEventArgs e)
     {
-        ReceivingGrid.CommitEdit();
+        CommitReceivingEdit();
         await new ReceivingMarkupDialog().ShowDialog(this).ConfigureAwait(true);
     }
 
@@ -734,7 +719,7 @@ public partial class WarehouseWindow
 
     private async void ReceivingRaise_Click(object? sender, RoutedEventArgs e)
     {
-        ReceivingGrid.CommitEdit();
+        CommitReceivingEdit();
         var dialog = new ReceivingRaiseDialog(_viewModel.ReceivingLines.ToList());
         await dialog.ShowDialog(this).ConfigureAwait(true);
         if (dialog.AppliedCount > 0)
@@ -763,7 +748,7 @@ public partial class WarehouseWindow
     /// <summary>2026-11-06 (жалоба «Орук маркет»): окно «У N позиций нет цены продажи». Применённые цены ставятся в строки таблицы приёмки; false — «Отмена».</summary>
     private async Task<bool> ConfirmMissingSalePricesAsync(IReadOnlyList<ReceivingLineVm> lines)
     {
-        ReceivingGrid.CommitEdit();
+        CommitReceivingEdit();
         var proceed = await NurMarketKassa.AvaloniaHost.Views.Dialogs.MissingSalePriceDialog.AskAsync(this, lines).ConfigureAwait(true);
         RefreshReceivingSummary();
         return proceed;

@@ -36,7 +36,7 @@ internal static partial class MarketplaceContent
         ];
         i.HowTo =
         [
-            T("Нажмите «Включить бесплатно» на этой карточке (в строймаркете прокат уже включён).", "Бул карточкадагы «Акысыз күйгүзүү» басыңыз (курулуш дүкөнүндө прокат күйгүзүлгөн).", "Press “Turn on for free” on this card (in a building-material shop rental is already on).", "Bu kartta «Ücretsiz aç»a basın (yapı marketinde kiralama zaten açıktır).", "Shu kartada «Bepul yoqish» ni bosing (qurilish do'konida prokat allaqachon yoqilgan)."),
+            T("Нажмите «Включить» на этой карточке (в строймаркете прокат уже включён).", "Бул карточкадагы «Күйгүзүү» басыңыз (курулуш дүкөнүндө прокат күйгүзүлгөн).", "Press “Turn on” on this card (in a building-material shop rental is already on).", "Bu kartta «Aç»a basın (yapı marketinde kiralama zaten açıktır).", "Shu kartada «Yoqish» ni bosing (qurilish do'konida prokat allaqachon yoqilgan)."),
             T("Откройте «Прокат» в меню кассы (☰ или «Ещё») или в программе владельца: Продажи → Прокат.", "Касса менюсунан (☰ же «Дагы») «Прокат» ачыңыз же ээсинин программасында: Сатуулар → Прокат.", "Open “Rentals” in the till menu (☰ or “More”) or in the owner's program: Sales → Rentals.", "Kasa menüsünde (☰ veya «Daha fazla») «Kiralama»yı açın veya sahip programında: Satışlar → Kiralama.", "Kassa menyusida (☰ yoki «Yana») «Prokat» ni oching yoki egasining dasturida: Sotuvlar → Prokat."),
             T("«Новый прокат» — клиент, вещь, срок, залог. При возврате нажмите «Вернуть».", "«Жаңы прокат» — кардар, буюм, мөөнөт, күрөө. Кайтарууда «Кайтаруу» басыңыз.", "“New rental” — customer, item, term, deposit. On return press “Return”.", "«Yeni kiralama» — müşteri, eşya, süre, depozito. İadede «İade et»e basın.", "«Yangi prokat» — mijoz, buyum, muddat, garov. Qaytarishda «Qaytarish» ni bosing."),
         ];
@@ -45,10 +45,6 @@ internal static partial class MarketplaceContent
             T("Строительные магазины: прокат инструмента", "Курулуш дүкөндөрү: аспапты прокатка берүү", "Building-material shops: tool rental", "Yapı marketleri: alet kiralama", "Qurilish do'konlari: asbob prokati"),
             T("Одежда и услуги: платья, костюмы, оборудование", "Кийим жана кызматтар: көйнөк, костюм, жабдуу", "Clothing and services: dresses, suits, equipment", "Giyim ve hizmetler: elbise, takım, ekipman", "Kiyim va xizmatlar: ko'ylak, kostyum, jihoz"),
         ];
-        i.PriceTerms = T("Бесплатно. В сфере «Строймаг» прокат включён сразу; в других сферах — одно нажатие «Включить бесплатно». Если прокат у вас уже есть — он остаётся включённым.",
-            "Акысыз. «Курулуш дүкөнү» чөйрөсүндө прокат дароо күйгүзүлгөн; башка чөйрөлөрдө — «Акысыз күйгүзүү» бир басуу. Прокатыңыз мурдатан болсо — ал күйгүзүлгөн бойдон калат.",
-            "Free. In the “Building materials store” sphere rental is on right away; in other spheres — one tap on “Turn on for free”. If you already have rentals, it stays on.",
-            "Ücretsiz. «Yapı market» alanında kiralama hemen açıktır; diğer alanlarda — «Ücretsiz aç»a tek dokunuş. Zaten kiralamanız varsa açık kalır.",
-            "Bepul. «Qurilish do'koni» sohasida prokat darhol yoqilgan; boshqa sohalarda — «Bepul yoqish» ni bir bosish. Prokatingiz allaqachon bo'lsa — u yoqilgan holda qoladi.");
+        i.PriceTerms = MarketplaceModules.Terms(i.Id); // 2026-11-21: цена — с сервера (public/modules), прежнее «Бесплатно» убрано
     }
 }

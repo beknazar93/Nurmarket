@@ -100,6 +100,8 @@
   <x:String x:Key="csh.cart.emptyHint">Pick a product on the left or&#x0a;scan a barcode</x:String>
   <x:String x:Key="csh.cart.quickProducts">Quick products</x:String>
   <x:String x:Key="csh.cart.discountTooltip">Discount on this item</x:String>
+  <x:String x:Key="csh.cart.haggle">Haggle</x:String>
+  <x:String x:Key="csh.cart.haggleCheckTooltip">Haggle on the receipt: round down or agree on a sum</x:String>
   <x:String x:Key="csh.cart.weighTooltip">Re-weigh the item</x:String>
   <x:String x:Key="csh.cart.decreaseTooltip">Decrease</x:String>
   <x:String x:Key="csh.cart.increaseTooltip">Increase</x:String>
@@ -122,15 +124,14 @@
   <x:String x:Key="mainWindow.openDownloadTooltip">Open download page</x:String>
   <x:String x:Key="mainWindow.checkCustomerDisplayTooltip">Check customer display</x:String>
   <x:String x:Key="mainWindow.onScreenKeyboardTooltip">On-screen keyboard</x:String>
-  <x:String x:Key="mainWindow.hotkeysTooltip">Hotkeys</x:String>
+  <x:String x:Key="mainWindow.hotkeysTooltip">Set up hotkeys</x:String>
   <!-- 2026-11-13 (Н-1, Н-2): шпаргалка клавиш, подсказка пустого чека, мастер первого запуска и учебная продажа -->
-  <x:String x:Key="mainWindow.hotkeysCheatSheet">Till keys (?)</x:String>
+  <x:String x:Key="mainWindow.hotkeysCheatSheet">Key cheat sheet (?)</x:String>
   <x:String x:Key="csh.cart.scanTitle">Scan a product</x:String>
   <x:String x:Key="csh.cart.scanHint">The scanner works from anywhere on the screen.&#x0a;Or type a code / name in the search field.</x:String>
   <x:String x:Key="csh.cart.keysLink">Keys: ?</x:String>
   <x:String x:Key="csh.menu.firstRunWizard">Tutorial: guided tour of the till</x:String>
   <x:String x:Key="csh.menu.trainingSale">Training sale</x:String>
-  <x:String x:Key="csh.menu.transferData">Move data from another program</x:String>
   <x:String x:Key="hotkeyGroup.title">Hotkey</x:String>
   <x:String x:Key="header.labelCustomerDisplay">Display</x:String>
   <x:String x:Key="header.labelTheme">Theme</x:String>
@@ -784,6 +785,8 @@
   <x:String x:Key="posSettings.screen.autoTouchKeyboard">Auto-show touch keyboard</x:String>
   <x:String x:Key="posSettings.screen.showCatalogPhotos">Show product photos in the catalog</x:String>
   <x:String x:Key="posSettings.screen.showCatalogPhotosDesc">If a product has no uploaded photo, only the name is shown.</x:String>
+  <x:String x:Key="posSettings.screen.noBarcodeFirst">Products without a barcode first</x:String>
+  <x:String x:Key="posSettings.screen.noBarcodeFirstDesc">Bread, rolls and other products with no factory barcode come first in the catalog, then the rest. When searching, the order follows the match.</x:String>
   <x:String x:Key="posSettings.screen.cashbox">Till</x:String>
   <x:String x:Key="posSettings.screen.cashboxDesc">The first active till is used by default. If it's the wrong one, pick the right one here.</x:String>
   <x:String x:Key="posSettings.screen.refreshCashboxesTooltip">Refresh the list of tills</x:String>
@@ -1137,7 +1140,6 @@
   <x:String x:Key="warehouse.printLabelButton">Print</x:String>
   <x:String x:Key="warehouse.colPriceTag">Price tag</x:String>
   <x:String x:Key="warehouse.priceTagButton">Price tag</x:String>
-  <x:String x:Key="warehouse.bulkPriceTagButton">Print barcodes and price tags</x:String>
   <x:String x:Key="warehouse.analyticsLockedTitle">Warehouse analytics — paid add-on</x:String>
   <x:String x:Key="warehouse.analyticsLockedDesc">Charts and category breakdowns become available after activation with a serial number — just like themes in the Marketplace.</x:String>
   <x:String x:Key="warehouse.analyticsUnlockButton">Activate</x:String>
@@ -1209,10 +1211,6 @@
   <x:String x:Key="warehouse.movementsNote">Note</x:String>
   <x:String x:Key="warehouse.movementsSale">Sale</x:String>
   <x:String x:Key="warehouse.movementsWriteOff">Write-off</x:String>
-  <x:String x:Key="warehouse.tabLabelEditor">Label editor</x:String>
-  <x:String x:Key="warehouse.labelEditorTabTitle">Label editor</x:String>
-  <x:String x:Key="warehouse.labelEditorTabDescription">Position the barcode, name, price, SKU, unit and store name on the label — drag and configure each element. Labels printed from a product row (⋯ → Print label) use this template.</x:String>
-  <x:String x:Key="warehouse.labelEditorTabButton">Open editor</x:String>
   <x:String x:Key="warehouse.analyticsSkuCountLabel">Products in catalog</x:String>
   <x:String x:Key="warehouse.analyticsOutOfStockLabel">Out of stock</x:String>
   <x:String x:Key="warehouse.analyticsLowStockLabel">Low stock</x:String>

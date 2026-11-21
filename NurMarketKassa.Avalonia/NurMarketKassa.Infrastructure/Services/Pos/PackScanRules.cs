@@ -15,9 +15,12 @@ public static class PackScanRules
     /// <summary>Разумный предел количества в одной коробке (защита от опечатки «2000000» в карточке).</summary>
     public const double MaxPackQuantity = 100_000d;
 
+    /// <summary>2026-11-21 (ответ Умара 20.11, отчёт по сферам, п. 2): функция доступна — модуль packages (с сервера; профили Хозмаг, Строймаг, Канцтовары), а без ответа сервера — профиль сферы с PackScan.
+    /// Раньше требовался Хозмаг / Строймаг, и в Канцтоварах «скан коробки» не работал.</summary>
+    public static bool Available => CompanyModules.IsOn(ModuleIds.Packages, MarketSpheres.Profile.PackScan);
+
     /// <summary>Галочка включена и сфера подходит.</summary>
-    public static bool Enabled =>
-        MarketSpheres.IsHardware && MarketSpheres.Profile.PackScan && SphereSettings.GetHardwarePackScan();
+    public static bool Enabled => Available && SphereSettings.GetHardwarePackScan();
 
     /// <summary>Подпись коробки по отсканированному коду («Коробка ×200») или null — скан обычный. N — сколько базовых единиц добавить.</summary>
     public static AlternateBarcodeVariant? Find(CatalogProductTileVm product, string? scannedBarcode, out double quantity)

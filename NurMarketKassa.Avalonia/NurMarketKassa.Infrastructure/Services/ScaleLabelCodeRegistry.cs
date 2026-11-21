@@ -229,6 +229,9 @@ public static class ScaleLabelCodeRegistry
             }
             var all = new HashSet<string>(_sharedAmount, StringComparer.Ordinal);
             all.UnionWith(ScaleBarcodeRulesSync.CloudSharedAmountPrefixes);
+            // 2026-11-21: явное правило кассы «вес» важнее общих «сумма» (префикс 20: мастер «вес», а скан добавлял 20 в «сумма» и сумма побеждала вес).
+            // Выбор «сумма» делает Apply(…Amount), он снимает префикс из «вес» — так что фильтр не мешает весам с прямой отправкой.
+            all.ExceptWith(NurMarketKassa.Core.Application.WeightBarcodeParser.WeightPrefixes);
             if (all.Count == 0 || all.IsSubsetOf(NurMarketKassa.Core.Application.WeightBarcodeParser.AmountPrefixes))
                 return;
             var merged = new HashSet<string>(NurMarketKassa.Core.Application.WeightBarcodeParser.AmountPrefixes, StringComparer.Ordinal);

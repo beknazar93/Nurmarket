@@ -111,6 +111,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
         {
             InitializeComponent();
             AddEmptyHints(); // 2026-10-18, доводка О4: пустые «Возвраты» и «История» — с подсказкой (FinanceWindow.Merged.cs)
+            // 2026-11-21 (жалоба владельца): чек из списка открывается явно — двойной щелчок или кнопка «›»; одно нажатие только выделяет строку.
+            SalesGrid.Columns.Add(ReceiptRowOpen.CreateColumn(OpenReceiptFromRow));
+            RefundsGrid.Columns.Add(ReceiptRowOpen.CreateColumn(OpenReceiptFromRow));
+            HistoryGrid.Columns.Add(ReceiptRowOpen.CreateColumn(OpenReceiptFromRow));
             // 2026-10-19, этап О10: под плитками прибыли — как считается (те же слова, что на Сводке и в «Прибыли и деньгах»).
             // 2026-10-20: аудит владельца — расходы теперь из NurCRM (как в «Прибыли и деньгах»), а не изъятия из кассы.
             ProfitHowText.Text = ProfitTerms.GrossHow + ". " + ProfitTerms.NetHow + Tr.T(" (расходы — из NurCRM, как в «Прибыли и деньгах»).",

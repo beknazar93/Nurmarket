@@ -15,6 +15,12 @@
         FontFamily="Segoe UI">
   <Window.Styles>
     <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views.axaml/Shared/MainViewStyles.axaml"/>
+    <!-- 2026-11-21: «Сбросить» — рамка цвета поля ввода (3,5:1 к фону окна в обеих темах), текст BrushText (≥ 7:1); выключенная —
+         та же рамка и текст, бледность даёт общий стиль выключенных кнопок (Opacity 0,7), не сливается с фоном. -->
+    <Style Selector="Button.filter-reset">
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushInputBorder}"/>
+      <Setter Property="MinWidth" Value="120"/>
+    </Style>
     <!-- 2026-10-21: списки «Тип / Категория / Бренд» — в стиле кассы (пакет 5, п. 17): во всю ширину, как «Поиск»
          и «Цена» (были узкими по тексту); выпадающий список — панелью темы со скруглением, строки крупные (палец),
          выбранная — мягким фоном и жирным текстом (был серый список Fluent с голубым выделением); не выше 320 px
@@ -82,9 +88,13 @@
   <dlg:ModalShell Margin="16"
                   Title="{DynamicResource csh.filter.title}"
                   Subtitle="{DynamicResource csh.filter.subtitle}"
-                  InitialFocus="SearchBox">
+                  InitialFocus="CatalogKindCombo">
+    <!-- 2026-11-21 (владелец: «Сбросить» сливается с фоном; «Убрать поисковик в фильтре»): «Сбросить» — обводкой (была кнопка
+         без рамки и заливки), включена только когда есть что сбрасывать; собственного поля «Поиск» нет — фильтр работает
+         вместе с поиском каталога. -->
     <dlg:ModalShell.Hint>
-      <Button Classes="modal-ghost" Content="{DynamicResource csh.filter.reset}"
+      <Button Classes="modal-cancel filter-reset" Content="{DynamicResource csh.filter.reset}"
+              IsEnabled="{Binding CanReset}"
               MinWidth="120" Click="Reset_Click"/>
     </dlg:ModalShell.Hint>
     <dlg:ModalShell.Footer>
@@ -109,38 +119,31 @@
         </StackPanel>
       </Border>
 
-      <StackPanel Spacing="8">
-        <TextBlock Text="{DynamicResource csh.filter.search}" FontSize="13" FontWeight="SemiBold"/>
-        <TextBox x:Name="SearchBox" Text="{Binding SearchText}" Classes="modal-field"
-                 AutomationProperties.Name="{DynamicResource csh.filter.search}"
-                 Watermark="{DynamicResource csh.filter.searchWatermark}"/>
-      </StackPanel>
-
       <Grid ColumnDefinitions="*,16,*">
         <StackPanel Grid.Column="0" Spacing="8">
           <TextBlock Text="{DynamicResource csh.filter.kind}" FontSize="13" FontWeight="SemiBold"/>
-          <ComboBox x:Name="CatalogKindCombo" Classes="filter-combo"
+          <ComboBox x:Name="CatalogKindCombo" Classes="filter-combo" SelectedItem="{Binding SelectedKind, Mode=TwoWay}"
                     AutomationProperties.Name="{DynamicResource csh.filter.kind}"/>
         </StackPanel>
         <StackPanel Grid.Column="2" Spacing="8">
           <TextBlock Text="{DynamicResource csh.filter.category}" FontSize="13" FontWeight="SemiBold"/>
-          <ComboBox x:Name="CategoryCombo" Classes="filter-combo"
+          <ComboBox x:Name="CategoryCombo" Classes="filter-combo" SelectedItem="{Binding SelectedCategory, Mode=TwoWay}"
                     AutomationProperties.Name="{DynamicResource csh.filter.category}"/>
         </StackPanel>
       </Grid>
 
       <StackPanel Spacing="8">
         <TextBlock Text="{DynamicResource csh.filter.brand}" FontSize="13" FontWeight="SemiBold"/>
-        <ComboBox x:Name="BrandCombo" Classes="filter-combo"
+        <ComboBox x:Name="BrandCombo" Classes="filter-combo" SelectedItem="{Binding SelectedBrand, Mode=TwoWay}"
                   AutomationProperties.Name="{DynamicResource csh.filter.brand}"/>
       </StackPanel>
 
       <StackPanel Spacing="8">
         <TextBlock Text="{DynamicResource csh.filter.priceRange}" FontSize="13" FontWeight="SemiBold"/>
         <Grid ColumnDefinitions="*,16,*">
-          <TextBox x:Name="PriceMinBox" Grid.Column="0" Classes="modal-field" Watermark="{DynamicResource csh.filter.priceFrom}"
+          <TextBox x:Name="PriceMinBox" Grid.Column="0" Classes="modal-field" Text="{Binding PriceMin, Mode=TwoWay}" Watermark="{DynamicResource csh.filter.priceFrom}"
                    AutomationProperties.Name="{DynamicResource csh.filter.priceFrom}"/>
-          <TextBox x:Name="PriceMaxBox" Grid.Column="2" Classes="modal-field" Watermark="{DynamicResource csh.filter.priceTo}"
+          <TextBox x:Name="PriceMaxBox" Grid.Column="2" Classes="modal-field" Text="{Binding PriceMax, Mode=TwoWay}" Watermark="{DynamicResource csh.filter.priceTo}"
                    AutomationProperties.Name="{DynamicResource csh.filter.priceTo}"/>
         </Grid>
       </StackPanel>

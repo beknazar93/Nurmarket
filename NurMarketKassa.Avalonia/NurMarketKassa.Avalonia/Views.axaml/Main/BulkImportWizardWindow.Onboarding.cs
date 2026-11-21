@@ -34,6 +34,8 @@ public partial class BulkImportWizardWindow
     /// Попробовать продажу на примере» (набор уже включён в <see cref="DemoStoreCatalog"/>; учебный режим включает вызывающий).</summary>
     public static async Task<OnboardingResult> ShowForOnboardingAsync(Window owner)
     {
+        if (!ImportAccess.Allowed) // 2026-11-21: в кассе мастер загрузки не открывается ни по какой ссылке
+            return new OnboardingResult(false, false);
         BulkImportWizardWindow window;
         try
         {
@@ -62,6 +64,8 @@ public partial class BulkImportWizardWindow
     /// программа владельца, обучение) — то же, что у кнопки «Массовая загрузка» в складе: «Склад: редактирование» (владелец и администратор его имеют).</summary>
     public static bool CanOpenTransfer()
     {
+        if (!ImportAccess.Allowed) // 2026-11-21: импорт — только в программе владельца, в кассе входов нет (ImportAccess)
+            return false;
         if (CanOpenTransferOverride is { } probe)
             return probe();
         var permissions = App.AppHost?.Services is { } sp

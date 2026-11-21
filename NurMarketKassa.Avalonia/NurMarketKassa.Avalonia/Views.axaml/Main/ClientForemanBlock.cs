@@ -75,7 +75,7 @@ public sealed class ClientForemanBlock : UserControl
     {
         _clientId = clientId;
         // 2026-11-20 (Автозапчасти, часть Б): блок виден и в сфере «Автозапчасти» — подпись «СТО / мастер».
-        IsVisible = !string.IsNullOrWhiteSpace(clientId) && ((MarketSpheres.IsHardware && MarketSpheres.Profile.ForemanPriceAvailable) || AutoPartsRules.Active);
+        IsVisible = !string.IsNullOrWhiteSpace(clientId) && (CompanyModules.IsOn(ModuleIds.ClientPrice, MarketSpheres.Profile.ForemanPriceAvailable) || AutoPartsRules.Active);
         ApplyTexts();
         _suppress = true;
         try

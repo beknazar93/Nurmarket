@@ -39,7 +39,9 @@
           <ItemsControl ItemsSource="{Binding Rows}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="local:HotkeyRow">
-                <Grid ColumnDefinitions="*,220" Margin="12,8">
+                <!-- 2026-11-21 (обход кассы, № 17): строки отделены тонкой линией и выше — название следующей строки не липнет к описанию предыдущей. -->
+                <Border BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,0,1">
+                <Grid ColumnDefinitions="*,220" Margin="12,10">
                   <StackPanel Spacing="3" VerticalAlignment="Center" Margin="0,0,12,0">
                     <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap"/>
                     <TextBlock Text="{Binding Description}" FontSize="12"
@@ -49,6 +51,7 @@
                            IsReadOnly="True" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
                            FontSize="16" FontWeight="Bold" Watermark="{DynamicResource hotkeys.pressKeysWatermark}"/>
                 </Grid>
+                </Border>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>

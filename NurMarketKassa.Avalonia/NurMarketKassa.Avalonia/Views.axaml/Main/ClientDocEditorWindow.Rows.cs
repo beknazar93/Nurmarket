@@ -42,6 +42,7 @@ public sealed partial class ClientDocEditorWindow
             Res(empty, TextBlock.ForegroundProperty, "BrushTextSoft");
             RowsPanel.Children.Add(empty);
         }
+        RefreshCargo(); // 2026-11-21 («Базар», опт): строки карточки «Карго» следуют за строками накладной
     }
 
     private Control LineRow(ClientDocLine line, int index)

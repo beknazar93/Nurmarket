@@ -10,6 +10,10 @@ public interface IBillingApi
     Task<BillingConfig> GetConfigAsync(CancellationToken ct = default);
     /// <summary>POST users/billing/invoices/ {months, plan_code?} с заголовком Idempotency-Key: один ключ на попытку, повтор с тем же ключом сервер отдаёт тем же счётом.</summary>
     Task<BillingInvoice> CreateInvoiceAsync(int months, string? planCode, string idempotencyKey, CancellationToken ct = default);
+
+    /// <summary>2026-11-21 (ответ Умара 21.11): period "year" — счёт на 12 месяцев по цене 10 (строка «Скидка (год = 10 месяцев)» приходит в lines). По умолчанию — прежний счёт по месяцам.</summary>
+    Task<BillingInvoice> CreateInvoiceAsync(int months, string? planCode, string? period, string idempotencyKey, CancellationToken ct = default) =>
+        CreateInvoiceAsync(months, planCode, idempotencyKey, ct);
     Task<BillingInvoice> GetInvoiceAsync(string invoiceId, CancellationToken ct = default);
     Task<IReadOnlyList<BillingInvoice>> ListInvoicesAsync(string? status = null, CancellationToken ct = default);
     Task<BillingInvoice?> CancelInvoiceAsync(string invoiceId, CancellationToken ct = default);
@@ -37,13 +41,18 @@ public sealed class BillingApi : IBillingApi
     public async Task<BillingConfig> GetConfigAsync(CancellationToken ct = default) =>
         BillingParser.ParseConfig(await _api.RequestAsync(HttpMethod.Get, Root + "config/", null, null, ct).ConfigureAwait(false));
 
-    public async Task<BillingInvoice> CreateInvoiceAsync(int months, string? planCode, string idempotencyKey, CancellationToken ct = default)
+    public Task<BillingInvoice> CreateInvoiceAsync(int months, string? planCode, string idempotencyKey, CancellationToken ct = default) =>
+        CreateInvoiceAsync(months, planCode, null, idempotencyKey, ct);
+
+    public async Task<BillingInvoice> CreateInvoiceAsync(int months, string? planCode, string? period, string idempotencyKey, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(idempotencyKey))
             throw new ArgumentException("Idempotency-Key обязателен.", nameof(idempotencyKey));
         var body = new Dictionary<string, object?> { ["months"] = months };
         if (!string.IsNullOrWhiteSpace(planCode))
             body["plan_code"] = planCode.Trim();
+        if (string.Equals(period, "year", StringComparison.OrdinalIgnoreCase))
+            body["period"] = "year"; // 2026-11-21: годовой счёт (12 месяцев по цене 10); months остаётся 12
         var data = await _api.PostWithIdempotencyKeyAsync(Root + "invoices/", body, idempotencyKey, ct, CreateTimeout).ConfigureAwait(false);
         return BillingParser.ParseInvoice(data);
     }

@@ -256,7 +256,6 @@
                       AutoGenerateColumns="False"
                       IsReadOnly="True"
                       DoubleTapped="SalesGrid_MouseDoubleClick"
-                      Tapped="SalesGrid_Tapped"
                       ItemsSource="{Binding SalesView}">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="{DynamicResource common.date}" MinWidth="60" Binding="{ReflectionBinding DateText}" />

@@ -19,7 +19,7 @@ public static class CompanyScopedSettings
         "LastUpdateCheckUtc", "AppliedPublishDefaultsVersion", "LastSeenAppVersion", "UpdateTesterCode", "LanDeviceId",
         "Autostart", "Fullscreen", "TrueFullscreen", "LowPerformanceMode", "UiScalePercent", "CompactLayoutMode",
         "Language", "PostgreSqlConnectionStringEncrypted",
-        "ModalBackgroundBlur", "WindowsRenderMode", // 2026-11-11: размытие под модалками и режим отрисовки — свойства этого ПК
+        "ModalBackgroundBlur", "WindowsRenderMode", "WeakPcHintShown", // 2026-11-11: размытие под модалками и режим отрисовки — свойства этого ПК
         "MarketplaceWebUrl", "AutoInstallPurchasedThemes", // 2026-11-06: настройки этого компьютера (адрес Маркетплейса на сайте, автоустановка купленных тем)
         "AutonomousModeActivated", "AutonomousModeActivationKey", "AutonomousAutoResume", "PreserveCatalogOnNextAutonomousLogin",
         // 2026-11-11: вычисляемое свойство (правила весовых штрихкодов для облака) — сами поля правил сбрасываются по одному, как остальные правила магазина.

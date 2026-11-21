@@ -36,7 +36,17 @@ public static class ReturnEditFlows
     internal static ReturnEditApi Api() => ApiFactory?.Invoke() ?? new ReturnEditApi(App.GetRequiredService<NurMarketApiClient>());
 
     /// <summary>Владелец/администратор (журнал аудита — только им; сервер всё равно проверит).</summary>
-    public static bool IsManager => App.AuthApi is { } auth && PermissionService.IsOwnerOrAdmin(auth.UserPayload);
+    public static bool IsManager => IsManagerProbe?.Invoke() ?? (App.AuthApi is { } auth && PermissionService.IsOwnerOrAdmin(auth.UserPayload));
+
+    /// <summary>2026-11-21: подмена «владелец/админ» в тестах окон; null — настоящая проверка по входу.</summary>
+    public static Func<bool>? IsManagerProbe { get; set; }
+
+    /// <summary>2026-11-21 (ответ Умара 21.11, п. 5): подсказка владельцу — правка после 24 ч возможна только с PIN, пишется в журнал.</summary>
+    public static string OwnerOverrideText() => T("Правка владельцем: срок 24 часа прошёл, но владелец/администратор может править с PIN-кодом руководителя. Правка пишется в журнал.",
+        "Ээси оңдойт: 24 саат өттү, бирок ээси/администратор жетекчинин PIN коду менен оңдой алат. Оңдоо журналга жазылат.",
+        "Owner edit: 24 hours have passed, but the owner/administrator can edit with the manager PIN. The edit is written to the log.",
+        "Sahip düzenlemesi: 24 saat geçti, ancak sahip/yönetici yönetici PIN'i ile düzenleyebilir. Düzenleme günlüğe yazılır.",
+        "Egasi tahriri: 24 soat o'tdi, lekin egasi/administrator rahbar PIN kodi bilan tahrirlay oladi. Tahrir jurnalga yoziladi.");
 
     private static string KindName(ReturnDocKind kind) => kind == ReturnDocKind.Supplier
         ? T("возврат поставщику", "жеткирүүчүгө кайтаруу", "return to supplier", "tedarikçiye iade", "yetkazib beruvchiga qaytarish")
@@ -98,22 +108,31 @@ public static class ReturnEditFlows
     /// 2026-11-12 (владелец: «редактирование накладной возврата поставщику»): <paramref name="editText"/> — своя подпись кнопки правки («Править накладную»);
     /// <paramref name="editWithoutFlags"/> — признак сервера есть, а строка списка не принесла can_edit/version: кнопка всё равно видна, решение — по свежей карточке
     /// при нажатии (раньше кнопки молча не было); <paramref name="whyNot"/> — пояснение, почему правки нет (нет признака сервера, нет связи, прошло 24 ч без кода причины).
+    /// 2026-11-21 (владелец: «редактор возвраты поставщикам нету!»): <paramref name="alwaysShowEdit"/> — кнопка правки видна у ЛЮБОГО действующего (не аннулированного) документа, даже когда сервер правку не разрешает
+    /// (прошло 24 ч, смена закрыта, нет признака): нажатие объясняет причину окном, а не молчаливым отсутствием кнопки; такая кнопка бледнее, причина — строкой под ней.
     public static Control Bar(Control host, ReturnDocRef doc, Func<Window, Task<bool>>? edit, Func<Task> reload,
-        string? editText = null, bool editWithoutFlags = false, Func<ReturnEditState, string?>? whyNot = null)
+        string? editText = null, bool editWithoutFlags = false, Func<ReturnEditState, string?>? whyNot = null, bool alwaysShowEdit = false)
     {
         var row = new WrapPanel { Orientation = Orientation.Horizontal };
         var withoutFlags = editWithoutFlags && ReturnEditGate.FeatureOn(doc.Kind) && !doc.State.IsVoided && (!doc.State.HasServerFlags || doc.State.Version <= 0);
-        var showEdit = edit is not null && (ReturnEditGate.ShowEdit(doc.Kind, doc.State) || withoutFlags);
+        var editAllowed = edit is not null && (ReturnEditGate.ShowEdit(doc.Kind, doc.State, IsManager) || withoutFlags); // 2026-11-21: владелец/админ правит и после 24 ч
+        var ownerOverride = edit is not null && ReturnEditGate.IsOwnerOverride(doc.Kind, doc.State, IsManager);
+        var showEdit = editAllowed || (alwaysShowEdit && edit is not null && !doc.State.IsVoided);
         // 2026-11-12 (аудит Н-4): строка списка без признаков сервера — рядом с «Править накладную» видна и «Удалить»; решение (можно ли, срок, версия) — по свежей карточке в VoidAsync
         var showVoid = ReturnEditGate.ShowVoid(doc.Kind, doc.State) || withoutFlags;
         var showHistory = ReturnEditGate.ShowHistory(doc.Kind, doc.State, IsManager);
         Window? Owner() => TopLevel.GetTopLevel(host) as Window;
         if (showEdit)
-            row.Children.Add(Small(editText ?? T("Редактировать", "Оңдоо", "Edit", "Düzenle", "Tahrirlash"), async () =>
+        {
+            var editButton = Small(editText ?? T("Редактировать", "Оңдоо", "Edit", "Düzenle", "Tahrirlash"), async () =>
             {
                 if (Owner() is { } w && await edit!(w).ConfigureAwait(true))
                     await reload().ConfigureAwait(true);
-            }));
+            });
+            if (!editAllowed)
+                editButton.Opacity = 0.7; // 2026-11-21: правка сейчас недоступна — кнопка бледнее, нажатие объяснит почему
+            row.Children.Add(editButton);
+        }
         if (showVoid)
             row.Children.Add(Small(T("Удалить", "Өчүрүү", "Delete", "Sil", "O'chirish"), async () =>
             {
@@ -129,7 +148,7 @@ public static class ReturnEditFlows
         var panel = new StackPanel { Spacing = 2 };
         panel.Children.Add(row);
         row.IsVisible = row.Children.Count > 0;
-        if ((showEdit || showVoid) && TimeLeftHint(doc.State) is { } hint)
+        if ((editAllowed || showVoid) && TimeLeftHint(doc.State) is { } hint)
         {
             var t = new TextBlock { Text = hint, FontSize = 12, TextWrapping = TextWrapping.Wrap };
             t.Bind(TextBlock.ForegroundProperty, t.GetResourceObservable("BrushTextSoft"));
@@ -137,7 +156,7 @@ public static class ReturnEditFlows
         }
         // 2026-11-11 (реальный контракт): кнопок нет по решению сервера — объясняем почему (чек в долг, прошло 24 ч, смена закрыта…)
         // 2026-11-12: и когда кода причины нет (нет признака сервера, нет связи, can_edit:false без причины) — пояснение от вызывающего (whyNot)
-        if ((ReturnEditGate.BlockHint(doc.Kind, doc.State) ?? (showEdit ? null : whyNot?.Invoke(doc.State))) is { } blocked)
+        if ((ownerOverride ? OwnerOverrideText() : ReturnEditGate.BlockHint(doc.Kind, doc.State) ?? (editAllowed ? null : whyNot?.Invoke(doc.State))) is { } blocked)
         {
             var t = new TextBlock { Text = "ⓘ " + blocked, FontSize = 12, TextWrapping = TextWrapping.Wrap, Name = "ReturnEditBlockHint" };
             t.Bind(TextBlock.ForegroundProperty, t.GetResourceObservable("BrushTextSoft"));
@@ -201,7 +220,7 @@ public static class ReturnEditFlows
             ? T("Изменение: ", "Өзгөртүү: ", "Change: ", "Değişiklik: ", "O'zgartirish: ")
             : T("Удаление: ", "Өчүрүү: ", "Deletion: ", "Silme: ", "O'chirish: ")) + KindName(doc.Kind) + " " + doc.Number;
         var dialog = new ManagerPinDialog(subtitle, (pin, ct) => api.ConfirmAsync(doc.Kind, doc.Id, action, version, pin, ct));
-        await dialog.ShowDialog<bool>(owner).ConfigureAwait(true);
+        await PosDialogHost.ShowDialogOnce<bool>(dialog, owner).ConfigureAwait(true); // 2026-11-21: двойное нажатие — одно окно PIN
         return (dialog.ConfirmToken, dialog.FinalError);
     }
 
@@ -437,7 +456,7 @@ public static class ReturnEditFlows
     {
         var number = SupplierNumber(r);
         return Bar(host, new ReturnDocRef(ReturnDocKind.Supplier, r.Id, number, r.Total, r.EditState), w => EditSupplierReturnAsync(w, r, number, api), reload,
-            SupplierEditButtonText(), editWithoutFlags: r.Id.Length > 0, whyNot: SupplierEditUnavailableText);
+            SupplierEditButtonText(), editWithoutFlags: r.Id.Length > 0, whyNot: SupplierEditUnavailableText, alwaysShowEdit: true);
     }
 
     /// <summary>2026-11-12: почему у возврата поставщику нет кнопки «Править накладную» (5 языков); null — пояснять нечего (кнопка есть или документ аннулирован — у него плашка).
@@ -493,9 +512,9 @@ public static class ReturnEditFlows
             return new SupplierEditPrep(null, ReturnEditErrors.Text(e), false);
         }
         var stale = listed.EditState.Version > 0 && card.EditState.Version != listed.EditState.Version;
-        if (card.EditState.IsVoided || (card.EditState.HasServerFlags && !ReturnEditGate.ShowEdit(ReturnDocKind.Supplier, card.EditState)))
+        if (card.EditState.IsVoided || (card.EditState.HasServerFlags && !ReturnEditGate.ShowEdit(ReturnDocKind.Supplier, card.EditState, IsManager)))
             return new SupplierEditPrep(null, ReturnEditErrors.NotEditableText(card.EditState), true); // 2026-11-11: причина сервера
-        if (!ReturnEditGate.ShowEdit(ReturnDocKind.Supplier, card.EditState))
+        if (!ReturnEditGate.ShowEdit(ReturnDocKind.Supplier, card.EditState, IsManager)) // 2026-11-21: владелец/админ — и после 24 ч
             return new SupplierEditPrep(null, T("Сервер не прислал разрешение на правку этого возврата (can_edit, version) — возможно, возврат создан до включения правки. Обратитесь в техподдержку NurCRM.",
                 "Сервер бул кайтарууну оңдоого уруксат жөнөткөн жок (can_edit, version) — балким, кайтаруу оңдоо киргизилгенге чейин түзүлгөн. NurCRM техникалык колдоосуна кайрылыңыз.",
                 "The server did not send permission to edit this return (can_edit, version) — the return may have been created before editing was enabled. Contact NurCRM support.",
@@ -530,9 +549,10 @@ public static class ReturnEditFlows
                 await Say(owner, message).ConfigureAwait(true);
             return prep.Reload;
         }
-        var saved = await new SupplierReturnEditDialog(card, number, api).ShowDialog<bool>(owner).ConfigureAwait(true);
-        if (saved) // 2026-11-11: остатки товаров возврата пересчитал сервер — перечитать
-            foreach (var pid in card.Lines.Select(l => l.ProductId).Where(p => p.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase))
+        var dialog = new SupplierReturnEditDialog(card, number, api);
+        var saved = await PosDialogHost.ShowDialogOnce<bool>(dialog, owner).ConfigureAwait(true) == true; // 2026-11-21: двойное нажатие — одно окно
+        if (saved) // 2026-11-11: остатки товаров возврата пересчитал сервер — перечитать (2026-11-21: и добавленных при правке)
+            foreach (var pid in card.Lines.Select(l => l.ProductId).Concat(dialog.AddedProductIds).Where(p => p.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase))
                 StockSyncService.ScheduleStockReread(pid, TimeSpan.FromSeconds(2));
         return saved || prep.Reload;
     }
@@ -670,7 +690,7 @@ public static class ReturnEditFlows
         }
         // 2026-11-12 (аудит К-1, В-1): сумма документа и номер чека — из свежей карточки; после правки журналы кассы обновлены окном, кассиру — что делать с деньгами
         var dialog = new CustomerReturnEditDialog(doc with { State = state, Total = (double)(CustomerReturnEdit.DocAmount(card) ?? (decimal)doc.Total) }, lines, api, SaleIdOf(card));
-        var saved = await dialog.ShowDialog<bool>(owner).ConfigureAwait(true);
+        var saved = await PosDialogHost.ShowDialogOnce<bool>(dialog, owner).ConfigureAwait(true) == true; // 2026-11-21: двойное нажатие — одно окно
         if (saved)
         {
             RefreshStock(card);
@@ -782,7 +802,8 @@ public static class ReturnEditFlows
         close.Click += (_, _) => w.Close();
         w.Content = SectionCards.Shell(w.Title, T("Чек ", "Чек ", "Receipt ", "Fiş ", "Chek ") + receiptNumber, list, SectionCards.Buttons(close));
         w.Opened += async (_, _) => await RenderAsync().ConfigureAwait(true);
-        await w.ShowDialog(owner).ConfigureAwait(true);
+        // 2026-11-21: двойное нажатие «Возвраты по чеку» — одно окно (замок по номеру чека, снимается при закрытии/ошибке)
+        await PosDialogHost.RunExclusiveAsync("receipt-returns:" + receiptNumber, () => w.ShowDialog(owner)).ConfigureAwait(true);
         return changed;
     }
 
@@ -794,7 +815,7 @@ public static class ReturnEditFlows
     {
         api ??= Api();
         var dialog = new ReturnHistoryDialog(KindName(doc.Kind) + " " + doc.Number, ct => api.GetHistoryAsync(doc.Kind, doc.Id, ct));
-        await dialog.ShowDialog(owner).ConfigureAwait(true);
+        await PosDialogHost.ShowDialogOnce(dialog, owner).ConfigureAwait(true); // 2026-11-21: двойное нажатие — одно окно журнала
     }
 }
 

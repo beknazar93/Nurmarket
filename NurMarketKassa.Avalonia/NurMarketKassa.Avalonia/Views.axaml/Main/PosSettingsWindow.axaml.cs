@@ -42,7 +42,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
         private AiSettingsView? _aiView; // 2026-11-19 (п. 1 владельца): вкладка «ИИ» — карточки ИИ из «Операций», создаётся при первом показе
         private readonly SettingsView _customizationView = new();
         private readonly AccountView _accountView = new();
-        private readonly EmployeesSettingsView _employeesView = new();
+        // 2026-11-21 (владелец: «Убрать ИИ и Сотрудники из настроек КАССЫ!»): страница «Сотрудники» создаётся только там, где вкладка есть (OwnerOnlySettings.EmployeesAllowed) — в кассе не строится и сеть не дёргает.
+        private readonly EmployeesSettingsView? _employeesView = NurMarketKassa.Services.OwnerOnlySettings.EmployeesAllowed ? new() : null;
         private readonly KeyBindingsSettingsView _keysView = new();
 
         private Button[] _navButtons = Array.Empty<Button>();
@@ -168,15 +169,16 @@ namespace NurMarketKassa.AvaloniaHost.Views
             yield return (LanguageEnglishRadio, AppLanguage.English);
         }
         private ComboBox CashboxCombo => _screenView.CashboxCombo;
-        private TextBox StoreNameBox => _screenView.StoreNameBox;
-        private TextBox StoreAddressBox => _screenView.StoreAddressBox;
-        private CheckBox ShowInnCheck => _screenView.ShowInnCheck;
+        private TextBox StoreNameBox => _printView.StoreNameBox;
+        private TextBox StoreAddressBox => _printView.StoreAddressBox;
+        private CheckBox ShowInnCheck => _printView.ShowInnCheck;
         private RadioButton DoubleClickToCartRadio => _screenView.DoubleClickToCartRadio;
         private RadioButton SingleClickToCartRadio => _screenView.SingleClickToCartRadio;
         private CheckBox ResetManualAddQtyCheck => _screenView.ResetManualAddQtyCheck;
         private CheckBox DebtPrepayChoiceCheck => _operationsView.DebtPrepayChoiceCheck;
-        private TextBox DebtPenaltyBox => _operationsView.DebtPenaltyBox;
-        private TextBox RentalPenaltyBox => _operationsView.RentalPenaltyBox;
+        private CheckBox SellWithoutStockCheck => _operationsView.SellWithoutStockCheck; // 2026-11-21
+        private TextBox DebtPenaltyBox => _printView.DebtPenaltyBox;
+        private TextBox RentalPenaltyBox => _printView.RentalPenaltyBox;
         private TextBox OfflineDebtMaxBox => _operationsView.OfflineDebtMaxBox;
         private Slider UiScaleSlider => _screenView.UiScaleSlider;
 
@@ -230,8 +232,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
             WireChildEvents();
             _operationsView.LoadBankQrSettings();
             // 2026-11-20: вкладка «ИИ» создаётся сразу — карточки ИИ снимаются с «Операций» до первого показа (раньше висели там, пока не откроешь «ИИ»).
-            _aiView = new AiSettingsView(_operationsView);
-            _operationsView.OpenAiTab = () => NavigateTo(10);
+            // 2026-11-21: в кассе вкладки «ИИ» нет — страница не строится, карточки ИИ снимаются с «Операций» в OperationsSettingsView.
+            if (NurMarketKassa.Services.OwnerOnlySettings.Allowed)
+            {
+                _aiView = new AiSettingsView(_operationsView);
+                _operationsView.OpenAiTab = () => NavigateTo(10);
+            }
 
             _navButtons = new[] { NavScales, NavPrint, NavScreen, NavMonitor, NavUpdates, NavOperations, NavCustomization, NavAccount, NavEmployees, NavKeys, NavAi };
             // 2026-11-01 («дизайн верхних кнопок»): стрелки прокрутки ряда вкладок — подсказка и имя для диктора на 5 языках.
@@ -243,6 +249,17 @@ namespace NurMarketKassa.AvaloniaHost.Views
             Avalonia.Automation.AutomationProperties.SetName(NavScrollRight, navNext);
             // Клавиши кассира в программе владельца не нужны: там нет ни чека, ни каталога.
             NavKeys.IsVisible = !NurMarketKassa.Services.AppMode.IsOwner;
+            // 2026-11-21: «Сотрудники» и «ИИ» — только в программе владельца: в кассе кнопок нет в дереве совсем (ряд вкладок не «дырявый»).
+            if (!NurMarketKassa.Services.OwnerOnlySettings.EmployeesAllowed)
+            {
+                NavEmployees.IsVisible = false;
+                NavTabsGrid.Children.Remove(NavEmployees);
+            }
+            if (!NurMarketKassa.Services.OwnerOnlySettings.Allowed)
+            {
+                NavAi.IsVisible = false;
+                NavTabsGrid.Children.Remove(NavAi);
+            }
             // 2026-10-05, владелец: «убери кастомизацию из настроек» — вкладка (обои, «стекло», размытие) скрыта;
             // код вкладки оставлен, вернуть — убрать эту строку.
             NavCustomization.IsVisible = false;
@@ -392,7 +409,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             _screenView.PreselectCashbox(prefs.PreferredCashboxId, prefs.PreferredCashboxName);
             StoreNameBox.Text = prefs.StoreName;
             StoreAddressBox.Text = prefs.StoreAddress;
-            _screenView.StoreInnBox.Text = prefs.StoreInn;
+            _printView.StoreInnBox.Text = prefs.StoreInn;
             ShowInnCheck.IsChecked = prefs.ShowInn;
             ShowStoreNameCheck.IsChecked = prefs.ShowStoreName;
             ShowAddressCheck.IsChecked = prefs.ShowAddress;
@@ -406,6 +423,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             SingleClickToCartRadio.IsChecked = prefs.SingleClickToCart;
             ResetManualAddQtyCheck.IsChecked = prefs.ResetManualAddQtyAfterAdd;
             DebtPrepayChoiceCheck.IsChecked = prefs.DebtPrepaymentChooseMethod;
+            SellWithoutStockCheck.IsChecked = prefs.SellWithoutStock; // 2026-11-21
             DebtPenaltyBox.Text = prefs.DebtLatePenaltyText;
             RentalPenaltyBox.Text = prefs.RentalLatePenaltyPerDay > 0 ? prefs.RentalLatePenaltyPerDay.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) : "";
             OfflineDebtMaxBox.Text = prefs.OfflineDebtMaxPerClient > 0 ? prefs.OfflineDebtMaxPerClient.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) : "";
@@ -561,6 +579,20 @@ namespace NurMarketKassa.AvaloniaHost.Views
             DoubleClickToCartRadio.IsCheckedChanged += ClickToCartMode_Changed;
             SingleClickToCartRadio.IsCheckedChanged += ClickToCartMode_Changed;
             ResetManualAddQtyCheck.IsCheckedChanged += ClickToCartMode_Changed;
+            // 2026-11-21, владелец: «если товара нет на складе, кассир может продавать в минус». Включено по умолчанию; сохраняется сразу (общее для магазина — уходит на другие кассы через SettingsCloudSync).
+            _operationsView.SellWithoutStockLabel.Text = Tr.T("Продавать товар без остатка (в минус)", "Калдыксыз товарды сатуу (минуска)", "Sell products without stock (into negative)",
+                "Stoksuz ürün sat (eksiye)", "Qoldiqsiz mahsulotni sotish (minusga)");
+            _operationsView.SellWithoutStockHint.Text = Tr.T(
+                "Включено — кассир может добавить в чек и продать товар, которого нет на складе или не хватает: касса не блокирует и ничего не спрашивает, лишь отмечает «остаток будет в минусе». Остаток на сервере уйдёт в минус; такие продажи видны в «Неотправленном» с пометкой. Выключено — касса не даст продать сверх остатка (предложит пополнить склад).",
+                "Күйгүзүлгөн — кассир кампада жок же жетишпеген товарды чекке кошуп сата алат: касса тоскоол болбойт, суроо бербейт, «калдык минуста болот» деп гана белгилейт. Серверде калдык минуска кетет; мындай сатуулар «Жөнөтүлбөгөндө» белги менен көрүнөт. Өчүрүлгөн — касса калдыктан ашык сатууга жол бербейт (кампаны толуктоону сунуштайт).",
+                "On — the cashier can add and sell a product that is out of stock or short: the till does not block or ask anything, it only notes “stock will go negative”. The stock on the server goes negative; such sales are marked in “Unsent”. Off — the till will not sell more than the stock (it offers to restock).",
+                "Açık — kasiyer stokta olmayan veya yetersiz ürünü fişe ekleyip satabilir: kasa engellemez, soru sormaz, yalnızca «stok eksiye düşecek» diye işaretler. Sunucudaki stok eksiye düşer; bu satışlar «Gönderilmeyenler»de işaretle görünür. Kapalı — kasa stoktan fazla satışa izin vermez (stok eklemeyi önerir).",
+                "Yoqilgan — kassir omborda yo'q yoki yetmaydigan mahsulotni chekka qo'shib sota oladi: kassa to'smaydi, so'ramaydi, faqat «qoldiq minusda bo'ladi» deb belgilaydi. Serverda qoldiq minusga ketadi; bunday sotuvlar «Yuborilmaganlar»da belgi bilan ko'rinadi. O'chirilgan — kassa qoldiqdan ortiq sotishga yo'l qo'ymaydi (omborni to'ldirishni taklif qiladi).");
+            SellWithoutStockCheck.IsCheckedChanged += (_, _) =>
+            {
+                UserPreferences.Instance.SellWithoutStock = SellWithoutStockCheck.IsChecked == true;
+                UserPreferences.Instance.SaveToDisk();
+            };
             // 2026-10-03: выбор способа предоплаты долга — сохраняется сразу.
             DebtPrepayChoiceCheck.IsCheckedChanged += (_, _) =>
             {
@@ -568,24 +600,41 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 UserPreferences.Instance.SaveToDisk();
             };
             // 2026-10-06, владелец: «в чеке — инфо о штрафе за просрочку» (долг и прокат). Сохраняется через секунду после ввода.
-            _operationsView.DebtPenaltyLabel.Text = Tr.T("Штраф за просрочку долга — печатается в чеке продажи в долг (например: «50 сом за каждый день»). Пусто — не печатать.",
+            _printView.DebtPenaltyLabel.Text = Tr.T("Штраф за просрочку долга — печатается в чеке продажи в долг (например: «50 сом за каждый день»). Пусто — не печатать.",
                 "Карызды кечиктиргени үчүн айып — карызга сатуунун чегинде басылат (мисалы: «ар бир күн үчүн 50 сом»). Бош — басылбайт.",
                 "Late debt penalty — printed on credit-sale receipts (e.g. \"50 som per day\"). Empty — not printed.",
                 "Borç gecikme cezası — veresiye satış fişine yazılır (örn.: \"günlük 50 som\"). Boş — yazılmaz.",
                 "Qarzni kechiktirish jarimasi — qarzga sotuv chekida chiqadi (masalan: «har kun uchun 50 so'm»). Bo'sh — chiqmaydi.");
-            _operationsView.RentalPenaltyLabel.Text = Tr.T("Штраф за сутки просрочки проката, сом — подставляется в «Новый прокат» и печатается в чеке",
+            _printView.RentalPenaltyLabel.Text = Tr.T("Штраф за сутки просрочки проката, сом — подставляется в «Новый прокат» и печатается в чеке",
                 "Прокатты кечиктирген ар бир сутка үчүн айып, сом — «Жаңы прокатка» коюлат жана чекте басылат",
                 "Rental late penalty per day, som — filled into \"New rental\" and printed on the receipt",
                 "Kiralama gecikme cezası (günlük, som) — \"Yeni kiralama\"ya girilir ve fişe yazılır",
                 "Prokatni kechiktirgan har sutka uchun jarima, so'm — «Yangi prokat»ga qo'yiladi va chekda chiqadi");
             // 2026-11-20: поле штрафа за прокат — только там, где прокат включён (строймаркет, модуль из Маркетплейса, уже есть данные).
-            _operationsView.RentalPenaltyLabel.IsVisible = _operationsView.RentalPenaltyBox.IsVisible = MarketSpheres.HasRentals;
+            _printView.RentalPenaltyLabel.IsVisible = _printView.RentalPenaltyBox.IsVisible = MarketSpheres.HasRentals;
             // 2026-10-29: «Макс. долг без связи» — предел долга на клиента, сом. 0 — по лимиту клиента с сервера; лимита нет нигде — касса просит подтверждение кассира.
             _operationsView.OfflineDebtMaxLabel.Text = Tr.T("Макс. долг без связи на клиента, сом — до этой суммы касса без интернета оформляет «в долг». 0 — по лимиту клиента; лимита нет — касса спросит подтверждение кассира.",
                 "Байланышсыз кардарга макс. карыз, сом — ушул сумманын чегинде касса интернетсиз «карызга» жазат. 0 — кардардын лимити боюнча; лимит жок болсо — касса кассирден ырастоо сурайт.",
                 "Max debt without a connection per client, som — up to this amount the till makes credit sales without the internet. 0 — by the client's limit; no limit anywhere — the till asks the cashier to confirm.",
                 "Bağlantısız müşteri başına maks. borç, som — kasa internetsiz bu tutara kadar veresiye satış yapar. 0 — müşterinin limitine göre; hiçbir yerde limit yoksa kasa kasiyerden onay ister.",
                 "Aloqasiz mijoz uchun maks. qarz, so'm — kassa internetsiz shu summagacha «qarzga» rasmiylashtiradi. 0 — mijoz limiti bo'yicha; limit hech qayerda yo'q bo'lsa — kassa kassirdan tasdiq so'raydi.");
+            // 2026-11-21 (владелец: данные чека — только во вкладке «Чек»): в старых местах — ссылка «Настроить в «Чек»».
+            var receiptLink = Tr.T("Настроить в «Чек»", "«Чек» бөлүмүндө жөндөө", "Set up in “Receipt”", "«Fiş» bölümünde ayarla", "«Chek» bo‘limida sozlash");
+            _screenView.ReceiptMovedText.Text = Tr.T(
+                "Название, адрес и ИНН магазина для чека настраиваются в одном месте: «Настройки → Печать → Чек».",
+                "Чек үчүн дүкөндүн аталышы, дареги жана ИНН бир жерде жөндөлөт: «Жөндөөлөр → Басып чыгаруу → Чек».",
+                "Store name, address and TIN for the receipt are set in one place: “Settings → Print → Receipt”.",
+                "Fiş için mağaza adı, adres ve vergi no tek yerde ayarlanır: «Ayarlar → Yazdırma → Fiş».",
+                "Chek uchun do‘kon nomi, manzili va STIR bir joyda sozlanadi: «Sozlamalar → Chop etish → Chek».");
+            _operationsView.ReceiptMovedText.Text = Tr.T(
+                "Штрафы за просрочку долга и проката для чека настраиваются в «Настройки → Печать → Чек».",
+                "Карыз жана прокат боюнча кечиктирүү айыптары «Жөндөөлөр → Басып чыгаруу → Чек» бөлүмүндө жөндөлөт.",
+                "Late-payment penalties for debt and rental on the receipt are set in “Settings → Print → Receipt”.",
+                "Borç ve kiralama gecikme cezaları «Ayarlar → Yazdırma → Fiş» bölümünde ayarlanır.",
+                "Qarz va ijara bo‘yicha kechiktirish jarimalari «Sozlamalar → Chop etish → Chek» bo‘limida sozlanadi.");
+            _screenView.ReceiptMovedButton.Content = _operationsView.ReceiptMovedButton.Content = receiptLink;
+            _screenView.ReceiptMovedButton.Click += (_, _) => NavigateTo(1);
+            _operationsView.ReceiptMovedButton.Click += (_, _) => NavigateTo(1);
             var penaltySave = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             EventHandler penaltyFlush = (_, _) =>
             {
@@ -912,6 +961,14 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 "ai" => (10, (Button?)_navButtons[10]),
                 _ => (-1, (Button?)null),
             };
+            if (index is 8 or 10 && !button!.IsVisible && !(index == 10 ? NurMarketKassa.Services.OwnerOnlySettings.Allowed : NurMarketKassa.Services.OwnerOnlySettings.EmployeesAllowed))
+            {
+                // 2026-11-21: ссылка на «Сотрудники»/«ИИ» в кассе не падает — короткое пояснение, вкладка не меняется.
+                AutoApplyNote.Text = NurMarketKassa.Services.OwnerOnlySettings.KassaNote;
+                AutoApplyNote.IsVisible = true;
+                PinnedSaveBar.IsVisible = true;
+                return false;
+            }
             if (index < 0 || button is null || !button.IsVisible)
                 return false;
             NavigateTo(index);
@@ -966,8 +1023,23 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 PinnedSaveButton.IsEnabled = b.IsEnabled;
         }
 
-        private void PinnedSave_Click(object? sender, RoutedEventArgs e) =>
-            _pageSave?.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        private void PinnedSave_Click(object? sender, RoutedEventArgs e)
+        {
+            if (_pageSave is null)
+                return;
+            // 2026-11-21 («Сохранить» в Настройках → Весы «не работает»): страница пишет «Настройки сохранены» в свою карточку внизу страницы
+            // (SaveStatusText), а на вкладках «Весы с этикетками» / «Штрих-код» она за прокруткой или скрыта (у владельца) — нажатие выглядело пустым.
+            // Результат страницы показываем и в закреплённой строке рядом с кнопкой.
+            var status = (ContentHost.Content as Control)?.GetLogicalDescendants().OfType<TextBlock>().FirstOrDefault(t => t.Name == "SaveStatusText");
+            if (status is not null)
+                status.Text = "";
+            _pageSave.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            if (!string.IsNullOrWhiteSpace(status?.Text))
+            {
+                AutoApplyNote.Text = status.Text;
+                AutoApplyNote.IsVisible = true;
+            }
+        }
 
         /// <summary>Страница настроек под ширину окна: узко — колонки столбиком (SettingsReflow).</summary>
         private void ReflowPage() =>
@@ -986,9 +1058,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 5 => _operationsView,
                 6 => _customizationView,
                 7 => _accountView,
-                8 => _employeesView,
+                8 when _employeesView is not null => _employeesView,
                 9 => _keysView,
-                10 => _aiView ??= new AiSettingsView(_operationsView), // 2026-11-20: уже создан в конструкторе; ?? — запасной путь
+                10 when _aiView is not null => _aiView, // 2026-11-21: в кассе вкладки «ИИ» нет (раньше ?? создавало её лениво)
                 _ => _scaleView
             };
 
@@ -1888,6 +1960,20 @@ namespace NurMarketKassa.AvaloniaHost.Views
         {
             var prefs = UserPreferences.Instance;
 
+            // 2026-11-21: в программе владельца «Весы» — только «Весы с этикетками» и «Штрих-код» (COM-весов и табло здесь нет, поля скрыты): правила префиксов и
+            // единица суммы применяются и пишутся сразу. «Сохранить» подтверждает это (и снимает «несохранённое»), но не трогает COM-порты и службы весов.
+            if (_scaleView.OwnerSectionMode)
+            {
+                prefs.SaveToDisk();
+                _scaleView.SaveStatusText.Text = Tr.T("Сохранено. Правила штрих-кода и единица суммы применяются сразу.",
+                    "Сакталды. Штрих-код эрежелери жана сумма бирдиги дароо колдонулат.",
+                    "Saved. Barcode rules and the amount unit apply immediately.",
+                    "Kaydedildi. Barkod kuralları ve tutar birimi hemen uygulanır.",
+                    "Saqlandi. Shtrix-kod qoidalari va summa birligi darhol qo‘llaniladi.");
+                _dirtyBaseline = null;
+                return true;
+            }
+
             // 2026-10-27, аудит С-22: мусор в «скорости» весов/табло молча превращался в 9600/2400 — теперь поле подсвечивается
             // красным, настройки не сохраняются (проверка до любых присваиваний).
             if (!TryReadBaud(ScaleBaudBox, 9600, out var baud)
@@ -2057,6 +2143,14 @@ namespace NurMarketKassa.AvaloniaHost.Views
             prefs.ShowTotal = ShowTotalCheck.IsChecked == true;
             prefs.ShowQrCode = ShowQrCodeCheck.IsChecked == true;
 
+            // 2026-11-21 (владелец: данные чека — только во вкладке «Чек»): были на странице «Экран».
+            prefs.StoreName = StoreNameBox.Text?.Trim() ?? string.Empty;
+            if (string.IsNullOrEmpty(prefs.StoreName))
+                prefs.StoreName = "MARKET PLUS";
+            prefs.StoreAddress = StoreAddressBox.Text?.Trim() ?? string.Empty;
+            prefs.StoreInn = _printView.StoreInnBox.Text?.Trim() ?? string.Empty; // 2026-11-19: ИНН вводится вручную и сохраняется
+            prefs.ShowInn = ShowInnCheck.IsChecked == true;
+
             prefs.GraphicReceiptEnabled = GraphicReceiptEnabledCheck.IsChecked == true;
             prefs.GraphicFontSize = ReadGraphicFontSizeFromUi();
 
@@ -2134,12 +2228,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             prefs.SingleClickToCart = SingleClickToCartRadio.IsChecked == true;
             prefs.ResetManualAddQtyAfterAdd = ResetManualAddQtyCheck.IsChecked == true;
 
-            prefs.StoreName = StoreNameBox.Text?.Trim() ?? string.Empty;
-            if (string.IsNullOrEmpty(prefs.StoreName))
-                prefs.StoreName = "MARKET PLUS";
-            prefs.StoreAddress = StoreAddressBox.Text?.Trim() ?? string.Empty;
-            prefs.StoreInn = _screenView.StoreInnBox.Text?.Trim() ?? string.Empty; // 2026-11-19: ИНН вводится вручную и сохраняется
-            prefs.ShowInn = ShowInnCheck.IsChecked == true;
+            // 2026-11-21: название, адрес, ИНН и «ИНН в чеке» теперь на странице «Печать → Чек» и сохраняются в SavePrintSettings.
 
             prefs.SaveToDisk();
             AutostartHelper.SyncFromPreference(prefs.Autostart);

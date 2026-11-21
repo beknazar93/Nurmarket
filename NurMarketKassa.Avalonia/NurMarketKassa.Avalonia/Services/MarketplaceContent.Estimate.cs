@@ -51,10 +51,6 @@ internal static partial class MarketplaceContent
             T("Строительные магазины и базы, хозтовары", "Курулуш дүкөндөрү жана базалар, чарба буюмдары", "Building-material shops and depots, hardware stores", "Yapı market ve depoları, hırdavatçılar", "Qurilish do'konlari va bazalari, xo'jalik mollari"),
             T("Продавцы, которые считают ремонт за клиента", "Кардар үчүн оңдоону эсептеген сатуучулар", "Sellers who price a renovation for the customer", "Müşteri için tadilat hesaplayan satıcılar", "Mijoz uchun ta'mirni hisoblaydigan sotuvchilar"),
         ];
-        i.PriceTerms = T("Бесплатно. В сфере «Строймаг» модуль включён сразу; в других сферах — одно нажатие «Включить».",
-            "Акысыз. «Курулуш дүкөнү» чөйрөсүндө модуль дароо күйгүзүлгөн; башка чөйрөлөрдө — «Күйгүзүү» бир басуу.",
-            "Free. In the “Building materials store” sphere the module is on right away; in other spheres — one tap on “Turn on”.",
-            "Ücretsiz. «Yapı market» alanında modül hemen açıktır; diğer alanlarda — «Aç»a tek dokunuş.",
-            "Bepul. «Qurilish do'koni» sohasida modul darhol yoqilgan; boshqa sohalarda — «Yoqish» ni bir bosish.");
+        i.PriceTerms = MarketplaceModules.Terms(i.Id); // 2026-11-21: цена — с сервера (public/modules), прежнее «Бесплатно» убрано
     }
 }

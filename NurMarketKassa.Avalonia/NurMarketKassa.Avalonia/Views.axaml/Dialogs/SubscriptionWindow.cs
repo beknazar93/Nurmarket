@@ -28,6 +28,7 @@ public sealed class SubscriptionWindow : Window
 
     private readonly TextBlock _planText = Txt("NurFontSubtitle", FontWeight.SemiBold);
     private readonly TextBlock _untilText = Txt("NurFontBody", FontWeight.SemiBold);
+    private readonly TextBlock _trialNote = Txt("NurFontCaption", brush: "BrushTextSoft"); // 2026-11-21: «Мини» — 14 дней пробного при регистрации
     private readonly TextBlock _info = Txt("NurFontBody", brush: "BrushTextSoft");
     private readonly TextBlock _error = Txt("NurFontBody");
     private readonly Border _errorBox;
@@ -38,6 +39,11 @@ public sealed class SubscriptionWindow : Window
     private readonly TextBlock _planLabel = Txt("NurFontCaption", FontWeight.SemiBold, "BrushTextSoft");
     private readonly TextBlock _monthLabel = Txt("NurFontCaption", FontWeight.SemiBold, "BrushTextSoft");
     private readonly TextBlock _feeNote = Txt("NurFontCaption", brush: "BrushTextSoft");
+    // 2026-11-21 (ответ Умара 21.11): «Месяц / Год» — год = 10 месяцев (счёт period "year" на 12 месяцев; цену и скидку даёт сервер).
+    private readonly WrapPanel _periodChips = new();
+    private readonly TextBlock _periodLabel = Txt("NurFontCaption", FontWeight.SemiBold, "BrushTextSoft");
+    private readonly TextBlock _yearNote = Txt("NurFontCaption", brush: "BrushTextSoft");
+    private readonly Dictionary<string, Button> _periodButtons = new();
     private readonly StackPanel _history = new() { Spacing = 4 };
     private readonly Control _historyBox;
 
@@ -72,6 +78,7 @@ public sealed class SubscriptionWindow : Window
     private Bitmap? _qrBitmap;
     private DateTimeOffset? _validUntil;
     private int _months = 1;
+    private bool _year; // 2026-11-21: годовая оплата (period "year")
     private string? _planCode;
     private string? _attemptKey;
     private bool _creating;
@@ -113,7 +120,12 @@ public sealed class SubscriptionWindow : Window
     public Task CancelForTestAsync() => BackAsync(close: true);
     public Task TestPayForTestAsync(string result) => TestPayAsync(result);
     public Task TickForTestAsync() => OnClockTickAsync();
-    public void SetMonths(int months) { _months = months; RefreshChips(); }
+    public void SetMonths(int months) { _months = months; _year = false; RefreshChips(); }
+    public void SetYear(bool year) { _year = year; RefreshChips(); }
+    public bool IsYear => _year;
+    public bool PeriodChoiceVisible => _periodChips.IsVisible;
+    public string YearNoteText => _yearNote.IsVisible ? _yearNote.Text ?? "" : "";
+    public string PlanChipText(string code) => _planButtons.TryGetValue(code, out var b) ? b.Content?.ToString() ?? "" : "";
     public void SetPlan(string? code) { _planCode = code; RefreshChips(); }
     public IReadOnlyList<int> MonthChoices => _monthButtons.Keys.OrderBy(x => x).ToList();
 
@@ -166,7 +178,19 @@ public sealed class SubscriptionWindow : Window
 
     /// <summary>Открыть окно или вывести открытое вперёд (одно на программу).</summary>
     public static SubscriptionWindow ShowOrActivate(Window? owner) =>
-        WindowSingleton.ShowOnce(owner, () => new SubscriptionWindow(App.GetRequiredService<BillingApi>(), IsOwnerOrAdmin()));
+        WindowSingleton.ShowOnce(owner, () =>
+        {
+            try
+            {
+                if (TariffApi.CachedCatalog is null)
+                    _ = App.GetRequiredService<TariffApi>().GetCatalogAsync().ContinueWith(_ => { }, TaskScheduler.Default); // для подписи «14 дней пробного» у «Мини»
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                PosLogger.Log($"Подписка: каталог тарифов не подгружен: {ex.Message}", "DEBUG");
+            }
+            return new SubscriptionWindow(App.GetRequiredService<BillingApi>(), IsOwnerOrAdmin());
+        });
 
     public SubscriptionWindow(IBillingApi api, bool canManage)
     {
@@ -180,6 +204,7 @@ public sealed class SubscriptionWindow : Window
         _info.Text = T("Загрузка…", "Жүктөлүүдө…", "Loading…", "Yükleniyor…", "Yuklanmoqda…");
         _planLabel.Text = T("Тариф", "Тариф", "Plan", "Tarife", "Tarif");
         _monthLabel.Text = T("Срок подписки", "Жазылуу мөөнөтү", "Subscription term", "Abonelik süresi", "Obuna muddati");
+        _periodLabel.Text = T("Оплата", "Төлөм", "Payment", "Ödeme", "To'lov");
         _qrBox = new Border { Background = Brushes.White, CornerRadius = new CornerRadius(12), Padding = new Thickness(8), Child = _qrImage, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, IsVisible = false };
 
         _openBank = SectionCards.Secondary(T("Открыть в приложении банка", "Банк тиркемесинде ачуу", "Open in the bank app", "Banka uygulamasında aç", "Bank ilovasida ochish"));
@@ -221,8 +246,11 @@ public sealed class SubscriptionWindow : Window
 
         _choosePanel.Children.Add(_planLabel);
         _choosePanel.Children.Add(_planChips);
+        _choosePanel.Children.Add(_periodLabel);
+        _choosePanel.Children.Add(_periodChips);
         _choosePanel.Children.Add(_monthLabel);
         _choosePanel.Children.Add(_monthChips);
+        _choosePanel.Children.Add(_yearNote);
         _choosePanel.Children.Add(_feeNote);
         _choosePanel.Children.Add(_historyBox);
         _choosePanel.IsVisible = false;
@@ -250,7 +278,8 @@ public sealed class SubscriptionWindow : Window
         _payPanel.Children.Add(_copied);
         _payPanel.Children.Add(_testBox);
 
-        var header = new StackPanel { Spacing = 2, Children = { _planText, _untilText } };
+        var header = new StackPanel { Spacing = 2, Children = { _planText, _untilText, _trialNote } };
+        _trialNote.IsVisible = false;
         var headerBox = new Border { CornerRadius = new CornerRadius(12), Padding = new Thickness(14, 10), Child = header };
         headerBox.Bind(Border.BackgroundProperty, headerBox.GetResourceObservable("BrushPanelSoft"));
 
@@ -276,6 +305,7 @@ public sealed class SubscriptionWindow : Window
             "start" => T("Старт", "Старт", "Start", "Start", "Start"),
             "standard" => T("Стандарт", "Стандарт", "Standard", "Standart", "Standart"),
             "custom" => T("Своё", "Өзүмдүкү", "Custom", "Özel", "O'zimniki"),
+            "mini" => T("Мини", "Мини", "Mini", "Mini", "Mini"),
             "" => "",
             _ => code!,
         };
@@ -291,6 +321,14 @@ public sealed class SubscriptionWindow : Window
             title = company?.SubscriptionPlanName ?? "";
         _planText.Text = string.IsNullOrWhiteSpace(title) ? T("Подписка NurCRM", "NurCRM жазылуусу", "NurCRM subscription", "NurCRM aboneliği", "NurCRM obunasi")
             : T("Тариф: ", "Тариф: ", "Plan: ", "Tarife: ", "Tarif: ") + title;
+
+        // 2026-11-21 (ответ Умара 21.11): «Мини» — 14 дней пробного при регистрации (public/tariffs trial_days) — рядом с тарифом.
+        _trialNote.IsVisible = false;
+        if (string.Equals(_config?.CurrentPlan, "mini", StringComparison.OrdinalIgnoreCase) && TariffApi.CachedCatalog?.Plan("mini")?.TrialDays is { } trialDays)
+        {
+            _trialNote.Text = T($"Пробный период «Мини» при регистрации — {trialDays} дн.", $"«Мини» катталууда сыноо мөөнөтү — {trialDays} күн", $"“Mini” trial at sign-up — {trialDays} days", $"«Mini» kayıtta deneme süresi — {trialDays} gün", $"«Mini» ro'yxatdan o'tishda sinov muddati — {trialDays} kun");
+            _trialNote.IsVisible = true;
+        }
 
         var until = _validUntil ?? _config?.ValidUntil;
         if (until is null && company?.EndDate is { } raw && DateTimeOffset.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out var parsed))
@@ -390,9 +428,12 @@ public sealed class SubscriptionWindow : Window
             _planCode = _config.Plans.Any(p => string.Equals(p.Code, cur, StringComparison.OrdinalIgnoreCase)) ? cur : _config.Plans.FirstOrDefault()?.Code;
         else if (_planCode is null)
             _planCode = _config.Plans.FirstOrDefault()?.Code;
-        if (!_config.Months.Contains(_months))
-            _months = _config.Months.First();
+        if (!_config.Months.Contains(_months) || (_config.CanPayYear && _months == 12))
+            _months = _config.Months.Where(m => !_config.CanPayYear || m != 12).DefaultIfEmpty(_config.Months.First()).First();
+        if (!_config.CanPayYear)
+            _year = false;
         BuildChips();
+        RefreshChips();
         ShowChoose();
     }
 
@@ -432,11 +473,34 @@ public sealed class SubscriptionWindow : Window
     {
         _monthChips.Children.Clear();
         _monthButtons.Clear();
-        foreach (var n in _config!.Months)
+        // 2026-11-21: сервер умеет год (periods содержит "year") — «12 мес.» заменяет переключатель «Месяц / Год»; год = 10 месяцев.
+        var canYear = _config!.CanPayYear;
+        _periodChips.Children.Clear();
+        _periodButtons.Clear();
+        _periodChips.IsVisible = canYear;
+        _periodLabel.IsVisible = canYear;
+        if (canYear)
+            foreach (var (code, label) in new[]
+                     {
+                         ("month", T("По месяцам", "Айлар боюнча", "By months", "Aylık", "Oylar bo'yicha")),
+                         ("year", T("Год — платите за 10 мес.", "Жыл — 10 ай үчүн төлөйсүз", "Year — pay for 10 months", "Yıl — 10 ay için ödersiniz", "Yil — 10 oy uchun to'laysiz")),
+                     })
+            {
+                var c = code;
+                var pb = UiKit.Chip(this, label, (c == "year") == _year);
+                pb.Margin = new Thickness(0, 0, 8, 8);
+                SquareChip(pb);
+                pb.Click += (_, _) => { _year = c == "year"; RefreshChips(); };
+                _periodButtons[c] = pb;
+                _periodChips.Children.Add(pb);
+            }
+
+        foreach (var n in _config.Months.Where(m => !canYear || m != 12))
         {
             var count = n;
             var b = UiKit.Chip(this, T($"{n} мес.", $"{n} ай", $"{n} mo.", $"{n} ay", $"{n} oy"), count == _months);
             b.Margin = new Thickness(0, 0, 8, 8);
+            SquareChip(b);
             b.Click += (_, _) => { _months = count; RefreshChips(); };
             _monthButtons[n] = b;
             _monthChips.Children.Add(b);
@@ -451,9 +515,10 @@ public sealed class SubscriptionWindow : Window
             foreach (var plan in _config.Plans)
             {
                 var code = plan.Code;
-                var label = PlanTitle(plan.Code, plan.Name) + (plan.PriceMonth > 0 ? " · " + M(plan.PriceMonth) + " " + T("/ мес.", "/ ай", "/ mo.", "/ ay", "/ oy") : "");
+                var label = PlanChipLabel(plan);
                 var b = UiKit.Chip(this, label, string.Equals(code, _planCode, StringComparison.OrdinalIgnoreCase));
                 b.Margin = new Thickness(0, 0, 8, 8);
+                SquareChip(b);
                 b.Click += (_, _) => { _planCode = code; RefreshChips(); };
                 _planButtons[code] = b;
                 _planChips.Children.Add(b);
@@ -466,10 +531,41 @@ public sealed class SubscriptionWindow : Window
             $"To'lov: tanlangan muddat uchun tarif narxi va bank komissiyasi {M(_config.BankFee)} (uni mijoz to'laydi, har bir hisobga bir marta). Aniq jami summani server keyingi bosqichda ko'rsatadi; uzaytirish — tarif narxi bo'yicha.");
     }
 
+    /// <summary>Подпись тарифа: название и цена С СЕРВЕРА (price_month или, при годовой оплате, price_year; год = 10 месяцев).</summary>
+    private string PlanChipLabel(BillingPlanOption plan)
+    {
+        var title = PlanTitle(plan.Code, plan.Name);
+        if (_year && plan.PriceYear is > 0)
+            return title + " · " + M(plan.PriceYear.Value) + " " + T("/ год", "/ жыл", "/ yr", "/ yıl", "/ yil");
+        return title + (plan.PriceMonth > 0 ? " · " + M(plan.PriceMonth) + " " + T("/ мес.", "/ ай", "/ mo.", "/ ay", "/ oy") : "");
+    }
+
+    /// <summary>2026-11-21 (обход кассы, № 26): тариф, срок и способ оплаты — не «пилюли» (радиус 20), а тот же радиус кнопок темы, что у остальных кнопок окна и кассы.</summary>
+    private static void SquareChip(Button b)
+    {
+        if (Application.Current is { } app && app.TryFindResource("NurRadiusControl", app.ActualThemeVariant, out var r) && r is CornerRadius radius)
+            b.CornerRadius = radius;
+    }
+
     private void RefreshChips()
     {
         foreach (var (n, b) in _monthButtons)
-            UiKit.SetActive(b, n == _months);
+            UiKit.SetActive(b, !_year && n == _months);
+        foreach (var (code, b) in _periodButtons)
+            UiKit.SetActive(b, (code == "year") == _year);
+        _monthLabel.IsVisible = !_year;
+        _monthChips.IsVisible = !_year;
+        _yearNote.IsVisible = _year;
+        if (_year)
+        {
+            var paid = _config?.YearPaidMonths ?? 10;
+            _yearNote.Text = T($"Год = {paid} месяцев: подписка на 12 месяцев по цене {paid}. Цену и скидку считает сервер.", $"Жыл = {paid} ай: 12 айлык жазылуу {paid} айдын баасына. Баасын жана арзандатууну сервер эсептейт.",
+                $"Year = {paid} months: a 12-month subscription at the price of {paid}. The server calculates the price and discount.", $"Yıl = {paid} ay: 12 aylık abonelik {paid} ayın fiyatına. Fiyatı ve indirimi sunucu hesaplar.", $"Yil = {paid} oy: 12 oylik obuna {paid} oy narxida. Narx va chegirmani server hisoblaydi.");
+        }
+        if (_config is { } cfg)
+            foreach (var plan in cfg.Plans)
+                if (_planButtons.TryGetValue(plan.Code, out var pb))
+                    pb.Content = PlanChipLabel(plan);
         foreach (var (code, b) in _planButtons)
             UiKit.SetActive(b, string.Equals(code, _planCode, StringComparison.OrdinalIgnoreCase));
     }
@@ -542,7 +638,9 @@ public sealed class SubscriptionWindow : Window
         _attemptKey ??= Guid.NewGuid().ToString().Replace("-", ""); // 2026-11-19: без дефисов (не числовой формат для храповика)
         try
         {
-            var invoice = await _api.CreateInvoiceAsync(_months, _planCode, _attemptKey).ConfigureAwait(true);
+            var invoice = _year
+                ? await _api.CreateInvoiceAsync(12, _planCode, "year", _attemptKey).ConfigureAwait(true) // 2026-11-21: год = 10 месяцев, счёт на 12 мес. со строкой скидки от сервера
+                : await _api.CreateInvoiceAsync(_months, _planCode, _attemptKey).ConfigureAwait(true);
             _attemptKey = null;
             PosLogger.Log($"Подписка: счёт {invoice.InvoiceId} создан ({invoice.Months} мес.).", "INFO");
             ShowInvoice(invoice);
@@ -894,6 +992,7 @@ public sealed class SubscriptionWindow : Window
             var result = code;
             var b = UiKit.Chip(this, label, false);
             b.Margin = new Thickness(0, 0, 8, 8);
+            SquareChip(b);
             b.Click += async (_, _) => await TestPayAsync(result).ConfigureAwait(true);
             row.Children.Add(b);
         }

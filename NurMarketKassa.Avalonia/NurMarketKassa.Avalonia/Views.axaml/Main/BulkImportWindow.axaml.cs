@@ -50,6 +50,8 @@ public partial class BulkImportWindow : Window
 
     public static void Open(Window? owner)
     {
+        if (!NurMarketKassa.Services.ImportAccess.Allowed) // 2026-11-21: импорт — только в программе владельца
+            return;
         // 2026-11-19 (список владельца, п. 7): «Старая загрузка» из мастера открывала новое окно при каждом нажатии (окно оказывалось
         // под мастером, нажимали снова) — теперь одно окно на программу: повтор выводит открытое вперёд.
         const string key = "BulkImportWindow";

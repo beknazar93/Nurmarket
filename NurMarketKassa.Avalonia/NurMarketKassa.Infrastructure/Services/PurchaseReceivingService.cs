@@ -1026,6 +1026,49 @@ public sealed class PurchaseReceivingService
     /// Раньше строка шла только с закупкой, и сервер записывал в накладную цену и наценку ПО СТАРОЙ КАРТОЧКЕ (закупка 40 × 1,2 = 48 / 20 %, хотя введено 60 / 50 %), а введённая цена уходила
     /// в товар отдельным PATCH уже после прихода. Сервер, не знающий этих полей, их пропускает (как document_number) — тогда накладную дополняет журнал кассы (ReceiptMarkupLog, см. ReceiptPriceView).
     /// Цена не задана («Оставить без цены», 0) — полей нет, цена товара не трогается. Наценка — от закупки по накладной, как в журнале (ReceiptMarkupLog.FromLine).</summary>
+    /// <summary>2026-11-21 (ответ Умара 20.11): строка идёт с единицей продажи (sale_unit_id), а не в базовых единицах.</summary>
+    internal static bool UsesSaleUnit(ReceivingLineVm l) => !string.IsNullOrWhiteSpace(l.SaleUnitId) && l.SaleUnitFactor > 0 && double.IsFinite(l.SaleUnitFactor);
+
+    /// <summary>2026-11-21: количество и закупка для тела прихода. Есть единица продажи — упаковки и цена ЗА УПАКОВКУ (Quantity ÷ коэффициент, PurchasePrice × коэффициент; сумма строки та же), сервер сам умножит.
+    /// Нет — базовые единицы и цена за единицу, как раньше. Смешивать нельзя: упаковки без sale_unit_id сервер принял бы за штуки.</summary>
+    internal static (double Qty, double Price) ServerQtyPrice(ReceivingLineVm l) =>
+        UsesSaleUnit(l) ? (l.Quantity / l.SaleUnitFactor, l.PurchasePrice * l.SaleUnitFactor) : (l.Quantity, l.PurchasePrice);
+
+    /// <summary>2026-11-21 (ответ Умара 21.11, п. 6; миграция 0200): название варианта/вкуса строки прихода для items[].variant_name (до 128 знаков) из разбивки объединённого товара накладной
+    /// («Асу: Клубничный 10, Лимонный 5» → «Клубничный ×10, Лимонный ×5», как сервер подписывает слитые варианты); у обычной строки — null (поле не отправляется). name_snapshot остаётся названием товара.</summary>
+    internal static string? VariantNameOf(ReceivingLineVm l)
+    {
+        var note = (l.VariantNote ?? "").Trim();
+        if (note.Length == 0)
+            return null;
+        var prefix = (l.ProductName ?? "").Trim() + ": ";
+        var body = prefix.Length > 2 && note.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ? note[prefix.Length..]
+            : note.IndexOf(": ", StringComparison.Ordinal) is var colon and >= 0 ? note[(colon + 2)..] : note;
+        var parts = body.Split(',').Select(p => p.Trim()).Where(p => p.Length > 0)
+            .Select(p => System.Text.RegularExpressions.Regex.Match(p, @"^(.*\S)\s+(\d+(?:[.,]\d+)?)$") is { Success: true } m ? $"{m.Groups[1].Value} ×{m.Groups[2].Value}" : p).ToList();
+        var text = string.Join(", ", parts);
+        if (text.Length > 128)
+        {
+            var cut = text.LastIndexOf(", ", 126, StringComparison.Ordinal);
+            text = cut > 0 ? text[..cut] : text[..128].TrimEnd();
+        }
+        return text.Length > 0 ? text : null;
+    }
+
+    private static Dictionary<string, object?> WithVariantName(Dictionary<string, object?> item, ReceivingLineVm l)
+    {
+        if (VariantNameOf(l) is { } variant)
+            item["variant_name"] = variant;
+        return item;
+    }
+
+    private static Dictionary<string, object?> WithSaleUnit(Dictionary<string, object?> item, ReceivingLineVm l)
+    {
+        if (UsesSaleUnit(l))
+            item["sale_unit_id"] = l.SaleUnitId!.Trim();
+        return item;
+    }
+
     private static Dictionary<string, object?> WithEnteredSalePrice(Dictionary<string, object?> item, ReceivingLineVm l)
     {
         if (l.SalePrice > 0)
@@ -1273,14 +1316,14 @@ public sealed class PurchaseReceivingService
             // 2. С поставщиком — документ прихода. Остаток прибавляет сервер.
             var body = new Dictionary<string, object?>
             {
-                ["items"] = ready.Select(l => WithEnteredSalePrice(new Dictionary<string, object?>
+                ["items"] = ready.Select(l => WithVariantName(WithSaleUnit(WithEnteredSalePrice(new Dictionary<string, object?>
                 {
                     ["product"] = l.ProductId,
                     // 2026-10-29: сервер принимает не больше 3 знаков после запятой. 2026-10-31 («Не округляй»): ввод с лишними знаками не проводится
                     // (Validate), поэтому здесь убираем только шум double (0,1+0,2 = 0,30000000000000004), а не округляем введённое количество.
-                    ["qty"] = Math.Round(l.Quantity, 6, MidpointRounding.AwayFromZero),
-                    ["purchase_price"] = Math.Round(l.PurchasePrice, ReceivingPricing.PurchaseDecimals, MidpointRounding.AwayFromZero), // 2026-11-01: сервер хранит 4 знака
-                }, l)).ToList(),
+                    ["qty"] = Math.Round(ServerQtyPrice(l).Qty, 6, MidpointRounding.AwayFromZero),
+                    ["purchase_price"] = Math.Round(ServerQtyPrice(l).Price, ReceivingPricing.PurchaseDecimals, MidpointRounding.AwayFromZero), // 2026-11-01: сервер хранит 4 знака
+                }, l), l), l)).ToList(), // 2026-11-21: sale_unit_id — только вместе с количеством и ценой в упаковках; variant_name — вкусы/варианты объединённого товара накладной
                 ["payment_type"] = paidNow ? "cash" : "debt",
             };
             // Как у сайта: оплата «сразу» уходит из кассы переменных расходов.
@@ -1297,7 +1340,8 @@ public sealed class PurchaseReceivingService
                 + (paidNow && paymentFields is { Count: > 0 } ? string.Join(",", paymentFields.OrderBy(x => x.Key, StringComparer.Ordinal).Select(x => x.Key + "=" + x.Value)) + "|" : "")
                 + string.Join(";", ready
                 .Select(l => l.ProductId + ":" + l.Quantity.ToString("0.###", CultureInfo.InvariantCulture)
-                             + ":" + l.PurchasePrice.ToString("0.####", CultureInfo.InvariantCulture))
+                             + ":" + l.PurchasePrice.ToString("0.####", CultureInfo.InvariantCulture)
+                             + (UsesSaleUnit(l) ? ":u" + l.SaleUnitId!.Trim() : ""))
                 .OrderBy(x => x, StringComparer.Ordinal));
             // 2026-10-25: с состоянием задачи ключ свой у каждого прихода и создаётся перед самой отправкой (BeginSend), а не один на приложение.
             if (st is null)

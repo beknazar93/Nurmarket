@@ -25,6 +25,14 @@ public static class UiDrive
         : c is ContentControl { Content: string s } ? s
         : c.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible).Select(t => t.Text).FirstOrDefault(t => !string.IsNullOrWhiteSpace(t));
 
+    /// <summary>2026-11-21 (флак Barcodes*: «нет кнопки «Сгенерировать штрихкоды»»): надпись кнопки, как её видит кассир, — БЕЗ имени для диктора. <see cref="TextOf"/> отдаёт сначала имя для диктора, а его
+    /// в процессе меняет прежний тест: первое созданное окно кассы ставит на весь процесс обработчик Loaded (MainWindow.RegisterAccessibleButtonNames), который называет кнопку по ПОДСКАЗКЕ
+    /// (ToolTip), а не по надписи — у «Сгенерировать штрихкоды (N)» имя становилось «У N товаров нет штрихкода…» или «Нет права…», и поиск по надписи не находил кнопку. Кто ищет кнопку по
+    /// надписи, берёт этот метод: результат не зависит от того, какие окна открывались раньше.</summary>
+    public static string? LabelOf(Control c) =>
+        c is ContentControl { Content: string s } ? s
+        : c.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible).Select(t => t.Text).FirstOrDefault(t => !string.IsNullOrWhiteSpace(t));
+
     /// <summary>Все видимые тексты окна одной строкой (для проверки «на экране есть такие-то цифры»).</summary>
     public static string AllText(Window w) =>
         string.Join("\n", w.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible).Select(t => t.Text)

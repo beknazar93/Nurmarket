@@ -134,7 +134,7 @@
         <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="Padding" Value="14,0"/>
+        <Setter Property="Padding" Value="{DynamicResource NurPadChip}"/> <!-- 2026-11-21: было 14,0 (кнопка/чип) -->
         <Setter Property="MinHeight" Value="40"/>
     </Style>
     <Style Selector="Button.lx-btn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
@@ -289,7 +289,7 @@
         <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="Padding" Value="14,0"/>
+        <Setter Property="Padding" Value="{DynamicResource NurPadChip}"/> <!-- 2026-11-21: было 14,0 (кнопка/чип) -->
         <Setter Property="Height" Value="40"/> <!-- 2026-11-06: В6 цель нажатия 40 (было 36) -->
         <Setter Property="CornerRadius" Value="{DynamicResource NurRadiusControl}"/>
     </Style>

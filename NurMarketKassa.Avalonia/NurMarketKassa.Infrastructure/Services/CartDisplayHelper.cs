@@ -379,6 +379,27 @@ public static class CartDisplayHelper
         return null;
     }
 
+    /// <summary>2026-11-21 (ответ Умара 21.11, п. 6; миграция 0200): название строки для показа и печати — название товара (name_snapshot) + variant_name строки чека/прихода: «Асу» + «Клубничный» → «Асу Клубничный».
+    /// Сервер сливает два варианта одного товара в одну строку («Клубничный ×1, Лимонный ×2») — показываем как пришло, в скобках: «Асу (Клубничный ×1, Лимонный ×2)»; суммы и количества не трогаются.
+    /// Название уже содержит вариант (строки самой кассы: «Асу Клубничный») — ничего не дописывается. Для сопоставления строк по названию использовать <see cref="ItemName"/>, не это.</summary>
+    public static string ItemTitle(JsonElement it)
+    {
+        var name = ItemName(it);
+        if (it.ValueKind != JsonValueKind.Object || !it.TryGetProperty("variant_name", out var v) || v.ValueKind != JsonValueKind.String)
+            return name;
+        return WithVariant(name, v.GetString());
+    }
+
+    /// <summary>2026-11-21: «Асу» + «Клубничный» → «Асу Клубничный»; слитый вариант («Клубничный ×1, Лимонный ×2») — в скобках; вариант уже в названии или пуст — название как есть.</summary>
+    public static string WithVariant(string? name, string? variantName)
+    {
+        var n = (name ?? "").Trim();
+        var variant = (variantName ?? "").Trim();
+        if (variant.Length == 0 || n.Contains(variant, StringComparison.OrdinalIgnoreCase))
+            return n;
+        return variant.Contains('×') || variant.Contains(',') ? $"{n} ({variant})" : $"{n} {variant}";
+    }
+
     public static string ItemName(JsonElement it)
     {
         if (it.TryGetProperty("product", out var p) && p.ValueKind == JsonValueKind.Object)

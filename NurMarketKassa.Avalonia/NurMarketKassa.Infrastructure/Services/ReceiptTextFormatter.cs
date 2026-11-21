@@ -11,6 +11,10 @@ internal static class ReceiptTextFormatter
         if (string.IsNullOrWhiteSpace(text))
             return string.Empty;
 
+        // 2026-11-21 (редактор чека): чек уже сверстан по шаблону — переносы, «ИТОГО» столбиком и выравнивание не пересобираются.
+        if (ReceiptLineStyle.IsLaidOut(text))
+            return FormatLaidOut(text, width);
+
         var normalized = text
             .Replace("\r\n", "\n", StringComparison.Ordinal)
             .Replace('\r', '\n');
@@ -83,6 +87,39 @@ internal static class ReceiptTextFormatter
             output.RemoveAt(output.Count - 1);
 
         return string.Join("\n", output);
+    }
+
+    /// <summary>Чек по шаблону: строки как есть (отступы слева — выравнивание), без лишних пустых строк, слишком длинные переносятся.</summary>
+    private static string FormatLaidOut(string text, int width)
+    {
+        var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
+        var output = new List<string>(lines.Length);
+        var previousBlank = false;
+        foreach (var raw in lines)
+        {
+            var line = raw.TrimEnd();
+            var clean = ReceiptLineStyle.Parse(line, out var bold, out var size);
+            if (string.IsNullOrWhiteSpace(clean))
+            {
+                if (!previousBlank)
+                    output.Add(string.Empty);
+                previousBlank = true;
+                continue;
+            }
+
+            previousBlank = false;
+            var prefix = ReceiptLineStyle.Prefix(bold, size);
+            var limit = size >= 3 ? Math.Max(8, width / 2) : width;
+            if (clean.Length <= limit)
+                output.Add(prefix + clean);
+            else
+                foreach (var part in ReceiptLineLayout.WrapLeft(clean.Trim(), limit))
+                    output.Add(prefix + part);
+        }
+
+        while (output.Count > 0 && output[^1].Length == 0)
+            output.RemoveAt(output.Count - 1);
+        return ReceiptLineStyle.LaidOut + string.Join("\n", output);
     }
 
     private static bool IsPlainPaymentMethodLine(string normalized) =>

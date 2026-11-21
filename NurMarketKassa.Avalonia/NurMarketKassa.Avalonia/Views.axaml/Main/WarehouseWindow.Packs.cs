@@ -52,11 +52,7 @@ public partial class WarehouseWindow
                 if (line.PackMode && line.PackNeedsSize)
                     Dispatcher.UIThread.Post(() =>
                     {
-                        if (ReceivingGrid.GetVisualDescendants().OfType<TextBox>().FirstOrDefault(t => t.Classes.Contains("rcv-pieces") && t.IsVisible) is { } pieces)
-                        {
-                            pieces.Focus();
-                            pieces.SelectAll();
-                        }
+                        FocusReceivingCard(line, "pieces");
                     }, DispatcherPriority.Background);
             }, DispatcherPriority.Background);
         });
@@ -65,7 +61,7 @@ public partial class WarehouseWindow
     /// <summary>Перед «Провести»: «Товар будет вестись упаковками по N шт, остаток — в упаковках. Продолжить?». false — вернуться к таблице.</summary>
     private Task<bool> ConfirmPackSaleAsync(IReadOnlyList<ReceivingLineVm> lines)
     {
-        ReceivingGrid.CommitEdit();
+        CommitReceivingEdit();
         // 2026-11-11 (convert-to-packages): свежий остаток с сервера, «Округлить?» по согласию, затем «Было → станет» — общий шаг с «Закупками».
         return ReceivingPackConvertFlow.ConfirmAsync(this, lines);
     }

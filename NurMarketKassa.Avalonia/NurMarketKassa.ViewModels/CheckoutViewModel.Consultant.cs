@@ -55,7 +55,7 @@ namespace NurMarketKassa.ViewModels
             OnPropertyChanged(nameof(ShowConsultantSection));
         }
 
-        public bool ShowConsultantSection => _consultantsLoader != null && MarketSpheres.IsClothing;
+        public bool ShowConsultantSection => _consultantsLoader != null && ModuleFeatures.Consultant; // 2026-11-21: модуль consultant с сервера (без ответа — сфера «Одежда», как раньше)
 
         public ObservableCollection<ConsultantOption> ConsultantMatches { get; } = new();
 

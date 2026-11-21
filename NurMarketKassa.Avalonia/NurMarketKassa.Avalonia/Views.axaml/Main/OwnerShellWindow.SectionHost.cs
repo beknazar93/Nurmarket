@@ -216,7 +216,10 @@ public partial class OwnerShellWindow
         // а до 1366 точек колонка пунктов сворачивается сама, пока открыт раздел (ширина SectionHost — ниже, UpdateLayout).
         if (GroupOfKey(section?.Key ?? "overview") is { } navGroup)
             _navGroup = navGroup;
-        _navPeek = false;
+        // 2026-11-21: выбор пункта больше не сворачивает раскрытую колонку (_navPeek не сбрасывается) — ширина меню не меняется от клика.
+        // У «Вкладок» колонка нужна только для поиска — после выбора раздела закрывается, как раньше.
+        if (TabsMenu)
+            _navPeek = false;
         ApplySidebarLayout();
         PlaceRentalAlert();
         void HideOtherSections()

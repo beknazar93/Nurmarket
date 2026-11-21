@@ -409,118 +409,18 @@ public partial class WarehouseWindow
         });
     }
 
-    /// <summary>«Этикетка…» — прежнее окно с предпросмотром, копиями и выбором принтера (право «Печать штрих-кодов» проверяется).</summary>
-    private async void PrintLabel_Click(object? sender, RoutedEventArgs e)
-    {
-        if (sender is not Button { Tag: CatalogProductTileVm product })
-            return;
-
-        await QuickLabelPrint.OpenWindowAsync(this, product).ConfigureAwait(true);
-    }
-
-    /// <summary>2026-11-01: значок «🏷» и пункт меню «Печать этикетки» — этикетка сразу на принтер этикеток, без окна (QuickLabelPrint).</summary>
-    private async void QuickLabel_Click(object? sender, RoutedEventArgs e)
-    {
-        if (sender is not Button { Tag: CatalogProductTileVm product })
-            return;
-
-        await QuickLabelPrint.RunAsync(this, product).ConfigureAwait(true);
-    }
-
-    private async void PrintPriceTag_Click(object? sender, RoutedEventArgs e)
-    {
-        if (sender is not Button { Tag: CatalogProductTileVm product })
-            return;
-        if (!BarcodePrintAccess.Ensure(this)) // 2026-11-01 (П-10)
-            return;
-        if (!EnsurePriceTagEditorUnlocked())
-            return;
-
-        var dialog = new PriceTagPrintDialog(product);
-        await dialog.ShowDialog(this).ConfigureAwait(true);
-    }
+    // 2026-11-21 (владелец: «редакторы — в одну вкладку»): обработчиков «Этикетка…», «Печать этикетки», «Ценник», «Печать ценников (N)», «Редактор этикетки»
+    // здесь больше нет — печать, редактор и шаблоны только на вкладке «Ценники и штрихкоды» (WarehouseWindow.Barcodes.cs).
 
     private void BulkImport_Click(object? sender, RoutedEventArgs e)
     {
+        if (!ImportAccess.Allowed) // 2026-11-21: импорт — только в программе владельца
+            return;
         // 2026-11-05 (аудит №3, С2-28): мастер загрузки создаёт и правит сотни товаров — по праву «Склад: редактирование», как остальные правки склада.
         if (!EnsureCanEditProducts())
             return;
         BulkImportWizardWindow.Open(this);
     }
 
-    private void BulkPriceTag_Click(object? sender, RoutedEventArgs e)
-    {
-        if (!BarcodePrintAccess.Ensure(this)) // 2026-11-01 (П-10)
-            return;
-        if (!EnsureBulkPriceTagUnlocked())
-            return;
-
-        // 2026-11-11: печать — во вкладке «Штрихкоды» (отмеченные галочкой товары передаются в неё); окно «Печать штрихкодов и ценников» открывается оттуда же и из других мест.
-        OpenBarcodesTab(_printPicked.ToList());
-    }
-
-    private async void OpenLabelEditorTab_Click(object? sender, RoutedEventArgs e)
-    {
-        if (!EnsureLabelEditorUnlocked())
-            return;
-
-        var editor = new LabelTemplateEditorDialog();
-        await editor.ShowDialog(this).ConfigureAwait(true);
-    }
-
-    /// <summary>Редактор этикеток — стал платной доп. услугой (2026-09-07, раньше был бесплатным).
-    /// Тот же паттерн, что и EnsurePriceTagEditorUnlocked ниже.</summary>
-    // 2026-10-27 (аудит редакторов, Б-2): проверка покупки — одна на все окна (PaidFeatureGate), здесь только вход из Склада.
-    private bool EnsureLabelEditorUnlocked() => PaidFeatureGate.EnsureUnlocked(PaidFeature.LabelEditor, this);
-
-    /// <summary>Редактор ценников — тоже платная доп. услуга (2026-09-04). Если ещё не
-    /// разблокирован, сразу предлагает ввести код (без промежуточного "это платно" алерта —
-    /// один клик до ввода серийника, отменить можно прямо в этом же диалоге).</summary>
-    private bool EnsurePriceTagEditorUnlocked()
-    {
-        if (UserPreferences.Instance.PriceTagEditorUnlocked)
-            return true;
-
-        var serial = SerialActivationDialog.Show(this, Tr.T("Редактор ценников", "Ценник редактору", "Price tag editor", "Fiyat etiketi düzenleyici", "Narx yorliqlari muharriri"));
-        if (serial == null)
-            return false;
-
-        var isPermanent = LicenseKeys.IsPermanentSerial("pricetag", serial);
-        if (!isPermanent && !LicenseKeys.IsMasterSerial(serial))
-        {
-            PosAlertDialog.Show(this,
-                Tr.T("Неверный серийный номер", "Серия номери туура эмес", "Invalid serial number", "Geçersiz seri numarası", "Seriya raqami noto'g'ri"),
-                Tr.T("Проверьте номер и попробуйте снова.", "Номерди текшерип, кайра аракет кылыңыз.", "Check the number and try again.", "Numarayı kontrol edip tekrar deneyin.", "Raqamni tekshirib, qaytadan urinib ko'ring."),
-                PosAlertKind.Error);
-            return false;
-        }
-
-        UserPreferences.Instance.PriceTagEditorUnlocked = true;
-        if (isPermanent)
-            UserPreferences.Instance.SaveToDisk();
-        else
-            LicenseKeys.ActivateMasterAccessFor("pricetag");
-
-        PosAlertDialog.Show(this,
-            Tr.T("Редактор ценников активирован", "Ценник редактору иштетилди", "Price tag editor activated", "Fiyat etiketi düzenleyici etkinleştirildi", "Narx yorliqlari muharriri faollashtirildi"),
-            Tr.T(
-                "Теперь доступна печать ценника для одного товара: Склад → Товары → кнопка «💲 Ценник» на карточке товара.",
-                "Эми бир товар үчүн ценник басып чыгаруу жеткиликтүү: Склад → Товарлар → товар карточкасындагы «💲 Ценник» баскычы.", "Price tag printing for a single product is now available: Warehouse → Products → the “💲 Price tag” button on the product card.", "Artık tek bir ürün için fiyat etiketi yazdırılabilir: Depo → Ürünler → ürün kartındaki «💲 Fiyat etiketi» düğmesi.", "Endi bitta mahsulot uchun narx yorlig'ini chop etish mumkin: Ombor → Mahsulotlar → mahsulot kartochkasidagi «💲 Narx yorlig'i» tugmasi."),
-            PosAlertKind.Success);
-        return true;
-    }
-
-    /// <summary>Массовая печать ценников — отдельная от EnsurePriceTagEditorUnlocked доп. услуга
-    /// (2026-09-04, по явной просьбе пользователя: активация одной не должна включать другую),
-    /// хотя серийник и диалог активации те же самые (единый мастер-ключ для всех доп. услуг).</summary>
-    private bool EnsureBulkPriceTagUnlocked()
-    {
-        // 2026-10-27 (аудит редакторов, Б-2): проверка покупки — общая (PaidFeatureGate); здесь только обновление видимости кнопок после покупки.
-        var wasUnlocked = UserPreferences.Instance.BulkPriceTagUnlocked;
-        var ok = PaidFeatureGate.EnsureUnlocked(PaidFeature.BulkPriceTag, this);
-        if (ok && !wasUnlocked)
-            RefreshPaidFeatureVisibility();
-        return ok;
-    }
 
 }

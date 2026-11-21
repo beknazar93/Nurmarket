@@ -33,7 +33,9 @@
         </Style>
     </Window.Styles>
 
-    <dlg:ModalShell x:Name="Shell" Margin="16" ContentScroll="Disabled"
+    <!-- 2026-11-21 (владелец: «снизу сотрудники не видны, не удобно», фото 1024×600): окно берёт всю высоту экрана (ScreenHeightShare 1,0, поля 10), шапка компактная
+         (подпись окна на «Отметках» убрана, статус — одной строкой), таблица сотрудников — вся оставшаяся высота (Star) со своей вертикальной прокруткой. -->
+    <dlg:ModalShell x:Name="Shell" Margin="10" ContentScroll="Disabled" ScreenHeightShare="1.0"
                     Title="{DynamicResource staffTimesheet.title}"
                     Subtitle="{DynamicResource staffTimesheet.description}">
         <dlg:ModalShell.Footer>
@@ -41,10 +43,10 @@
                     Content="{DynamicResource common.close}" Click="Close_Click"/>
         </dlg:ModalShell.Footer>
 
-        <Grid RowDefinitions="Auto,*">
+        <Grid RowDefinitions="Auto,*,Auto">
             <!-- 2026-11-08 (запрос владельца «вернуть табель»): две вкладки — «Отметки» (сетка сотрудники × дни месяца, ручные отметки и автоотметка)
                  и «Итоги по сменам» (прежняя таблица по закрытым сменам, без изменений). -->
-            <Border Grid.Row="0" Classes="Card" Margin="0,0,0,12" Padding="10,8">
+            <Border Grid.Row="0" Classes="Card" Margin="0,0,0,4" Padding="10,4">
                 <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <Border Classes="sec-segment" Margin="0,0,12,0">
                         <StackPanel Orientation="Horizontal" Spacing="2">
@@ -67,20 +69,27 @@
                     </StackPanel>
                     <Button Content="{DynamicResource common.refresh}" Classes="SecondaryButton" MinHeight="44" Margin="0,0,10,0" Click="Refresh_Click"/>
                     <Button x:Name="RetryButton" Classes="nur-primary" MinHeight="44" Margin="0,0,10,0" IsVisible="False" Click="Retry_Click"/>
-                    <TextBlock x:Name="StatusText" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="460"/>
                 </WrapPanel>
             </Border>
+            <!-- 2026-11-21: нижняя полоса — легенда (слева, вне прокрутки таблицы) и статус одной строкой с многоточием (справа, полный текст — в подсказке);
+                 раньше статус и легенда занимали две строки и отнимали высоту у таблицы сотрудников. -->
+            <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,4,0,0"> <!-- 2026-11-21: легенда занимает остаток и переносится, статус — не шире 280 (раньше Auto,* выталкивало «?» за край на 800 px, ky) -->
+                <WrapPanel x:Name="LegendPanel" Grid.Column="0" VerticalAlignment="Center"/>
+                <TextBlock x:Name="StatusText" Grid.Column="1" MaxWidth="280" Margin="10,0,0,0" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+            </Grid>
 
             <!-- Вкладка «Отметки» -->
-            <Grid x:Name="MarksPanel" Grid.Row="1" RowDefinitions="Auto,Auto,*,Auto">
-                <!-- 2026-11-19 (п. 9 владельца): сводные плитки месяца (часы, отработанные дни, дни со сменой, расхождения со сменой) — строит RebuildMarks -->
-                <UniformGrid x:Name="SummaryTiles" Grid.Row="0" Rows="1" Columns="4" Margin="0,0,0,10"/>
-                <WrapPanel x:Name="ActionsPanel" Grid.Row="1" Margin="0,0,0,8">
-                    <Button x:Name="MarkAllTodayButton" Classes="nur-primary" MinHeight="44" Margin="0,0,8,4" Click="MarkAllToday_Click"/>
-                    <Button x:Name="CopyYesterdayButton" Classes="nur-secondary" MinHeight="44" Margin="0,0,8,4" Click="CopyYesterday_Click"/>
-                    <Button x:Name="JournalButton" Classes="nur-ghost" MinHeight="44" Margin="0,0,8,4" Click="Journal_Click"/>
+            <Grid x:Name="MarksPanel" Grid.Row="1" RowDefinitions="Auto,Auto,*">
+                <!-- 2026-11-19 (п. 9 владельца): сводные плитки месяца (часы, отработанные дни, дни со сменой, расхождения со сменой) — строит RebuildMarks.
+                     2026-11-21: плитки — одна низкая строка; кнопка «Итоги» в строке действий сворачивает их, когда экран низкий. -->
+                <UniformGrid x:Name="SummaryTiles" Grid.Row="0" Rows="1" Columns="4" Margin="0,0,0,4"/>
+                <WrapPanel x:Name="ActionsPanel" Grid.Row="1" Margin="0,0,0,4">
+                    <Button x:Name="MarkAllTodayButton" Classes="nur-primary" MinHeight="44" Margin="0,0,8,0" Click="MarkAllToday_Click"/>
+                    <Button x:Name="CopyYesterdayButton" Classes="nur-secondary" MinHeight="44" Margin="0,0,8,0" Click="CopyYesterday_Click"/>
+                    <Button x:Name="JournalButton" Classes="nur-ghost" MinHeight="44" Margin="0,0,8,0" Click="Journal_Click"/>
+                    <ToggleButton x:Name="SummaryToggle" Classes="nur-ghost" MinHeight="44" Margin="0,0,8,0" IsChecked="True" Click="SummaryToggle_Click"/>
                 </WrapPanel>
-                <Border Grid.Row="2" Classes="Card" Padding="0" ClipToBounds="True">
+                <Border Grid.Row="2" Classes="Card" Padding="0" ClipToBounds="True" MinHeight="120">
                     <Grid>
                         <ScrollViewer x:Name="TableScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                             <Grid x:Name="TableGrid"/>
@@ -89,7 +98,6 @@
                         <ContentControl x:Name="EmptyHost" IsVisible="False" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Grid>
                 </Border>
-                <WrapPanel x:Name="LegendPanel" Grid.Row="3" Margin="0,8,0,0"/>
             </Grid>
 
             <!-- Вкладка «Итоги по сменам» (прежняя таблица) -->

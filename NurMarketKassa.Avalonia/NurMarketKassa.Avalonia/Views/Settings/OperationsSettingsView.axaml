@@ -45,7 +45,7 @@
             </Border>
             <StackPanel VerticalAlignment="Center">
               <TextBlock Text="{DynamicResource posSettings.navOperations}" Classes="SettingsPageTitle"/>
-              <TextBlock Text="{DynamicResource operations.pageSubtitle}" Classes="SettingsPageSubtitle"/> <!-- 2026-10-19, О7: было «QR-коды и логотипы банков…» — не про эту страницу -->
+              <TextBlock x:Name="PageSubtitleText" Text="{DynamicResource operations.pageSubtitle}" Classes="SettingsPageSubtitle"/> <!-- 2026-10-19, О7: было «QR-коды и логотипы банков…» — не про эту страницу -->
             </StackPanel>
           </StackPanel>
         </Border>
@@ -152,6 +152,18 @@
           <StackPanel x:Name="ExchangeRulesPanel" Spacing="10"/>
         </Border>
 
+        <!-- 2026-11-21, владелец: «если товара нет на складе, кассир может продавать в минус» — тумблер «Продавать товар без остатка (в минус)», по умолчанию включён.
+             Надписи — в коде PosSettingsWindow (5 языков). Общее для магазина (SettingsCloudSync). -->
+        <Border x:Name="SellWithoutStockCard" Classes="SettingsCard" Padding="16">
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Spacing="2">
+              <TextBlock x:Name="SellWithoutStockLabel" x:FieldModifier="public" FontSize="13" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
+              <TextBlock x:Name="SellWithoutStockHint" x:FieldModifier="public" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
+            </StackPanel>
+            <CheckBox Grid.Column="1" x:Name="SellWithoutStockCheck" x:FieldModifier="public" Classes="ToggleSwitch" VerticalAlignment="Center" Margin="12,0,0,0"/>
+          </Grid>
+        </Border>
+
         <!-- 2026-10-22 (аудит 1.17.59, П-Г): «Предоплата при продаже в долг» и штрафы за просрочку переехали сюда из «Экрана»;
              карточка «Оплата долга» (DebtPaymentSettingsCard) вставляется следом из кода — всё про долги в «Операциях». -->
         <Border x:Name="DebtSaleCard" Classes="SettingsCard" Padding="16">
@@ -167,10 +179,11 @@
               </Grid>
               <!-- 2026-10-06, владелец: штраф за просрочку — в чеке долга и проката. Надписи — в коде (5 языков). -->
               <StackPanel Spacing="4" Margin="0,8,0,0">
-                <TextBlock x:Name="DebtPenaltyLabel" x:FieldModifier="public" FontSize="13" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
-                <TextBox x:Name="DebtPenaltyBox" x:FieldModifier="public" Classes="ModernTextBox" Height="44" MaxLength="120"/>
-                <TextBlock x:Name="RentalPenaltyLabel" x:FieldModifier="public" FontSize="13" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap" Margin="0,6,0,0"/>
-                <TextBox x:Name="RentalPenaltyBox" x:FieldModifier="public" Classes="ModernTextBox" Height="44" Width="160" HorizontalAlignment="Left" Watermark="0"/>
+                <!-- 2026-11-21 (владелец: данные чека — только во вкладке «Чек»): штрафы за просрочку долга и проката перенесены в «Печать → Чек». -->
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock x:Name="ReceiptMovedText" x:FieldModifier="public" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                  <Button Grid.Column="1" x:Name="ReceiptMovedButton" x:FieldModifier="public" Classes="PrintGoldButton" Height="44" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                </Grid>
                 <!-- 2026-10-29: «Макс. долг без связи» — предел долга на клиента, до которого касса без интернета оформляет «в долг». Надписи — в коде (5 языков). -->
                 <TextBlock x:Name="OfflineDebtMaxLabel" x:FieldModifier="public" FontSize="13" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap" Margin="0,6,0,0"/>
                 <TextBox x:Name="OfflineDebtMaxBox" x:FieldModifier="public" Classes="ModernTextBox" Height="44" Width="160" HorizontalAlignment="Left" Watermark="0"/>

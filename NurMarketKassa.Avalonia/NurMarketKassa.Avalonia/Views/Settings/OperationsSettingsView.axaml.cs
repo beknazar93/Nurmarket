@@ -132,9 +132,23 @@ public partial class OperationsSettingsView : UserControl
         OpsCardList.Children.Insert(OpsCardList.Children.IndexOf(AiKeysCard) + 1, _advisorCard);
         // 2026-11-20 (владелец: «убери настройки ИИ из Операции, у него своя вкладка»): окно настроек сразу снимает обе карточки на вкладку «ИИ»,
         // а здесь остаётся только подсказка с кнопкой-переходом (OpenAiTab ставит окно настроек).
-        OpsCardList.Children.Insert(OpsCardList.Children.IndexOf(AiKeysCard), BuildAiHintCard());
+        // 2026-11-21 (владелец: «Убрать ИИ и Сотрудники из настроек КАССЫ! Телеграм-бот тоже…»): в кассе подсказки «Открыть вкладку ИИ» нет и карточки Телеграм-бота владельца нет —
+        // «Операции» остаются (QR-оплата, смена, удаления из чека, вид магазина). Поля карточки живут в коде (обработчики прежние), но в дерево кассы она не попадает.
+        if (NurMarketKassa.Services.OwnerOnlySettings.Allowed)
+            OpsCardList.Children.Insert(OpsCardList.Children.IndexOf(AiKeysCard), BuildAiHintCard());
+        else
+        {
+            (TelegramCard.Parent as Panel)?.Children.Remove(TelegramCard);
+            DetachAiCards(); // ключи ИИ и тумблеры Нур Советника — тоже только у владельца
+            // 2026-11-21: подзаголовок страницы без слова «Telegram» (Resources: operations.pageSubtitle остаётся для программы владельца).
+            // Bind (а не Text =): прежняя привязка DynamicResource иначе возвращала текст со словом «Telegram» при обновлении ресурсов.
+            PageSubtitleText.Bind(TextBlock.TextProperty, new Avalonia.Data.Binding(".") { Source = Tr.T("Вид магазина, закрытие смены, удаления из чека и оплата по QR", "Дүкөндүн түрү, сменаны жабуу, чектен өчүрүү жана QR менен төлөм",
+                "Store type, shift closing, receipt removals and QR payment", "Mağaza türü, vardiya kapanışı, fişten silme ve QR ile ödeme", "Do'kon turi, smenani yopish, chekdan o'chirish va QR orqali to'lov"), Mode = Avalonia.Data.BindingMode.OneTime });
+        }
         // 2026-11-20 (владелец: «где импорт из других программ?»): карточка «Перенос данных из другой программы» сразу под видом магазина.
-        OpsCardList.Children.Insert(System.Math.Min(2, OpsCardList.Children.Count), BuildTransferCard());
+        // 2026-11-21 (владелец: «перенос данных убери у программы кассы, он только у владельца»): в кассе карточки нет совсем, только в программе владельца.
+        if (NurMarketKassa.Services.ImportAccess.Allowed)
+            OpsCardList.Children.Insert(System.Math.Min(2, OpsCardList.Children.Count), BuildTransferCard());
         AiKeysCardTitle.Text = Tr.T("Ключи ИИ", "ИИ ачкычтары", "AI keys", "Yapay zeka anahtarları", "AI kalitlari");
         AttachedToVisualTree += Lan_Attached;
         DetachedFromVisualTree += Lan_Detached;
@@ -261,9 +275,10 @@ public partial class OperationsSettingsView : UserControl
             "What the till is set up for. Sales and reports aren't affected.",
             "Kasanın hangi işe göre ayarlandığı. Satışları ve raporları etkilemez.",
             "Kassa qaysi soha uchun sozlangan. Sotuv va hisobotlarga ta'sir qilmaydi.");
-        SphereGroceryRadio.Content = Tr.T("Продуктовый", "Азык-түлүк", "Grocery", "Market (gıda)", "Oziq-ovqat");
-        SphereClothingRadio.Content = Tr.T("Одежда и похожие", "Кийим жана ушул сыяктуулар", "Clothing and similar", "Giyim ve benzeri", "Kiyim va shunga o'xshash");
-        SphereServicesRadio.Content = Tr.T("Услуги", "Кызматтар", "Services", "Hizmetler", "Xizmatlar");
+        // 2026-11-21 (отчёт «Проверка сфер», п. 6): названия — те же, что на плитках окна выбора сферы (SphereCatalog), «Магазин одежды» вместо «Одежда и похожие».
+        SphereGroceryRadio.Content = SphereCatalog.Get(MarketSpheres.Grocery).Title.Get();
+        SphereClothingRadio.Content = SphereCatalog.Get(MarketSpheres.Clothing).Title.Get();
+        SphereServicesRadio.Content = SphereCatalog.Get(MarketSpheres.Services).Title.Get();
 
         var sphere = UserPreferences.Instance.MarketSphere;
         // 2026-11-12 (ХМ14): точная сфера (hardware…) — отдельная кнопка из каталога сфер; три базовые отмечаются только при совпадении профиля.
@@ -315,6 +330,7 @@ public partial class OperationsSettingsView : UserControl
             : MarketSpheres.Grocery);
         MarketSpheres.Set(sphere);
         OnSphereChosen(sphere, firstChoice);
+        _ = CompanyModules.PushProfileAsync(); // 2026-11-21: профиль модулей на сервере = выбранная сфера (владелец; кассиру сервер откажет — останется в этой кассе)
         if (firstChoice)
             MarketSphereLock.NoteLocalChoice(); // первый выбор израсходован — дальше через техподдержку
         RefreshSphereUi();
@@ -413,12 +429,12 @@ public partial class OperationsSettingsView : UserControl
         RemovalThresholdLabel.Text = Tr.T("если сумма строки от", "эгер саптын суммасы", "if the line amount is at least",
             "satır tutarı en az", "agar qator summasi kamida");
         RemovalThresholdUnit.Text = Tr.T("сом", "сомдон ашса", "som", "som ise", "so'm bo'lsa");
-        CartRemovalDesc.Text = Tr.T(
+        CartRemovalDesc.Text = NurMarketKassa.Services.OwnerOnlySettings.EmployeesPath(Tr.T(
             "Обычное удаление — сразу, без окна. Журнал «Удалено из чека» (☰ → Система) пишется всегда на этой кассе (на все кассы — нужен сервер NurCRM). Код на удаление из корзины для кассиров — в Настройки → Сотрудники и на сайте.",
             "Кадимки өчүрүү — дароо, терезесиз. «Чектен алынгандар» журналы (☰ → Система) ушул кассада дайыма жазылат (бардык кассалар үчүн — NurCRM сервери керек). Кассирлер үчүн себеттен өчүрүү коду — Жөндөөлөр → Кызматкерлер бөлүмүндө жана сайтта.",
             "A normal removal happens at once, without a window. The “Removed from receipt” log (☰ → System) is always kept on this till (for all tills — needs the NurCRM server). The cart-removal code for cashiers is in Settings → Staff and on the website.",
             "Normal silme hemen, pencere olmadan yapılır. «Fişten çıkarılanlar» günlüğü (☰ → Sistem) bu kasada her zaman tutulur (tüm kasalar için — NurCRM sunucusu gerekir). Kasiyerler için sepetten silme kodu Ayarlar → Çalışanlar bölümünde ve web sitesindedir.",
-            "Oddiy o'chirish darhol, oynasiz. «Chekdan olib tashlanganlar» jurnali (☰ → Tizim) shu kassada doim yoziladi (barcha kassalar uchun — NurCRM serveri kerak). Kassirlar uchun savatdan o'chirish kodi — Sozlamalar → Xodimlar bo'limida va saytda.");
+            "Oddiy o'chirish darhol, oynasiz. «Chekdan olib tashlanganlar» jurnali (☰ → Tizim) shu kassada doim yoziladi (barcha kassalar uchun — NurCRM serveri kerak). Kassirlar uchun savatdan o'chirish kodi — Sozlamalar → Xodimlar bo'limida va saytda."));
         // Обработчики сравнивают значение перед записью — эти установки лишнего сохранения не делают.
         var prefs = UserPreferences.Instance;
         AskRemovalReasonCheck.IsChecked = prefs.AskCartRemovalReason;

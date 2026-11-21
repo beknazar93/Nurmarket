@@ -9,10 +9,10 @@ namespace NurMarketKassa.AvaloniaHost.Services;
 internal static class LateAcceptPrompt
 {
     /// <summary>Спросить PIN и получить токен. null — отмена или отказ (текст причины уже показан через <paramref name="show"/>).</summary>
-    public static async Task<LatePinResult?> AskConfirmTokenAsync(SyncService sync, Action<string> show)
+    public static async Task<LatePinResult?> AskConfirmTokenAsync(SyncService sync, Action<string> show, string? infoText = null)
     {
         var prompts = App.GetRequiredService<IUserPrompts>();
-        var info = InfoText();
+        var info = infoText ?? InfoText(); // 2026-11-21: «Очистить неотправленные чеки» просит тот же PIN со своим пояснением (токен ей не нужен — важен сам факт проверки на сервере)
         while (true)
         {
             var wait = SyncService.LatePinLockSecondsLeft;

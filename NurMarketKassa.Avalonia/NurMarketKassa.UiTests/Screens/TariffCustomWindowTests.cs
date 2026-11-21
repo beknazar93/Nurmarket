@@ -28,29 +28,62 @@ public sealed class TariffCustomWindowTests
         public HashSet<string>? Included; // 2026-11-20: какие пакеты входят в «Стандарт» (included_in); null — все (как раньше)
         public List<IReadOnlyList<string>> Quotes { get; } = [];
         public List<IReadOnlyList<string>> Submits { get; } = [];
+        public List<IReadOnlyList<string>> Removes { get; } = [];      // 2026-11-21: remove[] каждого расчёта
+        public List<string> Periods { get; } = [];                      // 2026-11-21: period каждого расчёта
+        public List<(IReadOnlyList<string> Remove, string Period, IReadOnlyList<string>? Modules)> SubmitInfo { get; } = [];
 
         public Task<TariffCatalog> GetCatalogAsync(CancellationToken ct = default) =>
             Task.FromResult(new TariffCatalog(
-                [new TariffPlan("start", "Старт", 1300m, null), new TariffPlan("standard", "Стандарт", 3600m, null), new TariffPlan("custom", "Своё", null, "start")],
+                [new TariffPlan("start", "Старт", 1300m, null, 13000m), new TariffPlan("standard", "Стандарт", 3600m, null, 36000m), new TariffPlan("custom", "Своё", null, "start")],
                 Codes.Select(c => new TariffPack(c, c switch { "ai" => "ИИ-помощник", "clients" => "Клиенты и бонусы", "sales_analytics" => "Аналитика продаж", "analytics_export" => "Выгрузка аналитики", _ => "Пакет " + c },
                     "Описание пакета, которое может быть достаточно длинным и переноситься на вторую строку в узком окне", 1500m, 400m, Included is null || Included.Contains(c) ? ["standard"] : [])).ToList()));
 
-        public Task<TariffQuote> QuoteAsync(IReadOnlyList<string> packs, CancellationToken ct = default)
+        public Task<TariffQuote> QuoteAsync(IReadOnlyList<string> packs, CancellationToken ct = default) => QuoteAsync(packs, null, null, null, "month", ct);
+
+        /// <summary>Как сервер 21.11: remove[] со Стандарта → plan_after "custom", база «Старт» 1300, оставшиеся пакеты по 400; без снятия на Стандарте — 3600; год = 10 месяцев (total_year, year_discount).</summary>
+        public Task<TariffQuote> QuoteAsync(IReadOnlyList<string> packs, IReadOnlyList<string>? modules, string? sphere, IReadOnlyList<string>? remove, string period, CancellationToken ct = default)
         {
             if (QuoteError is not null)
                 throw QuoteError;
             Quotes.Add(packs.ToList());
+            var removed = remove?.ToList() ?? [];
+            Removes.Add(removed);
+            Periods.Add(period);
+            TariffQuote Year(TariffQuote q)
+            {
+                if (period != "year")
+                    return q;
+                var month = q.TotalMonth ?? q.Base + q.Monthly;
+                return q with { Period = "year", TotalYear = month * 10m, YearDiscount = month * 2m, YearPaidMonths = 10 };
+            }
+
+            if (removed.Count > 0)
+            {
+                var kept = (Included ?? Codes.ToHashSet()).Except(removed).Concat(packs).Distinct().ToList();
+                var keptRows = kept.Select(p => new TariffQuotePack(p, 400m, 1500m, false)).ToList();
+                var keptMonthly = keptRows.Sum(r => r.Monthly);
+                return Task.FromResult(Year(new TariffQuote(keptMonthly, keptRows.Sum(r => r.Once), 1300m, keptRows, true, 3600m, "start", null, null, null, null, 1300m + keptMonthly,
+                    "custom", removed, 1300m, period)));
+            }
             var rows = packs.Select(p => Active.Contains(p) ? new TariffQuotePack(p, 0m, 0m, true) : new TariffQuotePack(p, 400m, 1500m, false)).ToList();
             var monthly = rows.Sum(r => r.Monthly);
-            return Task.FromResult(new TariffQuote(monthly, rows.Sum(r => r.Once), 1300m, rows, 1300m + monthly > 3600m, 3600m));
+            if (packs.Count == 0 && _standardBase)
+                return Task.FromResult(Year(new TariffQuote(0m, 0m, 3600m, rows, false, 3600m, "standard", null, null, null, null, 3600m, "standard", [], 1300m, period)));
+            return Task.FromResult(Year(new TariffQuote(monthly, rows.Sum(r => r.Once), 1300m, rows, 1300m + monthly > 3600m, 3600m)));
         }
 
-        public Task<TariffOrder> SubmitCustomAsync(IReadOnlyList<string> packs, string idempotencyKey, CancellationToken ct = default)
+        public bool _standardBase; // true — расчёт без пакетов на Стандарте даёт «Стандарт» 3600 (как сервер)
+
+        public Task<TariffOrder> SubmitCustomAsync(IReadOnlyList<string> packs, string idempotencyKey, CancellationToken ct = default) =>
+            SubmitCustomAsync(packs, null, null, "month", idempotencyKey, ct);
+
+        public Task<TariffOrder> SubmitCustomAsync(IReadOnlyList<string> packs, IReadOnlyList<string>? modules, IReadOnlyList<string>? remove, string period, string idempotencyKey, CancellationToken ct = default)
         {
             Keys.Add(idempotencyKey);
             if (FailSubmits-- > 0)
                 throw new HttpRequestException("обрыв связи");
             Submits.Add(packs.ToList());
+            SubmitInfo.Add((remove?.ToList() ?? [], period, modules));
             return Task.FromResult(new TariffOrder("o-501", "pending", 400m, 1500m, null));
         }
     }
@@ -216,7 +249,13 @@ public sealed class TariffCustomWindowTests
             }
             window.IsIncluded("salary").Should().BeFalse();
             window.PackStatusText("ai").Should().Be(Tr.T("Входит в ваш тариф", "Тарифиңизге кирет", "Included in your plan", "Tarifinize dahil", "Tarifingizga kiradi"));
-            api.Quotes.Single().Should().NotContain(["ai", "clients", "scales"], "входящие в тариф пакеты в расчёт не уходят");
+            api.Quotes.First().Should().NotContain(["ai", "clients", "scales"], "входящие в тариф пакеты в расчёт на добавление не уходят");
+            foreach (var code in new[] { "ai", "clients", "scales" })
+            {
+                window.IsPackChecked(code).Should().BeTrue($"{code}: отметка = пакет остаётся ({tag})");
+                window.IsPackEnabled(code).Should().BeTrue($"{code}: на Стандарте пакет можно снять ({tag})");
+            }
+            window.RemoveHintText.Should().Contain("Своё", "подсказка про снятие пакета: название тарифа — из каталога сервера");
             window.ErrorText.Should().BeNull("конструктор доступен");
             window.ManagerButtonVisible.Should().BeFalse();
 
@@ -236,6 +275,86 @@ public sealed class TariffCustomWindowTests
         finally
         {
             window.Close();
+            UiShot.Pump();
+        }
+    }
+
+    /// <summary>2026-11-21 (ответ Умара 21.11): на Стандарте галочку можно СНЯТЬ — в quote и заявку уходит remove[], цена и «Своё» — только с сервера (Стандарт без «ai» = 1300 + 10 × 400 = 5300);
+    /// вернули галочку — снова «Стандарт» 3600; год = 10 месяцев — period "year", итог за год и скидка с сервера; подтверждение перед заявкой называет снятые пакеты.</summary>
+    [AvaloniaTheory]
+    [MemberData(nameof(Sizes3))]
+    public async Task Standard_UncheckPack_SendsRemove_ShowsCustomFromServer_AndYearPeriod(int width, int height, AppLanguage lang)
+    {
+        await TestHost.WarmAsync();
+        UiShot.Setup(UiTheme.Light, lang);
+        var api = new FakeTariffApi { _standardBase = true };
+        string? asked = null;
+        var window = new TariffCustomWindow(api, "Стандарт") { Confirm = q => { asked = q; return Task.FromResult(true); } };
+        try
+        {
+            using var _ = UiShot.Render(window, new UiSize(width, height));
+            await window.LoadAsync();
+            UiShot.Settle(8);
+            var tag = $"{width}x{height} {lang}";
+
+            Norm(window.SummaryText).Should().Contain("3 600", $"Стандарт как есть — цена сервера ({tag})");
+            window.CanSubmit.Should().BeFalse("ничего не меняли");
+            window.PeriodRowVisible.Should().BeTrue("у планов есть цена за год");
+
+            window.SetChecked("ai", false);
+            await window.QuoteForTestAsync();
+            UiShot.Settle(8);
+            api.Removes.Last().Should().Equal("ai");
+            api.Quotes.Last().Should().BeEmpty();
+            Norm(window.SummaryText).Should().Contain("5 300", "Стандарт без «ai» = 1300 + 10 × 400 — цифру даёт сервер").And.Contain("Своё");
+            window.PackStatusText("ai").Should().Be(Tr.T("Будет снят", "Алынып салынат", "Will be removed", "Kaldırılacak", "Olib tashlanadi"));
+            window.PackStatusText("clients").Should().BeEmpty("оставшийся пакет теперь платный — показана цена, а не «Входит в тариф»");
+            window.CanSubmit.Should().BeTrue();
+
+            await window.SubmitForTestAsync();
+            asked.Should().NotBeNull().And.Contain("ИИ-помощник");
+            api.SubmitInfo.Single().Remove.Should().Equal("ai");
+            api.SubmitInfo.Single().Period.Should().Be("month");
+            // modules[] уходит в заявку, когда реестр модулей известен (здесь его нет — поле не шлётся; тело заявки проверяет TariffApiTests)
+            window.DoneText.Should().Contain("o-501");
+
+            var clipped = TextClipChecker.Find(window, "tariff-custom-removed", Code(lang));
+            clipped.Should().BeEmpty($"текст не обрезан ({tag}): " + string.Join("; ", clipped.Select(v => v.Detail)));
+            SaveShot(window, $"tariff-custom-removed-{Code(lang)}-{width}x{height}");
+        }
+        finally
+        {
+            window.Close();
+            UiShot.Pump();
+        }
+
+        // вернули галочку — снова «Стандарт», заявку отправлять нечего; годовой период
+        var api2 = new FakeTariffApi { _standardBase = true };
+        var window2 = new TariffCustomWindow(api2, "Стандарт") { Confirm = _ => Task.FromResult(true) };
+        try
+        {
+            window2.Show();
+            await window2.LoadAsync();
+            window2.SetChecked("ai", false);
+            await window2.QuoteForTestAsync();
+            window2.SetChecked("ai", true);
+            window2.CanSubmit.Should().BeFalse("всё как было — отправлять нечего");
+            Norm(window2.SummaryText).Should().Contain("3 600");
+
+            window2.SetPeriodForTest("year");
+            await window2.QuoteForTestAsync();
+            await Task.Delay(50);
+            api2.Periods.Last().Should().Be("year");
+            window2.SetChecked("ai", false);
+            await window2.QuoteForTestAsync();
+            api2.Periods.Last().Should().Be("year");
+            Norm(window2.SummaryText).Should().Contain("53 000", "итог за год — total_year сервера").And.Contain("10 600", "скидка за год — year_discount сервера");
+            await window2.SubmitForTestAsync();
+            api2.SubmitInfo.Single().Period.Should().Be("year");
+        }
+        finally
+        {
+            window2.Close();
             UiShot.Pump();
         }
     }

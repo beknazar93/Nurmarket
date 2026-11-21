@@ -64,7 +64,10 @@ public partial class OwnerShellWindow
         get
         {
             // 2026-10-18: сама колонка сворачивается только в новом виде (у бургера и старого вида своя разметка).
-            if (_activeSection == null || _phoneLayout || MenuStyle != OwnerMenuStyles.New)
+            // 2026-11-21 (жалоба «при каждом нажатии меняет размер»): раньше колонка сворачивалась, только когда открыт раздел (_activeSection != null),
+            // и раскрывалась нажатием на группу, а выбор пункта сворачивал её снова — каждый клик менял ширину меню и области раздела.
+            // Теперь решение зависит только от ширины окна: переход между разделами и пунктами ширину не трогает.
+            if (_phoneLayout || MenuStyle != OwnerMenuStyles.New)
                 return false;
             // 2026-11-01: ширина — в точках содержимого (с учётом «Масштаба интерфейса»: при 80 % окно 1366 вмещает ~1700 точек макета).
             var width = (Bounds.Width - OffScreenMargin.Left - OffScreenMargin.Right) / _shellScale;
@@ -352,10 +355,9 @@ public partial class OwnerShellWindow
         }
         if (!_phoneLayout)
         {
+            // 2026-11-21: раскрытая колонка остаётся раскрытой (повторное нажатие на ту же группу её не сворачивает) — свернуть можно только «««».
             if (!NavItemsOpen)
                 _navPeek = true;
-            else if (_navPeek && key == _navGroup)
-                _navPeek = false;
         }
         _navGroup = key;
         if (!string.IsNullOrEmpty(NavSearchText.Text))

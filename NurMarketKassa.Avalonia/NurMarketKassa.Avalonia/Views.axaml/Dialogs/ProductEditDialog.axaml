@@ -307,6 +307,8 @@
                             <TextBlock Text="{Binding BarcodeHint}" IsVisible="{Binding HasBarcodeHint}" TextWrapping="Wrap" FontSize="12"
                                        Foreground="{DynamicResource BrushDanger}"/>
                             <StackPanel x:Name="BarcodeSuggestPanel" Spacing="6" IsVisible="False"/>
+                            <!-- 2026-11-21: отметка «Без заводского штрихкода» (хлеб, выпечка…) — такие товары стоят в начале каталога кассы; подпись — в коде (ProductEditDialog.NoFactory.cs). -->
+                            <CheckBox x:Name="NoFactoryBarcodeCheck" HorizontalAlignment="Stretch"/>
 
                             <!-- 2026-10-04, клиент: «включил весовой — поле PLU выталкивает цену вниз, полстроки не видно».
                                  PLU теперь в той же строке, что и тумблер «Весовой»: высота вкладки не меняется. -->
@@ -437,6 +439,8 @@
                                 </StackPanel>
                                 <!-- 2026-11-20 (ТЗ «Автозапчасти», АЗ5): блок «Автозапчасть» (состояние, ячейка, OEM, кросс-номера, «подходит к», аналоги) — видим только в сфере «Автозапчасти», наполняется в ProductEditDialog.AutoPart.cs. -->
                                 <StackPanel x:Name="AutoPartBlock" Spacing="8" HorizontalAlignment="Stretch" IsVisible="False"/>
+                                <!-- 2026-11-21 («Базар», модуль «Цена по количеству»): ступени «от N шт — цена»; видим при включённом модуле и только у уже сохранённого товара, наполняется в ProductEditDialog.Bazaar.cs. -->
+                                <StackPanel x:Name="BazaarTiersBlock" Spacing="8" HorizontalAlignment="Stretch" IsVisible="False"/>
 
                                 <StackPanel Spacing="8" HorizontalAlignment="Stretch">
                                     <TextBlock Classes="FieldLabel" Text="{DynamicResource product.altBarcodesLabel}"/>
@@ -645,7 +649,7 @@
                         </StackPanel>
                     </ScrollViewer>
                 </TabItem>
-                <TabItem Header="{DynamicResource product.tabVariants}" IsVisible="{Binding !IsQuickAddMode}">
+                <TabItem Header="{DynamicResource product.tabVariants}" IsVisible="{Binding ShowVariantsTab}">
                     <ScrollViewer Classes="hide-scrollbar" Padding="0,14,4,6">
                         <StackPanel Spacing="20" Margin="0,0,0,240">
                             <!-- 2026-10-01, магазин одежды: размеры и цвета товара (варианты NurCRM — своя цена,

@@ -82,12 +82,12 @@ public sealed class BarcodesAuditUiTests : IDisposable
     private static Button GenButton(Visual root) =>
         WaitGen(root)
         ?? throw new InvalidOperationException("2026-11-20: кнопки генерации штрихкодов нет; язык=" + NurMarketKassa.Services.Tr.T("ru", "ky", "en", "tr", "uz") + "; кнопки: "
-            + string.Join(" | ", root.GetVisualDescendants().OfType<Button>().Select(b => UiDrive.TextOf(b)).Where(t => !string.IsNullOrEmpty(t)).Take(25)));
+            + string.Join(" | ", root.GetVisualDescendants().OfType<Button>().Select(b => UiDrive.LabelOf(b)).Where(t => !string.IsNullOrEmpty(t)).Take(25)));
 
     private static Button? WaitGen(Visual root)
     {
         Button? found = null;
-        UiRobot.WaitFor(() => (found = root.GetVisualDescendants().OfType<Button>().FirstOrDefault(b => IsGenText(UiDrive.TextOf(b)))) is not null, 8000);
+        UiRobot.WaitFor(() => (found = root.GetVisualDescendants().OfType<Button>().FirstOrDefault(b => IsGenText(UiDrive.LabelOf(b)))) is not null, 8000);
         return found;
     }
 
@@ -402,7 +402,7 @@ public sealed class BarcodesAuditUiTests : IDisposable
             UiShot.Pump();
         }
 
-        // раздел «Штрихкоды и ценники» в программе владельца: открыть → «Склад» → снова «Штрихкоды и ценники» ×5
+        // 2026-11-21: отдельного раздела нет — «Склад» → вкладка «Ценники и штрихкоды» → другая вкладка ×5
         await LoginAsync("owner");
         var shell = new OwnerShellWindow { Width = 1440, Height = 800 };
         try
@@ -411,10 +411,10 @@ public sealed class BarcodesAuditUiTests : IDisposable
             UiShot.Settle(3, 30);
             for (var i = 0; i < 5; i++)
             {
-                NavButtons(shell)["barcodes"].RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
-                UiShot.Settle(6, 40);
-                shell.OwnedWindows.OfType<BarcodePrintSectionWindow>().Should().ContainSingle();
                 NavButtons(shell)["warehouse"].RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+                UiShot.Settle(6, 40);
+                shell.OwnedWindows.OfType<WarehouseWindow>().Single().SelectNavTab("barcodes").Should().BeTrue();
+                shell.OwnedWindows.OfType<WarehouseWindow>().Single().SelectNavTab("products").Should().BeTrue();
                 UiShot.Settle(6, 40);
             }
         }

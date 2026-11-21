@@ -6,7 +6,7 @@ namespace NurMarketKassa.Services;
 public enum LabelBarcodeFormat { Auto = 0, Ean13 = 1, Code128 = 2, QrCode = 3 }
 
 /// <summary>Позиция и размер одного элемента этикетки, в миллиметрах от левого верхнего угла.</summary>
-public sealed class LabelElementLayout
+public class LabelElementLayout
 {
     public double XMm { get; set; }
     public double YMm { get; set; }
@@ -24,6 +24,18 @@ public sealed class LabelElementLayout
 
     /// <summary>null — наследовать общий LabelTemplate.FontSizePx.</summary>
     public double? FontSizePx { get; set; }
+
+    // 2026-11-21 («Редактор ценников»): оформление текста элемента. Поля нет в старом файле — null/0 = вид прежний.
+    /// <summary>Жирность: null — как раньше (цена и «Размер и цвет» жирные, остальное обычное).</summary>
+    public bool? Bold { get; set; }
+
+    public bool? Italic { get; set; }
+
+    /// <summary>Выравнивание текста в блоке: 0 — слева, 1 — по центру, 2 — справа; null — по центру, как раньше.</summary>
+    public int? Align { get; set; }
+
+    /// <summary>Поворот блока по часовой: 0, 90, 180, 270. Рамка (X, Y, ширина, высота) — то, что видно на этикетке; текст внутри повёрнут.</summary>
+    public int Rotation { get; set; }
 }
 
 /// <summary>Редактируемый пользователем шаблон этикетки: размер этикетки и раскладка элементов.</summary>
@@ -87,6 +99,15 @@ public sealed class LabelTemplate
     /// <summary>2026-11-19: «Рамка» (веб-редактор ценников) — тонкая рамка по контуру этикетки. Поля нет в старом файле — false, вид прежних шаблонов не меняется.</summary>
     public bool Frame { get; set; }
 
+    /// <summary>2026-11-21 («Редактор ценников»): свои элементы поверх встроенных — произвольный текст, старая цена, скидка,
+    /// бренд, дата печати, ячейка, линия, логотип. Пусто — этикетка как раньше.</summary>
+    public List<LabelCustomElement> Extras { get; set; } = new();
+
+    /// <summary>2026-11-21: данные текущего товара для своих элементов (бренд, старая цена, ячейка). В файле шаблона не хранится;
+    /// печать и предпросмотр кладут сюда данные товара перед рисованием (см. <see cref="LabelExtras"/>).</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public LabelItemData? Item { get; set; }
+
     public static LabelTemplate CreateDefault() => new();
 
     public LabelTemplate Clone() => new()
@@ -110,6 +131,8 @@ public sealed class LabelTemplate
         PriceHideDecimals = PriceHideDecimals,
         SkuCustomText = SkuCustomText,
         Frame = Frame,
+        Extras = (Extras ?? new()).Select(e => e.CloneExtra()).ToList(),
+        Item = Item,
     };
 
     private static LabelElementLayout CloneLayout(LabelElementLayout source) => new()
@@ -121,5 +144,25 @@ public sealed class LabelTemplate
         Enabled = source.Enabled,
         FontFamily = source.FontFamily,
         FontSizePx = source.FontSizePx,
+        Bold = source.Bold,
+        Italic = source.Italic,
+        Align = source.Align,
+        Rotation = source.Rotation,
     };
+
+    /// <summary>Копия всех полей раскладки и оформления элемента (для «Шаблоны», «Применить к…»).</summary>
+    internal static void CopyLayout(LabelElementLayout source, LabelElementLayout target)
+    {
+        target.XMm = source.XMm;
+        target.YMm = source.YMm;
+        target.WidthMm = source.WidthMm;
+        target.HeightMm = source.HeightMm;
+        target.Enabled = source.Enabled;
+        target.FontFamily = source.FontFamily;
+        target.FontSizePx = source.FontSizePx;
+        target.Bold = source.Bold;
+        target.Italic = source.Italic;
+        target.Align = source.Align;
+        target.Rotation = source.Rotation;
+    }
 }

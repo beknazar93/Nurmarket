@@ -315,8 +315,8 @@ public partial class MarketplaceView
             openButtonLabel: Tr.T("🎨 Открыть редактор", "🎨 Редакторду ачуу", "🎨 Open editor", "🎨 Düzenleyiciyi aç", "🎨 Muharrirni ochish"),
             openAction: () =>
             {
-                var editor = new LabelTemplateEditorDialog();
-                return editor.ShowDialog(TopLevel.GetTopLevel(this) as Window);
+                WarehouseWindow.RequestLabels(TopLevel.GetTopLevel(this) as Window); // 2026-11-21: редактор — режим вкладки «Штрихкоды»
+                return System.Threading.Tasks.Task.CompletedTask;
             },
             unlocked: TariffGate.LabelEditorAvailable, // 2026-11-08: входит в тариф «Старт»
             onUnlockClick: LabelEditorUnlockButton_Click);
@@ -779,8 +779,11 @@ public partial class MarketplaceView
             owner,
             Tr.T("Редактор ценников активирован", "Баа белгиси редактору иштетилди", "Price tag editor activated", "Fiyat etiketi düzenleyici etkinleştirildi", "Narx yorliqlari muharriri faollashtirildi"),
             Tr.T(
-                "Теперь доступна печать ценника для одного товара: Склад → Товары → кнопка «💲 Ценник» на карточке товара.",
-                "Эми бир товардын баа белгисин басып чыгарса болот: Кампа → Товарлар → товар карточкасындагы «💲 Баа белгиси» баскычы.", "Single-product price tag printing is now available: Warehouse → Products → the “💲 Price tag” button on the product card.", "Artık tek ürün için fiyat etiketi yazdırabilirsiniz: Depo → Ürünler → ürün kartındaki «💲 Fiyat etiketi» düğmesi.", "Endi bitta mahsulotning narx yorlig'ini chop etish mumkin: Ombor → Mahsulotlar → mahsulot kartasidagi «💲 Narx yorlig'i» tugmasi."),
+                "Ценники печатаются на вкладке «Штрихкоды» в Складе: найдите товар, отметьте и нажмите «Печать».",
+                "Баа белгилери Кампадагы «Штрих-коддор» өтмөгүндө басылат: товарды таап, белгилеп, «Басуу» баскычын басыңыз.",
+                "Price tags are printed on the “Barcodes” tab in Warehouse: find the product, tick it and press “Print”.",
+                "Fiyat etiketleri Depo’daki «Barkodlar» sekmesinde yazdırılır: ürünü bulun, işaretleyin ve «Yazdır»a basın.",
+                "Narx yorliqlari Ombordagi «Shtrix-kodlar» bo'limida chop etiladi: mahsulotni toping, belgilang va «Chop etish»ni bosing."),
             PosAlertKind.Success);
     }
 
@@ -815,8 +818,11 @@ public partial class MarketplaceView
             owner,
             Tr.T("Массовая печать ценников активирована", "Баа белгилерин топтоп басып чыгаруу иштетилди", "Bulk price tag printing activated", "Toplu fiyat etiketi baskısı etkinleştirildi", "Narx yorliqlarini ommaviy chop etish faollashtirildi"),
             Tr.T(
-                "Теперь доступна кнопка «🏷 Массовая печать ценников» в Склад → Товары — выберите нужные товары и распечатайте ценники сразу для всех.",
-                "Эми Кампа → Товарлар бетинде «🏷 Баа белгилерин топтоп басып чыгаруу» баскычы бар — керектүү товарларды тандап, баарынын баа белгилерин бир жолу басып чыгарыңыз.", "The “🏷 Bulk price tag printing” button is now available in Warehouse → Products — select the products you need and print price tags for all of them at once.", "Depo → Ürünler bölümünde artık «🏷 Toplu fiyat etiketi yazdır» düğmesi var — ürünleri seçip hepsinin fiyat etiketini tek seferde yazdırın.", "Endi Ombor → Mahsulotlar bo'limida «🏷 Narx yorliqlarini ommaviy chop etish» tugmasi bor — kerakli mahsulotlarni tanlang va hammasining narx yorlig'ini bir yo'la chop eting."),
+                "Ценники печатаются на вкладке «Штрихкоды» в Складе: найдите товар, отметьте и нажмите «Печать».",
+                "Баа белгилери Кампадагы «Штрих-коддор» өтмөгүндө басылат: товарды таап, белгилеп, «Басуу» баскычын басыңыз.",
+                "Price tags are printed on the “Barcodes” tab in Warehouse: find the product, tick it and press “Print”.",
+                "Fiyat etiketleri Depo’daki «Barkodlar» sekmesinde yazdırılır: ürünü bulun, işaretleyin ve «Yazdır»a basın.",
+                "Narx yorliqlari Ombordagi «Shtrix-kodlar» bo'limida chop etiladi: mahsulotni toping, belgilang va «Chop etish»ni bosing."),
             PosAlertKind.Success);
     }
 }

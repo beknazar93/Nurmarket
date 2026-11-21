@@ -201,6 +201,60 @@ public static class ProductCodeLookup
         }
     }
 
+    /// <summary>2026-11-21 (жалоба магазина «существующие товары сначала не находит — „такого товара нет“, через время находит, но без цены»): поиск по названию в каталоге кассы шёл
+    /// только по локальной базе, и товар, только что заведённый на сервере (приход, сайт, другая касса) и ещё не доехавший до ленты, не находился до следующей синхронизации.
+    /// Локальный поиск пуст — спрашиваем сервер (поиск по тексту), каждый найденный товар, которого нет в каталоге кассы, читаем ПОЛНОЙ карточкой (цена, штрихкоды, остаток) и записываем в базу
+    /// и каталог памяти (как при скане штрихкода). Возвращает число добавленных товаров; 0 — на сервере тоже нет, связи нет или она не ответила (<paramref name="reachable"/> = false).</summary>
+    public static async Task<(int Added, bool Reachable)> StoreTextSearchHitsAsync(string? text, CancellationToken ct = default)
+    {
+        var query = (text ?? "").Trim();
+        if (query.Length < 3 || OfflineModeHelper.UseLocalOperations)
+            return (0, true);
+        if (OfflineModeHelper.IsServerOutage || PosApp.CatalogApi is not { } api)
+            return (0, false);
+
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(TextSearchTimeout);
+            var results = await api.ProductsSearchAsync(query, limit: MaxTextSearchHits, cts.Token).ConfigureAwait(true);
+            var known = new HashSet<string>(SnapshotCatalog().Select(p => p.Id), StringComparer.OrdinalIgnoreCase);
+            var fresh = results.Where(d => !string.IsNullOrEmpty(d.Id) && !known.Contains(d.Id!)).GroupBy(d => d.Id!, StringComparer.OrdinalIgnoreCase).Select(g => g.First()).Take(MaxTextSearchHits).ToList();
+            if (fresh.Count == 0)
+                return (0, true);
+
+            var apiBase = PosApp.Settings?.ApiBaseUrl ?? "";
+            var cards = await Task.WhenAll(fresh.Select(d => ReadCardAsync(api, d.Id!, cts.Token))).ConfigureAwait(true);
+            var added = 0;
+            for (var i = 0; i < fresh.Count; i++)
+            {
+                var card = cards[i];
+                var tile = card is { } json ? ProductCatalogMapper.TryTile(json, apiBase) : ProductCatalogMapper.TryTile(fresh[i], apiBase);
+                if (tile is null)
+                    continue; // архивный товар или без id — в каталог кассы не берём
+                StoreServerTile(tile, card, card is null ? fresh[i] : null);
+                added++;
+            }
+
+            if (added > 0)
+                PosLogger.Log($"Поиск по названию «{query}»: в каталоге кассы нет, на сервере найдено и добавлено товаров: {added}.", "CATALOG");
+            return (added, true);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            PosLogger.Log($"Поиск по названию «{query}» на сервере: нет ответа за {TextSearchTimeout.TotalSeconds:0} с.", "WARNING");
+            return (0, false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            PosLogger.Log($"Поиск по названию «{query}» на сервере не удался: {ex.GetType().Name}: {ex.Message}", "WARNING");
+            return (0, false);
+        }
+    }
+
+    private static readonly TimeSpan TextSearchTimeout = TimeSpan.FromSeconds(6);
+    private const int MaxTextSearchHits = 12;
+
     /// <summary>Tile — найденный на сервере и записанный в базу товар; Unavailable — ответ нельзя разобрать (товар есть, плитку не собрать), «не найден» говорить рано.</summary>
     public sealed record ServerResolve(CatalogProductTileVm? Tile, bool Unavailable);
 

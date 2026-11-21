@@ -44,7 +44,15 @@ public partial class DeferredCartsDialog : Window
     private void ReloadList()
     {
         CartListBox.Items.Clear();
-        var items = DeferredCartsStore.LoadAll().OrderByDescending(x => x.SavedAt).ToList();
+        // 2026-11-21 (владелец: «Список отложенных нужно, чтобы все отложенные показывал!»): раньше здесь была только очередь (файл,
+        // куда чек попадает при 10 открытых вкладках), а чеки «Отложен ЧЧ:ММ» во вкладках в списке не показывались — список казался
+        // неполным. Теперь — вся очередь без отсечения (дата/смена/кассир не фильтруют) и все чеки-вкладки; список прокручивается.
+        var tabs = _actions?.GetHeldTabs?.Invoke() ?? [];
+        var tabIds = tabs.Select(x => x.Id).ToHashSet(StringComparer.Ordinal);
+        var items = DeferredCartsStore.LoadAll().Where(x => !tabIds.Contains(x.Id)).Concat(tabs).OrderByDescending(x => x.SavedAt).ToList();
+        Shell.Title = items.Count == 0
+            ? Tr.T("Отложенные чеки", "Калтырылган чектер", "Held receipts", "Bekleyen fişler", "Kutishdagi cheklar")
+            : Tr.T($"Отложенные чеки ({items.Count})", $"Калтырылган чектер ({items.Count})", $"Held receipts ({items.Count})", $"Bekleyen fişler ({items.Count})", $"Kutishdagi cheklar ({items.Count})");
         // 2026-10-21 (пакет 6, п. 51): два разных «отложенных» — кнопка «Отложить» оставляет чек вкладкой над чеком,
         // а сюда чек попадает, только когда вкладок уже 10. Пустая очередь объясняет, где искать отложенный чек.
         SummaryText.Text = items.Count == 0
@@ -53,10 +61,14 @@ public partial class DeferredCartsDialog : Window
                 "The queue is empty. Receipts held with “Hold” stay as tabs above the receipt (“Held 18:34”). A receipt comes here only when 10 tabs are already open.",
                 "Kuyruk boş. «Beklet» ile bekletilen fişler, fişin üstündeki sekmelerde («Bekletildi 18:34»). Fiş buraya yalnızca 10 sekme açıkken gelir.",
                 "Navbat bo'sh. «Kutish» tugmasi bilan qo'yilgan cheklar — chek ustidagi yorliqlarda («Kutishda 18:34»). Bu yerga chek faqat 10 ta yorliq ochiq bo'lganda tushadi.")
-            : Tr.T($"В очереди: {items.Count} чек(ов). Последний: {items[0].SavedAt.LocalDateTime:g}.", $"Кезекте: {items.Count} чек. Акыркысы: {items[0].SavedAt.LocalDateTime:g}.", $"In queue: {items.Count} receipt(s). Latest: {items[0].SavedAt.LocalDateTime:g}.", $"Kuyrukta: {items.Count} fiş. Sonuncusu: {items[0].SavedAt.LocalDateTime:g}.", $"Navbatda: {items.Count} ta chek. Oxirgisi: {items[0].SavedAt.LocalDateTime:g}.");
+            : Tr.T($"Всего отложено: {items.Count} (во вкладках: {tabs.Count}, в очереди: {items.Count - tabs.Count}). Последний: {items[0].SavedAt.LocalDateTime:g}.",
+                $"Бардыгы калтырылган: {items.Count} (өтмөктөрдө: {tabs.Count}, кезекте: {items.Count - tabs.Count}). Акыркысы: {items[0].SavedAt.LocalDateTime:g}.",
+                $"Held in total: {items.Count} (in tabs: {tabs.Count}, in queue: {items.Count - tabs.Count}). Latest: {items[0].SavedAt.LocalDateTime:g}.",
+                $"Toplam bekleyen: {items.Count} (sekmelerde: {tabs.Count}, kuyrukta: {items.Count - tabs.Count}). Sonuncusu: {items[0].SavedAt.LocalDateTime:g}.",
+                $"Jami kutishda: {items.Count} (yorliqlarda: {tabs.Count}, navbatda: {items.Count - tabs.Count}). Oxirgisi: {items[0].SavedAt.LocalDateTime:g}.");
 
         foreach (var e in items)
-            CartListBox.Items.Add(new DeferredCartListRow(e));
+            CartListBox.Items.Add(new DeferredCartListRow(e, tabIds.Contains(e.Id)));
 
         // 2026-10-22 (модалки, пакет 1): пустая очередь — только подсказка обычным текстом (не жирным), без пустого
         // серого списка; есть чеки — сводка полужирным над списком, как раньше.
@@ -105,6 +117,18 @@ public partial class DeferredCartsDialog : Window
         {
             PosMessageBox.Show(this, Tr.T("Выберите строки в списке.", "Тизмеден саптарды тандаңыз.", "Select rows in the list.", "Listeden satırları seçin.", "Ro'yxatdan qatorlarni tanlang."), Tr.T("Отложенные", "Калтырылган себеттер", "Held carts", "Bekleyen sepetler", "Kechiktirilgan savatlar"),
                 MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        // 2026-11-21: чек-вкладку отсюда не удаляем — «Удалить чек» на вкладке спрашивает код доступа и пишет журнал удалений.
+        if (rows.Any(r => r.IsTab))
+        {
+            PosMessageBox.Show(this, Tr.T("Чек во вкладке удаляется на самой вкладке: откройте его и нажмите «Удалить чек». Здесь можно удалить только чеки из очереди.",
+                    "Өтмөктөгү чек өтмөктүн өзүндө өчүрүлөт: аны ачып, «Чекти өчүрүү» баскычын басыңыз. Бул жерде кезектеги чектерди гана өчүрүүгө болот.",
+                    "A receipt in a tab is deleted on the tab itself: open it and press “Delete receipt”. Only queued receipts can be deleted here.",
+                    "Sekmedeki fiş sekmenin kendisinde silinir: açıp «Fişi sil»e basın. Burada yalnızca kuyruktaki fişler silinebilir.",
+                    "Yorliqdagi chek yorliqning o'zida o'chiriladi: uni ochib, «Chekni o'chirish» tugmasini bosing. Bu yerda faqat navbatdagi cheklarni o'chirish mumkin."),
+                Tr.T("Отложенные", "Калтырылган себеттер", "Held carts", "Bekleyen sepetler", "Kechiktirilgan savatlar"), MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
@@ -229,13 +253,18 @@ public partial class DeferredCartsDialog : Window
         Close();
     }
 
-    private sealed class DeferredCartListRow(DeferredCartEntry entry)
+    private sealed class DeferredCartListRow(DeferredCartEntry entry, bool isTab = false)
     {
         internal DeferredCartEntry Entry { get; } = entry;
+
+        /// <summary>2026-11-21: чек отложен вкладкой «Отложен ЧЧ:ММ», а не лежит в очереди.</summary>
+        internal bool IsTab { get; } = isTab;
 
         public override string ToString()
         {
             var n = CountLines(Entry.CartJson);
+            if (IsTab)
+                return Tr.T($"{Entry.Label} · {Entry.SavedAt.LocalDateTime:g} · {n} поз. · во вкладке", $"{Entry.Label} · {Entry.SavedAt.LocalDateTime:g} · {n} сап · өтмөктө", $"{Entry.Label} · {Entry.SavedAt.LocalDateTime:g} · {n} item(s) · in a tab", $"{Entry.Label} · {Entry.SavedAt.LocalDateTime:g} · {n} kalem · sekmede", $"{Entry.Label} · {Entry.SavedAt.LocalDateTime:g} · {n} ta mahsulot · yorliqda");
             return Tr.T($"{Entry.Label} · {Entry.SavedAt.LocalDateTime:g} · {n} поз.", $"{Entry.Label} · {Entry.SavedAt.LocalDateTime:g} · {n} сап", $"{Entry.Label} · {Entry.SavedAt.LocalDateTime:g} · {n} item(s)", $"{Entry.Label} · {Entry.SavedAt.LocalDateTime:g} · {n} kalem", $"{Entry.Label} · {Entry.SavedAt.LocalDateTime:g} · {n} ta mahsulot");
         }
     }

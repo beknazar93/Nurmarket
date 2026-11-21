@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using NurMarketKassa.Services.Api;
 
 namespace NurMarketKassa.Services.Billing;
 
@@ -7,12 +8,16 @@ namespace NurMarketKassa.Services.Billing;
 public enum BillingStatus { Pending, Processing, Paid, Expired, Cancelled, Error, Unknown }
 
 /// <summary>Тариф из GET users/billing/config/ → plans. Решать по <see cref="Code"/> (start / standard / custom); <see cref="Name"/> — если сервер дал.</summary>
-public sealed record BillingPlanOption(string Code, string? Name, decimal PriceMonth);
+/// 2026-11-21 (ответ Умара 21.11): PriceYear — price_year (год = 10 месяцев); name может быть объектом {ru,ky,en,tr,uz}.
+public sealed record BillingPlanOption(string Code, string? Name, decimal PriceMonth, decimal? PriceYear = null);
 
 /// <summary>GET users/billing/config/: оплата доступна (<see cref="Available"/>), режим test (учебный банк, без денег) или live, комиссия банка, сроки, текущий тариф и дата «подписка до».</summary>
 public sealed record BillingConfig(bool Available, string Mode, decimal BankFee, IReadOnlyList<int> Months, string? CurrentPlan, string? CurrentPlanName,
-    DateTimeOffset? ValidUntil, IReadOnlyList<BillingPlanOption> Plans, int QrTtlSeconds)
+    DateTimeOffset? ValidUntil, IReadOnlyList<BillingPlanOption> Plans, int QrTtlSeconds, IReadOnlyList<string>? Periods = null, int? YearPaidMonths = null)
 {
+    /// <summary>2026-11-21: сервер умеет годовую оплату (billing/config periods содержит "year" или у тарифа есть price_year): «Месяц / Год», год = 10 месяцев.</summary>
+    public bool CanPayYear => Periods?.Contains("year", StringComparer.OrdinalIgnoreCase) == true || Plans.Any(p => p.PriceYear is > 0);
+
     /// <summary>Учебный банк: кнопка «Учебная оплата (тест)» возможна только здесь (и только владельцу/админу). В боевом режиме её нет вообще.</summary>
     public bool IsTest => string.Equals(Mode, "test", StringComparison.OrdinalIgnoreCase);
 }
@@ -30,6 +35,8 @@ public sealed class BillingInvoice
     public string? PlanCode { get; init; }
     public string? PlanName { get; init; }
     public int Months { get; init; }
+    /// <summary>2026-11-21: "month" | "year" (счёт на год = 12 месяцев по цене 10).</summary>
+    public string? Period { get; init; }
     public decimal? PriceMonth { get; init; }
     public decimal? Subtotal { get; init; }
     public decimal? Discount { get; init; }
@@ -50,7 +57,7 @@ public sealed class BillingInvoice
     /// <summary>Копия счёта со статусом «истёк» — когда срок QR вышел, а сервер ещё не закрыл счёт (окно считает его просроченным у себя).</summary>
     public BillingInvoice AsExpired() => new()
     {
-        InvoiceId = InvoiceId, Status = BillingStatus.Expired, StatusRaw = "expired", TestMode = TestMode, PlanCode = PlanCode, PlanName = PlanName, Months = Months,
+        InvoiceId = InvoiceId, Status = BillingStatus.Expired, StatusRaw = "expired", TestMode = TestMode, PlanCode = PlanCode, PlanName = PlanName, Months = Months, Period = Period,
         PriceMonth = PriceMonth, Subtotal = Subtotal, Discount = Discount, BankFee = BankFee, Amount = Amount, Lines = Lines, ExpiresAt = ExpiresAt, CreatedAt = CreatedAt,
     };
 
@@ -88,7 +95,11 @@ public static class BillingParser
         if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("plans", out var p) && p.ValueKind == JsonValueKind.Array)
             foreach (var item in p.EnumerateArray().Where(i => i.ValueKind == JsonValueKind.Object))
                 if (Str(item, "code") is { } code)
-                    plans.Add(new BillingPlanOption(code, Str(item, "name") ?? Str(item, "plan_name"), Dec(item, "price_month") ?? Dec(item, "price") ?? 0m));
+                    plans.Add(new BillingPlanOption(code, TariffApi.LocalName(item, "name") ?? TariffApi.LocalName(item, "plan_name"), Dec(item, "price_month") ?? Dec(item, "price") ?? 0m, Dec(item, "price_year")));
+
+        var periods = new List<string>();
+        if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("periods", out var pr) && pr.ValueKind == JsonValueKind.Array)
+            periods.AddRange(pr.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(x.GetString())).Select(x => x.GetString()!.Trim().ToLowerInvariant()));
 
         // current_plan — код строкой или объект {code, name}
         string? currentCode = null, currentName = null;
@@ -113,7 +124,9 @@ public static class BillingParser
             CurrentPlanName: currentName,
             ValidUntil: Date(root, "valid_until"),
             Plans: plans,
-            QrTtlSeconds: Int(root, "qr_ttl_seconds") ?? 1200);
+            QrTtlSeconds: Int(root, "qr_ttl_seconds") ?? 1200,
+            Periods: periods,
+            YearPaidMonths: Int(root, "year_paid_months"));
     }
 
     public static BillingInvoice ParseInvoice(JsonElement root)
@@ -137,6 +150,7 @@ public static class BillingParser
             PlanCode = Str(root, "plan"),
             PlanName = Str(root, "plan_name"),
             Months = Int(root, "months") ?? 0,
+            Period = Str(root, "period"),
             PriceMonth = Dec(root, "price_month"),
             Subtotal = Dec(root, "subtotal"),
             Discount = Dec(root, "discount"),

@@ -45,6 +45,12 @@ public partial class MainWindow : Window
     private readonly ApplicationStateService _applicationStateService = new();
 
     private bool _appInitialized;
+
+    private static int _startupsInProgress;
+
+    /// <summary>2026-11-21: сколько окон кассы сейчас выполняют запуск (вход в смену, компания, каталог). Для сквозных тестов окон: закрытое окно прежнего теста доделывает запуск в фоне —
+    /// следующий тест дожидается нуля (вместе с CatalogPanelViewModel.ActiveLoads), иначе чужой запуск переписывает общий каталог. В программе не используется.</summary>
+    public static int StartupsInProgress => Volatile.Read(ref _startupsInProgress);
     private bool _whatsNewShown;
     private bool _allowMainWindowClose;
     private bool _closeFlowActive;
@@ -292,8 +298,6 @@ public partial class MainWindow : Window
         // 2026-11-13 (Н-1): «Мастер первого запуска» и «Учебная продажа» в меню «Помощь» (MainWindow.Training.cs).
         _viewModel.SideMenu.NavigateFirstRunWizardAction ??= NavigateFirstRunWizard;
         _viewModel.SideMenu.NavigateTrainingSaleAction ??= NavigateTrainingSale;
-        // 2026-11-20 (владелец: «где импорт из других программ?»): «Перенос данных из другой программы» в меню ☰ → «Помощь» (тот же мастер, что «Склад → Массовая загрузка»).
-        _viewModel.SideMenu.NavigateTransferDataAction ??= () => BulkImportWizardWindow.OpenTransfer(this);
         // 2026-10-17, редизайн (этап 4): журнал «Удалено из чека» — владельцу и администратору (как «Настройки»).
         _viewModel.SideMenu.NavigateCartRemovalsAction ??= () =>
         {
@@ -1578,6 +1582,14 @@ public partial class MainWindow : Window
         OnCheckoutSucceeded(this, EventArgs.Empty);
     }
 
+    /// <summary>2026-11-21: «Очистить неотправленные чеки» убрала чеки из очереди — значок «В очереди / Не отправлено» в шапке и «Касса: N» (чеки очереди входят в итог) пересчитываются сразу.</summary>
+    public void RefreshQueueBadge()
+    {
+        _viewModel.Toolbar.Status.RefreshQueuedCount();
+        if (_session.IsShiftOpen)
+            UpdateShiftBalanceUi();
+    }
+
     /// <summary>2026-09-25, живой случай: за смену прошло 10 продаж на 112 255 сом, а в шапке и
     /// в меню «Касса: 0.00 сом» — остаток смены спрашивался у сервера только при запуске.
     /// Теперь после оплаты он подтягивается в фоне; несколько продаж подряд дают один запрос
@@ -2241,12 +2253,16 @@ public partial class MainWindow : Window
         try
         {
             _viewModel.CloseSideMenu();
-            var window = new ReceiptHistoryWindow();
-            await PosDialogHost.ShowAsync(window, this).ConfigureAwait(true);
+            // 2026-11-21: двойное нажатие «История чеков» (мышь, тач, Enter×2) — одно окно; замок держится, пока окно открыто.
+            await PosDialogHost.RunExclusiveAsync("receipt-history", async () =>
+            {
+                var window = new ReceiptHistoryWindow();
+                await PosDialogHost.ShowAsync(window, this).ConfigureAwait(true);
 
-            // Возврат из истории меняет остаток смены так же, как из меню «Возврат».
-            if (window.ReturnWasOpened)
-                OnReturnFinished();
+                // Возврат из истории меняет остаток смены так же, как из меню «Возврат».
+                if (window.ReturnWasOpened)
+                    OnReturnFinished();
+            }).ConfigureAwait(true);
         }
         catch (Exception ex)
         {
@@ -2470,7 +2486,17 @@ public partial class MainWindow : Window
         // крупнее экрана).
         RefreshUiScale();
         if (!_appInitialized)
-            await InitializeApplicationAsync(null, _windowCts.Token).ConfigureAwait(true);
+        {
+            Interlocked.Increment(ref _startupsInProgress);
+            try
+            {
+                await InitializeApplicationAsync(null, _windowCts.Token).ConfigureAwait(true);
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _startupsInProgress);
+            }
+        }
 
         // 2026-10-18, аудит доступов: без доступа «Интерфейс кассира» в кассу не пускаем — понятное сообщение
         // и окно входа. Ревью безопасности 18.10 (решение владельца): сохранённый вход НЕ стираем — после
@@ -2542,6 +2568,8 @@ public partial class MainWindow : Window
         ServerBotOffer.Schedule(this);
         // 2026-10-06, владелец: «новым клиентам при первом запуске спрашивать сферу маркета» — только на новой установке.
         _ = MarketSphereChoiceWindow.MaybeAskAsync(this);
+        // 2026-11-21: слабый ПК (мало памяти/ядер) — один раз предложить режим слабого устройства (включается сразу, без перезапуска).
+        _ = NurMarketKassa.AvaloniaHost.Services.WeakPcAdvisor.MaybeAskAsync(this);
         // 2026-11-13 (Н-1): учебный режим (полоса под шапкой) и мастер первого запуска — новому магазину с пустым каталогом, один раз; повторно — меню «Помощь».
         HookTrainingMode();
         _ = MaybeOfferFirstRunWizardAsync();

@@ -365,6 +365,7 @@ public sealed partial class CatalogApiService : ICatalogApiService
             try
             {
                 var hasNext = true;
+                int? serverTotal = null; // 2026-11-21: «всего» по ответу сервера (count) — для сверки «загружено N из M»
 
                 while (hasNext && delivered < limit && page <= maxPages)
                 {
@@ -413,6 +414,8 @@ public sealed partial class CatalogApiService : ICatalogApiService
                     // 2026-10-30 (15 тыс. товаров): «Загружено N из M» для Склада — M из поля count ответа сервера (DRF).
                     var expected = data.ValueKind == JsonValueKind.Object && data.TryGetProperty("count", out var cnt) && cnt.ValueKind == JsonValueKind.Number
                         && cnt.TryGetInt32(out var c) ? c : (int?)null;
+                    if (expected is not null)
+                        serverTotal = expected;
                     FullLoadProgress?.Invoke(delivered + batch.Count, expected);
                     FullLoadPage?.Invoke(batch);
 
@@ -471,6 +474,10 @@ public sealed partial class CatalogApiService : ICatalogApiService
                 // части аккаунтов не существует (404), и этот чужой 404 в итоге выдавался
                 // наружу как "не удалось загрузить каталог" вместо честного "каталог пуст".
                 PosLogger.Log($"CATALOG full: {delivered} товаров за {watch.Elapsed.TotalSeconds:0} с, страниц {pagesRead} (по {pageSize}).", "CATALOG");
+                // 2026-11-21 (жалоба магазина «склад в кассе не загружает все товары»): сверка с числом на сервере. Копии филиалов (skipped) в каталог не идут, но считаются «пришедшими».
+                LastFullLoadReport = new FullLoadReport(serverTotal, delivered + skipped, resumed, DateTime.UtcNow);
+                if (serverTotal is { } srvTotal && !resumed && delivered + skipped < srvTotal)
+                    PosLogger.Log($"CATALOG full: ВНИМАНИЕ — сервер сообщает {srvTotal} товаров, пришло {delivered + skipped} (копий филиалов {skipped}); часть товаров не загружена.", "CATALOG");
                 return (delivered, false, skipped);
             }
             catch (Exception ex) when (LogFullLoadAbort(ex, page, pagesRead, delivered, watch, ct))
@@ -494,6 +501,12 @@ public sealed partial class CatalogApiService : ICatalogApiService
     /// <summary>2026-10-30 (15 тыс. товаров): ход полной загрузки каталога — (загружено, всего по ответу сервера или null). Для надписи
     /// «Загружено N из M» на Складе; вызывается из фонового потока.</summary>
     public static event Action<int, int?>? FullLoadProgress;
+
+    /// <summary>2026-11-21: итог последней полной загрузки по страницам — Total: «count» сервера (null — не прислал), Seen: сколько товаров пришло (с копиями филиалов),
+    /// Resumed: загрузка шла с середины (докачка) — тогда Seen неполный и сравнивать его с Total нельзя.</summary>
+    public sealed record FullLoadReport(int? Total, int Seen, bool Resumed, DateTime AtUtc);
+
+    public static FullLoadReport? LastFullLoadReport { get; internal set; }
 
     /// <summary>2026-10-30 (холодный старт на 16 тыс.): очередная страница полной загрузки — при пустой базе кассы её товары сразу пишутся
     /// в базу и показываются (поиск и скан по уже загруженной части), не дожидаясь всех 155 страниц.</summary>

@@ -548,6 +548,9 @@ public static class AccentThemeService
         "ToggleSwitchFillOn", "ToggleSwitchFillOnPointerOver", "ToggleSwitchFillOnPressed",
         "ToggleSwitchStrokeOn", "ToggleSwitchStrokeOnPointerOver", "ToggleSwitchStrokeOnPressed",
         "ToggleSwitchKnobFillOn", "ToggleSwitchKnobFillOnPointerOver", "ToggleSwitchKnobFillOnPressed",
+        // 2026-11-21 (обход кассы, № 20): ползунки (масштаб, размер плиток) — акцент темы, а не бирюзовый системный.
+        "SliderTrackValueFill", "SliderTrackValueFillPointerOver", "SliderTrackValueFillPressed",
+        "SliderThumbBackground", "SliderThumbBackgroundPointerOver", "SliderThumbBackgroundPressed",
     ];
 
     /// <summary>2026-11-01 (Д-12): ключи из <see cref="ThemeKeys"/>, которые ApplyCore ставит НЕ всегда (только своя тема, ApplyStatusColors) —
@@ -756,6 +759,13 @@ public static class AccentThemeService
         _lastSkin = skin;
         ApplyCatalogTileSize();
         app.Resources["AppControlHeight"] = skin.ControlHeight;
+        // 2026-11-21 (жалоба «отступов не хватает»): общая шкала отступов (App.axaml: NurPad*, NurRowMinHeight) в обычных темах крупнее, чем было;
+        // тема «Плотная» (и «Терминал») — высота элемента ≤ 34 — оставляет прежние тесные значения: кнопки 16,0, чипы 12,0, кнопки main-* 14,8.
+        var tight = skin.ControlHeight <= 34;
+        app.Resources["NurPadButton"] = new Thickness(tight ? 16 : 18, 0);
+        app.Resources["NurPadButtonMain"] = new Thickness(tight ? 14 : 18, 8);
+        app.Resources["NurPadChip"] = new Thickness(tight ? 12 : 16, 0);
+        app.Resources["NurPadField"] = new Thickness(tight ? 10 : 12, 5);
         app.Resources["AppBorderThickness"] = new Thickness(skin.BorderThickness);
 
         // FontFamily в Avalonia разбирает запись вида "avares://…#Имя, Запасной" только когда
@@ -874,6 +884,8 @@ public static class AccentThemeService
             app.Resources["ToggleSwitchFillOn" + st] = Brush(fill);
             app.Resources["ToggleSwitchStrokeOn" + st] = Brush(fill);
             app.Resources["ToggleSwitchKnobFillOn" + st] = Brush(p.AccentForeground);
+            app.Resources["SliderTrackValueFill" + st] = Brush(fill); // 2026-11-21 (обход кассы, № 20)
+            app.Resources["SliderThumbBackground" + st] = Brush(fill);
         }
 
         app.Resources["BrushWindowBackdrop"] = backdrop;

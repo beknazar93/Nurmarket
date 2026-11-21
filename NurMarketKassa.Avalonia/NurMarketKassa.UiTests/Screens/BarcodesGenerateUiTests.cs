@@ -75,11 +75,11 @@ public sealed class BarcodesGenerateUiTests : IDisposable
         UiRobot.WaitFor(() => FindGen(view) is not null, 8000);
         return FindGen(view)
         ?? throw new InvalidOperationException("2026-11-20: кнопки генерации штрихкодов нет; язык=" + NurMarketKassa.Services.Tr.T("ru", "ky", "en", "tr", "uz") + "; кнопки: "
-            + string.Join(" | ", view.GetVisualDescendants().OfType<Button>().Select(b => UiDrive.TextOf(b)).Where(t => !string.IsNullOrEmpty(t)).Take(25)));
+            + string.Join(" | ", view.GetVisualDescendants().OfType<Button>().Select(b => UiDrive.LabelOf(b)).Where(t => !string.IsNullOrEmpty(t)).Take(25)));
     }
 
     private static Button? FindGen(BarcodePrintView view) =>
-        view.GetVisualDescendants().OfType<Button>().FirstOrDefault(b => (UiDrive.TextOf(b) ?? "") is var t && (t.StartsWith("Сгенерировать штрихкоды") || t.StartsWith("Создать коды") || t.StartsWith("Штрих-коддорду түзүү") || t.StartsWith("Коддорду түзүү")));
+        view.GetVisualDescendants().OfType<Button>().FirstOrDefault(b => (UiDrive.LabelOf(b) ?? "") is var t && (t.StartsWith("Сгенерировать штрихкоды") || t.StartsWith("Создать коды") || t.StartsWith("Штрих-коддорду түзүү") || t.StartsWith("Коддорду түзүү")));
 
 
     [AvaloniaFact]
@@ -95,7 +95,7 @@ public sealed class BarcodesGenerateUiTests : IDisposable
             view.MissingBarcodeCount.Should().Be(9, "7 штучных и 2 весовых без штрихкода");
             var button = GenButton(view);
             button.IsVisible.Should().BeTrue();
-            UiDrive.TextOf(button).Should().Contain("(9)");
+            UiDrive.LabelOf(button).Should().Contain("(9)");
             button.IsEnabled.Should().BeTrue();
             button.Classes.Should().NotContain("sec-primary", "при фильтре «Все» кнопка обычная");
             // фильтр «Без штрихкода» — подсвечена

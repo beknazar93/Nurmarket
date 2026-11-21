@@ -52,12 +52,15 @@ public static class SaleReceiptTextBuilder
 
         void Line(string s = "") => sb.Append(s).Append('\n');
         void Dash() => Line(new string('-', w));
+        void Mark(string id) => Line(ReceiptTemplateEngine.Section(id)); // 2026-11-21 (редактор чека): метка раздела для движка шаблона
 
         // 2026-10-16, решение владельца: чек нефискальный (ККМ не подключена) — «Контрольно-кассовый чек»
         // выдавал его за фискальный документ, это риск для магазина перед ГНС.
+        Mark(ReceiptTemplate.Title);
         Line(ReceiptLineLayout.Center("Товарный чек", w));
         Line();
 
+        Mark(ReceiptTemplate.Store);
         if (prefs.ShowStoreName)
             Line($"Маркет - {prefs.StoreName ?? "MARKET PLUS"}");
 
@@ -74,6 +77,7 @@ public static class SaleReceiptTextBuilder
         // (CartReceiptTextBuilder), а в предпросмотре и повторной печати её не было — один и
         // тот же чек выглядел по-разному, и по бумаге из «Продаж» нельзя было понять, кто
         // пробил. Берём из самой продажи, если сервер вернул, иначе — текущего кассира.
+        Mark(ReceiptTemplate.Meta);
         var cashier = CartDisplayHelper.TryCashierName(sale) ?? PosApp.CurrentUserDisplayName;
         if (!string.IsNullOrWhiteSpace(cashier))
             Line($"Кассир - {cashier.Trim()}");
@@ -103,6 +107,7 @@ public static class SaleReceiptTextBuilder
 
         Dash();
 
+        Mark(ReceiptTemplate.Items);
         // Позиции. Сумму строки берём ту же, что показывает список: пересчёт qty × price заново
         // разошёлся бы со строкой при скидке на позицию или при пакетной продаже.
         decimal linesTotal = 0;
@@ -113,7 +118,7 @@ public static class SaleReceiptTextBuilder
         {
             lineCount++;
             anyWeighed |= CartDisplayHelper.LineMustWeigh(line);
-            var name = CartDisplayHelper.ItemName(line);
+            var name = CartDisplayHelper.ItemTitle(line); // 2026-11-21: название товара + variant_name
             var qty = CartDisplayHelper.LineQuantity(line);
             var price = (decimal)CartDisplayHelper.UnitPrice(line);
             var sum = CartDisplayHelper.LineTotal(line);
@@ -154,6 +159,7 @@ public static class SaleReceiptTextBuilder
         Dash();
 
         var due = total ?? linesTotal - discount;
+        Mark(ReceiptTemplate.Totals);
 
         // Скидка приходит от сервера отдельным числом, но попасть в чек она могла двумя
         // разными путями, и от этого зависит, что считать строкой «Сумма».
@@ -276,13 +282,16 @@ public static class SaleReceiptTextBuilder
                 Line($"Телефон клиента: {masked}");
         }
 
+        Mark(ReceiptTemplate.Total);
         Line(ReceiptLineLayout.FormatLabelAmount(
             "ИТОГО", ReceiptLineLayout.WithSom(due.ToString("N2", CultureInfo.CurrentCulture)), w));
 
         // 2026-11-20 (Автозапчасти, часть Б): блок «Гарантия и возврат»; у других сфер пусто.
+        Mark(ReceiptTemplate.Warranty);
         foreach (var returnLine in AutoPartsRules.ReceiptReturnBlock(w))
             Line(returnLine);
 
+        Mark(ReceiptTemplate.Status);
         if (anyReturn)
         {
             // 2026-10-27 (С-6): чек с возвратом на бумаге помечен; сколько вернули — по журналу кассы (если он есть).
@@ -306,7 +315,7 @@ public static class SaleReceiptTextBuilder
             Line(ReceiptLineLayout.Center(DateTime.Now.ToString("dd.MM.yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture), w));
         }
 
-        return sb.ToString().TrimEnd('\n');
+        return ReceiptTemplateEngine.Apply(sb.ToString()).TrimEnd('\n');
     }
 
     private static string? Str(JsonElement obj, string key) =>

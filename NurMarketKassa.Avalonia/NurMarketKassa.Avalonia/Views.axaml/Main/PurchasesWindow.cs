@@ -1150,28 +1150,34 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
         if (_openingReceipt)
             return;
         var detail = r;
-        if (r.Lines.Count == 0)
+        InvoiceDocumentWindow dialog;
+        // 2026-11-21 (жалоба «чек открывается дважды»): флаг держится от запроса до закрытия окна накладной (раньше — только пока грузится состав,
+        // а у прихода с уже загруженным составом защиты не было вовсе — второй щелчок открывал вторую накладную). Снимается в finally.
+        _openingReceipt = true;
+        try
         {
-            _openingReceipt = true;
-            try
+            if (r.Lines.Count == 0)
             {
-                // 2026-11-03: не дольше 8 с (было 30 с до показа окна).
-                detail = await ServerAnswerWait.ForegroundAsync("receipt/get", t => _svc.GetReceiptAsync(r.Id, t)).ConfigureAwait(true);
+                try
+                {
+                    // 2026-11-03: не дольше 8 с (было 30 с до показа окна).
+                    detail = await ServerAnswerWait.ForegroundAsync("receipt/get", t => _svc.GetReceiptAsync(r.Id, t)).ConfigureAwait(true);
+                }
+                catch (Exception ex)
+                {
+                    PosLogger.Log($"Закупки: приход {r.Id} не загружен ({ex.Message}).", "WARNING");
+                }
             }
-            catch (Exception ex)
-            {
-                PosLogger.Log($"Закупки: приход {r.Id} не загружен ({ex.Message}).", "WARNING");
-            }
-            finally
-            {
-                _openingReceipt = false;
-            }
+            // 2026-10-30: из реестра «Покупки» (двойной щелчок по позиции) — строка товара подсвечена.
+            // 2026-10-30: «Позиции прихода» заменены формой «Накладная прихода» (просмотр, печать, PDF, CSV, правка количества владельцем); «Вернуть»/«Повторить» остаются.
+            dialog = new InvoiceDocumentWindow(detail, _notes.GetValueOrDefault(r.Id), _debtKeys.Contains(SupplierDebtRecorder.MarkerForReceipt(r.Id)), SupplierById(detail.SupplierId),
+                highlightProductId is { Length: > 0 } ? new PurchaseReceiptContext(highlightProductId, null) : null, showReturnRepeat: true);
+            await dialog.ShowDialog(this).ConfigureAwait(true);
         }
-        // 2026-10-30: из реестра «Покупки» (двойной щелчок по позиции) — строка товара подсвечена.
-        // 2026-10-30: «Позиции прихода» заменены формой «Накладная прихода» (просмотр, печать, PDF, CSV, правка количества владельцем); «Вернуть»/«Повторить» остаются.
-        var dialog = new InvoiceDocumentWindow(detail, _notes.GetValueOrDefault(r.Id), _debtKeys.Contains(SupplierDebtRecorder.MarkerForReceipt(r.Id)), SupplierById(detail.SupplierId),
-            highlightProductId is { Length: > 0 } ? new PurchaseReceiptContext(highlightProductId, null) : null, showReturnRepeat: true);
-        await dialog.ShowDialog(this).ConfigureAwait(true);
+        finally
+        {
+            _openingReceipt = false; // до разбора действия: «edited» открывает накладную заново (рекурсия) — флаг к тому моменту уже снят
+        }
         switch (dialog.Action)
         {
             case "edited":

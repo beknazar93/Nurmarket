@@ -24,6 +24,9 @@ public static class ServerBotOffer
     /// <summary>Через 20 с после открытия окна (чтобы не наложиться на «Что нового» и вход).</summary>
     public static void Schedule(Window owner)
     {
+        // 2026-11-21: предложение переноса бота ведёт в мастер «Операции → Подключить бота» — в кассе его больше нет, предлагать только в программе владельца.
+        if (!NurMarketKassa.Services.OwnerOnlySettings.Allowed)
+            return;
         if (_scheduled || File.Exists(MarkerPath))
             return;
         _scheduled = true;

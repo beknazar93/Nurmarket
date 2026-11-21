@@ -129,7 +129,7 @@ public static class SyncCenter
 
     /// <summary>2026-10-30 (Б3): интервал фонового опроса «сторожа смены» и общих настроек компании: обычный (30 с) при работе,
     /// ×4 (120 с) в тихом режиме — как у ленты каталога (8 → 30 с). Кассир вернулся — следующий такт снова обычный.</summary>
-    public static TimeSpan QuietInterval(TimeSpan normal) => IsQuiet() ? TimeSpan.FromTicks(normal.Ticks * 4) : normal;
+    public static TimeSpan QuietInterval(TimeSpan normal) => IsQuiet() ? TimeSpan.FromTicks(normal.Ticks * 4) : LowPerfStretch(normal); // 2026-11-21: слабое устройство — реже
 
     [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
     private struct LastInputInfo
@@ -161,7 +161,21 @@ public static class SyncCenter
             return FeedDeepIdleInterval;
         if (idle >= IdleAfter)
             return FeedIdleInterval;
-        return OpenCheck ? FeedActiveInterval : normal;
+        return LowPerfStretch(OpenCheck ? FeedActiveInterval : normal);
+    }
+
+    /// <summary>2026-11-21 (режим слабого устройства — на лету): обычные такты опроса вдвое реже (подсказка соседа и «действие кассира» по-прежнему будят сразу).
+    /// Читается при каждом такте, поэтому переключатель действует без перезапуска.</summary>
+    internal static TimeSpan LowPerfStretch(TimeSpan interval)
+    {
+        try
+        {
+            return UserPreferences.Instance.LowPerformanceMode ? TimeSpan.FromTicks(interval.Ticks * 2) : interval;
+        }
+        catch
+        {
+            return interval; // настройки ещё не загружены
+        }
     }
 
     /// <summary>Период пульса продаж сейчас. Владелец: 5 с при активном окне, 20 с при неактивном, 30 с в простое, 60 с свёрнутое.

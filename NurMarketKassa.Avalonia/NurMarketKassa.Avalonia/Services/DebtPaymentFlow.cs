@@ -122,11 +122,11 @@ internal static class DebtPaymentFlow
         }
         var granted = await prompts.ConfirmWithCodeAsync(
             T("Приём оплаты долга", "Карыз төлөмүн кабыл алуу", "Accept a debt payment", "Borç ödemesi alma", "Qarz to'lovini qabul qilish"),
-            T("Введите свой код на приём оплаты долга (его задаёт владелец: Настройки → Сотрудники).",
+            NurMarketKassa.Services.OwnerOnlySettings.EmployeesPath(T("Введите свой код на приём оплаты долга (его задаёт владелец: Настройки → Сотрудники).",
                 "Карыз төлөмүн кабыл алуу кодуңузду киргизиңиз (аны ээси коёт: Жөндөөлөр → Кызматкерлер).",
                 "Enter your debt-payment code (the owner sets it in Settings → Employees).",
                 "Borç ödemesi alma kodunuzu girin (sahibi belirler: Ayarlar → Personel).",
-                "Qarz to'lovini qabul qilish kodingizni kiriting (uni egasi o'rnatadi: Sozlamalar → Xodimlar)."),
+                "Qarz to'lovini qabul qilish kodingizni kiriting (uni egasi o'rnatadi: Sozlamalar → Xodimlar).")),
             entered => EmployeeAccessGate.TryValidate(EmployeeAccessGate.DebtPayment, entered)).ConfigureAwait(true);
         if (!granted)
             PosLogger.Log("Оплата долга: код сотрудника не введён — оплата не принята.", "PAYMENT");

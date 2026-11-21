@@ -57,6 +57,12 @@ public partial class StaffTimesheetWindow : Window, IOwnerSectionExcel, IOwnerSe
     {
         _deps = deps ?? new TimesheetDeps { UseCache = true, Timesheet = LoadServerTimesheetAsync };
         InitializeComponent();
+        // 2026-11-21: статус — одна строка с многоточием; полный текст — в подсказке.
+        StatusText.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == TextBlock.TextProperty)
+                ToolTip.SetTip(StatusText, StatusText.Text);
+        };
         TimesheetGrid.ItemsSource = _rows;
         InitMarksUi();
         // 2026-11-19: подпись месяца между ‹ › не должна быть пустой до конца загрузки.
@@ -247,6 +253,7 @@ public partial class StaffTimesheetWindow : Window, IOwnerSectionExcel, IOwnerSe
             if (version != _loadVersion)
                 return;
             ApplyShiftsOutcome(shifts, failed, shiftsVersion);
+            Avalonia.Threading.Dispatcher.UIThread.Post(TryScrollToToday, Avalonia.Threading.DispatcherPriority.Loaded); // 2026-11-21: к сегодняшнему дню — после того как сетка достроена
         }
         catch (Exception ex)
         {
@@ -385,18 +392,14 @@ public partial class StaffTimesheetWindow : Window, IOwnerSectionExcel, IOwnerSe
     {
         var marks = MarksTabRadio.IsChecked.GetValueOrDefault(true);
         MarksPanel.IsVisible = marks;
+        LegendPanel.IsVisible = marks;
         MonthBar.IsVisible = marks;
         ShiftsPanel.IsVisible = !marks;
         PeriodBar.IsVisible = !marks;
         // 2026-11-08: на «Отметках» подзаголовок короткий (длинный расчёт «по сменам» отнимал две строки высоты на 1024×600); на «Итогах по сменам» — прежний текст.
+        // 2026-11-21 (владелец: «снизу сотрудники не видны»): на «Отметках» подпись окна убрана совсем — высота нужна таблице; подсказка «нажмите на клетку» есть в строке статуса.
         if (!_ownerSection)
-        {
-            Shell.Subtitle = marks
-                ? Tr.T("Отметки сотрудников по дням: нажмите на клетку, чтобы отметить. Часы — по закрытым сменам или вручную.", "Кызматкерлердин күндөр боюнча белгилери: белгилөө үчүн уячаны басыңыз. Саат — жабылган смена боюнча же кол менен.",
-                    "Staff marks by day: click a cell to mark. Hours come from closed shifts or are set by hand.", "Çalışan işaretleri günlük: işaretlemek için hücreye tıklayın. Saat kapanmış vardiyalardan veya elle.",
-                    "Xodimlar belgilari kunlar bo'yicha: belgilash uchun katakni bosing. Soat yopilgan smenalardan yoki qo'lda.")
-                : (this.TryFindResource("staffTimesheet.description", ActualThemeVariant, out var d) ? d as string : null);
-        }
+            Shell.Subtitle = marks ? null : (this.TryFindResource("staffTimesheet.description", ActualThemeVariant, out var d) ? d as string : null);
         StatusText.Text = marks ? MarksStatusLine() : ShiftsStatusLine(StaffTimesheetService.Aggregate(_shifts, FromDatePicker.SelectedDate, ToDatePicker.SelectedDate));
     }
 

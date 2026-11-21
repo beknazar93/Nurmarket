@@ -770,9 +770,21 @@ internal static class ModalWindowManager
         if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop)
             return;
         var known = new HashSet<IntPtr>();
+        var anyDisabled = false;
         foreach (var w in desktop.Windows)
             if (w.TryGetPlatformHandle()?.Handle is { } h && h != IntPtr.Zero)
+            {
                 known.Add(h);
+                if (w.IsVisible && w.WindowState != WindowState.Minimized && !Native.IsWindowEnabled(h))
+                    anyDisabled = true;
+            }
+        // 2026-11-21 (оптимизация): сторож раз в секунду перебирал ВСЕ окна системы (EnumWindows + имя класса каждого), хотя заблокированных окон кассы нет.
+        // Перебор окон нужен, только когда какое-то окно кассы заблокировано.
+        if (!anyDisabled)
+        {
+            DisabledSeen.Clear();
+            return;
+        }
         var fg = Native.GetForegroundWindow();
         if (fg != IntPtr.Zero && !known.Contains(fg))
         {

@@ -17,7 +17,7 @@
         <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Padding" Value="12,8"/>
+        <Setter Property="Padding" Value="{DynamicResource NurPadButtonMain}"/> <!-- 2026-11-21: было 12,8 (primary/outline 14,8); шаг 18, в «Плотной» 14 -->
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
         <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
@@ -40,7 +40,7 @@
         <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Padding" Value="14,8"/>
+        <Setter Property="Padding" Value="{DynamicResource NurPadButtonMain}"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
         <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
@@ -60,7 +60,7 @@
         <Setter Property="Background" Value="{DynamicResource BrushWindowAlt}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Padding" Value="14,8"/>
+        <Setter Property="Padding" Value="{DynamicResource NurPadButtonMain}"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
         <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>

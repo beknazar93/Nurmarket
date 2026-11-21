@@ -98,7 +98,7 @@
             </Grid>
           </ToggleButton>
           <Border Classes="SettingsGroupBody" IsVisible="{Binding #DisplayGroupToggle.IsChecked}">
-            <StackPanel Spacing="8">
+            <StackPanel Spacing="14">
               <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Text="{DynamicResource posSettings.screen.fullscreen}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
                 <CheckBox Grid.Column="1" x:Name="FullscreenCheck" x:FieldModifier="public" Classes="ToggleSwitch"/>
@@ -108,7 +108,7 @@
                 <StackPanel Grid.Column="0">
                   <TextBlock Text="{DynamicResource posSettings.screen.trueFullscreen}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
                   <TextBlock Text="{DynamicResource posSettings.screen.trueFullscreenDesc}"
-                             FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
+                             FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="520" HorizontalAlignment="Left"/>
                 </StackPanel>
                 <CheckBox Grid.Column="1" x:Name="TrueFullscreenCheck" x:FieldModifier="public" Classes="ToggleSwitch" VerticalAlignment="Top"/>
               </Grid>
@@ -119,7 +119,7 @@
                 <StackPanel Grid.Column="0">
                   <TextBlock Text="{DynamicResource posSettings.screen.quickProducts}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
                   <TextBlock Text="{DynamicResource posSettings.screen.quickProductsDesc}"
-                             FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
+                             FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="520" HorizontalAlignment="Left"/>
                 </StackPanel>
                 <CheckBox Grid.Column="1" x:Name="QuickProductsCheck" Classes="ToggleSwitch" VerticalAlignment="Top"
                           IsCheckedChanged="QuickProductsCheck_Changed"/>
@@ -131,7 +131,7 @@
                 <StackPanel Grid.Column="0">
                   <TextBlock Text="{DynamicResource posSettings.screen.upsell}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
                   <TextBlock Text="{DynamicResource posSettings.screen.upsellDesc}"
-                             FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
+                             FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="520" HorizontalAlignment="Left"/>
                 </StackPanel>
                 <CheckBox Grid.Column="1" x:Name="UpsellCheck" Classes="ToggleSwitch" VerticalAlignment="Top"
                           IsCheckedChanged="UpsellCheck_Changed"/>
@@ -142,7 +142,7 @@
                 <StackPanel Grid.Column="0">
                   <TextBlock x:Name="PayDockText" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
                   <TextBlock x:Name="PayDockDesc"
-                             FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
+                             FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="520" HorizontalAlignment="Left"/>
                   <!-- 2026-10-30: окно оплаты можно перетащить за шапку; положение запоминается — кнопка возвращает обычное место. Подпись — в коде (Tr.T). -->
                   <Button x:Name="PayDockResetButton" Margin="0,6,0,0" Padding="10,4" FontSize="12" HorizontalAlignment="Left"
                           Click="PayDockResetButton_Click"/>
@@ -170,12 +170,12 @@
             </Grid>
           </ToggleButton>
           <Border Classes="SettingsGroupBody" IsVisible="{Binding #PerfGroupToggle.IsChecked}">
-            <StackPanel Spacing="8">
+            <StackPanel Spacing="14">
               <Grid ColumnDefinitions="*,Auto">
                 <StackPanel Grid.Column="0">
                   <TextBlock Text="{DynamicResource posSettings.screen.lowPerfMode}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
                   <TextBlock Text="{DynamicResource posSettings.screen.lowPerfModeDesc}"
-                             FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
+                             FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="520" HorizontalAlignment="Left"/>
                 </StackPanel>
                 <CheckBox Grid.Column="1" x:Name="LowPerformanceModeCheck" x:FieldModifier="public" Classes="ToggleSwitch" VerticalAlignment="Top"/>
               </Grid>
@@ -189,9 +189,20 @@
                 <StackPanel Grid.Column="0">
                   <TextBlock Text="{DynamicResource posSettings.screen.showCatalogPhotos}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
                   <TextBlock Text="{DynamicResource posSettings.screen.showCatalogPhotosDesc}"
-                             FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
+                             FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="520" HorizontalAlignment="Left"/>
                 </StackPanel>
                 <CheckBox Grid.Column="1" x:Name="ShowCatalogPhotosCheck" x:FieldModifier="public" Classes="ToggleSwitch" VerticalAlignment="Top"/>
+              </Grid>
+
+              <!-- 2026-11-21: «Сначала товары без штрихкода» — применяется сразу, как «Быстрые товары» -->
+              <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Grid.Column="0">
+                  <TextBlock Text="{DynamicResource posSettings.screen.noBarcodeFirst}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
+                  <TextBlock Text="{DynamicResource posSettings.screen.noBarcodeFirstDesc}"
+                             FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="520" HorizontalAlignment="Left"/>
+                </StackPanel>
+                <CheckBox Grid.Column="1" x:Name="NoBarcodeFirstCheck" x:FieldModifier="public" Classes="ToggleSwitch" VerticalAlignment="Top"
+                          IsCheckedChanged="NoBarcodeFirstCheck_Changed"/>
               </Grid>
             </StackPanel>
           </Border>
@@ -212,7 +223,7 @@
               <StackPanel Spacing="4">
                 <TextBlock Text="{DynamicResource posSettings.screen.cashbox}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
                 <TextBlock Text="{DynamicResource posSettings.screen.cashboxDesc}"
-                           FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" Margin="0,0,0,6" HorizontalAlignment="Left"/><!-- 2026-11-20: обход кассы — при MaxWidth без Left пояснение «Касса» уезжало к центру -->
+                           FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="520" Margin="0,0,0,6" HorizontalAlignment="Left"/><!-- 2026-11-20: обход кассы — при MaxWidth без Left пояснение «Касса» уезжало к центру -->
 
                 <Grid ColumnDefinitions="*,Auto">
                   <ComboBox x:Name="CashboxCombo" x:FieldModifier="public" Grid.Column="0" HorizontalAlignment="Stretch"/>
@@ -268,7 +279,7 @@
                              Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
                 </Grid>
                 <TextBlock Text="{DynamicResource posSettings.screen.uiScaleDesc}"
-                           FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
+                           FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="520" HorizontalAlignment="Left"/>
                 <Slider x:Name="UiScaleSlider" x:FieldModifier="public" Minimum="50" Maximum="200"
                         TickFrequency="10" IsSnapToTickEnabled="True" Margin="0,4,0,0"
                         ValueChanged="UiScaleSlider_ValueChanged"/>
@@ -281,7 +292,7 @@
               <StackPanel Spacing="4">
                 <TextBlock Text="{DynamicResource posSettings.screen.compactLayout}" Classes="SettingsCardTitle" FontSize="14"/>
                 <TextBlock Text="{DynamicResource posSettings.screen.compactLayoutDesc}"
-                           FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
+                           FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="520" HorizontalAlignment="Left"/>
                 <WrapPanel Orientation="Horizontal" Margin="0,4,0,0">
                   <RadioButton x:Name="CompactAutoRadio" Margin="0,0,8,8" GroupName="CompactLayout" Classes="ClickPill"
                                Content="{DynamicResource posSettings.screen.compactAuto}" IsCheckedChanged="CompactLayoutRadio_Changed"/>
@@ -302,7 +313,7 @@
                              Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
                 </Grid>
                 <TextBlock Text="{DynamicResource posSettings.screen.tileSizeDesc}"
-                           FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
+                           FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="520" HorizontalAlignment="Left"/>
                 <Slider x:Name="TileSizeSlider" Minimum="70" Maximum="160"
                         TickFrequency="10" IsSnapToTickEnabled="True" Margin="0,4,0,0"
                         ValueChanged="TileSizeSlider_ValueChanged"/>
@@ -339,49 +350,12 @@
           </Border>
         </StackPanel>
 
-        <!-- Блок 2: Данные магазина в чеке -->
+        <!-- 2026-11-21 (владелец: данные чека — только во вкладке «Чек»): название, адрес и ИНН магазина перенесены в «Печать → Чек». Подписи — в коде (5 языков). -->
         <Border Classes="SettingsCard" Padding="16">
-          <StackPanel Spacing="12">
-            <TextBlock Text="{DynamicResource posSettings.screen.receiptDataTitle}" Classes="SettingsCardTitle" FontSize="14"/>
-
-            <Grid ColumnDefinitions="*,16,*">
-              <!-- Название магазина -->
-              <StackPanel Grid.Column="0" Spacing="4">
-                <TextBlock Text="{DynamicResource posSettings.screen.storeName}" Classes="FieldLabel"/>
-                <TextBox x:Name="StoreNameBox" x:FieldModifier="public"
-                         Classes="ModernTextBox" Height="44"
-                         Watermark="{DynamicResource posSettings.screen.storeNameWatermark}"
-                         ToolTip.Tip="{DynamicResource posSettings.screen.storeNameTooltip}"/>
-              </StackPanel>
-
-              <!-- Адрес магазина -->
-              <StackPanel Grid.Column="2" Spacing="4">
-                <TextBlock Text="{DynamicResource posSettings.screen.storeAddress}" Classes="FieldLabel"/>
-                <TextBox x:Name="StoreAddressBox" x:FieldModifier="public"
-                         Classes="ModernTextBox" Height="44"
-                         Watermark="{DynamicResource posSettings.screen.storeAddressWatermark}"
-                         ToolTip.Tip="{DynamicResource posSettings.screen.storeAddressTooltip}"/>
-              </StackPanel>
-            </Grid>
-
-            <!-- 2026-11-19: ИНН магазина для чека — раньше поля не было, значение брал только сервер и затирал каждым обновлением -->
-            <StackPanel Spacing="4" Margin="0,4,0,0">
-              <TextBlock Text="ИНН / STIR / TIN" Classes="FieldLabel"/>
-              <TextBox x:Name="StoreInnBox" x:FieldModifier="public" Classes="ModernTextBox" Height="44" MaxLength="20"/>
-            </StackPanel>
-
-            <!-- ИНН в чеке -->
-            <Grid ColumnDefinitions="*,Auto" Margin="0,4,0,0">
-              <StackPanel VerticalAlignment="Center">
-                <TextBlock Text="{DynamicResource posSettings.screen.showInn}" FontSize="13" Foreground="{DynamicResource BrushText}"/>
-                <TextBlock Text="{DynamicResource posSettings.screen.showInnDesc}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
-              </StackPanel>
-              <CheckBox Grid.Column="1" x:Name="ShowInnCheck" x:FieldModifier="public"
-                        Classes="ToggleSwitch" VerticalAlignment="Center"
-                        ToolTip.Tip="{DynamicResource posSettings.screen.showInnDesc}"/>
-            </Grid>
-
-          </StackPanel>
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock x:Name="ReceiptMovedText" x:FieldModifier="public" FontSize="13" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+            <Button Grid.Column="1" x:Name="ReceiptMovedButton" x:FieldModifier="public" Classes="PrintGoldButton" Height="44" Margin="12,0,0,0" VerticalAlignment="Center"/>
+          </Grid>
         </Border>
 
         <StackPanel Spacing="8" Margin="0,4,0,0" HorizontalAlignment="Stretch">

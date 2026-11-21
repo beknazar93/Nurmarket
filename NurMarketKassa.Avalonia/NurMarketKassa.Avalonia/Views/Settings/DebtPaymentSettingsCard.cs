@@ -59,11 +59,11 @@ public sealed class DebtPaymentSettingsCard : Border
         stack.Children.Add(Sub(T("Доступ", "Кирүү", "Access", "Erişim", "Kirish")));
         _requireCode = Row(stack, T("Нужен код сотрудника для приёма оплаты", "Төлөм кабыл алуу үчүн кызматкердин коду керек", "An employee code is needed to take a payment",
             "Ödeme almak için personel kodu gerekir", "To'lov qabul qilish uchun xodim kodi kerak"));
-        stack.Children.Add(Hint(T("Код задаётся каждому сотруднику: Настройки → Сотрудники → «Код на приём оплаты долга». Сотрудник без кода оплату не примет; владелец и администратор — без кода.",
+        stack.Children.Add(Hint(NurMarketKassa.Services.OwnerOnlySettings.EmployeesPath(T("Код задаётся каждому сотруднику: Настройки → Сотрудники → «Код на приём оплаты долга». Сотрудник без кода оплату не примет; владелец и администратор — без кода.",
             "Код ар бир кызматкерге коюлат: Жөндөөлөр → Кызматкерлер → «Карыз төлөмүн кабыл алуу коду». Коду жок кызматкер төлөм кабыл албайт; ээси жана администратор — кодсуз.",
             "Each employee gets a code: Settings → Employees → “Debt payment code”. An employee without a code can't take a payment; the owner and administrators don't need one.",
             "Her personele kod verilir: Ayarlar → Personel → «Borç ödemesi kodu». Kodu olmayan personel ödeme alamaz; sahip ve yönetici kodsuz.",
-            "Har bir xodimga kod beriladi: Sozlamalar → Xodimlar → «Qarz to'lovi kodi». Kodsiz xodim to'lov qabul qilolmaydi; egasi va administrator — kodsiz.")));
+            "Har bir xodimga kod beriladi: Sozlamalar → Xodimlar → «Qarz to'lovi kodi». Kodsiz xodim to'lov qabul qilolmaydi; egasi va administrator — kodsiz."))));
         stack.Children.Add(_status);
         Child = stack;
 

@@ -843,14 +843,10 @@
                                            Foreground="{DynamicResource BrushAccentStrong}" FontWeight="SemiBold"
                                            FontSize="13"/>
                             </Panel>
-                            <Button Grid.Column="2" Classes="SecondaryButton"
+                            <Button x:Name="BulkImportButton" Grid.Column="2" Classes="SecondaryButton"
                                     Content="{DynamicResource warehouse.bulkImportButton}"
                                     Margin="0,0,8,0"
                                     Click="BulkImport_Click"/>
-                            <Button x:Name="BulkPriceTagButton" Grid.Column="3" Classes="SecondaryButton"
-                                    Content="{DynamicResource warehouse.bulkPriceTagButton}"
-                                    Margin="0,0,8,0"
-                                    Click="BulkPriceTag_Click"/>
                             <Button Grid.Column="4" Classes="PrimaryButton"
                                     Content="{DynamicResource product.addButton}"
                                     Click="AddProduct_Click"/>
@@ -895,17 +891,6 @@
                             </StackPanel>
                         </Border>
                         </Grid>
-                        <!-- 2026-11-19 («Неудобства от владельца», п. 10): панель массовых действий — видна, пока отмечены товары (галочки в строках и «выбрать все» в шапке);
-                             стоит на месте строки фильтров (та на это время прозрачна — высота не прыгает). Логика — WarehouseWindow.BulkBar.cs. -->
-                        <Border x:Name="BulkBar" Grid.Row="2" Classes="bulk-bar" IsVisible="False" Margin="0,0,0,12" VerticalAlignment="Stretch">
-                            <Grid ColumnDefinitions="Auto,*,Auto">
-                                <TextBlock x:Name="BulkBarCount" Grid.Column="0" VerticalAlignment="Center" FontWeight="Bold"
-                                           FontSize="{DynamicResource NurFontBody}" Foreground="{DynamicResource BrushText}" Margin="0,0,14,0"/>
-                                <WrapPanel x:Name="BulkBarActions" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"/>
-                                <Button x:Name="BulkBarClearButton" Grid.Column="2" Classes="SecondaryButton" VerticalAlignment="Center" Margin="8,0,0,0" Click="BulkBarClear_Click"/>
-                            </Grid>
-                        </Border>
-
                         <!-- Таблица товаров (2026-09-07, перестроена по образцу Shopify Polaris IndexTable:
                              миниатюра 36px + название крупнее и с усечением, ОДНА колонка "Код" (это Article —
                              в маппере уже article ?? code, и только он хранится в локальном кэше SQLite,
@@ -935,15 +920,11 @@
                                      единица переехала в плашку остатка — «93 шт». Прибавку заголовкам «Скидка» и «Остаток» (они
                                      обрезались при крупном шрифте) оплатили «Действия»: иконки стали
                                      32 px вместо 36, и колонка ужалась с 210 до 184. -->
-                                <!-- 2026-11-19: в шапке этой колонки — галочка «выбрать все на странице»; её ставит код (WarehouseWindow.BulkBar.cs, SelectAllHeader), потому что заголовки пересобирает InitProductSort. -->
                                 <DataGridTemplateColumn Header="{DynamicResource common.name}" Width="*" MinWidth="200" SortMemberPath="Title">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <Grid ColumnDefinitions="Auto,Auto,*" VerticalAlignment="Center">
-                                                <!-- 2026-11-11: галочка «В печать» — выбор товаров для «Печать ценников (N)» (вкладка «Штрихкоды», WarehouseWindow.Barcodes.cs). -->
-                                                <CheckBox Grid.Column="0" Width="28" MinWidth="0" MinHeight="32" Padding="0" Margin="0,0,6,0" VerticalAlignment="Center" Focusable="False"
-                                                          DataContextChanged="PrintPick_DataContextChanged" Click="PrintPick_Click"/>
-                                                <Grid Grid.Column="1" Width="36" Height="36" Margin="0,0,10,0">
+                                            <Grid ColumnDefinitions="Auto,*" VerticalAlignment="Center">
+                                                <Grid Grid.Column="0" Width="36" Height="36" Margin="0,0,10,0">
                                                     <Border Background="{DynamicResource BrushPanelSoft}" CornerRadius="6">
                                                         <PathIcon Width="16" Height="16" Foreground="{DynamicResource BrushTextMuted}"
                                                                   Data="M12,2L2,7V17L12,22L22,17V7L12,2M12,4.15L19.16,7.75L12,11.35L4.84,7.75L12,4.15M4,9.28L11,12.78V19.7L4,16.2V9.28M13,19.7V12.78L20,9.28V16.2L13,19.7Z"/>
@@ -955,7 +936,7 @@
                                                     </Border>
                                                 </Grid>
                                                 <!-- 2026-10-06, редизайн склада: под названием — «категория · бренд» и метка срока годности. -->
-                                                <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="2">
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
                                                     <TextBlock Text="{ReflectionBinding Title}" FontSize="14" FontWeight="SemiBold"
                                                                TextTrimming="CharacterEllipsis"
                                                                ToolTip.Tip="{ReflectionBinding Title}"/>
@@ -1318,8 +1299,6 @@
                             <!-- 2026-10-29: «Наценка…» (правила автонаценки) и «Очистить список» — в верхнем ряду; внизу остаётся итоговая панель (спека Fable). -->
                             <Button Classes="SecondaryButton tool-quiet" x:Name="ReceivingMarkupButton" Click="ReceivingMarkup_Click"/>
                             <Button Classes="SecondaryButton tool-quiet" x:Name="ReceivingClearButton" Click="ReceivingClear_Click"/>
-                            <!-- 2026-11-01 (П-4, из веба): «Этикетки на приход» — массовая печать с отмеченными товарами накладной, копии = количество. -->
-                            <Button Classes="SecondaryButton tool-quiet" x:Name="ReceivingLabelsButton" Click="ReceivingLabels_Click"/>
                         </WrapPanel>
 
                         <Border Grid.Row="2" x:Name="ReceivingSuggestionsBox" IsVisible="False"
@@ -1465,7 +1444,10 @@
                              можно вписать только у нового товара — у существующего они живут в
                              карточке склада (см. ReceivingGrid_BeginningEdit). -->
                         <!-- 2026-11-11 (аудит «Закупки», БП-3): FontFeatures наследуется ячейками — цифры таблицы приёмки одинаковой ширины. -->
-                        <DataGrid Grid.Row="4" x:Name="ReceivingGrid"
+                        <!-- 2026-11-21 (владелец: «Массовое добавление и Приёмку ОБЪЕДИНИТЬ, дизайн как на фото»): строки приёмки — карточки (WarehouseWindow.ReceivingCards.cs). Прежняя таблица ReceivingGrid оставлена скрытой: на неё опирается прежний код
+                             (CommitEdit/CancelEdit), в новом виде это безвредные пустые вызовы. -->
+                        <ItemsControl Grid.Row="4" x:Name="ReceivingCards" ItemsSource="{Binding ReceivingLines}" x:CompileBindings="False"/>
+                        <DataGrid Grid.Row="4" x:Name="ReceivingGrid" IsVisible="False"
                                   FontFeatures="{DynamicResource TabularNumbers}"
                                   x:CompileBindings="False"
                                   ItemsSource="{Binding ReceivingLines}"
@@ -1739,8 +1721,12 @@
                              На 1024 «Выручка» и «Средняя наценка» прячутся (WarehouseWindow.O9.cs). Подписи — в коде (WarehouseWindow.ReceivingScan.cs). -->
                         <Border Grid.Row="5" Margin="0,12,0,0" Padding="14,10" CornerRadius="12" BorderThickness="1"
                                 Background="{DynamicResource BrushPanel}" BorderBrush="{DynamicResource BrushBorder}">
-                            <Grid ColumnDefinitions="Auto,*,Auto,Auto">
-                                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="18" VerticalAlignment="Center">
+                            <!-- 2026-11-21 (фото владельца: итоги мелкие и «Оприходовать» уходило за край на 1024): левая часть — WrapPanel в колонке «*», кнопка всегда видна. -->
+                            <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+                                <WrapPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <WrapPanel.Styles>
+                                        <Style Selector="WrapPanel > StackPanel"><Setter Property="Margin" Value="0,2,18,2"/></Style>
+                                    </WrapPanel.Styles>
                                     <StackPanel Spacing="2"><TextBlock x:Name="SumPosCap" Classes="sum-cap"/><TextBlock x:Name="SumPos" Classes="sum-val"/></StackPanel>
                                     <StackPanel Spacing="2"><TextBlock x:Name="SumQtyCap" Classes="sum-cap"/><TextBlock x:Name="SumQty" Classes="sum-val"/></StackPanel>
                                     <Border Width="1" Height="36" Background="{DynamicResource BrushBorder}"/>
@@ -1748,7 +1734,7 @@
                                     <StackPanel x:Name="SumSaleBox" Spacing="2"><TextBlock x:Name="SumSaleCap" Classes="sum-cap"/><TextBlock x:Name="SumSale" Classes="sum-val"/></StackPanel>
                                     <StackPanel Spacing="2"><TextBlock x:Name="SumProfitCap" Classes="sum-cap"/><TextBlock x:Name="SumProfit" Classes="sum-val"/></StackPanel>
                                     <StackPanel x:Name="SumMarkupBox" Spacing="2"><TextBlock x:Name="SumMarkupCap" Classes="sum-cap"/><TextBlock x:Name="SumMarkup" Classes="sum-val"/></StackPanel>
-                                </StackPanel>
+                                </WrapPanel>
                                 <StackPanel Grid.Column="1" Margin="14,0,10,0" VerticalAlignment="Center" HorizontalAlignment="Right" Spacing="2">
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                         <Border x:Name="SumFlagLowBox" Classes="sum-flag low" IsVisible="False"><TextBlock x:Name="SumFlagLow" Classes="sum-flagtext"/></Border>
@@ -2189,28 +2175,6 @@
                 </Border>
             </TabItem>
 
-            <!-- Вкладка: Редактор этикетки — всегда видна (в отличие от Аналитики выше), но сам
-                 редактор платный с 2026-09-07 (EnsureLabelEditorUnlocked): подпись «Бесплатно»
-                 в описании осталась с тех времён и противоречила запросу серийного номера. Кнопка открывает тот же LabelTemplateEditorDialog, что и кнопка "Печать"
-                 на строке товара и карточка в Маркетплейсе (2026-09-06, по просьбе пользователя —
-                 отдельный раздел в Складе, а не только через диалог печати одного товара). -->
-            <TabItem x:Name="LabelEditorTabItem" Header="{DynamicResource warehouse.tabLabelEditor}">
-                <Border Background="{DynamicResource BrushPanel}" CornerRadius="0,14,14,14" Padding="16" BoxShadow="0 4 12 0 #0D000000">
-                    <StackPanel Spacing="14" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="420">
-                        <TextBlock Text="&#xE71D;" FontFamily="Segoe MDL2 Assets" FontSize="34"
-                                   Foreground="{DynamicResource BrushTextSoft}" HorizontalAlignment="Center"/>
-                        <TextBlock Text="{DynamicResource warehouse.labelEditorTabTitle}" FontSize="18" FontWeight="Bold"
-                                   Foreground="{DynamicResource BrushText}" HorizontalAlignment="Center" TextAlignment="Center"/>
-                        <TextBlock Text="{DynamicResource warehouse.labelEditorTabDescription}" FontSize="13"
-                                   Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" TextAlignment="Center"/>
-                        <!-- 2026-10-21 (пакет 1, п. 110): цена и где купить; подпись кнопки — по состоянию (WarehouseWindow.O9.cs). -->
-                        <TextBlock x:Name="LabelEditorPaidText" FontSize="13" FontWeight="SemiBold"
-                                   Foreground="{DynamicResource BrushText}" TextWrapping="Wrap" TextAlignment="Center"/>
-                        <Button x:Name="LabelEditorOpenButton" Content="{DynamicResource warehouse.labelEditorTabButton}" Classes="PrimaryButton"
-                                HorizontalAlignment="Center" Click="OpenLabelEditorTab_Click"/>
-                    </StackPanel>
-                </Border>
-            </TabItem>
         </TabControl>
 
         <!-- Модальный индикатор загрузки (IsBusy) -->

@@ -21,6 +21,7 @@ public sealed class ExternalServicesTimeoutTests : IDisposable
     private readonly HttpClient _oldAi = AiProviders.Http;
     private readonly TimeSpan _oldOne = AiProviders.FallbackOneTimeout;
     private readonly TimeSpan _oldTotal = AiProviders.FallbackTotalTimeout;
+    private readonly Action<CancellationTokenSource, string> _oldArm = AiProviders.ArmOneTimeout;
     private readonly string? _oldGroq = UserPreferences.Instance.GroqApiKey;
     private readonly string? _oldRouter = UserPreferences.Instance.OpenRouterApiKey;
 
@@ -31,6 +32,7 @@ public sealed class ExternalServicesTimeoutTests : IDisposable
         AiProviders.Http = _oldAi;
         AiProviders.FallbackOneTimeout = _oldOne;
         AiProviders.FallbackTotalTimeout = _oldTotal;
+        AiProviders.ArmOneTimeout = _oldArm;
         UserPreferences.Instance.GroqApiKey = _oldGroq;
         UserPreferences.Instance.OpenRouterApiKey = _oldRouter;
         _server.Dispose();
@@ -207,6 +209,9 @@ public sealed class ExternalServicesTimeoutTests : IDisposable
         AiProviders.Http = FakeClient(TimeSpan.FromSeconds(30));
         AiProviders.FallbackOneTimeout = TimeSpan.FromMilliseconds(400);
         AiProviders.FallbackTotalTimeout = TimeSpan.FromSeconds(10);
+        // 2026-11-21: срок включается только у «медленной» первой модели (OpenRouter, ответ сервера через 6 с); у второй срока нет — на нагруженном ПК её мгновенный ответ
+        // иногда не укладывался в 400 мс, и тест падал случайно. Что именно проверяется — «первая не ответила в срок → ответила вторая» — осталось тем же.
+        AiProviders.ArmOneTimeout = (cts, name) => { if (name == "OpenRouter") cts.CancelAfter(AiProviders.FallbackOneTimeout); };
 
         var (answer, error) = await AiProviders.ChatFallbackAsync("система", Array.Empty<(string, string)>(), "вопрос", CancellationToken.None);
 

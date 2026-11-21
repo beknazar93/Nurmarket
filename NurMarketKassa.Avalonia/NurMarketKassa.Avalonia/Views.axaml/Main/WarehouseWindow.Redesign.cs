@@ -264,9 +264,9 @@ public partial class WarehouseWindow
             "revision" => RevisionTabItem,
             "writeoff" => WriteOffTabItem,
             "movements" => MovementsTabItem,
-            "labels" => LabelEditorTabItem,
-            "barcodes" => _barcodesTab, // 2026-11-11: вкладка «Штрихкоды» (WarehouseWindow.Barcodes.cs)
-            "bulk" => _bulkTab,
+            // 2026-11-21: одна вкладка «Ценники и штрихкоды» (WarehouseWindow.Barcodes.cs); прежние ключи «labels» (Редактор этикетки) и «pricetags» — её алиасы.
+            "barcodes" or "labels" or "pricetags" => _barcodesTab,
+            "bulk" => ReceivingTabItem, // 2026-11-21: «Массовое добавление» объединено с «Приёмкой»
             _ => null,
         };
         if (target is null || !target.IsVisible || !WarehouseTabs.Items.Contains(target))

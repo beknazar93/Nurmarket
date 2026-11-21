@@ -11,6 +11,13 @@ public partial class WarehouseWindow
 {
     private void InitInvoiceImport()
     {
+        // 2026-11-21 (владелец: «перенос данных из другой программы — только у владельца»): загрузка накладной из файла — только в программе владельца;
+        // в кассе кнопки нет совсем и перетаскивание файла в окно не принимается.
+        if (!ImportAccess.Allowed)
+        {
+            (ReceivingInvoiceImportButton.Parent as Panel)?.Children.Remove(ReceivingInvoiceImportButton);
+            return;
+        }
         ReceivingInvoiceImportButton.Content = Tr.T("Загрузить накладную", "Накладнойду жүктөө", "Load an invoice", "Fatura yükle", "Yuk xatini yuklash");
         ToolTip.SetTip(ReceivingInvoiceImportButton, Tr.T(
             "Электронная накладная поставщика: Excel (.xlsx), CSV или XML. Файл можно и перетащить в это окно. Строки попадут в приёмку, оприходуете вы сами.",
@@ -26,7 +33,7 @@ public partial class WarehouseWindow
         ReceivingInvoiceImportButton.IsEnabled = false; // от двойного нажатия
         try
         {
-            ReceivingGrid.CommitEdit();
+            CommitReceivingEdit();
             await InvoiceImportFlow.RunAsync(this, _viewModel).ConfigureAwait(true);
         }
         finally

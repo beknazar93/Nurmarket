@@ -332,6 +332,17 @@
               </StackPanel>
             </Grid>
 
+            <!-- 2026-11-21 («Редактор чека»): блоки, порядок, шрифт и свой текст шапки/подвала — в окне редактора с предпросмотром. -->
+            <Border Classes="SettingsCard" Padding="12" Background="{DynamicResource BrushPanelSoft}">
+              <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Spacing="2" VerticalAlignment="Center">
+                  <TextBlock x:Name="ReceiptEditorTitleText" x:FieldModifier="public" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
+                  <TextBlock x:Name="ReceiptEditorHintText" x:FieldModifier="public" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
+                </StackPanel>
+                <Button Grid.Column="1" x:Name="OpenReceiptEditorButton" x:FieldModifier="public" Classes="PrintGoldButton" Height="44" Margin="12,0,0,0" VerticalAlignment="Center"/>
+              </Grid>
+            </Border>
+
             <!-- Шрифт и Размер -->
             <Grid ColumnDefinitions="*,16,*">
               <StackPanel Grid.Column="0" Spacing="4">
@@ -394,6 +405,45 @@
                 </Grid>
               </StackPanel>
             </Grid>
+
+            <!-- 2026-11-21 (владелец: данные чека настраиваются ТОЛЬКО во вкладке «Чек»): название, адрес и ИНН магазина (раньше — «Экран»),
+                 штрафы за просрочку долга и проката (раньше — «Операции»). Подписи штрафов — в коде (5 языков). -->
+            <TextBlock Text="{DynamicResource posSettings.screen.receiptDataTitle}" Classes="FieldLabel" Margin="0,8,0,0"/>
+            <Grid ColumnDefinitions="*,16,*">
+              <StackPanel Grid.Column="0" Spacing="4">
+                <TextBlock Text="{DynamicResource posSettings.screen.storeName}" Classes="FieldLabel"/>
+                <TextBox x:Name="StoreNameBox" x:FieldModifier="public"
+                         Classes="ModernTextBox" Height="44"
+                         Watermark="{DynamicResource posSettings.screen.storeNameWatermark}"
+                         ToolTip.Tip="{DynamicResource posSettings.screen.storeNameTooltip}"/>
+              </StackPanel>
+              <StackPanel Grid.Column="2" Spacing="4">
+                <TextBlock Text="{DynamicResource posSettings.screen.storeAddress}" Classes="FieldLabel"/>
+                <TextBox x:Name="StoreAddressBox" x:FieldModifier="public"
+                         Classes="ModernTextBox" Height="44"
+                         Watermark="{DynamicResource posSettings.screen.storeAddressWatermark}"
+                         ToolTip.Tip="{DynamicResource posSettings.screen.storeAddressTooltip}"/>
+              </StackPanel>
+            </Grid>
+            <StackPanel Spacing="4">
+              <TextBlock Text="ИНН / STIR / TIN" Classes="FieldLabel"/>
+              <TextBox x:Name="StoreInnBox" x:FieldModifier="public" Classes="ModernTextBox" Height="44" MaxLength="20"/>
+            </StackPanel>
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="{DynamicResource posSettings.screen.showInn}" FontSize="13" Foreground="{DynamicResource BrushText}"/>
+                <TextBlock Text="{DynamicResource posSettings.screen.showInnDesc}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
+              </StackPanel>
+              <CheckBox Grid.Column="1" x:Name="ShowInnCheck" x:FieldModifier="public"
+                        Classes="ToggleSwitch" VerticalAlignment="Center"
+                        ToolTip.Tip="{DynamicResource posSettings.screen.showInnDesc}"/>
+            </Grid>
+            <StackPanel Spacing="4">
+              <TextBlock x:Name="DebtPenaltyLabel" x:FieldModifier="public" FontSize="13" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
+              <TextBox x:Name="DebtPenaltyBox" x:FieldModifier="public" Classes="ModernTextBox" Height="44" MaxLength="120"/>
+              <TextBlock x:Name="RentalPenaltyLabel" x:FieldModifier="public" FontSize="13" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+              <TextBox x:Name="RentalPenaltyBox" x:FieldModifier="public" Classes="ModernTextBox" Height="44" Width="160" HorizontalAlignment="Left" Watermark="0"/>
+            </StackPanel>
 
             <!-- QR и Предпросмотр -->
             <Grid ColumnDefinitions="Auto,8,Auto,*,Auto" Margin="0,4,0,0">

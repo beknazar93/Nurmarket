@@ -54,7 +54,7 @@ public static class ReceiptPdfPreviewService
 
         var previewText = ReceiptEncodingHelper.ApplyEncodingPreview(receiptText, userEncoding);
 
-        var formatted = ReceiptTextFormatter.FormatForPrinter(previewText, width).TrimEnd().ToUpperInvariant();
+        var formatted = ReceiptLineStyle.Strip(ReceiptTextFormatter.FormatForPrinter(previewText, width)).TrimEnd().ToUpperInvariant(); // 2026-11-21: без служебных знаков шаблона
 
         var tableLabel = escTableByte?.ToString(CultureInfo.InvariantCulture) ?? "авто";
 

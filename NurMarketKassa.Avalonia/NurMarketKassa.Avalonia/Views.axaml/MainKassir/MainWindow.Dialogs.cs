@@ -35,6 +35,7 @@ public partial class MainWindow
         _viewModel.Basket.AskRemovalReason = AskCartRemovalReasonAsync; // 2026-10-17, этап 4: «Убрать из чека?»
         _hostBridge.ApplyLineDiscount = ApplyLineDiscountAsync;
         _hostBridge.ReplenishStockForProduct = ReplenishStockForProductAsync;
+        WireBazaarHooks(); // 2026-11-21 («Базар»): торг по строке и по чеку
     }
 
     /// <summary>
@@ -57,6 +58,8 @@ public partial class MainWindow
         {
             MergeIntoCurrentAsync = MergeDeferredIntoCurrentAsync,
             OpenAsSeparateAsync = OpenDeferredAsSeparateAsync,
+            GetHeldTabs = _viewModel.Basket.GetHeldTabEntries, // 2026-11-21: окно показывает и чеки-вкладки «Отложен ЧЧ:ММ», не только очередь
+            IsHeldTab = _viewModel.Basket.IsHeldTab,
         });
         // 2026-10-04: ShowModalAsync — в Windows прежний синхронный показ, на Android — без вложенного цикла.
         await PosDialogHost.ShowModalAsync(dlg, this).ConfigureAwait(true);
@@ -112,7 +115,7 @@ public partial class MainWindow
             var scannedQty = ParseManualQuantity(_viewModel.Basket.ManualQuantity, false);
             if (scannedQty <= 0)
                 scannedQty = 1;
-            if (!scanned.IsActive || scanned.Quantity < scannedQty)
+            if (!scanned.IsActive || (scanned.Quantity < scannedQty && !NegativeStockPolicy.Enabled)) // 2026-11-21: остаток размера не блокирует при «Продавать без остатка»
             {
                 var warn = !scanned.IsActive
                     ? Tr.T("Этот размер/цвет снят с продажи. Всё равно добавить?", "Бул өлчөм/түс сатуудан алынган. Баары бир кошулсунбу?",
@@ -144,7 +147,7 @@ public partial class MainWindow
                 await picker.ShowDialog(this).ConfigureAwait(true);
                 if (picker.Result is not { Id: { } variantId } chosen)
                     return;
-                if (chosen.Quantity < picker.Quantity
+                if (chosen.Quantity < picker.Quantity && !NegativeStockPolicy.Enabled // 2026-11-21: продажа в минус разрешена — не спрашиваем
                     && !await PosDialogs.ConfirmYesNoModalAsync(this, Tr.T(
                         $"Остаток этого размера/цвета — {chosen.Quantity:0.###} шт. Всё равно добавить {picker.Quantity:0} шт.?",
                         $"Бул өлчөм/түстүн калдыгы — {chosen.Quantity:0.###} даана. Баары бир {picker.Quantity:0} даана кошулсунбу?",
@@ -162,6 +165,16 @@ public partial class MainWindow
                 _viewModel.Basket.AddVariantFromCatalog(vm, picker.Quantity, unitPrice, variantId, label, chosen.Size, chosen.Color);
                 return;
             }
+        }
+
+        // 2026-11-21 (жалоба магазина по видео: «Кирешки Лайт 33г» в чеке по 0,00, «Оплатить 0,00»): товар без цены в чек молча не кладём — кассиру понятное сообщение,
+        // владельцу/администратору — «Указать цену» (карточка товара). Цена появилась — товар добавляется уже с ней.
+        if (!TrainingMode.IsActive && ZeroPriceGuard.IsPriceMissing(vm))
+        {
+            var withPrice = await ResolveMissingPriceAsync(vm).ConfigureAwait(true);
+            if (withPrice is null)
+                return;
+            vm = withPrice;
         }
 
         if (vm.HasPieceOption && !mustWeigh)
@@ -191,6 +204,7 @@ public partial class MainWindow
                         return;
                 }
 
+                NoteSellingIntoMinus(vm, packageEquivalentQty, cart, reservedElsewhere);
                 _viewModel.Basket.AddProductFromCatalogWithOverride(
                     vm, pkgDlg.Quantity, pieceOption.PieceUnitPrice, pieceOption.Id);
                 return;
@@ -269,6 +283,7 @@ public partial class MainWindow
                 return;
         }
 
+        NoteSellingIntoMinus(vm, qtyToAdd, cart, reservedInOtherOpenReceipts);
         var flashBefore = _viewModel.Basket.AddFlashVersion;
         _viewModel.Basket.AddProductFromCatalog(vm, lineNameOverride);
 
@@ -276,6 +291,75 @@ public partial class MainWindow
             && _viewModel.Basket.LastAddedItemId is { } addedLineId
             && ReceiptSnapshotCartEditor.AddLineSerials(cart, addedLineId, serials, ElectronicsProfile.WarrantyMonthsFor(vm.Id, vm.Category))) // 2026-11-13: track_serials / warranty_months с сервера главнее категории
             _viewModel.Basket.RefreshFromCart();
+    }
+
+    /// <summary>2026-11-21, владелец: «если товара нет на складе, кассир может продавать в минус». Настройка «Продавать товар без остатка» включена, а остатка не хватает —
+    /// мягкая отметка (плашка без окна и вопросов): «остаток будет в минусе»; строка в журнал. Выключена — ничего (товар сюда не доходит: его остановил ShowNoStockBlockedAsync).</summary>
+    private void NoteSellingIntoMinus(CatalogProductTileVm vm, double qty, ICartService cart, double additionalReserved)
+    {
+        if (TrainingMode.IsActive || !NegativeStockPolicy.Enabled || !StockAvailabilityService.WouldGoNegative(vm.Id, qty, cart, additionalReserved: additionalReserved))
+            return;
+        PosLogger.Log($"CART: «{vm.Title}» ({vm.Id}) добавлен сверх остатка (на складе {StockAvailabilityService.GetWarehouseQuantity(vm.Id):0.###}, в чек {qty:0.###}) — продажа в минус разрешена настройкой.", "CART");
+        _prompts.ShowToast(Tr.T($"«{vm.Title}»: остаток будет в минусе.", $"«{vm.Title}»: калдык минуста болот.", $"“{vm.Title}”: stock will go negative.",
+            $"«{vm.Title}»: stok eksiye düşecek.", $"«{vm.Title}»: qoldiq minusda bo'ladi."));
+    }
+
+    /// <summary>2026-11-21: у товара нет цены продажи (<see cref="ZeroPriceGuard"/>). Кассир без права править карточки — сообщение и отказ. Владелец/администратор (или «Склад: редактирование») —
+    /// «Указать цену»: свежая карточка с сервера, стандартная форма товара, после сохранения — карточка перечитывается. Возвращает товар с ценой или null (в чек не добавлять).</summary>
+    private async Task<CatalogProductTileVm?> ResolveMissingPriceAsync(CatalogProductTileVm vm)
+    {
+        PosLogger.Log($"CART: у товара «{vm.Title}» ({vm.Id}) нет цены продажи (плитка: «{vm.PriceLine}») — в чек не добавлен без решения кассира.", "CART");
+        var catalogApi = App.AppHost?.Services.GetService<ICatalogApiService>();
+        if (catalogApi is null || !_permissions.HasPermission(PosPermissions.EditProducts))
+        {
+            _prompts.ShowWarning(ZeroPriceGuard.CashierText(vm.Title));
+            return null;
+        }
+
+        if (!await PosDialogs.ConfirmYesNoModalAsync(this, ZeroPriceGuard.OwnerText(vm.Title),
+                title: Tr.T("Нет цены", "Баа жок", "No price", "Fiyat yok", "Narx yo'q"), confirmText: ZeroPriceGuard.SetPriceButton).ConfigureAwait(true))
+            return null;
+
+        // Свежая карточка (плитка из кэша не хранит часть полей, «Сохранить» стёр бы их на сервере); не ответил сервер — форма из памяти кассы, на сервер уйдут только изменённые поля.
+        var toEdit = vm;
+        try
+        {
+            var productId = vm.Id;
+            var detail = await ServerAnswerWait.ForegroundAsync("products/detail", t => catalogApi.ProductsDetailAsync(productId, t)).ConfigureAwait(true);
+            if (detail is { } json && ProductCatalogMapper.TryTile(json, PosApp.Settings?.ApiBaseUrl ?? "") is { } fresh)
+            {
+                fresh.ProductImagePath = vm.ProductImagePath;
+                toEdit = fresh;
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"CART: карточка {vm.Id} перед указанием цены не прочитана ({ex.GetType().Name}: {ex.Message}) — форма из памяти кассы.", "WARNING");
+        }
+
+        var dialog = new ProductEditDialog(catalogApi, toEdit);
+        var saved = await dialog.ShowDialog<bool>(this).ConfigureAwait(true);
+        if (saved && !dialog.SavePending)
+        {
+            try
+            {
+                await ServerAnswerWait.ForegroundAsync("catalog/refresh", t => CatalogCacheService.RefreshProductsAsync([dialog.SavedProductId ?? vm.Id], t)).ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"CART: карточка {vm.Id} после указания цены не обновлена в каталоге ({ex.GetType().Name}: {ex.Message}).", "WARNING");
+            }
+        }
+
+        var updated = CatalogCacheService.Products.FirstOrDefault(p => string.Equals(p.Id, vm.Id, StringComparison.OrdinalIgnoreCase))
+                      ?? ProductCodeLookup.FindExact(vm.Barcode);
+        if (updated is null || ZeroPriceGuard.IsPriceMissing(updated))
+        {
+            _prompts.ShowWarning(ZeroPriceGuard.StillNoPriceText(vm.Title));
+            return null;
+        }
+
+        return updated;
     }
 
     /// <summary>2026-11-12 (ЭЛ2): окно серийных номеров. null — кассир отменил (товар не добавляем); пустой список — «Пропустить» (после подтверждения).
@@ -352,6 +436,7 @@ public partial class MainWindow
                 return;
         }
 
+        NoteSellingIntoMinus(vm, weightKg, cart, reservedInOtherOpenReceipts);
         _viewModel.Basket.ManualQuantity = MoneyText.Qty(weightKg); // 2026-11-13 (Д-5): вес — с запятой
         _viewModel.Basket.AddProductFromCatalog(vm);
     }
@@ -917,6 +1002,7 @@ public partial class MainWindow
                 return false;
 
             DeferredCartsStore.RemoveIds(new[] { entry.Id });
+            _viewModel.Basket.RemoveHeldTab(entry.Id); // 2026-11-21: чек был вкладкой — позиции перенесены, вкладка закрывается
         }
 
         _viewModel.Basket.RefreshFromCart();
@@ -926,6 +1012,10 @@ public partial class MainWindow
 
     private async Task<bool> OpenDeferredAsSeparateAsync(DeferredCartEntry entry)
     {
+        // 2026-11-21: чек-вкладка «Отложен ЧЧ:ММ» — просто переключаемся на вкладку (корзина и серверная часть уже у неё).
+        if (_viewModel.Basket.OpenHeldTab(entry.Id))
+            return true;
+
         if (!_session.IsShiftOpen && !TrainingMode.IsActive) // 2026-11-13 (Н-1): в учебном режиме смену не открываем
         {
             await OpenShiftAsync().ConfigureAwait(true);

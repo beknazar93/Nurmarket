@@ -100,6 +100,8 @@
   <x:String x:Key="csh.cart.emptyHint">Chapdan mahsulot tanlang yoki&#x0a;shtrix-kodni skanerlang</x:String>
   <x:String x:Key="csh.cart.quickProducts">Tezkor mahsulotlar</x:String>
   <x:String x:Key="csh.cart.discountTooltip">Ushbu mahsulotga chegirma</x:String>
+  <x:String x:Key="csh.cart.haggle">Savdolashuv</x:String>
+  <x:String x:Key="csh.cart.haggleCheckTooltip">Chek bo'yicha savdolashuv: pastga yaxlitlash yoki summani kelishish</x:String>
   <x:String x:Key="csh.cart.weighTooltip">Mahsulotni qayta tortish</x:String>
   <x:String x:Key="csh.cart.decreaseTooltip">Kamaytirish</x:String>
   <x:String x:Key="csh.cart.increaseTooltip">Ko'paytirish</x:String>
@@ -122,15 +124,14 @@
   <x:String x:Key="mainWindow.openDownloadTooltip">Yuklab olish sahifasini ochish</x:String>
   <x:String x:Key="mainWindow.checkCustomerDisplayTooltip">Xaridor ekranini tekshirish</x:String>
   <x:String x:Key="mainWindow.onScreenKeyboardTooltip">Ekran klaviaturasi</x:String>
-  <x:String x:Key="mainWindow.hotkeysTooltip">Tezkor tugmalar</x:String>
+  <x:String x:Key="mainWindow.hotkeysTooltip">Tugmalarni sozlash</x:String>
   <!-- 2026-11-13 (Н-1, Н-2): шпаргалка клавиш, подсказка пустого чека, мастер первого запуска и учебная продажа -->
-  <x:String x:Key="mainWindow.hotkeysCheatSheet">Kassa tugmalari (?)</x:String>
+  <x:String x:Key="mainWindow.hotkeysCheatSheet">Tugmalar bo'yicha eslatma (?)</x:String>
   <x:String x:Key="csh.cart.scanTitle">Mahsulotni skanerlang</x:String>
   <x:String x:Key="csh.cart.scanHint">Skaner ekranning istalgan joyidan ishlaydi.&#x0a;Yoki qidiruv maydoniga kod / nomini yozing.</x:String>
   <x:String x:Key="csh.cart.keysLink">Tugmalar: ?</x:String>
   <x:String x:Key="csh.menu.firstRunWizard">O'rgatish: kassa bo'ylab sayr</x:String>
   <x:String x:Key="csh.menu.trainingSale">O'quv sotuvi</x:String>
-  <x:String x:Key="csh.menu.transferData">Boshqa dasturdan ma'lumot ko'chirish</x:String>
   <x:String x:Key="hotkeyGroup.title">Tezkor tugma</x:String>
   <x:String x:Key="header.labelCustomerDisplay">Ekran</x:String>
   <x:String x:Key="header.labelTheme">Mavzu</x:String>
@@ -784,6 +785,8 @@
   <x:String x:Key="posSettings.screen.autoTouchKeyboard">Sensorli klaviaturani avtomatik ko'rsatish</x:String>
   <x:String x:Key="posSettings.screen.showCatalogPhotos">Katalogda mahsulot rasmlarini ko'rsatish</x:String>
   <x:String x:Key="posSettings.screen.showCatalogPhotosDesc">Agar mahsulotning yuklangan rasmi bo'lmasa, faqat nomi ko'rsatiladi.</x:String>
+  <x:String x:Key="posSettings.screen.noBarcodeFirst">Avval shtrixkodsiz mahsulotlar</x:String>
+  <x:String x:Key="posSettings.screen.noBarcodeFirstDesc">Non, bulochka va zavod shtrixkodi yo'q boshqa mahsulotlar katalog boshida turadi, keyin qolganlari. Qidiruvda tartib moslik bo'yicha.</x:String>
   <x:String x:Key="posSettings.screen.cashbox">Kassa</x:String>
   <x:String x:Key="posSettings.screen.cashboxDesc">Standart bo'yicha birinchi faol kassa olinadi. Agar u boshqa kassa bo'lsa, kerakligini shu yerdan tanlang.</x:String>
   <x:String x:Key="posSettings.screen.refreshCashboxesTooltip">Kassalar ro'yxatini yangilash</x:String>
@@ -1137,7 +1140,6 @@
   <x:String x:Key="warehouse.printLabelButton">Chop etish</x:String>
   <x:String x:Key="warehouse.colPriceTag">Narx yorlig'i</x:String>
   <x:String x:Key="warehouse.priceTagButton">Narx yorlig'i</x:String>
-  <x:String x:Key="warehouse.bulkPriceTagButton">Shtrix-kod va narx yorliqlarini chop etish</x:String>
   <x:String x:Key="warehouse.analyticsLockedTitle">Ombor tahlili — pullik qo'shimcha xizmat</x:String>
   <x:String x:Key="warehouse.analyticsLockedDesc">Grafiklar va toifalar bo'yicha taqsimot seriya raqami bilan faollashtirilgandan keyin ochiladi — Marketpleysdagi mavzular kabi.</x:String>
   <x:String x:Key="warehouse.analyticsUnlockButton">Faollashtirish</x:String>
@@ -1209,10 +1211,6 @@
   <x:String x:Key="warehouse.movementsNote">Izoh</x:String>
   <x:String x:Key="warehouse.movementsSale">Sotuv</x:String>
   <x:String x:Key="warehouse.movementsWriteOff">Hisobdan chiqarish</x:String>
-  <x:String x:Key="warehouse.tabLabelEditor">Yorliq muharriri</x:String>
-  <x:String x:Key="warehouse.labelEditorTabTitle">Yorliq muharriri</x:String>
-  <x:String x:Key="warehouse.labelEditorTabDescription">Yorliqda shtrix-kod, nom, narx, artikul, o'lchov birligi va do'kon nomini joylashtirish — har bir elementni sudrab ko'chirish va alohida sozlash mumkin. Mahsulot qatoridan chop etiladigan yorliqlar (⋯ → Yorliqni chop etish) shu shablon bo'yicha chiqadi.</x:String>
-  <x:String x:Key="warehouse.labelEditorTabButton">Muharrirni ochish</x:String>
   <x:String x:Key="warehouse.analyticsSkuCountLabel">Katalogdagi mahsulotlar</x:String>
   <x:String x:Key="warehouse.analyticsOutOfStockLabel">Mavjud emas</x:String>
   <x:String x:Key="warehouse.analyticsLowStockLabel">Kam qoldiq</x:String>

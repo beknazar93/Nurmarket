@@ -42,6 +42,10 @@ public sealed class ServerShiftReport
     /// <summary>by_payment как прислал сервер (cash, transfer, mixed_cash, mixed_card, debt, …).</summary>
     public IReadOnlyDictionary<string, decimal> ByPayment { get; init; } = new Dictionary<string, decimal>();
 
+    /// <summary>2026-11-21 («Базар», модуль «Валюты», ответ сервера 20.11 В.19): <c>cash_by_currency</c> — сколько валюты наличными в ящике смены (код → сумма в валюте и её сомы,
+    /// уже входящие в наличные). Пусто — валюту не принимали или старый сервер.</summary>
+    public IReadOnlyDictionary<string, (decimal AmountCurrency, decimal AmountSom)> CashByCurrency { get; init; } = new Dictionary<string, (decimal, decimal)>();
+
     public decimal Cash => Get("cash");
     public decimal MixedCash => Get("mixed_cash");
     public decimal MixedCard => Get("mixed_card");
@@ -135,8 +139,17 @@ public sealed class ServerShiftReport
             }
         }
 
+        var byCurrency = new Dictionary<string, (decimal AmountCurrency, decimal AmountSom)>(StringComparer.OrdinalIgnoreCase);
+        if (e.TryGetProperty("cash_by_currency", out var cbc) && cbc.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var p in cbc.EnumerateObject())
+                if (p.Value.ValueKind == JsonValueKind.Object && Num(p.Value, "amount_currency") is { } inCurrency && Num(p.Value, "amount") is { } inSom)
+                    byCurrency[p.Name.Trim().ToUpperInvariant()] = (inCurrency, inSom);
+        }
+
         return new ServerShiftReport
         {
+            CashByCurrency = byCurrency,
             ShiftId = Str(e, "shift") ?? "",
             Status = Str(e, "status") ?? "",
             CashierId = Str(e, "cashier"),

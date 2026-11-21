@@ -14,7 +14,6 @@ public sealed class CatalogFilterViewModel : ViewModelBase
     public const string AllCategories = "Все категории";
     public const string AllBrands = "Все бренды";
 
-    private string _searchText = "";
     private string _selectedKind = AllProducts;
     private string _selectedCategory = AllCategories;
     private string _selectedBrand = AllBrands;
@@ -24,8 +23,7 @@ public sealed class CatalogFilterViewModel : ViewModelBase
 
     public CatalogFilterViewModel(
         IEnumerable<CatalogProductTileVm> products,
-        CatalogFilterCriteria? current = null,
-        string initialSearch = "")
+        CatalogFilterCriteria? current = null)
     {
         var list = products.ToList();
         Categories = new ObservableCollection<string>(new[] { AllCategories }.Concat(
@@ -44,7 +42,7 @@ public sealed class CatalogFilterViewModel : ViewModelBase
         PieceCount = list.Count - WeightedCount;
         FavoriteCount = list.Count(x => x.IsFavorite);
 
-        SearchText = !string.IsNullOrWhiteSpace(current?.SearchText) ? current.SearchText : initialSearch;
+        // 2026-11-21: своего поиска у фильтра нет — владелец: «Фильтр должен пользоваться поисковиком каталога»; строка поиска одна, в каталоге.
         SelectedKind = NormalizeChoice(current?.Kind, Kinds, AllProducts);
         SelectedCategory = NormalizeChoice(current?.Category, Categories, AllCategories);
         SelectedBrand = NormalizeChoice(current?.Brand, Brands, AllBrands);
@@ -53,8 +51,8 @@ public sealed class CatalogFilterViewModel : ViewModelBase
         PriceMax = FormatPrice(current?.PriceMax);
     }
 
-    public CatalogFilterViewModel(IEnumerable<string> categories, string initialSearch = "")
-        : this(Array.Empty<CatalogProductTileVm>(), null, initialSearch)
+    public CatalogFilterViewModel(IEnumerable<string> categories)
+        : this(Array.Empty<CatalogProductTileVm>(), null)
     {
         foreach (var category in categories.Where(x => !string.IsNullOrWhiteSpace(x)))
             if (!Categories.Contains(category)) Categories.Add(category);
@@ -76,13 +74,17 @@ public sealed class CatalogFilterViewModel : ViewModelBase
             $"Toplam: {TotalCount} · Tartılı: {WeightedCount} · Adetli: {PieceCount} · Favoriler: {FavoriteCount}",
             $"Jami: {TotalCount} · Vaznli: {WeightedCount} · Donali: {PieceCount} · Sevimlilar: {FavoriteCount}");
 
-    public string SearchText { get => _searchText; set => SetProperty(ref _searchText, value ?? ""); }
-    public string SelectedKind { get => _selectedKind; set => SetProperty(ref _selectedKind, value ?? AllProducts); }
-    public string SelectedCategory { get => _selectedCategory; set => SetProperty(ref _selectedCategory, value ?? AllCategories); }
-    public string SelectedBrand { get => _selectedBrand; set => SetProperty(ref _selectedBrand, value ?? AllBrands); }
-    public string PriceMin { get => _priceMin; set => SetProperty(ref _priceMin, value ?? ""); }
-    public string PriceMax { get => _priceMax; set => SetProperty(ref _priceMax, value ?? ""); }
-    public bool OnlyInStock { get => _onlyInStock; set => SetProperty(ref _onlyInStock, value); }
+    // 2026-11-21: «Сбросить» в окне доступна, только когда есть что сбрасывать (CanReset) — иначе кнопка выключена и читается как выключенная.
+    public string SelectedKind { get => _selectedKind; set { if (SetProperty(ref _selectedKind, value ?? AllProducts)) OnPropertyChanged(nameof(CanReset)); } }
+    public string SelectedCategory { get => _selectedCategory; set { if (SetProperty(ref _selectedCategory, value ?? AllCategories)) OnPropertyChanged(nameof(CanReset)); } }
+    public string SelectedBrand { get => _selectedBrand; set { if (SetProperty(ref _selectedBrand, value ?? AllBrands)) OnPropertyChanged(nameof(CanReset)); } }
+    public string PriceMin { get => _priceMin; set { if (SetProperty(ref _priceMin, value ?? "")) OnPropertyChanged(nameof(CanReset)); } }
+    public string PriceMax { get => _priceMax; set { if (SetProperty(ref _priceMax, value ?? "")) OnPropertyChanged(nameof(CanReset)); } }
+    public bool OnlyInStock { get => _onlyInStock; set { if (SetProperty(ref _onlyInStock, value)) OnPropertyChanged(nameof(CanReset)); } }
+
+    public bool CanReset =>
+        _selectedKind != AllProducts || _selectedCategory != AllCategories || _selectedBrand != AllBrands
+        || !string.IsNullOrWhiteSpace(_priceMin) || !string.IsNullOrWhiteSpace(_priceMax) || _onlyInStock;
 
     public CatalogFilterCriteria BuildCriteria()
     {
@@ -92,7 +94,7 @@ public sealed class CatalogFilterViewModel : ViewModelBase
             (minimum, maximum) = (maximum, minimum);
 
         return new CatalogFilterCriteria(
-            SearchText.Trim(), SelectedKind,
+            "", SelectedKind,
             SelectedCategory == AllCategories ? null : SelectedCategory,
             SelectedBrand == AllBrands ? null : SelectedBrand,
             minimum, maximum, OnlyInStock);
@@ -100,7 +102,6 @@ public sealed class CatalogFilterViewModel : ViewModelBase
 
     public void Reset()
     {
-        SearchText = "";
         SelectedKind = AllProducts;
         SelectedCategory = AllCategories;
         SelectedBrand = AllBrands;

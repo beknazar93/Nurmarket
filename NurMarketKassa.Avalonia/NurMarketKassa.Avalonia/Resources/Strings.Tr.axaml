@@ -100,6 +100,8 @@
   <x:String x:Key="csh.cart.emptyHint">Soldan bir ürün seçin veya&#x0a;barkod okutun</x:String>
   <x:String x:Key="csh.cart.quickProducts">Hızlı ürünler</x:String>
   <x:String x:Key="csh.cart.discountTooltip">Bu üründe indirim</x:String>
+  <x:String x:Key="csh.cart.haggle">Pazarlık</x:String>
+  <x:String x:Key="csh.cart.haggleCheckTooltip">Fişte pazarlık: aşağı yuvarla veya tutarda anlaş</x:String>
   <x:String x:Key="csh.cart.weighTooltip">Ürünü yeniden tart</x:String>
   <x:String x:Key="csh.cart.decreaseTooltip">Azalt</x:String>
   <x:String x:Key="csh.cart.increaseTooltip">Artır</x:String>
@@ -122,15 +124,14 @@
   <x:String x:Key="mainWindow.openDownloadTooltip">İndirme sayfasını aç</x:String>
   <x:String x:Key="mainWindow.checkCustomerDisplayTooltip">Müşteri ekranını kontrol et</x:String>
   <x:String x:Key="mainWindow.onScreenKeyboardTooltip">Ekran klavyesi</x:String>
-  <x:String x:Key="mainWindow.hotkeysTooltip">Kısayol tuşları</x:String>
+  <x:String x:Key="mainWindow.hotkeysTooltip">Kısayolları ayarla</x:String>
   <!-- 2026-11-13 (Н-1, Н-2): шпаргалка клавиш, подсказка пустого чека, мастер первого запуска и учебная продажа -->
-  <x:String x:Key="mainWindow.hotkeysCheatSheet">Kasa tuşları (?)</x:String>
+  <x:String x:Key="mainWindow.hotkeysCheatSheet">Tuş ipuçları (?)</x:String>
   <x:String x:Key="csh.cart.scanTitle">Ürünü okutun</x:String>
   <x:String x:Key="csh.cart.scanHint">Tarayıcı ekranın her yerinden çalışır.&#x0a;Ya da arama alanına kod / ad yazın.</x:String>
   <x:String x:Key="csh.cart.keysLink">Tuşlar: ?</x:String>
   <x:String x:Key="csh.menu.firstRunWizard">Eğitim: kasa turu</x:String>
   <x:String x:Key="csh.menu.trainingSale">Eğitim satışı</x:String>
-  <x:String x:Key="csh.menu.transferData">Başka programdan veri aktarımı</x:String>
   <x:String x:Key="hotkeyGroup.title">Kısayol</x:String>
   <x:String x:Key="header.labelCustomerDisplay">Ekran</x:String>
   <x:String x:Key="header.labelTheme">Tema</x:String>
@@ -784,6 +785,8 @@
   <x:String x:Key="posSettings.screen.autoTouchKeyboard">Dokunmatik klavyeyi otomatik göster</x:String>
   <x:String x:Key="posSettings.screen.showCatalogPhotos">Katalogda ürün fotoğraflarını göster</x:String>
   <x:String x:Key="posSettings.screen.showCatalogPhotosDesc">Ürünün yüklenmiş fotoğrafı yoksa, sadece adı gösterilir.</x:String>
+  <x:String x:Key="posSettings.screen.noBarcodeFirst">Önce barkodsuz ürünler</x:String>
+  <x:String x:Key="posSettings.screen.noBarcodeFirstDesc">Ekmek, çörek ve fabrika barkodu olmayan diğer ürünler katalogun başında, sonra diğerleri yer alır. Aramada sıra eşleşmeye göre olur.</x:String>
   <x:String x:Key="posSettings.screen.cashbox">Kasa</x:String>
   <x:String x:Key="posSettings.screen.cashboxDesc">Varsayılan olarak ilk aktif kasa alınır. Yanlışsa buradan doğrusunu seçin.</x:String>
   <x:String x:Key="posSettings.screen.refreshCashboxesTooltip">Kasa listesini yenile</x:String>
@@ -1137,7 +1140,6 @@
   <x:String x:Key="warehouse.printLabelButton">Yazdır</x:String>
   <x:String x:Key="warehouse.colPriceTag">Fiyat etiketi</x:String>
   <x:String x:Key="warehouse.priceTagButton">Fiyat etiketi</x:String>
-  <x:String x:Key="warehouse.bulkPriceTagButton">Barkod ve fiyat etiketi yazdır</x:String>
   <x:String x:Key="warehouse.analyticsLockedTitle">Depo analitiği — ücretli ek hizmet</x:String>
   <x:String x:Key="warehouse.analyticsLockedDesc">Grafikler ve kategori dağılımı, seri numarasıyla etkinleştirildikten sonra kullanılabilir — Pazaryerindeki temalar gibi.</x:String>
   <x:String x:Key="warehouse.analyticsUnlockButton">Etkinleştir</x:String>
@@ -1209,10 +1211,6 @@
   <x:String x:Key="warehouse.movementsNote">Not</x:String>
   <x:String x:Key="warehouse.movementsSale">Satış</x:String>
   <x:String x:Key="warehouse.movementsWriteOff">Düşüm</x:String>
-  <x:String x:Key="warehouse.tabLabelEditor">Etiket editörü</x:String>
-  <x:String x:Key="warehouse.labelEditorTabTitle">Etiket editörü</x:String>
-  <x:String x:Key="warehouse.labelEditorTabDescription">Etikette barkod, ad, fiyat, stok kodu, birim ve mağaza adının yerleşimi — her öğeyi sürükleyerek ve ayarlayarak. Ürün satırından basılan etiketler (⋯ → Etiket yazdır) bu şablonu kullanır.</x:String>
-  <x:String x:Key="warehouse.labelEditorTabButton">Editörü aç</x:String>
   <x:String x:Key="warehouse.analyticsSkuCountLabel">Katalogdaki ürünler</x:String>
   <x:String x:Key="warehouse.analyticsOutOfStockLabel">Stokta yok</x:String>
   <x:String x:Key="warehouse.analyticsLowStockLabel">Düşük stok</x:String>

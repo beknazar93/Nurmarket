@@ -100,6 +100,8 @@
   <x:String x:Key="csh.cart.emptyHint">Сол жактан товар тандаңыз же&#x0a;штрихкодду сканерлеңиз</x:String>
   <x:String x:Key="csh.cart.quickProducts">Ыкчам товарлар</x:String>
   <x:String x:Key="csh.cart.discountTooltip">Бул товарга арзандатуу</x:String>
+  <x:String x:Key="csh.cart.haggle">Соодалашуу</x:String>
+  <x:String x:Key="csh.cart.haggleCheckTooltip">Чек боюнча соодалашуу: төмөн тегеректөө же сумманы макулдашуу</x:String>
   <x:String x:Key="csh.cart.weighTooltip">Товарды кайра тартуу</x:String>
   <x:String x:Key="csh.cart.decreaseTooltip">Азайтуу</x:String>
   <x:String x:Key="csh.cart.increaseTooltip">Көбөйтүү</x:String>
@@ -122,15 +124,14 @@
   <x:String x:Key="mainWindow.openDownloadTooltip">Жүктөө барагын ачуу</x:String>
   <x:String x:Key="mainWindow.checkCustomerDisplayTooltip">Сатып алуучунун экранын текшерүү</x:String>
   <x:String x:Key="mainWindow.onScreenKeyboardTooltip">Экрандык баскычтоп</x:String>
-  <x:String x:Key="mainWindow.hotkeysTooltip">Ыкчам баскычтар</x:String>
+  <x:String x:Key="mainWindow.hotkeysTooltip">Баскычтарды ыңгайлаштыруу</x:String>
   <!-- 2026-11-13 (Н-1, Н-2): шпаргалка клавиш, подсказка пустого чека, мастер первого запуска и учебная продажа -->
-  <x:String x:Key="mainWindow.hotkeysCheatSheet">Кассанын баскычтары (?)</x:String>
+  <x:String x:Key="mainWindow.hotkeysCheatSheet">Баскычтар боюнча шыбыртма (?)</x:String>
   <x:String x:Key="csh.cart.scanTitle">Товарды сканерлеңиз</x:String>
   <x:String x:Key="csh.cart.scanHint">Сканер экрандын каалаган жеринен иштейт.&#x0a;Же издөө талаасына кодун / атын жазыңыз.</x:String>
   <x:String x:Key="csh.cart.keysLink">Баскычтар: ?</x:String>
   <x:String x:Key="csh.menu.firstRunWizard">Үйрөнүү: кассадагы экскурсия</x:String>
   <x:String x:Key="csh.menu.trainingSale">Окуу сатуусу</x:String>
-  <x:String x:Key="csh.menu.transferData">Башка программадан маалыматты которуу</x:String>
   <x:String x:Key="hotkeyGroup.title">Ыкчам баскыч</x:String>
   <x:String x:Key="header.labelCustomerDisplay">Экран</x:String>
   <x:String x:Key="header.labelTheme">Тема</x:String>
@@ -784,6 +785,8 @@
   <x:String x:Key="posSettings.screen.autoTouchKeyboard">Сенсордук баскычтопту автоматтык түрдө көрсөтүү</x:String>
   <x:String x:Key="posSettings.screen.showCatalogPhotos">Каталогдо товарлардын сүрөттөрүн көрсөтүү</x:String>
   <x:String x:Key="posSettings.screen.showCatalogPhotosDesc">Эгер товардын жүктөлгөн сүрөтү жок болсо, аты гана көрсөтүлөт.</x:String>
+  <x:String x:Key="posSettings.screen.noBarcodeFirst">Адегенде штрих-коду жок товарлар</x:String>
+  <x:String x:Key="posSettings.screen.noBarcodeFirstDesc">Нан, булочка жана заводдук штрих-коду жок башка товарлар каталогдун башында турат, анан калгандары. Издөөдө тартип дал келүү боюнча.</x:String>
   <x:String x:Key="posSettings.screen.cashbox">Касса</x:String>
   <x:String x:Key="posSettings.screen.cashboxDesc">Демейки боюнча биринчи активдүү касса тандалат. Эгер ал туура эмес болсо — бул жерден керектүүсүн тандаңыз.</x:String>
   <x:String x:Key="posSettings.screen.refreshCashboxesTooltip">Кассалардын тизмесин жаңылоо</x:String>
@@ -1138,7 +1141,6 @@
   <x:String x:Key="warehouse.printLabelButton">Басып чыгаруу</x:String>
   <x:String x:Key="warehouse.colPriceTag">Баа белгиси</x:String>
   <x:String x:Key="warehouse.priceTagButton">Баа белгиси</x:String>
-  <x:String x:Key="warehouse.bulkPriceTagButton">Штрих-коддорду жана баа белгилерин басып чыгаруу</x:String>
   <x:String x:Key="warehouse.analyticsLockedTitle">Кампа аналитикасы — акылуу кошумча кызмат</x:String>
   <x:String x:Key="warehouse.analyticsLockedDesc">Графиктер жана категориялар боюнча бөлүштүрүү сериялык номер менен активдештирилгенден кийин ачылат — Маркетплейстеги темалар сыяктуу эле.</x:String>
   <x:String x:Key="warehouse.analyticsUnlockButton">Активдештирүү</x:String>
@@ -1210,10 +1212,6 @@
   <x:String x:Key="warehouse.movementsNote">Эскертме</x:String>
   <x:String x:Key="warehouse.movementsSale">Сатуу</x:String>
   <x:String x:Key="warehouse.movementsWriteOff">Эсептен чыгаруу</x:String>
-  <x:String x:Key="warehouse.tabLabelEditor">Этикетка редактору</x:String>
-  <x:String x:Key="warehouse.labelEditorTabTitle">Этикетка редактору</x:String>
-  <x:String x:Key="warehouse.labelEditorTabDescription">Штрихкоддун, аталыштын, баанын, артикулдун, өлчөө бирдигинин жана дүкөндүн аталышынын этикеткадагы жайгашуусу — сүйрөп жылдырып, ар бир элементти жөндөсө болот. Товардын сабынан басылган этикеткалар ушул шаблон боюнча чыгат (⋯ → Этикетка басуу).</x:String>
-  <x:String x:Key="warehouse.labelEditorTabButton">Редакторду ачуу</x:String>
   <x:String x:Key="warehouse.analyticsSkuCountLabel">Каталогдогу товарлар</x:String>
   <x:String x:Key="warehouse.analyticsOutOfStockLabel">Калдыгы жок</x:String>
   <x:String x:Key="warehouse.analyticsLowStockLabel">Калдыгы аз</x:String>

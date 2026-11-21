@@ -5,8 +5,10 @@ using System.Text.Json;
 
 namespace NurMarketKassa.Services.Api;
 
-/// <summary>Тарифный план из GET public/tariffs/. Решать по <see cref="Code"/> (start / standard / custom), не по имени.</summary>
-public sealed record TariffPlan(string Code, string Name, decimal? Price, string? BaseCode);
+/// <summary>Тарифный план из GET public/tariffs/. Решать по <see cref="Code"/> (start / standard / custom), не по имени.
+/// 2026-11-21 (ответ Умара 21.11): YearPrice — plans[].year.price (год = 10 месяцев; null — сервер года не отдал).</summary>
+/// TrialDays — trial_days (пробный период при регистрации: «Мини» 14 дней, остальные 10).
+public sealed record TariffPlan(string Code, string Name, decimal? Price, string? BaseCode, decimal? YearPrice = null, int? TrialDays = null);
 
 /// <summary>Пакет из GET public/tariffs/ (ai, clients, sales_analytics, restock, salary, debts, service, scales, telegram_bot, shift_analytics, analytics_export).
 /// Цены — только с сервера (временные, владелец меняет их в админке). <see cref="IncludedIn"/> — коды планов, куда пакет входит бесплатно.</summary>
@@ -21,7 +23,19 @@ public sealed record TariffQuotePack(string Code, decimal Monthly, decimal Once,
 
 /// <summary>Расчёт POST users/company/tariff/quote/: Monthly — сумма только по пакетам (база тарифа — отдельно в Base), Once — разовая активация.
 /// StandardCheaper + StandardPrice — «Стандарт выйдет дешевле».</summary>
-public sealed record TariffQuote(decimal Monthly, decimal Once, decimal Base, IReadOnlyList<TariffQuotePack> Packs, bool StandardCheaper, decimal? StandardPrice);
+/// <summary>2026-11-21 (ответ Умара 20.11, В.23): модуль в расчёте — входит в профиль бесплатно (Included) или добавлен сверх него (Extra, Monthly — сом в месяц).</summary>
+public sealed record TariffQuoteModule(string Id, string Name, decimal Monthly);
+
+public sealed record TariffQuote(decimal Monthly, decimal Once, decimal Base, IReadOnlyList<TariffQuotePack> Packs, bool StandardCheaper, decimal? StandardPrice,
+    string? BasePlan = null, string? Sphere = null, IReadOnlyList<TariffQuoteModule>? Included = null, IReadOnlyList<TariffQuoteModule>? Extra = null, decimal? ExtraMonth = null, decimal? TotalMonth = null,
+    string? PlanAfter = null, IReadOnlyList<string>? Removed = null, decimal? StartPrice = null, string? Period = null, decimal? TotalYear = null, decimal? YearDiscount = null, int? YearPaidMonths = null, decimal? TotalOnce = null)
+{
+    /// <summary>2026-11-21 (ответ Умара 21.11): после снятия пакета со «Стандарта» сервер возвращает plan_after = "custom" — тариф станет «Своё»: «Старт» + оставшиеся пакеты.</summary>
+    public bool BecomesCustom => string.Equals(PlanAfter, "custom", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Сервер посчитал и модули (поле total_month): тариф + пакеты + модули других сфер.</summary>
+    public bool HasModules => TotalMonth is not null;
+}
 
 /// <summary>Принятая заявка (201): сервер только записывает её, менеджер обрабатывает; платёжной ссылки нет (PayUrl null).</summary>
 public sealed record TariffOrder(string OrderId, string Status, decimal AmountMonthly, decimal AmountOnce, string? PayUrl);
@@ -31,7 +45,18 @@ public interface ITariffApi
 {
     Task<TariffCatalog> GetCatalogAsync(CancellationToken ct = default);
     Task<TariffQuote> QuoteAsync(IReadOnlyList<string> packs, CancellationToken ct = default);
+
+    /// <summary>2026-11-21: расчёт вместе с модулями (modules[], sphere — можно не передавать: сервер берёт текущие модули и профиль компании). По умолчанию — расчёт без модулей (прежние проверки и заглушки).</summary>
+    Task<TariffQuote> QuoteAsync(IReadOnlyList<string> packs, IReadOnlyList<string>? modules, string? sphere, CancellationToken ct = default) => QuoteAsync(packs, ct);
+
+    /// <summary>2026-11-21 (ответ Умара 21.11): + remove[] (снять пакеты, входящие в тариф «Стандарт») и period ("month" | "year"; год = 10 месяцев). По умолчанию — прежний расчёт без снятия.</summary>
+    Task<TariffQuote> QuoteAsync(IReadOnlyList<string> packs, IReadOnlyList<string>? modules, string? sphere, IReadOnlyList<string>? remove, string period, CancellationToken ct = default) =>
+        QuoteAsync(packs, modules, sphere, ct);
     Task<TariffOrder> SubmitCustomAsync(IReadOnlyList<string> packs, string idempotencyKey, CancellationToken ct = default);
+
+    /// <summary>2026-11-21: заявка с modules[], remove[] и period (POST users/company/tariff/custom/). По умолчанию — прежняя заявка только с пакетами.</summary>
+    Task<TariffOrder> SubmitCustomAsync(IReadOnlyList<string> packs, IReadOnlyList<string>? modules, IReadOnlyList<string>? remove, string period, string idempotencyKey, CancellationToken ct = default) =>
+        SubmitCustomAsync(packs, idempotencyKey, ct);
 }
 
 /// <summary>2026-11-08 (ТЗ п. 32, Б-39, ответ Умара 08.11): тариф «Своё» — пакеты функций поверх «Старта».
@@ -48,6 +73,12 @@ public sealed class TariffApi : ITariffApi
     private readonly NurMarketApiClient _api;
 
     public TariffApi(NurMarketApiClient api) => _api = api;
+
+    /// <summary>Последний полученный каталог тарифов (кэш 10 минут); null — ещё не загружался. Для подписей без запроса (пробный период «Мини» в карточке тарифа).</summary>
+    public static TariffCatalog? CachedCatalog
+    {
+        get { lock (CacheSync) return _cached; }
+    }
 
     internal static void ResetCacheForTests()
     {
@@ -76,13 +107,21 @@ public sealed class TariffApi : ITariffApi
         return catalog;
     }
 
-    public async Task<TariffQuote> QuoteAsync(IReadOnlyList<string> packs, CancellationToken ct = default)
+    public Task<TariffQuote> QuoteAsync(IReadOnlyList<string> packs, CancellationToken ct = default) => QuoteAsync(packs, null, null, ct);
+
+    public Task<TariffQuote> QuoteAsync(IReadOnlyList<string> packs, IReadOnlyList<string>? modules, string? sphere, CancellationToken ct = default) =>
+        QuoteAsync(packs, modules, sphere, null, "month", ct);
+
+    public async Task<TariffQuote> QuoteAsync(IReadOnlyList<string> packs, IReadOnlyList<string>? modules, string? sphere, IReadOnlyList<string>? remove, string period, CancellationToken ct = default)
     {
-        var data = await _api.RequestAsync(HttpMethod.Post, Root + "users/company/tariff/quote/", Body(packs), null, ct).ConfigureAwait(false);
+        var data = await _api.RequestAsync(HttpMethod.Post, Root + "users/company/tariff/quote/", QuoteBody(packs, modules, sphere, remove, period), null, ct).ConfigureAwait(false);
         return ParseQuote(data);
     }
 
-    public async Task<TariffOrder> SubmitCustomAsync(IReadOnlyList<string> packs, string idempotencyKey, CancellationToken ct = default)
+    public Task<TariffOrder> SubmitCustomAsync(IReadOnlyList<string> packs, string idempotencyKey, CancellationToken ct = default) =>
+        SubmitCustomAsync(packs, null, null, "month", idempotencyKey, ct);
+
+    public async Task<TariffOrder> SubmitCustomAsync(IReadOnlyList<string> packs, IReadOnlyList<string>? modules, IReadOnlyList<string>? remove, string period, string idempotencyKey, CancellationToken ct = default)
     {
         if (string.IsNullOrEmpty(_api.AccessToken))
             throw new ApiException(NurMarketApiClient.AuthInvalidHintRu, 401);
@@ -91,7 +130,7 @@ public sealed class TariffApi : ITariffApi
         // Повтор с тем же ключом сервер отдаёт тем же ответом — заявка не задваивается.
         using var req = new HttpRequestMessage(HttpMethod.Post, new Uri(_api.BaseAddress, Root + "users/company/tariff/custom/"));
         req.Headers.TryAddWithoutValidation("Idempotency-Key", idempotencyKey);
-        req.Content = new StringContent(JsonSerializer.Serialize(Body(packs)), Encoding.UTF8, "application/json");
+        req.Content = new StringContent(JsonSerializer.Serialize(QuoteBody(packs, modules, null, remove, period)), Encoding.UTF8, "application/json");
         using var outage = CancellationTokenSource.CreateLinkedTokenSource(ct, _api.OutageCancelToken);
         using var resp = await _api.SendRawAsync(req, outage.Token).ConfigureAwait(false);
         var text = await resp.Content.ReadAsStringAsync(outage.Token).ConfigureAwait(false);
@@ -104,8 +143,19 @@ public sealed class TariffApi : ITariffApi
         return ParseOrder(TryParse(text) ?? default);
     }
 
-    private static Dictionary<string, object?> Body(IReadOnlyList<string> packs) =>
-        new() { ["packs"] = packs.ToArray(), ["period"] = "month" }; // период пока только month
+    /// <summary>Тело расчёта и заявки: пакеты + (если заданы) модули, сфера и remove[] (снять пакеты тарифа «Стандарт»); период month | year (год = 10 месяцев, 2026-11-21).
+    /// Нет modules / sphere / remove — полей в теле нет, сервер берёт текущие модули и профиль компании.</summary>
+    internal static Dictionary<string, object?> QuoteBody(IReadOnlyList<string> packs, IReadOnlyList<string>? modules, string? sphere, IReadOnlyList<string>? remove = null, string period = "month")
+    {
+        var body = new Dictionary<string, object?> { ["packs"] = packs.ToArray(), ["period"] = string.Equals(period, "year", StringComparison.OrdinalIgnoreCase) ? "year" : "month" };
+        if (modules is not null)
+            body["modules"] = modules.ToArray();
+        if (remove is { Count: > 0 })
+            body["remove"] = remove.ToArray();
+        if (!string.IsNullOrWhiteSpace(sphere))
+            body["sphere"] = sphere.Trim();
+        return body;
+    }
 
     // ── Разбор ответов (internal — для тестов) ───────────────────────────────────────
 
@@ -121,7 +171,9 @@ public sealed class TariffApi : ITariffApi
                     var code = Str(item, "code");
                     if (code is null)
                         continue;
-                    plans.Add(new TariffPlan(code, LocalName(item, "name") ?? code, Dec(item, "price"), Str(item, "base")));
+                    plans.Add(new TariffPlan(code, LocalName(item, "name") ?? code, Dec(item, "price"), Str(item, "base"),
+                        item.TryGetProperty("year", out var yr) && yr.ValueKind == JsonValueKind.Object ? Dec(yr, "price") : null,
+                        Dec(item, "trial_days") is { } td && td > 0 ? (int)td : null));
                 }
 
             if (root.TryGetProperty("packs", out var k) && k.ValueKind == JsonValueKind.Array)
@@ -155,7 +207,34 @@ public sealed class TariffApi : ITariffApi
             }
 
         var cheaper = root.ValueKind == JsonValueKind.Object && root.TryGetProperty("standard_cheaper", out var sc) && sc.ValueKind == JsonValueKind.True;
-        return new TariffQuote(Dec(root, "monthly") ?? 0m, Dec(root, "once") ?? 0m, Dec(root, "base") ?? 0m, packs, cheaper, Dec(root, "standard_price"));
+        // 2026-11-21 (ответ Умара 20.11, В.23): included[{id, name}] — модули профиля (бесплатно), extra[{id, name, monthly}] — модули других сфер, total_month = тариф + пакеты + extra.
+        // 2026-11-21 (живая проверка тарифов на ТЕСТ Стандарт): сервер отдаёт base = 1300 (база «Старта») ДАЖЕ на «Стандарте», а цену ТЕКУЩЕГО тарифа — в base_price (3600); итог total_month считается от base_price.
+        // Берём base_price, иначе строка «Основа» в окне «Своё» на Стандарте не сходилась с итогом (1 300 + 0 ≠ 3 600).
+        // 2026-11-21 (ответ Умара 21.11): base — цена базового плана (на Стандарте 3600; со снятым пакетом база — «Старт» 1300), start_price — цена «Старта» отдельно; plan_after / removed — во что превратится тариф;
+        // total_year / year_discount / year_paid_months — год = 10 месяцев. Старый ответ (base = «Старт» даже на Стандарте) читается из base_price — запасной путь.
+        return new TariffQuote(Dec(root, "monthly") ?? 0m, Dec(root, "once") ?? 0m, Dec(root, "base") ?? Dec(root, "base_price") ?? 0m, packs, cheaper, Dec(root, "standard_price"),
+            Str(root, "base_plan"), Str(root, "sphere"), QuoteModules(root, "included"), QuoteModules(root, "extra"), Dec(root, "extra_month"), Dec(root, "total_month"),
+            Str(root, "plan_after"), StringList(root, "removed"), Dec(root, "start_price"), Str(root, "period"), Dec(root, "total_year"), Dec(root, "year_discount"),
+            root.ValueKind == JsonValueKind.Object && root.TryGetProperty("year_paid_months", out var ypm) && ypm.ValueKind == JsonValueKind.Number && ypm.TryGetInt32(out var ypmN) ? ypmN : null, Dec(root, "total_once"));
+    }
+
+    private static List<string> StringList(JsonElement root, string name) =>
+        root.ValueKind == JsonValueKind.Object && root.TryGetProperty(name, out var arr) && arr.ValueKind == JsonValueKind.Array
+            ? arr.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(x.GetString())).Select(x => x.GetString()!.Trim()).ToList()
+            : new List<string>();
+
+    private static List<TariffQuoteModule> QuoteModules(JsonElement root, string name)
+    {
+        var list = new List<TariffQuoteModule>();
+        if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty(name, out var arr) && arr.ValueKind == JsonValueKind.Array)
+            foreach (var item in arr.EnumerateArray().Where(i => i.ValueKind == JsonValueKind.Object))
+            {
+                var id = Str(item, "id");
+                if (id is null)
+                    continue;
+                list.Add(new TariffQuoteModule(id, LocalName(item, "name") ?? id, Dec(item, "monthly") ?? 0m));
+            }
+        return list;
     }
 
     internal static TariffOrder ParseOrder(JsonElement root) =>

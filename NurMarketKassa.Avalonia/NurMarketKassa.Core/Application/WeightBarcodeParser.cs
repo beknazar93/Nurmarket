@@ -265,6 +265,12 @@ public static class WeightBarcodeParser
         return true;
     }
 
+    /// <summary>2026-11-21: единственное решение «вес или сумма» для префикса — им пользуются и разбор скана (TryParse), и мастер/настройки весов
+    /// (ScaleBarcodeRules.Effective): свой разбор в настройках и в корзине разошёлся (мастер «вес», корзина «сумма»). Раскладка РС-200 → правило «сумма» →
+    /// правило «вес» → режим компании.</summary>
+    public static WeightBarcodeValueKind EffectiveKind(string prefix) =>
+        FindCustomLayout(prefix) is { } custom ? custom.Kind : ResolveKind(prefix);
+
     private static WeightBarcodeValueKind ResolveKind(string prefix)
     {
         if (AmountPrefixes.Contains(prefix))

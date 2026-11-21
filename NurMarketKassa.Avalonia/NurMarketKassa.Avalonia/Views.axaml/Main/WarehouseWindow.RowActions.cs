@@ -23,7 +23,6 @@ public partial class WarehouseWindow
     public static string RowStockText => Tr.T("Остаток", "Калдык", "Stock", "Stok", "Qoldiq");
     public static string RowStockName => Tr.T("Изменить остаток", "Калдыкты өзгөртүү", "Change stock", "Stoğu değiştir", "Qoldiqni o'zgartirish");
     public static string RowEditName => Tr.T("Изменить товар", "Товарды түзөтүү", "Edit product", "Ürünü düzenle", "Mahsulotni tahrirlash");
-    public static string RowLabelText => Tr.T("Печать этикетки", "Этикетка басып чыгаруу", "Print label", "Etiket yazdır", "Yorliq chop etish"); // 2026-11-01
     public static string RowMoreText => Tr.T("Ещё действия", "Дагы аракеттер", "More actions", "Diğer işlemler", "Boshqa amallar");
 
     /// <summary>2026-10-19, этап О9: «нет в наличии» — остаток 0 и меньше (красная плашка). Флаг IsLowStock у товара с нулём
@@ -44,8 +43,6 @@ public partial class WarehouseWindow
     private const double NameMinWidth = 200;
     private const double NameMinWidthCompact = 170;
 
-    private const string IconLabel = "M5.5,7A1.5,1.5 0 0,1 4,5.5A1.5,1.5 0 0,1 5.5,4A1.5,1.5 0 0,1 7,5.5A1.5,1.5 0 0,1 5.5,7M21.41,11.58L12.41,2.58C12.05,2.22 11.55,2 11,2H4C2.89,2 2,2.89 2,4V11C2,11.55 2.22,12.05 2.59,12.41L11.58,21.41C11.95,21.77 12.45,22 13,22C13.55,22 14.05,21.77 14.41,21.41L21.41,14.41C21.78,14.05 22,13.55 22,13C22,12.44 21.77,11.94 21.41,11.58Z";
-    private const string IconPriceTag = "M7,15H9C9,16.08 10.37,17 12,17C13.63,17 15,16.08 15,15C15,13.9 13.96,13.5 11.76,12.97C9.64,12.44 7,11.78 7,9C7,7.21 8.47,5.69 10.5,5.18V3H13.5V5.18C15.53,5.69 17,7.21 17,9H15C15,7.92 13.63,7 12,7C10.37,7 9,7.92 9,9C9,10.1 10.04,10.5 12.24,11.03C14.36,11.56 17,12.22 17,15C17,16.79 15.53,18.31 13.5,18.82V21H10.5V18.82C8.47,18.31 7,16.79 7,15Z";
     private const string IconPhoto = "M4,4H7L9,2H15L17,4H20A2,2 0 0,1 22,6V18A2,2 0 0,1 20,20H4A2,2 0 0,1 2,18V6A2,2 0 0,1 4,4M12,7A5,5 0 0,0 7,12A5,5 0 0,0 12,17A5,5 0 0,0 17,12A5,5 0 0,0 12,7M12,9A3,3 0 0,1 15,12A3,3 0 0,1 12,15A3,3 0 0,1 9,12A3,3 0 0,1 12,9Z";
     private const string IconReceipts = "M19,3H5C3.9,3 3,3.9 3,5V19C3,20.1 3.9,21 5,21H19C20.1,21 21,20.1 21,19V5C21,3.9 20.1,3 19,3M19,19H5V5H19V19M7,7H17V9H7V7M7,11H17V13H7V11M7,15H13V17H7V15Z";
     private const string IconDelete = "M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z";
@@ -61,10 +58,7 @@ public partial class WarehouseWindow
             others += columns[i].Width.IsAbsolute ? columns[i].Width.Value : columns[i].ActualWidth;
         // 32 — рамка таблицы, полоса прокрутки и поля строк.
         var compact = e.NewSize.Width < NameMinWidth + others + RowActionsWideWidth + 32;
-        var wasCompact = ProductsGrid.Classes.Contains("row-compact");
         ProductsGrid.Classes.Set("row-compact", compact);
-        if (wasCompact != compact)
-            UpdatePrintPickButton(); // 2026-11-19: короткая подпись «Ценники» в узкой таблице
         SyncProductsEmpty(); // 2026-11-19: вид пустого состояния зависит от высоты таблицы
         columns[0].MinWidth = compact ? NameMinWidthCompact : NameMinWidth;
         // 2026-10-19, этап О9 (аудит: на 1024 «Кока-Кола 1,…»): в узкой таблице колонка «Код / штрихкод» прячется — место
@@ -81,6 +75,12 @@ public partial class WarehouseWindow
         if (sender is not Button { Tag: CatalogProductTileVm product } anchor)
             return;
 
+        BuildRowMenu(product).ShowAt(anchor);
+    }
+
+    /// <summary>Меню «⋯» товара (вынесено для проверок: в нём нет пунктов печати и редакторов — они только на вкладке «Ценники и штрихкоды»).</summary>
+    public MenuFlyout BuildRowMenu(CatalogProductTileVm product)
+    {
         var menu = new MenuFlyout { Placement = PlacementMode.BottomEdgeAlignedRight };
         menu.FlyoutPresenterClasses.Add("row-menu");
         // 2026-11-19 (п. 10): «Остаток» (приход, списание, точное количество) — первым пунктом меню; в строке его кнопки больше нет.
@@ -93,20 +93,15 @@ public partial class WarehouseWindow
             menu.Items.Add(RowMenuItem(Tr.T("Партии", "Партиялар", "Batches", "Partiler", "Partiyalar"), IconReceipts, ProductBatches_Click, product));
         if (ServerStock.ReservationsOn)
             menu.Items.Add(RowMenuItem(Tr.T("Резервы", "Резервдер", "Reservations", "Rezervler", "Zaxiralar"), IconReceipts, ProductReservations_Click, product));
-        // 2026-11-01: «Печать этикетки» — сразу, без окна; «Этикетка…» — прежнее окно с предпросмотром и копиями.
-        menu.Items.Add(RowMenuItem(Tr.T("Печать этикетки", "Этикетка басып чыгаруу", "Print label", "Etiket yazdır", "Yorliq chop etish"),
-            IconLabel, QuickLabel_Click, product));
-        menu.Items.Add(RowMenuItem(Tr.T("Этикетка…", "Этикетка…", "Label…", "Etiket…", "Yorliq…"),
-            IconLabel, PrintLabel_Click, product));
-        menu.Items.Add(RowMenuItem(Tr.T("Ценник", "Баа белгиси", "Price tag", "Fiyat etiketi", "Narx yorlig'i"),
-            IconPriceTag, PrintPriceTag_Click, product));
+        // 2026-11-21 (владелец: «редакторы — в одну вкладку»): пунктов «Печать этикетки», «Этикетка…», «Ценник» больше нет — печать только на вкладке «Ценники и штрихкоды».
+        menu.Items.Add(NoFactoryRowMenuItem(product)); // 2026-11-21: отметка «Без заводского штрихкода» (хлеб, выпечка…) — товар стоит в начале каталога кассы
         menu.Items.Add(RowMenuItem(Tr.T("Загрузить фото", "Сүрөт жүктөө", "Upload photo", "Fotoğraf yükle", "Rasm yuklash"),
             IconPhoto, UploadPhoto_Click, product));
         // «Удалить» — последним, под чертой и красным: не рядом с частыми действиями (подтверждение — в самом обработчике).
         menu.Items.Add(new Separator());
         menu.Items.Add(RowMenuItem(Tr.T("Удалить", "Өчүрүү", "Delete", "Sil", "O'chirish"),
             IconDelete, DeleteProduct_Click, product, danger: true));
-        menu.ShowAt(anchor);
+        return menu;
     }
 
     private MenuItem RowMenuItem(string text, string icon, Action<object?, RoutedEventArgs> handler, CatalogProductTileVm product, bool danger = false)

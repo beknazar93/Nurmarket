@@ -32,8 +32,7 @@ public partial class OwnerShellWindow
         // 2026-10-06: советник теперь «Нур Советник» / «Нур Кеңешчи» — по старым словам тоже находится.
         ["transfer"] = "импорт перенос загрузка из файла другой программы 1с мойсклад moysklad poster loyverse paloma umag excel csv import transfer которуу жүктөө aktarım içe aktar ko'chirish yuklash",
         ["aiadvisor"] = "ии ai советник кеңешчи нур помощник",
-        ["warehouse"] = "товар остаток остатки приёмка приемка ревизия инвентаризация списание перемещение этикетка ценник штрихкод кампа кампаны товарлар калдык",
-        ["barcodes"] = "штрихкод штрихкоды штрих код ценник ценники этикетка этикетки печать массовая печать a4 термопринтер штрих-коддор баа белгиси barcode barcodes price tag price tags label labels barkod fiyat etiketi shtrix-kod narx yorlig'i", // 2026-11-11
+        ["warehouse"] = "товар остаток остатки приёмка приемка ревизия инвентаризация списание перемещение этикетка ценник штрихкод кампа кампаны товарлар калдык ценники этикетки штрихкоды штрих код редактор ценников редактор этикетки шаблоны ценников массовая печать a4 термопринтер штрих-коддор баа белгиси баа белгилери barcode barcodes price tag price tags label labels barkod fiyat etiketi shtrix-kod narx yorlig'i", // 2026-11-21: слова бывшего пункта «Штрихкоды и ценники» — теперь вкладка Склада «Ценники и штрихкоды»
         ["calculator"] = "наценка цена себестоимость",
         ["restock"] = "заказать закупка срок годности просрочка толуктоо мөөнөт",
         // 2026-10-20, этап П1: раздел «Поставщики» — и по-кыргызски, и по-английски.
@@ -67,6 +66,9 @@ public partial class OwnerShellWindow
         ["support"] = "помощь удалённо", // 2026-10-16: удалённая помощь — своя «Нур Поддержка»
         ["logs"] = "ошибка журнал",
     };
+
+    /// <summary>Слова, по которым Ctrl+K ведёт на вкладку Склада «Ценники и штрихкоды» (а не просто в «Склад»).</summary>
+    internal const string LabelsSearchWords = "ценник ценники ценников этикетка этикетки этикеток штрихкод штрихкоды штрих-код штрих-коды редактор шаблоны баа белгиси баа белгилери этикетка штрих-коддор price tag tags label labels barcode barcodes etiket fiyat barkod yorliq narx shtrix";
 
     private static bool NavMatches(NavEntry entry, string groupTitle, string query)
     {
@@ -285,8 +287,12 @@ public partial class OwnerShellWindow
             e.Handled = true;
             if (first == null || (NavSearchText.Text ?? "").Trim().Length == 0)
                 return;
+            var typed = (NavSearchText.Text ?? "").Trim();
             NavSearchText.Text = "";
             first.Button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            // 2026-11-21 (владелец: «все редакторы — в одну вкладку»): «ценник», «этикетка», «штрихкод» — Склад сразу на вкладке «Ценники и штрихкоды».
+            if (first.Key == "warehouse" && SearchMatch.Matches(typed, LabelsSearchWords))
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => (_sections.FirstOrDefault(x => x.Key == "warehouse")?.Window as WarehouseWindow)?.SelectNavTab("barcodes"));
         }
         else if (e.Key == Key.Escape)
         {

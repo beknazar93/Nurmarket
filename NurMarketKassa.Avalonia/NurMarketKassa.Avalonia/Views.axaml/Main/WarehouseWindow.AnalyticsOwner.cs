@@ -134,7 +134,7 @@ public partial class WarehouseWindow
     /// и проведение документа оболочка не закрывает при уходе из раздела (IOwnerSectionKeepAlive).</summary>
     public bool KeepAliveWhenHidden =>
         _viewModel.IsBusy || _viewModel.ReceivingLines.Count > 0 || RevisionKeepAlive || _bulk.HasUnsaved || _bulk.IsLoading
-        || (_barcodesHost?.View?.IsBusy ?? false); // 2026-11-12 (Л-4): идёт массовая генерация штрихкодов — раздел не закрывается
+        || (_barcodesHub?.PrintHost.View?.IsBusy ?? false); // 2026-11-12 (Л-4): идёт массовая генерация штрихкодов — раздел не закрывается
 
     /// <summary>Склад разделом программы владельца (см. <see cref="IOwnerSection"/>): над разделом
     /// уже написано «Склад», поэтому своя шапка «Управление складом» с кнопками «свернуть» и ✕ не

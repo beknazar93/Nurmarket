@@ -53,6 +53,15 @@ public sealed class CartLineItemVm : ViewModelBase
     /// <summary>2026-10-03: строка ↔ оптовая цена.</summary>
     public ICommand? WholesaleCommand { get; init; }
 
+    /// <summary>2026-11-21 («Базар», модуль «Торг»): кнопка «Торг» на строке — До 10 / 50 / 100 и «Договорились за …».</summary>
+    public ICommand? HaggleCommand { get; init; }
+    public bool ShowHaggle { get; init; }
+    public string HaggleText => Tr.T("Торг", "Соодалашуу", "Haggle", "Pazarlık", "Savdolashuv");
+    public string HaggleTooltip => Tr.T("Торг: округлить вниз или договориться о сумме", "Соодалашуу: төмөн тегеректөө же сумманы макулдашуу", "Haggle: round down or agree on a sum", "Pazarlık: aşağı yuvarla veya tutarda anlaş", "Savdolashuv: pastga yaxlitlash yoki summani kelishish");
+
+    /// <summary>2026-11-21 («Базар», модуль «Цена по количеству»): «Опт от 10 — 450» — по какой ступени стоит цена строки; пусто — обычная цена.</summary>
+    public string PriceNote { get; init; } = "";
+
     /// <summary>2026-10-06, исследование «Кассы для одежды» (О-03): «Размер» на строке чека — покупатель передумал
     /// с размером или цветом, строка меняется на другой вариант того же товара без удаления и поиска заново.</summary>
     public string? VariantId { get; init; }
@@ -210,7 +219,8 @@ public sealed class CartLineItemVm : ViewModelBase
         $"{Quantity.ToString(IsWeight ? "0.000" : "0.###", CultureInfo.GetCultureInfo("ru-RU"))} {Unit} × {MoneyText.Som(UnitPrice)}"
         + (PromoBasePrice is { } basePrice && basePrice > UnitPrice + 0.005
             ? " · " + Tr.T("было", "болгон", "was", "önce", "edi") + $" {MoneyText.Amount(basePrice)} (−{Math.Round((1 - UnitPrice / basePrice) * 100):0}%)"
-            : "");
+            : "")
+        + (PriceNote.Length > 0 ? " · " + PriceNote : "");
 
     // 2026-10-03, владелец: «при скидке, если в убыток продаёт, — на экране в корзине рядом с товаром показывать,
     // сколько убытка». Считает BasketPanelViewModel.UpdateLossMarks: закупка × количество − сумма строки

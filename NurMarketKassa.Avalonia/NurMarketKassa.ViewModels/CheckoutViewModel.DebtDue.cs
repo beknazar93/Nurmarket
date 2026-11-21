@@ -65,11 +65,14 @@ namespace NurMarketKassa.ViewModels
         /// («7 / 30 дней», календарь) или очистить; уже выбранный срок и рассрочка не перезаписываются.</summary>
         internal const int DefaultDebtDueDays = 14;
 
+        /// <summary>2026-11-21 («Базар», режим «Опт», ТЗ Контейнер-базар 3.7): срок долга по умолчанию для оптовика — 30 дней (в рознице и вне «Базара» — 14). Кассир меняет «7 / 14 / 30 дней» или календарём.</summary>
+        internal const int WholesaleDebtDueDays = 30;
+
         private void ApplyDefaultDebtDue()
         {
             if (_isInstallment || _debtDueDate is not null)
                 return;
-            DebtDueDate = DateTime.Today.Date.AddDays(DefaultDebtDueDays);
+            DebtDueDate = DateTime.Today.Date.AddDays(BazaarModules.WholesaleMode ? WholesaleDebtDueDays : DefaultDebtDueDays); // 2026-11-21 («Базар», опт): оптовик возвращает долг «до следующего приезда» — по умолчанию 30 дней
         }
 
         /// <summary>«Через N дней» — параметр строкой ("7", "14", "30"). 2026-10-20, владелец (долг Д1): ровно +N дней от

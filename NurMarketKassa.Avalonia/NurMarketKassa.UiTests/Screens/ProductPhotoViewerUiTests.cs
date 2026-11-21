@@ -125,12 +125,17 @@ public sealed class ProductPhotoViewerUiTests
         try
         {
             window.ShowsFullSize.Should().BeTrue();
-            // Клик ПО фото окно не закрывает.
+            // Клик ПО фото и по свободному месту внутри рамки (над широким фото) окно не закрывает.
             var center = StagePoint(window, 0.5, 0.5);
             window.MouseDown(center, MouseButton.Left);
             window.MouseUp(center, MouseButton.Left);
             UiShot.Pump();
             closed.Should().BeFalse("клик по самому фото не закрывает просмотр");
+            var insideFrame = StagePoint(window, 0.5, 0.04);
+            window.MouseDown(insideFrame, MouseButton.Left);
+            window.MouseUp(insideFrame, MouseButton.Left);
+            UiShot.Pump();
+            closed.Should().BeFalse("клик внутри рамки (рядом с фото) не закрывает просмотр");
 
             switch (how)
             {
@@ -141,7 +146,8 @@ public sealed class ProductPhotoViewerUiTests
                     UiDrive.Click(window, ByName(window, "Закрыть"));
                     break;
                 default:
-                    var outside = StagePoint(window, 0.5, 0.04); // тёмное поле над широким фото
+                    var outside = new Point(window.Bounds.Width * 0.03, window.Bounds.Height * 0.03); // затемнённое поле вне рамки
+                    window.Card.Bounds.Contains(outside).Should().BeFalse();
                     window.MouseDown(outside, MouseButton.Left);
                     window.MouseUp(outside, MouseButton.Left);
                     break;
@@ -361,10 +367,70 @@ public sealed class ProductPhotoViewerUiTests
         }
     }
 
+    // ------------------------------------------------------------------ рамка: размер и место
+
+    /// <summary>2026-11-21, владелец: «сделай рамку и хотя бы 70% экрана». Рамка просмотра — не меньше 70 % и не больше 90 % ширины и высоты экрана (окна),
+    /// целиком внутри него и по центру; поле вокруг затемнено.</summary>
+    private static void AssertFrame(ProductPhotoViewerWindow w, string tag)
+    {
+        var screen = w.Bounds.Size;
+        var card = w.Card.Bounds;
+        screen.Width.Should().BeGreaterThan(0, tag);
+        card.Width.Should().BeGreaterThanOrEqualTo(screen.Width * 0.7 - 0.5, $"рамка не уже 70 % экрана ({tag})");
+        card.Height.Should().BeGreaterThanOrEqualTo(screen.Height * 0.7 - 0.5, $"рамка не ниже 70 % экрана ({tag})");
+        card.Width.Should().BeLessThanOrEqualTo(screen.Width * 0.9 + 0.5, $"рамка не больше 90 % экрана ({tag})");
+        card.Height.Should().BeLessThanOrEqualTo(screen.Height * 0.9 + 0.5, $"рамка не больше 90 % экрана ({tag})");
+        card.Left.Should().BeGreaterThanOrEqualTo(0, tag);
+        card.Top.Should().BeGreaterThanOrEqualTo(0, tag);
+        card.Right.Should().BeLessThanOrEqualTo(screen.Width + 0.5, tag);
+        card.Bottom.Should().BeLessThanOrEqualTo(screen.Height + 0.5, tag);
+        Math.Abs(card.Left - (screen.Width - card.Right)).Should().BeLessThanOrEqualTo(1.5, $"рамка по центру по ширине ({tag})");
+        Math.Abs(card.Top - (screen.Height - card.Bottom)).Should().BeLessThanOrEqualTo(1.5, $"рамка по центру по высоте ({tag})");
+        var dim = ((Grid)w.Content!).Background as ISolidColorBrush;
+        dim.Should().NotBeNull($"фон за рамкой затемнён ({tag})");
+        dim!.Color.A.Should().BeInRange(1, 254, "затемнение полупрозрачное");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(1024, 600)]
+    [InlineData(1366, 768)]
+    [InlineData(1920, 1080)]
+    public async Task Viewer_Frame_IsAtLeast70PercentOfScreen_AndCentered(int width, int height)
+    {
+        await TestHost.WarmAsync();
+        UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
+        // Одно маленькое фото: рамка всё равно того же размера (не подгоняется под фото).
+        var window = Open("Фильтр масляный", [new ViewerPhoto("https://x.kg/a.jpg", null, null)], Loader(MakePhoto("frame", 300, 200)), null, width, height);
+        try
+        {
+            AssertFrame(window, $"{width}x{height}");
+            if (width == 1024)
+            {
+                window.Card.Bounds.Width.Should().BeGreaterThanOrEqualTo(717 - 0.5, "на 1024×600 рамка не меньше ≈717×420");
+                window.Card.Bounds.Height.Should().BeGreaterThanOrEqualTo(420 - 0.5);
+            }
+            // Фото вписано в рамку, а не растянуто на экран: по ширине/высоте оно не выходит за рамку.
+            var cardRect = new Rect(window.Card.TranslatePoint(default, window)!.Value, window.Card.Bounds.Size);
+            var imgRect = new Rect(window.PhotoImage.TranslatePoint(default, window)!.Value, window.PhotoImage.Bounds.Size);
+            cardRect.Contains(imgRect.TopLeft).Should().BeTrue();
+            cardRect.Contains(imgRect.BottomRight - new Point(0.5, 0.5)).Should().BeTrue();
+            using var shot = UiShot.Render(window);
+            using var image = SKImage.FromBitmap(shot);
+            using var data = image.Encode(SKEncodedImageFormat.Png, 90);
+            var dir = Path.Combine(Path.GetTempPath(), "nurmarket-tests", "ui-actual");
+            Directory.CreateDirectory(dir);
+            File.WriteAllBytes(Path.Combine(dir, $"photo-viewer-frame-{width}x{height}.png"), data.ToArray());
+        }
+        finally
+        {
+            Shut(window);
+        }
+    }
+
     // ------------------------------------------------------------------ раскладка и снимки
 
     public static IEnumerable<object[]> LayoutCases() =>
-        new (int W, int H)[] { (1024, 600), (1366, 768), (1024, 768) }
+        new (int W, int H)[] { (1024, 600), (1366, 768), (1920, 1080), (1024, 768) }
             .SelectMany(s => new[] { AppLanguage.Russian, AppLanguage.Kyrgyz, AppLanguage.Uzbek }.Select(l => new object[] { s.W, s.H, l }));
 
     [AvaloniaTheory]
@@ -409,7 +475,13 @@ public sealed class ProductPhotoViewerUiTests
             titleRect.Bottom.Should().BeLessThanOrEqualTo(window.Bounds.Height + 0.5);
             titleRect.Left.Should().BeGreaterThanOrEqualTo(0);
             titleRect.Right.Should().BeLessThanOrEqualTo(window.Bounds.Width);
-            stageRect.Height.Should().BeGreaterThan(window.Bounds.Height * 0.6, $"фото получает большую часть окна ({tag})");
+            stageRect.Height.Should().BeGreaterThan(window.Bounds.Height * 0.5, $"фото получает большую часть рамки ({tag})");
+            AssertFrame(window, tag);
+
+            // Подсказка (колёсико/Esc) видна и не обрезана; название и подсказка не налезают на сцену.
+            var hint = window.GetVisualDescendants().OfType<TextBlock>().First(t => t.Text?.Contains("Esc") == true || t.Text?.Contains("ESC") == true);
+            hint.IsEffectivelyVisible.Should().BeTrue();
+            R(hint).Intersects(stageRect).Should().BeFalse($"подсказка под фото ({tag})");
 
             // Фото вписано целиком (Uniform): его размер на экране не больше сцены.
             window.PhotoImage.Bounds.Width.Should().BeLessThanOrEqualTo(stageRect.Width + 0.5);
@@ -494,6 +566,7 @@ public sealed class ProductPhotoViewerUiTests
             picked.Should().BeEmpty("лупа не добавляет товар в чек");
             opened.Should().ContainSingle();
             opened[0].IsVisible.Should().BeTrue();
+            AssertFrame(opened[0], "лупа плитки"); // тот же размер рамки, что и из других мест входа
             Esc(opened[0]);
             UiShot.Pump();
             opened[0].IsVisible.Should().BeFalse();
@@ -541,6 +614,8 @@ public sealed class ProductPhotoViewerUiTests
             Thread.Sleep(ProductPhotoZoom.LongPressMs + 250);
             UiShot.Pump();
             opened.Should().ContainSingle("долгое касание по фото открыло просмотр");
+            UiShot.Settle(4);
+            AssertFrame(opened[0], "долгое касание плитки");
             touch.Captured.Should().BeNull("захват у кнопки плитки снят — отпускание пальца её не нажмёт");
             Release(built.Window, touch, pos);
             picked.Should().BeEmpty("товар в чек не добавлен");
@@ -582,6 +657,7 @@ public sealed class ProductPhotoViewerUiTests
             UiShot.Settle(6);
             picked.Should().BeEmpty("нажатие на фото не добавляет товар");
             opened.Should().ContainSingle("нажатие на фото открывает просмотр");
+            AssertFrame(opened[0], "фото в строке списка");
             Esc(opened[0]);
             UiShot.Pump();
             opened[0].IsVisible.Should().BeFalse();

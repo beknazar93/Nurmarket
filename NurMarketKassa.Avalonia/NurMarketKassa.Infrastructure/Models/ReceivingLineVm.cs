@@ -561,6 +561,14 @@ public sealed partial class ReceivingLineVm : INotifyPropertyChanged // 2026-11-
     /// <summary>Сколько штук в одной упаковке (0 — не задано).</summary>
     public double PiecesPerPack => _piecesPerPack;
 
+    /// <summary>2026-11-21 (ответ Умара 20.11, строймаркет): id единицы продажи товара (sale_units[].id, упаковка «мешок», «коробка»). Задан вместе с <see cref="SaleUnitFactor"/> — в приход на сервер строка уходит
+    /// с sale_unit_id, количеством В УПАКОВКАХ и закупкой ЗА УПАКОВКУ (сервер сам умножит на коэффициент). Не задан — прежнее: штуки и цена за штуку; смешивать нельзя. <see cref="Quantity"/> и
+    /// <see cref="PurchasePrice"/> внутри кассы остаются в базовых единицах (остаток, суммы, проверки), пересчёт — только в теле запроса (PurchaseReceivingService.ServerQtyPrice).</summary>
+    public string? SaleUnitId { get; set; }
+
+    /// <summary>Сколько базовых единиц (штук, м²) в единице продажи <see cref="SaleUnitId"/>.</summary>
+    public double SaleUnitFactor { get; set; }
+
     /// <summary>Цена закупки ЗА УПАКОВКУ, как её ввели.</summary>
     public double PackPrice => _packPrice;
 
@@ -1034,7 +1042,12 @@ public sealed partial class ReceivingLineVm : INotifyPropertyChanged // 2026-11-
             if (_packCountRaw.Length == 0)
                 SetPackCount(0);
             else if (!RejectBarcode(_packCountRaw) && NurMarketKassa.Services.ProductCsvImporter.TryParseNumber(_packCountRaw, out var v) && v >= 0) // 2026-11-11: штрихкод — не число упаковок
-                SetPackCount(v);
+            {
+                // 2026-11-21: карточки приёмки записывают обратно показанный текст при потере фокуса; 7 шт ÷ 12 = 0,583333 упак. — запись того же числа
+                // пересчитывала штуки в 6,999996. Число упаковок не изменилось — штуки не трогаем.
+                if (Math.Abs(v - _packCount) > 1e-9)
+                    SetPackCount(v);
+            }
             OnPropertyChanged(nameof(QtyInputText));
         }
     }

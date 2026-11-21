@@ -38,6 +38,8 @@ public sealed class BulkBarcodeGeneratorTests : IDisposable
         BulkBarcodeGenerator.SaveOverride = null;
         BulkBarcodeGenerator.RefreshOverride = null;
         BulkBarcodeGenerator.DelayOverride = null;
+        UserPreferences.Instance.NoFactoryBarcodeIdsJson = null; // 2026-11-21: проход ставит отметки «Без заводского штрихкода» — не оставляем их другим тестам
+        NoFactoryBarcodes.ResetForTests();
         CatalogCacheService.Products.Clear();
         CatalogCacheService.Products.AddRange(_saved);
     }

@@ -732,6 +732,7 @@ public sealed class ReturnEditContractUiTests : IDisposable
     [AvaloniaFact]
     public async Task Edit_WindowExpiredBetweenOpenAndSave_ShowsServerReason()
     {
+        using var asCashier = new CashierScope(); // 2026-11-21: после 24 ч отказ — у кассира; владелец правит с PIN
         UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
         await using var s = await StrictReturnServer.StartAsync();
         var supplier = s.AddSupplier("r1", L("l1", "Молоко 1 л", 2, 150.5), L("l2", "Сыр весовой", 1.255, 150.5, "кг"));

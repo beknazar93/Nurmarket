@@ -41,7 +41,8 @@ public static class GraphicReceiptSkia
         var lineHeightPx = Math.Max(SkiaText.LineHeight(style) + 2f, TestReceiptLineBuilder.LineStepPx);
         var haveQr = settings.ShowQrCode && !string.IsNullOrEmpty(settings.QrCodePath) && File.Exists(settings.QrCodePath);
         var qrBlockHeight = haveQr ? 96 : 0;
-        var totalHeight = (int)(GraphicReceiptLayout.ComputeContentHeightPx(lines, lineHeightPx) + qrBlockHeight);
+        var styledLines = lines.Select(l => { var t = ReceiptLineStyle.Parse(l, out var b, out var sz); return (Text: t, Bold: b, Size: sz); }).ToList(); // 2026-11-21 (редактор чека)
+        var totalHeight = (int)(GraphicReceiptLayout.ComputeStyledHeightPx(styledLines, lineHeightPx) + qrBlockHeight);
 
         var bitmap = new SKBitmap(new SKImageInfo(Math.Max(paperWidth, 1), Math.Max(totalHeight, 64), SKColorType.Rgba8888, SKAlphaType.Opaque));
         using var canvas = new SKCanvas(bitmap);
@@ -49,11 +50,16 @@ public static class GraphicReceiptSkia
 
         var x = TestReceiptLineBuilder.LeftMarginPx;
         var y = TestReceiptLineBuilder.StartOffsetPx;
-        foreach (var line in lines)
+        foreach (var (line, bold, size) in styledLines)
         {
             if (!string.IsNullOrWhiteSpace(line))
-                SkiaText.Draw(canvas, line, x, y, GraphicReceiptLayout.IsBoldTotalLine(line) ? boldTotal : style);
-            y += GraphicReceiptLayout.GetLineStepPx(line, lineHeightPx);
+            {
+                var lineStyle = bold || size > 1
+                    ? new SkText(fontFamily, fontSize * GraphicReceiptLayout.SizeScale(size) * SkiaText.PtToPx, Bold: bold, Alias: true)
+                    : GraphicReceiptLayout.IsBoldTotalLine(line) ? boldTotal : style;
+                SkiaText.Draw(canvas, line, x, y, lineStyle);
+            }
+            y += GraphicReceiptLayout.GetLineStepPx(line, lineHeightPx) * GraphicReceiptLayout.SizeScale(size);
         }
 
         if (haveQr)

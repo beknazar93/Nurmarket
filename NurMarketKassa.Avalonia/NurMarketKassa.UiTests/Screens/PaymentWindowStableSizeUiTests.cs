@@ -27,6 +27,7 @@ public sealed class PaymentWindowStableSizeUiTests
             (1024, 600, AppLanguage.Kyrgyz, UiTheme.Touch),
             (1024, 600, AppLanguage.Uzbek, UiTheme.Light),
             (1024, 768, AppLanguage.Russian, UiTheme.Light),
+            (1024, 1024, AppLanguage.Russian, UiTheme.Light), // 2026-11-21: квадратный экран (просьба владельца)
             (1366, 768, AppLanguage.Russian, UiTheme.Dark),
             (1366, 768, AppLanguage.Kyrgyz, UiTheme.Touch),
             (1366, 768, AppLanguage.Uzbek, UiTheme.Dark),

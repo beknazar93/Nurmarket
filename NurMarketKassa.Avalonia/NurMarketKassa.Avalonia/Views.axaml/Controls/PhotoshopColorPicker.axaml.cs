@@ -22,7 +22,13 @@ public partial class PhotoshopColorPicker : UserControl
     private const double SvSize = 200;
     private const double HueHeight = 200;
 
-    public PhotoshopColorPicker() => InitializeComponent();
+    public PhotoshopColorPicker()
+    {
+        InitializeComponent();
+        // 2026-11-21: палец на палитре и полосе цвета не должен уходить в прокрутку страницы (TouchSliderGuard)
+        NurMarketKassa.AvaloniaHost.Services.TouchSliderGuard.Protect(SvCanvas);
+        NurMarketKassa.AvaloniaHost.Services.TouchSliderGuard.Protect(HueCanvas);
+    }
 
     /// <summary>Пользователь подвинул пикер или ввёл валидный HEX (2026-09-07) — НЕ поднимается
     /// из <see cref="SetHex"/> (программная инициализация, не действие пользователя), поэтому

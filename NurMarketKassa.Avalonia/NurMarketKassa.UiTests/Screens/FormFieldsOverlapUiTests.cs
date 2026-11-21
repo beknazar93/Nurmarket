@@ -10,6 +10,7 @@ using NurMarketKassa.AvaloniaHost.Views.Dialogs;
 using NurMarketKassa.Models;
 using NurMarketKassa.Models.Pos;
 using NurMarketKassa.Services;
+using NurMarketKassa.Services.Api; // 2026-11-21: ITariffApi/TariffQuote/TariffOrder в тестовых заглушках (сборка UiTests не проходила без этой строки)
 using NurMarketKassa.Services.Billing;
 using NurMarketKassa.UiTests.Harness;
 using Xunit;
@@ -31,6 +32,9 @@ public sealed class FormFieldsOverlapUiTests : IDisposable
     private const double MinFieldWidth = 48;
     private static readonly DateTime Today = new(2026, 11, 20);
     private static readonly UiSize[] WindowSizes = [new(1024, 600), new(1366, 768), new(1024, 768)];
+    // 2026-11-21 (просьба владельца): квадратный экран 1024×1024 — только для ключевых окон (не раздуваем полный прогон).
+    private static readonly HashSet<string> SquareScreenNames = new(StringComparer.Ordinal) { "n-staff-timesheet", "c-settings", "c-main-kassa", "c-warehouse" };
+    private static UiSize[] SizesFor(string name) => SquareScreenNames.Contains(name) ? [.. WindowSizes, new UiSize(1024, 1024)] : WindowSizes;
     private readonly string _dir = Path.Combine(Path.GetTempPath(), "nurmarket-tests", "form-overlap-" + Guid.NewGuid().ToString("N")[..8]);
 
     public FormFieldsOverlapUiTests()
@@ -54,9 +58,13 @@ public sealed class FormFieldsOverlapUiTests : IDisposable
     private static readonly string[] OwnNames =
     [
         "n-estimates", "n-estimate-editor-new", "n-estimate-editor-filled", "n-estimate-editor-filled-open", "n-estimate-calc-tile", "n-estimate-calc-paint", "n-estimate-print",
-        "n-parts-orders", "n-parts-order-edit", "n-subscription", "n-product-batches", "n-receiving-batch", "n-support-request", "n-analogs", "n-sphere-wizard", "n-fiscal-settings-server",
+        "n-parts-orders", "n-parts-order-edit", "n-subscription", "n-subscription-year", "n-tariff-custom", "n-tariff-custom-standard", "n-tariff-custom-removed", "n-product-batches", "n-receiving-batch", "n-support-request", "n-analogs", "n-sphere-wizard", "n-fiscal-settings-server",
         "n-invoice-editor-barcodes", "n-barcode-extras", "n-barcode-conflict", // 2026-11-20: штрихкоды в накладных
         "n-ai-variants-card", "n-ai-variants-bar", // 2026-11-20: вкусы одного товара при загрузке накладной через ИИ (блок вариантов и панель «Команда ИИ»)
+        "n-bazaar-haggle", "n-bazaar-rates", // 2026-11-21 («Базар»): окно торга и окно курсов валют
+        "n-catalog-filter", // 2026-11-21: окно «Фильтр» каталога кассы (без своего поиска, «Сбросить» с обводкой)
+        "n-staff-timesheet", // 2026-11-21: табель сотрудников (раскладка под низкий экран)
+        "n-supplier-return-edit", // 2026-11-21 (ответ Умара 21.11): правка возврата поставщику — «Добавить товар», причина и вид компенсации, добавленная строка
     ];
 
     public static IEnumerable<object[]> Matrix()
@@ -80,7 +88,7 @@ public sealed class FormFieldsOverlapUiTests : IDisposable
         var found = new Dictionary<string, List<string>>();
         try
         {
-            foreach (var size in sized ? WindowSizes : [default(UiSize)])
+            foreach (var size in sized ? SizesFor(name) : [default(UiSize)])
             {
                 using (var _ = UiShot.Render(window, sized ? size : null))
                 {
@@ -193,6 +201,48 @@ public sealed class FormFieldsOverlapUiTests : IDisposable
                 return (new PartsOrderEditDialog(new PartsOrder { ClientName = "СТО Асан", Phone = "0700 123 456", Prepayment = 1000m, DueDate = new DateTime(2026, 11, 25), Supplier = "Автозапчасти Азия" }), false);
             case "n-subscription":
                 return (new SubscriptionWindow(new FakeBilling(), true) { Clock = () => new DateTimeOffset(2026, 11, 20, 12, 0, 0, TimeSpan.FromHours(6)) }, true);
+            case "n-subscription-year": // 2026-11-21: «Месяц / Год» (год = 10 месяцев) в окне «Подписка»
+            {
+                var yearWindow = new SubscriptionWindow(new FakeBilling(true), true) { Clock = () => new DateTimeOffset(2026, 11, 20, 12, 0, 0, TimeSpan.FromHours(6)) };
+                yearWindow.Opened += async (_, _) =>
+                {
+                    await yearWindow.LoadAsync();
+                    yearWindow.SetYear(true);
+                };
+                return (yearWindow, true);
+            }
+            case "n-tariff-custom": // 2026-11-21: тариф «Своё» на «Старте» — список пакетов, период «Месяц / Год»
+                return (new TariffCustomWindow(new FakeTariff(), "Старт"), true);
+            case "n-tariff-custom-standard": // на «Стандарте»: все пакеты отмечены (входят), галочку можно снять
+                return (new TariffCustomWindow(new FakeTariff(), "Стандарт"), true);
+            case "n-tariff-custom-removed": // со снятым пакетом: «Своё» — Старт + оставшиеся, цены и год с сервера
+            {
+                var removedWindow = new TariffCustomWindow(new FakeTariff(), "Стандарт");
+                removedWindow.Opened += async (_, _) =>
+                {
+                    await removedWindow.LoadAsync();
+                    removedWindow.SetChecked("ai", false);
+                    removedWindow.SetPeriodForTest("year");
+                    await removedWindow.QuoteForTestAsync();
+                };
+                return (removedWindow, true);
+            }
+            case "n-staff-timesheet":
+            {
+                Directory.CreateDirectory(_dir);
+                var staff = Enumerable.Range(1, 7).Select(i => ($"u{i}", $"Сотрудник {i} Тестовый")).ToList();
+                var tsDeps = new TimesheetDeps
+                {
+                    Shifts = _ => Task.FromResult<IReadOnlyList<ShiftHistoryEntry>>([]),
+                    Employees = _ => Task.FromResult<IReadOnlyList<(string Key, string Name)>>(staff),
+                    Marks = new TimesheetMarksService(Path.Combine(_dir, "timesheet-marks.json")),
+                    Today = () => Today,
+                    CanEdit = true,
+                };
+                var tsWindow = new StaffTimesheetWindow(tsDeps);
+                tsWindow.Opened += async (_, _) => await tsWindow.LoadAsync();
+                return (tsWindow, true);
+            }
             case "n-product-batches":
                 return (new ProductBatchesWindow("Йогурт «Нурсүт» клубника 200 г", "шт", true, _ => Task.FromResult(new List<StockBatch>())), false);
             case "n-receiving-batch":
@@ -221,6 +271,22 @@ public sealed class FormFieldsOverlapUiTests : IDisposable
                 return (InvoiceVariantsUiTests.CreateAdvisorForLayout(), true);
             case "n-barcode-conflict":
                 return (InvoiceBarcodeUiTests.CreateConflictForLayout(), false);
+            case "n-bazaar-haggle": // 2026-11-21 («Базар»): торг — «До 10 / 50 / 100» и «Договорились за …»
+                return (new BazaarHaggleDialog("Куртка зимняя, размер 52", 1247m), false);
+            case "n-bazaar-rates": // 2026-11-21 («Базар»): курсы валют USD / RUB / CNY
+                return (new BazaarRatesDialog(), false);
+            case "n-catalog-filter": // 2026-11-21: окно «Фильтр»: тип, категория, бренд, цена, «в наличии», «Сбросить / Отмена / Применить»
+                return (new FilterWindow(new NurMarketKassa.ViewModels.Main.CatalogFilterViewModel(
+                    Enumerable.Range(1, 6).Select(i => new CatalogProductTileVm("p" + i, "Товар " + i, "10.00 сом", false) { Category = i % 2 == 0 ? "Молочка" : "Выпечка", Brand = i % 3 == 0 ? "Нурсут" : null }))), true);
+            case "n-supplier-return-edit": // 2026-11-21: 7 строк (есть поиск по накладной) + добавленная товар-строка; все блоки правки возврата поставщику
+            {
+                var items = string.Join(",", Enumerable.Range(1, 7).Select(i => "{\"id\":\"l" + i + "\",\"product_id\":\"p" + i + "\",\"product_name\":\"Молоко «Айналайын» 1 л №" + i + "\",\"qty\":\"2\",\"unit\":\"шт\",\"purchase_price\":\"150.50\"}"));
+                var info = NurMarketKassa.Services.Api.SupplierApiService.ParseReturn(JsonDocument.Parse("{\"id\":\"r1\",\"supplier_name\":\"ОсОО «Поставщик»\",\"reason\":\"defect\",\"compensation\":\"debt_offset\",\"created_at\":\"2026-11-20T03:00:00Z\","
+                    + "\"comment\":\"брак упаковки\",\"total_amount\":\"2107\",\"version\":3,\"status\":\"posted\",\"can_edit\":true,\"can_void\":true,\"items\":[" + items + "]}").RootElement.Clone());
+                var dialog = new SupplierReturnEditDialog(info, "ВП-2026-000123");
+                dialog.AddProductForTests(new CatalogProductTileVm("pNew", "Кефир «Нурсүт» 0,9 л", "90.00 сом", false, null) { Unit = "шт", PurchasePrice = 70 });
+                return (dialog, false);
+            }
             default:
                 throw new InvalidOperationException("Неизвестное окно " + name);
         }
@@ -306,11 +372,45 @@ public sealed class FormFieldsOverlapUiTests : IDisposable
     });
 
     /// <summary>Минимальная заглушка оплаты подписки: только настройка тарифов и сроков (окно выбора), счетов нет.</summary>
+    /// <summary>2026-11-21: «Своё» — заглушка сервера (пакеты, расчёт со снятием и годом) для проверки раскладки; цифры произвольные.</summary>
+    private sealed class FakeTariff : ITariffApi
+    {
+        private static readonly string[] Codes = ["ai", "clients", "sales_analytics", "restock", "salary", "debts", "service", "scales", "telegram_bot", "shift_analytics", "analytics_export"];
+
+        public Task<TariffCatalog> GetCatalogAsync(CancellationToken ct = default) =>
+            Task.FromResult(new TariffCatalog(
+                [new TariffPlan("start", "Старт", 1300m, null, 13000m), new TariffPlan("standard", "Стандарт", 3600m, null, 36000m), new TariffPlan("custom", "Своё", null, "start")],
+                Codes.Select(c => new TariffPack(c, "Пакет " + c, "Описание пакета, которое может быть достаточно длинным и переноситься на вторую строку", 1500m, 400m, ["standard"])).ToList()));
+
+        public Task<TariffQuote> QuoteAsync(IReadOnlyList<string> packs, CancellationToken ct = default) => QuoteAsync(packs, null, null, null, "month", ct);
+
+        public Task<TariffQuote> QuoteAsync(IReadOnlyList<string> packs, IReadOnlyList<string>? modules, string? sphere, IReadOnlyList<string>? remove, string period, CancellationToken ct = default)
+        {
+            var removed = remove?.ToList() ?? [];
+            var year = period == "year";
+            if (removed.Count == 0)
+                return Task.FromResult(new TariffQuote(0m, 0m, 3600m, [], false, 3600m, "standard", null, null, null, null, 3600m, "standard", [], 1300m, period, year ? 36000m : null, year ? 7200m : null, year ? 10 : null));
+            var rows = Codes.Except(removed).Select(p => new TariffQuotePack(p, 400m, 1500m, false)).ToList();
+            var monthly = rows.Sum(r => r.Monthly);
+            return Task.FromResult(new TariffQuote(monthly, rows.Sum(r => r.Once), 1300m, rows, true, 3600m, "start", null, null, null, null, 1300m + monthly, "custom", removed, 1300m, period,
+                year ? (1300m + monthly) * 10m : null, year ? (1300m + monthly) * 2m : null, year ? 10 : null));
+        }
+
+        public Task<TariffOrder> SubmitCustomAsync(IReadOnlyList<string> packs, string idempotencyKey, CancellationToken ct = default) =>
+            Task.FromResult(new TariffOrder("o-1", "pending", 0m, 0m, null));
+    }
+
     private sealed class FakeBilling : IBillingApi
     {
+        private readonly bool _year;
+
+        public FakeBilling(bool year = false) => _year = year;
+
         public Task<BillingConfig> GetConfigAsync(CancellationToken ct = default) =>
             Task.FromResult(BillingParser.ParseConfig(JsonDocument.Parse("{\"available\":true,\"mode\":\"test\",\"bank_fee\":\"30.00\",\"months\":[1,3,6,12],\"current_plan\":\"standard\",\"valid_until\":\"2026-12-19\","
-                + "\"plans\":[{\"code\":\"start\",\"price_month\":\"1300.00\"},{\"code\":\"standard\",\"price_month\":\"3600.00\"}],\"qr_ttl_seconds\":1200}").RootElement.Clone()));
+                + (_year ? "\"plans\":[{\"code\":\"start\",\"price_month\":\"1300.00\",\"price_year\":\"13000.00\"},{\"code\":\"standard\",\"price_month\":\"3600.00\",\"price_year\":\"36000.00\"}],\"periods\":[\"month\",\"year\"],\"year_paid_months\":10,"
+                    : "\"plans\":[{\"code\":\"start\",\"price_month\":\"1300.00\"},{\"code\":\"standard\",\"price_month\":\"3600.00\"}],")
+                + "\"qr_ttl_seconds\":1200}").RootElement.Clone()));
 
         public Task<BillingInvoice> CreateInvoiceAsync(int months, string? planCode, string idempotencyKey, CancellationToken ct = default) => throw new HttpRequestException("нет связи");
 

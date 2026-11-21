@@ -16,7 +16,7 @@ namespace NurMarketKassa.ViewModels.Main;
 /// <summary>
 /// Каталог кассира: Offline-First (SQLite → UI), затем фоновая синхронизация с API.
 /// </summary>
-public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
+public sealed partial class CatalogPanelViewModel : ViewModelBase, IDisposable
 {
     /// <summary>2026-10-05, владелец (Android): «при смене страницы каталога жёстко тормозит» — на телефоне
     /// видно ~6 плиток, а при смене страницы создавались все 50. Телефон ставит меньше (PageSizeOverride).</summary>
@@ -109,6 +109,14 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
         });
         Tr.LanguageChanged += _languageChanged;
 
+        // 2026-11-21: переключатель «Сначала товары без штрихкода» — порядок каталога и избранного пересобирается сразу, страница остаётся прежней.
+        _noBarcodeFirstChanged = () => _dispatcher.InvokeAsync(() => { ApplyFilter(); RefreshFavorites(); });
+        _cloudApplied = () => { if (NoFactoryBarcodes.Refresh()) _noBarcodeFirstChanged(); };
+        UserPreferences.CatalogNoBarcodeFirstChanged += _noBarcodeFirstChanged;
+        // 2026-11-21: отметки «Без заводского штрихкода» поменялись (карточка, склад, генератор, облако) — порядок пересобирается.
+        NoFactoryBarcodes.Changed += _noBarcodeFirstChanged;
+        SettingsCloudSync.Applied += _cloudApplied;
+
         Products.CollectionChanged += (_, _) =>
         {
             OnPropertyChanged(nameof(HasProducts));
@@ -118,6 +126,8 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
 
     private readonly Action _marketSpheresChanged;
     private readonly Action _languageChanged;
+    private readonly Action _noBarcodeFirstChanged;
+    private Action _cloudApplied = null!;
     private int _disposed;
 
     /// <summary>2026-10-27 (С-24): отписка от статических событий — модель каталога больше не нужна (смена кассира, выход на вход).</summary>
@@ -131,6 +141,9 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
         ServerOutageMonitor.StateChanged -= OnServerLinkChanged;
         MarketSpheres.Changed -= _marketSpheresChanged;
         Tr.LanguageChanged -= _languageChanged;
+        UserPreferences.CatalogNoBarcodeFirstChanged -= _noBarcodeFirstChanged;
+        NoFactoryBarcodes.Changed -= _noBarcodeFirstChanged;
+        SettingsCloudSync.Applied -= _cloudApplied;
     }
 
     public ObservableCollection<CatalogTabVm> Tabs { get; } =
@@ -160,7 +173,9 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
             // A category switch is a new catalogue context.  Always start it
             // from its first page, rather than leaving the user on page N.
             CurrentPage = 1;
-            ApplyFilter();
+            // 2026-11-21 (жалоба владельца «зависание при переключении вкладок»): отбор и порядок 15 000 товаров (десять ключей сортировки) считался здесь
+            // на потоке интерфейса — вкладка «подвисала». Большой каталог считается в фоне (как поиск), маленький — сразу, как раньше.
+            ApplyFilterInBackground(resetPage: false);
             StateChanged?.Invoke(this, EventArgs.Empty);
         }
     }
@@ -175,6 +190,8 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
             OnPropertyChanged(nameof(IsSearchActive));
             OnPropertyChanged(nameof(HasSearchText));
             (ClearSearchCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            _filterPending = true; // 2026-11-21: до готового отбора пустое окно говорит «Ищем…», а не «ничего не найдено» про ещё не проверенный запрос
+            RaiseEmptyState();
             ScheduleFilterAfterSearchDebounce();
         }
     }
@@ -408,9 +425,22 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
                     "Burası henüz boş.\nBağlantıyı kontrol edin ve kataloğu yenileyin.",
                     "Bu yerda hali bo'sh.\nUlanishni tekshiring va katalogni yangilang.");
             var query = _searchText.Trim();
+            // 2026-11-21: пока идёт серверный поиск — «Ищем…», а не «ничего не найдено»; «нет такого товара» — только когда проверены и касса, и сервер.
+            // 2026-11-21: поиск набран, а отбор ещё считается (пауза набора 220 мс + фон на большом каталоге) — на экране прежний список; «ничего не найдено» про этот запрос говорить рано.
+            if (query.Length > 0 && (_filterPending || (_serverSearching && string.Equals(_serverSearchedQuery, query, StringComparison.OrdinalIgnoreCase))))
+                return Tr.T($"Ищем «{query}» на сервере…", $"«{query}» серверден изделүүдө…", $"Searching the server for “{query}”…",
+                    $"«{query}» sunucuda aranıyor…", $"«{query}» serverda qidirilmoqda…");
             if (query.Length > 0)
+            {
+                var tail = !string.Equals(_serverSearchedQuery, query, StringComparison.OrdinalIgnoreCase) || OfflineModeHelper.UseLocalOperations ? ""
+                    : _serverSearchUnreachable
+                        ? "\n" + Tr.T("Сервер не ответил — товар мог не загрузиться. Проверьте связь и нажмите «Обновить».", "Сервер жооп берген жок — товар жүктөлбөй калышы мүмкүн. Байланышты текшерип, «Жаңылоо» баскычын басыңыз.",
+                            "The server did not answer — the product may not have loaded. Check the connection and press “Refresh”.", "Sunucu yanıt vermedi — ürün yüklenmemiş olabilir. Bağlantıyı kontrol edip «Yenile»ye basın.",
+                            "Server javob bermadi — mahsulot yuklanmagan bo'lishi mumkin. Aloqani tekshirib, «Yangilash»ni bosing.")
+                        : "\n" + Tr.T("Проверили и на сервере.", "Серверден да текшердик.", "Checked the server too.", "Sunucuda da kontrol edildi.", "Serverda ham tekshirildi.");
                 return Tr.T($"Ничего не найдено по «{query}».", $"«{query}» боюнча эч нерсе табылган жок.", $"Nothing found for “{query}”.",
-                    $"«{query}» için sonuç bulunamadı.", $"«{query}» bo'yicha hech narsa topilmadi.");
+                    $"«{query}» için sonuç bulunamadı.", $"«{query}» bo'yicha hech narsa topilmadi.") + tail;
+            }
             if (HasActiveFilter || HasHotkeyGroupFilter)
                 return Tr.T("Нет товаров по выбранному фильтру.", "Тандалган чыпка боюнча товар жок.", "No products match the filter.",
                     "Filtreye uyan ürün yok.", "Tanlangan filtr bo'yicha mahsulot yo'q.");
@@ -428,6 +458,54 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(IsNothingFound));
         OnPropertyChanged(nameof(IsCatalogTrulyEmpty));
         OnPropertyChanged(nameof(EmptyStateText));
+    }
+
+    // ── 2026-11-21 (жалоба магазина «существующие товары не находит, через время находит»): поиск по названию, не нашедший ничего в каталоге кассы, спрашивает сервер ──
+    private string _serverSearchedQuery = "";
+    private bool _filterPending;
+    private bool _serverSearching;
+    private bool _serverSearchUnreachable;
+
+    /// <summary>Серверный поиск по названию (по умолчанию — <see cref="ProductCodeLookup.StoreTextSearchHitsAsync"/>: найденный товар записывается в базу и каталог, окно перечитывается само).
+    /// Возвращает (сколько товаров добавлено, ответил ли сервер). Тесты подменяют.</summary>
+    public Func<string, CancellationToken, Task<(int Added, bool Reachable)>>? ServerTextSearch { get; set; } = (q, ct) => ProductCodeLookup.StoreTextSearchHitsAsync(q, ct);
+
+    /// <summary>Локальный отбор по тексту пуст (от 3 символов) — один раз на запрос спросить сервер. Вызывается после каждого отбора на потоке интерфейса.</summary>
+    private void MaybeSearchOnServer()
+    {
+        var query = _searchText.Trim();
+        if (_filteredProductCount > 0 || query.Length < 3 || IsLoading || ServerTextSearch is not { } search)
+            return;
+        if (string.Equals(_serverSearchedQuery, query, StringComparison.OrdinalIgnoreCase))
+            return; // этот запрос сервер уже проверял — повторный отбор после его ответа не зацикливает
+        _serverSearchedQuery = query;
+        _serverSearching = true;
+        _serverSearchUnreachable = false;
+        RaiseEmptyState();
+        _ = RunServerSearchAsync(query, search);
+    }
+
+    private async Task RunServerSearchAsync(string query, Func<string, CancellationToken, Task<(int Added, bool Reachable)>> search)
+    {
+        var reachable = true;
+        try
+        {
+            (_, reachable) = await search(query, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            reachable = false;
+            PosLogger.Log($"CATALOG: серверный поиск «{query}» не удался: {ex.GetType().Name}: {ex.Message}", "CATALOG");
+        }
+
+        _dispatcher.Post(() =>
+        {
+            if (!string.Equals(_serverSearchedQuery, query, StringComparison.OrdinalIgnoreCase))
+                return; // за это время поиск уже сменился
+            _serverSearching = false;
+            _serverSearchUnreachable = !reachable;
+            RaiseEmptyState();
+        });
     }
 
     public CatalogViewMode ViewMode
@@ -467,7 +545,7 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
         .ToList();
 
     public CatalogFilterViewModel CreateFilterViewModel() =>
-        new(_allProducts, _advancedFilter, SearchText);
+        new(_allProducts, _advancedFilter); // 2026-11-21: свой поиск из окна «Фильтр» убран — поиск один, в каталоге
 
     /// <summary>2026-10-20: текущий фильтр окна «Фильтр» (без поиска) — чтобы чипы категорий раскладки «Карточки» не стирали
     /// бренд/цену/«в наличии» и подсвечивали категорию, выбранную в окне.</summary>
@@ -550,13 +628,19 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(ActiveFilterTip));
     }
 
+    private static bool IsDefaultCriteria(CatalogFilterCriteria c) =>
+        (string.IsNullOrWhiteSpace(c.Kind) || c.Kind == CatalogFilterViewModel.AllProducts)
+        && string.IsNullOrWhiteSpace(c.Category) && string.IsNullOrWhiteSpace(c.Brand)
+        && !c.PriceMin.HasValue && !c.PriceMax.HasValue && !c.OnlyInStock;
+
     public void ApplyAdvancedFilter(CatalogFilterCriteria criteria)
     {
-        _searchText = criteria.SearchText;
-        OnPropertyChanged(nameof(SearchText));
-        OnPropertyChanged(nameof(HasSearchText));
-        (ClearSearchCommand as RelayCommand)?.RaiseCanExecuteChanged();
-        _advancedFilter = criteria with { SearchText = "" };
+        // 2026-11-21: фильтр не трогает строку поиска каталога (раньше окно «Фильтр» имело своё поле и перезаписывало поиск):
+        // условия окна работают вместе с поиском каталога. Те же условия повторно — без лишней перерисовки списка.
+        var next = criteria with { SearchText = "" };
+        if (_advancedFilter is null ? IsDefaultCriteria(next) : next == _advancedFilter)
+            return;
+        _advancedFilter = next;
         ResetCurrentPage();
         ApplyFilter();
         RaiseFilterState();
@@ -599,7 +683,7 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
     public bool CanGoToPreviousPage => CurrentPage > 1;
     public bool CanGoToNextPage => CurrentPage < TotalPages;
     // 2026-11-05 (аудит №4, Д4-07): «‹ Назад · 1 · Страница 1 из 1 · Вперёд ›» на одной странице не нужна — 60 px под плитки.
-    public bool ShowPager => _filteredProductCount > 0 && _totalPages > 1;
+    public bool ShowPager => _filteredProductCount > 0 && _totalPages > 1 && !ShowCategoryTiles; // 2026-11-21 («Базар»): на плитках категорий страниц товаров нет
     public string PageStatusText => Tr.T($"Страница {CurrentPage} из {TotalPages}", $"Барак {CurrentPage} / {TotalPages}",
         $"Page {CurrentPage} of {TotalPages}", $"Sayfa {CurrentPage} / {TotalPages}", $"Sahifa {CurrentPage} / {TotalPages}");
 
@@ -816,7 +900,26 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
     public bool HasProductsInHotkeyGroup(string group) =>
         _allProducts.Any(p => string.Equals(p.HotkeyGroup ?? "", group, StringComparison.OrdinalIgnoreCase));
 
+    private static int _activeLoads;
+
+    /// <summary>2026-11-21: сколько фоновых загрузок/перечитываний каталога сейчас идёт (по всем окнам кассы). Нужно сквозным тестам окон: закрытое окно кассы ещё долго
+    /// догружает каталог и переписывает общий список товаров — следующему тесту надо дождаться нуля, прежде чем класть туда свои товары (в программе не используется).</summary>
+    public static int ActiveLoads => Volatile.Read(ref _activeLoads);
+
     private async Task RefreshCatalogAsync()
+    {
+        Interlocked.Increment(ref _activeLoads);
+        try
+        {
+            await RefreshCatalogCoreAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _activeLoads);
+        }
+    }
+
+    private async Task RefreshCatalogCoreAsync()
     {
         await _dispatcher.InvokeAsync(() => IsLoading = true).ConfigureAwait(false);
 
@@ -946,6 +1049,7 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
             }
 
             CatalogSyncResult syncResult;
+            var refreshStartedUtc = DateTime.UtcNow;
             try
             {
                 syncResult = await _catalogCache.SyncCatalogFullAsync().ConfigureAwait(false);
@@ -968,7 +1072,16 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
                 {
                     IsOfflineBannerVisible = false;
                     // 2026-11-06 (Д4-07): «Каталог обновлён» — служебная строка (в подсказку значка «Онлайн»), «Каталог пуст» — обычная (её видно).
-                    if (products.Count > 0)
+                    // 2026-11-21 (жалоба магазина «синхронизация склада не загружает все товары»): сервер сообщил «всего M», а пришло меньше — это не «каталог обновлён»,
+                    // а видимое предупреждение «Загружено N из M» (кнопка «Обновить» качает каталог заново). Докачка с середины и свежесть отчёта проверяются.
+                    if (products.Count > 0 && CatalogApiService.LastFullLoadReport is { Resumed: false, Total: > 0 } rep
+                        && rep.AtUtc >= refreshStartedUtc && rep.Seen < rep.Total)
+                        StatusText = Tr.T($"Загружено {rep.Seen:N0} из {rep.Total:N0} товаров — часть товаров не пришла с сервера. Нажмите «Обновить каталог».",
+                            $"{rep.Total:N0} товардун {rep.Seen:N0} жүктөлдү — бир бөлүгү серверден келген жок. «Каталогду жаңылоо» баскычын басыңыз.",
+                            $"Loaded {rep.Seen:N0} of {rep.Total:N0} products — some did not arrive from the server. Press “Refresh catalog”.",
+                            $"{rep.Total:N0} üründen {rep.Seen:N0} yüklendi — bir kısmı sunucudan gelmedi. «Kataloğu yenile»ye basın.",
+                            $"{rep.Total:N0} mahsulotdan {rep.Seen:N0} yuklandi — bir qismi serverdan kelmadi. «Katalogni yangilash»ni bosing.");
+                    else if (products.Count > 0)
                         SetRoutineStatus(Tr.T($"Каталог обновлён. Товаров: {products.Count}.", $"Каталог жаңыртылды. Товарлар: {products.Count}.", $"Catalog updated. Products: {products.Count}.", $"Katalog güncellendi. Ürün: {products.Count}.", $"Katalog yangilandi. Mahsulotlar: {products.Count}."));
                     else
                         StatusText = Tr.T("Каталог пуст. Добавьте товар в свой каталог.", "Каталог бош. Каталогуңузга товар кошуңуз.", "The catalog is empty. Add products to your catalog.", "Katalog boş. Kataloğunuza ürün ekleyin.", "Katalog bo'sh. Katalogingizga mahsulot qo'shing.");
@@ -1026,10 +1139,13 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
 
     private void RefreshFavorites()
     {
+        _lastFiltered = null; // 2026-11-21: избранные идут первыми в порядке отбора — запомненный порядок страниц устарел
         FavoriteProducts.Clear();
+        var noBarcodeFirst = UserPreferences.Instance.CatalogNoBarcodeFirst; // 2026-11-21: в «1С» избранное — единственный способ пробить хлеб без кода, он стоит первым
         foreach (var product in _allProducts
                      .Where(p => p.IsFavorite)
-                     .OrderBy(p => p.Title, StringComparer.CurrentCultureIgnoreCase)
+                     .OrderBy(p => noBarcodeFirst && p.HasNoFactoryBarcode ? 0 : 1)
+                     .ThenBy(p => p.Title, StringComparer.CurrentCultureIgnoreCase)
                      .Take(30))
         {
             FavoriteProducts.Add(product);
@@ -1057,6 +1173,7 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
             return;
 
         _republishing = true;
+        Interlocked.Increment(ref _activeLoads); // 2026-11-21: см. ActiveLoads
         try
         {
             // 2026-10-27, аудит С-25: чтение каталога из SQLite (после каждой продажи и фоновой синхронизации) шло на UI-потоке —
@@ -1088,6 +1205,7 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
         finally
         {
             _republishing = false;
+            Interlocked.Decrement(ref _activeLoads);
         }
     }
 
@@ -1154,16 +1272,22 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
         // 2026-10-29: единый поиск SearchMatch — слова в любом порядке, ё=е; если как набрано ничего нет — «Asu»↔«Асу»↔«фыг» (раскладка/транслит).
         var sq = SearchMatch.Prepare(query);
         var partQuery = isActiveSearch ? PartQuery(query) : ""; // 2026-11-20 (АЗ3): только сфера «Автозапчасти» и запрос, похожий на номер
+        // 2026-11-21 (просьба владельца): без поиска товары без заводского штрихкода (хлеб и т. п.) стоят первыми; при поиске порядок — по совпадению, правило не действует.
+        NoFactoryBarcodes.Refresh(); // отметки из облака / настроек
+        NoFactoryBarcodes.ResolvePending(allProducts); // товары с кодом нашего генератора получают отметку
+        var noBarcodeFirst = !isActiveSearch && UserPreferences.Instance.CatalogNoBarcodeFirst;
         List<CatalogProductTileVm> Build(bool fuzzy) => allProducts
             .Where(p => isActiveSearch || MatchesTab(p))
             .Where(p => MatchesSearch(p, query, sq, fuzzy, partQuery)
                         || (variantProductId != null && string.Equals(p.Id, variantProductId, StringComparison.OrdinalIgnoreCase)))
             .Where(MatchesAdvancedFilter)
             .Where(MatchesHotkeyGroup)
+            .Where(p => isActiveSearch || MatchesBazaarCategory(p)) // 2026-11-21 («Базар», плитки категорий): открытая категория; поиск идёт по всему каталогу
             // 2026-11-20 (АЗ3): точный номер — в начало, потом начало номера и вхождение; при равенстве — в наличии, оригинал → аналог → Б/У. Без номера порядок прежний (ключ 0).
             .OrderBy(p => partQuery.Length > 0 ? PartRank(p, partQuery) : 0)
             .ThenBy(p => partQuery.Length > 0 && p.Quantity <= 0 ? 1 : 0)
             .ThenBy(p => partQuery.Length > 0 ? PartStateOrder(p) : 0)
+            .ThenBy(p => noBarcodeFirst && p.HasNoFactoryBarcode ? 0 : 1) // 2026-11-21: внутри группы — прежний порядок (избранные → название)
             // 2026-10-29 (приёмка 1.17.64, В-4): при поиске сначала названия, где слово запроса — начало слова («Asu» → «Асу…»), потом где внутри, потом остальные.
             .ThenBy(p => isActiveSearch && !sq.IsEmpty ? sq.TitleRank(p.Title) : 0)
             .ThenByDescending(p => p.IsFavorite)
@@ -1179,6 +1303,10 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
 
     private void PublishFiltered(List<CatalogProductTileVm> filtered)
     {
+        _filterPending = false; // 2026-11-21: отбор по текущему запросу готов
+        _lastFiltered = filtered;
+        _lastFilteredAll = _allProducts;
+        _lastFilteredGeneration = Volatile.Read(ref _filterGeneration);
         _filteredProductCount = filtered.Count;
         OnPropertyChanged(nameof(ShowPager));
         TotalPages = Math.Max(1, (int)Math.Ceiling(_filteredProductCount / (double)PageSize));
@@ -1213,6 +1341,8 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
         RebuildPagerEntries();
         // 2026-10-20 (К9): текст пустого каталога зависит от поиска/вкладки/фильтра — после каждого отбора.
         RaiseEmptyState();
+        RebuildBazaarCategoryTiles(); // 2026-11-21 («Базар», плитки категорий): плитки и что показывать — после каждого отбора
+        MaybeSearchOnServer(); // 2026-11-21: ничего не нашли у себя — спросить сервер
     }
 
     private void GoToPage(int? page)
@@ -1221,9 +1351,19 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
             return;
 
         CurrentPage = target;
-        ApplyFilter();
+        // 2026-11-21 (жалоба «зависание», оптимизация): смена страницы не меняет отбор — раньше каждый клик по странице заново отбирал и сортировал весь каталог
+        // (на 15 000 товаров ~100+ мс на слабом ПК). Готовый отбор запоминается (PublishFiltered) и действует, пока отбор не пересчитан или избранное не менялось.
+        if (_lastFiltered is { } cached && ReferenceEquals(_lastFilteredAll, _allProducts) && _lastFilteredGeneration == Volatile.Read(ref _filterGeneration))
+            PublishFiltered(cached);
+        else
+            ApplyFilterInBackground(resetPage: false);
         StateChanged?.Invoke(this, EventArgs.Empty);
     }
+
+    // 2026-11-21: последний показанный отбор (весь список, не страница) — для смены страницы без нового отбора.
+    private List<CatalogProductTileVm>? _lastFiltered;
+    private List<CatalogProductTileVm>? _lastFilteredAll;
+    private int _lastFilteredGeneration;
 
     private void ResetCurrentPage() => CurrentPage = 1;
 

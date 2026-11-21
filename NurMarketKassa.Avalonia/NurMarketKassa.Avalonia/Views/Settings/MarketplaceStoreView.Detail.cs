@@ -311,6 +311,14 @@ public sealed partial class MarketplaceStoreView
         if (item.IsComingSoon)
         {
         }
+        else if (item.IsModule)
+        {
+            // 2026-11-21: модуль сервера — выключен: цена «N сом/мес»; включён: «Входит в вашу сферу» / «Включено» (не «Куплено»).
+            if (item.Status == MarketplaceStatus.Installed)
+                sub = statusText;
+            else
+                headline = item.Price?.Label ?? statusText;
+        }
         else if (item.Status == MarketplaceStatus.Paid)
         {
             headline = item.Price is null || item.Price.Amount is null ? Tr.T("Платно", "Акылуу", "Paid", "Ücretli", "Pullik") : item.Price.Label;
@@ -708,7 +716,15 @@ public sealed partial class MarketplaceStoreView
     {
         // Цена и условия
         var price = new StackPanel { Spacing = 6 };
-        if (item.Status == MarketplaceStatus.Paid)
+        if (item.IsModule)
+        {
+            // 2026-11-21: модуль сервера — цена в месяц с сервера или состояние («Входит в вашу сферу», «Включено»).
+            if (item.Status == MarketplaceStatus.Installed)
+                price.Children.Add(MarketplaceDetailUi.Text(item.StatusText, 14, "BrushSuccess", FontWeight.SemiBold));
+            else
+                price.Children.Add(MarketplaceDetailUi.Text(item.Price?.Label ?? item.StatusText, 18, "BrushText", FontWeight.Bold));
+        }
+        else if (item.Status == MarketplaceStatus.Paid)
         {
             var label = item.Price is null || item.Price.Amount is null ? Tr.T("Платно", "Акылуу", "Paid", "Ücretli", "Pullik") : item.Price.Label;
             price.Children.Add(MarketplaceDetailUi.Text(label, 18, "BrushText", FontWeight.Bold));

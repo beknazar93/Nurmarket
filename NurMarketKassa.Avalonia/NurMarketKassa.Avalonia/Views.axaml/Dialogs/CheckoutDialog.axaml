@@ -871,6 +871,39 @@
                                         IsVisible="{Binding HasCashSuggestion3}"/>
                             </UniformGrid>
 
+                            <!-- 2026-11-21 («Базар», модуль «Валюты»): «Принято в валюте». Кнопки валют (USD / RUB / CNY — только с курсом); выбрана валюта — сумма в валюте и (необязательно) сомы,
+                                 поле «Получено» заполняется суммой в сомах по курсу, сдача — в сомах. Нет курсов или модуль выключен (HasFxChips = false) — блока нет. Подписи — отдельной строкой над полем (чек-лист новых окон). -->
+                            <StackPanel IsVisible="{Binding HasFxChips}" Spacing="6">
+                                <TextBlock Text="{Binding FxTitle}" Classes="pay-label" TextWrapping="NoWrap"/>
+                                <ItemsControl ItemsSource="{Binding FxChips}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <UniformGrid Rows="1" Margin="0,0,-6,0"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:FxChipVm">
+                                            <Button Classes="due-seg" Classes.selected="{Binding IsSelected}" Focusable="False" Margin="0,0,6,0"
+                                                    HorizontalAlignment="Stretch" MinHeight="44"
+                                                    Content="{Binding Label}"
+                                                    AutomationProperties.Name="{Binding Label}"
+                                                    Command="{Binding $parent[ItemsControl].((vm:CheckoutViewModel)DataContext).SelectFxCommand}"
+                                                    CommandParameter="{Binding Code}"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <Grid IsVisible="{Binding ShowFxInput}" ColumnDefinitions="*,10,*" RowDefinitions="Auto,4,Auto,4,Auto">
+                                    <TextBlock Grid.Column="0" Text="{Binding FxAmountLabel}" Classes="pay-label" VerticalAlignment="Bottom" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding FxSomLabel}" Classes="pay-label" VerticalAlignment="Bottom" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                                    <TextBox x:Name="FxAmountBox" Grid.Column="0" Grid.Row="2" Classes="pay-amount" Text="{Binding FxAmount}"
+                                             AutomationProperties.Name="{Binding FxAmountLabel}"/>
+                                    <TextBox x:Name="FxSomBox" Grid.Column="2" Grid.Row="2" Classes="pay-amount" Text="{Binding FxSomExtra}"
+                                             AutomationProperties.Name="{Binding FxSomLabel}"/>
+                                    <TextBlock Grid.Row="4" Grid.ColumnSpan="3" Text="{Binding FxEquivalentText}" FontSize="13" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
+                                </Grid>
+                            </StackPanel>
+
                             <!-- 2026-11-19 (редизайн 2.0): «Сдача / Не хватает» при оплате наличными — сразу под полем «Получено» и быстрыми суммами (получил → сдача),
                                  правая колонка больше не пустует; для остальных способов плашка остаётся в левой колонке. -->
                             <Border Classes="result-plate" Classes.ok="{Binding ResultIsOk}" Classes.short="{Binding ResultIsShort}"
@@ -1072,7 +1105,9 @@
                                            ToolTip.Tip="{Binding DebtDueLabel}"
                                            TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
                                 <!-- 2026-11-06 (Д4-13): короткая подпись «Рассрочка» в одну строку, полный текст — в подсказке. -->
-                                <CheckBox Grid.Column="1" MinHeight="44" IsChecked="{Binding IsInstallment, Mode=TwoWay}"
+                                <!-- 2026-11-21 (обход кассы, № 9): у стандартного флажка квадрат стоит в верхних 32 px, а подпись центрируется по MinHeight 44 — квадрат был на ≈ 5 px выше текста.
+                                     Высота 32 (квадрат и подпись на одной линии) + отступ 6 сверху и снизу — строка по-прежнему 44. -->
+                                <CheckBox Grid.Column="1" MinHeight="32" Margin="0,6" VerticalAlignment="Center" IsChecked="{Binding IsInstallment, Mode=TwoWay}"
                                           ToolTip.Tip="{Binding InstallmentCheckHint}">
                                     <TextBlock Text="{Binding InstallmentCheckText}" FontSize="13" TextWrapping="NoWrap"
                                                VerticalAlignment="Center"/>

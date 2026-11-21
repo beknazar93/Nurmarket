@@ -158,7 +158,7 @@ public sealed class SaleReceiptCardData
             var lineDiscount = 0m;
             foreach (var key in new[] { "discount_total", "line_discount", "discount" })
                 if (Money(line, key) is { } ld && ld > 0.005m) { lineDiscount = ld; break; }
-            d.Lines.Add(new Line(CartDisplayHelper.ItemName(line),
+            d.Lines.Add(new Line(CartDisplayHelper.ItemTitle(line), // 2026-11-21: название товара + variant_name
                 $"{qty.ToString("0.###", RuCulture)}{(unit.Length == 0 ? "" : " " + unit)} × {Fmt(price)}", Fmt(sum),
                 lineDiscount > 0 ? Tr.T("скидка −", "арзандатуу −", "discount −", "indirim −", "chegirma −") + Fmt(lineDiscount) : null));
         }

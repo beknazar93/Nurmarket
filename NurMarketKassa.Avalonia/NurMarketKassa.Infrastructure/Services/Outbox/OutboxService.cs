@@ -73,6 +73,12 @@ public sealed class OutboxService
             return _sources.Any(s => string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>2026-11-21: запись сейчас отправляется ручной отправкой (замок «отправляется») — «Очистить неотправленные чеки» такие не трогает.</summary>
+    public bool IsSending(string key) => _sending.ContainsKey(key);
+
+    /// <summary>2026-11-21: очередь изменена снаружи (очистка неотправленных чеков) — окно «Неотправленное» и значки обновляются.</summary>
+    public void NotifyChanged() => RaiseChanged();
+
     private void RaiseChanged()
     {
         try { Changed?.Invoke(); }

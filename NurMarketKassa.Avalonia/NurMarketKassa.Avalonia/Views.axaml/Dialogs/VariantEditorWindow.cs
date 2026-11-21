@@ -94,11 +94,11 @@ public sealed class VariantEditorWindow : Window
 
         // 2026-11-06: как печатать штрихкоды и QR для размеров — путь по окнам, 1–2 строки.
         top.Children.Add(Soft(Tr.T(
-            "Как напечатать этикетки размеров: Склад → товар → «Размеры и цвета» → «Создать штрихкоды» или «Создать QR» → «Сохранить» → «Этикетки». Что печатать — штрихкод или QR — выбирает «Формат кода».",
-            "Өлчөмдөрдүн этикеткаларын басуу: Кампа → товар → «Өлчөмдөр жана түстөр» → «Штрихкоддорду түзүү» же «QR түзүү» → «Сактоо» → «Этикеткалар». Эмнени басуу — штрихкод же QR — «Код форматы» менен тандалат.",
-            "To print size labels: Warehouse → product → “Sizes and colors” → “Create barcodes” or “Create QR” → Save → “Labels”. “Code format” chooses a barcode or a QR.",
-            "Beden etiketlerini yazdırmak için: Depo → ürün → «Bedenler ve renkler» → «Barkod oluştur» veya «QR oluştur» → Kaydet → «Etiketler». Barkod mu QR mı olacağını «Kod biçimi» seçer.",
-            "O'lcham yorliqlarini chop etish: Ombor → mahsulot → «O'lchamlar va ranglar» → «Shtrix-kodlar yaratish» yoki «QR yaratish» → «Saqlash» → «Yorliqlar». Shtrix-kod yoki QR — «Kod formati» orqali tanlanadi.")));
+            "Как напечатать этикетки размеров: «Создать штрихкоды» или «Создать QR» → «Сохранить» → Склад → вкладка «Ценники и штрихкоды» → найдите товар и выберите штрихкод нужного размера.",
+            "Өлчөмдөрдүн этикеткаларын басуу: «Штрихкоддорду түзүү» же «QR түзүү» → «Сактоо» → Кампа → «Баа белгилери жана штрих-коддор» өтмөгү → товарды таап, керектүү өлчөмдүн штрихкодун тандаңыз.",
+            "To print size labels: “Create barcodes” or “Create QR” → Save → Warehouse → the “Price tags and barcodes” tab → find the product and pick the barcode of the size.",
+            "Beden etiketlerini yazdırmak için: «Barkod oluştur» veya «QR oluştur» → Kaydet → Depo → «Fiyat etiketleri ve barkodlar» sekmesi → ürünü bulun ve bedenin barkodunu seçin.",
+            "O'lcham yorliqlarini chop etish: «Shtrix-kodlar yaratish» yoki «QR yaratish» → «Saqlash» → Ombor → «Narx yorliqlari va shtrix-kodlar» bo'limi → mahsulotni toping va o'lchamning shtrix-kodini tanlang.")));
 
         // Быстро заполнить: размеры × цвета.
         // 2026-10-22 (модалки, пакет 3): ряд переносится (длинные надписи ky/tr/uz не обрезаются), кнопка — обводкой 44 px.
@@ -181,11 +181,8 @@ public sealed class VariantEditorWindow : Window
             "What to print on the size label. The QR carries the size code; the till finds exactly this size.",
             "Beden etiketine ne basılacak. QR beden koduyla basılır, kasa tam bu bedeni bulur.",
             "O'lcham yorlig'iga nima chop etiladi. QR o'lcham kodi bilan chop etiladi, kassa aynan shu o'lchamni topadi."));
-        tools.Children.Add(_codeMode);
-        var labels =SectionCards.Secondary(Tr.T("Этикетки", "Этикеткалар", "Labels", "Etiketler", "Yorliqlar"));
-        labels.Margin = new Thickness(0, 0, 10, 6);
-        labels.Click += async (_, _) => await PrintLabelsAsync().ConfigureAwait(true);
-        tools.Children.Add(labels);
+        // 2026-11-21 (владелец: «все редакторы — в одну вкладку»): кнопки «Этикетки» и выбора формата кода здесь больше нет — штрихкоды и QR размеров печатаются
+        // на вкладке Склада «Ценники и штрихкоды» (выбор штрихкода размера у товара).
         var close = SectionCards.Cancel(Tr.T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"));
         close.Click += (_, _) => Close();
         _save.Click += async (_, _) => _ = await SaveAsync().ConfigureAwait(true);

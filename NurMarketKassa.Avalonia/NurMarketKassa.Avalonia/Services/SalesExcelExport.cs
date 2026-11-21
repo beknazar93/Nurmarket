@@ -254,7 +254,7 @@ internal static class SalesExcelExport
                             var qty = CartDisplayHelper.LineQuantity(it);
                             var name = CartDisplayHelper.ItemName(it);
                             var sum = double.TryParse(CartDisplayHelper.LineTotal(it), NumberStyles.Number, CultureInfo.InvariantCulture, out var s) ? s : 0;
-                            return new SalesExportService.Line(name, qty,
+                            return new SalesExportService.Line(CartDisplayHelper.ItemTitle(it), qty, // 2026-11-21: в файле — название товара + variant_name; единицу ищем по названию товара
                                 UnitOf(Str(it, "unit"), CartDisplayHelper.TryProductId(it), name, qty, byId, byName),
                                 CartDisplayHelper.UnitPrice(it), sum);
                         })

@@ -92,12 +92,23 @@ public static class StockAvailabilityService
         string? excludeDeferredEntryId = null,
         double additionalReserved = 0)
     {
-        if (qtyToAdd <= 0 || IsService(productId))
+        // 2026-11-21: «Продавать товар без остатка (в минус)» включено (по умолчанию) — остаток не блокирует; мягкая отметка — WouldGoNegative.
+        if (qtyToAdd <= 0 || IsService(productId) || NegativeStockPolicy.Enabled)
             return true;
 
         var available = GetAvailableToAdd(productId, cart, excludeDeferredEntryId, additionalReserved);
         return available + 1e-6 >= qtyToAdd;
     }
+
+    /// <summary>2026-11-21: после добавления остаток товара реально уйдёт в минус (настройка не учитывается — это чистая проверка, для мягкой отметки кассиру).</summary>
+    public static bool WouldGoNegative(
+        string productId,
+        double qtyToAdd,
+        ICartService cart,
+        string? excludeDeferredEntryId = null,
+        double additionalReserved = 0) =>
+        !NegativeStockPolicy.HasStock(
+            GetAvailableToAdd(productId, cart, excludeDeferredEntryId, additionalReserved), qtyToAdd, IsService(productId));
 
     public static StockLineStatus EvaluateCartLine(
         string productId,
@@ -126,7 +137,7 @@ public static class StockAvailabilityService
         string? excludeDeferredEntryId = null,
         Func<string, double>? additionalReservedLookup = null)
     {
-        if (!cart.HasCart)
+        if (!cart.HasCart || NegativeStockPolicy.Enabled) // 2026-11-21: продажа в минус разрешена — оплату по остатку не блокируем
             return Array.Empty<(string, StockLineStatus)>();
 
         var issues = new List<(string, StockLineStatus)>();

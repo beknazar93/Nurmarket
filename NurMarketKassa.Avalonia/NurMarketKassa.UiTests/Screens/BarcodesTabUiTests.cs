@@ -49,8 +49,10 @@ public sealed class BarcodesTabUiTests : IDisposable
 
     private static TabControl Tabs(WarehouseWindow w) => UiDrive.Find<TabControl>(w, "WarehouseTabs");
 
+    private static readonly string[] LabelsTabNames = ["Штрихкоды", "Штрих-коддор", "Barcodes", "Barkodlar", "Shtrix-kodlar", "Ценники и штрихкоды", "Баа белгилери жана штрих-коддор", "Price tags and barcodes", "Fiyat etiketleri ve barkodlar", "Narx yorliqlari va shtrix-kodlar"];
+
     private static TabItem BarcodesTab(WarehouseWindow w) =>
-        Tabs(w).Items.OfType<TabItem>().Single(t => t.Header is StackPanel sp && sp.Children.OfType<TextBlock>().Any(x => x.Text is "Штрихкоды" or "Штрих-коддор"));
+        Tabs(w).Items.OfType<TabItem>().Single(t => t.Header is StackPanel sp && sp.Children.OfType<TextBlock>().Any(x => x.Text != null && LabelsTabNames.Contains(x.Text)));
 
     private static void SaveShot(Window window, string name, UiSize size)
     {
@@ -162,8 +164,62 @@ public sealed class BarcodesTabUiTests : IDisposable
         }
     }
 
+    /// <summary>2026-11-21 (владелец: «собери в складе все редакторы в одну вкладку»): названия вкладок склада (строка или значок + текст).</summary>
+    private static List<string> TabTitles(WarehouseWindow w) =>
+        Tabs(w).Items.OfType<TabItem>().Where(t => t.IsVisible)
+            .Select(t => t.Header is StackPanel sp ? string.Concat(sp.Children.OfType<TextBlock>().Select(x => x.Text)) : t.Header?.ToString() ?? "").ToList();
+
+    [AvaloniaTheory]
+    [InlineData(1024, 600, AppLanguage.Russian)]
+    [InlineData(1366, 768, AppLanguage.Russian)]
+    [InlineData(1366, 768, AppLanguage.Kyrgyz)]
+    [InlineData(1366, 768, AppLanguage.Uzbek)]
+    public async Task Warehouse_HasExactlyOneLabelsTab_AndNoOtherPrintEntryPoints(int w, int h, AppLanguage lang)
+    {
+        await TestHost.WarmAsync();
+        UiShot.Setup(UiTheme.Light, lang);
+        UserPreferences.Instance.BulkPriceTagUnlocked = true;
+        var window = TestHost.Services.GetRequiredService<WarehouseWindow>();
+        try
+        {
+            using var _ = UiShot.Render(window, new UiSize(w, h));
+            UiShot.Settle(8);
+            // ровно одна вкладка «Ценники и штрихкоды»; старой «Редактор этикетки» и отдельной «Штрихкоды» нет
+            var titles = TabTitles(window);
+            var expected = WarehouseWindow.BarcodesTabText;
+            titles.Count(t => t == expected).Should().Be(1, $"единственная вкладка печати и редакторов: {string.Join(" | ", titles)}");
+            titles.Count(t => t.Contains("шаблон", StringComparison.OrdinalIgnoreCase) || t.Contains("этикет", StringComparison.OrdinalIgnoreCase)
+                || t.Contains("Label", StringComparison.OrdinalIgnoreCase) || t.Contains("редактор", StringComparison.OrdinalIgnoreCase)).Should().Be(0, "других вкладок редакторов нет");
+            window.LabelsTab.Should().NotBeNull();
+            window.FindControl<Control>("LabelEditorTabItem").Should().BeNull("заглушка «Редактор этикетки» удалена");
+            // верхняя панель, панель массовых действий, приёмка: кнопок печати нет
+            foreach (var name in new[] { "BulkPriceTagButton", "BulkBar", "BulkBarClearButton", "ReceivingLabelsButton", "LabelEditorOpenButton" })
+                window.FindControl<Control>(name).Should().BeNull($"«{name}» убрана — печать только на вкладке «Ценники и штрихкоды»");
+            // в строке товара нет галочки «В печать»
+            var grid = UiDrive.Find<DataGrid>(window, "ProductsGrid");
+            var rows = grid.GetVisualDescendants().OfType<DataGridRow>().Where(r => r.DataContext is CatalogProductTileVm && r.Bounds.Height > 0).ToList();
+            rows.Count.Should().BeGreaterThanOrEqualTo(1);
+            rows.SelectMany(r => r.GetVisualDescendants().OfType<CheckBox>()).Should().BeEmpty("галочек выбора для печати в таблице товаров нет");
+            // меню «⋯»: без печати этикетки, этикетки и ценника
+            var product = (CatalogProductTileVm)rows[0].DataContext!;
+            var items = window.BuildRowMenu(product).Items.OfType<MenuItem>().Select(i => Avalonia.Automation.AutomationProperties.GetName(i) ?? "").ToList();
+            items.Should().NotBeEmpty();
+            items.Should().NotContain(x => x.Contains("этикет", StringComparison.OrdinalIgnoreCase) || x.Contains("ценник", StringComparison.OrdinalIgnoreCase)
+                || x.Contains("Label", StringComparison.OrdinalIgnoreCase) || x.Contains("Price tag", StringComparison.OrdinalIgnoreCase)
+                || x.Contains("Этикетка", StringComparison.OrdinalIgnoreCase) || x.Contains("Баа белгиси", StringComparison.OrdinalIgnoreCase)
+                || x.Contains("Yorliq", StringComparison.OrdinalIgnoreCase) || x.Contains("Narx yorlig", StringComparison.OrdinalIgnoreCase), $"в «⋯» нет печати: {string.Join(" | ", items)}");
+            // в строке остались только «Изменить» и «⋯» (значка этикетки нет)
+            rows[0].GetVisualDescendants().OfType<Button>().Count(b => b.IsEffectivelyVisible && b.Bounds.Width > 0).Should().BeLessThanOrEqualTo(3, "кнопки строки: остаток, «Изменить», «⋯»");
+        }
+        finally
+        {
+            window.Close();
+            UiShot.Pump();
+        }
+    }
+
     [AvaloniaFact]
-    public async Task Warehouse_ProductPick_TransfersSelectedProducts_ToBarcodesTab()
+    public async Task Warehouse_OpenBarcodesTab_WithProducts_SelectsLabelsTab_AndMarksProducts()
     {
         await TestHost.WarmAsync();
         UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
@@ -177,37 +233,46 @@ public sealed class BarcodesTabUiTests : IDisposable
             var rows = grid.GetVisualDescendants().OfType<DataGridRow>().Where(r => r.DataContext is CatalogProductTileVm && r.Bounds.Height > 0).ToList();
             rows.Count.Should().BeGreaterThanOrEqualTo(2, "в таблице склада два товара поддельного сервера");
             var picked = (CatalogProductTileVm)rows[0].DataContext!;
-            var box = rows[0].GetVisualDescendants().OfType<CheckBox>().Single(c => c.IsEffectivelyVisible);
-            box.IsChecked.Should().BeFalse();
-            box.Bounds.Width.Should().BeGreaterThanOrEqualTo(24).And.BeLessThanOrEqualTo(40, "галочка — отдельная цель касания в строке");
-            Avalonia.Automation.AutomationProperties.GetName(box).Should().Contain("печат");
-            var button = UiDrive.Find<Button>(window, "BulkPriceTagButton");
-            var baseText = UiDrive.TextOf(button);
 
-            UiDrive.Click(window, box);
-            UiShot.Settle(3);
-            box.IsChecked.Should().BeTrue();
-            window.PrintPickedIds.Should().BeEquivalentTo(new[] { picked.Id });
-            UiDrive.TextOf(button).Should().Be("Печать ценников (1)", "в кнопке — число выбранных");
-            // рядом с прежним окном печати (пункт «⋯» и прочие) ничего не пропало: тот же товар открывается двойным щелчком, а не галочкой
-            UiDrive.Click(window, button);
+            window.OpenBarcodesTab(new[] { picked.Id }).Should().BeTrue();
             UiShot.Settle(8);
-            Tabs(window).SelectedItem.Should().BeSameAs(BarcodesTab(window), "кнопка открывает вкладку «Штрихкоды»");
+            Tabs(window).SelectedItem.Should().BeSameAs(BarcodesTab(window), "вкладка «Ценники и штрихкоды» открылась");
             var view = window.GetVisualDescendants().OfType<BarcodePrintView>().Single();
-            view.SelectedCount.Should().Be(1, "выбранный товар отмечен в печати");
-            view.FoundCount.Should().Be(1, "пока поиск пуст, показан только выбранный");
+            view.SelectedCount.Should().Be(1, "переданный товар отмечен в печати");
             view.BuildItems().Should().ContainSingle().Which.Product.Id.Should().Be(picked.Id);
-            view.BuildItems()[0].Copies.Should().Be(Math.Clamp(BarcodePrintSettingsStore.Load().DefaultCopies, 1, 99), "копии — по умолчанию из настроек печати");
 
-            // вернуться на «Товары»: галочка помнится, снять — кнопка возвращается к прежней подписи
+            // позиции с копиями (после прихода товара): те же копии, что передали
             Tabs(window).SelectedItem = UiDrive.Find<TabItem>(window, "ProductsTabItem");
+            UiShot.Settle(4);
+            window.OpenLabelsTabWith(new[] { (picked.Id, (string?)null, 7) }).Should().BeTrue();
+            UiShot.Settle(8);
+            Tabs(window).SelectedItem.Should().BeSameAs(BarcodesTab(window));
+            window.LabelsHub!.Mode.Should().Be(LabelsHubMode.Print);
+            window.GetVisualDescendants().OfType<BarcodePrintView>().Single().BuildItems()[0].Copies.Should().Be(7);
+        }
+        finally
+        {
+            window.Close();
+            UiShot.Pump();
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("barcodes")]
+    [InlineData("labels")]
+    [InlineData("pricetags")]
+    public async Task Warehouse_SelectNavTab_LabelsKeys_OpenTheSameSingleTab(string key)
+    {
+        await TestHost.WarmAsync();
+        UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
+        UserPreferences.Instance.BulkPriceTagUnlocked = true;
+        var window = TestHost.Services.GetRequiredService<WarehouseWindow>();
+        try
+        {
+            using var _ = UiShot.Render(window, new UiSize(1366, 768));
             UiShot.Settle(6);
-            var box2 = grid.GetVisualDescendants().OfType<DataGridRow>().First(r => ReferenceEquals(r.DataContext, picked)).GetVisualDescendants().OfType<CheckBox>().Single(c => c.IsEffectivelyVisible);
-            box2.IsChecked.Should().BeTrue("отметка не потерялась при переходе по вкладкам");
-            UiDrive.Click(window, box2);
-            UiShot.Settle(3);
-            window.PrintPickedIds.Should().BeEmpty();
-            UiDrive.TextOf(button).Should().Be(baseText, "без выбранных — прежняя подпись «Печать штрихкодов и ценников»");
+            window.SelectNavTab(key).Should().BeTrue();
+            Tabs(window).SelectedItem.Should().BeSameAs(BarcodesTab(window));
         }
         finally
         {
@@ -217,7 +282,7 @@ public sealed class BarcodesTabUiTests : IDisposable
     }
 
     [AvaloniaFact]
-    public async Task Warehouse_ProductPick_WithoutPurchase_AsksSerialNumber_AndKeepsTab()
+    public async Task Warehouse_OpenBarcodesTab_WithoutPurchase_AsksSerialNumber_AndKeepsTab()
     {
         await TestHost.WarmAsync();
         UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
@@ -231,14 +296,10 @@ public sealed class BarcodesTabUiTests : IDisposable
             UiShot.Settle(8);
             var grid = UiDrive.Find<DataGrid>(window, "ProductsGrid");
             var row = grid.GetVisualDescendants().OfType<DataGridRow>().First(r => r.DataContext is CatalogProductTileVm && r.Bounds.Height > 0);
-            var button = UiDrive.Find<Button>(window, "BulkPriceTagButton");
-            button.IsVisible.Should().BeFalse("печать не куплена и ничего не выбрано — кнопки нет (как раньше)");
-            UiDrive.Click(window, row.GetVisualDescendants().OfType<CheckBox>().Single(c => c.IsEffectivelyVisible));
-            UiShot.Settle(3);
-            button.IsVisible.Should().BeTrue("с выбранным товаром кнопка есть, чтобы можно было ввести серийный номер");
-            UiDrive.Click(window, button);
+            var product = (CatalogProductTileVm)row.DataContext!;
+            window.OpenBarcodesTab(new[] { product.Id }).Should().BeFalse("печать не куплена — переход с товарами не выполняется");
             UiShot.Settle(4);
-            prompts.Should().ContainSingle("нажатие спрашивает серийный номер — платность не обойти");
+            prompts.Should().ContainSingle("просьба спрашивает серийный номер — платность не обойти");
             Tabs(window).SelectedItem.Should().BeSameAs(UiDrive.Find<TabItem>(window, "ProductsTabItem"), "печать не куплена — остаёмся на «Товарах»");
         }
         finally
@@ -274,7 +335,7 @@ public sealed class BarcodesTabUiTests : IDisposable
 
     [AvaloniaTheory]
     [MemberData(nameof(SizesAndLanguages))]
-    public async Task OwnerMenu_BarcodesItem_OpensPrintSection(int w, int h, AppLanguage lang)
+    public async Task OwnerMenu_HasNoSeparateBarcodesItem_LabelsLiveInWarehouseTab(int w, int h, AppLanguage lang)
     {
         UiShot.Setup(UiTheme.Light, lang);
         UserPreferences.Instance.BulkPriceTagUnlocked = true;
@@ -284,24 +345,22 @@ public sealed class BarcodesTabUiTests : IDisposable
         {
             shell.Show();
             UiShot.Settle(3, 30);
-            NavButtons(shell).Should().ContainKey("barcodes", "пункт «Штрихкоды и ценники» в группе «Товары» виден владельцу");
+            NavButtons(shell).Should().NotContainKey("barcodes", "отдельного пункта «Штрихкоды и ценники» в меню программы владельца больше нет");
             IsOwnerProp.SetValue(null, true); // каталог «Разделов меню» зависит от режима программы
-            SectionVisibility.Catalog.Select(c => c.Key).Should().Contain("barcodes", "пункт можно скрыть в «Разделах меню»");
-            IsOwnerProp.SetValue(null, true);
+            SectionVisibility.Catalog.Select(c => c.Key).Should().NotContain("barcodes", "в «Разделах меню» отдельного пункта печати нет");
             ShowMenuGroup(shell, "products");
-            NavButtons(shell)["barcodes"].IsEffectivelyVisible.Should().BeTrue("пункт в раскрытой группе «Товары»");
-            NavButtons(shell)["warehouse"].IsEffectivelyVisible.Should().BeTrue();
+            NavButtons(shell)["warehouse"].IsEffectivelyVisible.Should().BeTrue("«Склад» — единственный вход к печати и редакторам");
             var tag = $"{(lang == AppLanguage.Kyrgyz ? "ky" : "ru")}-{w}x{h}";
             SaveShot(shell, $"barcodes-owner-menu-{tag}", new UiSize(w, h));
-            NavButtons(shell)["barcodes"].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            WaitFor(() => shell.OwnedWindows.OfType<BarcodePrintSectionWindow>().Any(), 3000);
-            var section = shell.OwnedWindows.OfType<BarcodePrintSectionWindow>().FirstOrDefault();
-            section.Should().NotBeNull("пункт открывает раздел печати штрихкодов и ценников");
+            NavButtons(shell)["warehouse"].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WaitFor(() => shell.OwnedWindows.OfType<WarehouseWindow>().Any(), 3000);
+            var warehouse = shell.OwnedWindows.OfType<WarehouseWindow>().FirstOrDefault();
+            warehouse.Should().NotBeNull();
             UiShot.Settle(6, 40);
-            section!.Host.View.Should().NotBeNull("печать куплена — внутри сама печать");
-            section.GetVisualDescendants().OfType<BarcodePrintView>().Should().ContainSingle();
-            UiShot.Settle(12, 60); // раздел показывает «Открываем раздел…», пока строится
-            SaveShot(section, $"barcodes-owner-section-{tag}", new UiSize(w, h));
+            warehouse!.SelectNavTab("barcodes").Should().BeTrue();
+            UiShot.Settle(10, 60);
+            warehouse.GetVisualDescendants().OfType<BarcodePrintView>().Should().ContainSingle("печать куплена — внутри вкладки сама печать");
+            SaveShot(shell, $"barcodes-owner-section-{tag}", new UiSize(w, h));
         }
         finally
         {
@@ -312,35 +371,38 @@ public sealed class BarcodesTabUiTests : IDisposable
     }
 
     [AvaloniaFact]
-    public async Task OwnerMenu_BarcodesItem_FoundBySearch_HiddenByMenuSections()
+    public async Task OwnerMenu_Search_ByLabelWords_FindsWarehouse_AndEnterOpensLabelsTab()
     {
         UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
+        UserPreferences.Instance.BulkPriceTagUnlocked = true;
         await LoginOwnerAsync();
         var shell = new OwnerShellWindow();
         try
         {
             shell.Show();
             UiShot.Settle(3, 30);
-            NavButtons(shell).Should().ContainKey("barcodes");
             var search = shell.FindControl<TextBox>("NavSearchText")!;
-            foreach (var word in new[] { "ценник", "штрихкод" })
+            // 2026-11-21: окно 1360 ≤ 1366 — колонка пунктов свёрнута сама; как у человека (Ctrl+K), сперва раскрываем её, затем печатаем в поиск
+            typeof(OwnerShellWindow).GetMethod("FocusNavSearch", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(shell, null);
+            UiShot.Settle(3, 30);
+            foreach (var word in new[] { "ценник", "штрихкод", "этикетка" })
             {
                 search.Text = word;
                 UiShot.Settle(3, 30);
-                NavButtons(shell)["barcodes"].IsEffectivelyVisible.Should().BeTrue($"поиск по меню «{word}» находит «Штрихкоды и ценники»");
+                NavButtons(shell)["warehouse"].IsEffectivelyVisible.Should().BeTrue($"поиск по меню «{word}» находит «Склад»");
             }
-            search.Text = "";
-            UiShot.Settle(2, 30);
-            SectionVisibility.Set("barcodes", true);
-            UiShot.Settle(5, 40);
-            NavButtons(shell).Should().NotContainKey("barcodes", "скрытый в «Разделах меню» пункт в меню не показывается");
-            SectionVisibility.Set("barcodes", false);
-            UiShot.Settle(5, 40);
-            NavButtons(shell).Should().ContainKey("barcodes");
+            // Enter по найденному — «Склад» сразу на вкладке «Ценники и штрихкоды»
+            search.Text = "ценник";
+            UiShot.Settle(3, 30);
+            search.RaiseEvent(new Avalonia.Input.KeyEventArgs { RoutedEvent = Avalonia.Input.InputElement.KeyDownEvent, Key = Avalonia.Input.Key.Enter });
+            WaitFor(() => shell.OwnedWindows.OfType<WarehouseWindow>().Any(), 3000);
+            UiShot.Settle(8, 40);
+            var warehouse = shell.OwnedWindows.OfType<WarehouseWindow>().FirstOrDefault();
+            warehouse.Should().NotBeNull("Enter открыл «Склад»");
+            Tabs(warehouse!).SelectedItem.Should().BeSameAs(BarcodesTab(warehouse!), "и сразу вкладку «Ценники и штрихкоды»");
         }
         finally
         {
-            SectionVisibility.Set("barcodes", false);
             shell.Close();
             UiShot.Pump();
         }
@@ -362,7 +424,8 @@ public sealed class BarcodesTabUiTests : IDisposable
             var warehouse = shell.OwnedWindows.OfType<WarehouseWindow>().FirstOrDefault();
             warehouse.Should().NotBeNull("«Склад» открыт разделом программы владельца");
             UiShot.Settle(6, 40);
-            BarcodesTab(warehouse!).IsEffectivelyVisible.Should().BeTrue("вкладка «Штрихкоды» видна и в разделе «Склад» программы владельца");
+            BarcodesTab(warehouse!).IsEffectivelyVisible.Should().BeTrue("вкладка «Ценники и штрихкоды» видна и в разделе «Склад» программы владельца");
+            TabTitles(warehouse!).Count(t => t == WarehouseWindow.BarcodesTabText).Should().Be(1);
             warehouse!.SelectNavTab("barcodes").Should().BeTrue();
         }
         finally
@@ -373,11 +436,18 @@ public sealed class BarcodesTabUiTests : IDisposable
     }
 
     [AvaloniaFact]
-    public void AdvisorNavRouter_KnowsBarcodesTab()
+    public void AdvisorNavRouter_LabelWords_OpenTheSingleLabelsTab()
     {
         var target = AdvisorNavRouter.ById("warehouse.barcodes");
         target.Should().NotBeNull();
         target!.Section.Should().Be("warehouse");
         target.Tab.Should().Be("barcodes");
+        AdvisorNavRouter.ById("warehouse.labels").Should().BeNull("отдельной вкладки «Редактор этикетки» больше нет");
+        foreach (var phrase in new[] { "открой ценники", "открой редактор этикетки", "открой штрихкоды", "перейди в печать ценников" })
+        {
+            var route = AdvisorNavRouter.Parse(phrase);
+            route.Kind.Should().Be(AdvisorNavRouter.RouteKind.Single, phrase);
+            route.Target!.Id.Should().Be("warehouse.barcodes", phrase);
+        }
     }
 }

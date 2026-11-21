@@ -76,10 +76,20 @@ internal static class ReceiptLineLayout
             yield return RightAlignWithMargin(display, width, rightMarginChars);
     }
 
-    /// <summary>Строка «кол-во x цена», затем итог позиции справа с «сом».</summary>
+    /// <summary>Строка «кол-во x цена» и итог позиции справа. 2026-11-21 (владелец: «наименование и цена не на одном уровне»): «кол-во x цена» слева и
+    /// сумма справа — в ОДНОЙ строке ровно во всю ширину ленты (последняя колонка суммы всегда у правого края, как у соседних позиций); не помещается —
+    /// как раньше: «кол-во x цена», ниже сумма справа с «сом». Строка ровно в ширину ленты не пересобирается построчной вёрсткой принтера.</summary>
     public static IEnumerable<string> FormatItemBlock(string qtyUnitLine, string lineTotalAmount, int width)
     {
         qtyUnitLine = (qtyUnitLine ?? string.Empty).Trim();
+        var plainTotal = (lineTotalAmount ?? string.Empty).Trim();
+        if (qtyUnitLine.Length > 0 && plainTotal.Length > 0 && width >= 16
+            && qtyUnitLine.Length + 1 + plainTotal.Length <= width - 1)
+        {
+            yield return qtyUnitLine + new string(' ', width - 1 - qtyUnitLine.Length - plainTotal.Length) + plainTotal + " ";
+            yield break;
+        }
+
         if (qtyUnitLine.Length > 0)
         {
             foreach (var part in WrapLeft(qtyUnitLine, width))

@@ -5,6 +5,7 @@ using Avalonia.Media;
 using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.Services;
 using NurMarketKassa.Services.Api;
+using Tile = NurMarketKassa.Models.Pos.CatalogProductTileVm;
 
 namespace NurMarketKassa.AvaloniaHost.Views.Dialogs;
 
@@ -60,6 +61,9 @@ public sealed class SupplierReturnEditDialog : Window
     private readonly TextBlock _total = new() { FontSize = 20, FontWeight = FontWeight.Bold, TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _delta = new() { FontSize = 12.5, TextWrapping = TextWrapping.Wrap };
     private string _totalText = "";
+    private readonly TextBlock _preview = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap };
+    private TextBlock _previewTitle = null!;
+    private StackPanel _previewBox = null!;
     private readonly TextBlock _error = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap, IsVisible = false };
     private readonly Button _save;
     private readonly Button _delete;
@@ -71,6 +75,16 @@ public sealed class SupplierReturnEditDialog : Window
     private bool _changed;
     private bool _closed;
     private bool _asking;
+    // 2026-11-21 (ответ Умара 21.11, п. 5): что сервер разрешает менять (editable_fields карточки; не прислал — по контракту), правка владельцем после 24 ч, причина и вид компенсации САМОГО возврата
+    private readonly bool _ownerOverride;
+    private readonly bool _canItems, _canReason, _canComp, _canComment;
+    private string _retReason;
+    private string _retComp;
+    private readonly WrapPanel _reasonChips = new();
+    private readonly StackPanel _compChips = new() { Spacing = 6 };
+    private TextBox? _add;
+    private readonly StackPanel _addResults = new() { Spacing = 6 };
+    private readonly TextBlock _addNote = new() { FontSize = 12, TextWrapping = TextWrapping.Wrap, IsVisible = false };
 
     public SupplierReturnEditDialog(SupplierReturnInfo info, string number, ReturnEditApi? api = null)
     {
@@ -78,11 +92,25 @@ public sealed class SupplierReturnEditDialog : Window
         _number = number;
         _api = api;
         _original = SupplierReturnEdit.FromInfo(info);
+        _ownerOverride = ReturnEditGate.IsOwnerOverride(ReturnDocKind.Supplier, info.EditState, ReturnEditFlows.IsManager);
+        _canItems = info.EditState.CanEditField("items");
+        _canReason = info.EditState.CanEditField("reason");
+        _canComp = info.EditState.CanEditField("compensation");
+        _canComment = info.EditState.CanEditField("comment");
+        _retReason = (info.Reason ?? "").Trim().ToLowerInvariant();
+        _retComp = (info.Compensation ?? "").Trim().ToLowerInvariant();
         // 2026-11-12: заголовок как у кнопки «Править накладную» (владелец искал правку именно накладной)
         Title = T("Правка накладной возврата поставщику", "Жеткирүүчүгө кайтаруу накладнойун оңдоо", "Edit supplier return waybill", "Tedarikçi iade irsaliyesini düzenle", "Yetkazib beruvchiga qaytarish yuk xatini tahrirlash");
         SectionCards.AsModal(this, 800); // 2026-11-12 (UX): было 720 — строка-таблица с названием товара в одну-две линии
 
         var panel = new StackPanel { Spacing = 8 };
+        if (_ownerOverride)
+        {
+            // 2026-11-21: правка владельцем после 24 ч — честная пометка, PIN и журнал
+            var ownerNote = Soft("ⓘ " + ReturnEditFlows.OwnerOverrideText());
+            ownerNote.Name = "SupplierReturnOwnerNote";
+            panel.Children.Add(ownerNote);
+        }
         foreach (var line in _original)
         {
             // 2026-11-12 (аудит В-4): цена показывается до 4 знаков (раньше «0.##»: 33,3333 → 33,33 и уходило округлённым), количество — до 4
@@ -93,17 +121,26 @@ public sealed class SupplierReturnEditDialog : Window
         _more = SectionCards.Secondary("…");
         _more.HorizontalAlignment = HorizontalAlignment.Left;
         _more.Click += (_, _) => ShowMore();
-        if (_rows.Count > PageSize)
+        // 2026-11-21 (владелец: «редактор возвраты поставщикам нету!»): поиск/скан строки — с 6 строк (раньше только с 51-й): штрихкод со сканера + Enter ставит курсор в количество этой строки
+        if (_rows.Count > 5)
         {
             // 2026-11-12: длинная накладная — подсказка и поиск товара по названию (поиск с задержкой 300 мс, чтобы ввод не перестраивал строки на каждую букву)
             var n = _rows.Count;
+            if (_rows.Count > PageSize)
             panel.Children.Add(Soft(T($"В накладной {n} строк — показаны по {PageSize}. Найдите товар поиском или нажмите «Показать ещё»; изменённые строки сохраняются, даже если скрыты.",
                 $"Накладнойдо {n} сап — {PageSize} боюнча көрсөтүлөт. Товарды издөө менен табыңыз же «Дагы көрсөтүү» басыңыз; өзгөртүлгөн саптар жашырылса да сакталат.",
                 $"The waybill has {n} lines — shown {PageSize} at a time. Find a product with search or press “Show more”; edited lines are kept even when hidden.",
                 $"İrsaliyede {n} satır var — {PageSize}'er gösterilir. Ürünü aramayla bulun veya «Daha fazla göster»e basın; değiştirilen satırlar gizlense de korunur.",
                 $"Yuk xatida {n} qator — {PageSize} tadan ko'rsatiladi. Mahsulotni qidiruv bilan toping yoki «Yana ko'rsatish»ni bosing; o'zgartirilgan qatorlar yashirilsa ham saqlanadi.")));
-            _find = SectionCards.Field(new TextBox { Watermark = T("Найти товар: название, штрихкод, артикул", "Товар издөө: аталышы, штрих-код, артикул", "Find a product: name, barcode, article", "Ürün ara: ad, barkod, stok kodu", "Mahsulot qidirish: nomi, shtrixkod, artikul"), MaxLength = 100 });
+            _find = SectionCards.Field(new TextBox { Watermark = T("Найти или сканировать товар: название, штрихкод, артикул", "Товар издөө же сканерлөө: аталышы, штрих-код, артикул", "Find or scan a product: name, barcode, article", "Ürün ara veya okut: ad, barkod, stok kodu", "Mahsulotni qidirish yoki skanerlash: nomi, shtrixkod, artikul"), MaxLength = 100 });
             Avalonia.Automation.AutomationProperties.SetName(_find, _find.Watermark);
+            _find.KeyDown += (_, e) =>
+            {
+                if (e.Key != Avalonia.Input.Key.Enter)
+                    return;
+                e.Handled = true;
+                OnFindEnter();
+            };
             var findTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
             findTimer.Tick += (_, _) =>
             {
@@ -138,17 +175,74 @@ public sealed class SupplierReturnEditDialog : Window
             head.Children.Add(h);
         }
         panel.Children.Add(SectionCards.Group(this, new StackPanel { Spacing = 8, Children = { head, _lines, _more } }));
+        var afterLines = panel.Children.Count; // 2026-11-21: сюда встанет строка «Причина правки / Комментарий»
+
+        // 2026-11-21 (ответ Умара 21.11, п. 5): в возврат можно ДОБАВИТЬ строку — товар из каталога: поиск по названию/штрихкоду/артикулу или скан + Enter ({product, qty, purchase_price?}; без цены сервер берёт цену из прихода или закупочную товара)
+        if (_canItems)
+        {
+            _add = SectionCards.Field(new TextBox { Watermark = T("Добавить товар: название, штрихкод или артикул — или сканируйте", "Товар кошуу: аталышы, штрих-код же артикул — же сканерлеңиз", "Add a product: name, barcode or article — or scan", "Ürün ekle: ad, barkod veya stok kodu — veya okutun", "Mahsulot qo'shish: nomi, shtrixkod yoki artikul — yoki skanerlang"), MaxLength = 100 });
+            _add.Name = "SupplierReturnAddProduct";
+            Avalonia.Automation.AutomationProperties.SetName(_add, _add.Watermark);
+            _add.TextChanged += (_, _) => RenderAddResults();
+            _add.KeyDown += (_, e) =>
+            {
+                if (e.Key != Avalonia.Input.Key.Enter)
+                    return;
+                e.Handled = true;
+                OnAddEnter();
+            };
+            _addNote.Bind(TextBlock.ForegroundProperty, _addNote.GetResourceObservable("BrushTextSoft"));
+            panel.Children.Add(new StackPanel { Spacing = 6, Children = { Label(T("Добавить товар в возврат", "Кайтарууга товар кошуу", "Add a product to the return", "İadeye ürün ekle", "Qaytarishga mahsulot qo'shish")), _add, _addResults, _addNote } });
+        }
+
+        // 2026-11-21: причина возврата и вид компенсации (сервер откатывает старую и проводит новую — это видно в «Что изменится»)
+        if (_canReason)
+        {
+            panel.Children.Add(Label(T("Причина возврата", "Кайтаруунун себеби", "Return reason", "İade nedeni", "Qaytarish sababi")));
+            panel.Children.Add(_reasonChips);
+        }
+        if (_canComp)
+        {
+            panel.Children.Add(Label(T("Что с деньгами", "Акча менен эмне", "What happens with the money", "Para ile ne olacak", "Pul bilan nima bo'ladi")));
+            panel.Children.Add(_compChips);
+        }
+        BuildChips();
+
+        // 2026-11-21 (ответ Умара 21.11): в этом окне не меняются только поставщик и дата возврата (дата — 400 field_not_editable; поля, которых нет в editable_fields карточки, тоже перечислены).
+        // Нужно другое — «Удалить возврат» (если сервер разрешает) и оформить новый.
+        var fixedInfo = Soft(T("Не меняется здесь: ", "Бул жерде өзгөрбөйт: ", "Not changeable here: ", "Burada değişmez: ", "Bu yerda o'zgarmaydi: ")
+            + string.Join(" · ", new[]
+            {
+                info.SupplierName,
+                info.CreatedAt is { } at ? at.ToLocalTime().ToString("dd.MM.yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture) : "",
+                _canReason ? "" : T("причина: ", "себеби: ", "reason: ", "neden: ", "sabab: ") + SupplierReturnsWindow.ReasonName(info.Reason),
+                _canComp ? "" : SupplierReturnsWindow.CompensationName(info.Compensation),
+            }.Where(x => x.Length > 0)) + ". "
+            + T("Поставщика и дату возврата сервер менять не даёт. Нужно другое — «Удалить возврат» и оформите новый.",
+                "Жеткирүүчүнү жана кайтаруу датасын сервер өзгөртүүгө жол бербейт. Башкасы керек болсо — «Кайтарууну өчүрүү» жана жаңысын тариздеңиз.",
+                "The server does not allow changing the supplier or the return date. For anything else, press “Delete return” and make a new one.",
+                "Sunucu tedarikçinin ve iade tarihinin değiştirilmesine izin vermez. Başka bir şey için «İadeyi sil» ve yenisini kaydedin.",
+                "Server yetkazib beruvchini va qaytarish sanasini o'zgartirishga ruxsat bermaydi. Boshqasi kerak bo'lsa — «Qaytarishni o'chirish» va yangisini rasmiylashtiring."));
+        fixedInfo.Name = "SupplierReturnFixedInfo";
+        panel.Children.Add(fixedInfo);
 
         // 2026-11-12 (UX): «Причина правки» и «Комментарий» — в одну строку двумя столбцами (обязательная причина — первой, видна без прокрутки на 1024×600); подсказка в поле короче — подпись над полем уже есть
         _comment = SectionCards.Field(new TextBox { Text = info.Comment, Watermark = T("Комментарий документа", "Документтин комментарийи", "Document comment", "Belge yorumu", "Hujjat izohi"), MaxLength = 500, VerticalContentAlignment = VerticalAlignment.Center });
         _reason = SectionCards.Field(new TextBox { Watermark = T("Обязательно, от 5 знаков", "Милдеттүү, 5 белгиден", "Required, at least 5 characters", "Zorunlu, en az 5 karakter", "Majburiy, kamida 5 belgi"), MaxLength = 500, VerticalContentAlignment = VerticalAlignment.Center });
         Avalonia.Automation.AutomationProperties.SetName(_comment, _comment.Watermark);
+        _comment.IsEnabled = _canComment; // 2026-11-21: editable_fields карточки
         Avalonia.Automation.AutomationProperties.SetName(_reason, T("Причина правки (обязательно, от 5 знаков)", "Оңдоонун себеби (милдеттүү, 5 белгиден)", "Reason for the change (required, at least 5 characters)",
             "Düzenleme nedeni (zorunlu, en az 5 karakter)", "Tahrirlash sababi (majburiy, kamida 5 belgi)"));
         var reasonCell = new StackPanel { Spacing = 4, Children = { Label(T("Причина правки", "Оңдоонун себеби", "Reason for the change", "Düzenleme nedeni", "Tahrirlash sababi") + " *"), _reason } };
         var commentCell = new StackPanel { Spacing = 4, Children = { Label(T("Комментарий", "Комментарий", "Comment", "Yorum", "Izoh")), _comment } };
         Grid.SetColumn(commentCell, 2);
-        panel.Children.Add(new Grid { ColumnDefinitions = new ColumnDefinitions("*,12,*"), Children = { reasonCell, commentCell } });
+        panel.Children.Insert(afterLines, new Grid { // 2026-11-21: обязательная причина правки — сразу под строками (до добавления товара, причины возврата и компенсации), видна без прокрутки
+             ColumnDefinitions = new ColumnDefinitions("*,12,*"), Children = { reasonCell, commentCell } });
+        // 2026-11-21: «что изменится» — склад, деньги/долг поставщику (ожидание; окончательно пересчитывает сервер); виден, только если есть изменения
+        _previewTitle = Label(T("Что изменится после сохранения", "Сактагандан кийин эмне өзгөрөт", "What will change after saving", "Kaydettikten sonra ne değişecek", "Saqlagandan keyin nima o'zgaradi"));
+        _preview.Bind(TextBlock.ForegroundProperty, _preview.GetResourceObservable("BrushText"));
+        _previewBox = new StackPanel { Spacing = 2, IsVisible = false, Name = "SupplierReturnPreview", Children = { _previewTitle, _preview } };
+        panel.Children.Add(_previewBox);
         ReturnEditFlows.AttachTimeLeft(panel, this, info.EditState); // 2026-11-12 (аудит Н-2): подсказка срока пересчитывается раз в минуту
         panel.Children.Add(SectionCards.ErrorBox(this, _error));
         _total.Classes.Add("num");
@@ -176,6 +270,10 @@ public sealed class SupplierReturnEditDialog : Window
     }
 
     private ReturnEditApi Api() => _api ??= ReturnEditFlows.Api();
+
+    // 2026-11-21: причина и вид компенсации возврата изменены относительно карточки (и сервер это разрешает)
+    private bool ReasonChanged => _canReason && !string.Equals(_retReason, (_info.Reason ?? "").Trim(), StringComparison.OrdinalIgnoreCase);
+    private bool CompChanged => _canComp && !string.Equals(_retComp, (_info.Compensation ?? "").Trim(), StringComparison.OrdinalIgnoreCase);
 
     private PendingIdempotencyKey Key
     {
@@ -213,7 +311,7 @@ public sealed class SupplierReturnEditDialog : Window
         if (!string.IsNullOrWhiteSpace(_reason.Text))
             return true;
         var lines = ReadLines(out _);
-        return lines is null || SupplierReturnEdit.HasChanges(_original, lines, _info.Comment, (_comment.Text ?? "").Trim());
+        return lines is null || SupplierReturnEdit.HasChanges(_original, lines, _info.Comment, (_comment.Text ?? "").Trim(), _info.Reason, _canReason ? _retReason : null, _info.Compensation, _canComp ? _retComp : null);
     }
 
     private async Task CancelAsync()
@@ -235,9 +333,17 @@ public sealed class SupplierReturnEditDialog : Window
     private string? SuspiciousText(IReadOnlyList<SupplierReturnEditLine> lines)
     {
         var parts = new List<string>();
-        for (var i = 0; i < lines.Count && i < _original.Count; i++)
+        for (var i = 0; i < lines.Count; i++)
         {
             var l = lines[i];
+            if (l.IsNew) // 2026-11-21: добавленная строка — цену ввели руками и она 0
+            {
+                if (l.Qty > 0 && l.PriceSet && l.Price <= 0)
+                    parts.Add(T($"В строке «{l.Name}» цена закупки 0.", $"«{l.Name}» сабында сатып алуу баасы 0.", $"The purchase price of “{l.Name}” is 0.", $"«{l.Name}» satırında alış fiyatı 0.", $"«{l.Name}» qatorida xarid narxi 0."));
+                continue;
+            }
+            if (i >= _original.Count)
+                break;
             if (l.Qty > 0 && l.Price <= 0 && Math.Abs(_original[i].Price - l.Price) > 0.00005)
                 parts.Add(T($"В строке «{l.Name}» цена закупки 0.", $"«{l.Name}» сабында сатып алуу баасы 0.", $"The purchase price of “{l.Name}” is 0.", $"«{l.Name}» satırında alış fiyatı 0.", $"«{l.Name}» qatorida xarid narxi 0."));
         }
@@ -308,6 +414,145 @@ public sealed class SupplierReturnEditDialog : Window
         UpdateTotal();
     }
 
+    /// <summary>2026-11-21: Enter в поле поиска/скана — курсор в количество найденной строки. 2026-11-21 (ответ Умара 21.11): такого товара в накладной нет — ищем в каталоге и добавляем строку (сервер новые строки принимает).</summary>
+    private void OnFindEnter()
+    {
+        var matches = Matches();
+        if (matches.Count == 0)
+        {
+            var text = (_find?.Text ?? "").Trim();
+            if (_canItems && FindProducts(text).FirstOrDefault() is { } product)
+            {
+                if (_find is not null)
+                    _find.Text = "";
+                AddProduct(product);
+                return;
+            }
+            ShowError(T("Такого товара нет ни в накладной, ни в каталоге.", "Мындай товар накладнойдо да, каталогто да жок.", "This product is neither in the waybill nor in the catalog.",
+                "Bu ürün ne irsaliyede ne de katalogda var.", "Bunday mahsulot yuk xatida ham, katalogda ham yo'q."));
+            return;
+        }
+        ShowError(null);
+        RevealRow(matches[0]);
+    }
+
+    private void BuildChips()
+    {
+        _reasonChips.Children.Clear();
+        foreach (var reason in new[] { "defect", "surplus", "wrong_item", "expired", "other" })
+        {
+            var chip = UiKit.Chip(this, SupplierReturnsWindow.ReasonName(reason), reason == _retReason);
+            chip.MinHeight = 44;
+            chip.Margin = new Thickness(0, 0, 8, 8);
+            chip.Click += (_, _) =>
+            {
+                _retReason = reason;
+                BuildChips();
+                UpdateTotal();
+            };
+            _reasonChips.Children.Add(chip);
+        }
+        _compChips.Children.Clear();
+        foreach (var comp in new[] { "cash", "debt_offset", "none" })
+        {
+            var chip = UiKit.Chip(this, SupplierReturnsWindow.CompensationName(comp), comp == _retComp);
+            chip.MinHeight = 44;
+            chip.HorizontalAlignment = HorizontalAlignment.Stretch;
+            chip.HorizontalContentAlignment = HorizontalAlignment.Left;
+            chip.CornerRadius = new CornerRadius(10);
+            chip.Click += (_, _) =>
+            {
+                _retComp = comp;
+                BuildChips();
+                UpdateTotal();
+            };
+            _compChips.Children.Add(chip);
+        }
+    }
+
+    /// <summary>2026-11-21: товары каталога по тексту — точный код (основной/доп. штрихкод, артикул) или совпадение по названию/штрихкоду/артикулу.</summary>
+    private static List<Tile> FindProducts(string text)
+    {
+        text = (text ?? "").Trim();
+        var list = new List<Tile>();
+        if (text.Length < 2)
+            return list;
+        try
+        {
+            if (text.Length >= 4 && NurMarketKassa.Services.ProductCodeLookup.FindLocal(text, allowWeightLabel: false)?.Product is { } exact)
+                list.Add(exact);
+            foreach (var p in NurMarketKassa.Services.CatalogCacheService.Products
+                         .Where(p => !string.IsNullOrWhiteSpace(p.Title) && NurMarketKassa.Core.Application.SearchMatch.Matches(text, p.Title, p.Barcode, p.Article))
+                         .OrderBy(p => p.Title).Take(8))
+                if (!list.Any(x => string.Equals(x.Id, p.Id, StringComparison.OrdinalIgnoreCase)))
+                    list.Add(p);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            PosLogger.Log($"Возврат поставщику: поиск товара для добавления не удался ({ex.GetType().Name}).", "WARNING");
+        }
+        return list;
+    }
+
+    private void RenderAddResults()
+    {
+        _addResults.Children.Clear();
+        var text = (_add?.Text ?? "").Trim();
+        foreach (var p in FindProducts(text).Take(6))
+        {
+            var chip = UiKit.Chip(this, p.Title, false);
+            chip.MinHeight = 44;
+            chip.HorizontalAlignment = HorizontalAlignment.Stretch;
+            chip.HorizontalContentAlignment = HorizontalAlignment.Left;
+            chip.CornerRadius = new CornerRadius(10);
+            chip.Click += (_, _) => AddProduct(p);
+            _addResults.Children.Add(chip);
+        }
+    }
+
+    private void OnAddEnter()
+    {
+        var text = (_add?.Text ?? "").Trim();
+        if (FindProducts(text).FirstOrDefault() is { } product)
+            AddProduct(product);
+        else if (text.Length > 0)
+            ShowError(T("Такого товара нет в каталоге.", "Мындай товар каталогто жок.", "This product is not in the catalog.", "Bu ürün katalogda yok.", "Bunday mahsulot katalogda yo'q."));
+    }
+
+    /// <summary>2026-11-21: добавить товар в возврат строкой (количество 1, цена — закупочная из карточки, пока не введена вручную). Такой товар уже есть среди строк — не дублируем, показываем её.</summary>
+    private void AddProduct(Tile product)
+    {
+        ShowError(null);
+        if (_add is not null)
+            _add.Text = "";
+        _addResults.Children.Clear();
+        var same = _rows.FirstOrDefault(r => string.Equals(r.Source.ProductId, product.Id, StringComparison.OrdinalIgnoreCase));
+        if (same is not null)
+        {
+            if (same.Source.IsNew)
+            {
+                var q = (SupplierReturnEdit.ParseNumber(same.QtyText) ?? 0) + 1;
+                same.QtyText = q.ToString("0.####", System.Globalization.CultureInfo.CurrentCulture);
+                if (same.Qty is { } box)
+                    box.Text = same.QtyText;
+                UpdateTotal();
+            }
+            _addNote.Text = T($"«{product.Title}» уже есть в возврате — измените количество в строке.", $"«{product.Title}» кайтарууда бар — саптагы санын өзгөртүңүз.", $"“{product.Title}” is already in the return — change the quantity in its line.",
+                $"«{product.Title}» zaten iadede var — satırdaki miktarı değiştirin.", $"«{product.Title}» qaytarishda allaqachon bor — qatordagi miqdorni o'zgartiring.");
+            _addNote.IsVisible = true;
+            RevealRow(same);
+            return;
+        }
+        _addNote.IsVisible = false;
+        var unit = product.Unit ?? "";
+        var price = product.PurchasePrice > 0 ? product.PurchasePrice : 0;
+        var line = new SupplierReturnEditLine("", product.Id, product.Title, unit, 1, price, 0, "", product.Article ?? "", product.Barcode ?? "", IsNew: true, PriceSet: false);
+        var priceText = price.ToString("0.####", System.Globalization.CultureInfo.CurrentCulture);
+        var row = new Row { Source = line, QtyText = "1", PriceText = priceText, OrigQtyText = "1", OrigPriceText = priceText };
+        _rows.Add(row);
+        RevealRow(row);
+    }
+
     /// <summary>2026-11-12 (аудит С-6): ошибка относится к строке, скрытой страницей или поиском, — сбрасываем поиск, раскрываем страницу до строки и ставим фокус в её поле.</summary>
     private void RevealRow(Row? row, bool price = false)
     {
@@ -357,6 +602,13 @@ public sealed class SupplierReturnEditDialog : Window
         row.Remove = remove;
         remove.Click += (_, _) =>
         {
+            if (row.Source.IsNew)
+            {
+                // 2026-11-21: добавленную при правке строку убираем совсем (в документе её ещё нет — «вернуть» нечего)
+                _rows.Remove(row);
+                RenderRows();
+                return;
+            }
             var removed = SupplierReturnEdit.ParseNumber(row.QtyText) is { } q0 && q0 == 0;
             var text = removed ? row.OrigQtyText : "0";
             row.QtyText = text;
@@ -376,6 +628,8 @@ public sealed class SupplierReturnEditDialog : Window
         Control box = grid;
         var qty = row.Qty;
         var price = row.Price;
+        if (!_canItems)
+            qty.IsEnabled = price.IsEnabled = remove.IsEnabled = false; // 2026-11-21: сервер не разрешил менять строки (editable_fields)
         qty.TextChanged += (_, _) =>
         {
             row.QtyText = qty.Text ?? "";
@@ -428,7 +682,8 @@ public sealed class SupplierReturnEditDialog : Window
                 bad = (r, qty is not null);
                 return null;
             }
-            list.Add(r.Source with { Qty = qty.Value, Price = price.Value });
+            // 2026-11-21: у добавленной строки цена «введена», только если текст поля изменили (иначе purchase_price не уходит — сервер берёт цену из прихода или закупочную товара)
+            list.Add(r.Source with { Qty = qty.Value, Price = price.Value, PriceSet = !r.Source.IsNew || !string.Equals(r.PriceText, r.OrigPriceText, StringComparison.Ordinal) });
         }
         return list;
     }
@@ -462,6 +717,12 @@ public sealed class SupplierReturnEditDialog : Window
                 ToolTip.SetTip(rb, tip);
             }
         }
+        var previewLines = lines is null ? new List<string>() : SupplierReturnEdit.Preview(_original, lines, _info.Compensation, CompChanged ? _retComp : null).ToList();
+        if (ReasonChanged) // 2026-11-21: причина возврата тоже меняется — в журнале сервера; на склад и деньги не влияет
+            previewLines.Add(T("Причина возврата: ", "Кайтаруунун себеби: ", "Return reason: ", "İade nedeni: ", "Qaytarish sababi: ") + SupplierReturnsWindow.ReasonName(_info.Reason) + " → " + SupplierReturnsWindow.ReasonName(_retReason));
+        _preview.Text = string.Join("\n", previewLines);
+        if (_previewBox is not null) // RenderRows() в конструкторе вызывает UpdateTotal раньше, чем создан блок
+            _previewBox.IsVisible = previewLines.Count > 0;
         var newTotal = lines is null ? (double?)null : SupplierReturnEdit.Total(lines);
         var oldTotal = SupplierReturnEdit.Total(_original);
         _totalText = T("Сумма: ", "Суммасы: ", "Total: ", "Toplam: ", "Jami: ") + (newTotal is { } nt ? MoneyText.Som(nt) : "—")
@@ -517,7 +778,7 @@ public sealed class SupplierReturnEditDialog : Window
                 _reason.Focus(); // 2026-11-12 (UX): не заполнена причина — курсор сразу в её поле
             return;
         }
-        if (!SupplierReturnEdit.HasChanges(_original, lines, _info.Comment, comment))
+        if (!SupplierReturnEdit.HasChanges(_original, lines, _info.Comment, comment, _info.Reason, _canReason ? _retReason : null, _info.Compensation, _canComp ? _retComp : null))
         {
             ShowError(T("Изменений нет — сохранять нечего.", "Өзгөртүү жок — сактай турган эч нерсе жок.", "No changes — nothing to save.", "Değişiklik yok — kaydedilecek bir şey yok.", "O'zgarish yo'q — saqlanadigan narsa yo'q."));
             return;
@@ -559,7 +820,7 @@ public sealed class SupplierReturnEditDialog : Window
                 Lock();
                 return;
             }
-            if (!ReturnEditGate.ShowEdit(ReturnDocKind.Supplier, fresh))
+            if (!ReturnEditGate.ShowEdit(ReturnDocKind.Supplier, fresh, ReturnEditFlows.IsManager)) // 2026-11-21: владелец/админ — и после 24 ч
             {
                 ShowError(ReturnEditErrors.NotEditableText(fresh)); // 2026-11-11: причина сервера (edit_block_reason)
                 Lock();
@@ -579,13 +840,15 @@ public sealed class SupplierReturnEditDialog : Window
             }
             if (_closed || !_shell.TryBeginBusy())
                 return;
-            var body = SupplierReturnEdit.BuildPatchBody(lines, reason, comment, _original);
+            var newReason = ReasonChanged ? _retReason : null; // 2026-11-21: причина/вид компенсации возврата — только если изменили
+            var newComp = CompChanged ? _retComp : null;
+            var body = SupplierReturnEdit.BuildPatchBody(lines, reason, comment, _original, newReason, newComp);
             var key = Key;
-            var keyValue = key.Get(SupplierReturnEdit.Signature(_info.Id, fresh.Version, lines, reason, comment));
+            var keyValue = key.Get(SupplierReturnEdit.Signature(_info.Id, fresh.Version, lines, reason, comment, newReason, newComp));
             await Api().PatchAsync(ReturnDocKind.Supplier, _info.Id, fresh.Version, body, token, keyValue).ConfigureAwait(true);
             key.OnSuccess();
             ForgetKey();
-            PosLogger.Log($"Возврат поставщику {_number} ({_info.Id}) изменён: v{fresh.Version} → новая версия, строк {lines.Count(l => l.Qty > 0)}.", "INFO");
+            PosLogger.Log($"Возврат поставщику {_number} ({_info.Id}) изменён{(_ownerOverride ? " владельцем после 24 ч (owner_override)" : "")}: v{fresh.Version} → новая версия, строк {lines.Count(l => l.Qty > 0)}, добавлено {lines.Count(l => l.IsNew && l.Qty > 0)}{(newReason is not null ? ", причина возврата изменена" : "")}{(newComp is not null ? ", вид компенсации изменён" : "")}.", "INFO");
             _changed = true;
             _shell.EndBusy();
             Close(true);
@@ -647,6 +910,44 @@ public sealed class SupplierReturnEditDialog : Window
     }
 
     public string TotalText => _totalText;
+
+    /// <summary>2026-11-21: id товаров, добавленных в возврат при правке (после сохранения их остаток перечитывается).</summary>
+    public IReadOnlyList<string> AddedProductIds => _rows.Where(r => r.Source.IsNew && (SupplierReturnEdit.ParseNumber(r.QtyText) ?? 0) > 0).Select(r => r.Source.ProductId).ToList();
+
+    /// <summary>2026-11-21: добавить товар каталога в возврат (для тестов окна).</summary>
+    public void AddProductForTests(Tile product) => AddProduct(product);
+
+    /// <summary>2026-11-21: выбрать причину / вид компенсации возврата (для тестов окна).</summary>
+    public void SetReturnReasonForTests(string reason)
+    {
+        _retReason = reason;
+        BuildChips();
+        UpdateTotal();
+    }
+
+    public void SetCompensationForTests(string compensation)
+    {
+        _retComp = compensation;
+        BuildChips();
+        UpdateTotal();
+    }
+
+    public bool OwnerOverrideForTests => _ownerOverride;
+    public bool AddFieldVisibleForTests => _add is not null;
+    public bool ReasonChipsVisibleForTests => _canReason;
+
+    /// <summary>2026-11-21: текст предпросмотра «что изменится» (пусто — блок скрыт).</summary>
+    public string PreviewTextForTests => _previewBox is { IsVisible: true } ? _preview.Text ?? "" : "";
+
+    /// <summary>2026-11-21: ввести в поле поиска/скана текст и нажать Enter (false — поля поиска нет).</summary>
+    public bool ScanForTests(string text)
+    {
+        if (_find is null)
+            return false;
+        _find.Text = text;
+        OnFindEnter();
+        return true;
+    }
 
     /// <summary>2026-11-12 (UX): строка под суммой в подвале — «было … · меньше/больше на …».</summary>
     public string DeltaTextForTests => _delta.Text ?? "";

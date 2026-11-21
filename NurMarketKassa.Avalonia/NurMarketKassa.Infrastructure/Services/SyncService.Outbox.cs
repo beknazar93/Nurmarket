@@ -12,6 +12,15 @@ public sealed partial class SyncService
     /// internal set — тесты подставляют свою службу.</summary>
     public static SyncService? Current { get; internal set; }
 
+    /// <summary>2026-11-21 («Очистить неотправленные чеки»): очередь изменилась не отправкой, а очисткой — пересчитать счётчик «В очереди» и поднять StateChanged (индикатор в шапке и значок обновятся).</summary>
+    public void RefreshQueueIndicators()
+    {
+        if (_disposed)
+            return;
+        UpdateStatusText();
+        RaiseStateChanged();
+    }
+
     /// <summary>2026-11-06, «Неотправленное → Отправить сейчас»: ТОТ ЖЕ путь, что у фонового прохода (SyncBatchAsync / OfflineOperationsReplayer / закрытие смен), но только для выбранных записей.
     /// Замок прохода (<c>_syncGate</c>) общий с автоматикой: пока она шлёт, ждём её конец — запись, которую она отправила, из очереди уже пропала и второй раз не уйдёт;
     /// ключи повтора (Idempotency-Key = id записи, PendingIdempotencyKey операций) те же, поэтому даже потерянный ответ не создаёт дубль. Не бросает наружу ошибки сети: итог видно по записи.</summary>

@@ -100,6 +100,8 @@
   <x:String x:Key="csh.cart.emptyHint">Выберите товар слева или&#x0a;отсканируйте штрихкод</x:String>
   <x:String x:Key="csh.cart.quickProducts">Быстрые товары</x:String>
   <x:String x:Key="csh.cart.discountTooltip">Скидка на этот товар</x:String>
+  <x:String x:Key="csh.cart.haggle">Торг</x:String>
+  <x:String x:Key="csh.cart.haggleCheckTooltip">Торг по чеку: округлить вниз или договориться о сумме</x:String>
   <x:String x:Key="csh.cart.weighTooltip">Перевзвесить товар</x:String>
   <x:String x:Key="csh.cart.decreaseTooltip">Уменьшить</x:String>
   <x:String x:Key="csh.cart.increaseTooltip">Увеличить</x:String>
@@ -122,15 +124,14 @@
   <x:String x:Key="mainWindow.openDownloadTooltip">Открыть страницу загрузки</x:String>
   <x:String x:Key="mainWindow.checkCustomerDisplayTooltip">Проверить экран покупателя</x:String>
   <x:String x:Key="mainWindow.onScreenKeyboardTooltip">Экранная клавиатура</x:String>
-  <x:String x:Key="mainWindow.hotkeysTooltip">Горячие клавиши</x:String>
+  <x:String x:Key="mainWindow.hotkeysTooltip">Настроить клавиши</x:String>
   <!-- 2026-11-13 (Н-1, Н-2): шпаргалка клавиш, подсказка пустого чека, мастер первого запуска и учебная продажа -->
-  <x:String x:Key="mainWindow.hotkeysCheatSheet">Клавиши кассы (?)</x:String>
+  <x:String x:Key="mainWindow.hotkeysCheatSheet">Шпаргалка по клавишам (?)</x:String>
   <x:String x:Key="csh.cart.scanTitle">Отсканируйте товар</x:String>
   <x:String x:Key="csh.cart.scanHint">Сканер работает из любого места экрана.&#x0a;Или введите код / название в поле поиска.</x:String>
   <x:String x:Key="csh.cart.keysLink">Клавиши: ?</x:String>
   <x:String x:Key="csh.menu.firstRunWizard">Обучение: экскурсия по кассе</x:String>
   <x:String x:Key="csh.menu.trainingSale">Учебная продажа</x:String>
-  <x:String x:Key="csh.menu.transferData">Перенос данных из другой программы</x:String>
   <x:String x:Key="hotkeyGroup.title">Горячая клавиша</x:String>
   <x:String x:Key="header.labelCustomerDisplay">Экран</x:String>
   <x:String x:Key="header.labelTheme">Тема</x:String>
@@ -784,6 +785,8 @@
   <x:String x:Key="posSettings.screen.autoTouchKeyboard">Авто-показ сенсорной клавиатуры</x:String>
   <x:String x:Key="posSettings.screen.showCatalogPhotos">Показывать фото товаров в каталоге</x:String>
   <x:String x:Key="posSettings.screen.showCatalogPhotosDesc">Если у товара нет загруженного фото, показывается только название.</x:String>
+  <x:String x:Key="posSettings.screen.noBarcodeFirst">Сначала товары без штрихкода</x:String>
+  <x:String x:Key="posSettings.screen.noBarcodeFirstDesc">Хлеб, булочки и другие товары без заводского штрихкода стоят в начале каталога, потом остальные. При поиске порядок по совпадению.</x:String>
   <x:String x:Key="posSettings.screen.cashbox">Касса</x:String>
   <x:String x:Key="posSettings.screen.cashboxDesc">По умолчанию берётся первая активная касса. Если она не та — выберите нужную здесь.</x:String>
   <x:String x:Key="posSettings.screen.refreshCashboxesTooltip">Обновить список касс</x:String>
@@ -1137,7 +1140,6 @@
   <x:String x:Key="warehouse.printLabelButton">Печать</x:String>
   <x:String x:Key="warehouse.colPriceTag">Ценник</x:String>
   <x:String x:Key="warehouse.priceTagButton">Ценник</x:String>
-  <x:String x:Key="warehouse.bulkPriceTagButton">Печать штрихкодов и ценников</x:String>
   <x:String x:Key="warehouse.analyticsLockedTitle">Аналитика склада — платная доп. услуга</x:String>
   <x:String x:Key="warehouse.analyticsLockedDesc">Графики и разбивка по категориям доступны после активации серийным номером — так же, как темы в Маркетплейсе.</x:String>
   <x:String x:Key="warehouse.analyticsUnlockButton">Активировать</x:String>
@@ -1209,10 +1211,6 @@
   <x:String x:Key="warehouse.movementsNote">Примечание</x:String>
   <x:String x:Key="warehouse.movementsSale">Продажа</x:String>
   <x:String x:Key="warehouse.movementsWriteOff">Списание</x:String>
-  <x:String x:Key="warehouse.tabLabelEditor">Редактор этикетки</x:String>
-  <x:String x:Key="warehouse.labelEditorTabTitle">Редактор этикетки</x:String>
-  <x:String x:Key="warehouse.labelEditorTabDescription">Расположение штрих-кода, названия, цены, артикула, единицы измерения и магазина на этикетке — перетаскиванием, с настройкой каждого элемента. По этому шаблону печатаются этикетки из строки товара (⋯ → Печать этикетки).</x:String>
-  <x:String x:Key="warehouse.labelEditorTabButton">Открыть редактор</x:String>
   <x:String x:Key="warehouse.analyticsSkuCountLabel">Товаров в каталоге</x:String>
   <x:String x:Key="warehouse.analyticsOutOfStockLabel">Нет в наличии</x:String>
   <x:String x:Key="warehouse.analyticsLowStockLabel">Низкий остаток</x:String>

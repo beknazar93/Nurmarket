@@ -104,6 +104,71 @@ public sealed class TariffApiTests : IDisposable
         body.GetProperty("packs").EnumerateArray().Select(x => x.GetString()).Should().Equal("ai", "clients");
     }
 
+    [Fact]
+    public async Task Quote_SendsRemoveAndYear_ParsesPlanAfterCustom_AndYearTotals()
+    {
+        _server.Json("POST", "/api/users/company/tariff/quote/", 200,
+            """{"monthly":"4000.00","once":"15000.00","base":"1300.00","packs":[{"code":"clients","monthly":"400.00","once":"1500.00","already_active":false}],"start_price":"1300.00","plan_after":"custom","removed":["ai"],"standard_cheaper":true,"standard_price":"3600.00","base_plan":"start","base_price":"1300.00","total_month":"5300.00","total_once":"15000.00","period":"year","total_year":"53000.00","year_months":12,"year_paid_months":10,"year_discount":"10600.00"}""");
+        var api = await MakeAsync();
+
+        var q = await api.QuoteAsync([], ["scales_labels"], "grocery", ["ai"], "year");
+
+        q.BecomesCustom.Should().BeTrue();
+        q.Removed.Should().Equal("ai");
+        q.BasePlan.Should().Be("start");
+        q.Base.Should().Be(1300m);
+        q.StartPrice.Should().Be(1300m);
+        q.TotalMonth.Should().Be(5300m);
+        q.TotalYear.Should().Be(53000m);
+        q.YearDiscount.Should().Be(10600m);
+        q.YearPaidMonths.Should().Be(10);
+        var body = JsonDocument.Parse(_server.Server.LogEntries.Single(e => e.RequestMessage.Path == "/api/users/company/tariff/quote/").RequestMessage.Body!).RootElement;
+        body.GetProperty("remove").EnumerateArray().Select(x => x.GetString()).Should().Equal("ai");
+        body.GetProperty("period").GetString().Should().Be("year");
+        body.GetProperty("modules").EnumerateArray().Select(x => x.GetString()).Should().Equal("scales_labels");
+    }
+
+    [Fact]
+    public async Task Submit_SendsPacksRemoveModulesAndPeriod_WithIdempotencyKey()
+    {
+        _server.Json("POST", "/api/users/company/tariff/custom/", 201, """{"order_id":"abc","status":"pending","amount_monthly":"5300.00","amount_once":"15000.00"}""");
+        var api = await MakeAsync();
+
+        await api.SubmitCustomAsync([], ["scales_labels"], ["ai"], "year", "key-1");
+
+        var req = _server.Server.LogEntries.Single(e => e.RequestMessage.Path == "/api/users/company/tariff/custom/").RequestMessage;
+        req.Headers!["Idempotency-Key"].Single().Should().Be("key-1");
+        var body = JsonDocument.Parse(req.Body!).RootElement;
+        body.GetProperty("remove").EnumerateArray().Select(x => x.GetString()).Should().Equal("ai");
+        body.GetProperty("modules").EnumerateArray().Select(x => x.GetString()).Should().Equal("scales_labels");
+        body.GetProperty("period").GetString().Should().Be("year");
+    }
+
+    [Fact]
+    public void Catalog_ParsesYearPriceAndTrialDays_AndNameObjectOrString()
+    {
+        using var doc = JsonDocument.Parse("""{"plans":[{"code":"mini","name":{"ru":"Мини","ky":"Мини","en":"Mini"},"price":"500.00","trial_days":14,"year":{"months":12,"paid_months":10,"price":"5000.00"}},{"code":"custom","name":"Своё"}],"packs":[]}""");
+        var catalog = TariffApi.ParseCatalog(doc.RootElement);
+        catalog.Plan("mini")!.YearPrice.Should().Be(5000m);
+        catalog.Plan("mini")!.TrialDays.Should().Be(14);
+        catalog.Plan("mini")!.Name.Should().Be("Мини");
+        catalog.Plan("custom")!.Name.Should().Be("Своё", "строка тоже допустима");
+        catalog.Plan("custom")!.YearPrice.Should().BeNull();
+    }
+
+    [Fact]
+    public void PlanInfo_NameAsObjectOrString_ShownInInterfaceLanguage()
+    {
+        using var obj = JsonDocument.Parse("""{"plan":{"code":"custom","name":{"ru":"Своё","en":"Custom"}}}""");
+        var plan = PlanInfo.Parse(obj.RootElement)!;
+        plan.Name.Should().Be("Своё");
+        plan.LocalizedName().Should().Be("Своё");
+        using var str = JsonDocument.Parse("""{"plan":{"code":"custom","name":"Своё","names":{"ru":"Своё","en":"Custom"}}}""");
+        PlanInfo.Parse(str.RootElement)!.Name.Should().Be("Своё");
+        UserPreferences.Instance.Language = AppLanguage.English;
+        PlanInfo.Parse(str.RootElement)!.LocalizedName().Should().Be("Custom");
+    }
+
     [Theory]
     [InlineData(400, "{\"detail\":\"pack_unknown\"}", "не знает")]
     [InlineData(409, "{\"detail\":\"plan_not_allowed\"}", "пока недоступен")]

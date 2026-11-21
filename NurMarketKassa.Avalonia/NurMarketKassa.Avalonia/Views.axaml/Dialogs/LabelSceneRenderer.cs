@@ -115,13 +115,27 @@ internal static class LabelSceneRenderer
 
     private static void DrawText(DrawingContext ctx, LabelSceneText t)
     {
+        if (t.Rotation == 0)
+        {
+            DrawTextFlat(ctx, t);
+            return;
+        }
+        // 2026-11-21: повёрнутый блок — сцена уже дала рамку «высота × ширина» вокруг прежнего центра; поворачиваем рисование вокруг него.
+        var cx = t.X + t.W / 2;
+        var cy = t.Y + t.H / 2;
+        using (ctx.PushTransform(Matrix.CreateTranslation(-cx, -cy) * Matrix.CreateRotation(Math.PI / 180 * t.Rotation) * Matrix.CreateTranslation(cx, cy)))
+            DrawTextFlat(ctx, t);
+    }
+
+    private static void DrawTextFlat(DrawingContext ctx, LabelSceneText t)
+    {
         FormattedText ft;
         if (t.SizePt > 0)
         {
             // Ручной размер: перенос по ширине блока, по центру, обрезка по рамке.
             ft = Format(t.Text, t, t.SizePt);
             ft.MaxTextWidth = t.W;
-            ft.TextAlignment = TextAlignment.Center;
+            ft.TextAlignment = t.Align == 0 ? TextAlignment.Left : t.Align == 2 ? TextAlignment.Right : TextAlignment.Center;
             using (ctx.PushClip(new Rect(t.X, t.Y, t.W, t.H)))
                 ctx.DrawText(ft, new Point(t.X, t.Y + (t.H - ft.Height) / 2));
             return;
@@ -142,6 +156,6 @@ internal static class LabelSceneRenderer
                 display = display[..^1];
             ft = Format(display + "…", t, size);
         }
-        ctx.DrawText(ft, new Point(t.X + Math.Max(0, (t.W - ft.Width) / 2), t.Y + Math.Max(0, (t.H - ft.Height) / 2)));
+        ctx.DrawText(ft, new Point(t.X + (t.Align == 0 ? 0 : t.Align == 2 ? Math.Max(0, t.W - ft.Width) : Math.Max(0, (t.W - ft.Width) / 2)), t.Y + Math.Max(0, (t.H - ft.Height) / 2)));
     }
 }

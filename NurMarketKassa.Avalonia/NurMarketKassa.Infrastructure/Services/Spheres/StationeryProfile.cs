@@ -61,6 +61,7 @@ public static class StationeryProfile
         ShowVariants = false,
         ShowProductDetails = false,
         PackScan = true, // 2026-11-13: скан коробки = N (ТЗ раздел 1); у других сфер выключен
+        ForemanPriceAvailable = true, // 2026-11-21: «цена по клиенту» (модуль client_price сервера входит в профиль канцтоваров)
         ChoiceVisible = true, // 2026-11-13: плитка «Канцтовары» в окне первого запуска и в Настройках
     };
 

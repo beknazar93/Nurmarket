@@ -384,6 +384,34 @@ public static class OfflinePendingSalesStore
         return true;
     }
 
+    /// <summary>2026-11-21 (просьба владельца «Очистить неотправленные чеки»): закрыть НЕОТПРАВЛЕННЫЙ чек без отправки — и ждущий, и «Ошибку отправки». Как <see cref="CloseWithoutSending"/>:
+    /// статус Synced, запись остаётся (ClosedWithoutSendAt, ClosedReason), очередь, счётчики, итоги смены и сверка её больше не считают. Не трогает «Отправляется» (чек прямо сейчас уходит),
+    /// автономные и уже проведённые на сервере (CheckoutCompleted). Проверка статуса и запись — под замком <c>UpdateGate</c>, как у <see cref="Update"/>.
+    /// Права, PIN и резервная копия — на вызывающем (UnsentReceiptsCleaner). false — чек нельзя закрыть.</summary>
+    public static bool CloseUnsentWithoutSending(string id, string reason)
+    {
+        OfflineSaleEntry? entry;
+        lock (UpdateGate)
+        {
+            entry = TryGetById(id);
+            if (entry == null || entry.IsAutonomous || entry.CheckoutCompleted)
+                return false;
+            var pending = string.Equals(entry.Status, OfflineSaleEntry.PendingSync, StringComparison.OrdinalIgnoreCase);
+            var failed = string.Equals(entry.Status, OfflineSaleEntry.Failed, StringComparison.OrdinalIgnoreCase);
+            if (!pending && !failed)
+                return false;
+            entry.Status = OfflineSaleEntry.Synced;
+            entry.ClosedWithoutSendAt = DateTimeOffset.Now;
+            entry.ClosedReason = reason;
+            entry.ReviewNeeded = false;
+            OfflineDatabase.UpdateEntry(entry);
+            InvalidatePendingCache();
+        }
+        PosLogger.Log($"OFFLINE: чек {id} очищен из неотправленных без отправки; причина: {reason}; последняя ошибка: {entry.LastError}", "OFFLINE");
+        StockSyncService.ScheduleStockRereadForCart(entry.CartJson, TimeSpan.Zero); // как в CloseWithoutSending: остаток товаров чека перечитывается с сервера
+        return true;
+    }
+
     public static void RemoveSynced(string id)
     {
         OfflineDatabase.RemoveIds(new[] { id });

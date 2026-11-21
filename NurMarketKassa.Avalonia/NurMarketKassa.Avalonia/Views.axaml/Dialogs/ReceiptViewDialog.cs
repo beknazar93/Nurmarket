@@ -11,8 +11,11 @@ namespace NurMarketKassa.AvaloniaHost.Views.Dialogs;
 /// <summary>2026-10-27, владелец: «вид чека в десктопе как в мобилке». Окно «Чек» — бумага (общий контрол SaleReceiptCardView) и панель
 /// «Печать / QR / PDF / Отправить» (ReceiptActionBar), как экран «Оплачено → Посмотреть чек» мобилки. Открывается с плашки «Продажа
 /// прошла» и из предпросмотра чека; длинный чек прокручивается между шапкой и кнопками.</summary>
-public sealed class ReceiptViewDialog : Window
+public sealed class ReceiptViewDialog : Window, IDialogOpenKey
 {
+    /// <summary>2026-11-21: ключ «тот же чек» для защиты от повторного открытия (двойное нажатие на строку/кнопку «Чек»).</summary>
+    string? IDialogOpenKey.DialogOpenKey => _data.NumberText;
+
     private readonly ReceiptActionBar _bar = new();
     private readonly Border _paper; // 2026-11-03 (Д-2): бумагу можно заменить, когда пришёл чек сервера
     private readonly ModalShell _shell;

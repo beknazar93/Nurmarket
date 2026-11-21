@@ -585,7 +585,39 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
     public bool HasItems => Lines.Count > 0;
     public bool HasLines => HasItems;
     public bool IsEmpty => Lines.Count == 0;
-    public bool HasHeldReceipts => DeferredCartsStore.Count() > 0;
+    public bool HasHeldReceipts => DeferredCartsStore.Count() > 0 || _sessions.Any(s => s.DeferredAt != null && s.Id != _activeSessionId); // 2026-11-21: и чеки-вкладки «Отложен ЧЧ:ММ»
+
+    /// <summary>2026-11-21 (владелец: «список отложенных должен показывать все»): чеки, отложенные кнопкой «Отложить» (вкладки «Отложен ЧЧ:ММ»), в виде записей —
+    /// окно «Отложенные» показывает их вместе с очередью. Id записи = id вкладки.</summary>
+    public IReadOnlyList<DeferredCartEntry> GetHeldTabEntries() =>
+        _sessions.Where(s => s.DeferredAt != null && s.Id != _activeSessionId)
+            .Select(s => new DeferredCartEntry { Id = s.Id, Label = s.BaseName, SavedAt = new DateTimeOffset(s.DeferredAt!.Value), CartJson = s.CartJson })
+            .ToList();
+
+    public bool IsHeldTab(string id) =>
+        _sessions.Any(s => s.Id == id && s.DeferredAt != null && s.Id != _activeSessionId);
+
+    /// <summary>Открыть чек-вкладку из окна «Отложенные» (то же, что нажатие на вкладку).</summary>
+    public bool OpenHeldTab(string id)
+    {
+        if (!IsHeldTab(id))
+            return false;
+        SelectReceiptTab(new ReceiptTabVm(id, "", false, null));
+        return true;
+    }
+
+    /// <summary>Закрыть отложенную вкладку, чьи позиции перенесены в текущий чек (активную и не отложенную не трогает).</summary>
+    public void RemoveHeldTab(string id)
+    {
+        var session = _sessions.FirstOrDefault(s => s.Id == id && s.DeferredAt != null && s.Id != _activeSessionId);
+        if (session is null)
+            return;
+        _sessions.Remove(session);
+        RenameReceiptSessions();
+        RebuildReceiptTabs();
+        NotifyHeldReceiptsChanged();
+        RaiseCartCommands();
+    }
     public bool CanDeleteActiveReceipt => CanDeleteActiveReceiptCore();
     public bool IsAtReceiptLimit => _sessions.Count >= MaxOpenReceipts;
 
@@ -915,7 +947,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
     // ── 2026-11-12 (ХМ8, ТЗ хозмаг): «цена прораба» — клиент, отмеченный «Покупает по оптовой цене (прораб)» (ClientPriceGroups), в чеке даёт опт по всем
     // строкам, у которых есть оптовая цена (остальные остаются в рознице). Только «Хозтовары»; до ответа сервера по Б-55 (уровни цен) — локальная отметка.
     // 2026-11-20 (Автозапчасти, часть Б): та же механика и для сферы «Автозапчасти» — уровень называется «СТО / мастер».
-    private static bool ForemanPriceOn => (MarketSpheres.IsHardware && MarketSpheres.Profile.ForemanPriceAvailable) || AutoPartsRules.Active;
+    private static bool ForemanPriceOn => CompanyModules.IsOn(ModuleIds.ClientPrice, MarketSpheres.Profile.ForemanPriceAvailable) || AutoPartsRules.Active; // 2026-11-21: модуль client_price (Хозмаг, Строймаг, Канцтовары) вместо «только Хозмаг / Строймаг»
 
     /// <summary>2026-11-13 (проверка, находка «высокая»): у кассира есть право «Изменение цены в кассе» (владелец/админ — всегда), без запроса и сообщения. Опт по ЛОКАЛЬНОЙ отметке «прораб»
     /// меняет цену продажи, поэтому без права отметка цены не меняет — как тумблер «Оптовый» (<see cref="DemandPriceRight"/>). Цены серверного уровня (price_level) назначает владелец на сервере —
@@ -1136,11 +1168,18 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
             return;
         // Пустой чек сбрасывает режим, только если в нём уже были строки (чек оплачен или очищен):
         // включить «Оптовый» до первого скана можно.
-        if (_isWholesaleMode
-            && ((Lines.Count == 0 && _wholesaleModeSeenLines.Count > 0) || _wholesaleModeSessionId != _activeSessionId))
+        var newReceipt = (Lines.Count == 0 && _wholesaleModeSeenLines.Count > 0) || _wholesaleModeSessionId != _activeSessionId;
+        // 2026-11-21 («Базар», режим «Опт», пункт 6 задания): оптовая цена по умолчанию — новый чек начинается «Оптовым» (только у кассира с правом на цену; кассир может снять тумблер на этом чеке).
+        // Вне «Базара» и в режиме «Розница» умолчание — «Розничный», как всегда.
+        var wholesaleDefault = BazaarModules.WholesaleMode && HasPriceRightQuiet;
+        if (newReceipt)
         {
-            _isWholesaleMode = false;
-            OnPropertyChanged(nameof(IsWholesaleMode));
+            if (_isWholesaleMode != wholesaleDefault)
+            {
+                _isWholesaleMode = wholesaleDefault;
+                OnPropertyChanged(nameof(IsWholesaleMode));
+            }
+            RememberWholesaleModeLines(); // чек и его строки учтены: тумблер, который кассир потом снимет, больше не возвращается
         }
         if (!_isWholesaleMode)
         {
@@ -1592,7 +1631,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         // смены стирало все вкладки — отложенный чек пропадал молча (предупреждение спрашивает только про текущий чек).
         // Теперь стирается только текущий чек; другие вкладки с товарами остаются, как раньше оставался список «Отложенные».
         var kept = _sessions
-            .Where(s => s.Id != _activeSessionId && GetSessionSummary(s.CartJson).Lines > 0)
+            .Where(s => s.Id != _activeSessionId && GetSessionSummary(s).Lines > 0)
             .ToList();
         // 2026-10-17, этап 4: неоплаченные строки текущего чека, стёртые закрытием смены, — в журнал удалений.
         LogCartRemovals(CurrentCartItems(), CartRemovalLogStore.KindShiftClose, shiftId: closedShiftId);
@@ -2683,6 +2722,8 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
             }
 
             var cashReceived = checkoutVm.CashReceivedForApi;
+            // 2026-11-21 («Базар», модуль currencies): наличные приняты в валюте — в снимок чека (fx_payment), оттуда в payment.payments[] тела продажи и в офлайн-очередь; сомы — поле убирается.
+            await RunOnUiThreadAsync(() => ReceiptSnapshotCartEditor.SetFxPayment(_cart, checkoutVm.FxPaymentForApi)).ConfigureAwait(false);
 
             PosLogger.Log(
                 // 2026-09-28: итог окна оплаты в журнале — по нему кассир взял деньги (см. продажу №1136).
@@ -3553,6 +3594,12 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         try
         {
             var latest = DeferredCartsStore.TryGetLatest();
+            if (latest is null && GetHeldTabEntries().OrderByDescending(x => x.SavedAt).FirstOrDefault() is { } heldTab)
+            {
+                // 2026-11-21: очередь пуста, но есть чек-вкладка «Отложен ЧЧ:ММ» — возвращаем её (раньше «Нет отложенных чеков»).
+                await RunOnUiThreadAsync(() => { OpenHeldTab(heldTab.Id); }).ConfigureAwait(false);
+                return;
+            }
             if (latest is null)
             {
                 await RunOnUiThreadAsync(() =>
@@ -4345,7 +4392,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         var cleared = false;
         foreach (var session in _sessions.Where(s => s.DeferredAt != null && s.Id != _activeSessionId))
         {
-            if (GetSessionSummary(session.CartJson).Lines == 0)
+            if (GetSessionSummary(session).Lines == 0)
             {
                 session.DeferredAt = null;
                 cleared = true;
@@ -4354,13 +4401,33 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         if (cleared)
             RenameReceiptSessions();
 
+        // 2026-11-21 (жалоба «зависание при переключении вкладок»): набор вкладок тот же (только сумма/активность) — меняем подписи у уже созданных
+        // плиток, а не очищаем список и не создаём заново: раньше каждое добавление товара пересоздавало все плитки вкладок во всех раскладках.
+        var sameSet = ReceiptTabs.Count == _sessions.Count;
+        for (var i = 0; sameSet && i < _sessions.Count; i++)
+            sameSet = ReceiptTabs[i].Id == _sessions[i].Id;
+        if (sameSet)
+        {
+            for (var i = 0; i < _sessions.Count; i++)
+            {
+                var session = _sessions[i];
+                var isActive = session.Id == _activeSessionId;
+                var (lines, total) = isActive ? (LineCount, Total) : GetSessionSummary(session);
+                var tab = ReceiptTabs[i];
+                tab.Title = FormatTabTitle(session.BaseName, lines, total);
+                tab.IsActive = isActive;
+            }
+            (SelectReceiptTabCommand as RelayCommand<ReceiptTabVm>)?.RaiseCanExecuteChanged();
+            return;
+        }
+
         ReceiptTabs.Clear();
         foreach (var session in _sessions)
         {
             var isActive = session.Id == _activeSessionId;
             var (lines, total) = isActive
                 ? (LineCount, Total)
-                : GetSessionSummary(session.CartJson);
+                : GetSessionSummary(session);
             ReceiptTabs.Add(new ReceiptTabVm(
                 session.Id,
                 FormatTabTitle(session.BaseName, lines, total),
@@ -4505,7 +4572,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
     }
 
     private bool IsEmptySession(OpenReceiptSession session) =>
-        session.Id == _activeSessionId ? LineCount == 0 : GetSessionSummary(session.CartJson).Lines == 0;
+        session.Id == _activeSessionId ? LineCount == 0 : GetSessionSummary(session).Lines == 0;
 
     private void ApplyCartJson(string? cartJson)
     {
@@ -4545,6 +4612,21 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
     {
         OnPropertyChanged(nameof(HasHeldReceipts));
         (ReturnPreviousReceiptCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+    }
+
+    /// <summary>2026-11-21 (жалоба «зависание при переключении вкладок», «оптимизация»): строки и итог неактивной вкладки считались заново — разбор JSON чека — для КАЖДОЙ
+    /// вкладки на каждое добавление товара и каждое переключение. Снимок неактивного чека не меняется, пока не записан новый (новая строка CartJson),
+    /// поэтому итог запоминается вместе со ссылкой на строку, из которой он посчитан.</summary>
+    private static (int Lines, double Total) GetSessionSummary(OpenReceiptSession session)
+    {
+        var json = session.CartJson;
+        if (session.SummaryJson is not null && ReferenceEquals(session.SummaryJson, json))
+            return (session.SummaryLines, session.SummaryTotal);
+        var summary = GetSessionSummary(json);
+        session.SummaryJson = json;
+        session.SummaryLines = summary.Lines;
+        session.SummaryTotal = summary.Total;
+        return summary;
     }
 
     private static (int Lines, double Total) GetSessionSummary(string cartJson)
@@ -4619,6 +4701,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
 
     private void SyncLinesFromCart()
     {
+        ApplyBazaarVolumePrices(); // 2026-11-21 («Базар», цена по количеству): цены строк по ступеням — до сборки строк экрана
         _suppressTabRebuild = true;
         try
         {
@@ -4631,6 +4714,8 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
             var itemNumber = 1;
             // 2026-10-03: строки по оптовой цене (is_wholesale в строке чека).
             var wholesaleIds = new HashSet<string>(StringComparer.Ordinal);
+            var volumeNotes = BazaarVolumeNotes(); // 2026-11-21 («Базар»): подпись «Опт от N — цена» под строкой
+            var showHaggle = ShowHaggle;
             if (_cart.HasCart && _cart.Root.ValueKind == JsonValueKind.Object)
                 foreach (var it in CartDisplayHelper.EnumerateItems(_cart.Root))
                     if (it.TryGetProperty("is_wholesale", out var w) && w.ValueKind == JsonValueKind.True && CartDisplayHelper.TryItemId(it) is { } wid)
@@ -4669,6 +4754,9 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
                     PromoBasePrice = item.PromoBasePrice,
                     IsWholesale = wholesaleIds.Contains(item.Id ?? ""),
                     WholesaleCommand = WholesaleLineCommand,
+                    PriceNote = volumeNotes.TryGetValue(item.Id ?? "", out var volumeNote) ? volumeNote : "",
+                    ShowHaggle = showHaggle,
+                    HaggleCommand = showHaggle ? HaggleLineCommand : null,
                     RemoveCommand = RemoveLineCommand,
                     IncreaseCommand = IncreaseQuantityCommand,
                     DecreaseCommand = DecreaseQuantityCommand,
@@ -4717,6 +4805,8 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         && Nullable.Equals(a.FixedDiscountAmount, b.FixedDiscountAmount)
         && Nullable.Equals(a.PromoBasePrice, b.PromoBasePrice)
         && a.IsWholesale == b.IsWholesale
+        && a.PriceNote == b.PriceNote
+        && a.ShowHaggle == b.ShowHaggle
         && a.VariantId == b.VariantId
         && a.QuantityInput == b.QuantityInput;
 
@@ -5340,6 +5430,11 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         public string BaseName { get; set; } = Tr.T("Основной чек", "Негизги чек", "Main receipt", "Ana fiş", "Asosiy chek");
         public string CartJson { get; set; } = "{}";
         public DateTime? DeferredAt { get; set; }
+
+        // 2026-11-21: запомненные строки/итог для CartJson (см. GetSessionSummary(OpenReceiptSession)); верны, пока SummaryJson — та же строка, что CartJson.
+        public string? SummaryJson { get; set; }
+        public int SummaryLines { get; set; }
+        public double SummaryTotal { get; set; }
 
         /// <summary>2026-10-04: клиент, выбранный в этом чеке сканом QR клиента NurCRM (см.
         /// BasketPanelViewModel.ClientQr.cs). На диск не сохраняется — после перезапуска кассы QR

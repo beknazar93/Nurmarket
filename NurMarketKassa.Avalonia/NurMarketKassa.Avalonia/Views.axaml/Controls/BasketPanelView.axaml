@@ -38,6 +38,26 @@
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
 
+        <!-- 2026-11-21: плитки «Ещё» — одной высоты (минимум как у кнопок под чеком, растут, если подпись в две строки), отступ между плитками 4+4. -->
+        <Style Selector="Button.more-tile">
+            <Setter Property="Height" Value="NaN"/>
+            <Setter Property="MinHeight" Value="48"/>
+            <Setter Property="Margin" Value="4"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="VerticalAlignment" Value="Stretch"/>
+        </Style>
+        <Style Selector=".shortscreen Button.more-tile">
+            <Setter Property="MinHeight" Value="44"/>
+        </Style>
+        <Style Selector="TextBlock.more-text">
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="MaxLines" Value="2"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+        </Style>
+
         <!-- 2026-10-27: прозрачность выключенной 0.45 → 0,7: в тёмной теме надпись выключенной кнопки была 1,5–2,5:1 (нужно ≥3:1). -->
         <Style Selector="Button.cart-action:disabled">
             <Setter Property="Opacity" Value="0.7"/>
@@ -794,10 +814,14 @@
                                                     MinWidth="0"
                                                     Spacing="2"
                                                     Margin="0,0,8,0"
-                                                    VerticalAlignment="Center">
+                                                    VerticalAlignment="Top">
                                             <!-- 2026-10-27, аудит Н-5: название в строке чека обрезалось уже на 1296 px («ТЕСТ АУДИТ кас…») — две строки. -->
+                                            <!-- 2026-11-21 (владелец: «наименование и цена не на одном уровне»): название и сумма — оба сверху строки и с одинаковой высотой
+                                                 строки текста (LineHeight 24), поэтому базовые линии «#1. Капсула…» и «18,00» совпадают; раньше сумма стояла по центру
+                                                 двух строк названия и «плыла» относительно него. -->
                                             <TextBlock Text="{Binding NumberedTitle}"
                                                        FontWeight="Bold"
+                                                       LineHeight="24"
                                                        FontSize="15"
                                                        Foreground="{DynamicResource BrushText}"
                                                        TextWrapping="Wrap"
@@ -812,10 +836,11 @@
                                         </StackPanel>
 
                                         <StackPanel Classes="line-amount"
-                                                    VerticalAlignment="Center"
+                                                    VerticalAlignment="Top"
                                                     HorizontalAlignment="Right">
                                             <TextBlock Text="{Binding LineTotalAmount}"
                                                        Classes="num"
+                                                       LineHeight="24"
                                                        FontSize="18"
                                                        FontWeight="Bold"
                                                        Foreground="{DynamicResource BrushMoney}"
@@ -848,6 +873,17 @@
                                                         Command="{Binding WholesaleCommand}"
                                                         CommandParameter="{Binding}">
                                                     <TextBlock Text="{Binding WholesaleButtonText}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                </Button>
+                                                <!-- 2026-11-21 («Базар», модуль «Торг»): «Торг» по строке — До 10 / 50 / 100 и «Договорились за …». -->
+                                                <Button Classes="cart-qty"
+                                                        Focusable="False"
+                                                        IsVisible="{Binding ShowHaggle}"
+                                                        Width="NaN" MinWidth="44" Padding="10,0"
+                                                        ToolTip.Tip="{Binding HaggleTooltip}"
+                                                        AutomationProperties.Name="{Binding HaggleText}"
+                                                        Command="{Binding HaggleCommand}"
+                                                        CommandParameter="{Binding}">
+                                                    <TextBlock Text="{Binding HaggleText}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                                 </Button>
                                                 <!-- 2026-10-06 (О-03, магазин одежды): «Размер» — сменить размер/цвет строки. Видна у строк с вариантом. -->
                                                 <Button Classes="cart-qty"
@@ -1165,78 +1201,55 @@
                           Padding="8,8,8,2"
                           BoxShadow="0 6 18 0 #33101828">
                   <StackPanel>
-                <Grid ColumnDefinitions="*,8,*,8,*,8,*"
-                      HorizontalAlignment="Stretch"
-                      Margin="0,0,0,6">
-                    <Button Grid.Column="0"
-                            Classes="cart-action"
-                            Content="{DynamicResource csh.cart.restore}"
+                <!-- 2026-11-21 (владелец: «кнопки не на одном уровне»): все плитки «Ещё» — в одной сетке из 4 столбцов одинакового размера
+                     (UniformGrid: одна ширина и одна высота ячейки у всех, «Печать последнего чека» в две строки не раздвигает ряд);
+                     подпись по центру и целиком (перенос до двух строк). Скрытая кнопка (например «Прокат») места не занимает. -->
+                <UniformGrid Columns="4" HorizontalAlignment="Stretch" Margin="0,0,0,6" x:Name="MoreActionsGrid" x:FieldModifier="public">
+                    <Button Classes="cart-action more-tile"
                             Command="{Binding RestoreLastHeldReceiptCommand}"
-                            IsEnabled="{Binding HasHeldReceipts}"/>
-                    <Button Grid.Column="2"
-                            Classes="cart-action"
-                            Content="{DynamicResource csh.cart.deferredList}"
-                            Command="{Binding OpenDeferredCartsCommand}"/>
-                    <Button Grid.Column="4"
-                            Classes="cart-action"
-                            Content="{DynamicResource csh.cart.orderDiscount}"
+                            IsEnabled="{Binding HasHeldReceipts}">
+                        <TextBlock Classes="more-text" Text="{DynamicResource csh.cart.restore}"/>
+                    </Button>
+                    <Button Classes="cart-action more-tile"
+                            Command="{Binding OpenDeferredCartsCommand}">
+                        <TextBlock Classes="more-text" Text="{DynamicResource csh.cart.deferredList}"/>
+                    </Button>
+                    <Button Classes="cart-action more-tile"
                             Command="{Binding ApplyOrderDiscountCommand}"
-                            IsEnabled="{Binding HasItems}"/>
+                            IsEnabled="{Binding HasItems}">
+                        <TextBlock Classes="more-text" Text="{DynamicResource csh.cart.orderDiscount}"/>
+                    </Button>
                     <!-- 2026-10-03, клиент: «опт не только на весь чек, но и на сам товар». -->
-                    <Button Grid.Column="6"
-                            Classes="cart-action"
-                            Content="{DynamicResource csh.cart.wholesaleAll}"
+                    <Button Classes="cart-action more-tile"
                             Command="{Binding WholesaleAllCommand}"
-                            IsEnabled="{Binding HasItems}"/>
-                </Grid>
-
-                <Grid ColumnDefinitions="*,8,*,8,*,Auto"
-                      Margin="0,0,0,6">
-                    <Button Grid.Column="0"
-                            Classes="cart-action"
-                            HorizontalAlignment="Stretch"
-                            Content="{DynamicResource csh.cart.payDebt}"
-                            Command="{Binding OpenPayDebtCommand}"/>
+                            IsEnabled="{Binding HasItems}">
+                        <TextBlock Classes="more-text" Text="{DynamicResource csh.cart.wholesaleAll}"/>
+                    </Button>
+                    <Button Classes="cart-action more-tile"
+                            Command="{Binding OpenPayDebtCommand}">
+                        <TextBlock Classes="more-text" Text="{DynamicResource csh.cart.payDebt}"/>
+                    </Button>
                     <!-- Копия последнего чека (2026-09-27): покупатель просит чек ещё раз, а кассе
                          не нужно искать его в «Истории чеков». Текст переносится на две строки —
                          по-кыргызски он длинный. -->
-                    <Button Grid.Column="2"
-                            Classes="cart-action"
-                            Padding="8,2"
-                            HorizontalAlignment="Stretch"
+                    <Button Classes="cart-action more-tile"
                             ToolTip.Tip="{DynamicResource csh.cart.printLastReceiptTooltip}"
                             Click="PrintLastReceipt_Click">
-                        <TextBlock Text="{DynamicResource csh.cart.printLastReceipt}"
-                                   TextAlignment="Center"
-                                   TextWrapping="Wrap"
-                                   MaxLines="2"
-                                   TextTrimming="CharacterEllipsis"
-                                   VerticalAlignment="Center"/>
+                        <TextBlock Classes="more-text" Text="{DynamicResource csh.cart.printLastReceipt}"/>
                     </Button>
                     <!-- Списание испорченного товара прямо из кассы (2026-09-27, просьба владельца). -->
-                    <Button Grid.Column="4"
-                            Classes="cart-action"
-                            Padding="8,2"
-                            HorizontalAlignment="Stretch"
+                    <Button Classes="cart-action more-tile"
                             ToolTip.Tip="{DynamicResource csh.cart.writeOffTooltip}"
                             Click="WriteOff_Click">
-                        <TextBlock Text="{DynamicResource csh.cart.writeOff}"
-                                   TextAlignment="Center"
-                                   TextWrapping="Wrap"
-                                   MaxLines="2"
-                                   TextTrimming="CharacterEllipsis"
-                                   VerticalAlignment="Center"/>
+                        <TextBlock Classes="more-text" Text="{DynamicResource csh.cart.writeOff}"/>
                     </Button>
                     <!-- 2026-10-02: прокат (одежда и услуги). -->
-                    <Button Grid.Column="5"
-                            Classes="cart-action"
-                            Padding="12,2"
-                            Margin="8,0,0,0"
-                            MinWidth="96"
+                    <Button
+                            Classes="cart-action more-tile"
                             IsVisible="{Binding ShowRental}"
                             Content="{DynamicResource csh.menu.rental}"
                             Click="Rental_Click"/>
-                </Grid>
+                </UniformGrid>
                 <!-- 2026-11-12 (КТ2): «Списки к школе» — только в сфере «Канцтовары». -->
                 <Button Classes="cart-action"
                         HorizontalAlignment="Stretch"
@@ -1307,10 +1320,22 @@
                              (BasketPanelViewModel.Total), а ключ csh.cart.subtotal означает
                              «Промежуточный итог» — подпись противоречила числу под ней.
                              В 1С-раскладке та же цифра всегда была подписана верно. -->
-                        <TextBlock Text="{DynamicResource onecLayout.totalLabel}"
-                                   FontSize="18"
-                                   FontWeight="SemiBold"
-                                   Foreground="{DynamicResource BrushText}"/>
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <TextBlock Text="{DynamicResource onecLayout.totalLabel}"
+                                       FontSize="18"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource BrushText}"/>
+                            <!-- 2026-11-21 («Базар», модуль «Торг»): торг по всему чеку — До 10 / 50 / 100 и «Договорились за …». Вне «Базара» кнопки нет. -->
+                            <Button Classes="cart-qty"
+                                    Focusable="False"
+                                    IsVisible="{Binding ShowHaggle}"
+                                    Width="NaN" MinWidth="44" Padding="12,0"
+                                    ToolTip.Tip="{DynamicResource csh.cart.haggleCheckTooltip}"
+                                    Command="{Binding HaggleCheckCommand}">
+                                <TextBlock Text="{DynamicResource csh.cart.haggle}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            </Button>
+                        </StackPanel>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
                         <!-- 40px вместо 30: цена товара на плитке каталога — 22px и повторяется

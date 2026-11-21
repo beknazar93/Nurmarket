@@ -82,6 +82,7 @@ public static class BarcodePrintSettingsStore
                 // 2026-11-19: «Мои шаблоны» — пустые и битые записи отбрасываются, не больше 30.
                 s.Presets = (s.Presets ?? new List<BarcodeLabelPreset>())
                     .Where(x => x is { Template: not null } && !string.IsNullOrWhiteSpace(x.Name)).Take(30).ToList();
+                s.Presets = LabelDesignLibrary.Resolve(s.Presets); // 2026-11-21: один общий список с «Редактором ценников» и общими настройками магазина
                 return s;
             }
         }
@@ -89,7 +90,7 @@ public static class BarcodePrintSettingsStore
         {
             PosLogger.Log($"Barcode print settings load failed: {ex.GetType().Name}", "WARNING");
         }
-        return new BarcodePrintSettings();
+        return new BarcodePrintSettings { Presets = LabelDesignLibrary.Resolve(null) };
     }
 
     /// <summary>Стенд проверки (без экрана) выставляет true отражением ДО создания окон — Save ничего не пишет на диск
@@ -102,6 +103,7 @@ public static class BarcodePrintSettingsStore
     {
         if (_persistenceDisabled)
             return;
+        LabelDesignLibrary.PushToCloud(settings.Presets ?? new List<BarcodeLabelPreset>()); // 2026-11-21: «Мои шаблоны» — в общие настройки магазина
         try
         {
             var dir = Path.GetDirectoryName(FilePath);

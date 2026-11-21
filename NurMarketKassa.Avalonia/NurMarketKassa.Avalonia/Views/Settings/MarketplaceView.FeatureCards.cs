@@ -613,8 +613,7 @@ public partial class MarketplaceView
             openButtonLabel: Tr.T("💲 Открыть склад", "💲 Складды ачуу", "💲 Open warehouse", "💲 Depoyu aç", "💲 Omborni ochish"),
             openAction: () =>
             {
-                var warehouseWindow = App.GetRequiredService<WarehouseWindow>();
-                warehouseWindow.Show(TopLevel.GetTopLevel(this) as Window);
+                WarehouseWindow.RequestLabels(TopLevel.GetTopLevel(this) as Window); // 2026-11-21: единая вкладка «Ценники и штрихкоды»
                 return System.Threading.Tasks.Task.CompletedTask;
             },
             unlocked: UserPreferences.Instance.PriceTagEditorUnlocked,
@@ -625,7 +624,7 @@ public partial class MarketplaceView
                 "Печать ценников сразу для нескольких товаров за один проход — на термопринтер или обычный A4, вместо печати по одному — вкладка «Склад» → «Товары».",
                 "Бир нече товардын баа белгилерин бир жолу басып чыгаруу — термопринтерге же кадимки A4 барагына, бирден басып отурбай — «Кампа» → «Товарлар» өтмөгү.", "Print price tags for several products in one go — on a thermal printer or plain A4 — instead of one at a time. “Warehouse” → “Products”.", "Birden fazla ürünün fiyat etiketini tek seferde yazdırma — termal yazıcıya veya normal A4'e, tek tek yazdırmak yerine — «Depo» → «Ürünler».", "Bir nechta mahsulotning narx yorliqlarini bir yo'la chop etish — termoprinterda yoki oddiy A4 printerda, birma-bir emas — «Ombor» → «Mahsulotlar»."),
             openButtonLabel: Tr.T("🏷 Открыть массовую печать", "🏷 Топтоп басууну ачуу", "🏷 Open bulk printing", "🏷 Toplu baskıyı aç", "🏷 Ommaviy chop etishni ochish"),
-            openAction: () => BulkPriceTagPrintDialog.Open(TopLevel.GetTopLevel(this) as Window),
+            openAction: () => { WarehouseWindow.RequestLabels(TopLevel.GetTopLevel(this) as Window); return System.Threading.Tasks.Task.CompletedTask; }, // 2026-11-21: единая вкладка
             unlocked: UserPreferences.Instance.BulkPriceTagUnlocked,
             onUnlockClick: BulkPriceTagUnlockButton_Click);
 

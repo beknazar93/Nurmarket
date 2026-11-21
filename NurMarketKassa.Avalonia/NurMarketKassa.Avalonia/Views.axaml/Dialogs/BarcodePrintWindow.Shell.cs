@@ -160,6 +160,20 @@ public sealed class BarcodePrintTabHost : UserControl
     /// <summary>Сама печать; null — ещё не показывалась или закрыта проверкой прав/покупки.</summary>
     public BarcodePrintView? View => _view;
 
+    private Action? _openEditorRequested;
+
+    /// <summary>2026-11-21: что делает кнопка «Редактор этикетки…» в печати (во вкладке — переключает на режим «Редактор»).</summary>
+    public Action? OpenEditorRequested
+    {
+        get => _openEditorRequested;
+        set
+        {
+            _openEditorRequested = value;
+            if (_view != null)
+                _view.OpenEditorRequested = value;
+        }
+    }
+
     public BarcodePrintTabHost()
     {
         HorizontalAlignment = HorizontalAlignment.Stretch; // 2026-11-11: ширину задаёт родитель (вкладка/раздел), а не содержимое
@@ -207,6 +221,7 @@ public sealed class BarcodePrintTabHost : UserControl
                 if (CatalogCacheService.Products.Count == 0)
                     CatalogCacheService.LoadFromDatabase();
                 _view = new BarcodePrintView(false, true); // 2026-11-11: без «запомненного поиска» прошлого раза
+                _view.OpenEditorRequested = _openEditorRequested; // 2026-11-21: «Редактор этикетки…» — режим «Редактор» вкладки
             }
             if (!ReferenceEquals(Content, _view))
                 Content = _view; // 2026-11-12: без вложенного ScrollViewer/MinWidthHost (давали пустые рамки кнопок и растянутую полосу настроек)

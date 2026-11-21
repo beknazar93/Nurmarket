@@ -180,6 +180,10 @@ public static class AiProviders
     internal static TimeSpan FallbackOneTimeout { get; set; } = TimeSpan.FromSeconds(25);
     internal static TimeSpan FallbackTotalTimeout { get; set; } = TimeSpan.FromSeconds(40);
 
+    /// <summary>2026-11-21: «часы» срока одной запасной модели — тест управляет, у какой модели срок вообще включается (в полном прогоне на нагруженном ПК ответ второй модели
+    /// не укладывался в 400 мс и тест «первая медленная, вторая отвечает» случайно падал). В программе — всегда FallbackOneTimeout на каждую модель.</summary>
+    internal static Action<CancellationTokenSource, string> ArmOneTimeout { get; set; } = (cts, _) => cts.CancelAfter(FallbackOneTimeout);
+
     /// <summary>Запасной ответ, когда Gemini не ответил: OpenRouter (бесплатные модели, полная сводка), затем Groq
     /// (короткая сводка — у бесплатного Groq 8000 токенов в минуту).</summary>
     public static async Task<(string? Answer, string? Error)> ChatFallbackAsync(
@@ -214,7 +218,7 @@ public static class AiProviders
             try
             {
                 using var oneLimit = CancellationTokenSource.CreateLinkedTokenSource(totalLimit.Token);
-                oneLimit.CancelAfter(FallbackOneTimeout);
+                ArmOneTimeout(oneLimit, name);
                 (json, status) = await PostAsync(url, key!, body, oneLimit.Token).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (!ct.IsCancellationRequested)

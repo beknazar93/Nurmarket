@@ -269,6 +269,9 @@ public sealed class ScalesMovedToOwnerUiTests : IDisposable
             shell.Show();
             UiShot.Settle(3, 30);
             var search = shell.FindControl<TextBox>("NavSearchText")!;
+            // 2026-11-21: окно 1360 ≤ 1366 — колонка пунктов свёрнута сама; как у человека (Ctrl+K), сперва раскрываем её, затем печатаем в поиск
+            typeof(OwnerShellWindow).GetMethod("FocusNavSearch", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(shell, null);
+            UiShot.Settle(3, 30);
             foreach (var word in new[] { "весы", "принтер", "печать" })
             {
                 search.Text = word;

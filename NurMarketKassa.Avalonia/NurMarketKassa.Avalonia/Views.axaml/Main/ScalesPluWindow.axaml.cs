@@ -496,6 +496,7 @@ public partial class ScalesPluWindow : Window
         SequentialPluCheck.IsVisible = KassaNumbering;
         WebPluButton.IsVisible = KassaNumbering;
         KeysButton.IsVisible = KassaNumbering && !IsShtrikhPc; // 2026-11-06: кнопки экрана РС-200 настраиваются на самих весах
+        UpdateEraseSlotsButton(); // 2026-11-21: «Стереть старые ячейки…» — только Rongta напрямую
         ApplyDirectLanVisibility();
         UpdateShtrikhPcExtras(); // 2026-11-06: «Полная выгрузка (с очисткой)» вместо «Листа кнопок» у весов РС-200
         UpdateHeader();
@@ -1570,16 +1571,19 @@ public partial class ScalesPluWindow : Window
             }
 
             var tmPlan = ScalePluPlanner.PlanMoves(LabelScaleStore.Active.SentPlus, written);
+            if (rongta)
+                RememberRongtaStaleSlots(tmPlan, written); // 2026-11-21: до RememberSent — там «что на весах» обновится, а прежние названия ещё нужны
             RememberSent(written, Array.Empty<int>());
             var movesText = string.Join(", ", tmPlan.PluMoves.Select(m => $"«{rowsById.GetValueOrDefault(m.ProductId)?.Name}» {m.From} → {m.To}"));
             var movedNote = tmPlan.PluMoves.Count == 0
                 ? ""
                 : rongta
-                ? Tr.T($" Сменился PLU у товаров: {movesText}. В старых ячейках Rongta остались прежние товары — удалять ячейки касса пока не умеет.",
-                       $" PLU өзгөргөн товарлар: {movesText}. Rongta'нын эски уячаларында мурунку товарлар калды — уячаларды өчүрүүнү касса азырынча билбейт.",
-                       $" PLU changed for: {movesText}. The old Rongta slots still hold the previous goods — the till cannot delete slots yet.",
-                       $" PLU'su değişen ürünler: {movesText}. Rongta'nın eski hücrelerinde önceki ürünler kaldı — kasa henüz hücre silemiyor.",
-                       $" PLU o‘zgargan tovarlar: {movesText}. Rongta eski kataklarida oldingi tovarlar qoldi — kassa hozircha kataklarni o‘chira olmaydi.")
+                // 2026-11-21 (просьба владельца «старые ячейки стирать»): вместо «касса не умеет» — подсказка про кнопку «Стереть старые ячейки…».
+                ? Tr.T($" Сменился PLU у товаров: {movesText}. В старых ячейках Rongta остались прежние товары — их можно стереть кнопкой «Стереть старые ячейки».",
+                       $" PLU өзгөргөн товарлар: {movesText}. Rongta'нын эски уячаларында мурунку товарлар калды — аларды «Эски уячаларды өчүрүү» баскычы менен өчүрсө болот.",
+                       $" PLU changed for: {movesText}. The old Rongta slots still hold the previous goods — you can erase them with the “Erase old slots” button.",
+                       $" PLU'su değişen ürünler: {movesText}. Rongta'nın eski hücrelerinde önceki ürünler kaldı — «Eski hücreleri sil» düğmesiyle silebilirsiniz.",
+                       $" PLU o‘zgargan tovarlar: {movesText}. Rongta eski kataklarida oldingi tovarlar qoldi — ularni «Eski kataklarni o‘chirish» tugmasi bilan o‘chirishingiz mumkin.")
                 : Tr.T($" Сменился PLU у товаров: {string.Join(", ", tmPlan.PluMoves.Select(m => $"«{rowsById.GetValueOrDefault(m.ProductId)?.Name}» {m.From} → {m.To}"))}. Старые ячейки и клавиши TM-30F проверьте в «Русском масштабе».",
                        $" PLU өзгөргөн товарлар: {string.Join(", ", tmPlan.PluMoves.Select(m => $"«{rowsById.GetValueOrDefault(m.ProductId)?.Name}» {m.From} → {m.To}"))}. TM-30F'тин эски уячаларын жана баскычтарын «Русский масштаб»та текшериңиз.",
                        $" PLU changed for: {string.Join(", ", tmPlan.PluMoves.Select(m => $"“{rowsById.GetValueOrDefault(m.ProductId)?.Name}” {m.From} → {m.To}"))}. Check the old slots and keys of the TM-30F in “Russian Scale”.",
@@ -1681,6 +1685,7 @@ public partial class ScalesPluWindow : Window
     {
         _tmCts?.Cancel();
         _rongtaServerCts?.Cancel();
+        _eraseCts?.Cancel(); // 2026-11-21: стирание ячеек Rongta
         base.OnClosed(e);
     }
 

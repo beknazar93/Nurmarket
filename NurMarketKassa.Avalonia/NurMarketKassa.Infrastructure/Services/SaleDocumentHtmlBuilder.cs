@@ -69,7 +69,7 @@ public static class SaleDocumentHtmlBuilder
                 sum = (decimal)qty * price;
             linesTotal += sum;
             qtyTotal += qty;
-            sb.Append("<tr><td class=\"c\">").Append(++n).Append("</td><td>").Append(E(CartDisplayHelper.ItemName(line)))
+            sb.Append("<tr><td class=\"c\">").Append(++n).Append("</td><td>").Append(E(CartDisplayHelper.ItemTitle(line))) // 2026-11-21: название товара + variant_name
               .Append("</td><td class=\"r\">").Append(qty.ToString("0.###", Ru)).Append("</td><td class=\"r\">").Append(M(price))
               .Append("</td><td class=\"r\">").Append(M(sum)).Append("</td></tr>");
         }

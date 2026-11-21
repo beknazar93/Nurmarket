@@ -24,6 +24,8 @@ public static class InvoiceImportFlow
     /// <summary>Есть право на приёмку: тот же доступ, что у раздела «Склад» (кнопка «Оприходовать» отдельного права не имеет).</summary>
     public static bool CanImport()
     {
+        if (!ImportAccess.Allowed) // 2026-11-21: загрузка накладной из файла — только в программе владельца (кнопка, перетаскивание и RunAsync закрыты)
+            return false;
         try
         {
             return App.GetRequiredService<IPermissionService>().HasPermission(PosPermissions.ViewProducts);
@@ -302,6 +304,8 @@ public static class InvoiceImportFlow
     /// <summary>Файл из проводника, брошенный на окно склада (вкладка «Приёмка»), открывает ту же загрузку. <paramref name="active"/> — вкладка приёмки открыта.</summary>
     public static void AttachDrop(Window window, Func<bool> active, Func<WarehouseViewModel> vm)
     {
+        if (!ImportAccess.Allowed) // 2026-11-21: в кассе файл в окно не принимается
+            return;
         DragDrop.SetAllowDrop(window, true);
         window.AddHandler(DragDrop.DragOverEvent, (_, e) =>
         {

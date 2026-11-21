@@ -38,7 +38,7 @@ public static class SettingsCloudSync
     {
         "Language", "DarkTheme", "AccentTheme", "MainLayoutMode", "CatalogViewMode", "ShowCatalogPhotos", "CatalogTileScalePercent",
         "SingleClickToCart", "ResetManualAddQtyAfterAdd", "DiscountModePercent", "ShowQuickProducts", "QuickCheckoutEnabled",
-        "AutoShowTouchKeyboard", "HiddenSections", "OwnerSidebarCollapsed",
+        "AutoShowTouchKeyboard", "HiddenSections", "OwnerSidebarCollapsed", "CatalogNoBarcodeFirst", // 2026-11-21: порядок каталога — личная привычка кассира
         // 2026-10-18: вид меню программы владельца (новое / бургер ☰ / старое) — личная настройка, как скрытые разделы.
         "OwnerMenuStyle",
         // 2026-10-19: вид меню ☰ кассы (старое / новое) — личная настройка.
@@ -72,6 +72,8 @@ public static class SettingsCloudSync
         "BulkPriceTagUnlocked", "AnalyticsExportUnlocked", "TelegramBotUnlocked", "ShiftAnalyticsUnlocked", "StaffTimesheetUnlocked", "RepairUnlocked", "TradeInUnlocked", "EstimateEnabled", "RentalEnabled",
         "ScalesUnlocked", SecureCodesKey, CodesVersionKey, LegacyCodesKey, "DynamicPaymentQrEnabled", "VisibleBankNames", "CustomBankNames",
         "DebtPrepaymentChooseMethod", "OwnerPhone",
+        // 2026-11-21: «Продавать товар без остатка (в минус)» — правило магазина, одинаковое на всех кассах.
+        "SellWithoutStock",
         // 2026-10-06: штрафы за просрочку проката и долга — одинаковые в чеках всех касс.
         "RentalLatePenaltyPerDay", "DebtLatePenaltyText",
         // 2026-10-06: срок обмена и категории без обмена (магазин одежды) — одинаковые на всех кассах.
@@ -87,7 +89,9 @@ public static class SettingsCloudSync
         "AdvisorCapabilitiesJson",
         // 2026-11-12 (ХМ15): общие настройки сфер (размер хозмага, скан коробки…) и отметки «прораб» — правило магазина, одинаковое на всех кассах.
         // null (ничего не менялось) в облако не уходит.
-        SphereSettings.CloudKey, ClientPriceGroups.CloudKey,
+        SphereSettings.CloudKey, ClientPriceGroups.CloudKey, "LabelDesignsJson", "ReceiptTemplateJson", // 2026-11-21: редактор чека
+        // 2026-11-21: отметки «Без заводского штрихкода» (id товаров) — правило магазина, одинаковое на всех кассах и в программе владельца. null в облако не уходит.
+        NoFactoryBarcodes.CloudKey,
         // 2026-10-30: окно правки накладных закупок (24 ч / 48 ч / всегда) — правило магазина, меняет владелец. null (ничего не менялось) в облако не уходит.
         "PurchaseEditWindow",
         // 2026-11-08: автоотметка сотрудников в табеле (off/shift/login) — правило магазина. null (ничего не менялось) в облако не уходит.

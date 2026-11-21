@@ -215,6 +215,8 @@ public sealed partial class UserPreferences
             // 2026-11-11: размытие фона под модалками и режим отрисовки Windows — настройки этого ПК.
             if (fromFile.ModalBackgroundBlur is not null)
                 p.ModalBackgroundBlur = fromFile.ModalBackgroundBlur.Value;
+            if (fromFile.WeakPcHintShown is not null)
+                p.WeakPcHintShown = fromFile.WeakPcHintShown.Value; // 2026-11-21
             if (!string.IsNullOrWhiteSpace(fromFile.WindowsRenderMode))
                 p.WindowsRenderMode = fromFile.WindowsRenderMode;
             if (fromFile.AskOwnerPinOnKassaPc is not null)
@@ -320,6 +322,8 @@ public sealed partial class UserPreferences
                 p.CatalogViewMode = fromFile.CatalogViewMode.Value;
             if (fromFile.ShowCatalogPhotos is not null)
                 p.ShowCatalogPhotos = fromFile.ShowCatalogPhotos.Value;
+            if (fromFile.CatalogNoBarcodeFirst is not null)
+                p.CatalogNoBarcodeFirst = fromFile.CatalogNoBarcodeFirst.Value; // 2026-11-21
             if (!string.IsNullOrWhiteSpace(fromFile.MarketplaceWebUrl))
                 p.MarketplaceWebUrl = MarketplaceWebLink.MigrateSaved(fromFile.MarketplaceWebUrl); // 2026-11-06: адрес Маркетплейса на сайте; 2026-11-19: старый /crm/marketplace → /marketplace
             if (fromFile.AutoInstallPurchasedThemes is not null)
@@ -402,6 +406,8 @@ public sealed partial class UserPreferences
                 p.TelegramCommandsEnabled = fromFile.TelegramCommandsEnabled.Value;
             if (fromFile.DebtPrepaymentChooseMethod is not null)
                 p.DebtPrepaymentChooseMethod = fromFile.DebtPrepaymentChooseMethod.Value;
+            if (fromFile.SellWithoutStock is not null) // 2026-11-21: нет в файле — остаётся умолчание «включено»
+                p.SellWithoutStock = fromFile.SellWithoutStock.Value;
             if (!string.IsNullOrWhiteSpace(fromFile.AdvisorCapabilitiesJson))
                 p.AdvisorCapabilitiesJson = fromFile.AdvisorCapabilitiesJson;
             // 2026-11-12 (ХМ15): общие настройки сфер и отметки «прораб» (пустое / слишком большое — не берём, остаются умолчания).
@@ -409,6 +415,12 @@ public sealed partial class UserPreferences
                 p.SphereSettingsJson = fromFile.SphereSettingsJson;
             if (!string.IsNullOrWhiteSpace(fromFile.ClientPriceGroupsJson) && System.Text.Encoding.UTF8.GetByteCount(fromFile.ClientPriceGroupsJson) <= ClientPriceGroups.MaxJsonBytes)
                 p.ClientPriceGroupsJson = fromFile.ClientPriceGroupsJson;
+            if (!string.IsNullOrWhiteSpace(fromFile.LabelDesignsJson) && System.Text.Encoding.UTF8.GetByteCount(fromFile.LabelDesignsJson) <= LabelDesignLibrary.MaxJsonBytes)
+                p.LabelDesignsJson = fromFile.LabelDesignsJson;
+            if (!string.IsNullOrWhiteSpace(fromFile.ReceiptTemplateJson) && System.Text.Encoding.UTF8.GetByteCount(fromFile.ReceiptTemplateJson) <= ReceiptTemplate.MaxJsonBytes)
+                p.ReceiptTemplateJson = fromFile.ReceiptTemplateJson; // 2026-11-21: редактор чека
+            if (!string.IsNullOrWhiteSpace(fromFile.NoFactoryBarcodeIdsJson) && System.Text.Encoding.UTF8.GetByteCount(fromFile.NoFactoryBarcodeIdsJson) <= NoFactoryBarcodes.MaxJsonBytes)
+                p.NoFactoryBarcodeIdsJson = fromFile.NoFactoryBarcodeIdsJson; // 2026-11-21
             if (!string.IsNullOrWhiteSpace(fromFile.PurchaseEditWindow))
                 p.PurchaseEditWindow = fromFile.PurchaseEditWindow;
             if (!string.IsNullOrWhiteSpace(fromFile.StaffAutoMarkMode))

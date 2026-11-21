@@ -152,6 +152,7 @@ public partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        NurMarketKassa.AvaloniaHost.Services.LowPerformanceLive.Attach(); // 2026-11-21: режим слабого устройства — на лету, без перезапуска (и в кассе, и в программе владельца)
         // 2026-10-23: закрытое окно с бегущей полосой загрузки оставалось в памяти (утечка владельца, круг 5) — см. WindowLeakGuard.
         NurMarketKassa.AvaloniaHost.Services.WindowLeakGuard.Install();
         // 2026-10-27 (приёмка 1.17.63, Д-10): имена для диктора (ячейки таблиц, кнопки прокрутки, поля без имени) — и в кассе, не только в программе владельца.
@@ -384,6 +385,7 @@ public partial class App : Application
         NurMarketKassa.AvaloniaHost.Views.Dialogs.DialogScreenFit.RegisterForAllWindows();
         // 2026-10-04: два пальца на сенсоре — прокрутка, а не два нажатия сразу (см. TouchGuard).
         TouchGuard.Register();
+        TouchSliderGuard.Register(); // 2026-11-21: ползунки не слушались пальцев — прокрутка страницы забирала касание
         // 2026-10-06, моноблоки клиентов: касание поля ввода пальцем — клавиатура Windows (TouchKeyboardAuto).
         TouchKeyboardAuto.Register();
         SearchBoxEscape.Register(); // 2026-10-29: Esc очищает поле поиска (аудит поисков)

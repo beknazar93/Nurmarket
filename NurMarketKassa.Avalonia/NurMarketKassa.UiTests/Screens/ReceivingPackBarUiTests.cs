@@ -197,7 +197,7 @@ public sealed class ReceivingPackBarUiTests
             var panel = UiDrive.Find<Border>(window, "ReceivingCtlPanel");
             var wrap = UiDrive.Find<WrapPanel>(window, "ReceivingSupplierWrap"); // 2026-11-12 (Д-4): узкое окно — «Приём» в ряду «Поставщик»
             var toolsWrap = UiDrive.Find<WrapPanel>(window, "ReceivingToolsWrap");
-            var grid = UiDrive.Find<DataGrid>(window, "ReceivingGrid");
+            var grid = UiDrive.Find<ItemsControl>(window, "ReceivingCards"); // 2026-11-21: строки приёмки — карточки
             Control container = panel.IsVisible ? panel : wrap;
             var wide = Get<bool>(bar, "IsWide");
             Log($"Склад {tag}: панель {(panel.IsVisible ? "видна" : "в ряду «Поставщик»")}, вид {(wide ? "сегменты" : "кнопка")}, ширина вида {Get<double>(bar, "WideWidth"):0}, панель {panel.Bounds.Width:0}×{panel.Bounds.Height:0}, ряд кнопок {toolsWrap.Bounds.Height:0}, ряд «Поставщик» {wrap.Bounds.Height:0}, таблица сверху {grid.TranslatePoint(new Point(0, 0), window)!.Value.Y:0}");
@@ -886,7 +886,7 @@ public sealed class ReceivingPackBarUiTests
     [AvaloniaTheory]
     [InlineData(1024, 600, AppLanguage.Russian)]
     [InlineData(1024, 600, AppLanguage.Kyrgyz)]
-    public async Task Warehouse_Receiving_OnA1024x600Till_ShowsAtLeastFourTableRows_AndTheBarcodeInFull(int width, int height, AppLanguage lang)
+    public async Task Warehouse_Receiving_OnA1024x600Till_ShowsFirstCardWhole_AndTheBarcodeInFull(int width, int height, AppLanguage lang)
     {
         await TestHost.WarmAsync();
         UiShot.Setup(UiTheme.Light, lang);
@@ -903,16 +903,23 @@ public sealed class ReceivingPackBarUiTests
             for (var i = 0; i < 8; i++)
                 vm.ReceivingLines.Add(new ReceivingLineVm { ProductName = "Товар " + i, Barcode = "46070000000" + (10 + i), Source = ReceivingSource.Unknown, Quantity = 2, PurchasePrice = 20, SalePrice = 30 });
             UiShot.Settle(14);
-            var grid = UiDrive.Find<DataGrid>(window, "ReceivingGrid");
-            var body = grid.Bounds.Height - grid.ColumnHeaderHeight;
-            var rows = body / grid.RowHeight;
-            Log($"Склад {tag}: таблица {grid.Bounds.Width:0}×{grid.Bounds.Height:0}, шапка {grid.ColumnHeaderHeight:0}, строка {grid.RowHeight:0}, видно строк {rows:0.0}, сверху {grid.TranslatePoint(new Point(0, 0), window)!.Value.Y:0}");
-            rows.Should().BeGreaterThanOrEqualTo(4, $"Д-4: на 1024×600 видно не меньше 4 строк таблицы ({tag})");
+            var grid = UiDrive.Find<ItemsControl>(window, "ReceivingCards"); // 2026-11-21: строки приёмки — карточки
+            // 2026-11-21: вместо «видно ≥ 4 строк таблицы» — на 1024×600 первая карточка (поля «Единица / Закупка / Наценка / Цена продажи») видна целиком, список не меньше 150 px
+            var listTop = grid.TranslatePoint(new Point(0, 0), window)!.Value.Y;
+            var first = RcvCards.Cards(window).OrderBy(c => c.TranslatePoint(default, window)!.Value.Y).First();
+            var firstBottom = first.TranslatePoint(new Point(0, first.Bounds.Height), window)!.Value.Y;
+            var body = grid.Bounds.Height;
+            var rows = body / 130;
+            Log($"Склад {tag}: таблица {grid.Bounds.Width:0}×{grid.Bounds.Height:0}, список карточек, видно по 130 px {rows:0.0}, сверху {grid.TranslatePoint(new Point(0, 0), window)!.Value.Y:0}");
+            body.Should().BeGreaterThanOrEqualTo(150, $"Д-4: на 1024×600 список карточек не ниже 150 px ({tag})");
+            var firstTop = first.TranslatePoint(default, window)!.Value.Y;
+            (firstTop + 130).Should().BeLessThanOrEqualTo(listTop + body + 0.5, $"Д-4: у первой карточки видны название, количество и ряд полей ({tag}); список прокручивается ({firstBottom:0})");
             SaveShot(window, $"warehouse-receiving-rows-{(lang == AppLanguage.Kyrgyz ? "ky" : "ru")}-{width}x{height}");
 
             // если колонка «Штрихкод» показана — 13 цифр видны целиком, не обрезаны; на узком виде штрихкод — под названием (подстрока)
-            var cells = window.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible && t.Text is { Length: >= 13 } text && text.StartsWith("4607000000", StringComparison.Ordinal)).ToList();
+            var cells = window.GetVisualDescendants().OfType<TextBox>().Where(t => t.IsEffectivelyVisible && Equals(t.Tag, "barcode") && t.Text is { Length: >= 13 } text && text.StartsWith("4607000000", StringComparison.Ordinal)).ToList();
             cells.Should().NotBeEmpty($"штрихкоды строк найдены на экране ({tag})");
+            cells.All(c => c.Bounds.Width >= 110).Should().BeTrue($"поле штрихкода шире 13 цифр ({tag})");
             var clip = TextClipChecker.Find(window, "receiving-barcode", lang.ToString()).Where(v => v.Key.Contains("46070000000", StringComparison.Ordinal)).ToList();
             clip.Should().BeEmpty($"Д-8: штрихкод не обрезан ({tag})");
         }
@@ -946,7 +953,7 @@ public sealed class ReceivingPackBarUiTests
             var vm = (WarehouseViewModel)window.DataContext!;
             vm.ReceivingLines.Clear();
             UiShot.Settle(14);
-            var grid = UiDrive.Find<DataGrid>(window, "ReceivingGrid");
+            var grid = UiDrive.Find<ItemsControl>(window, "ReceivingCards"); // 2026-11-21: строки приёмки — карточки
             var state = UiDrive.Find<StackPanel>(window, "ReceivingEmptyState");
             state.IsVisible.Should().BeTrue($"таблица пуста — пояснение есть ({tag})");
             var gridBottom = grid.TranslatePoint(new Point(0, grid.Bounds.Height), window)!.Value.Y;

@@ -219,6 +219,28 @@ public static class BarcodePrintCatalog
     public static string SheetNumber(decimal value) =>
         (value == decimal.Truncate(value) ? value.ToString("0", CultureInfo.InvariantCulture) : value.ToString("0.00", CultureInfo.InvariantCulture)).Replace(".", LabelDecimalSeparator);
 
+    /// <summary>2026-11-21 («Редактор ценников»): цена и данные товара для этикетки по шаблону. Если в шаблоне включён элемент «Старая цена»
+    /// или «Скидка» и у товара есть скидка — цена этикетки уже со скидкой, старая цена — цена карточки (как на листе A4, см. ToSheetItem).
+    /// Иначе цена прежняя (<see cref="LabelPrice(BarcodePrintItem)"/>), а бренд и ячейка — из карточки.</summary>
+    public static (string? Price, LabelItemData Data) LabelFor(BarcodePrintItem item, LabelTemplate template)
+    {
+        var p = item.Product;
+        var price = LabelPrice(item);
+        string? old = null;
+        var percent = 0.0;
+        var wantsDiscount = (template.Extras ?? new()).Any(e => e.Enabled && e.Kind is LabelExtraKind.OldPrice or LabelExtraKind.Discount);
+        if (wantsDiscount && p.HasDiscount && p.DiscountPercent is > 0 and <= 100 && ParsePrice(price) is { } pr)
+        {
+            var suffix = pr.Suffix.Length > 0 ? " " + pr.Suffix : "";
+            var net = Math.Round(pr.Value * (1m - (decimal)p.DiscountPercent / 100m), 2, MidpointRounding.AwayFromZero);
+            old = LabelAmount(pr.Value) + suffix;
+            price = LabelAmount(net) + suffix;
+            percent = p.DiscountPercent;
+        }
+        var cell = p.Part is { Location.Length: > 0 } part ? part.Location : null;
+        return (price, new LabelItemData(string.IsNullOrWhiteSpace(p.Brand) ? null : p.Brand!.Trim(), old, percent, cell));
+    }
+
     /// <summary>Данные одного товара для листа A4. «Скидка (зачеркнуть старую цену)»: если у товара есть скидка (discount_percent
     /// карточки), старая цена — цена карточки, новая — цена минус скидка (копейки округляются как везде, от нуля). Цена карточки считается
     /// ценой ДО скидки. Скидки у товара нет — одна цена, как обычно.</summary>

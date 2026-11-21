@@ -91,6 +91,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             Avalonia.Automation.AutomationProperties.SetName(SearchReceiptBox, SearchReceiptBox.Watermark);
             ChecksTab.Header = Tr.T("Чеки", "Чектер", "Receipts", "Fişler", "Cheklar");
             AddReturnColumn(); // 2026-11-10, владелец: «функцию возврата добавь в продажи» — колонка «Возврат» (при праве «Возврат»)
+            SalesGrid.Columns.Add(ReceiptRowOpen.CreateColumn(OpenReceiptFromRow)); // 2026-11-21: чек открывается явно (двойной щелчок или «›»), одно нажатие только выделяет
             // 2026-10-24 (аудит, круг 8, С-5): плитки выручки и чеков — без продаж в долг (как в «Аналитике»); возвраты — подпись,
             // что возвращённые чеки уже не в выручке. Суммы плиток не менялись.
             RevenueLabel.Text = Tr.T("Выручка (без долга)", "Түшүм (карызсыз)", "Revenue (excl. credit)", "Ciro (veresiyesiz)", "Tushum (qarzsiz)");

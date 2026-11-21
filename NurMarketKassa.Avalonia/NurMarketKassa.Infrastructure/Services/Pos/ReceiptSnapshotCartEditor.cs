@@ -7,7 +7,7 @@ using System.Text.Json.Nodes;
 
 namespace NurMarketKassa.Services;
 
-public static class ReceiptSnapshotCartEditor
+public static partial class ReceiptSnapshotCartEditor
 {
     public static void AddProduct(ICartService cart, CatalogProductTileVm product, double qty) =>
         AddProduct(cart, product, qty, unitPriceOverride: null);
@@ -95,7 +95,11 @@ public static class ReceiptSnapshotCartEditor
             // 2026-09-29: метка варианта — по ней следующий скан того же варианта сливается в эту
             // строку, а скан основного штрихкода или другого варианта — нет.
             if (variantName != null)
+            {
                 line[VariantNameField] = variantName;
+                if (VariantPart(variantName, product.Title) is { } part)
+                    line[VariantPartField] = part; // 2026-11-21: на сервер — только название варианта (items[].variant_name)
+            }
             items.Add(line);
         }
 
@@ -434,6 +438,7 @@ public static class ReceiptSnapshotCartEditor
 
         line.Remove("discount_percent");
         line.Remove("discount_total");
+        line.Remove(BazaarHaggle.ReasonField); // 2026-11-21 («Базар»): причина «торг» относится к прежней скидке — новая скидка ставит свою
         if (mode == null)
         {
             RecalcLine(line);
@@ -461,6 +466,7 @@ public static class ReceiptSnapshotCartEditor
         var root = ParseRoot(cart);
         root.Remove("order_discount_percent");
         root.Remove("order_discount_total");
+        root.Remove(BazaarHaggle.ReasonField); // 2026-11-21 («Базар»): причина «торг» относится к прежней скидке
 
         if (!OrderDiscountHelper.IsEmptyOrZeroLike(percent)
             && double.TryParse(OrderDiscountHelper.NormalizeDecimal(percent!), NumberStyles.Any, CultureInfo.InvariantCulture, out var p)
@@ -561,7 +567,7 @@ public static class ReceiptSnapshotCartEditor
 
             if (string.Equals(pid?.Trim(), normalizedSearchId, StringComparison.OrdinalIgnoreCase)
                 && LineSaleUnitKey(obj) is null // 2026-11-13: строка в упаковке (sale_unit) с обычной не сливается, даже при одинаковой цене
-                && PriceMatches(obj, unitPrice)
+                && PriceMatchesOrVolume(obj, unitPrice) // 2026-11-21 («Базар», цена по количеству): строка со ступенью цены (volume_min_qty) — та же строка товара, сравниваем с розничной ценой
                 && (!matchVariant || string.Equals(LineVariantName(obj), variantName, StringComparison.Ordinal)))
                 return obj;
         }
@@ -571,6 +577,24 @@ public static class ReceiptSnapshotCartEditor
     /// <summary>2026-09-29: поле строки чека с названием варианта (доп. штрихкод), с которым её
     /// пробили. Только для кассы: на сервер не уходит, сервер вариантов не хранит.</summary>
     public const string VariantNameField = "variant_name";
+
+    /// <summary>2026-11-21 (ответ Умара 21.11, п. 6; миграция 0200): ТОЛЬКО название варианта («Клубничный», «M, Синий») без названия товара — оно уходит на сервер в pos/checkout items[].variant_name (до 128 знаков);
+    /// сервер хранит его в строке чека, а name_snapshot остаётся названием товара. <see cref="VariantNameField"/> хранит полное название строки («Асу Клубничный») — для слияния строк и показа в кассе.</summary>
+    public const string VariantPartField = "variant_part";
+
+    /// <summary>Название варианта без названия товара: «Асу Клубничный» при товаре «Асу» → «Клубничный»; «Рубашка (M, Синий)» → «M, Синий». Не начинается с названия товара — как есть; пусто — null.</summary>
+    public static string? VariantPart(string? full, string? productTitle)
+    {
+        var f = (full ?? "").Trim();
+        var t = (productTitle ?? "").Trim();
+        if (f.Length == 0)
+            return null;
+        if (t.Length > 0 && f.StartsWith(t, StringComparison.OrdinalIgnoreCase) && f.Length > t.Length)
+            f = f[t.Length..].Trim().Trim('(', ')', '-', '–', ',', '/', ':').Trim();
+        if (f.Length == 0)
+            return null;
+        return f.Length > 128 ? f[..128].TrimEnd() : f;
+    }
 
     /// <summary>2026-10-27 (ревью денег, К-5): строка продана поштучно из пачки по явной цене штуки (с id упаковки или без него). Цену такой строки
     /// не сверяем с ценой товара (это цена пачки) и на сервер шлём как намеренную (price_override).</summary>
@@ -641,6 +665,8 @@ public static class ReceiptSnapshotCartEditor
         {
             var line = BuildLine(product.Id, label, product.Barcode, unitPrice, qty, mustWeigh: false);
             line[VariantNameField] = label;
+            if (VariantPart(label, product.Title) is { } labelPart)
+                line[VariantPartField] = labelPart; // 2026-11-21: items[].variant_name («M, Синий»)
             line["server_variant_id"] = variantId;
             if (!string.IsNullOrWhiteSpace(size))
                 line["variant_size"] = size;

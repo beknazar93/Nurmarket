@@ -30,6 +30,8 @@ public static class CartReceiptTextBuilder
             void Line(string s = "") { sb.Append(s); sb.Append('\n'); }
             void Dash() => Line(new string('-', W));
             void Blank() => Line();
+            // 2026-11-21 (редактор чека): метка начала раздела — по ней движок шаблона переставляет и оформляет блоки (по умолчанию метки просто убираются).
+            void Mark(string id) => Line(ReceiptTemplateEngine.Section(id));
 
             // ─── Header ───────────────────────────────────────────────
             // 2026-09-21, по просьбе владельца: формат как у формального ККМ-чека — заголовок
@@ -41,9 +43,11 @@ public static class CartReceiptTextBuilder
 
             // 2026-10-16, решение владельца: чек нефискальный — заголовок «Товарный чек» вместо
             // «Контрольно-кассовый чек» (тот выдавал чек за фискальный документ — риск перед ГНС).
+            Mark(ReceiptTemplate.Title);
             Line(ReceiptLineLayout.Center("Товарный чек", W));
             Blank();
 
+            Mark(ReceiptTemplate.Store);
             if (prefs.ShowStoreName)
                 Line($"Маркет - {store}");
 
@@ -56,6 +60,7 @@ public static class CartReceiptTextBuilder
                     Line(addrLine);
             }
 
+            Mark(ReceiptTemplate.Meta);
             var cashierName = PosApp.CurrentUserDisplayName;
             if (!string.IsNullOrWhiteSpace(cashierName))
                 Line($"Кассир - {cashierName.Trim()}");
@@ -79,6 +84,7 @@ public static class CartReceiptTextBuilder
 
             if (!string.IsNullOrWhiteSpace(offlineNote))
             {
+                Mark(ReceiptTemplate.Notes);
                 Blank();
                 Dash();
                 Line(ReceiptLineLayout.Center("!! " + offlineNote.Trim() + " !!", W));
@@ -87,6 +93,7 @@ public static class CartReceiptTextBuilder
             else
             {
                 Dash();
+                Mark(ReceiptTemplate.Notes);
             }
             Blank();
 
@@ -114,6 +121,7 @@ public static class CartReceiptTextBuilder
             }
 
             // ─── Items ────────────────────────────────────────────────
+            Mark(ReceiptTemplate.Items);
             if (prefs.ShowItems)
             {
                 Line("Товарный чек:");
@@ -122,7 +130,7 @@ public static class CartReceiptTextBuilder
                 foreach (var it in CartDisplayHelper.EnumerateItems(root))
                 {
                     itemIndex++;
-                    var name = CartDisplayHelper.ItemName(it).Trim();
+                    var name = CartDisplayHelper.ItemTitle(it).Trim(); // 2026-11-21: название товара + variant_name
                     var qty = CartDisplayHelper.LineQuantity(it);
                     var unitPrice = CartDisplayHelper.UnitPrice(it);
                     var lineTotal = LineTotalDouble(it);
@@ -166,6 +174,7 @@ public static class CartReceiptTextBuilder
             }
 
             // ─── Итоги и оплата (внизу чека, перед «Спасибо») ─────────
+            Mark(ReceiptTemplate.Totals);
             var totals = CartTotalsCalculator.Calculate(root);
             // 2026-11-02 (К3-07): сумма строк на чеке + округление = подытог (сервер округляет сумму весовых вниз, строки показывает половиной вверх).
             // Печать чека на русском (как весь остальной текст этого построителя); на экране подпись — на 5 языках.
@@ -260,8 +269,13 @@ public static class CartReceiptTextBuilder
                     var change = CartTotalsCalculator.CalculateChange(cash.Value, totals.TotalDue);
                     AppendStackedAmountLine(sb, "СДАЧА:", FormatMoney(change));
                 }
+                // 2026-11-21 («Базар», модуль «Валюты»): наличные приняты в валюте — строка «Принято $20 по курсу 87,5» (деньги чека — в сомах, выше).
+                if (pm is "cash" && BazaarCurrencies.FromCart(root) is { } fxPaid)
+                    foreach (var part in WrapText($"Принято {fxPaid.AmountCurrency.ToString("0.##", CultureInfo.InvariantCulture)} {fxPaid.Currency} по курсу {fxPaid.Rate.ToString("0.####", CultureInfo.InvariantCulture)}", W))
+                        Line(part);
             }
 
+            Mark(ReceiptTemplate.Total);
             if (prefs.ShowTotal)
             {
                 Blank();
@@ -275,6 +289,7 @@ public static class CartReceiptTextBuilder
             Dash();
             Blank();
 
+            Mark(ReceiptTemplate.Status);
             if (isReprint)
             {
                 // Копия отличается от оригинала на бумаге: пометка и когда её напечатали (2026-09-28).
@@ -284,10 +299,12 @@ public static class CartReceiptTextBuilder
             }
 
             // 2026-11-20 (Автозапчасти, часть Б): блок «Гарантия и возврат» (срок и условия владельца); у других сфер пусто.
+            Mark(ReceiptTemplate.Warranty);
             foreach (var returnLine in AutoPartsRules.ReceiptReturnBlock(W))
                 Line(returnLine);
 
             // ─── Footer ────────────────────────────────────────────────
+            Mark(ReceiptTemplate.Footer);
             Line(ReceiptLineLayout.Center("Спасибо за покупку! :)", W));
             // 2026-11-05 (волна 2-Б, функция 8): ссылка «Чеки и бонусы в Telegram» (по настройке; по умолчанию бумага как раньше).
             foreach (var telegramLine in TelegramReceiptLinks.PaperLines())
@@ -296,7 +313,7 @@ public static class CartReceiptTextBuilder
             Blank();
             Blank();
 
-            return sb.ToString().ToUpperInvariant();
+            return ReceiptTemplateEngine.Apply(sb.ToString()).ToUpperInvariant();
         }
         catch
         {

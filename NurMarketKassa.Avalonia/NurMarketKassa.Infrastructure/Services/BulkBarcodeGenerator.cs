@@ -127,7 +127,39 @@ public static class BulkBarcodeGenerator
             // каталог обновлялся в этот момент — дубль всё равно не пройдёт проверку сервера
         }
         var delay = TimeSpan.FromMilliseconds(1000.0 / Math.Max(1, RequestsPerSecond));
+        // 2026-11-21 (ответ Умара 20.11): коды берутся у сервера пачками до 100 (POST main/barcodes/next/); сервер их не резервирует, поэтому занятый код (409 / уже есть в каталоге) пропускается и берётся следующий.
+        // Сервер недоступен — запасной локальный генератор, как раньше.
+        var pool = new Queue<string>();
+        var serverDown = false;
+        var left = items.Count;
+        async Task<string> NextCodeAsync()
+        {
+            while (true)
+            {
+                while (pool.Count > 0)
+                {
+                    var next = pool.Dequeue();
+                    if (!busy.Contains(next) && !SafeVariantContains(next))
+                        return next;
+                }
+                if (serverDown)
+                    break;
+                var got = await ServerBarcodes.NextAsync(Math.Min(Math.Max(1, left), ServerBarcodes.MaxCount), ct).ConfigureAwait(false);
+                var any = false;
+                if (got is not null)
+                    foreach (var c in got)
+                        if (ServerBarcodes.LooksUsable(c) && !busy.Contains(c))
+                        {
+                            pool.Enqueue(c);
+                            any = true;
+                        }
+                if (!any)
+                    serverDown = true; // сервер не дал годных кодов — до конца прохода берём запасной путь
+            }
+            return BarcodeGenerator.Generate(null, c => busy.Contains(c) || SafeVariantContains(c), note: false); // 2026-11-21: отметку «Без заводского штрихкода» ставим сами, по id (см. ниже)
+        }
         var batch = new List<string>();
+        var marked = new List<string>(); // 2026-11-21: товарам с созданным нами кодом — отметка «Без заводского штрихкода»
         var done = 0;
         foreach (var p in items)
         {
@@ -154,13 +186,13 @@ public static class BulkBarcodeGenerator
                 }
                 else
                 {
-                    var code = BarcodeGenerator.Generate(null, c => busy.Contains(c) || SafeVariantContains(c));
+                    var code = await NextCodeAsync().ConfigureAwait(false);
                     var error = await SaveAsync(p.Id, code, actor, ct).ConfigureAwait(false);
                     // 2026-11-12 (Л-18): код занят на сервере (товар заведён на другой кассе) — новый код и ещё до двух попыток
                     for (var retry = 0; retry < 2 && error is not null && LooksLikeDuplicate(error); retry++)
                     {
                         busy.Add(code);
-                        code = BarcodeGenerator.Generate(null, c => busy.Contains(c) || SafeVariantContains(c));
+                        code = await NextCodeAsync().ConfigureAwait(false);
                         error = await SaveAsync(p.Id, code, actor, ct).ConfigureAwait(false);
                     }
                     if (error is null)
@@ -170,6 +202,7 @@ public static class BulkBarcodeGenerator
                         runOnUi(() => p.Barcode = saved);
                         result.Created.Add(new Created(p, code));
                         batch.Add(p.Id);
+                        marked.Add(p.Id);
                     }
                     else
                         result.Failed.Add(new Failure(p, error));
@@ -186,6 +219,7 @@ public static class BulkBarcodeGenerator
                 result.Failed.Add(new Failure(p, ex.Message));
             }
             done++;
+            left = Math.Max(1, items.Count - done);
             progress?.Report((done, items.Count));
             if (batch.Count >= BatchSize)
             {
@@ -204,6 +238,8 @@ public static class BulkBarcodeGenerator
         }
         if (batch.Count > 0)
             await RefreshAsync(batch).ConfigureAwait(false);
+        if (marked.Count > 0)
+            NoFactoryBarcodes.TrySet(marked, true);
         PosLogger.Log($"Массовая генерация штрихкодов ({actor ?? "—"}): создано {result.Created.Count}, пропущено {result.Skipped.Count}, ошибок {result.Failed.Count}{(result.Cancelled ? ", остановлено" : "")}.", "STOCK");
         return result;
     }

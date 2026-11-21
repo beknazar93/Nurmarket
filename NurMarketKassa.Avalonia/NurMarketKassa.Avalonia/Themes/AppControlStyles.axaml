@@ -77,13 +77,43 @@
        горизонтальная полоса остаётся тонкой (ScrollBarSize ниже), вертикальная — тонкая и без резерва ширины сверх этого. -->
   <Styles.Resources>
     <x:Double x:Key="ScrollBarSize">8</x:Double>
+    <!-- 2026-11-21: ползунки под палец. Fluent: строка 32, ползунок 20 — дорожка (она же область тапа) получалась тоньше пальца. Здесь: строка и дорожка 44, ползунок 32. -->
+    <x:Double x:Key="SliderHorizontalHeight">44</x:Double>
+    <x:Double x:Key="SliderHorizontalThumbWidth">32</x:Double>
+    <x:Double x:Key="SliderHorizontalThumbHeight">32</x:Double>
+    <x:Double x:Key="SliderVerticalWidth">44</x:Double>
+    <x:Double x:Key="SliderVerticalThumbWidth">32</x:Double>
+    <x:Double x:Key="SliderVerticalThumbHeight">32</x:Double>
   </Styles.Resources>
+  <!-- 2026-11-21 (владелец: «на сенсорном экране ползунки не слушаются пальцев»): строка горизонтального ползунка и его дорожка (область тапа и
+       перетаскивания) не ниже 44 px, ползунок 32 px — цель касания пальцем. Захват касания у прокрутки страницы — Services/TouchSliderGuard.cs. -->
+  <Style Selector="Slider:horizontal">
+    <Setter Property="MinHeight" Value="44"/>
+  </Style>
+  <Style Selector="Slider:horizontal /template/ Grid#HorizontalTemplate">
+    <Setter Property="MinHeight" Value="44"/>
+  </Style>
+  <Style Selector="Slider:horizontal /template/ Track#PART_Track">
+    <Setter Property="MinHeight" Value="44"/>
+  </Style>
+  <Style Selector="Slider:horizontal /template/ Thumb">
+    <Setter Property="Width" Value="32"/>
+    <Setter Property="Height" Value="32"/>
+  </Style>
   <Style Selector="ScrollViewer">
     <Setter Property="AllowAutoHide" Value="True"/>
   </Style>
   <Style Selector="ScrollViewer.hide-scrollbar /template/ ScrollBar">
     <Setter Property="Opacity" Value="0"/>
     <Setter Property="IsHitTestVisible" Value="False"/>
+  </Style>
+
+  <!-- 2026-11-21 (жалоба владельца «отступов не хватает», единая шкала 4/8/12/16/24, ключи Nur* в App.axaml): общие минимумы, чтобы строки и пункты
+       не слипались во всей программе. Высота строк таблицы глобально НЕ меняется (проба 21.11: MinHeight 38 у DataGridRow выталкивал «Принять» в «Приёмке» за экран 1024×600). Пункт выпадающего списка —
+       отступ 12 по бокам и 8 по вертикали (у Fluent 11,5), цель нажатия ≥ 36. Окна со своими стилями (RowHeight, Padding у элемента) главнее. -->
+  <Style Selector="ComboBoxItem">
+    <Setter Property="Padding" Value="12,8"/>
+    <Setter Property="MinHeight" Value="36"/>
   </Style>
 
   <!-- CheckBox/ToggleSwitch/ComboBox — та же плавная смена фона/рамки. -->

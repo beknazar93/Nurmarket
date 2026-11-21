@@ -191,7 +191,7 @@
     <Setter Property="BorderBrush" Value="{DynamicResource BrushInputBorder}"/>
     <Setter Property="BorderThickness" Value="1"/>
     <Setter Property="FontSize" Value="{DynamicResource NurFontBody}"/>
-    <Setter Property="Padding" Value="8,6"/>
+    <Setter Property="Padding" Value="12,6"/> <!-- 2026-11-21: было 8,6 -->
     <Setter Property="Cursor" Value="Hand"/>
     <Setter Property="VerticalAlignment" Value="Top"/>
   </Style>

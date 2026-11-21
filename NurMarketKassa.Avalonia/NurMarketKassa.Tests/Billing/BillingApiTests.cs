@@ -322,4 +322,19 @@ public sealed class BillingApiTests : IDisposable
         BillingApi.Classify(ex).ToString().Should().NotContain("SECRET");
         await Task.CompletedTask;
     }
+
+    [Fact]
+    public void ParseConfig_ReadsPeriodsPriceYearAndLocalizedName_AndInvoiceReadsPeriod()
+    {
+        using var doc = System.Text.Json.JsonDocument.Parse("""{"available":true,"mode":"test","months":[1,3,6,12],"current_plan":"standard","plans":[{"code":"mini","name":{"ru":"Мини","en":"Mini"},"price_month":"500.00","price_year":"5000.00"},{"code":"standard","price_month":"3600.00","price_year":"36000.00"}],"periods":["month","year"],"year_paid_months":10}""");
+        var config = BillingParser.ParseConfig(doc.RootElement);
+        config.CanPayYear.Should().BeTrue();
+        config.YearPaidMonths.Should().Be(10);
+        config.Plans[0].PriceYear.Should().Be(5000m);
+        config.Plans[0].Name.Should().Be("Мини");
+        using var inv = System.Text.Json.JsonDocument.Parse("""{"invoice_id":"i1","status":"pending","period":"year","months":12,"amount":"36030.00","lines":[{"title":"Скидка (год = 10 месяцев)","amount":"-7200.00"}]}""");
+        var invoice = BillingParser.ParseInvoice(inv.RootElement);
+        invoice.Period.Should().Be("year");
+        invoice.Lines.Single().Title.Should().Contain("год = 10 месяцев");
+    }
 }

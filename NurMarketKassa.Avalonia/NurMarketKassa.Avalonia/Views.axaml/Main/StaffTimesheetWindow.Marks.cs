@@ -20,7 +20,8 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// на клетку, быстрые действия, журнал. Расчёты — в <see cref="TimesheetMarksService"/>.</summary>
 public partial class StaffTimesheetWindow
 {
-    private const double CellW = 46, RowH = 54, NameW = 210, HeadH = 52;
+    // 2026-11-21: строка 54 → 44 (минимум для касания) и шапка дней 52 → 40: на 1024×600 видно больше сотрудников.
+    private const double CellW = 46, RowH = 44, NameW = 210, HeadH = 40;
 
     private List<ShiftHistoryEntry> _shifts = new();
     private ServerTimesheet? _serverTimesheet; // 2026-11-19: готовый табель сервера за показанный месяц (запасной источник часов)
@@ -79,8 +80,56 @@ public partial class StaffTimesheetWindow
         JournalButton.Content = Tr.T("Журнал изменений", "Өзгөртүүлөр журналы", "Change log", "Değişiklik günlüğü", "O'zgarishlar jurnali");
         AutomationProperties.SetName(PrevMonthButton, Tr.T("Предыдущий месяц", "Мурунку ай", "Previous month", "Önceki ay", "Oldingi oy"));
         AutomationProperties.SetName(NextMonthButton, Tr.T("Следующий месяц", "Кийинки ай", "Next month", "Sonraki ay", "Keyingi oy"));
+        SummaryToggle.Content = Tr.T("Итоги", "Жыйынтык", "Totals", "Özet", "Yakunlar");
         TableScroll.ScrollChanged += (_, _) => UpdateSticky();
+        TableScroll.LayoutUpdated += OnTableLayoutForToday;
         ActualThemeVariantChanged += (_, _) => RebuildMarks();
+    }
+
+    private bool _autoFitDone, _scrollTodayPending = true;
+
+    /// <summary>2026-11-21: один раз после первой раскладки таблицы. 1) Низкое окно (в таблицу влезает меньше ~5 строк) — плитки «Итоги» открываются свёрнутыми, вся высота таблице;
+    /// на высоком окне плитки видны, как раньше. 2) Таблица прокручивается к сегодняшнему дню (если показан текущий месяц).</summary>
+    private void OnTableLayoutForToday(object? sender, EventArgs e)
+    {
+        if (!TableScroll.IsVisible || TableScroll.Bounds.Height <= 0 || TableScroll.Viewport.Width <= 0 || TableScroll.Extent.Width <= 0)
+            return;
+        if (!_autoFitDone)
+        {
+            // решается при каждой раскладке, пока кассир сам не нажал «Итоги» (после первых пересборок высота ещё «плавает»); сворачиваем только в одну сторону — без дрожания
+            if (SummaryToggle.IsChecked == true && SummaryTiles.IsVisible && TableScroll.Bounds.Height < HeadH + 5 * RowH + 16)
+            {
+                SummaryToggle.IsChecked = false;
+                SummaryTiles.IsVisible = false;
+            }
+        }
+        TryScrollToToday();
+    }
+
+    /// <summary>Прокрутить к сегодняшнему дню один раз при открытии (если показан текущий месяц и сетка уже построена); вызывается из раскладки и после загрузки.</summary>
+    private void TryScrollToToday()
+    {
+        if (!_scrollTodayPending || _year != Today.Year || _month != Today.Month)
+            return;
+        if (!TableScroll.IsVisible || TableScroll.Viewport.Width <= 0 || TableScroll.Extent.Width <= TableScroll.Viewport.Width)
+            return;
+        _scrollTodayPending = false;
+        ScrollToToday();
+    }
+
+    /// <summary>Сегодняшний день — в середину видимых дней (столбец сотрудника закреплён и занимает левые NameW).</summary>
+    private void ScrollToToday()
+    {
+        var visibleDays = TableScroll.Viewport.Width - NameW;
+        var x = (Today.Day - 0.5) * CellW - visibleDays / 2;
+        var max = Math.Max(0, TableScroll.Extent.Width - TableScroll.Viewport.Width);
+        TableScroll.Offset = new Vector(Math.Clamp(x, 0, max), TableScroll.Offset.Y);
+    }
+
+    private void SummaryToggle_Click(object? sender, RoutedEventArgs e)
+    {
+        _autoFitDone = true; // выбор кассира важнее автоматического
+        SummaryTiles.IsVisible = SummaryToggle.IsChecked == true && VisibleEmployees().Count > 0;
     }
 
     private void ReloadMarks()
@@ -134,6 +183,7 @@ public partial class StaffTimesheetWindow
         _year = Today.Year;
         _month = Today.Month;
         RebuildMarks();
+        Avalonia.Threading.Dispatcher.UIThread.Post(ScrollToToday, Avalonia.Threading.DispatcherPriority.Loaded); // 2026-11-21: «Этот месяц» — к сегодняшнему дню
         _ = EnsureMonthShiftsAsync(); // 2026-11-19: смены за выбранный месяц
     }
 
@@ -189,6 +239,7 @@ public partial class StaffTimesheetWindow
     /// <summary>Перестроить сетку месяца. Дёшево: сотрудников десятки, клеток до ~31 на каждого.</summary>
     private void RebuildMarks()
     {
+        var keepOffset = TableScroll.Offset; // 2026-11-21: пересборка сетки сбрасывает прокрутку — возвращаем (иначе «сегодня» слетало при догрузке смен)
         MonthText.Text = $"{MonthName(_month)} {_year}";
         var emps = VisibleEmployees();
         var days = DateTime.DaysInMonth(_year, _month);
@@ -314,6 +365,8 @@ public partial class StaffTimesheetWindow
         ActionsPanel.IsVisible = CanEdit && emps.Count > 0;
         JournalButton.IsVisible = CanEdit;
         UpdateSticky();
+        if (keepOffset.X > 0 || keepOffset.Y > 0)
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => TableScroll.Offset = keepOffset, Avalonia.Threading.DispatcherPriority.Loaded);
     }
 
     /// <summary>2026-11-19 (п. 9 владельца): сводные плитки месяца. «Опоздания» касса не хранит (нет времени прихода), поэтому вместо них — «расхождения со сменой»
@@ -321,18 +374,21 @@ public partial class StaffTimesheetWindow
     private void BuildSummaryTiles(bool any, double hours, int days, int shiftDays, int mismatches, IBrush textSoft)
     {
         SummaryTiles.Children.Clear();
-        SummaryTiles.IsVisible = any;
+        SummaryTiles.IsVisible = any && SummaryToggle.IsChecked == true;
         void Tile(string label, string value, Color? accent)
         {
-            var valueText = new TextBlock { Text = value, FontWeight = FontWeight.SemiBold };
-            valueText.Bind(TextBlock.FontSizeProperty, valueText.GetResourceObservable("NurFontTitle", v => v is double d ? d : 20d));
+            // 2026-11-21: плитка — одна низкая строка «подпись · значение» (раньше две строки, 78 px высоты), подпись с многоточием и подсказкой.
+            var valueText = new TextBlock { Text = value, FontWeight = FontWeight.SemiBold, FontSize = 16, VerticalAlignment = VerticalAlignment.Center };
             if (accent is { } c)
                 valueText.Foreground = new SolidColorBrush(c);
-            var tile = new Border
-            {
-                Padding = new Thickness(14, 10), Margin = new Thickness(0, 0, 8, 0),
-                Child = new StackPanel { Spacing = 2, Children = { new TextBlock { Text = label, FontSize = 12, Foreground = textSoft, TextTrimming = TextTrimming.CharacterEllipsis }, valueText } },
-            };
+            var caption = new TextBlock { Text = label, FontSize = 12, Foreground = textSoft, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center };
+            var inner = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+            valueText.Margin = new Thickness(8, 0, 0, 0);
+            Grid.SetColumn(valueText, 1);
+            inner.Children.Add(caption);
+            inner.Children.Add(valueText);
+            var tile = new Border { Padding = new Thickness(12, 4), Margin = new Thickness(0, 0, 8, 0), MinHeight = 36, Child = inner };
+            ToolTip.SetTip(tile, label + ": " + value);
             tile.Classes.Add("Card");
             AutomationProperties.SetName(tile, label + ": " + value);
             SummaryTiles.Children.Add(tile);
@@ -366,6 +422,7 @@ public partial class StaffTimesheetWindow
         {
             line1 = shiftH > 0 ? "~" + HoursPlain(TimesheetMarksService.RoundHours(shiftH)) : "";
             if (weekend) background = soft;
+            if (date == Today) background = Tint(Color.FromRgb(0x15, 0x65, 0xC0), 0x1A); // 2026-11-21: столбец сегодняшнего дня подсвечен и в теле таблицы
         }
         else
         {
@@ -461,17 +518,27 @@ public partial class StaffTimesheetWindow
             LegendPanel.Children.Add(new Border
             {
                 Background = Tint(color, 0x40), BorderBrush = new SolidColorBrush(color), BorderThickness = new Thickness(1.5), CornerRadius = new CornerRadius(6),
-                Padding = new Thickness(8, 3), Margin = new Thickness(0, 0, 8, 4),
+                Padding = new Thickness(8, 3), Margin = new Thickness(0, 0, 8, 0),
                 Child = new TextBlock { Text = $"{TimesheetMarksService.StatusCode(status)} — {TimesheetMarksService.StatusName(status)}", FontSize = 12 },
             });
         }
-        LegendPanel.Children.Add(new TextBlock
+        // 2026-11-21: длинное пояснение условных знаков уходит под кнопку «?» (всплывающее окно) — легенда остаётся одной низкой строкой и не отнимает высоту у таблицы.
+        var explain = new TextBlock
         {
             Text = Tr.T("«~8» — по сменам 8 ч, отметки нет; «!» — расхождение со сменой; курсив — автоотметка кассы; число — часы.", "«~8» — смена боюнча 8 саат, белги жок; «!» — смена менен дал келбейт; курсив — кассанын автобелгиси; сан — саат.",
                 "“~8” — 8 h by shifts, no mark; “!” — differs from the shift; italics — the till’s auto mark; a number — hours.", "«~8» — vardiyaya göre 8 sa, işaret yok; «!» — vardiyayla uyuşmuyor; italik — kasanın otomatik işareti; sayı — saat.",
                 "«~8» — smena bo'yicha 8 soat, belgi yo'q; «!» — smenaga mos emas; kursiv — kassaning avtobelgisi; son — soat."),
-            FontSize = 12, Foreground = textSoft, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap, MaxWidth = 700, Margin = new Thickness(0, 0, 0, 4),
-        });
+            FontSize = 12, TextWrapping = TextWrapping.Wrap, MaxWidth = 340,
+        };
+        // 2026-11-21: без локального MinHeight — высота кнопки общая (NurHeightControl), иначе «?» ниже остальных кнопок (ButtonConsistency)
+        var help = new Button
+        {
+            Content = "?", MinWidth = 36, Padding = new Thickness(0), FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center,
+            Flyout = new Flyout { Placement = PlacementMode.Top, Content = explain },
+        };
+        help.Classes.Add("SecondaryButton");
+        AutomationProperties.SetName(help, Tr.T("Условные знаки", "Шарттуу белгилер", "Legend", "Gösterimler", "Shartli belgilar"));
+        LegendPanel.Children.Add(help);
     }
 
     // ───────────────────────── правка дня ─────────────────────────

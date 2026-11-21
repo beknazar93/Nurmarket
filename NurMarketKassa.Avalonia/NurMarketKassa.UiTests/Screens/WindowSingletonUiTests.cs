@@ -1,3 +1,4 @@
+using System.Reflection;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using FluentAssertions;
@@ -19,16 +20,30 @@ public sealed class WindowSingletonUiTests
         await TestHost.WarmAsync();
         UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
         var before = WindowSingleton.Count;
-        BulkImportWindow.Open(null);
-        WindowSingleton.Count.Should().Be(before + 1);
-        BulkImportWindow.Open(null);
-        BulkImportWindow.Open(null);
-        WindowSingleton.Count.Should().Be(before + 1, "повторное «Старая загрузка» выводит открытое окно вперёд, а не открывает новое");
-        WindowSingleton.TryActivate("BulkImportWindow").Should().BeTrue();
-        // Закрытое окно из учёта убирается — следующее открытие создаёт новое.
-        WindowSingleton.Find("BulkImportWindow")!.Close();
-        UiShot.Pump();
-        WindowSingleton.Count.Should().Be(before, "закрытое окно снято с учёта");
+        // 2026-11-21: «Старая загрузка» — только в программе владельца (ImportAccess): в режиме кассы окно не открывается вовсе.
+        var isOwner = typeof(AppMode).GetProperty(nameof(AppMode.IsOwner))!;
+        var saved = AppMode.IsOwner;
+        try
+        {
+            isOwner.SetValue(null, false);
+            BulkImportWindow.Open(null);
+            WindowSingleton.Count.Should().Be(before, "в кассе старая загрузка не открывается");
+            isOwner.SetValue(null, true);
+            BulkImportWindow.Open(null);
+            WindowSingleton.Count.Should().Be(before + 1);
+            BulkImportWindow.Open(null);
+            BulkImportWindow.Open(null);
+            WindowSingleton.Count.Should().Be(before + 1, "повторное «Старая загрузка» выводит открытое окно вперёд, а не открывает новое");
+            WindowSingleton.TryActivate("BulkImportWindow").Should().BeTrue();
+            // Закрытое окно из учёта убирается — следующее открытие создаёт новое.
+            WindowSingleton.Find("BulkImportWindow")!.Close();
+            UiShot.Pump();
+            WindowSingleton.Count.Should().Be(before, "закрытое окно снято с учёта");
+        }
+        finally
+        {
+            isOwner.SetValue(null, saved);
+        }
     }
 
     [AvaloniaFact]

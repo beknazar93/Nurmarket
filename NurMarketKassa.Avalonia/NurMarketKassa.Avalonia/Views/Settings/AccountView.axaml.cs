@@ -9,6 +9,7 @@ using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.AvaloniaHost.Views.Dialogs;
 using NurMarketKassa.Models;
 using NurMarketKassa.Services;
+using NurMarketKassa.Services.Api;
 
 namespace NurMarketKassa.AvaloniaHost.Views.Settings;
 
@@ -156,13 +157,22 @@ public partial class AccountView : UserControl
         // 2026-10-21: компания теперь строкой карточки «Вход» — пустой ИНН не оставляет пустую строку (пакет 3, п. 141).
         CompanyInnText.IsVisible = CompanyInnText.Text.Length > 0;
 
-        PlanNameText.Text = string.IsNullOrWhiteSpace(company.SubscriptionPlanName)
-            ? Tr.T("Не определён", "Аныкталган эмес", "Not defined", "Tanımlanmamış", "Aniqlanmagan")
-            : company.SubscriptionPlanName;
+        // 2026-11-21 (ответ Умара 21.11): название тарифа — на языке интерфейса (capabilities.plan names / name), «custom» везде «Своё»; нет ответа — как приходит в профиле компании.
+        PlanNameText.Text = ServerCapabilities.Plan is { } serverPlan && !string.IsNullOrWhiteSpace(serverPlan.LocalizedName())
+            ? serverPlan.LocalizedName()
+            : string.IsNullOrWhiteSpace(company.SubscriptionPlanName)
+                ? Tr.T("Не определён", "Аныкталган эмес", "Not defined", "Tanımlanmamış", "Aniqlanmagan")
+                : company.SubscriptionPlanName;
         PlanPriceText.Text = string.IsNullOrWhiteSpace(company.SubscriptionPlanPrice)
             ? ""
             // 2026-10-20, живая проверка: «3500.00 сом / мес.» — сумма видом кассы: «3 500,00 сом / мес.».
             : $"{PlanPriceShown(company.SubscriptionPlanPrice)} {Tr.T("/ мес.", "/ ай", "/ mo.", "/ ay", "/ oy")}";
+        // 2026-11-21 (ответ Умара 21.11): «Мини» — 14 дней пробного при регистрации (public/tariffs trial_days), показываем рядом с тарифом.
+        if (ServerCapabilities.Plan is { Code: "mini" } && TariffApi.CachedCatalog?.Plan("mini")?.TrialDays is { } trialDays)
+        {
+            var trial = Tr.T($"пробный период при регистрации — {trialDays} дн.", $"катталууда сыноо мөөнөтү — {trialDays} күн", $"trial period at sign-up — {trialDays} days", $"kayıtta deneme süresi — {trialDays} gün", $"ro'yxatdan o'tishda sinov muddati — {trialDays} kun");
+            PlanPriceText.Text = PlanPriceText.Text.Length > 0 ? PlanPriceText.Text + " · " + trial : trial;
+        }
         PlanPriceText.IsVisible = PlanPriceText.Text.Length > 0; // 2026-10-21: без цены — без пустой строки в карточке (пакет 3, п. 141)
 
         RenderExpiry(company.StartDate, company.EndDate);

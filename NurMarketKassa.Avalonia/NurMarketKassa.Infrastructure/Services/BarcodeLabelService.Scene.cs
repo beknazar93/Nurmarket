@@ -14,7 +14,7 @@ public sealed record LabelSceneRect(float X, float Y, float W, float H, uint Arg
 /// <summary>Текст в рамке. <paramref name="SizePt"/> &gt; 0 — ручной размер (пункты, как у System.Drawing.Font): перенос по ширине,
 /// обрезка по рамке; 0 — автоподбор от <paramref name="MaxAutoPt"/> вниз до 6 пт в одну строку по центру.</summary>
 public sealed record LabelSceneText(float X, float Y, float W, float H, string Text, string Family, bool Bold, bool Italic, bool Strike,
-    uint Argb, float SizePt, float MaxAutoPt) : LabelSceneItem;
+    uint Argb, float SizePt, float MaxAutoPt, int Align = 1, int Rotation = 0) : LabelSceneItem;
 
 /// <summary>Штрихи или модули QR: <paramref name="Cells"/>[x, y]; у линейного кода одна строка, растянутая на <paramref name="HeightPx"/>.</summary>
 public sealed record LabelSceneBars(int X, int Y, int Module, int HeightPx, bool[,] Cells) : LabelSceneItem;
@@ -66,6 +66,7 @@ public static partial class BarcodeLabelService
             AddTextScene(items, template.StoreName, storeName!, false, template);
         if (!string.IsNullOrWhiteSpace(variantText) && variantElement is { Enabled: true })
             AddTextScene(items, variantElement, variantText!.Trim(), true, template);
+        AddExtrasScene(items, template); // 2026-11-21: свои элементы «Редактора ценников»
         if (template.Frame) // 2026-11-19: «Рамка» по контуру этикетки — четыре линии в 1 точку (как в GenerateLabelBitmap)
         {
             items.Add(new LabelSceneRect(0, 0, widthPx, 1, Black));
@@ -76,14 +77,51 @@ public static partial class BarcodeLabelService
         return new LabelScene(widthPx, heightPx, items);
     }
 
-    private static void AddTextScene(List<LabelSceneItem> items, LabelElementLayout box, string text, bool bold, LabelTemplate template)
+    private static void AddTextScene(List<LabelSceneItem> items, LabelElementLayout box, string text, bool bold, LabelTemplate template, bool strike = false)
     {
         var rect = (X: MmToPx(box.XMm), Y: MmToPx(box.YMm), W: MmToPx(box.WidthMm), H: MmToPx(box.HeightMm));
         if (!box.Enabled || rect.W < 4 || rect.H < 4 || string.IsNullOrWhiteSpace(text))
             return;
         var size = ResolveFontSizePx(box, template);
-        items.Add(new LabelSceneText(rect.X, rect.Y, rect.W, rect.H, text, ResolveFontFamily(box, template), bold, false, false, Black,
-            size > 0 ? Math.Max((float)size, 1f) : 0f, Math.Clamp(rect.H * 0.72f, 6f, 40f)));
+        var rot = ((box.Rotation % 360) + 360) % 360;
+        // 2026-11-21 («Редактор ценников»): жирность/курсив/выравнивание/поворот элемента; не заданы — как раньше. Повёрнутый на 90/270 блок
+        // раскладывается в рамке «высота × ширина» вокруг того же центра (как в GDI+: DrawTextElement).
+        var (x, y, w, h) = rot is 90 or 270
+            ? (rect.X + rect.W / 2f - rect.H / 2f, rect.Y + rect.H / 2f - rect.W / 2f, rect.H, rect.W)
+            : (rect.X, rect.Y, rect.W, rect.H);
+        items.Add(new LabelSceneText(x, y, w, h, text, ResolveFontFamily(box, template), box.Bold ?? bold, box.Italic == true, strike, Black,
+            size > 0 ? Math.Max((float)size, 1f) : 0f, Math.Clamp(h * 0.72f, 6f, 40f), box.Align ?? 1, rot));
+    }
+
+    /// <summary>2026-11-21: свои элементы «Редактора ценников» в сцене — тот же порядок и правила, что DrawExtras в GDI+.</summary>
+    private static void AddExtrasScene(List<LabelSceneItem> items, LabelTemplate template)
+    {
+        foreach (var e in template.Extras ?? new())
+        {
+            if (!e.Enabled)
+                continue;
+            var rect = (X: MmToPx(e.XMm), Y: MmToPx(e.YMm), W: MmToPx(e.WidthMm), H: MmToPx(e.HeightMm));
+            switch (e.Kind)
+            {
+                case LabelExtraKind.Line:
+                    items.Add(new LabelSceneRect(rect.X, rect.Y, Math.Max(rect.W, 1f), Math.Max(rect.H, 1f), Black));
+                    break;
+                case LabelExtraKind.Logo:
+                {
+                    var cells = LabelLogo.Cells(e.ImagePath, (int)rect.W, (int)rect.H, out var ox, out var oy);
+                    if (cells is not null)
+                        items.Add(new LabelSceneBars((int)rect.X + ox, (int)rect.Y + oy, 1, cells.GetLength(1), cells));
+                    break;
+                }
+                default:
+                {
+                    var text = LabelExtras.TextFor(e, template);
+                    if (!string.IsNullOrWhiteSpace(text))
+                        AddTextScene(items, e, text!, LabelExtras.IsBold(e), template, LabelExtras.IsStrike(e));
+                    break;
+                }
+            }
+        }
     }
 
     /// <summary>Линейный штрих-код + цифры (порт DrawLinearBlock при масштабе 1: целый модуль, центр блока).</summary>

@@ -24,6 +24,14 @@ using Xunit;
 
 namespace NurMarketKassa.UiTests.Screens;
 
+/// <summary>2026-11-21 (ответ Умара 21.11, п. 5): владелец/админ правит возврат поставщику и после 24 ч. Тесты «после 24 ч правка отклонена» описывают КАССИРА — на время теста вход считается не руководителем.</summary>
+internal sealed class CashierScope : IDisposable
+{
+    public CashierScope() => ReturnEditFlows.IsManagerProbe = () => false;
+
+    public void Dispose() => ReturnEditFlows.IsManagerProbe = null;
+}
+
 /// <summary>2026-11-12 (владелец: «редактирование накладной возвраты поставщику! нужно добавить и провести стресс тест»): окно «Правка накладной возврата поставщику»
 /// и кнопка «Править накладную» в Avalonia.Headless против поддельного сервера (WireMock; настоящий NurCRM и принтеры не нужны).
 /// Стресс: 1 / 30 / 500 / 2000 строк (время открытия, ввод, прокрутка, память, сохранение), двойной клик «Сохранить», 412, PIN неверный / токен истёк, оба object_type,
@@ -529,6 +537,7 @@ public sealed class SupplierReturnEditStressUiTests
     [InlineData(false)]
     public async Task WindowExpiredWhileOpen_ReasonShown_NothingSent(bool beforePin)
     {
+        using var asCashier = new CashierScope(); // 2026-11-21: после 24 ч отказ — у кассира; владелец правит с PIN
         UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
         await using var stand = await Stand.StartAsync();
         var open = CardJson(2);
@@ -1078,7 +1087,8 @@ public sealed class SupplierReturnEditStressUiTests
                 var edit = ky ? "Накладнойду оңдоо" : "Править накладную";
                 Texts(0).Should().Contain("[" + edit + "]", "can_edit — кнопка видна");
                 Texts(1).Should().Contain("[" + edit + "]", "строка списка без can_edit — кнопка всё равно видна (решает карточка)");
-                Texts(2).Should().NotContain("[" + edit + "]").And.Contain("24", "can_edit:false без кода — пояснение «прошло 24 часа»");
+                // 2026-11-21 (владелец: «редактор возвраты поставщикам нету!»): кнопка видна всегда (нажатие объяснит причину), причина — строкой под ней
+                Texts(2).Should().Contain("[" + edit + "]").And.Contain("24", "can_edit:false без кода — кнопка видна, а пояснение «прошло 24 часа» рядом");
                 Texts(3).Should().NotContain("[" + edit + "]", "аннулированный — без правки");
                 TextClipChecker.Find(host, "supret-bar", lang.ToString()).Should().BeEmpty();
                 SaveShot(host, $"supret-bar-{(ky ? "ky" : "ru")}-{width}x{height}");
@@ -1099,6 +1109,8 @@ public sealed class SupplierReturnEditStressUiTests
                 UiShot.Settle(3);
                 var text = string.Join(" ", panel.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible).Select(t => t.Text));
                 text.Should().Contain(ky ? "күйгүзгөн жок" : "не включил", "без признака сервера видно, почему правки нет");
+                panel.GetVisualDescendants().OfType<Button>().Any(b => b.IsEffectivelyVisible && UiDrive.TextOf(b) == ReturnEditFlows.SupplierEditButtonText())
+                    .Should().BeTrue("и сама кнопка видна — нажатие объяснит причину");
                 TextClipChecker.Find(host, "supret-bar-off", lang.ToString()).Should().BeEmpty();
                 SaveShot(host, $"supret-bar-off-{(ky ? "ky" : "ru")}-{width}x{height}");
             }
@@ -1225,6 +1237,196 @@ public sealed class SupplierReturnEditStressUiTests
             UiShot.Pump();
         }
     }
+    // ───────────── 2026-11-21 (владелец: «редактор возвраты поставщикам нету!»): «Изменить» всегда видна, предпросмотр «что изменится», что сервер менять не даёт, скан строки ─────────────
+
+    /// <summary>Раздел владельца: возврат старше 24 ч (can_edit:false) — кнопка «Править накладную» всё равно есть, причина строкой под ней; окно правки — предпросмотр, «не меняется здесь», поиск/скан.</summary>
+    [AvaloniaTheory]
+    [MemberData(nameof(Screens))]
+    public async Task OwnerSection_ExpiredReturn_EditButtonStillVisible_WithReason(int width, int height, AppLanguage lang)
+    {
+        await TestHost.WarmAsync(); UiRobot.Reset();
+        UiShot.Setup(UiTheme.Light, lang);
+        var fake = UiFake.Reset();
+        var card = CardJson(3, canEdit: false, canVoid: false);
+        fake.Json("GET", "/api/main/capabilities/", 200, "[\"supplier_return_edit_24h\"]");
+        fake.Json("GET", "/api/main/suppliers/returns/", 200, "{\"count\":1,\"results\":[" + card + "]}");
+        var api = TestHost.Services.GetService(typeof(NurMarketApiClient)) as NurMarketApiClient;
+        await ServerCapabilities.LoadAsync(api!, force: true);
+        var window = new SupplierReturnsWindow();
+        window.AsOwnerSection();
+        try
+        {
+            using (UiShot.Render(window, new UiSize(width, height)))
+            {
+                Wait(() => window.GetVisualDescendants().OfType<Button>().Any(b => b.IsEffectivelyVisible && UiDrive.TextOf(b) == ReturnEditFlows.SupplierEditButtonText()), 10000);
+                UiDrive.ButtonByText(window, ReturnEditFlows.SupplierEditButtonText()).IsEffectivelyVisible.Should().BeTrue("у возврата старше 24 ч кнопка правки видна");
+                window.GetVisualDescendants().OfType<TextBlock>().Should().Contain(t => t.Name == "ReturnEditBlockHint" && t.IsEffectivelyVisible, "рядом — причина, почему правка недоступна");
+                TextClipChecker.Find(window, "supret-owner-expired", lang.ToString()).Should().BeEmpty();
+                SaveShot(window, $"supret-owner-expired-{(lang == AppLanguage.Kyrgyz ? "ky" : "ru")}-{width}x{height}");
+            }
+        }
+        finally
+        {
+            window.Close();
+            fake.Json("GET", "/api/main/capabilities/", 200, "[]");
+            await ServerCapabilities.LoadAsync(api!, force: true);
+            ServerCapabilities.Reset();
+            UiFake.Reset();
+            UiShot.Pump();
+        }
+    }
+
+    [AvaloniaTheory]
+    [MemberData(nameof(Screens))]
+    public async Task EditDialog_PreviewFixedInfoAndScan(int width, int height, AppLanguage lang)
+    {
+        UiShot.Setup(UiTheme.Light, lang);
+        await using var stand = await Stand.StartAsync();
+        var owner = Owner(width, height);
+        var dialog = new SupplierReturnEditDialog(Info(CardJson(8)), "ВП-2026-000123", stand.Edit);
+        try
+        {
+            ModalShell.WorkingAreaForTests = new Size(width, height);
+            _ = dialog.ShowDialog<bool>(owner);
+            UiShot.Settle(6);
+            dialog.PreviewTextForTests.Should().BeEmpty("изменений нет — блок «что изменится» скрыт");
+            dialog.SetQtyForTests(0, "0"); // убрали строку: 2 шт на склад, −301 сом, вид компенсации — зачёт в долг
+            UiShot.Settle(2);
+            var preview = dialog.PreviewTextForTests;
+            preview.Should().NotBeEmpty();
+            preview.Should().Contain(lang == AppLanguage.Kyrgyz ? "Кампа" : "Склад").And.Contain(lang == AppLanguage.Kyrgyz ? "карыз" : "Долг поставщику");
+            var text = UiDrive.AllText(dialog);
+            text.Should().Contain(lang == AppLanguage.Kyrgyz ? "Бул жерде өзгөрбөйт" : "Не меняется здесь", "что сервер менять не даёт — рядом со строками");
+            text.Should().Contain("ОсОО «Поставщик»");
+            dialog.ScanForTests("Товар №6 ").Should().BeTrue("с 6 строк есть поле поиска/скана");
+            dialog.ErrorText.Should().BeEmpty("такой товар в накладной есть");
+            dialog.ScanForTests("нет такого").Should().BeTrue();
+            dialog.ErrorText.Should().NotBeEmpty("нет ни в накладной, ни в каталоге — честное сообщение (2026-11-21: товар каталога теперь добавляется строкой)");
+            TextClipChecker.Find(dialog, "supret-edit-preview", lang.ToString()).Should().BeEmpty();
+            SaveShot(dialog, $"supret-edit-preview-{(lang == AppLanguage.Kyrgyz ? "ky" : "ru")}-{width}x{height}");
+        }
+        finally
+        {
+            Close(dialog, owner);
+        }
+    }
+
+    // ───────────── 2026-11-21 (ответ Умара 21.11, п. 5): владелец после 24 ч, добавление строки, причина и вид компенсации ─────────────
+
+    private static string OverrideCard(int lines) =>
+        CardJson(lines, canEdit: false, canVoid: false, reason: "edit_window_expired").Replace("\"items\":[", "\"owner_override\":true,\"items\":[");
+
+    [AvaloniaTheory]
+    [MemberData(nameof(Screens))]
+    public async Task EditDialog_OwnerAfter24h_AddsLine_ChangesReasonAndCompensation_PatchBodyByContract(int width, int height, AppLanguage lang)
+    {
+        UiShot.Setup(UiTheme.Light, lang);
+        await using var stand = await Stand.StartAsync();
+        ReturnEditFlows.IsManagerProbe = () => true;
+        var owner = Owner(width, height);
+        stand.Json("GET", ReturnPath, 200, OverrideCard(3));
+        stand.Json("PATCH", ReturnPath, 200, "{\"id\":\"r1\",\"version\":4}");
+        var dialog = new SupplierReturnEditDialog(Info(OverrideCard(3)), "ВП-2026-000123", stand.Edit);
+        try
+        {
+            ModalShell.WorkingAreaForTests = new Size(width, height);
+            var shown = dialog.ShowDialog<bool>(owner);
+            UiShot.Settle(6);
+            dialog.OwnerOverrideForTests.Should().BeTrue("срок 24 ч вышел, но владелец правит с PIN (owner_override)");
+            dialog.AddFieldVisibleForTests.Should().BeTrue("добавление строк сервер разрешает");
+            var text = UiDrive.AllText(dialog);
+            text.Should().Contain(lang == AppLanguage.Kyrgyz ? "Ээси оңдойт" : "Правка владельцем", "пометка: правка владельцем, пишется в журнал");
+            text.Should().NotContain(lang == AppLanguage.Kyrgyz ? "жаңы товар кошууга жол бербейт" : "добавлять новые товары", "устаревшая фраза убрана");
+            // добавляем товар каталога (цену не вводим — сервер возьмёт из прихода или закупочную), меняем причину и вид компенсации
+            dialog.AddProductForTests(new NurMarketKassa.Models.Pos.CatalogProductTileVm("pNew", "Кефир «Нурсүт» 0,9 л", "90.00 сом", false, null) { Unit = "шт", PurchasePrice = 70 });
+            UiShot.Settle(3);
+            dialog.RowCountForTests.Should().Be(4);
+            dialog.SetReturnReasonForTests("surplus");
+            dialog.SetCompensationForTests("cash");
+            UiShot.Settle(2);
+            dialog.PreviewTextForTests.Should().Contain(lang == AppLanguage.Kyrgyz ? "Мурункусу жокко чыгат" : "Откатится прежнее", "компенсация меняется — сервер откатит старую и проведёт новую")
+                .And.Contain(lang == AppLanguage.Kyrgyz ? "Жаңысы өткөрүлөт" : "Проведётся новое");
+            TextClipChecker.Find(dialog, "supret-edit-owner", lang.ToString()).Should().BeEmpty();
+            SaveShot(dialog, $"supret-edit-owner-{(lang == AppLanguage.Kyrgyz ? "ky" : "ru")}-{width}x{height}");
+
+            dialog.SetReasonForTests("добавили товар и поменяли компенсацию");
+            var save = dialog.SaveForTestsAsync();
+            EnterPin(dialog).Should().BeTrue("правка владельцем — тоже с PIN руководителя");
+            await Finish(save);
+            (await Finish(shown)).Should().BeTrue();
+            stand.Patches.Should().HaveCount(1);
+            Header(stand.Patches[0], "If-Match").Should().Be("\"3\"");
+            Header(stand.Patches[0], "X-Confirm-Token").Should().Be("tok-1");
+            stand.Patches[0].RequestMessage.Headers!.Keys.Should().Contain(k => k.Equals("Idempotency-Key", StringComparison.OrdinalIgnoreCase));
+            var body = Body(stand.Patches[0]);
+            body.GetProperty("reason").GetString().Should().Be("surplus");
+            body.GetProperty("compensation").GetString().Should().Be("cash");
+            body.GetProperty("edit_reason").GetString().Should().Contain("добавили");
+            body.TryGetProperty("created_at", out _).Should().BeFalse("дату менять нельзя (400 field_not_editable) — не отправляется");
+            var items = body.GetProperty("items");
+            items.GetArrayLength().Should().Be(4);
+            items[3].GetProperty("product").GetString().Should().Be("pNew");
+            items[3].GetProperty("qty").GetString().Should().Be("1");
+            items[3].TryGetProperty("id", out _).Should().BeFalse("у новой строки id нет");
+            items[3].TryGetProperty("purchase_price", out _).Should().BeFalse("цена не введена — сервер возьмёт сам");
+            items[0].GetProperty("id").GetString().Should().Be("l0");
+        }
+        finally
+        {
+            ReturnEditFlows.IsManagerProbe = null;
+            Close(dialog, owner);
+        }
+    }
+
+    /// <summary>Кассир (не владелец) после 24 ч: окно правки не открывается по карточке с can_edit:false — как раньше.</summary>
+    [AvaloniaFact]
+    public async Task ExpiredReturn_Cashier_StillRefused_Manager_Opens()
+    {
+        UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
+        await using var stand = await Stand.StartAsync();
+        var listed = Info(OverrideCard(3));
+        stand.Json("GET", ReturnPath, 200, OverrideCard(3));
+        ReturnEditFlows.IsManagerProbe = () => false;
+        try
+        {
+            var cashier = await ReturnEditFlows.PrepareSupplierEditAsync(listed, stand.Edit);
+            cashier.Card.Should().BeNull("кассир после 24 ч — как раньше");
+            cashier.Message.Should().NotBeNullOrEmpty();
+            ReturnEditFlows.IsManagerProbe = () => true;
+            var manager = await ReturnEditFlows.PrepareSupplierEditAsync(listed, stand.Edit);
+            manager.Card.Should().NotBeNull("владелец/админ правит и после 24 ч");
+            manager.Message.Should().BeNull();
+        }
+        finally
+        {
+            ReturnEditFlows.IsManagerProbe = null;
+        }
+    }
+
+    /// <summary>editable_fields карточки: сервер не перечислил reason / compensation — блоков причины и компенсации нет, и в «Не меняется здесь» они попадают.</summary>
+    [AvaloniaFact]
+    public async Task EditDialog_EditableFields_HideBlocksServerDoesNotAllow()
+    {
+        UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
+        await using var stand = await Stand.StartAsync();
+        var card = CardJson(3).Replace("\"items\":[", "\"editable_fields\":[\"items\",\"comment\"],\"items\":[");
+        var owner = Owner();
+        var dialog = new SupplierReturnEditDialog(Info(card), "ВП-2026-000123", stand.Edit);
+        try
+        {
+            _ = dialog.ShowDialog<bool>(owner);
+            UiShot.Settle(6);
+            dialog.ReasonChipsVisibleForTests.Should().BeFalse("reason нет в editable_fields");
+            var text = UiDrive.AllText(dialog);
+            text.Should().Contain("Не меняется здесь").And.Contain("причина:", "причина вынесена в «не меняется»");
+            text.Should().NotContain("Причина возврата");
+        }
+        finally
+        {
+            Close(dialog, owner);
+        }
+    }
+
     // ───────────── 2026-11-12 (аудит 12.11, пакет 7): итоги «Возвратов поставщикам» и ошибка открытия правки ─────────────
 
     private static string ListRow(string id, string amount, string compensation, bool voided) =>

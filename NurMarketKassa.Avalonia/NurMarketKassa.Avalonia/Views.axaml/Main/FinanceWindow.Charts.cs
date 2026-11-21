@@ -1007,14 +1007,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
         // Детали чека (popup)
         private string _openReceiptId;
 
-        /// <summary>2026-10-24 (аудит, круг 8, С-15): чек открывается одним щелчком по строке (двойной на сенсорном экране
-        /// срабатывает через раз — как уже сделано в «Продажах»). Щелчок по заголовку или пустому месту чек не открывает.</summary>
-        private async void ReceiptRow_Tapped(object sender, TappedEventArgs e)
+        /// <summary>2026-11-21 (жалоба владельца: «чеки открываются сразу при одном нажатии»): одно нажатие по строке чек больше не открывает
+        /// (раньше — с 24.10, С-15) — только выделяет. Открытие: двойной щелчок/касание по строке или кнопка-стрелка «Открыть чек» (ReceiptRowOpen).
+        /// Кнопки внутри строки («Правка» возврата) чек не открывают.</summary>
+        private async void OpenReceiptFromRow(object rowItem)
         {
-            var row = Avalonia.VisualTree.VisualExtensions.FindAncestorOfType<DataGridRow>(e.Source as Avalonia.Visual, includeSelf: true);
-            if (Avalonia.VisualTree.VisualExtensions.FindAncestorOfType<Button>(e.Source as Avalonia.Visual, includeSelf: true) is not null)
-                return; // 2026-11-11: нажатие кнопки «Правка» в строке возврата — не открытие чека
-            switch (row?.DataContext)
+            switch (rowItem)
             {
                 case SaleItem s:
                     await ShowReceiptDetailsByIdAsync(s.Id, s.ReceiptNumber);
@@ -1033,6 +1031,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
             if (string.IsNullOrEmpty(receiptId)) return;
             // 2026-10-24: одиночный щелчок уже открыл этот чек — двойной не грузит его второй раз.
             if (ReceiptDetailsPopup.IsOpen && string.Equals(_openReceiptId, receiptId, StringComparison.Ordinal)) return;
+            // 2026-11-21 («чек открывается дважды»): пока чек грузится, popup ещё закрыт — второе нажатие грузило его повторно.
+            if (_receiptLoadingNow) return;
+            _receiptLoadingNow = true;
             _openReceiptId = receiptId;
             try
             {
@@ -1073,7 +1074,13 @@ namespace NurMarketKassa.AvaloniaHost.Views
             {
                 ErrorMessage = Tr.T("Не удалось загрузить детали чека: ", "Чектин чоо-жайын жүктөө мүмкүн болгон жок: ", "Could not load the receipt details: ", "Fiş ayrıntıları yüklenemedi: ", "Chek tafsilotlarini yuklab bo'lmadi: ") + ServerOutageMonitor.FriendlyError(ex);
             }
+            finally
+            {
+                _receiptLoadingNow = false; // 2026-11-21: замок снимается при любом исходе
+            }
         }
+
+        private bool _receiptLoadingNow; // 2026-11-21
 
         private void ShowReceiptDetailsPopup(string receiptNumber, List<string> items)
         {
@@ -1093,7 +1100,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
         private async void SalesGrid_MouseDoubleClick(object sender, TappedEventArgs e)
         {
-            if (SalesGrid.SelectedItem is SaleItem item)
+            if (ReceiptRowOpen.RowItem(e) is SaleItem item) // 2026-11-21: чек — по строке под нажатием, а не «выбранной»
                 await ShowReceiptDetailsByIdAsync(item.Id, item.ReceiptNumber);
         }
 
@@ -1217,17 +1224,16 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
         private async void RefundsGrid_MouseDoubleClick(object sender, TappedEventArgs e)
         {
-            if (Avalonia.VisualTree.VisualExtensions.FindAncestorOfType<Button>(e.Source as Avalonia.Visual, includeSelf: true) is not null)
-                return; // 2026-11-11: двойное нажатие на кнопку «Правка» — не открытие чека
+            // 2026-11-11: двойное нажатие на кнопку «Правка» — не открытие чека (RowItem для кнопки — null; 2026-11-21: чек — по строке под нажатием)
             // 2026-09-30: возврат с сервера открывает свой чек. У записей журнала удалений корзины
             // (запасной путь) id чека нет — они не открываются.
-            if (RefundsGrid.SelectedItem is RefundItem { SaleId.Length: > 0 } item)
+            if (ReceiptRowOpen.RowItem(e) is RefundItem { SaleId.Length: > 0 } item)
                 await ShowReceiptDetailsByIdAsync(item.SaleId, item.ReceiptNumber);
         }
 
         private async void HistoryGrid_MouseDoubleClick(object sender, TappedEventArgs e)
         {
-            if (HistoryGrid.SelectedItem is HistoryItem item)
+            if (ReceiptRowOpen.RowItem(e) is HistoryItem item)
                 await ShowReceiptDetailsByIdAsync(item.Id, item.ReceiptNumber);
         }
 

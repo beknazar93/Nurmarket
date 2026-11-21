@@ -171,9 +171,31 @@ public partial class OperationsSettingsView
                 _extraSphereRadios[profile.Id] = radio;
                 SphereRadioPanel.Children.Add(radio);
             }
-            radio.Content = profile.Icon + " " + profile.ShortTitle.Get();
+            radio.Content = profile.Icon + " " + profile.Title.Get(); // 2026-11-21: название как на плитке окна выбора сферы
             radio.IsChecked = profile.Id == currentProfileId;
         }
+        ArrangeSphereRadios();
+    }
+
+    /// <summary>2026-11-21 (отчёт «Проверка сфер», п. 6): порядок кнопок — как плитки окна выбора сферы (SphereCatalog.ChoiceList: Продуктовый, Хозмаг, Строймаг, Магазин одежды, Магазин электроники, Базар,
+    /// Автозапчасти, Канцтовары, Услуги). Три базовые кнопки заданы в разметке, остальные создаются кодом — расставляем все по каталогу.</summary>
+    private void ArrangeSphereRadios()
+    {
+        var byId = new Dictionary<string, Avalonia.Controls.Control>
+        {
+            [MarketSpheres.Grocery] = SphereGroceryRadio,
+            [MarketSpheres.Clothing] = SphereClothingRadio,
+            [MarketSpheres.Services] = SphereServicesRadio,
+        };
+        foreach (var kv in _extraSphereRadios)
+            byId[kv.Key] = kv.Value;
+        var wanted = SphereCatalog.ChoiceList().Select(p => p.Id).Where(byId.ContainsKey).Select(id => byId[id]).ToList();
+        wanted.AddRange(SphereRadioPanel.Children.Where(c => !wanted.Contains(c))); // всё лишнее — в конец, ничего не теряем
+        if (SphereRadioPanel.Children.SequenceEqual(wanted))
+            return;
+        SphereRadioPanel.Children.Clear();
+        foreach (var c in wanted)
+            SphereRadioPanel.Children.Add(c);
     }
 
     /// <summary>Id точной сферы, чья кнопка отмечена, или null (отмечена одна из трёх базовых).</summary>
@@ -207,6 +229,7 @@ public partial class OperationsSettingsView
             BazaarRetailRadio.IsChecked = mode == BazaarMode.Retail;
             BazaarWholesaleRadio.IsChecked = mode == BazaarMode.Wholesale;
             BazaarModeHint.Text = BazaarProfile.ModeHint(mode);
+            BuildBazaarExtras(); // 2026-11-21: переключатели функций «Базара», курсы валют, пороги торга
         }
         finally
         {

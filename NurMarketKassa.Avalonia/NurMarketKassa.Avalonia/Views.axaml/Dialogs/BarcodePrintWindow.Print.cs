@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -227,8 +227,13 @@ public partial class BarcodePrintView
                         stoppedAt = it.Product.Title;
                         break;
                     }
-                    var request = new LabelPrintRequest(it.Product.Title, it.Barcode ?? "", BarcodePrintCatalog.LabelPrice(it), it.Copies, printer.DevicePath,
-                        IsSizeCode(it.Barcode) ? sizeTemplate : template, it.Product.Article, it.Product.Unit, store, it.VariantText, Guid.NewGuid().ToString("N"));
+                    // 2026-11-21 (В«Р РµРґР°РєС‚РѕСЂ С†РµРЅРЅРёРєРѕРІВ»): РґР°РЅРЅС‹Рµ С‚РѕРІР°СЂР° РґР»СЏ СЃРІРѕРёС… СЌР»РµРјРµРЅС‚РѕРІ С€Р°Р±Р»РѕРЅР° (СЃС‚Р°СЂР°СЏ С†РµРЅР°, СЃРєРёРґРєР°, Р±СЂРµРЅРґ, СЏС‡РµР№РєР°).
+                    var baseTemplate = IsSizeCode(it.Barcode) ? sizeTemplate : template;
+                    var (labelPrice, labelData) = BarcodePrintCatalog.LabelFor(it, baseTemplate);
+                    var itemTemplate = baseTemplate.Clone();
+                    itemTemplate.Item = labelData;
+                    var request = new LabelPrintRequest(it.Product.Title, it.Barcode ?? "", labelPrice, it.Copies, printer.DevicePath,
+                        itemTemplate, it.Product.Article, it.Product.Unit, store, it.VariantText, Guid.NewGuid().ToString("N"));
                     last = print(request);
                     if (last == LabelPrintResult.PartiallySent && BarcodeLabelService.PartialOfJob(request.JobId) is { } part)
                     {
@@ -340,7 +345,7 @@ public partial class BarcodePrintView
         // Только для товара без штрихкода: ничего не стирается, у товара появляется один новый код.
         if (BarcodePrintCatalog.HasBarcode(p))
             return;
-        var code = BarcodeGenerator.GenerateForCatalog();
+        var code = await BarcodeGenerator.GenerateForCatalogAsync().ConfigureAwait(true); // 2026-11-21: код с сервера (main/barcodes/next/), запасной — локальный
         var question = T($"Сгенерировать штрихкод {code} и сохранить его в карточку товара «{p.Title}»? Изменение появится в NurCRM и на всех кассах.",
             $"{code} штрих-кодун түзүп, «{p.Title}» товарынын карточкасына сактайсызбы? Өзгөртүү NurCRM'де жана бардык кассаларда пайда болот.",
             $"Generate barcode {code} and save it to the card of “{p.Title}”? The change will appear in NurCRM and on all registers.",

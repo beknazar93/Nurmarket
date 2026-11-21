@@ -153,7 +153,6 @@ public sealed class ReceivingHotkeysUiTests
             vm.ReceivingLines.Add(a);
             vm.ReceivingLines.Add(b);
             UiShot.Settle(12);
-            var grid = UiDrive.Find<DataGrid>(window, "ReceivingGrid");
             var scan = UiDrive.Find<TextBox>(window, "ReceivingScanBox");
             var text = UiDrive.AllText(window);
 
@@ -164,32 +163,34 @@ public sealed class ReceivingHotkeysUiTests
             else
                 ToolTip.GetTip(UiDrive.Find<Button>(window, "ReceivingCommitButton")).Should().Be(WarehouseWindow.ReceivingKeysHintText, $"на низком экране строка клавиш — в подсказке кнопки ({tag})");
 
-            // «Подробнее ▸»: таблица уже 1500 — подробные колонки свёрнуты; кнопка раскрывает и запоминает
-            grid.Columns[10].IsVisible.Should().BeFalse($"«Как посчитана цена» свёрнута по умолчанию ({tag})");
+            // «Подробнее ▸»: подробности строки (прибыль, как посчитана цена) свёрнуты на окне уже 1500; кнопка раскрывает и запоминает. 2026-11-21: карточки — подробности в строке под полями.
+            string Infos() => string.Join(" | ", window.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible && t.Text is { } x && x.StartsWith(lang == AppLanguage.Kyrgyz ? "Суммасы" : "Сумма ", StringComparison.Ordinal)).Select(t => t.Text));
+            var profitWord = lang == AppLanguage.Kyrgyz ? "Пайда" : "Прибыль";
+            Infos().Should().NotContain(profitWord, $"прибыль свёрнута по умолчанию ({tag})");
             var details = UiDrive.ButtonByText(window, "Подробнее ▸", "Толугураак ▸");
             UiDrive.Click(window, details);
             UiShot.Settle(10);
-            grid.Columns[10].IsVisible.Should().BeTrue($"раскрыли ({tag})");
+            Infos().Should().Contain(profitWord, $"раскрыли ({tag})");
             ReceivingViewPrefs.Details.Should().BeTrue("выбор запомнен");
             UiDrive.Click(window, UiDrive.ButtonByText(window, "Скрыть подробности ◂", "Толугун жашыруу ◂"));
             UiShot.Settle(10);
-            grid.Columns[10].IsVisible.Should().BeFalse(tag);
+            Infos().Should().NotContain(profitWord, tag);
 
+            Button RemoveOf(ReceivingLineVm l) => window.GetVisualDescendants().OfType<Border>().First(x => x.DataContext is BulkScanRow r && ReferenceEquals(r.Line, l) && x.GetVisualParent()?.DataContext is not BulkScanRow)
+                .GetVisualDescendants().OfType<Button>().First(x => x.IsEffectivelyVisible && x.Content as string == "✕");
             // F2 — поле скана
-            grid.SelectedItem = a;
-            grid.Focus();
+            RemoveOf(a).Focus();
             UiShot.Settle(4);
             Press(window, Key.F2, PhysicalKey.F2);
             Focused(window).Should().BeSameAs(scan, $"F2 — поле скана ({tag})");
 
-            // Del на выбранной строке (фокус в таблице, не в поле) — убрана; Ctrl+Z — вернулась на место
-            grid.SelectedItem = a;
-            grid.Focus();
+            // Del на строке (фокус на её «✕», не в поле) — убрана; Ctrl+Z — вернулась на место
+            RemoveOf(a).Focus();
             UiShot.Settle(4);
             Press(window, Key.Delete, PhysicalKey.Delete);
             vm.ReceivingLines.Should().Equal(new[] { b }, tag);
             UiDrive.AllText(window).Should().Contain(lang == AppLanguage.Kyrgyz ? "сабы алынды" : "убрана", tag);
-            grid.Focus();
+            RemoveOf(b).Focus();
             UiShot.Settle(4);
             Press(window, Key.Z, PhysicalKey.Z, RawInputModifiers.Control);
             vm.ReceivingLines.Should().Equal(new[] { a, b }, $"Ctrl+Z вернул строку на прежнее место ({tag})");

@@ -326,9 +326,10 @@ internal static partial class MarketplaceContent
         i.HowTo =
         [
             ActivateStep(i),
-            T("Склад → Товары → „⋯“ в строке товара → „Ценник“.", "Кампа → Товарлар → товардын сабындагы „⋯“ → „Баа белгиси“.",
-                "Warehouse → Products → “⋯” in the product row → “Price tag”.", "Depo → Ürünler → ürün satırındaki «⋯» → «Fiyat etiketi».",
-                "Ombor → Mahsulotlar → mahsulot qatoridagi «⋯» → «Narx yorlig'i»."),
+            // 2026-11-21: единая вкладка Склада «Штрихкоды» (печать, редактор, шаблоны) — других входов нет.
+            T("Склад → вкладка „Штрихкоды“ → найдите товар → „Ценники“.", "Кампа → „Штрих-коддор“ өтмөгү → товарды табыңыз → „Баа белгилери“.",
+                "Warehouse → the “Barcodes” tab → find the product → “Price tags”.", "Depo → «Barkodlar» sekmesi → ürünü bulun → «Fiyat etiketleri».",
+                "Ombor → «Shtrix-kodlar» bo'limi → mahsulotni toping → «Narx yorliqlari»."),
             T("Выберите шаблон и нажмите „Печать“.", "Шаблонду тандап, „Басып чыгаруу“ баскычын басыңыз.",
                 "Choose a template and press “Print”.", "Şablonu seçin ve «Yazdır»a basın.", "Shablonni tanlang va «Chop etish»ni bosing."),
         ];
@@ -397,11 +398,11 @@ internal static partial class MarketplaceContent
         i.HowTo =
         [
             ActivateStep(i),
-            T("Склад → Товары → кнопка „Массовая печать ценников“ (или „Открыть массовую печать“ здесь).",
-              "Кампа → Товарлар → „Баа белгилерин массалык басып чыгаруу“ баскычы (же бул жерден „Топтоп басууну ачуу“).",
-              "Warehouse → Products → the “Bulk print price tags” button (or “Open bulk printing” here).",
-              "Depo → Ürünler → «Toplu fiyat etiketi yazdır» düğmesi (veya buradan «Toplu baskıyı aç»).",
-              "Ombor → Mahsulotlar → «Narx yorliqlarini ommaviy chop etish» tugmasi (yoki shu yerdan «Ommaviy chop etishni ochish»)."),
+            T("Склад → вкладка „Штрихкоды“ (или кнопка „Открыть“ здесь): отметьте товары и нажмите „Печать“.",
+              "Кампа → „Штрих-коддор“ өтмөгү (же бул жерден „Ачуу“ баскычы): товарларды белгилеп, „Басуу“ баскычын басыңыз.",
+              "Warehouse → the “Barcodes” tab (or the “Open” button here): tick the products and press “Print”.",
+              "Depo → «Barkodlar» sekmesi (veya buradaki «Aç» düğmesi): ürünleri işaretleyin ve «Yazdır»a basın.",
+              "Ombor → «Shtrix-kodlar» bo'limi (yoki shu yerdagi «Ochish» tugmasi): mahsulotlarni belgilang va «Chop etish»ni bosing."),
             T("Отметьте товары, выберите шаблон и размер → „Печать“.", "Товарларды белгилеп, шаблон жана өлчөм тандаңыз → „Басып чыгаруу“.",
                 "Tick the products, choose a template and size → “Print”.", "Ürünleri işaretleyin, şablon ve boyut seçin → «Yazdır».",
                 "Mahsulotlarni belgilang, shablon va o'lchamni tanlang → «Chop etish»."),
@@ -432,7 +433,7 @@ internal static partial class MarketplaceContent
         [
             T("Перетаскивание", "Сүйрөө", "Drag and drop", "Sürükleme", "Sudrash"),
             T("EAN-13, Code 128, QR", "EAN-13, Code 128, QR", "EAN-13, Code 128, QR", "EAN-13, Code 128, QR", "EAN-13, Code 128, QR"),
-            T("Пробная печать", "Сынамык басуу", "Test print", "Deneme baskısı", "Sinov chop etish"),
+            T("Скидка, бренд, дата, логотип", "Арзандатуу, бренд, дата, логотип", "Discount, brand, date, logo", "İndirim, marka, tarih, logo", "Chegirma, brend, sana, logotip"),
         ];
         i.Benefits =
         [
@@ -470,7 +471,7 @@ internal static partial class MarketplaceContent
         i.HowTo =
         [
             ActivateStep(i),
-            T("„Открыть редактор“.", "„Редакторду ачуу“.", "Press “Open editor”.", "«Düzenleyiciyi aç».", "«Muharrirni ochish»."),
+            T("Склад → вкладка „Штрихкоды“ → „Редактор“.", "Кампа → „Штрих-коддор“ өтмөгү → „Редактор“.", "Warehouse → the “Barcodes” tab → “Editor”.", "Depo → «Barkodlar» sekmesi → «Düzenleyici».", "Ombor → «Shtrix-kodlar» bo'limi → «Muharrir»."),
             T("Расставьте элементы → „Пробная печать“ → „Сохранить“.", "Элементтерди жайгаштырыңыз → „Сынамык басуу“ → „Сактоо“.",
                 "Arrange the elements → “Test print” → “Save”.", "Öğeleri yerleştirin → «Deneme baskısı» → «Kaydet».", "Elementlarni joylashtiring → «Sinov chop etish» → «Saqlash»."),
         ];

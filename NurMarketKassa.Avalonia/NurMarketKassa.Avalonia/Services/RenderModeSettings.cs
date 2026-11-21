@@ -101,8 +101,19 @@ public static class RenderModeSettings
     };
 
     /// <summary>Program.Main, до построения AppBuilder: решение по настройке и маркеру, маркер, строка в журнал.</summary>
-    public static void PrepareAtStartup(bool lowPerformance) =>
+    public static void PrepareAtStartup(bool lowPerformance)
+    {
+        StartedLowPerformance = lowPerformance;
         Current = PrepareAt(SettingsFilePath, TrialMarkerPath, lowPerformance, IsAvailableHere);
+    }
+
+    /// <summary>2026-11-21: с каким режимом слабого устройства запущена программа (от него зависит программная отрисовка, которую на лету не сменить).
+    /// null — Program не вызывал <see cref="PrepareAtStartup"/> (стенды, тесты): перезапуск не требуется.</summary>
+    public static bool? StartedLowPerformance { get; private set; }
+
+    /// <summary>2026-11-21: после переключения «режима слабого устройства» на лету только отрисовка остаётся прежней до перезапуска:
+    /// true — запущено с другим значением, чем сейчас включено. Всё остальное (анимации, затемнение, тема, обои, опросы) применяется сразу.</summary>
+    public static bool LowPerformanceRestartNeeded(bool lowNow) => StartedLowPerformance is { } started && started != lowNow;
 
     /// <summary>То же с явными путями (тесты: «прошлый запуск упал» — маркер оставлен).</summary>
     public static StartupDecision? PrepareAt(string settingsPath, string markerPath, bool lowPerformance, bool available)

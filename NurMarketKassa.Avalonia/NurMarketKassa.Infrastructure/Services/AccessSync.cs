@@ -133,6 +133,9 @@ public static class AccessSync
                 await addons().ConfigureAwait(false);
             else
                 await ServerAddons.RefreshAsync(force: true).ConfigureAwait(false);
+            // 2026-11-21 (ответ Умара 20.11, В.16 / В.21): модули компании (профиль, включено / убрано) — условный запрос (ETag, 304 без тела); по событию features_changed (entity=modules) и при открытии Маркетплейса — сразу.
+            // Изменился набор — CompanyModules поднимает PacksChanged, меню кассы, программа владельца и витрина пересобираются без перезапуска.
+            await Safe(() => CompanyModules.RefreshAsync(force: reason is "events" or "marketplace"), "модули").ConfigureAwait(false);
             var companyDue = forceCompany || DateTime.UtcNow.Ticks - Interlocked.Read(ref _lastCompanyTicks) >= CompanyEvery.Ticks;
             if (companyDue && (CompanyRefresher is not null || ThemesRefresher is not null))
             {

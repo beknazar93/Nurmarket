@@ -74,8 +74,11 @@ internal static class DialogScreenFit
     /// им не бывает), иначе экран владельца окна, иначе основной; минимум опускается до рабочей
     /// области, размер ограничивается ею, и если окно хоть краем выходит за этот экран — оно
     /// ставится по его центру. Вызывать в Opened/Loaded.</summary>
-    public static void FitToKassaScreen(this Window window, double margin = 16)
+    public static void FitToKassaScreen(this Window window, double margin = 16, bool sizeOnly = false)
     {
+        // 2026-11-21 (жалоба владельца «моргает, когда модалка открывается»): sizeOnly — подгонка размера ДО показа окна (см. PrepareBeforeShow):
+        // окно сразу получает итоговый размер, а не «вспыхивает» большим и сжимается после Opened. Положение при этом не трогаем —
+        // его считает Avalonia (CenterOwner) уже по готовому размеру; если окно всё же вылезет за экран, поправит обработчик Opened.
         // 2026-10-04, Android (владелец: «клавиатура открывается — модалка закрывается и больше не открывается»):
         // здесь окну ставились точка и предельный размер по «экрану»; на Android окно с заданной точкой
         // становится «окном в точке экрана», и при открытии клавиатуры (экран ниже) оно уезжало из вида, оставаясь
@@ -111,6 +114,8 @@ internal static class DialogScreenFit
             window.Width = maxWidth;
         if (!double.IsNaN(window.Height) && window.Height > maxHeight)
             window.Height = maxHeight;
+        if (sizeOnly)
+            return;
 
         // Окно целиком на экране кассы — оставляем там, где его поставил CenterOwner.
         // 2026-10-22 (модалки, пакет 0): проверяем и ставим по центру всю рамку окна (с заголовком), а не только
@@ -195,6 +200,56 @@ internal static class DialogScreenFit
             });
         }
         Window.WindowOpenedEvent.AddClassHandler<Window>((window, _) => OnWindowOpened(window));
+        // 2026-11-21 (жалоба владельца «моргает, когда модалка открывается/закрывается»): подгонка и режим окна раздела выполнялись только в Opened —
+        // окно уже показано, и пользователь видел сначала окно 1200×780 в одном месте, потом сжатое/развёрнутое на весь экран. IsVisible = true
+        // ставится внутри Show/ShowDialog ДО первой раскладки и показа системой (так же раннее затемнение делает ModalWindowManager) — здесь окно
+        // получает итоговые размер и режим, и первый кадр уже правильный.
+        Visual.IsVisibleProperty.Changed.AddClassHandler<Window>((window, e) =>
+        {
+            if (PreShowFitEnabled && e.NewValue is true) // 2026-11-21: выключено до живой проверки (см. PreShowFitEnabled)
+                PrepareBeforeShow(window);
+        });
+    }
+
+    /// <summary>2026-11-21: подгонка окна ДО показа (PrepareBeforeShow) написана и проверена тестом на окнах Headless, но живьём на кассе не проверялась — по умолчанию ВЫКЛЮЧЕНА
+    /// (включить после проверки: «Склад», «Настройки», «Закупки» при «Полном экране» не должны мигать при открытии).</summary>
+    internal static bool PreShowFitEnabled { get; set; }
+
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Window, object> PreFitted = new();
+
+    /// <summary>Окно нужно подгонять под экран кассы (не главное, не развёрнутое, не экран покупателя, не встроенное в программу владельца).</summary>
+    private static bool IsFitCandidate(Window window)
+    {
+        if (OperatingSystem.IsAndroid() || window.WindowState != WindowState.Normal)
+            return false;
+        var name = window.GetType().Name;
+        if (name.Contains("CustomerDisplay", StringComparison.Ordinal) || name is "SplashWindow" or "MainWindow" or "OwnerShellWindow")
+            return false;
+        var main = (Avalonia.Application.Current?.ApplicationLifetime
+            as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow;
+        return !ReferenceEquals(main, window);
+    }
+
+    /// <summary>2026-11-21: подготовка окна ДО показа — один раз на показ. Окно раздела при «Полном экране» сразу Maximized; остальным ставятся итоговые
+    /// предельные размеры (FitToKassaScreen(sizeOnly)). Положение не меняется (его выставит Avalonia/окно само, при необходимости — Opened).</summary>
+    internal static void PrepareBeforeShow(Window window)
+    {
+        try
+        {
+            if (!IsFitCandidate(window) || NurMarketKassa.AvaloniaHost.Services.FullscreenHelper.IsEmbedded(window))
+                return;
+            if (PreFitted.TryGetValue(window, out _))
+                return;
+            PreFitted.Add(window, new object());
+            window.Closed += (w, _) => PreFitted.Remove((Window)w!); // повторный показ того же объекта (Hide → Show) снова подгоняется
+            if (NurMarketKassa.AvaloniaHost.Services.FullscreenHelper.TryApplySectionWindowMode(window))
+                return;
+            window.FitToKassaScreen(sizeOnly: true);
+        }
+        catch (Exception ex)
+        {
+            NurMarketKassa.Services.PosLogger.Log($"Подгонка окна {window.GetType().Name} до показа: {ex.Message}", "WARNING");
+        }
     }
 
     /// <summary>2026-11-20: тело обработчика Opened вынесено в метод, чтобы тест (UiTests) мог вызвать его без глобальной регистрации на весь процесс.</summary>

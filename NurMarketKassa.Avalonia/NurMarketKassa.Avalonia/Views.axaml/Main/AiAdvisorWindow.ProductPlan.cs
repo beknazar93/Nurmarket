@@ -655,17 +655,17 @@ public sealed partial class AiAdvisorWindow
                 ToolTip.SetTip(makeCodes, T("Проставить свой штрихкод новым товарам с пустым полем", "Талаасы бош жаңы товарларга өз штрихкодун коюу",
                     "Set an own barcode on new products with an empty field", "Alanı boş yeni ürünlere kendi barkodunu ver", "Maydoni bo'sh yangi mahsulotlarga o'z shtrix-kodini qo'yish"));
                 Grid.SetColumn(makeCodes, 1);
-                makeCodes.Click += (_, _) =>
+                makeCodes.Click += async (_, _) =>
                 {
                     var typed = barcodeRows.Select(r => r.Code).Where(c => c.Length > 0).ToList();
-                    foreach (var r in barcodeRows)
-                    {
-                        if (r.Step.Op != "create" || !r.Editable || r.Code.Length > 0)
-                            continue;
-                        var code = BarcodeGenerator.GenerateForCatalog(typed);
-                        typed.Add(code);
-                        r.Box.Text = code;
-                    }
+                    // 2026-11-21: коды берёт сервер пачкой (main/barcodes/next/), запасной — локальный генератор.
+                    var empty = barcodeRows.Where(r => r.Step.Op == "create" && r.Editable && r.Code.Length == 0).ToList();
+                    if (empty.Count == 0)
+                        return;
+                    var codes = await BarcodeGenerator.GenerateManyForCatalogAsync(empty.Count, typed).ConfigureAwait(true);
+                    for (var i = 0; i < empty.Count; i++)
+                        if (empty[i].Code.Length == 0)
+                            empty[i].Box.Text = codes[i];
                 };
                 titleRow.Children.Add(makeCodes);
             }

@@ -110,7 +110,7 @@ public partial class WarehouseWindow
         if (e.Key == Key.F2 && e.KeyModifiers == KeyModifiers.None || e.Key == Key.F && ctrl && !e.KeyModifiers.HasFlag(KeyModifiers.Shift))
         {
             e.Handled = true;
-            ReceivingGrid.CommitEdit();
+            CommitReceivingEdit();
             ReceivingScanBox.Focus();
             ReceivingScanBox.SelectAll();
             return;
@@ -118,7 +118,7 @@ public partial class WarehouseWindow
         if (e.Key == Key.F9 && e.KeyModifiers == KeyModifiers.None || e.Key == Key.Enter && ctrl)
         {
             e.Handled = true;
-            ReceivingGrid.CommitEdit();
+            CommitReceivingEdit();
             if (ReceivingCommitButton.IsEffectivelyEnabled && _viewModel.CommitReceivingCommand.CanExecute(null))
                 _viewModel.CommitReceivingCommand.Execute(null);
             return;
@@ -129,7 +129,7 @@ public partial class WarehouseWindow
             ReceivingUndoRemove();
             return;
         }
-        if (e.Key == Key.Delete && focused is not TextBox && ReceivingGrid.SelectedItem is ReceivingLineVm line && ReceivingGrid.IsKeyboardFocusWithin)
+        if (e.Key == Key.Delete && focused is not TextBox && FocusedReceivingLine() is { } line)
         {
             e.Handled = true;
             ReceivingRemoveWithUndo(line);
@@ -139,7 +139,7 @@ public partial class WarehouseWindow
     /// <summary>Убрать строку (✕ или Del) с плашкой «Вернуть» на 5 с.</summary>
     private void ReceivingRemoveWithUndo(ReceivingLineVm line)
     {
-        ReceivingGrid.CancelEdit(); // как «Убрать»: сначала отменить начатую правку (иначе строка вернётся при уходе с вкладки)
+        CancelReceivingEdit(); // как «Убрать»: сначала отменить начатую правку (иначе строка вернётся при уходе с вкладки)
         var index = _viewModel.ReceivingLines.IndexOf(line);
         if (index < 0)
             return;
@@ -218,5 +218,6 @@ public partial class WarehouseWindow
             "Columns “Purchase changed”, “How the price was set”, “Profit per pc”. The choice is remembered.",
             "«Alış değişti», «Fiyat nasıl hesaplandı», «Adet başı kâr» sütunları. Seçim hatırlanır.",
             "«Xarid o'zgardi», «Narx qanday hisoblandi», «Donadan foyda» ustunlari. Tanlov eslab qolinadi."));
+        _rcvDetailsChanged?.Invoke(); // 2026-11-21: карточки строк показывают подробности в строке под полями
     }
 }

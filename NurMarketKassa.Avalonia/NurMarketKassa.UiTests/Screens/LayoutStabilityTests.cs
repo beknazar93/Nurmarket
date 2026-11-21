@@ -472,6 +472,8 @@ public sealed class LayoutStabilityTests : IDisposable
         {
             yield return [n, 1024, 640];  // узко: компактные режимы + плавный ресайз 1000→1900→1000 (покрывает 1366 и 1440 по ширине)
             yield return [n, 1900, 1060]; // широко
+            if (n is "main-kassa" or "settings")
+                yield return [n, 1024, 1024]; // 2026-11-21 (просьба владельца): квадратный экран 1024×1024 — только ключевые окна кассы (каталог+корзина, меню ☰, Настройки)
         }
     }
 
@@ -636,6 +638,7 @@ public sealed class LayoutStabilityTests : IDisposable
         yield return ["warehouse", 1440, 750, 0.9];
         yield return ["warehouse", 1366, 768, 1.0];
         yield return ["warehouse", 1024, 640, 0.9];
+        yield return ["warehouse", 1024, 1024, 0.9]; // 2026-11-21: квадратный экран 1024×1024 (просьба владельца)
         yield return ["warehouse", 1440, 750, 1.25];
         foreach (var key in new[] { "barcodes", "purchases", "clients", "sales-finance", "abc", "settings", "marketplace", "overview" })
         {

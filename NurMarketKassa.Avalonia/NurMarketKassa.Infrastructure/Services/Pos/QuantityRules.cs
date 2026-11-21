@@ -32,7 +32,8 @@ public static class QuantityRules
 
     /// <summary>Функция действует сейчас: магазин — «Хозтовары и стройматериалы» (профиль с <see cref="SphereProfile.FractionalUnits"/>) И
     /// (флаг сервера включён ИЛИ местное включение стенда). У других сфер всегда false — до проверки флага дело не доходит.</summary>
-    public static bool Active => MarketSpheres.IsHardware && MarketSpheres.Profile.FractionalUnits && (ServerAcceptsFractional || ServerFlagEnabled());
+    // 2026-11-21: модуль fractional_qty с сервера (ответ Умара 20.11, В.16); без ответа — по профилю сферы, как раньше.
+    public static bool Active => CompanyModules.IsOn(ModuleIds.FractionalQty, MarketSpheres.IsHardware && MarketSpheres.Profile.FractionalUnits) && (ServerAcceptsFractional || ServerFlagEnabled());
 
     /// <summary>Правило по тексту единицы («м», «пог.м», «м2», «л»…) или null: не хозмаг, флаг выкл, единица не дробная
     /// или «кг» (весовой путь).</summary>

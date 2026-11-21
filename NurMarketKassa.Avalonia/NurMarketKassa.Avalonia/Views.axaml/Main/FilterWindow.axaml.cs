@@ -28,12 +28,11 @@ public partial class FilterWindow : Window
         CatalogKindCombo.ItemsSource = ViewModel.Kinds;
         CategoryCombo.ItemsSource = ViewModel.Categories;
         BrandCombo.ItemsSource = ViewModel.Brands;
+        // 2026-11-21: значения списков и цен связаны с моделью привязками (XAML) — «Сбросить» и «Применить» работают с моделью;
+        // выбранные значения ставим после ItemsSource, чтобы список их не потерял.
         CatalogKindCombo.SelectedItem = ViewModel.SelectedKind;
         CategoryCombo.SelectedItem = ViewModel.SelectedCategory;
         BrandCombo.SelectedItem = ViewModel.SelectedBrand;
-        SearchBox.Text = ViewModel.SearchText;
-        PriceMinBox.Text = ViewModel.PriceMin;
-        PriceMaxBox.Text = ViewModel.PriceMax;
     }
 
     public CatalogFilterViewModel ViewModel { get; }
@@ -57,22 +56,10 @@ public partial class FilterWindow : Window
     private void Reset_Click(object? sender, RoutedEventArgs e)
     {
         ViewModel.Reset();
-        SearchBox.Text = ViewModel.SearchText;
-        CatalogKindCombo.SelectedItem = ViewModel.SelectedKind;
-        CategoryCombo.SelectedItem = ViewModel.SelectedCategory;
-        BrandCombo.SelectedItem = ViewModel.SelectedBrand;
-        PriceMinBox.Text = ViewModel.PriceMin;
-        PriceMaxBox.Text = ViewModel.PriceMax;
     }
 
     private void Apply_Click(object? sender, RoutedEventArgs e)
     {
-        ViewModel.SearchText = SearchBox.Text ?? "";
-        ViewModel.SelectedKind = CatalogKindCombo.SelectedItem as string ?? CatalogFilterViewModel.AllProducts;
-        ViewModel.SelectedCategory = CategoryCombo.SelectedItem as string ?? CatalogFilterViewModel.AllCategories;
-        ViewModel.SelectedBrand = BrandCombo.SelectedItem as string ?? CatalogFilterViewModel.AllBrands;
-        ViewModel.PriceMin = PriceMinBox.Text ?? "";
-        ViewModel.PriceMax = PriceMaxBox.Text ?? "";
         Close(true);
     }
 }

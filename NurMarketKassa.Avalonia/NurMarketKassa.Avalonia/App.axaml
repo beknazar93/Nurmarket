@@ -39,9 +39,16 @@
       <x:Double x:Key="NurSpace3">12</x:Double>
       <x:Double x:Key="NurSpace4">16</x:Double>
       <x:Double x:Key="NurSpace5">24</x:Double>
-      <Thickness x:Key="NurPadButton">16,0</Thickness>
+      <!-- 2026-11-21 (жалоба владельца «отступов не хватает»): единая шкала 4/8/12/16/24 подтянута в общих стилях. Плотные значения AccentThemeService
+           подставляет в тему «Плотная» (высота элемента ≤ 34) — там остаются прежние, тесные отступы.
+           Было → стало: NurPadButton 16,0 → 18,0; NurPadWindow 24,18 → 24,20; новые: NurPadButtonMain (кнопки main-*) 18,8; NurPadChip 16,0;
+           NurPadField (поле в модалке) 12,5. -->
+      <Thickness x:Key="NurPadButton">18,0</Thickness>
+      <Thickness x:Key="NurPadButtonMain">18,8</Thickness>
+      <Thickness x:Key="NurPadChip">16,0</Thickness>
+      <Thickness x:Key="NurPadField">12,5</Thickness>
       <Thickness x:Key="NurPadCard">16</Thickness>
-      <Thickness x:Key="NurPadWindow">24,18</Thickness>
+      <Thickness x:Key="NurPadWindow">24,20</Thickness>
 
       <!-- Шрифт приложения — базовые значения "как всегда было"; настраивается в модалке
            "⚙ Настройка темы" (см. AccentThemeService.ApplyFontResources). Noto Sans встроен

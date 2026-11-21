@@ -49,6 +49,7 @@ public sealed class TextNotClippedTests
         ["x-writeoff-history"] = () => new WriteOffHistoryWindow(),
         ["x-timesheet"] = () => new StaffTimesheetWindow(),
         ["x-bulk-import"] = () => new BulkImportWindow(),
+        ["x-receipt-editor"] = () => new NurMarketKassa.AvaloniaHost.Views.Settings.ReceiptEditorWindow(), // 2026-11-21: «Редактор чека»
     };
 
     public static IEnumerable<object[]> MatrixExtra()

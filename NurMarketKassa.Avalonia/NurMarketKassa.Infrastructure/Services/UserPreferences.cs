@@ -376,6 +376,29 @@ public sealed partial class UserPreferences
     /// </summary>
     public bool LowPerformanceMode { get; set; }
 
+    /// <summary>2026-11-21 (просьба владельца «при включении режима слабого ПК не обязательно перезаходить»): режим слабого устройства меняется на лету.
+    /// Событие — для окон и служб, которые читают настройку один раз при построении (тема, обои, стекло); анимации, затемнение под модалками, интервалы
+    /// опроса сервера читают её при каждом использовании и подхватывают сами. Только программная отрисовка (рендер Avalonia) задаётся при запуске.</summary>
+    public static event Action? LowPerformanceModeChanged;
+
+    /// <summary>2026-11-21: переключатель режима слабого устройства — сразу, без «Сохранить»; зовёт <see cref="LowPerformanceModeChanged"/>.</summary>
+    public static void SetLowPerformanceMode(bool on)
+    {
+        if (Instance.LowPerformanceMode == on)
+            return;
+        Instance.LowPerformanceMode = on;
+        Instance.SaveToDisk();
+        LowPerformanceModeChanged?.Invoke();
+    }
+
+    /// <summary>2026-11-21: единое чистое правило автоопределения слабого ПК: мало оперативной памяти (до 4 ГБ) или мало ядер (до 2).
+    /// Принимает цифры, чтобы проверяться тестом без железа.</summary>
+    public static bool LooksLikeWeakPc(long totalMemoryBytes, int logicalCores) =>
+        (totalMemoryBytes > 0 && totalMemoryBytes <= 4L * 1024 * 1024 * 1024 + 256L * 1024 * 1024) || (logicalCores > 0 && logicalCores <= 2);
+
+    /// <summary>2026-11-21: подсказка «Включить режим слабого ПК?» уже показывалась на этом компьютере (один раз; настройка этого ПК).</summary>
+    public bool WeakPcHintShown { get; set; }
+
     /// <summary>2026-11-11 (решение владельца): размытие фона под модалками — «для мощных ПК». По умолчанию ВЫКЛ (на встроенной видеокарте
     /// размытие всего окна тормозило открытие модалок). Настройка этого компьютера: в облако не уходит, при смене компании не сбрасывается.
     /// Применяется сразу (ModalMotion.BlurEnabled читает её при каждом открытии модалки); в «режиме слабого устройства» не действует.</summary>
@@ -702,6 +725,11 @@ public sealed partial class UserPreferences
     /// «Получено сейчас» выбор «Наличные / Безнал». Выключено (по умолчанию) — как раньше, наличными.</summary>
     public bool DebtPrepaymentChooseMethod { get; set; }
 
+    /// <summary>2026-11-21, владелец: «если товара нет на складе, сделай так, чтобы кассир мог продавать в минус». Включено (по умолчанию) — касса не блокирует продажу товара
+    /// без остатка / сверх остатка, не задаёт вопросов, лишь мягко отмечает «остаток будет в минусе»; чек уходит на сервер с allow_negative_stock. Выключено — как раньше
+    /// (окно «Нет в наличии» с пополнением склада, лимит «+» в строке чека, блок оплаты). Общее для магазина (SettingsCloudSync, CompanyKeys). См. <see cref="NegativeStockPolicy"/>.</summary>
+    public bool SellWithoutStock { get; set; } = true;
+
     /// <summary>2026-10-30, владелец: «Нур Советник: в настройках тумблеры его возможностей». JSON «id → true/false» — только
     /// отличия от значений по умолчанию (все возможности включены, null = ничего не менялось). Общее для магазина: меняет владелец
     /// или администратор, на все кассы идёт через SettingsCloudSync (CompanyKeys). См. AdvisorCapabilities.</summary>
@@ -713,6 +741,16 @@ public sealed partial class UserPreferences
 
     /// <summary>2026-11-12 (ХМ15 / ХМ8): отметки клиентов «Покупает по оптовой цене (прораб)» — JSON-массив id, ≤ 16 КБ; null — отметок нет. См. <see cref="ClientPriceGroups"/>.</summary>
     public string? ClientPriceGroupsJson { get; set; }
+
+    /// <summary>2026-11-21 («Редактор ценников»): сохранённые шаблоны ценников/этикеток («Мои шаблоны») — JSON-массив, ≤ 256 КБ; null — нет. Общее для магазина (SettingsCloudSync, CompanyKeys); разбор — <see cref="LabelDesignLibrary"/>.</summary>
+    public string? LabelDesignsJson { get; set; }
+
+    /// <summary>2026-11-21 («Редактор чека»): шаблон печатного чека — блоки, порядок, выравнивание, свой текст шапки/подвала — JSON ≤ 16 КБ; null — стандартный чек. Общее для магазина (SettingsCloudSync, CompanyKeys); разбор — <see cref="ReceiptTemplate"/>.</summary>
+    public string? ReceiptTemplateJson { get; set; }
+
+    /// <summary>2026-11-21 (просьба владельца): отметки «Без заводского штрихкода» (хлеб, выпечка…) — JSON-массив id товаров, ≤ 256 КБ; null — отметок нет. Общее для магазина
+    /// (SettingsCloudSync, CompanyKeys; серверное поле — позже), локально — кэш. Разбор и запись — <see cref="NoFactoryBarcodes"/>.</summary>
+    public string? NoFactoryBarcodeIdsJson { get; set; }
 
     /// <summary>2026-10-30, редактор накладных закупок: окно правки проведённой накладной — "24" (по умолчанию) / "48" / "always". Общее для магазина:
     /// меняет владелец (Настройки → Операции), на все кассы идёт через SettingsCloudSync (CompanyKeys). null — ничего не меняли (24 ч). См. ReceiptEditPolicy.</summary>
@@ -873,6 +911,21 @@ public sealed partial class UserPreferences
     public CatalogViewMode CatalogViewMode { get; set; } = CatalogViewMode.Cards;
     /// <summary>Показывать ли загруженные фото товаров в плитках каталога кассира.</summary>
     public bool ShowCatalogPhotos { get; set; } = true;
+
+    /// <summary>2026-11-21 (просьба владельца): в каталоге кассы сначала стоят товары без заводского штрихкода (хлеб и т. п.), потом остальные.
+    /// Только обычный просмотр — результат поиска идёт по совпадению. По умолчанию включено; переключатель применяется сразу, без «Сохранить».</summary>
+    public bool CatalogNoBarcodeFirst { get; set; } = true;
+
+    public static event Action? CatalogNoBarcodeFirstChanged;
+
+    public static void SetCatalogNoBarcodeFirst(bool on)
+    {
+        if (Instance.CatalogNoBarcodeFirst == on)
+            return;
+        Instance.CatalogNoBarcodeFirst = on;
+        Instance.SaveToDisk();
+        CatalogNoBarcodeFirstChanged?.Invoke();
+    }
     /// <summary>2026-11-06: адрес страницы Маркетплейса на сайте (кнопка «Открыть Маркетплейс на сайте»). Пусто — адрес по умолчанию (<see cref="MarketplaceWebLink.DefaultUrl"/>).
     /// Только https; токен и пароль в адрес не передаются — вход на сайте делает сам клиент.</summary>
     public string MarketplaceWebUrl { get; set; } = MarketplaceWebLink.DefaultUrl;

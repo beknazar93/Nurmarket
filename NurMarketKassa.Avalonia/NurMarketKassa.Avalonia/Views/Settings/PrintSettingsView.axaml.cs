@@ -55,6 +55,23 @@ public partial class PrintSettingsView : UserControl
             "Barcodes, price tags and labels are printed straight to this printer, separately from the receipt printer. Both printers work at the same time and do not interfere.",
             "Barkodlar, fiyat etiketleri ve etiketler doğrudan bu yazıcıya basılır — fiş yazıcısından ayrı. İki yazıcı aynı anda çalışır ve birbirini engellemez.",
             "Shtrix-kodlar, narx yorliqlari va yorliqlar to'g'ridan-to'g'ri shu printerga chop etiladi — chek printeridan alohida. Ikkala printer bir vaqtda ishlaydi va bir-biriga xalaqit bermaydi.");
+        // 2026-11-21 («Редактор чека»): блоки, порядок, шрифт и свой текст шапки/подвала — в отдельном окне с предпросмотром «как напечатает принтер».
+        ReceiptEditorTitleText.Text = NurMarketKassa.Services.Tr.T("Редактор чека", "Чек редактору", "Receipt editor", "Fiş düzenleyici", "Chek muharriri");
+        ReceiptEditorHintText.Text = NurMarketKassa.Services.Tr.T(
+            "Какие блоки печатать и в каком порядке, шрифт и размер каждого блока, свой текст в шапке и подвале. Предпросмотр — как напечатает принтер (58 и 80 мм).",
+            "Кайсы блоктор кандай тартипте басылат, ар бир блоктун шрифти жана өлчөмү, баш жана төмөн жагындагы өз тексти. Алдын ала көрүү — принтер кандай басат (58 жана 80 мм).",
+            "Which blocks to print and in what order, font and size of each block, your own header and footer text. The preview shows what the printer will print (58 and 80 mm).",
+            "Hangi bloklar hangi sırayla basılır, her bloğun yazısı ve boyutu, kendi üst ve alt metniniz. Önizleme yazıcının basacağı gibidir (58 ve 80 mm).",
+            "Qaysi bloklar qanday tartibda chop etiladi, har bir blokning shrifti va o‘lchami, o‘z sarlavha va quyi matningiz. Oldindan ko‘rish — printer qanday chop etadi (58 va 80 mm).");
+        OpenReceiptEditorButton.Content = NurMarketKassa.Services.Tr.T("Открыть редактор", "Редакторду ачуу", "Open editor", "Düzenleyiciyi aç", "Muharrirni ochish");
+        OpenReceiptEditorButton.Click += async (_, _) =>
+        {
+            var window = new ReceiptEditorWindow();
+            if (TopLevel.GetTopLevel(this) is Window owner)
+                await window.ShowDialog(owner);
+            else
+                window.Show();
+        };
         BtnForgetLabelPrinter.Content = NurMarketKassa.Services.Tr.T("Забыть принтер", "Принтерди унутуу", "Forget printer", "Yazıcıyı unut", "Printerni unutish");
         LabelPrinterCombo.PlaceholderText = NurMarketKassa.Services.Tr.T(
             "Принтер этикеток не выбран", "Этикетка принтери тандалган эмес", "No label printer selected",

@@ -102,7 +102,7 @@ public partial class WarehouseWindow
             var arrow = new Avalonia.Controls.Documents.Run { Text = "", FontSize = 13 };
             arrow.Bind(Avalonia.Controls.Documents.TextElement.ForegroundProperty, header.GetResourceObservable("BrushAccentStrong"));
             header.Inlines = [text, arrow];
-            column.Header = def.Path == "Title" ? SelectAllHeader(header) : header; // 2026-11-19: у «Названия» слева галочка «выбрать все на странице»
+            column.Header = header; // 2026-11-21: галочки «выбрать все» нет — выбор товаров для печати внутри вкладки «Ценники и штрихкоды»
             _sortArrows[def.Key] = arrow;
         }
 

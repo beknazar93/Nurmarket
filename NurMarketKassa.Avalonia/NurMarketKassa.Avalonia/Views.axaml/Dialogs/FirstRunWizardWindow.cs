@@ -7,7 +7,7 @@ using NurMarketKassa.Services;
 namespace NurMarketKassa.AvaloniaHost.Views.Dialogs;
 
 /// <summary>2026-11-13 (Н-1, «Первый час»): мастер первого запуска нового магазина — пять шагов с одной главной кнопкой на каждом:
-/// вид магазина → принтер чеков → весы (по желанию) → первые товары (вручную или из файла) → учебная продажа.
+/// вид магазина → принтер чеков → весы (по желанию) → первые товары (вручную) → учебная продажа.
 /// Сам ничего не настраивает: каждый шаг вызывает уже существующее окно кассы (действия передаёт окно кассы, <see cref="Actions"/>), любой шаг можно пропустить.
 /// Показывается один раз новому магазину (признак — файл <see cref="DoneFlagFile"/> в папке данных кассы) и повторно — из меню «Помощь».
 /// Результат окна: true — кассир выбрал «Начать учебную продажу».</summary>
@@ -28,7 +28,6 @@ public sealed class FirstRunWizardWindow : Window
         public Func<Task<string?>>? SetupPrinter { get; init; }
         public Func<Task<string?>>? SetupScale { get; init; }
         public Func<Task<string?>>? AddProducts { get; init; }
-        public Func<Task<string?>>? ImportProducts { get; init; }
         public Func<int> ProductCount { get; init; } = () => 0;
     }
 
@@ -144,11 +143,11 @@ public sealed class FirstRunWizardWindow : Window
             ActionButton("WizardScale", T("Настроить весы", "Таразаны жөндөө", "Set up scales", "Teraziyi ayarla", "Tarozini sozlash"), _actions.SetupScale, primary: false)),
         4 => StepPanel(
             T("Первые товары", "Алгачкы товарлар", "First products", "İlk ürünler", "Birinchi mahsulotlar"),
-            T("Добавьте хотя бы три товара: отсканируйте штрихкод, впишите название и цену. Товаров много — загрузите список из файла Excel (CSV).",
-                "Жок дегенде үч товар кошуңуз: штрихкодду сканерлеп, атын жана баасын жазыңыз. Товар көп болсо — тизмени Excel (CSV) файлынан жүктөңүз.",
-                "Add at least three products: scan the barcode, type the name and the price. Many products — load the list from an Excel (CSV) file.",
-                "En az üç ürün ekleyin: barkodu okutun, adını ve fiyatını yazın. Ürün çoksa listeyi Excel (CSV) dosyasından yükleyin.",
-                "Kamida uchta mahsulot qo'shing: shtrix-kodni skanerlang, nomi va narxini yozing. Mahsulot ko'p bo'lsa — ro'yxatni Excel (CSV) faylidan yuklang."),
+            T("Добавьте хотя бы три товара: отсканируйте штрихкод, впишите название и цену. Загрузка списка из файла — в программе владельца.",
+                "Жок дегенде үч товар кошуңуз: штрихкодду сканерлеп, атын жана баасын жазыңыз. Тизмени файлдан жүктөө — ээсинин программасында.",
+                "Add at least three products: scan the barcode, type the name and the price. Loading a list from a file is in the owner program.",
+                "En az üç ürün ekleyin: barkodu okutun, adını ve fiyatını yazın. Listeyi dosyadan yükleme — sahip programında.",
+                "Kamida uchta mahsulot qo'shing: shtrix-kodni skanerlang, nomi va narxini yozing. Ro'yxatni fayldan yuklash — egasi dasturida."),
             CurrentLine(ProductCountText(_actions.ProductCount())),
             new WrapPanel
             {
@@ -156,7 +155,6 @@ public sealed class FirstRunWizardWindow : Window
                 Children =
                 {
                     ActionButton("WizardAddProducts", T("Добавить товары", "Товар кошуу", "Add products", "Ürün ekle", "Mahsulot qo'shish"), _actions.AddProducts, primary: _actions.ProductCount() < 3),
-                    ActionButton("WizardImportProducts", T("Загрузить из файла", "Файлдан жүктөө", "Load from a file", "Dosyadan yükle", "Fayldan yuklash"), _actions.ImportProducts, primary: false),
                 },
             }),
         _ => StepPanel(

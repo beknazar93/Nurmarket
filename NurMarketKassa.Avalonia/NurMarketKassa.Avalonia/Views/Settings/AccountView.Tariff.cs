@@ -25,10 +25,25 @@ public partial class AccountView
             list.Children.Insert(index >= 0 ? index : list.Children.Count, card);
         }
 
+        WarmTariffCatalog();
         Put(BuildSubscriptionCard()); // 2026-11-19: оплата подписки через ELQR (владелец/админ, признак billing_elqr)
         Put(BuildSpeedCard());
         if (AppMode.IsOwner && IsOwnerRole())
             Put(BuildTariffCard());
+    }
+
+    /// <summary>2026-11-21: каталог тарифов (public/tariffs, без входа, кэш 10 минут) подгружается в фоне — из него берутся подписи вроде «14 дней пробного» у «Мини».</summary>
+    private static void WarmTariffCatalog()
+    {
+        try
+        {
+            if (TariffApi.CachedCatalog is null)
+                _ = App.GetRequiredService<TariffApi>().GetCatalogAsync().ContinueWith(_ => { }, TaskScheduler.Default);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            PosLogger.Log($"Каталог тарифов не подгружен: {ex.Message}", "DEBUG");
+        }
     }
 
     private static TextBlock Soft(string text, double size = 12)

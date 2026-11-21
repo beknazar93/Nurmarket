@@ -58,11 +58,17 @@ public partial class WarehouseWindow
     {
         // 2026-10-29, спека Fable: пустое состояние — «Отсканируйте первый товар» + порядок клавиш + про накладную.
         ReceivingEmptyTitle.Text = T("Отсканируйте первый товар", "Биринчи товарды сканерлеңиз", "Scan the first product", "İlk ürünü okutun", "Birinchi mahsulotni skanerlang");
-        ReceivingEmptyHint.Text = T("Строка появится здесь. После скана курсор встанет в «Принимаем»: число → Enter → закупка → Enter → снова скан. Незнакомый штрихкод — новая строка: впишите название.\n\nНакладную поставщика можно загрузить целиком — кнопка «Загрузить накладную» (Excel, CSV, XML).",
-            "Сап ушул жерде пайда болот. Сканерден кийин курсор «Кабыл алабыз» уячасына турат: сан → Enter → сатып алуу баасы → Enter → кайра скан. Белгисиз штрихкод — жаңы сап: атын жазыңыз.\n\nЖеткирүүчүнүн накладнойун толугу менен жүктөсө болот — «Накладнойду жүктөө» баскычы (Excel, CSV, XML).",
-            "The line will appear here. After a scan the cursor lands in “Receiving”: number → Enter → purchase price → Enter → scan again. An unknown barcode is a new line: type its name.\n\nYou can load the whole supplier invoice — the “Load invoice” button (Excel, CSV, XML).",
-            "Satır burada görünecek. Okutmadan sonra imleç «Alınıyor» hücresine gelir: sayı → Enter → alış fiyatı → Enter → yine okutma. Bilinmeyen barkod — yeni satır: adını yazın.\n\nTedarikçi faturasını bütün olarak yükleyebilirsiniz — «Faturayı yükle» düğmesi (Excel, CSV, XML).",
-            "Qator shu yerda paydo bo'ladi. Skanerdan keyin kursor «Qabul qilinadi» katakchasiga tushadi: son → Enter → xarid narxi → Enter → yana skaner. Notanish shtrix-kod — yangi qator: nomini yozing.\n\nYetkazib beruvchi nakladnoyini to'liq yuklash mumkin — «Nakladnoyni yuklash» tugmasi (Excel, CSV, XML).");
+        ReceivingEmptyHint.Text = T("Строка появится здесь. После скана курсор встанет в поле «Кол-во»: число → Enter → закупка → Enter → снова скан. Незнакомый штрихкод — новая строка: впишите название.",
+            "Сап ушул жерде пайда болот. Сканерден кийин курсор «Саны» талаасына турат: сан → Enter → сатып алуу баасы → Enter → кайра скан. Белгисиз штрихкод — жаңы сап: атын жазыңыз.",
+            "The line will appear here. After a scan the cursor lands in the “Qty” field: number → Enter → purchase price → Enter → scan again. An unknown barcode is a new line: type its name.",
+            "Satır burada görünecek. Okutmadan sonra imleç «Adet» alanına gelir: sayı → Enter → alış fiyatı → Enter → yine okutma. Bilinmeyen barkod — yeni satır: adını yazın.",
+            "Qator shu yerda paydo bo'ladi. Skanerdan keyin kursor «Soni» maydoniga tushadi: son → Enter → xarid narxi → Enter → yana skaner. Notanish shtrix-kod — yangi qator: nomini yozing.");
+        if (ImportAccess.Allowed) // 2026-11-21: про загрузку накладной из файла — только в программе владельца (в кассе этой кнопки нет)
+            ReceivingEmptyHint.Text += T("\n\nНакладную поставщика можно загрузить целиком — кнопка «Загрузить накладную» (Excel, CSV, XML).",
+                "\n\nЖеткирүүчүнүн накладнойун толугу менен жүктөсө болот — «Накладнойду жүктөө» баскычы (Excel, CSV, XML).",
+                "\n\nYou can load the whole supplier invoice — the “Load invoice” button (Excel, CSV, XML).",
+                "\n\nTedarikçi faturasını bütün olarak yükleyebilirsiniz — «Faturayı yükle» düğmesi (Excel, CSV, XML).",
+                "\n\nYetkazib beruvchi nakladnoyini to'liq yuklash mumkin — «Nakladnoyni yuklash» tugmasi (Excel, CSV, XML).");
         // 2026-10-24, пакет Р2: пустое состояние ревизии убрано — вкладка собрана кодом (WarehouseWindow.Revision.cs).
         WriteOffEmptyTitle.Text = T("Списаний пока нет", "Эсептен чыгаруулар азырынча жок", "No write-offs yet", "Henüz düşüm yok",
             "Hozircha hisobdan chiqarishlar yo'q");
@@ -197,35 +203,9 @@ public partial class WarehouseWindow
         };
         SyncPage();
 
-        // П. 110: у редактора этикетки — цена и где купить, кнопка по состоянию (подключён — «Открыть», нет — «Ввести серийный номер»).
-        RefreshLabelEditorTab();
-        WarehouseTabs.SelectionChanged += (_, _) =>
-        {
-            if (ReferenceEquals(WarehouseTabs.SelectedItem, LabelEditorTabItem))
-                RefreshLabelEditorTab();
-        };
-        LabelEditorOpenButton.Click += (_, _) => Dispatcher.UIThread.Post(RefreshLabelEditorTab);
-
         // П. 113: «Списать» из «Сроков годности» — этот склад открывает «Списание» с товаром (см. RequestWriteOff).
         WriteOffRequested += OnWriteOffRequested;
         Closed += (_, _) => WriteOffRequested -= OnWriteOffRequested;
-    }
-
-    private void RefreshLabelEditorTab()
-    {
-        var unlocked = TariffGate.LabelEditorAvailable; // 2026-11-08: входит в тариф «Старт»
-        var fee = TariffGate.PackActivationFee;
-        LabelEditorPaidText.Text = unlocked
-            ? T("Подключено на этом компьютере.", "Бул компьютерде туташтырылган.", "Activated on this computer.",
-                "Bu bilgisayarda etkin.", "Shu kompyuterda ulangan.")
-            : T($"Платная функция — подключение {fee} сом. Купить: «Маркетплейс → Доп. функции» или у поддержки NurCRM; полученный серийный номер введите кнопкой ниже.",
-                $"Акылуу функция — туташтыруу {fee} сом. Сатып алуу: «Маркетплейс → Кошумча функциялар» же NurCRM колдоо кызматы; алынган сериялык номерди төмөнкү баскыч менен киргизиңиз.",
-                $"Paid feature — activation {fee} som. Buy it in «Marketplace → Extras» or from NurCRM support, then enter the serial number with the button below.",
-                $"Ücretli özellik — etkinleştirme {fee} som. «Pazar yeri → Ek özellikler» bölümünden veya NurCRM destekten satın alın; aldığınız seri numarasını aşağıdaki düğmeyle girin.",
-                $"Pullik funksiya — ulash {fee} so'm. Sotib olish: «Marketpleys → Qo'shimcha funksiyalar» yoki NurCRM qo'llab-quvvatlash xizmati; olingan seriya raqamini quyidagi tugma bilan kiriting.");
-        LabelEditorOpenButton.Content = unlocked
-            ? T("Открыть редактор", "Редакторду ачуу", "Open editor", "Düzenleyiciyi aç", "Muharrirni ochish")
-            : T("Ввести серийный номер", "Сериялык номерди киргизүү", "Enter serial number", "Seri numarası gir", "Seriya raqamini kiritish");
     }
 
     /// <summary>П. 113: просьба «Списать товар» из «Пополнения и сроков» — открытым складам (в программе владельца это раздел «Склад»).</summary>

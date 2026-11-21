@@ -70,7 +70,7 @@ public sealed class SphereCatalogSplitTests : IDisposable
         MarketSpheres.Profile.HasEstimate.Should().BeFalse();
         MarketSpheres.Profile.HasRentalsByDefault.Should().BeFalse();
         EstimateFeature.IsAvailable.Should().BeFalse();
-        RentalFeature.IsEnabled(MarketSpheres.Profile.HasRentalsByDefault, false, () => false).Should().BeFalse();
+        RentalFeature.IsEnabled(MarketSpheres.Profile.HasRentalsByDefault, false).Should().BeFalse();
         var p = MarketSpheres.Profile;
         p.FractionalUnits.Should().BeTrue();
         p.PackScan.Should().BeTrue();
@@ -92,7 +92,7 @@ public sealed class SphereCatalogSplitTests : IDisposable
         MarketSpheres.Profile.ForemanPriceAvailable.Should().BeTrue();
         MarketSpheres.Profile.ConsumptionCalc.Should().BeTrue();
         EstimateFeature.IsAvailable.Should().BeTrue();
-        RentalFeature.IsEnabled(MarketSpheres.Profile.HasRentalsByDefault, false, () => false).Should().BeTrue();
+        RentalFeature.IsEnabled(MarketSpheres.Profile.HasRentalsByDefault, false).Should().BeTrue();
     }
 
     [Fact]

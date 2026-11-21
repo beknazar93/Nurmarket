@@ -57,7 +57,8 @@ public partial class MainWindow
             // «Печать копии» — копия именно этой продажи; нет снимка продажи — кнопки нет.
             SaleDoneBar.PrintCopy = sale is null ? null : button => PrintSaleDoneCopyAsync(button, sale);
             // 2026-10-27: «Чек» — чек этой продажи на экране «как в мобилке» (окно с бумагой и панелью «Печать / QR / PDF / Отправить»).
-            SaleDoneBar.ShowReceipt = sale is null ? null : _ => ShowSaleDoneReceiptAsync(sale);
+            SaleDoneBar.ShowReceipt = sale is null ? null : _ => PosDialogHost.RunExclusiveAsync( // 2026-11-21: двойное нажатие «Чек» — одно окно (пока первое грузится/открыто)
+                "receipt:" + (string.IsNullOrWhiteSpace(sale.SaleId) ? sale.SaleNumber : sale.SaleId), () => ShowSaleDoneReceiptAsync(sale));
 
             var host = SaleDoneBar.GetVisualParent() as Control;
             var hostWidth = host?.Bounds.Width ?? 0;

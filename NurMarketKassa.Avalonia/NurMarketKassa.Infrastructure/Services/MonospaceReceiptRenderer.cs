@@ -33,7 +33,9 @@ internal static class MonospaceReceiptRenderer
             ? 96
             : 0;
 
-        var totalHeight = (int)(GraphicReceiptLayout.ComputeContentHeightPx(lines, lineHeightPx) + qrBlockHeight);
+        // 2026-11-21 (редактор чека): строки со стилем шаблона (жирная, крупная) — служебные знаки в начале убираются, размер учитывается в высоте.
+        var styled = lines.Select(l => { var t = ReceiptLineStyle.Parse(l, out var b, out var sz); return (Text: t, Bold: b, Size: sz); }).ToList();
+        var totalHeight = (int)(GraphicReceiptLayout.ComputeStyledHeightPx(styled, lineHeightPx) + qrBlockHeight);
 
         var bitmap = new Bitmap(paperWidth, Math.Max(totalHeight, 64));
         using var graphics = Graphics.FromImage(bitmap);
@@ -45,17 +47,22 @@ internal static class MonospaceReceiptRenderer
 
         var x = TestReceiptLineBuilder.LeftMarginPx;
         var y = TestReceiptLineBuilder.StartOffsetPx;
-        foreach (var line in lines)
+        foreach (var (line, bold, size) in styled)
         {
             if (!string.IsNullOrWhiteSpace(line))
             {
-                if (GraphicReceiptLayout.IsBoldTotalLine(line))
+                if (bold || size > 1)
+                {
+                    using var styledFont = new Font(fontFamily, fontSize * GraphicReceiptLayout.SizeScale(size), bold ? FontStyle.Bold : FontStyle.Regular, GraphicsUnit.Point);
+                    graphics.DrawString(line, styledFont, Brushes.Black, x, y);
+                }
+                else if (GraphicReceiptLayout.IsBoldTotalLine(line))
                     graphics.DrawString(line, boldTotalFont, Brushes.Black, x, y);
                 else
                     graphics.DrawString(line, font, Brushes.Black, x, y);
             }
 
-            y += GraphicReceiptLayout.GetLineStepPx(line, lineHeightPx);
+            y += GraphicReceiptLayout.GetLineStepPx(line, lineHeightPx) * GraphicReceiptLayout.SizeScale(size);
         }
 
         if (qrBlockHeight > 0)

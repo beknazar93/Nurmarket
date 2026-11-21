@@ -144,6 +144,25 @@ public static class UiShot
         }
     }
 
+    /// <summary>2026-11-21: ждёт (до 20 с, очередь интерфейса крутится), пока запуск окон кассы и загрузки каталога закончатся, и даёт доиграть последним заданиям интерфейса.
+    /// Первые ~300 мс ждём в любом случае: событие Loaded окна приходит чуть позже показа, и до него «запусков в работе» ещё ноль.</summary>
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Window, object> StartupWaited = new();
+
+    public static void WaitMainWindowStartup()
+    {
+        var started = Environment.TickCount64;
+        var until = started + 20000;
+        while (Environment.TickCount64 < until)
+        {
+            Pump();
+            var idle = NurMarketKassa.AvaloniaHost.Views.MainKassir.MainWindow.StartupsInProgress == 0 && NurMarketKassa.ViewModels.Main.CatalogPanelViewModel.ActiveLoads == 0;
+            if (idle && Environment.TickCount64 - started > 300)
+                break;
+            Thread.Sleep(25);
+        }
+        Settle(3, 30);
+    }
+
     /// <summary>Показывает окно (если задан размер — фиксирует его) и возвращает кадр.</summary>
     public static SKBitmap Render(Window window, UiSize? size = null)
     {
@@ -156,6 +175,10 @@ public static class UiShot
         if (!window.IsVisible)
             window.Show();
         Settle();
+        // 2026-11-21 (снимок main-kassa: в кадр иногда попадала строка «Синхронизация каталога с сервером…», 0,66 % при допуске 0,4 %): окно кассы при показе само запускает вход в смену и загрузку
+        // каталога, а строка состояния в это время показывает ход загрузки. Кадр снимаем, когда запуск этого окна и все загрузки каталога закончились (не по таймеру) — состояние одно и то же. Допуск не менялся.
+        if (window is NurMarketKassa.AvaloniaHost.Views.MainKassir.MainWindow && StartupWaited.TryAdd(window, new object())) // один раз на окно
+            WaitMainWindowStartup();
         // 2026-11-21 (прогон 1.17.91): headless иногда не успевает отдать кадр сразу после Show при нагрузке (случайно в разных тестах: «Кадр не получен») — ждём кадр до ~2 с, а не падаем на первом null.
         var captured = window.CaptureRenderedFrame();
         for (var attempt = 0; attempt < 10 && captured is null; attempt++)

@@ -106,6 +106,86 @@ public sealed class SpeedBudgetTests
         SpeedProbe.Check("Повторный скан того же товара (чек 30 строк)", median, 300);
     }
 
+    /// <summary>2026-11-21 («зависание при переключении вкладок»): переключение вкладки каталога («Все товары» → «Весовые» → ...) и смена страницы на 15 000 товаров — то, что
+    /// раньше считалось на потоке интерфейса целиком (отбор + сортировка по десяти ключам). Теперь вкладка считается в фоне, а страница берётся из запомненного отбора;
+    /// тест держит предел на сам отбор (то, что делает фон) и проверяет, что вкладка и страница на 15 000 товаров не держат поток интерфейса.</summary>
+    [Fact]
+    public async Task CatalogTabAndPageSwitch_On15kProducts_DoNotBlockUiThread()
+    {
+        using var weakPc = new WeakPcScope(); // имитация слабого ПК: два ядра
+        var all = LongNamedCatalog(CatalogSize);
+        var cache = new FakeCache();
+        cache.Items.AddRange(all);
+        var vm = new CatalogPanelViewModel(cache, new InlineDispatcher(), new Online());
+        var compute = typeof(CatalogPanelViewModel).GetMethod("ComputeFiltered", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+        object Run() => compute.Invoke(vm, [all, ""])!;
+        Run(); // прогрев
+        var computeMedian = SpeedProbe.MedianMs(5, () => Run());
+        SpeedProbe.Check("Отбор и порядок каталога 15 тыс. (вкладка «Все товары», без поиска) — работа фона", computeMedian, 2000);
+
+        // Поток интерфейса: вкладка и страница. InlineDispatcher выполняет Post сразу, поэтому ждём завершения фонового отбора по появлению плиток.
+        typeof(CatalogPanelViewModel).GetField("_allProducts", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.SetValue(vm, all);
+        var publish = typeof(CatalogPanelViewModel).GetMethod("PublishProducts", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+        publish.Invoke(vm, [all, false]);
+        vm.Products.Should().NotBeEmpty();
+
+        var tabSw = Stopwatch.StartNew();
+        vm.SelectedTabIndex = 2; // «Штучные»: отбор уходит в фон
+        tabSw.Stop();
+        SpeedProbe.Check("Переключение вкладки каталога на 15 тыс.: время на потоке интерфейса", tabSw.Elapsed.TotalMilliseconds, 100);
+
+        await Task.Delay(1500); // фон досчитал и опубликовал
+        vm.TotalPages.Should().BeGreaterThan(1, "каталог из 15 000 товаров не помещается на одну страницу");
+        var pageSw = Stopwatch.StartNew();
+        vm.GoToPageCommand.Execute(2);
+        pageSw.Stop();
+        vm.CurrentPage.Should().Be(2);
+        SpeedProbe.Check("Смена страницы каталога на 15 тыс.: время на потоке интерфейса", pageSw.Elapsed.TotalMilliseconds, 100);
+    }
+
+    /// <summary>2026-11-21 (жалоба владельца «зависание при переключении вкладок в кассе»): переключение вкладок чеков на уровне корзины — 4 открытых чека по 40 строк,
+    /// каталог в базе 15 000 товаров (строки чека ищут единицу и остаток в нём). Цель — ≤ 100 мс на слабом ПК; предел 300 мс (запас на загруженный ПК).
+    /// Меряется и добавление товара при нескольких вкладках — оно перестраивает вкладки (в окне это пересоздание плиток вкладок).</summary>
+    [Fact]
+    public void ReceiptTabSwitch_FourReceiptsOfFortyLines_On15kCatalog_StaysWithinBudget()
+    {
+        using var weakPc = new WeakPcScope(); // имитация слабого ПК: два ядра
+        var repo = LocalProductRepository.Instance;
+        repo.EnsureSchema();
+        try
+        {
+            repo.SyncReplaceAllWithDiff(LongNamedCatalog(CatalogSize));
+            using var h = new BasketVmHarness();
+            for (var receipt = 0; receipt < 4; receipt++)
+            {
+                if (receipt > 0)
+                    h.Vm.CreateNewReceipt();
+                for (var i = 0; i < 40; i++)
+                    h.AddProduct("spd" + (receipt * 40 + i), "Макаронные изделия «Макфа» спагетти длинное название " + i, 10 + i);
+            }
+            h.Vm.ReceiptTabs.Count.Should().Be(4);
+
+            void Next()
+            {
+                var tabs = h.Vm.ReceiptTabs;
+                var active = tabs.ToList().FindIndex(t => t.IsActive);
+                h.Vm.SelectReceiptTabCommand.Execute(tabs[(active + 1) % tabs.Count]);
+            }
+
+            Next(); // прогрев
+            var median = SpeedProbe.MedianMs(12, Next);
+            SpeedProbe.Check("Переключение вкладки чека (4 чека по 40 строк, каталог 15 тыс.)", median, 300);
+
+            var add = 0;
+            var addMedian = SpeedProbe.MedianMs(15, () => h.AddProduct("spd" + (200 + add++), "Товар в чек " + add, 25));
+            SpeedProbe.Check("Добавление товара в чек при 4 открытых чеках (с перестройкой вкладок)", addMedian, 300);
+        }
+        finally
+        {
+            repo.SyncReplaceAllWithDiff(Array.Empty<CatalogProductTileVm>());
+        }
+    }
+
     /// <summary>Поиск штрихкода и текста в индексе базы (LocalProductRepository) на 15 000 товаров — путь «скан» до корзины.</summary>
     [Fact]
     public void RepositoryBarcodeAndTextLookup_On15kProducts_StaysWithinBudget()
@@ -163,5 +243,39 @@ internal static class SpeedProbe
         }
         catch { /* журнал замеров не должен ронять тест */ }
         ms.Should().BeLessThan(limit, "«{0}» занял {1:0.0} мс при пределе {2:0} мс — стало заметно медленнее (журнал: {3})", what, ms, limit, LogPath);
+    }
+}
+
+/// <summary>2026-11-21 (просьба владельца: «замерь на имитации слабого ПК»): на время теста процесс ограничен двумя ядрами (как у слабого моноблока) — фоновые потоки
+/// и поток интерфейса делят их. Возвращает прежнюю маску при выходе. На ПК с двумя ядрами и меньше ничего не меняет.</summary>
+internal sealed class WeakPcScope : IDisposable
+{
+    private readonly IntPtr? _previous;
+
+    public WeakPcScope()
+    {
+        try
+        {
+            var process = System.Diagnostics.Process.GetCurrentProcess();
+            if (Environment.ProcessorCount > 2 && OperatingSystem.IsWindows())
+            {
+                _previous = process.ProcessorAffinity;
+                process.ProcessorAffinity = (IntPtr)0x3;
+            }
+        }
+        catch
+        {
+            // имитация не получилась — замер идёт на всех ядрах (честнее не заявлять «слабый ПК» в отчёте)
+        }
+    }
+
+    public bool Active => _previous is not null;
+
+    public void Dispose()
+    {
+        if (_previous is { } mask)
+        {
+            try { System.Diagnostics.Process.GetCurrentProcess().ProcessorAffinity = mask; } catch { }
+        }
     }
 }

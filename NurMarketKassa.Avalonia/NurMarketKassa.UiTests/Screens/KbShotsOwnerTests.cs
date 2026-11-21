@@ -28,7 +28,7 @@ public sealed class KbShotsOwnerTests
         var tabs = new (string Name, string Tab)[]
         {
             ("owner-warehouse", "ProductsTabItem"), ("owner-warehouse-receiving", "ReceivingTabItem"), ("owner-warehouse-revision", "RevisionTabItem"),
-            ("owner-warehouse-writeoff", "WriteOffTabItem"), ("owner-warehouse-transfer", "MovementsTabItem"), ("owner-warehouse-label", "LabelEditorTabItem"),
+            ("owner-warehouse-writeoff", "WriteOffTabItem"), ("owner-warehouse-transfer", "MovementsTabItem"), ("owner-warehouse-label", "Barcodes"),
             ("owner-price-tag-setup", "Barcodes"),
         };
         if (!tabs.Any(t => KbShots.Want(t.Name)))

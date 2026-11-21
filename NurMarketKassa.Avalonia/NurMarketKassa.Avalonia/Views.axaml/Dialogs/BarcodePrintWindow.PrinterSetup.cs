@@ -25,6 +25,9 @@ public sealed partial class BarcodePrintView
     private CheckBox _frameCheck = null!;
     private NumericUpDown _offXBox = null!, _offYBox = null!, _gapBox = null!;
     private ComboBox _speedCombo = null!, _densityCombo = null!, _dirCombo = null!;
+    // 2026-11-21: «Датчик» и «Размер страницы — по этикетке» жили только в старом окне «Редактор этикетки» (входов в него больше нет) — теперь здесь.
+    private ComboBox _sensorCombo = null!;
+    private CheckBox _pageCheck = null!;
     private Button _calibrateButton = null!;
     private TextBlock _ptNote = null!, _ptStatus = null!;
     private bool _ptInit = true;
@@ -71,7 +74,17 @@ public sealed partial class BarcodePrintView
         _dirCombo.Items.Add(T("Повёрнутая 180°", "180° бурулган", "Rotated 180°", "180° döndürülmüş", "180° aylantirilgan"));
         _dirCombo.SelectionChanged += (_, _) => { if (!_ptInit && _dirCombo.SelectedIndex >= 0) { UserPreferences.Instance.LabelTsplFlip = _dirCombo.SelectedIndex switch { 1 => false, 2 => true, _ => (bool?)null }; SavePrinterPrefs(); } };
 
-        _calibrateButton = Ghost(T("Калибровка", "Калибрлөө", "Calibration", "Kalibrasyon", "Kalibrlash"));
+        _sensorCombo = new ComboBox { MinWidth = 190 };
+        _sensorCombo.Items.Add(AsOnPrinter);
+        _sensorCombo.Items.Add(T("Зазор между этикетками", "Этикеткалардын ортосундагы боштук", "Gap between labels", "Etiketler arası boşluk", "Yorliqlar orasidagi oraliq"));
+        _sensorCombo.Items.Add(T("Чёрная метка", "Кара белги", "Black mark", "Siyah işaret", "Qora belgi"));
+        _sensorCombo.SelectionChanged += (_, _) => { if (!_ptInit && _sensorCombo.SelectedIndex >= 0) { UserPreferences.Instance.LabelTsplSensor = _sensorCombo.SelectedIndex switch { 1 => "gap", 2 => "bline", _ => null }; SavePrinterPrefs(); } };
+        _pageCheck = Check(T("Размер страницы — по этикетке", "Барактын өлчөмү — этикетка боюнча", "Page size = label size", "Sayfa boyutu = etiket boyutu", "Sahifa o'lchami = yorliq o'lchami"), UserPreferences.Instance.LabelPageFromTemplate);
+        ToolTip.SetTip(_pageCheck, T("Для принтера через драйвер Windows: размер страницы берётся из шаблона этикетки (иначе драйвер может тянуть ленту по своему размеру).", "Windows драйвери аркылуу: барактын өлчөмү этикетка шаблонунан алынат.",
+            "For a printer on a Windows driver: the page size comes from the label template (otherwise the driver may feed by its own size).", "Windows sürücüsü olan yazıcı için: sayfa boyutu etiket şablonundan alınır.", "Windows drayveri orqali printer uchun: sahifa o'lchami yorliq shablonidan olinadi."));
+        _pageCheck.IsCheckedChanged += (_, _) => { if (!_ptInit) { UserPreferences.Instance.LabelPageFromTemplate = _pageCheck.IsChecked != false; SavePrinterPrefs(); } };
+
+        _calibrateButton = Ghost(T("Калибровка","Калибрлөө", "Calibration", "Kalibrasyon", "Kalibrlash"));
         ToolTip.SetTip(_calibrateButton, T("Принтер протянет несколько этикеток и запомнит зазор (или метку). Только принтер без драйвера на языке TSPL.", "Принтер бир нече этикетканы тартып, боштукту (же белгини) эстеп калат. Драйверсиз TSPL тилиндеги принтер гана.",
             "The printer feeds a few labels and remembers the gap (or mark). Only a driverless printer on the TSPL language.", "Yazıcı birkaç etiket besleyip boşluğu (veya işareti) hatırlar. Yalnızca TSPL dilinde sürücüsüz yazıcı.", "Printer bir nechta yorliqni tortib, oraliqni (yoki belgini) eslab qoladi. Faqat TSPL tilidagi drayversiz printer."));
         _calibrateButton.Click += async (_, _) => await CalibrateAsync().ConfigureAwait(true);
@@ -92,12 +105,15 @@ public sealed partial class BarcodePrintView
         rowA.Children.Add(Inline(T("Сдвиг по вертикали, точек", "Вертикалдуу жылдыруу, чекит", "Vertical shift, dots", "Dikey kaydırma, nokta", "Vertikal siljish, nuqta"), _offYBox));
         _frameCheck.Margin = new Thickness(0, 0, 12, 0);
         rowA.Children.Add(_frameCheck);
+        _pageCheck.Margin = new Thickness(0, 0, 12, 0);
+        rowA.Children.Add(_pageCheck);
 
         var tspl = new WrapPanel { Orientation = Orientation.Horizontal };
         tspl.Children.Add(Inline(T("Зазор между этикетками, мм", "Этикеткалардын ортосундагы боштук, мм", "Gap between labels, mm", "Etiketler arası boşluk, mm", "Yorliqlar orasidagi oraliq, mm"), _gapBox));
         tspl.Children.Add(Inline(T("Скорость", "Ылдамдык", "Speed", "Hız", "Tezlik"), _speedCombo));
         tspl.Children.Add(Inline(T("Плотность (темнее)", "Тыгыздык (караңгыраак)", "Density (darker)", "Yoğunluk (koyu)", "Zichlik (to'qroq)"), _densityCombo));
         tspl.Children.Add(Inline(T("Ориентация", "Багыты", "Orientation", "Yön", "Yo'nalish"), _dirCombo));
+        tspl.Children.Add(Inline(T("Датчик", "Сенсор", "Sensor", "Sensör", "Sensor"), _sensorCombo));
         _ptTspl = new StackPanel { Children = { tspl } };
 
         var buttons = new WrapPanel { Orientation = Orientation.Horizontal, Children = { _calibrateButton, reset } };
@@ -131,6 +147,8 @@ public sealed partial class BarcodePrintView
             _speedCombo.SelectedIndex = p.LabelTsplSpeed is { } sp ? Math.Clamp(sp, 2, 6) - 1 : 0;
             _densityCombo.SelectedIndex = p.LabelTsplDensity is { } dn ? Math.Clamp(dn, 0, 15) + 1 : 0;
             _dirCombo.SelectedIndex = p.LabelTsplFlip is { } fl ? (fl ? 2 : 1) : 0;
+            _sensorCombo.SelectedIndex = p.LabelTsplSensor switch { "gap" => 1, "bline" => 2, _ => 0 };
+            _pageCheck.IsChecked = p.LabelPageFromTemplate;
         }
         finally { _ptInit = was; }
         SyncFrameFromTemplate();
@@ -194,6 +212,8 @@ public sealed partial class BarcodePrintView
         p.LabelTsplDensity = null;
         p.LabelTsplSpeed = null;
         p.LabelTsplFlip = null;
+        p.LabelTsplSensor = null;
+        p.LabelPageFromTemplate = true;
         SavePrinterPrefs();
         _template.Frame = false;
         SyncPrinterSetup();

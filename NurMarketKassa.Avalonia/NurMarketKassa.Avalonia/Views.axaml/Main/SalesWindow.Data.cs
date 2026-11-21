@@ -99,7 +99,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                                 foreach (var line in items.EnumerateArray())
                                 {
                                     // 2026-11-12 (аудит 12.11, Д-14): название строки — общим разбором (product_name, name, product{…}…), а не «?»
-                                    var name = CartDisplayHelper.ItemName(line);
+                                    var name = CartDisplayHelper.ItemTitle(line); // 2026-11-21: название товара + variant_name
                                     if (string.IsNullOrWhiteSpace(name))
                                         name = Tr.T("Товар без названия", "Аталышы жок товар", "Unnamed item", "Adsız ürün", "Nomsiz mahsulot");
                                     decimal qty = line.TryGetProperty("quantity", out var q) ? ParseDecimal(q) : 0;
@@ -429,7 +429,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                         foreach (var line in items.EnumerateArray())
                         {
                             // 2026-11-19: название строки — тем же общим разбором, что в первой загрузке (Д-14); раньше здесь читался только product_name и перетирал названия на «?»
-                            string name = CartDisplayHelper.ItemName(line);
+                            string name = CartDisplayHelper.ItemTitle(line); // 2026-11-21: название товара + variant_name
                             if (string.IsNullOrWhiteSpace(name))
                                 name = Tr.T("Товар без названия", "Аталышы жок товар", "Unnamed item", "Adsız ürün", "Nomsiz mahsulot");
                             decimal qty = line.TryGetProperty("quantity", out var q) ? ParseDecimal(q) : 0;
@@ -563,22 +563,18 @@ namespace NurMarketKassa.AvaloniaHost.Views
             }
         }
 
+        /// <summary>2026-11-21 (жалоба владельца: «чеки открываются сразу при одном нажатии»): чек открывает двойной щелчок/касание по ЕГО строке
+        /// (а не по «выбранной» — выбранной могла быть другая) или кнопка-стрелка «Открыть чек» (ReceiptRowOpen). Одно нажатие только выделяет строку.</summary>
         private async void SalesGrid_MouseDoubleClick(object sender, TappedEventArgs e)
         {
-            if (SalesGrid.SelectedItem is SaleItem item)
+            if (ReceiptRowOpen.RowItem(e) is SaleItem item)
                 await ShowReceiptDetailsByIdAsync(item.Id, item.ReceiptNumber);
         }
 
-        /// <summary>Чек открывается и одним нажатием на строку (2026-09-26): двойное нажатие на
-        /// сенсорном экране срабатывает через раз, и казалось, что чеки не открываются вовсе.
-        /// Нажатие на заголовок или пустое место таблицы чек не открывает.</summary>
-        private async void SalesGrid_Tapped(object sender, TappedEventArgs e)
+        /// <summary>2026-11-21: кнопка-стрелка в строке чека.</summary>
+        private async void OpenReceiptFromRow(object row)
         {
-            // 2026-11-10: нажатие на кнопку «Возврат» в строке — не открывать чек.
-            if (e.Source is Avalonia.Visual tappedVisual && Avalonia.VisualTree.VisualExtensions.FindAncestorOfType<Button>(tappedVisual, true) is not null)
-                return;
-            var row = Avalonia.VisualTree.VisualExtensions.FindAncestorOfType<DataGridRow>(e.Source as Avalonia.Visual, includeSelf: true);
-            if (row?.DataContext is SaleItem item)
+            if (row is SaleItem item)
                 await ShowReceiptDetailsByIdAsync(item.Id, item.ReceiptNumber);
         }
 
@@ -605,6 +601,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
             if (string.IsNullOrEmpty(receiptId)) return;
             // Одно нажатие уже открыло этот чек — двойное не грузит его второй раз.
             if (ReceiptDetailsPopup.IsOpen && string.Equals(_currentReceiptNumber, receiptNumber, StringComparison.Ordinal)) return;
+            // 2026-11-21 («чек открывается дважды»): пока чек грузится, popup ещё закрыт — второе нажатие/Enter грузило и собирало карточку заново.
+            if (_receiptLoadingId is not null) return;
+            _receiptLoadingId = receiptId;
             try
             {
                 JsonElement json;
@@ -655,7 +654,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 ReceiptDetailsPopup.IsOpen = true;
             }
             catch (Exception ex) { ErrorMessage = Tr.T("Не удалось загрузить детали чека: ", "Чектин чоо-жайын жүктөө мүмкүн болгон жок: ", "Could not load the receipt details: ", "Fiş ayrıntıları yüklenemedi: ", "Chek tafsilotlarini yuklab bo'lmadi: ") + ServerOutageMonitor.FriendlyError(ex); }
+            finally { _receiptLoadingId = null; } // 2026-11-21: замок снимается при любом исходе (ошибка, офлайн, пустой чек)
         }
+
+        private string? _receiptLoadingId; // 2026-11-21: чек, который сейчас грузится в popup
 
         /// <summary>Скидка чека, как её записал сервер. Обычная скидка и списанные бонусы
         /// приходят ОДНОЙ суммой — разделить их здесь нельзя, для этого есть локальная таблица

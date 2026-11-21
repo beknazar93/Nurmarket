@@ -194,6 +194,8 @@
                         ToolTip.Tip="{DynamicResource loc.owner.scales.webPluTip}" Click="WebPlu_Click"/>
                 <!-- 2026-09-30: окно «Кнопки весов» — какой товар на какой кнопке (ScalesPluWindow.Keys.cs) -->
                 <Button x:Name="KeysButton" Classes="btn-secondary" Height="36" Margin="8,0,0,0" Click="KeysWindow_Click"/>
+                <!-- 2026-11-21: Rongta напрямую — стереть старые ячейки PLU (ScalesPluWindow.RongtaErase.cs); текст и видимость — из кода -->
+                <Button x:Name="EraseSlotsButton" Classes="btn-secondary" Height="36" Margin="8,0,0,0" IsVisible="False" Click="EraseSlots_Click"/>
             </StackPanel>
         </WrapPanel>
 

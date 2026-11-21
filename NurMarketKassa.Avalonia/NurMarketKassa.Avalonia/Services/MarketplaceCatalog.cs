@@ -114,6 +114,8 @@ public sealed class MarketplaceItem
 
     /// <summary>2026-10-31 (ТЗ Умара «функции маркетплейса — с сервера»): функция включена на сервере, ключа на этой кассе нет — значок «Подключено».</summary>
     public bool ConnectedByServer { get; set; }
+    /// <summary>2026-11-21: модуль компании на сервере (включается и выключается здесь; цена — сом/мес с сервера): страница пишет цену и «Входит в вашу сферу» / «Включено», а не «Куплено».</summary>
+    public bool IsModule { get; set; }
     /// <summary>2026-10-31: пояснение под кнопками действий («Оплата пока через поддержку…»).</summary>
     public string ActionHint { get; set; } = "";
 
@@ -235,6 +237,7 @@ public sealed class LocalMarketplaceCatalogSource : IMarketplaceCatalogSource
         // --- 2026-11-13 (решение владельца: «Ремонт и trade-in — как доп. услуги в маркетплейсе, чтобы желающие могли подключить»): «Ремонт и сервис» и
         // «Trade-in / скупка» — подключаемые функции любой сферы (не часть «Электроники»). Данные хранятся на кассе локально (сервер их пока не умеет),
         // деньги — только путями кассы. Цены 1200 и 1000 сом (решение владельца 13.11); подключает поддержка или ключ; коды сервера «kassa-repair» / «kassa-trade_in».
+        var repairCard = MarketplaceModules.For(ModuleIds.Repair, prefs.RepairUnlocked); // 2026-11-21: модуль сервера repair (электроника — из коробки, без ключа)
         items.Add(Gated("repair", "🛠", "#EA580C",
             T("Ремонт и сервис", "Оңдоо жана тейлөө", "Repair and service", "Tamir ve servis", "Ta'mirlash va servis"),
             T("Приём в ремонт: квитанция, статусы, выдача", "Оңдоого кабыл алуу: квитанция, статустар, берүү", "Repair intake: receipt, statuses, hand-over", "Tamire kabul: makbuz, durumlar, teslim", "Ta'mirlashga qabul: kvitansiya, statuslar, topshirish"),
@@ -248,14 +251,18 @@ public sealed class LocalMarketplaceCatalogSource : IMarketplaceCatalogSource
              T("Предоплата и возврат — через внесение и изъятие кассы", "Алдын ала төлөм жана кайтаруу — касса салуу жана алуу аркылуу", "Prepayment and refund go through the till cash in and out", "Ön ödeme ve iade kasa giriş ve çıkışı üzerinden", "Oldindan to'lov va qaytarish — kassa kirim va chiqimi orqali"),
              T("Журнал ремонтов — и в программе владельца", "Оңдоолор журналы — ээсинин программасында да", "The repair journal is in the owner's program too", "Tamir günlüğü sahibin programında da", "Ta'mirlar jurnali — egasining dasturida ham")],
             [T("Данные хранятся на этой кассе и не передаются между компьютерами (сервер ремонт пока не поддерживает)", "Маалымат ушул кассада сакталат жана компьютерлердин ортосунда берилбейт (сервер оңдоону азырынча колдобойт)", "Data is stored on this till and is not shared between computers (the server does not support repairs yet)", "Veriler bu kasada saklanır ve bilgisayarlar arasında paylaşılmaz (sunucu henüz tamiri desteklemiyor)", "Ma'lumotlar shu kassada saqlanadi va kompyuterlar o'rtasida uzatilmaydi (server ta'mirni hali qo'llamaydi)")],
-            prefs.RepairUnlocked, new MarketplacePrice(1200), // 2026-11-13: цена владельца — 1200 сом
-            openLabel: T("Открыть ремонт", "Оңдоону ачуу", "Open repairs", "Tamirleri aç", "Ta'mirlarni ochish"),
+            repairCard.ServerMode || prefs.RepairUnlocked, repairCard.ServerMode ? repairCard.Price : repairCard.Price ?? new MarketplacePrice(null), // 2026-11-21: цена только с сервера (public/modules, сом/мес); прежние 1200 сом разово убраны
+            openLabel: repairCard.ServerMode && !repairCard.On ? MarketplaceModules.EnableLabel : T("Открыть ремонт", "Оңдоону ачуу", "Open repairs", "Tamirleri aç", "Ta'mirlarni ochish"),
+            module: repairCard.ServerMode, primaryCommand: repairCard.ServerMode && !repairCard.On ? "module-on:repair" : null,
+            statusText: repairCard.ServerMode ? MarketplaceModules.StatusText(repairCard) : "", installedStatus: repairCard.ServerMode && repairCard.On,
+            secondary: repairCard.ServerMode ? MarketplaceModules.Secondary("repair", repairCard, true, _run) : null,
             hint: T("Раздел «Ремонт и сервис» — в меню кассы и в программе владельца.", "«Оңдоо жана тейлөө» бөлүмү — касса менюсунда жана ээсинин программасында.", "The “Repair and service” section is in the till menu and in the owner's program.", "«Tamir ve servis» bölümü kasa menüsünde ve sahip programında.", "«Ta'mirlash va servis» bo'limi — kassa menyusida va egasining dasturida."),
             tags: [TagSales, T("Сервис", "Тейлөө", "Service", "Servis", "Servis")],
             isNew: true,
             related: ["trade_in"],
             note: T("Подойдёт любому магазину: электроника, телефоны, бытовая техника, часы, обувь. Пока сервер ремонт не умеет, квитанции ведутся на кассе; деньги идут только обычными путями кассы.", "Ар бир дүкөнгө ылайыктуу: электроника, телефон, тиричилик техникасы, саат, бут кийим. Сервер оңдоону азырынча колдобогондуктан, квитанциялар кассада жүргүзүлөт; акча кассанын кадимки жолдору менен гана өтөт.", "Suits any shop: electronics, phones, appliances, watches, shoes. Until the server supports repairs, receipts are kept on the till; money moves only through the till's ordinary paths.", "Her mağazaya uygun: elektronik, telefon, beyaz eşya, saat, ayakkabı. Sunucu tamiri desteklemeyene kadar makbuzlar kasada tutulur; para yalnızca kasanın olağan yollarıyla hareket eder.", "Har qanday do'konga mos: elektronika, telefonlar, maishiy texnika, soat, poyabzal. Server ta'mirni qo'llamaguncha kvitansiyalar kassada yuritiladi; pul faqat kassaning oddiy yo'llari orqali o'tadi.")));
 
+        var tradeCard = MarketplaceModules.For(ModuleIds.TradeIn, prefs.TradeInUnlocked); // 2026-11-21: модуль сервера trade_in
         items.Add(Gated("trade_in", "🔄", "#0891B2",
             T("Trade-in / скупка", "Trade-in / сатып алуу", "Trade-in / buy-back", "Trade-in / alım", "Trade-in / sotib olish"),
             T("Приём б/у у клиента: оценка, выплата или зачёт", "Кардардан б/у кабыл алуу: баалоо, төлөө же эсептөө", "Taking used items from customers: appraisal, payout or credit", "Müşteriden ikinci el alım: değerleme, ödeme veya mahsup", "Mijozdan b/u qabul qilish: baholash, to'lov yoki hisobga olish"),
@@ -269,8 +276,11 @@ public sealed class LocalMarketplaceCatalogSource : IMarketplaceCatalogSource
              T("Оприходование на склад как б/у, закупка = сумма выкупа", "Кампага б/у катары кирүү, сатып алуу = сатып алуу суммасы", "Received into stock as used, purchase price = buy-back amount", "İkinci el olarak depoya giriş, alış = alım tutarı", "Omborga b/u sifatida kirim, xarid = sotib olish summasi"),
              T("Печать акта приёма, журнал выкупов — и в программе владельца", "Кабыл алуу актысын басуу, сатып алуулар журналы — ээсинин программасында да", "Printing of the acceptance act, buy-back journal in the owner's program too", "Kabul tutanağı baskısı, alım günlüğü sahip programında da", "Qabul dalolatnomasini chop etish, sotib olishlar jurnali — egasining dasturida ham")],
             [T("Данные хранятся на этой кассе и не передаются между компьютерами (сервер trade-in пока не поддерживает)", "Маалымат ушул кассада сакталат жана компьютерлердин ортосунда берилбейт (сервер trade-in'ди азырынча колдобойт)", "Data is stored on this till and is not shared between computers (the server does not support trade-in yet)", "Veriler bu kasada saklanır ve bilgisayarlar arasında paylaşılmaz (sunucu henüz trade-in'i desteklemiyor)", "Ma'lumotlar shu kassada saqlanadi va kompyuterlar o'rtasida uzatilmaydi (server trade-in ni hali qo'llamaydi)")],
-            prefs.TradeInUnlocked, new MarketplacePrice(1000), // 2026-11-13: цена владельца — 1000 сом
-            openLabel: T("Открыть trade-in", "Trade-in ачуу", "Open trade-in", "Trade-in'i aç", "Trade-in ni ochish"),
+            tradeCard.ServerMode || prefs.TradeInUnlocked, tradeCard.ServerMode ? tradeCard.Price : tradeCard.Price ?? new MarketplacePrice(null), // 2026-11-21: цена только с сервера (public/modules, сом/мес); прежние 1000 сом разово убраны
+            openLabel: tradeCard.ServerMode && !tradeCard.On ? MarketplaceModules.EnableLabel : T("Открыть trade-in", "Trade-in ачуу", "Open trade-in", "Trade-in'i aç", "Trade-in ni ochish"),
+            module: tradeCard.ServerMode, primaryCommand: tradeCard.ServerMode && !tradeCard.On ? "module-on:trade_in" : null,
+            statusText: tradeCard.ServerMode ? MarketplaceModules.StatusText(tradeCard) : "", installedStatus: tradeCard.ServerMode && tradeCard.On,
+            secondary: tradeCard.ServerMode ? MarketplaceModules.Secondary("trade_in", tradeCard, true, _run) : null,
             hint: T("Раздел «Trade-in / скупка» — в меню кассы и в программе владельца.", "«Trade-in / сатып алуу» бөлүмү — касса менюсунда жана ээсинин программасында.", "The “Trade-in / buy-back” section is in the till menu and in the owner's program.", "«Trade-in / alım» bölümü kasa menüsünde ve sahip programında.", "«Trade-in / sotib olish» bo'limi — kassa menyusida va egasining dasturida."),
             tags: [TagSales, TagWarehouse],
             isNew: true,
@@ -280,6 +290,7 @@ public sealed class LocalMarketplaceCatalogSource : IMarketplaceCatalogSource
         // --- 2026-11-19 («Смета», ТЗ 19.11.2026): модуль «Смета» — калькулятор сметы для строймаркета. Бесплатный (EstimateFeature.PriceSom = 0 — цена в одном месте), локальный (estimates.json), в сфере «Хозтовары и стройматериалы»
         // доступен сразу, в других включается одним нажатием здесь. Карточка без цены и без ключа: «Включить бесплатно» → включается и открывается окно.
         var estimateOn = EstimateFeature.IsAvailable;
+        var estimateCard = MarketplaceModules.For(ModuleIds.Estimate, estimateOn); // 2026-11-21: модуль сервера estimate; цена — только с сервера (300 сом/мес вне Строймага), «бесплатно» убрано
         items.Add(Gated("estimate", "🧮", "#D97706",
             T("Смета", "Смета", "Estimate", "Keşif", "Smeta"),
             T("Калькулятор сметы для строймаркета: расход материала, печать, в чек", "Курулуш дүкөнү үчүн смета калькулятору: материалдын сарптоосу, басуу, чекке", "An estimate calculator for building-material shops: consumption, printing, to the receipt", "Yapı marketi için keşif hesaplayıcı: malzeme tüketimi, baskı, fişe", "Qurilish do'koni uchun smeta kalkulyatori: material sarfi, chop etish, chekka"),
@@ -293,17 +304,20 @@ public sealed class LocalMarketplaceCatalogSource : IMarketplaceCatalogSource
              T("Печать A4 и на ленту, текст для WhatsApp и Telegram", "A4 жана лентага басуу, WhatsApp жана Telegram үчүн текст", "Printing on A4 and the tape, text for WhatsApp and Telegram", "A4 ve fiş şeridine baskı, WhatsApp ve Telegram için metin", "A4 va lentaga chop etish, WhatsApp va Telegram uchun matn"),
              T("«Добавить всё в чек» в кассе — с проверкой цен и остатков", "Кассада «Баарын чекке кошуу» — баалар жана калдыктар текшерилет", "“Add all to the receipt” at the till — with a check of prices and stock", "Kasada «Hepsini fişe ekle» — fiyat ve stok kontrolüyle", "Kassada «Hammasini chekka qo'shish» — narx va qoldiq tekshiruvi bilan")],
             [T("Сметы хранятся только на этом компьютере и не передаются на другие кассы", "Сметалар ушул компьютерде гана сакталат жана башка кассаларга берилбейт", "Estimates are stored on this computer only and are not shared with other tills", "Keşifler yalnızca bu bilgisayarda saklanır, diğer kasalara aktarılmaz", "Smetalar faqat shu kompyuterda saqlanadi va boshqa kassalarga uzatilmaydi")],
-            true, null,
-            openLabel: estimateOn ? T("Открыть смету", "Сметаны ачуу", "Open the estimate", "Keşfi aç", "Smetani ochish") : T("Включить бесплатно", "Акысыз күйгүзүү", "Turn on for free", "Ücretsiz aç", "Bepul yoqish"),
+            true, estimateCard.Price,
+            openLabel: estimateOn ? T("Открыть смету", "Сметаны ачуу", "Open the estimate", "Keşfi aç", "Smetani ochish") : MarketplaceModules.EnableLabel,
+            module: estimateCard.ServerMode, primaryCommand: estimateCard.ServerMode && !estimateOn ? "module-on:estimate" : null,
+            secondary: estimateOn && (estimateCard.ServerMode || prefs.EstimateEnabled) ? [MarketplaceModules.DisableAction("estimate", _run)] : MarketplaceModules.Secondary("estimate", estimateCard, false, _run),
             hint: T("Раздел «Смета» — в меню кассы и в программе владельца (Товары → Смета).", "«Смета» бөлүмү — касса менюсунда жана ээсинин программасында (Товарлар → Смета).", "The “Estimate” section is in the till menu and in the owner's program (Products → Estimate).", "«Keşif» bölümü kasa menüsünde ve sahip programında (Ürünler → Keşif).", "«Smeta» bo'limi — kassa menyusida va egasining dasturida (Mahsulotlar → Smeta)."),
             tags: [TagSales, T("Строймаркет", "Курулуш дүкөнү", "Building materials", "Yapı market", "Qurilish do'koni")],
-            statusText: estimateOn ? T("Включено", "Күйгүзүлгөн", "Enabled", "Etkin", "Yoqilgan") : T("Бесплатно", "Акысыз", "Free", "Ücretsiz", "Bepul"), installedStatus: estimateOn,
+            statusText: MarketplaceModules.StatusText(estimateCard), installedStatus: estimateOn,
             isNew: true,
-            note: T("Бесплатно. Данные хранятся на этом компьютере; кассир не видит закупочные цены (только владелец и сотрудники с правом на закупку).", "Акысыз. Маалымат ушул компьютерде сакталат; кассир сатып алуу баасын көрбөйт (ээси жана сатып алуу укугу бар кызматкерлер гана).", "Free. Data is stored on this computer; the cashier does not see purchase prices (only the owner and staff with the purchase right).", "Ücretsiz. Veriler bu bilgisayarda saklanır; kasiyer alış fiyatlarını görmez (yalnızca sahip ve alış hakkı olan personel).", "Bepul. Ma'lumotlar shu kompyuterda saqlanadi; kassir xarid narxlarini ko'rmaydi (faqat egasi va xarid huquqi bor xodimlar).")));
+            note: T("Данные хранятся на этом компьютере; кассир не видит закупочные цены (только владелец и сотрудники с правом на закупку).", "Маалымат ушул компьютерде сакталат; кассир сатып алуу баасын көрбөйт (ээси жана сатып алуу укугу бар кызматкерлер гана).", "Data is stored on this computer; the cashier does not see purchase prices (only the owner and staff with the purchase right).", "Veriler bu bilgisayarda saklanır; kasiyer alış fiyatlarını görmez (yalnızca sahip ve alış hakkı olan personel).", "Ma'lumotlar shu kompyuterda saqlanadi; kassir xarid narxlarini ko'rmaydi (faqat egasi va xarid huquqi bor xodimlar).")));
 
         // --- 2026-11-20 («Прокат (аренда)», решение владельца: «аренда по умолчанию только в строймаге, у остальных — через Маркетплейс»): бесплатный модуль, цена в одном месте (RentalFeature.PriceSom = 0).
-        // Строймаркет — «Включено по умолчанию»; другие сферы — «Включить бесплатно»; у компаний с уже имеющимся прокатом включён автоматически (RentalFeature.EnableForExisting). Данные проката — на сервере NurCRM, смена сферы их не удаляет.
+        // 2026-11-21 (решение владельца): Строймаркет — «Входит в вашу сферу» (в тарифе); другие сферы — докупается здесь, цена «N сом/мес» с сервера; старые данные проката модуль сами не включают. Данные проката — на сервере NurCRM, смена сферы их не удаляет.
         var rentalOn = RentalFeature.IsAvailable;
+        var rentalCard = MarketplaceModules.For(ModuleIds.Rental, rentalOn); // 2026-11-21: модуль сервера rental; цена — только с сервера (300 сом/мес вне Строймага), «бесплатно» убрано
         items.Add(Gated("rental", "📆", "#7C3AED",
             T("Прокат (аренда)", "Прокат (ижара)", "Rentals", "Kiralama", "Prokat (ijara)"),
             T("Выдача вещей и инструмента в прокат: залог, срок, возврат, штраф за просрочку", "Буюмдарды жана аспапты прокатка берүү: күрөө, мөөнөт, кайтаруу, кечиктирүү үчүн айып", "Renting out items and tools: deposit, term, return, late penalty", "Eşya ve alet kiralama: depozito, süre, iade, gecikme cezası", "Buyum va asbobni prokatga berish: garov, muddat, qaytarish, kechikish jarimasi"),
@@ -316,16 +330,18 @@ public sealed class LocalMarketplaceCatalogSource : IMarketplaceCatalogSource
              T("Штраф за просрочку — в чеке и при возврате", "Кечиктирүү үчүн айып — чекте жана кайтарууда", "Late penalty — on the receipt and at return", "Gecikme cezası — fişte ve iadede", "Kechikish jarimasi — chekda va qaytarishda"),
              T("Напоминание о сроке возврата владельцу в Телеграм", "Кайтаруу мөөнөтү жөнүндө ээсине Телеграмда эскертме", "A reminder about the return date to the owner in Telegram", "İade tarihi için sahibe Telegram'da hatırlatma", "Qaytarish muddati haqida egasiga Telegramda eslatma")],
             [T("Данные проката хранятся в NurCRM; нужен интернет", "Прокат маалыматы NurCRM'де сакталат; интернет керек", "Rental data is stored in NurCRM; internet needed", "Kiralama verileri NurCRM'de saklanır; internet gerekir", "Prokat ma'lumotlari NurCRM'da saqlanadi; internet kerak")],
-            true, null,
-            openLabel: rentalOn ? T("Открыть прокат", "Прокатты ачуу", "Open rentals", "Kiralamayı aç", "Prokatni ochish") : T("Включить бесплатно", "Акысыз күйгүзүү", "Turn on for free", "Ücretsiz aç", "Bepul yoqish"),
+            true, rentalCard.Price,
+            openLabel: rentalOn ? T("Открыть прокат", "Прокатты ачуу", "Open rentals", "Kiralamayı aç", "Prokatni ochish") : MarketplaceModules.EnableLabel,
+            module: rentalCard.ServerMode, primaryCommand: rentalCard.ServerMode && !rentalOn ? "module-on:rental" : null,
+            secondary: rentalOn && (rentalCard.ServerMode || prefs.RentalEnabled) ? [MarketplaceModules.DisableAction("rental", _run)] : MarketplaceModules.Secondary("rental", rentalCard, false, _run),
             hint: T("Раздел «Прокат» — в меню кассы (☰ или «Ещё») и в программе владельца (Продажи → Прокат).", "«Прокат» бөлүмү — касса менюсунда (☰ же «Дагы») жана ээсинин программасында (Сатуулар → Прокат).", "The “Rentals” section is in the till menu (☰ or “More”) and in the owner's program (Sales → Rentals).", "«Kiralama» bölümü kasa menüsünde (☰ veya «Daha fazla») ve sahip programında (Satışlar → Kiralama).", "«Prokat» bo'limi — kassa menyusida (☰ yoki «Yana») va egasining dasturida (Sotuvlar → Prokat)."),
             tags: [TagSales, T("Строймаркет", "Курулуш дүкөнү", "Building materials", "Yapı market", "Qurilish do'koni")],
-            statusText: rentalOn
-                ? (MarketSpheres.Profile.HasRentalsByDefault ? T("Включено по умолчанию", "Демейки күйгүзүлгөн", "On by default", "Varsayılan olarak açık", "Odatiy yoqilgan") : T("Включено", "Күйгүзүлгөн", "Enabled", "Etkin", "Yoqilgan"))
-                : T("Бесплатно", "Акысыз", "Free", "Ücretsiz", "Bepul"),
+            statusText: rentalOn && !rentalCard.ServerMode && MarketSpheres.Profile.HasRentalsByDefault
+                ? T("Включено по умолчанию", "Демейки күйгүзүлгөн", "On by default", "Varsayılan olarak açık", "Odatiy yoqilgan")
+                : MarketplaceModules.StatusText(rentalCard),
             installedStatus: rentalOn,
             isNew: true,
-            note: T("Бесплатно. В строймаркете включено по умолчанию; в других сферах включается здесь. Если у вас уже есть прокат — модуль остаётся включённым, смена сферы данные не удаляет.", "Акысыз. Курулуш дүкөнүндө демейки боюнча күйгүзүлгөн; башка чөйрөлөрдө ушул жерде күйгүзүлөт. Прокатыңыз мурдатан болсо — модуль күйгүзүлгөн бойдон калат, чөйрөнү алмаштыруу маалыматты өчүрбөйт.", "Free. On by default in building-material shops; in other spheres you turn it on here. If you already have rentals, the module stays on; changing the sphere does not delete the data.", "Ücretsiz. Yapı marketinde varsayılan olarak açıktır; diğer alanlarda burada açılır. Zaten kiralamanız varsa modül açık kalır; alan değişikliği verileri silmez.", "Bepul. Qurilish do'konida odatiy yoqilgan; boshqa sohalarda shu yerda yoqiladi. Prokatingiz allaqachon bo'lsa — modul yoqilgan holda qoladi, sohani almashtirish ma'lumotni o'chirmaydi.")));
+            note: T("В строймаркете входит в тариф; в других сферах докупается здесь — цену модуля (в месяц) задаёт сервер. Включённый модуль остаётся при смене сферы, данные проката не удаляются, а сами по себе старые прокаты модуль не включают.", "Курулуш дүкөнүндө тарифке кирет; башка чөйрөлөрдө ушул жерден кошумча сатылып алынат — модулдун баасын (айына) сервер коёт. Күйгүзүлгөн модуль чөйрө алмашканда калат, прокат маалыматы өчүрүлбөйт, ал эми эски прокаттар модулду өзү күйгүзбөйт.", "Included in the plan for building-material shops; in other spheres you buy it here — the server sets the module price (per month). A turned-on module stays when the sphere changes and rental data is not deleted, but old rentals do not turn the module on by themselves.", "Yapı marketlerinde tarifeye dahildir; diğer alanlarda buradan satın alınır — modül fiyatını (aylık) sunucu belirler. Açık modül alan değişince kalır, kiralama verileri silinmez; eski kiralamalar modülü kendiliğinden açmaz.", "Qurilish do'konlarida tarifga kiradi; boshqa sohalarda shu yerda sotib olinadi — modul narxini (oyiga) server belgilaydi. Yoqilgan modul soha almashganda qoladi, prokat ma'lumotlari o'chirilmaydi, eski prokatlar esa modulni o'zi yoqmaydi.")));
 
         // --- Весы (только «Старт»)
         if (start)
@@ -374,32 +390,32 @@ public sealed class LocalMarketplaceCatalogSource : IMarketplaceCatalogSource
         items.Add(Gated("pricetag", "💲", "#F97316",
             T("Редактор ценников", "Баа белгиси редактору", "Price tag editor", "Fiyat etiketi düzenleyici", "Narx yorliqlari muharriri"),
             T("6 готовых шаблонов ценника", "Баа белгисинин 6 даяр шаблону", "6 ready-made price tag templates", "6 hazır fiyat etiketi şablonu", "Narx yorlig'ining 6 ta tayyor shabloni"),
-            // 2026-10-23, ТЗ «Маркетплейс» (П-1): путь — «⋯» в строке товара (WarehouseWindow.RowActions); акционных шаблонов два (PriceTagService).
-            T("Ценник для товара: 6 готовых шаблонов — простой, со штрих-кодом, акционный, акционный с цветным фоном, подробный и с QR-кодом — с живым предпросмотром и печатью на термопринтер или A4. Склад → Товары → «⋯» в строке товара → «Ценник».",
-              "Товар үчүн баа белгиси: 6 даяр шаблон — жөнөкөй, штрих-код менен, акциялык, түстүү фону бар акциялык, толук жана QR-код менен — түз алдын ала көрүү жана термопринтерге же A4 барагына басып чыгаруу менен. Кампа → Товарлар → товардын сабындагы «⋯» → «Баа белгиси».",
-              "A price tag for a product: 6 ready templates — simple, with barcode, promo, promo with colored background, detailed and with QR code — with a live preview and printing on a thermal printer or A4. Warehouse → Products → “⋯” in the product row → “Price tag”.",
-              "Ürün için fiyat etiketi: 6 hazır şablon — basit, barkodlu, promosyonlu, renkli zeminli promosyon, detaylı ve QR kodlu — canlı önizleme ve termal yazıcı ya da A4'e baskı. Depo → Ürünler → ürün satırındaki «⋯» → «Fiyat etiketi».",
-              "Mahsulot uchun narx yorlig'i: 6 ta tayyor shablon — oddiy, shtrix-kodli, aksiya, rangli fonli aksiya, batafsil va QR-kodli — jonli ko'rinish va termoprinter yoki A4 ga chop etish. Ombor → Mahsulotlar → mahsulot qatoridagi «⋯» → «Narx yorlig'i»."),
+            // 2026-10-23, ТЗ «Маркетплейс» (П-1): акционных шаблонов два (PriceTagService).
+            T("Ценник для товара: 6 готовых шаблонов — простой, со штрих-кодом, акционный, акционный с цветным фоном, подробный и с QR-кодом — с живым предпросмотром и печатью на термопринтер или A4. Склад → вкладка «Штрихкоды».",
+              "Товар үчүн баа белгиси: 6 даяр шаблон — жөнөкөй, штрих-код менен, акциялык, түстүү фону бар акциялык, толук жана QR-код менен — түз алдын ала көрүү жана термопринтерге же A4 барагына басып чыгаруу менен. Кампа → «Штрих-коддор» өтмөгү.",
+              "A price tag for a product: 6 ready templates — simple, with barcode, promo, promo with colored background, detailed and with QR code — with a live preview and printing on a thermal printer or A4. Warehouse → the “Barcodes” tab.",
+              "Ürün için fiyat etiketi: 6 hazır şablon — basit, barkodlu, promosyonlu, renkli zeminli promosyon, detaylı ve QR kodlu — canlı önizleme ve termal yazıcı ya da A4'e baskı. Depo → «Barkodlar» sekmesi.",
+              "Mahsulot uchun narx yorlig'i: 6 ta tayyor shablon — oddiy, shtrix-kodli, aksiya, rangli fonli aksiya, batafsil va QR-kodli — jonli ko'rinish va termoprinter yoki A4 ga chop etish. Ombor → «Shtrix-kodlar» bo'limi."),
             [T("Простой, со штрих-кодом, два акционных, подробный и с QR-кодом", "Жөнөкөй, штрих-код менен, эки акциялык, толук жана QR-код менен", "Simple, with barcode, two promo ones, detailed and with QR code", "Basit, barkodlu, iki promosyonlu, detaylı ve QR kodlu", "Oddiy, shtrix-kodli, ikkita aksiya, batafsil va QR-kodli"),
              T("Печать для одного товара из карточки товара", "Товар карточкасынан бир товар үчүн басып чыгаруу", "Print for one product from the product card", "Ürün kartından tek ürün için yazdırma", "Mahsulot kartasidan bitta mahsulot uchun chop etish")],
             [T("Принтер этикеток или обычный принтер", "Этикетка принтери же кадимки принтер", "A label printer or a regular printer", "Etiket yazıcısı veya normal yazıcı", "Yorliq printeri yoki oddiy printer")],
             prefs.PriceTagEditorUnlocked, new MarketplacePrice(1500),
-            openLabel: T("Открыть склад", "Складды ачуу", "Open warehouse", "Depoyu aç", "Omborni ochish"),
+            openLabel: T("Открыть «Штрихкоды»", "«Штрих-коддор» ачуу", "Open “Barcodes”", "«Barkodlar»ı aç", "«Shtrix-kodlar»ni ochish"),
             tags: [TagWarehouse, TagPrint], related: ["bulktag", "labeleditor"]));
 
         items.Add(Gated("bulktag", "🏷", "#F97316",
             T("Массовая печать ценников", "Баа белгилерин топтоп басып чыгаруу", "Bulk price tag printing", "Toplu fiyat etiketi baskısı", "Narx yorliqlarini ommaviy chop etish"),
             T("Ценники для многих товаров за один проход", "Көп товардын баа белгилери бир жолу", "Price tags for many products at once", "Birçok ürünün fiyat etiketi tek seferde", "Ko'p mahsulot narx yorliqlari bir yo'la"),
-            T("Печать ценников сразу для нескольких товаров за один проход — на термопринтер или обычный A4, вместо печати по одному — вкладка «Склад» → «Товары».",
-              "Бир нече товардын баа белгилерин бир жолу басып чыгаруу — термопринтерге же кадимки A4 барагына, бирден басып отурбай — «Кампа» → «Товарлар» өтмөгү.",
-              "Print price tags for several products in one go — on a thermal printer or plain A4 — instead of one at a time. “Warehouse” → “Products”.",
-              "Birden fazla ürünün fiyat etiketini tek seferde yazdırma — termal yazıcıya veya normal A4'e, tek tek yazdırmak yerine — «Depo» → «Ürünler».",
-              "Bir nechta mahsulotning narx yorliqlarini bir yo'la chop etish — termoprinterda yoki oddiy A4 printerda, birma-bir emas — «Ombor» → «Mahsulotlar»."),
+            T("Печать ценников сразу для нескольких товаров за один проход — на термопринтер или обычный A4, вместо печати по одному — «Склад» → вкладка «Штрихкоды».",
+              "Бир нече товардын баа белгилерин бир жолу басып чыгаруу — термопринтерге же кадимки A4 барагына, бирден басып отурбай — «Кампа» → «Штрих-коддор» өтмөгү.",
+              "Print price tags for several products in one go — on a thermal printer or plain A4 — instead of one at a time. “Warehouse” → the “Barcodes” tab.",
+              "Birden fazla ürünün fiyat etiketini tek seferde yazdırma — termal yazıcıya veya normal A4'e, tek tek yazdırmak yerine — «Depo» → «Barkodlar» sekmesi.",
+              "Bir nechta mahsulotning narx yorliqlarini bir yo'la chop etish — termoprinterda yoki oddiy A4 printerda, birma-bir emas — «Ombor» → «Shtrix-kodlar» bo'limi."),
             [T("Выбор нескольких товаров и печать за один проход", "Бир нече товарды тандап, бир жолу басып чыгаруу", "Select several products and print in one pass", "Birden fazla ürünü seçip tek seferde yazdırma", "Bir nechta mahsulotni tanlab, bir yo'la chop etish"),
              T("Термопринтер или обычный лист A4", "Термопринтер же кадимки A4 барагы", "Thermal printer or plain A4 sheet", "Termal yazıcı veya normal A4 sayfa", "Termoprinter yoki oddiy A4 varaq")],
             [T("Термопринтер или принтер A4", "Термопринтер же A4 принтери", "A thermal or A4 printer", "Termal veya A4 yazıcı", "Termoprinter yoki A4 printer")],
             prefs.BulkPriceTagUnlocked, new MarketplacePrice(1500),
-            openLabel: T("Открыть массовую печать", "Топтоп басууну ачуу", "Open bulk printing", "Toplu baskıyı aç", "Ommaviy chop etishni ochish"),
+            openLabel: T("Открыть «Штрихкоды»", "«Штрих-коддор» ачуу", "Open “Barcodes”", "«Barkodlar»ı aç", "«Shtrix-kodlar»ni ochish"),
             tags: [TagWarehouse, TagPrint], whatsNew: T("Отдельная активация с 04.09.2026", "Өзүнчө активдештирүү 04.09.2026 тартып", "Separate activation since 04.09.2026", "Ayrı etkinleştirme 04.09.2026'dan beri", "Alohida faollashtirish 04.09.2026 dan beri"),
             related: ["pricetag", "labeleditor"]));
 
@@ -415,7 +431,7 @@ public sealed class LocalMarketplaceCatalogSource : IMarketplaceCatalogSource
              T("Перетаскивание и настройка каждого элемента", "Ар бир элементти сүйрөө жана жөндөө", "Drag and configure every element", "Her öğeyi sürükleme ve ayarlama", "Har bir elementni sudrash va sozlash")],
             [T("Принтер этикеток", "Этикетка принтери", "A label printer", "Etiket yazıcısı", "Yorliq printeri")],
             TariffGate.LabelEditorAvailable, new MarketplacePrice(1500), // 2026-11-08: входит в тариф «Старт»
-            openLabel: T("Открыть редактор", "Редакторду ачуу", "Open editor", "Düzenleyiciyi aç", "Muharrirni ochish"),
+            openLabel: T("Открыть «Штрихкоды»", "«Штрих-коддор» ачуу", "Open “Barcodes”", "«Barkodlar»ı aç", "«Shtrix-kodlar»ni ochish"),
             tags: [TagWarehouse, TagPrint], whatsNew: T("Платная с 07.09.2026", "Акылуу 07.09.2026 тартып", "Paid since 07.09.2026", "07.09.2026'dan beri ücretli", "07.09.2026 dan beri pullik"),
             related: ["pricetag", "bulktag"]));
 
@@ -699,6 +715,7 @@ public sealed class LocalMarketplaceCatalogSource : IMarketplaceCatalogSource
 
         MarketplaceSiteThemes.Append(items, _run); // 2026-10-27: темы сайта (в т.ч. 10 тем одежды) — ТЗ «Сайт», С-3
         MarketplaceServerThemes.Append(items, _run); // 2026-11-06: темы и виды кассы с сервера (покупка на сайте) — только при признаке marketplace_themes
+        MarketplaceModules.Append(items, _run, AppVersion); // 2026-11-21: общие карточки «Модуль» для модулей сервера без своей карточки (только при ответе сервера)
         MarketplaceContent.Enrich(items); // 2026-10-23: группы и (позже) контент страницы «подробно» — отдельным файлом
         return items;
     }
@@ -711,11 +728,12 @@ public sealed class LocalMarketplaceCatalogSource : IMarketplaceCatalogSource
         string[] features, string[] requirements, bool unlocked, MarketplacePrice? price, string? openLabel,
         string hint = "", string[]? tags = null, string statusText = "", bool installedStatus = false, string whatsNew = "",
         bool featured = false, bool isNew = false, string? inline = null, string[]? related = null,
-        MarketplaceKind kind = MarketplaceKind.Feature, string note = "")
+        MarketplaceKind kind = MarketplaceKind.Feature, string note = "",
+        bool module = false, string? primaryCommand = null, MarketplaceAction[]? secondary = null)
     {
         var slug = id;
         // 2026-10-31 (ТЗ Умара): включено сервером без ключа — «Подключено» (функции, входящие в тариф «Стандарт», остаются «Входит в тариф»).
-        var byServer = unlocked && ServerAddons.IsServerOnly(id) && !(id is "export" or "telegram" or "shiftstats" && !TariffGate.IsStartTariff);
+        var byServer = !module && unlocked && ServerAddons.IsServerOnly(id) && !(id is "export" or "telegram" or "shiftstats" && !TariffGate.IsStartTariff);
         if (byServer)
         {
             statusText = T("Подключено", "Туташтырылды", "Connected", "Bağlandı", "Ulandi");
@@ -725,7 +743,7 @@ public sealed class LocalMarketplaceCatalogSource : IMarketplaceCatalogSource
         }
         MarketplaceAction? primary;
         if (unlocked)
-            primary = openLabel is null ? null : new MarketplaceAction(openLabel, () => _run("open:" + slug));
+            primary = openLabel is null ? null : new MarketplaceAction(openLabel, () => _run(primaryCommand ?? "open:" + slug)); // 2026-11-21: primaryCommand — «module-on:id» у выключенного модуля сервера
         else
             // 2026-10-23, ТЗ «Маркетплейс» (П-1): подпись кнопки — просто «Активировать» (без замка-эмодзи и без цены: цену показывает
             // страница рядом с кнопкой, значок замка рисует сама страница при Status == Paid).
@@ -771,8 +789,9 @@ public sealed class LocalMarketplaceCatalogSource : IMarketplaceCatalogSource
             RelatedIds = related ?? [],
             InlineControlId = inline,
             ConnectedByServer = byServer,
+            IsModule = module,
             // 2026-10-31 (ТЗ Умара): у платной функции без ключа и без включения на сервере — «Подключить» (заявка в поддержку) рядом с вводом ключа.
-            Secondary = !unlocked && kind == MarketplaceKind.Feature && Array.IndexOf(ServerAddons.Slugs, id) >= 0
+            Secondary = secondary is not null ? secondary : !unlocked && kind == MarketplaceKind.Feature && Array.IndexOf(ServerAddons.Slugs, id) >= 0
                 ? [new MarketplaceAction(T("Подключить", "Туташтыруу", "Connect", "Bağla", "Ulash"), () => _run("request:" + slug)),
                    // 2026-11-06: купить можно и на сайте — вернётесь в программу, и покупка подхватится сама
                    new MarketplaceAction(T("Купить на сайте", "Сайттан сатып алуу", "Buy on the website", "Web sitesinden satın al", "Saytdan sotib olish"), () => _run("web:" + ServerAddons.CodePrefix + slug))]

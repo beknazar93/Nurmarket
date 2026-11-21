@@ -41,6 +41,9 @@ public partial class ScaleBarcodeSetupPanel : UserControl
         InitializeComponent();
         // 2026-11-11 (Д-5, живой показ 1.17.85): правила применяются и сохраняются сразу (без «Сохранить») — окно настроек не считает их «несохранёнными».
         Classes.Add(NurMarketKassa.AvaloniaHost.Views.PosSettingsWindow.ImmediateSettingClass);
+        // 2026-11-21: в программе владельца вопрос при выходе «Весы — несохранённые правки» вылезал из-за пробного ввода в поле «Настроить по этикетке»
+        // (13 цифр этикетки) — а всё остальное здесь применяется сразу. Ввод внутри панели не считается несохранённым (UnsavedInputTracker).
+        UnsavedInputTracker.SetIgnore(this, true);
         _pcCard.Changed += () => { Refresh(); RulesChanged?.Invoke(); };
         if (Content is Panel root)
             root.Children.Add(_pcCard);
@@ -500,6 +503,7 @@ public partial class ScaleBarcodeSetupPanel : UserControl
 
         // 2026-11-05: единица суммы и её источник (выбрано на кассе / с сайта) уже внутри ScaleUi.CompanyFormatText.
         CompanyFormatText.Text = ScaleUi.CompanyFormatText();
+        CompanyDetails.Header = L("Подробнее", "Кеңири", "Details", "Ayrıntılar", "Batafsil"); // 2026-11-21: раскладка — в сворачиваемом блоке
 
         var brand = ScaleUi.NormalizeBrand(UserPreferences.Instance.ScaleBrand);
         OnScaleRow.IsVisible = brand != ScaleUi.BrandAi;

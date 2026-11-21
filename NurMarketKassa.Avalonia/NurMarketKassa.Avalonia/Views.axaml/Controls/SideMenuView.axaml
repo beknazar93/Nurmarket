@@ -29,8 +29,6 @@
         <StreamGeometry x:Key="RemoteSupportIcon">M3,5 H21 V16 H14 L15,19 H9 L10,16 H3 Z M8,10.5 A4,4 0 1 1 15.99,10.5</StreamGeometry>
         <!-- 2026-11-13 (Н-1): значки «Мастер первого запуска» (флажок) и «Учебная продажа» (шапка выпускника). -->
         <StreamGeometry x:Key="FirstRunWizardIcon">M5,21 V4 M5,4 H17 L14.5,8 L17,12 H5</StreamGeometry>
-        <!-- 2026-11-20: значок «Перенос данных из другой программы» (стрелка в лоток) -->
-        <StreamGeometry x:Key="TransferDataIcon">M12,3 V15 M7,10 L12,15 L17,10 M4,20 H20</StreamGeometry>
         <StreamGeometry x:Key="TrainingSaleIcon">M2,9 L12,4 L22,9 L12,14 Z M6,11.5 V16 C6,17.5 9,19 12,19 C15,19 18,17.5 18,16 V11.5 M22,9 V15</StreamGeometry>
         <StreamGeometry x:Key="KnowledgeBaseIcon">M4,5 A2,2 0 0 1 6,3 H20 V19 H6 A2,2 0 0 0 4,21 Z M4,5 V19 M8,8 H16 M8,12 H14</StreamGeometry>
         <StreamGeometry x:Key="RestockIcon">M3,17 L9,11 L13,15 L21,7 M21,7 H15 M21,7 V13</StreamGeometry>
@@ -1078,26 +1076,6 @@
                             </Border>
                         </Grid>
                     </Button>
-                    <!-- 2026-11-20 (владелец: «где импорт из других программ?»): «Перенос данных» — рядом с обучением, по праву «Склад: редактирование». -->
-                    <Button Classes="sidebar-menu-item" IsVisible="{Binding CanTransferData}"
-                            Command="{Binding NavigateTransferDataCommand}">
-                        <Grid ColumnDefinitions="24,12,*" HorizontalAlignment="Stretch">
-                            <Path Grid.Column="0"
-                                  Width="20" Height="20"
-                                  Stretch="Uniform"
-                                  VerticalAlignment="Center"
-                                  Fill="Transparent"
-                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                  StrokeThickness="1.6"
-                                  StrokeLineCap="Round"
-                                  StrokeJoin="Round"
-                                  Data="{StaticResource TransferDataIcon}"/>
-                            <TextBlock Grid.Column="2"
-                                       Text="{DynamicResource csh.menu.transferData}"
-                                       HorizontalAlignment="Left"
-                                       VerticalAlignment="Center"/>
-                        </Grid>
-                    </Button>
                     <!-- 2026-11-13 (Н-1): «Мастер первого запуска» и «Учебная продажа». -->
                     <Button Classes="sidebar-menu-item"
                             Command="{Binding NavigateFirstRunWizardCommand}">
@@ -1766,15 +1744,6 @@
                             </Button>
                         </Panel>
                         <!-- 2026-11-13 (Н-1): «Мастер первого запуска» и «Учебная продажа» — рядом с «Базой знаний». -->
-                        <!-- 2026-11-20 (владелец: «где импорт из других программ?»): «Перенос данных» — плитка рядом с обучением. -->
-                        <Panel Classes="km-cell" IsVisible="{Binding CanTransferData}">
-                            <Button x:Name="MiTransferData" Classes="km-tile km-act" Command="{Binding NavigateTransferDataCommand}">
-                                <StackPanel Classes="km-tile-body">
-                                    <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="{StaticResource TransferDataIcon}"/></Border>
-                                    <TextBlock Classes="km-tile-text" Text="{DynamicResource csh.menu.transferData}"/>
-                                </StackPanel>
-                            </Button>
-                        </Panel>
                         <Panel Classes="km-cell">
                             <Button x:Name="MiFirstRunWizard" Classes="km-tile km-act" Command="{Binding NavigateFirstRunWizardCommand}">
                                 <StackPanel Classes="km-tile-body">

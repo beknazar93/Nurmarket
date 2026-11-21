@@ -43,6 +43,8 @@ public sealed class ClientsImportWindow : Window
 
     public static async Task<int> ShowAsync(Window? owner)
     {
+        if (!ImportAccess.Allowed) // 2026-11-21: импорт клиентов — только в программе владельца
+            return 0;
         var window = new ClientsImportWindow();
         if (owner is null)
         {
@@ -56,6 +58,8 @@ public sealed class ClientsImportWindow : Window
     /// <summary>2026-11-20: открыть окно сразу с таблицей клиентов, найденной в папке программы (мастер загрузки товаров, «Автоподтяжка базы»).</summary>
     public static async Task<int> ShowAsync(Window? owner, ProductFileTable preloaded)
     {
+        if (!ImportAccess.Allowed) // 2026-11-21
+            return 0;
         var window = new ClientsImportWindow();
         window.Opened += async (_, _) => await window.ShowResultAsync(new ProductFileReadResult { Table = preloaded }).ConfigureAwait(true);
         if (owner is null)

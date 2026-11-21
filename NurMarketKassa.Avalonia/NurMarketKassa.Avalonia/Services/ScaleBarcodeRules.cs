@@ -52,14 +52,10 @@ internal static class ScaleBarcodeRules
     /// <summary>Как касса прочтёт префикс сейчас (правило кассы важнее режима компании).</summary>
     public static WeightBarcodeValueKind Effective(string prefix)
     {
-        // 2026-11-06: у префикса своя раскладка (весы Штрих РС-200) — вес или стоимость задаёт она
-        if (WeightBarcodeParser.FindCustomLayout(prefix) is { } custom)
-            return custom.Kind;
-        if (WeightBarcodeParser.AmountPrefixes.Contains(prefix))
-            return WeightBarcodeValueKind.Amount;
-        if (WeightBarcodeParser.WeightPrefixes.Contains(prefix))
-            return WeightBarcodeValueKind.Weight;
-        return CompanyDefault(prefix);
+        // 2026-11-21 (живой баг магазина: мастер «вес», а скан в корзине «сумма»): перед ответом подмешиваем те же общие префиксы «сумма», что и скан
+        // (ScaleLabelCodeRegistry.ApplySharedAmountPrefixes), и решает та же функция парсера, что разбирает этикетку — один источник решения.
+        ScaleLabelCodeRegistry.ApplySharedAmountPrefixes();
+        return WeightBarcodeParser.EffectiveKind(prefix);
     }
 
     /// <summary>Для префикса задано своё правило кассы (а не режим компании).</summary>
@@ -121,6 +117,10 @@ internal static class ScaleBarcodeRules
     public static void ApplyAndSave(string prefix, WeightBarcodeValueKind kind)
     {
         Apply(prefix, kind);
+        // 2026-11-21: «вес» — явный выбор кассира: снимаем префикс из общих «сумма» весов с прямой отправкой (файл этой/соседней программы и облако),
+        // иначе скан возвращал его в «сумма» и читал вес 1,805 кг как сумму 1805 сом.
+        if (kind == WeightBarcodeValueKind.Weight)
+            ScaleLabelCodeRegistry.UnpublishAmountPrefix(prefix);
         UserPreferences.Instance.SaveToDisk();
         PosLogger.Log($"Весы: правило штрихкода — префикс {prefix}: {(kind == WeightBarcodeValueKind.Amount ? "сумма" : "вес")}", "SCALES");
     }

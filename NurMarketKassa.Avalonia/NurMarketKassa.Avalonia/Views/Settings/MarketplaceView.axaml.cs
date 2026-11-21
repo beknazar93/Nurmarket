@@ -58,9 +58,22 @@ public partial class MarketplaceView : UserControl
 
         // 2026-10-31, ТЗ Умара «функции маркетплейса — с сервера»: при открытии Маркетплейса — свежий список функций, включённых
         // компании на сервере; пришло изменение (включили/выключили) — витрина перечитывается. Без связи/с ошибкой — как было, по ключам.
-        AttachedToVisualTree += (_, _) => ServerAddons.Changed += OnServerAddonsChanged;
-        DetachedFromVisualTree += (_, _) => ServerAddons.Changed -= OnServerAddonsChanged;
+        // 2026-11-21 (ответ Умара 20.11, В.16 / В.21): и модули компании, и их цены — витрина перечитывается без перезапуска (включили / выключили на сайте, сменили профиль, пришли цены).
+        AttachedToVisualTree += (_, _) =>
+        {
+            ServerAddons.Changed += OnServerAddonsChanged;
+            CompanyModules.Changed += OnServerAddonsChanged;
+            PublicModules.Changed += OnServerAddonsChanged;
+        };
+        DetachedFromVisualTree += (_, _) =>
+        {
+            ServerAddons.Changed -= OnServerAddonsChanged;
+            CompanyModules.Changed -= OnServerAddonsChanged;
+            PublicModules.Changed -= OnServerAddonsChanged;
+        };
         _ = ServerAddons.RefreshAsync(force: true);
+        _ = CompanyModules.RefreshAsync(force: true);
+        PublicModules.RefreshInBackground();
         AccessSync.Kick("marketplace"); // 2026-11-11: и доступы/тариф «с сайта» — не ждать фонового такта
         InitWebPurchases(); // 2026-11-06: «Открыть Маркетплейс на сайте», «Обновить покупки», темы с сайта (MarketplaceView.WebPurchases.cs)
     }
@@ -134,6 +147,15 @@ public partial class MarketplaceView : UserControl
                     break;
                 case "open":
                     OpenFeature(id);
+                    break;
+                case "module-on": // 2026-11-21: модуль компании на сервере — включить
+                    _ = SetModuleAsync(id, true);
+                    break;
+                case "module-off":
+                    _ = SetModuleAsync(id, false);
+                    break;
+                case "module-trial": // 2026-11-21: пробный период модуля (7 дней)
+                    _ = StartModuleTrialAsync(id);
                     break;
                 case "request":
                     _ = RequestAddonAsync(id);
@@ -303,14 +325,10 @@ public partial class MarketplaceView : UserControl
                 analyticsWindow.AnalyticsOnly = true;
                 analyticsWindow.Show(owner);
                 break;
-            case "pricetag":
-                App.GetRequiredService<WarehouseWindow>().Show(owner);
-                break;
+            case "pricetag": // 2026-11-21: три карточки печати и редакторов — это одна вкладка Склада «Ценники и штрихкоды»
             case "bulktag":
-                _ = BulkPriceTagPrintDialog.Open(owner);
-                break;
             case "labeleditor":
-                _ = new LabelTemplateEditorDialog().ShowDialog(owner);
+                WarehouseWindow.RequestLabels(owner);
                 break;
             case "export":
                 PosAlertDialog.Show(owner,

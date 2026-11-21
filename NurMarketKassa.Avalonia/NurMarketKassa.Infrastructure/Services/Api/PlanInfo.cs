@@ -47,7 +47,12 @@ public sealed record PlanInfo(
             if (plan.TryGetProperty("allowed_clients", out var ac) && ac.ValueKind == JsonValueKind.Array)
                 allowed = ac.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(x.GetString()))
                     .Select(x => x.GetString()!.Trim()).ToList();
-            return new PlanInfo(code.Trim(), Str(plan, "name") ?? code.Trim(), Map(plan, "names"), Map(plan, "descriptions"), Str(plan, "period"), limits, allowed, Str(plan, "upgrade_plan"));
+            // 2026-11-21 (ответ Умара 21.11): name может прийти и строкой, и объектом {ru,ky,en,tr,uz} — разбираем с запасом: объект докладывается в names, строка берётся как есть.
+            var names = Map(plan, "names");
+            foreach (var kv in Map(plan, "name"))
+                names.TryAdd(kv.Key, kv.Value);
+            var name = Str(plan, "name") ?? (names.TryGetValue("ru", out var ru) ? ru : names.Values.FirstOrDefault()) ?? code.Trim();
+            return new PlanInfo(code.Trim(), name, names, Map(plan, "descriptions"), Str(plan, "period"), limits, allowed, Str(plan, "upgrade_plan"));
         }
         catch (Exception ex) when (ex is InvalidOperationException or FormatException)
         {

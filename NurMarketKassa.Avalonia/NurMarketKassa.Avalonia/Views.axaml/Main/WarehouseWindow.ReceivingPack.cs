@@ -28,7 +28,7 @@ public partial class WarehouseWindow
         var bar = _rcvPackBar = new ReceivingPackBar(
             lines: () =>
             {
-                ReceivingGrid.CommitEdit();
+                CommitReceivingEdit();
                 return _viewModel.ReceivingLines.ToList();
             },
             confirm: (message, ok) => PosConfirmDialog.ShowModalAsync(this,
@@ -123,7 +123,7 @@ public partial class WarehouseWindow
     /// Видимостью самой панели по-прежнему управляет «пусто / не пусто» (WarehouseWindow.O9.cs) — здесь только её содержимое.</summary>
     private void InitReceivingEmptyFit()
     {
-        ReceivingGrid.SizeChanged += (_, _) => FitReceivingEmptyState();
+        ReceivingCards.SizeChanged += (_, _) => FitReceivingEmptyState(); // 2026-11-21: вместо скрытой таблицы — список карточек
         ReceivingEmptyState.PropertyChanged += (_, e) =>
         {
             if (e.Property == IsVisibleProperty)
@@ -134,13 +134,13 @@ public partial class WarehouseWindow
 
     private void FitReceivingEmptyState()
     {
-        if (_rcvEmptyFitting || !ReceivingEmptyState.IsVisible || ReceivingGrid.Bounds.Height < 1)
+        if (_rcvEmptyFitting || !ReceivingEmptyState.IsVisible || ReceivingCards.Bounds.Height < 1)
             return;
         _rcvEmptyFitting = true;
         try
         {
-            var available = ReceivingGrid.Bounds.Height - ReceivingGrid.ColumnHeaderHeight - 6;
-            var width = Math.Max(120, Math.Min(540, ReceivingGrid.Bounds.Width - 32));
+            var available = ReceivingCards.Bounds.Height - 6;
+            var width = Math.Max(120, Math.Min(540, ReceivingCards.Bounds.Width - 32));
             var icon = ReceivingEmptyState.Children[0];
             ReceivingEmptyState.Width = width;
             // (значок, заголовок, пояснение, поле сверху)

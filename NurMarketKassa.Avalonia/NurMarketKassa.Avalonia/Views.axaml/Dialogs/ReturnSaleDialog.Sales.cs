@@ -543,7 +543,7 @@ public partial class ReturnSaleDialog
                 lines.Add(new SaleLedgerLine
                 {
                     LineId = ReturnLineCheck.SaleItemId(it), // 2026-11-11: sale_item_id = id строки чека (контракт Умара)
-                    Name = CartDisplayHelper.ItemName(it),
+                    Name = CartDisplayHelper.ItemTitle(it), // 2026-11-21: название товара + variant_name
                     Quantity = CartDisplayHelper.LineQuantity(it),
                     UnitPrice = (decimal)CartDisplayHelper.UnitPrice(it),
                     Total = lineTotal,
@@ -713,7 +713,7 @@ public partial class ReturnSaleDialog
             if (string.IsNullOrEmpty(lineId))
                 continue;
 
-            var title = CartDisplayHelper.ItemName(lineItem);
+            var title = CartDisplayHelper.ItemTitle(lineItem); // 2026-11-21: название товара + variant_name
             var subLine = CartDisplayHelper.QuantityPriceLine(lineItem);
             var lineTotal = CartDisplayHelper.LineTotal(lineItem);
             var originalQty = CartDisplayHelper.LineQuantity(lineItem);

@@ -604,11 +604,11 @@ public partial class OwnerShellWindow : Window, IMainShell
         ToolTip.SetTip(ExitButton, exitTip);
         ToolTip.SetTip(RefreshButton, Tr.T("Обновить сейчас", "Азыр жаңыртуу", "Refresh now", "Şimdi yenile", "Hozir yangilash"));
         var collapseTip = Tr.T(
-            "Свернуть колонку пунктов. На экране до 1366 точек она сворачивается сама, когда открыт раздел",
-            "Пункттар тилкесин жыйноо. 1366 чекиттен кичине экранда бөлүм ачылганда өзү жыйылат",
-            "Collapse the items column. On screens up to 1366 px it collapses by itself while a section is open",
-            "Öğe sütununu daralt. 1366 piksele kadar ekranlarda bir bölüm açıkken kendiliğinden daralır",
-            "Bandlar ustunini yig'ish. 1366 nuqtagacha ekranda bo'lim ochiq bo'lsa, o'zi yig'iladi");
+            "Свернуть колонку пунктов. На окне до 1366 точек она свёрнута сама; раскрытая нажатием на группу остаётся раскрытой, пока не свернёте",
+            "Пункттар тилкесин жыйноо. 1366 чекитке чейинки терезеде ал өзү жыйылган; топко басканда ачылса, жыйганга чейин ачык турат",
+            "Collapse the items column. In a window up to 1366 px it starts collapsed; once opened with a group it stays open until you collapse it",
+            "Öğe sütununu daralt. 1366 piksele kadar pencerede kendiliğinden dar başlar; bir gruba basılarak açılınca siz daraltana kadar açık kalır",
+            "Bandlar ustunini yig'ish. 1366 nuqtagacha oynada u o'zi yig'ilgan; guruhga bosib ochilsa, siz yig'maguncha ochiq turadi");
         var expandTip = Tr.T("Развернуть колонку пунктов", "Пункттар тилкесин ачуу", "Expand the items column", "Öğe sütununu genişlet", "Bandlar ustunini yoyish");
         ToolTip.SetTip(CollapseButton, collapseTip);
         ToolTip.SetTip(ExpandNavButton, expandTip);
@@ -788,11 +788,7 @@ public partial class OwnerShellWindow : Window, IMainShell
                 // 2026-10-18, вид «Бургер ☰»: выехавшее меню закрывается; раздел не сменился (нет прав) — прежний возвращается.
                 var fromBurger = CloseBurgerForNavigation();
                 // 2026-10-18, этап О2: колонка пунктов была раскрыта нажатием на группу — после выбора снова свёрнута.
-                if (_navPeek)
-                {
-                    _navPeek = false;
-                    ApplySidebarLayout();
-                }
+                // 2026-11-21: колонка после выбора пункта не сворачивается (см. SelectNavGroup) — размер не меняется от клика.
                 try
                 {
                     // 2026-11-09: если права перепроверяются на сервере (Authorize), после подтверждения раздел откроется этим же действием.
@@ -830,10 +826,8 @@ public partial class OwnerShellWindow : Window, IMainShell
         Group("products", Tr.T("Товары", "Товарлар", "Products", "Ürünler", "Mahsulotlar"));
         Add("warehouse", "WarehouseIcon", Tr.T("Склад", "Кампа", "Warehouse", "Depo", "Ombor"), true,
             () => { if (Authorize(PosPermissions.ViewProducts)) OpenSection("warehouse", () => App.GetRequiredService<WarehouseWindow>()); });
-        // 2026-11-11, запрос владельца «массовая печать ценников/штрихкодов — выведи в Склад сверху! Как в вебе!»: пункт «Штрихкоды и ценники» — тот же экран, что вкладка «Штрихкоды» в «Складе»
-        // (BarcodePrintSectionWindow). Права — как у «Склада» (плюс «Печать штрих-кодов» внутри); платность прежняя (массовая печать), скрывается в «Разделах меню».
-        Add("barcodes", "IconBarcode", Tr.T("Штрихкоды и ценники", "Штрих-коддор жана баа белгилери", "Barcodes and price tags", "Barkodlar ve fiyat etiketleri", "Shtrix-kodlar va narx yorliqlari"), true,
-            () => { if (Authorize(PosPermissions.ViewProducts)) OpenSection("barcodes", () => new BarcodePrintSectionWindow()); });
+        // 2026-11-21 (владелец: «собери в складе все редакторы в одну вкладку»): отдельного пункта «Штрихкоды и ценники» больше нет (был с 11.11) — печать, редактор и шаблоны
+        // только на вкладке Склада «Ценники и штрихкоды» (WarehouseWindow.Barcodes.cs, LabelsHubView).
         // 2026-10-01: права разделов — как на сайте NurCRM (PosPermissions.ViewProducts/ViewAnalytics/…):
         // Склад — «Склад», Калькуляция/Финансы/Аналитика/ABC/бот — «Аналитика», Клиенты — «Клиенты»,
         // Заказы с сайта — «Заказы». Раньше Склад — по «Закупкам», остальное открывалось всем.

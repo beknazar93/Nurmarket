@@ -27,6 +27,10 @@ public static class ProductSaleUnits
         public decimal? Price { get; set; }
         public decimal? WholesalePrice { get; set; }
 
+        /// <summary>2026-11-21 (ответ Умара 21.11, п. 4): единица годится для прихода (for_receipt = true) — в приход упаковками идёт только такая. null — сервер флаг не прислал (старый сервер; для прихода не использовать).
+        /// Интерфейс прихода упаковками пока не включён: поле только разобрано и сохранено, поведение кассы не меняется.</summary>
+        public bool? ForReceipt { get; set; }
+
         /// <summary>Ключ единицы в строке чека кассы: id единицы, а если сервер его не прислал — её код (<c>pack</c>); по нему единицу находят в карточке.</summary>
         public string Key => !string.IsNullOrWhiteSpace(Id) ? Id!.Trim() : UnitCode.Trim();
 
@@ -94,6 +98,9 @@ public static class ProductSaleUnits
     }
 
     public static bool Has(string? productId) => For(productId).Count > 0;
+
+    /// <summary>2026-11-21 (ответ Умара 21.11, п. 4): единицы товара, годные для прихода (for_receipt = true и есть id). Пока нигде в интерфейсе не используется (приход упаковками не включён).</summary>
+    public static IReadOnlyList<Unit> ReceiptUnits(string? productId) => For(productId).Where(u => u.ForReceipt == true && u.HasServerId).ToList();
 
     /// <summary>Единица товара по ключу из строки (<c>sale_unit</c>: id или код).</summary>
     public static Unit? Find(string? productId, string? key)
@@ -231,6 +238,7 @@ public static class ProductSaleUnits
             Barcode = ReadText(el, "barcode"),
             Price = el.TryGetProperty("price", out var p) ? ReadDecimal(p) : null,
             WholesalePrice = el.TryGetProperty("wholesale_price", out var w) ? ReadDecimal(w) : null,
+            ForReceipt = el.TryGetProperty("for_receipt", out var fr) ? fr.ValueKind switch { JsonValueKind.True => true, JsonValueKind.False => false, _ => null } : null, // 2026-11-21
         };
         // Без id и без кода единицу сервер по полю sale_unit не найдёт — такую не запоминаем (продажа ушла бы без единицы и списала бы упаковку как штуку).
         return unit.Key.Length == 0 ? null : unit;

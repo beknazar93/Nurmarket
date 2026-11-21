@@ -31,20 +31,11 @@ public sealed class RentalFeatureTests : IDisposable
     }
 
     [Theory]
-    [InlineData(true, false, false, true)]   // строймаркет — включено по умолчанию
-    [InlineData(false, true, false, true)]   // модуль включён в Маркетплейсе
-    [InlineData(false, false, true, true)]   // миграция: у компании уже есть данные проката
-    [InlineData(false, false, false, false)] // новая компания в другой сфере — выключено
-    public void IsEnabled_rule(bool hardware, bool module, bool existing, bool expected) =>
-        RentalFeature.IsEnabled(hardware, module, () => existing).Should().Be(expected);
-
-    [Fact]
-    public void IsEnabled_does_not_look_for_data_when_answer_is_known()
-    {
-        var asked = false;
-        RentalFeature.IsEnabled(true, false, () => asked = true).Should().BeTrue();
-        asked.Should().BeFalse("строймаркет — ответ известен без чтения данных");
-    }
+    [InlineData(true, false, true)]   // строймаркет — входит в тариф
+    [InlineData(false, true, true)]   // модуль включён в Маркетплейсе
+    [InlineData(false, false, false)] // другая сфера без модуля — выключено (старые данные проката не включают, 21.11.2026)
+    public void IsEnabled_rule(bool hardware, bool module, bool expected) =>
+        RentalFeature.IsEnabled(hardware, module).Should().Be(expected);
 
     [Theory]
     [InlineData("grocery", null)]
@@ -77,15 +68,22 @@ public sealed class RentalFeatureTests : IDisposable
     }
 
     [Fact]
-    public void Migration_keeps_rentals_after_leaving_hardware_and_does_not_lose_data_on_sphere_change()
+    public void Old_rental_data_does_not_turn_the_module_on()
+    {
+        // 2026-11-21 (решение владельца): у «Продуктового» с прежними прокатами пункт «Прокат» не появляется сам; данные проката не удаляются.
+        Sphere("grocery", null);
+        UserPreferences.Instance.RentalEnabled = false;
+        RentalFeature.IsAvailable.Should().BeFalse("старые данные проката модуль не включают");
+        MarketSpheres.HasRentals.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Module_stays_on_after_leaving_hardware_when_owner_turned_it_on()
     {
         Sphere("grocery", "hardware");
-        RentalFeature.EnableForExisting().Should().BeTrue("у компании уже есть прокат — признак ставится сам");
-        UserPreferences.Instance.RentalEnabled.Should().BeTrue();
-        RentalFeature.EnableForExisting().Should().BeFalse("повторно ничего не меняет");
-
+        UserPreferences.Instance.RentalEnabled = true; // владелец включил в Маркетплейсе
         UserPreferences.Instance.MarketSphereDetail = null; // сменили сферу на «Продукты»
-        MarketSpheres.HasRentals.Should().BeTrue("действующих клиентов не ломаем: пункты проката остаются");
+        MarketSpheres.HasRentals.Should().BeTrue("включённый владельцем модуль остаётся");
     }
 
     [Fact]

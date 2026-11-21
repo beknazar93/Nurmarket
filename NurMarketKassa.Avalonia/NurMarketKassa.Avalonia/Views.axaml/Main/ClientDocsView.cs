@@ -282,7 +282,7 @@ public static class ClientDocsUi
                 price = sum / qty;
             var pid = CartDisplayHelper.TryProductId(line) ?? "";
             var unit = ProductActions.Find(pid) is { } p && !string.IsNullOrWhiteSpace(p.Unit) ? p.Unit : "шт";
-            var l = new ClientDocLine { ProductId = pid, Name = CartDisplayHelper.ItemName(line), Unit = unit, Qty = qty };
+            var l = new ClientDocLine { ProductId = pid, Name = CartDisplayHelper.ItemTitle(line), Unit = unit, Qty = qty }; // 2026-11-21: название товара + variant_name
             l.SetPrice(price, 0);
             doc.Lines.Add(l);
         }

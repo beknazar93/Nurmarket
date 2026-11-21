@@ -102,6 +102,8 @@ public static partial class BarcodeLabelService
         if (!string.IsNullOrWhiteSpace(variantText) && variantElement is { Enabled: true })
             DrawTextElement(g, variantElement, variantText!.Trim(), FontStyle.Bold, ResolveFontFamily(variantElement, template), ResolveFontSizePx(variantElement, template));
 
+        DrawExtras(g, template); // 2026-11-21: свои элементы «Редактора ценников»
+
         if (template.Frame) // 2026-11-19: «Рамка» — четыре линии в 1 точку 203 dpi по краю (в g координаты 203 dpi, ScaleTransform уже выставлен)
         {
             var fw = widthPx * Dpi / (float)dpi;
@@ -113,6 +115,53 @@ public static partial class BarcodeLabelService
         }
 
         return label;
+    }
+
+    /// <summary>2026-11-21 («Редактор ценников»): свои элементы — текст (произвольный, старая цена, скидка, бренд, дата, ячейка), линия, логотип.
+    /// Правила текста и данных — <see cref="LabelExtras"/>, те же, что в сцене (BuildLabelScene).</summary>
+    private static void DrawExtras(Graphics g, LabelTemplate template)
+    {
+        foreach (var e in template.Extras ?? new())
+        {
+            if (!e.Enabled)
+                continue;
+            var rect = ToPxRect(e);
+            switch (e.Kind)
+            {
+                case LabelExtraKind.Line:
+                    g.FillRectangle(Brushes.Black, rect.X, rect.Y, Math.Max(rect.Width, 1f), Math.Max(rect.Height, 1f));
+                    break;
+                case LabelExtraKind.Logo:
+                {
+                    var cells = LabelLogo.Cells(e.ImagePath, (int)rect.Width, (int)rect.Height, out var ox, out var oy);
+                    if (cells is null)
+                        break;
+                    for (var y = 0; y < cells.GetLength(1); y++)
+                    {
+                        var x = 0;
+                        while (x < cells.GetLength(0))
+                        {
+                            if (!cells[x, y]) { x++; continue; }
+                            var start = x;
+                            while (x < cells.GetLength(0) && cells[x, y]) x++;
+                            g.FillRectangle(Brushes.Black, rect.X + ox + start, rect.Y + oy + y, x - start, 1);
+                        }
+                    }
+                    break;
+                }
+                default:
+                {
+                    var text = LabelExtras.TextFor(e, template);
+                    if (string.IsNullOrWhiteSpace(text))
+                        break;
+                    var style = LabelExtras.IsBold(e) ? FontStyle.Bold : FontStyle.Regular;
+                    if (LabelExtras.IsStrike(e))
+                        style |= FontStyle.Strikeout;
+                    DrawTextElement(g, e, text!, style, ResolveFontFamily(e, template), ResolveFontSizePx(e, template));
+                    break;
+                }
+            }
+        }
     }
 
     /// <summary>Разрешение картинки, по которому GDI+ переводит пункты шрифта в точки: 96 на дюйм, как в Skia (SkiaText.PtToPx) и предпросмотре Avalonia.</summary>
@@ -533,6 +582,34 @@ public static partial class BarcodeLabelService
         if (!box.Enabled || rect.Width < 4 || rect.Height < 4 || string.IsNullOrWhiteSpace(text))
             return;
 
+        // 2026-11-21 («Редактор ценников»): жирность, курсив, выравнивание и поворот элемента. Не заданы — вид прежний (по центру, обычный/жирный по виду).
+        if (box.Bold is { } bold)
+            style = bold ? style | FontStyle.Bold : style & ~FontStyle.Bold;
+        if (box.Italic == true)
+            style |= FontStyle.Italic;
+        var align = box.Align ?? 1;
+        var rot = ((box.Rotation % 360) + 360) % 360;
+        if (rot != 0)
+        {
+            var state = g.Save();
+            try
+            {
+                g.TranslateTransform(rect.X + rect.Width / 2f, rect.Y + rect.Height / 2f);
+                g.RotateTransform(rot);
+                var (rw, rh) = rot is 90 or 270 ? (rect.Height, rect.Width) : (rect.Width, rect.Height);
+                DrawTextInRect(g, new RectangleF(-rw / 2f, -rh / 2f, rw, rh), text, style, fontFamily, manualFontSizePx, align);
+            }
+            finally
+            {
+                g.Restore(state);
+            }
+            return;
+        }
+        DrawTextInRect(g, rect, text, style, fontFamily, manualFontSizePx, align);
+    }
+
+    private static void DrawTextInRect(Graphics g, RectangleF rect, string text, FontStyle style, string fontFamily, double manualFontSizePx, int align)
+    {
         // 2026-10-26: ручной размер шрифта больше не ограничен (был потолок 96 и подгонка под ширину блока) —
         // владелец сам решает, насколько крупным будет текст. Строка переносится по ширине блока, по высоте
         // и ширине выходит за блок без обрезки (край этикетки — естественная граница).
@@ -541,7 +618,7 @@ public static partial class BarcodeLabelService
             using var manualFont = new Font(fontFamily, Math.Max((float)manualFontSizePx, 1f), style);
             using var format = new StringFormat(StringFormatFlags.NoClip)
             {
-                Alignment = StringAlignment.Center,
+                Alignment = align == 0 ? StringAlignment.Near : align == 2 ? StringAlignment.Far : StringAlignment.Center,
                 LineAlignment = StringAlignment.Center,
             };
             // 2026-10-27 (приёмка Opus 26.10, Д-10): крупный шрифт (120 px) рисовался поверх штрихкода и цены и мог сделать штрихкод нечитаемым.
@@ -564,7 +641,7 @@ public static partial class BarcodeLabelService
             size = g.MeasureString(displayText, font);
         }
         g.DrawString(displayText, font, Brushes.Black,
-            rect.X + Math.Max(0, (rect.Width - size.Width) / 2f),
+            rect.X + (align == 0 ? 0 : align == 2 ? Math.Max(0, rect.Width - size.Width) : Math.Max(0, (rect.Width - size.Width) / 2f)),
             rect.Y + Math.Max(0, (rect.Height - size.Height) / 2f));
     }
 

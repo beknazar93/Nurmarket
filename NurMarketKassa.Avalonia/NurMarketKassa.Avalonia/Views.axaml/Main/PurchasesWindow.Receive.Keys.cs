@@ -226,7 +226,7 @@ public partial class PurchasesWindow
             T($"Печать этикеток ({items.Count})", $"Этикетка басуу ({items.Count})", $"Print labels ({items.Count})", $"Etiket yazdır ({items.Count})", $"Yorliq chop etish ({items.Count})"),
             T("Не сейчас", "Азыр эмес", "Not now", "Şimdi değil", "Hozir emas"), PosConfirmAccent.Primary, enterCancels: true).ConfigureAwait(true);
         if (print)
-            await BarcodePrintWindow.OpenWith(this, items).ConfigureAwait(true);
+            WarehouseWindow.RequestLabels(this, items); // 2026-11-21: печать — единая вкладка Склада «Ценники и штрихкоды»
     }
 }
 

@@ -85,6 +85,7 @@ public sealed class MarketSphereChoiceWindow : Window
         prefs.MarketSphereChoicePending = false;
         prefs.SaveToDisk();
         PosLogger.Log($"Первый запуск: выбран вид магазина {sphere}.", "SETTINGS");
+        _ = CompanyModules.PushProfileAsync(); // 2026-11-21: профиль модулей на сервере = выбранная сфера (владелец; кассиру сервер откажет)
         try
         {
             var serverSphereValue = MarketSpheres.Normalize(sphere);

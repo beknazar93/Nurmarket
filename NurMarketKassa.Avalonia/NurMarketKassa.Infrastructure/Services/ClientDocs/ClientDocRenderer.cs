@@ -218,6 +218,7 @@ public static class ClientDocRenderer
                     {
                         end.Spacing(minimal ? 5 : 7);
                         Totals(end, d, l, pal, body);
+                        CargoBlock(end, d, l, pal, body);
                         var term = Term(d, l);
                         if (term.Length > 0)
                             end.Item().Text(term).FontSize(fontSize);
@@ -461,6 +462,7 @@ public static class ClientDocRenderer
     {
         var showDiscount = d.Lines.Any(x => x.DiscountPercent is > 0);
         var showBarcode = ShowBarcodes(d); // 2026-11-20: колонка «Штрихкод» — только у приходной накладной с включённой опцией (по умолчанию форма прежняя)
+        var showCargo = BazaarCargo.IsOn(d); // 2026-11-21 («Базар», опт, «Накладная + карго»): колонки «Мест» и «Брутто, кг» — только у накладной с галочкой «Карго»
         var minimal = template == Minimal;
         var modern = template == Modern;
         col.Item().PaddingTop(4).Table(t =>
@@ -477,6 +479,11 @@ public static class ClientDocRenderer
                 if (showDiscount)
                     c.ConstantColumn(15, Unit.Millimetre);
                 c.ConstantColumn(26, Unit.Millimetre);
+                if (showCargo)
+                {
+                    c.ConstantColumn(13, Unit.Millimetre);
+                    c.ConstantColumn(19, Unit.Millimetre);
+                }
             });
 
             IContainer Head(IContainer x)
@@ -502,6 +509,11 @@ public static class ClientDocRenderer
                 if (showDiscount)
                     h.Cell().Element(Head).AlignRight().Text(l.T("Скидка", "Арзанд."));
                 h.Cell().Element(Head).AlignRight().Text(l.T("Сумма", "Сумма"));
+                if (showCargo)
+                {
+                    h.Cell().Element(Head).AlignRight().Text(l.T("Мест", "Орун"));
+                    h.Cell().Element(Head).AlignRight().Text(l.T("Брутто, кг", "Брутто, кг"));
+                }
             });
 
             var i = 0;
@@ -529,10 +541,15 @@ public static class ClientDocRenderer
                 if (showDiscount)
                     t.Cell().Element(Cell).AlignRight().Text(line.DiscountPercent is > 0 and var dp ? dp.ToString("0.##", Ru) + "%" : "—");
                 t.Cell().Element(Cell).AlignRight().Text(M(line.Sum));
+                if (showCargo)
+                {
+                    t.Cell().Element(Cell).AlignRight().Text(BazaarCargo.Places(line) is > 0 and var places ? places.ToString(CultureInfo.InvariantCulture) : "—");
+                    t.Cell().Element(Cell).AlignRight().Text(BazaarCargo.Gross(line) is > 0 and var gross ? Q(gross) : "—");
+                }
             }
             if (d.Lines.Count == 0)
             {
-                var span = (uint)((showDiscount ? 7 : 6) + (showBarcode ? 1 : 0));
+                var span = (uint)((showDiscount ? 7 : 6) + (showBarcode ? 1 : 0) + (showCargo ? 2 : 0));
                 t.Cell().ColumnSpan(span).Element(x => minimal ? x.BorderBottom(0.4f).BorderColor(pal.Line).Padding(6) : x.Border(0.7f).BorderColor(pal.Line).Padding(6))
                     .AlignCenter().Text(l.T("Товары не добавлены", "Товарлар кошула элек")).FontColor(pal.Soft);
             }
@@ -609,6 +626,41 @@ public static class ClientDocRenderer
         col.Item().Text(MoneyWords.Amount(d.Total, d.Lang)).Bold();
         if (template != Minimal)
             col.Item().LineHorizontal(template == Modern ? 0.6f : 1f).LineColor(template == Modern ? pal.Line : pal.Ink);
+    }
+
+    // ── «Карго» (опт): итоги по местам и весу, мешки, перевозчик, куда и трек ──
+
+    private static void CargoBlock(ColumnDescriptor col, ClientDoc d, L l, Palette pal, string template)
+    {
+        if (!BazaarCargo.IsOn(d))
+            return;
+        var info = BazaarCargo.Read(d);
+        var places = BazaarCargo.TotalPlaces(d);
+        var gross = BazaarCargo.TotalGross(d);
+        var parts = new List<(string Label, string Value)>
+        {
+            (l.T("Всего мест", "Бардыгы орун"), places > 0 ? places.ToString(CultureInfo.InvariantCulture) : "—"),
+            (l.T("Вес брутто, кг", "Брутто салмагы, кг"), gross > 0 ? Q(gross) : "—"),
+        };
+        if (info.Bags > 0)
+            parts.Add((l.T("Мешков", "Баштык"), info.Bags.ToString(CultureInfo.InvariantCulture)));
+        if (info.Carrier.Length > 0)
+            parts.Add((l.T("Перевозчик", "Ташуучу"), info.Carrier));
+        if (info.City.Length > 0)
+            parts.Add((l.T("Куда (город, адрес)", "Кайда (шаар, дарек)"), info.City));
+        if (info.Track.Length > 0)
+            parts.Add((l.T("Трек-номер", "Трек-номер"), info.Track));
+        col.Item().Element(x => template == Minimal ? x.BorderTop(0.4f).BorderColor(pal.Line).PaddingTop(4) : x.Border(0.7f).BorderColor(pal.Line).Padding(6)).Column(c =>
+        {
+            c.Spacing(2);
+            c.Item().Text(l.T("Карго", "Карго")).SemiBold().FontSize(9.5f);
+            foreach (var (label, value) in parts)
+                c.Item().Row(r =>
+                {
+                    r.ConstantItem(46, Unit.Millimetre).Text(label + ":").FontColor(pal.Soft);
+                    r.RelativeItem().Text(value);
+                });
+        });
     }
 
     // ── подписи и М.П. ──

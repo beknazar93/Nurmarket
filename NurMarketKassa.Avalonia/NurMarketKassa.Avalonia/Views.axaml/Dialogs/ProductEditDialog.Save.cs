@@ -48,13 +48,31 @@ public partial class ProductEditDialog
         return digits.Replace('.', ',');
     }
 
-    private void GenerateBarcode()
+    private async void GenerateBarcode()
     {
         // 2026-10-26 (требование владельца): общий генератор BarcodeGenerator — EAN-13, первая цифра 1–9 (не 0)
         // и не 2 (префиксы 20–29 касса читает как весовые), криптослучайные цифры, без повтора с кодами каталога.
         // Раньше были случайные 12 цифр без проверки уникальности и без защиты от весовых префиксов.
-        Barcode = BarcodeGenerator.GenerateForCatalog();
+        // 2026-11-21 (ответ Умара 20.11): код берёт сервер (POST main/barcodes/next/), запасной — локальный генератор; пока ждём ответ, второе нажатие не нужно.
+        if (_generatingBarcode)
+            return;
+        _generatingBarcode = true;
+        try
+        {
+            Barcode = await BarcodeGenerator.GenerateForCatalogAsync(_variants.Select(v => v.Barcode)).ConfigureAwait(true);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            PosLogger.Log($"Штрихкод: генерация не удалась ({ex.Message}) — берём локальный.", "WARNING");
+            Barcode = BarcodeGenerator.GenerateForCatalog(_variants.Select(v => v.Barcode));
+        }
+        finally
+        {
+            _generatingBarcode = false;
+        }
     }
+
+    private bool _generatingBarcode;
 
     /// <summary>2026-11-05 (С2-34): текст ошибки, если новый/изменённый штрихкод уже занят другим товаром каталога или повторён в карточке; null — всё в порядке.</summary>
     private string? FindBarcodeConflict()
@@ -419,6 +437,7 @@ public partial class ProductEditDialog
                 var updateId = _existing.Id;
                 var write = await ServerAnswerWait.ForegroundWriteAsync("products/update", t => _catalogApi.UpdateProductAsync(updateId, request, t)).ConfigureAwait(true);
                 SavedProductId = updateId; // 2026-11-07: склад обновит в каталоге только этот товар (без полной загрузки)
+                ApplyNoFactoryMark(updateId); // 2026-11-21
                 RememberSerialsAfterSave(updateId, request); // 2026-11-13 (сервер sn1311)
                 RememberAutoPartAfterSave(updateId, request); // 2026-11-20 (АЗ4)
                 SaveAutoPartMeta(updateId); // 2026-11-20: гарантия / «Электрика» / «Установленные не принимаются»
@@ -496,6 +515,7 @@ public partial class ProductEditDialog
             var realId = ProductCatalogMapper.TryId(created) ?? Guid.NewGuid().ToString("N");
             LocalProductEditor.SaveLocally(request, realId, created); // 2026-11-06 (Б-4): код товара, фото и is_weight — из ответа сервера
             SaveAutoPartMeta(realId); // 2026-11-20: местные признаки запчасти — когда известен id товара
+            ApplyNoFactoryMark(realId); // 2026-11-21: отметка «Без заводского штрихкода»
             if (ProductCatalogMapper.TryId(created) is { Length: > 0 } serverId)
                 SavedProductId = serverId; // 2026-11-07: склад обновит в каталоге только этот товар
         }
@@ -511,6 +531,7 @@ public partial class ProductEditDialog
     private void QueueNewProductForServer(ProductEditRequest request, bool maybeSent)
     {
         var tempId = LocalProductEditor.SaveLocally(request, null);
+        ApplyNoFactoryMark(null, request.Barcode); // 2026-11-21: id настоящий придёт позже — отметка по штрихкоду
         SaveAutoPartMeta(tempId); // 2026-11-20: по временному id (после создания на сервере отметки запчасти придётся поставить заново)
         try
         {

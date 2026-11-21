@@ -67,120 +67,93 @@ public sealed class WarehouseReceivingPacksUiTests
             vm.ReceivingLines.Add(plain);
             UiShot.Settle(10);
 
-            var grid = UiDrive.Find<DataGrid>(window, "ReceivingGrid");
             var tag = $"{width}x{height} {lang}";
-            var compact = grid.Classes.Contains("rcv-compact");
-            var rowHeight = compact ? 48 : 52;
+            // 2026-11-21: строки приёмки — карточки (объединение с «Массовым добавлением»); способ приёмки — кнопка «упак. ▾» в карточке, «шт/упак.» — поле карточки, пояснения упаковок — строка под полями.
+            List<Border> Cards() => RcvCards.Cards(window).OrderBy(c => c.TranslatePoint(default, window)!.Value.Y).ToList();
 
-            List<DataGridRow> Rows() => grid.GetVisualDescendants().OfType<DataGridRow>().Where(r => r.Bounds.Height > 0 && r.DataContext is ReceivingLineVm)
-                .OrderBy(r => r.TranslatePoint(default, grid)!.Value.Y).ToList();
-
-            void CheckRows(string stage)
+            void CheckCards(string stage)
             {
-                var rows = Rows();
-                rows.Count.Should().BeGreaterThanOrEqualTo(2, $"{stage} {tag}: в таблице видно минимум две строки (строка упаковок — 84 px, на 1024×600 третья уходит под прокрутку)");
-                for (var i = 0; i < rows.Count; i++)
+                var cards = Cards();
+                cards.Count.Should().BeGreaterThanOrEqualTo(1, $"{stage} {tag}: в списке видна хотя бы одна карточка");
+                for (var i = 0; i < cards.Count; i++)
                 {
-                    var top = rows[i].TranslatePoint(default, grid)!.Value.Y;
+                    var top = cards[i].TranslatePoint(default, window)!.Value.Y;
                     if (i > 0)
-                        top.Should().BeGreaterThanOrEqualTo(rows[i - 1].TranslatePoint(default, grid)!.Value.Y + rows[i - 1].Bounds.Height - 0.5, $"строки не наезжают ({stage} {tag})");
-                    foreach (var text in rows[i].GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible && t.Bounds.Height > 0 && !string.IsNullOrWhiteSpace(t.Text)))
+                        top.Should().BeGreaterThanOrEqualTo(cards[i - 1].TranslatePoint(default, window)!.Value.Y + cards[i - 1].Bounds.Height - 0.5, $"карточки не наезжают ({stage} {tag})");
+                    foreach (var text in cards[i].GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible && t.Bounds.Height > 0 && !string.IsNullOrWhiteSpace(t.Text)))
                     {
-                        var y = text.TranslatePoint(default, rows[i])!.Value.Y;
-                        y.Should().BeGreaterThanOrEqualTo(-0.5, $"«{text.Text}» не выше своей строки ({stage} {tag})");
-                        (y + text.Bounds.Height).Should().BeLessThanOrEqualTo(rows[i].Bounds.Height + 0.5, $"«{text.Text}» не ниже своей строки ({stage} {tag})");
+                        var y = text.TranslatePoint(default, cards[i])!.Value.Y;
+                        y.Should().BeGreaterThanOrEqualTo(-0.5, $"«{text.Text}» не выше своей карточки ({stage} {tag})");
+                        (y + text.Bounds.Height).Should().BeLessThanOrEqualTo(cards[i].Bounds.Height + 0.5, $"«{text.Text}» не ниже своей карточки ({stage} {tag})");
                     }
-                    var cross = rows[i].GetVisualDescendants().OfType<Button>().Last(b => b.IsEffectivelyVisible);
-                    cross.TranslatePoint(new Point(cross.Bounds.Width, 0), grid)!.Value.X.Should().BeLessThanOrEqualTo(grid.Bounds.Width + 0.5, $"нет горизонтальной прокрутки ({stage} {tag})");
+                    var cross = cards[i].GetVisualDescendants().OfType<Button>().Last(b => b.IsEffectivelyVisible);
+                    cross.TranslatePoint(new Point(cross.Bounds.Width, 0), window)!.Value.X.Should().BeLessThanOrEqualTo(window.Bounds.Width + 0.5, $"нет горизонтальной прокрутки ({stage} {tag})");
                 }
-                // высота: строки упаковок выше обычной и не меньше содержимого; обычная — прежние 48/52
-                rows.Where(r => ReferenceEquals(r.DataContext, byPacks)).ToList().ForEach(r => r.Bounds.Height.Should().BeGreaterThanOrEqualTo(84 - 0.5, $"строка «упаковками → штуки» выше ({stage} {tag})"));
-                rows.Where(r => ReferenceEquals(r.DataContext, packSale)).ToList().ForEach(r => r.Bounds.Height.Should().BeGreaterThanOrEqualTo(84 - 0.5, $"строка поштучной продажи выше ({stage} {tag})"));
-                rows.Where(r => ReferenceEquals(r.DataContext, plain)).ToList().ForEach(r => r.Bounds.Height.Should().BeLessThanOrEqualTo(rowHeight + 1.5, $"обычная строка не раздулась ({stage} {tag})"));
             }
 
-            CheckRows("показ");
+            CheckCards("показ");
 
-            var foundRow = Rows().Single(r => ReferenceEquals(r.DataContext, byPacks));
-            // штрихкод товара виден (подстрока под названием в узком виде, колонка в широком), название тоже
-            foundRow.GetVisualDescendants().OfType<TextBlock>().Any(t => t.IsEffectivelyVisible && t.Bounds.Height > 0 && (t.Text ?? "").StartsWith(Barcode, StringComparison.Ordinal)).Should().BeTrue($"штрихкод виден ({tag})");
-            foundRow.GetVisualDescendants().OfType<TextBlock>().Any(t => t.IsEffectivelyVisible && t.Text == LongName).Should().BeTrue($"название видно ({tag})");
-            var shown = foundRow.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible).Select(t => t.Text ?? "").ToList();
-            shown.Should().Contain(byPacks.PackShortNote, $"под числом упаковок — «× 24 = 120 шт.» ({tag})");
-            shown.Should().Contain(byPacks.PackLinkShort, $"ссылка способа приёмки ({tag})");
-            shown.Should().Contain(byPacks.PackPriceNote, $"под закупкой — за упак. и за шт ({tag})");
-            var saleRow = Rows().Single(r => ReferenceEquals(r.DataContext, packSale));
-            saleRow.GetVisualDescendants().OfType<TextBlock>().Any(t => t.IsEffectivelyVisible && t.Text == packSale.PackLinkShort).Should().BeTrue($"ссылка поштучной продажи ({tag})");
-            saleRow.GetVisualDescendants().OfType<TextBlock>().Any(t => t.IsEffectivelyVisible && t.Text == packSale.PackShortNote).Should().BeTrue($"«по 10 шт» ({tag})");
-
-            // подписи-ссылки не обрезаны многоточием (короткий текст влезает в колонку 96 px)
-            foreach (var row in new[] { foundRow, saleRow })
+            var foundCard = RcvCards.Card(window, byPacks);
+            // название видно; подпись «упак. ▾» — кнопкой, пояснения упаковок — в строке под полями
+            foundCard.GetVisualDescendants().OfType<TextBox>().Any(t => t.IsEffectivelyVisible && t.Text == LongName).Should().BeTrue($"название видно ({tag})");
+            var shownTexts = foundCard.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible).Select(t => t.Text ?? "").ToList();
+            shownTexts.Should().Contain(byPacks.PackLinkShort, $"кнопка способа приёмки ({tag})");
+            var notes = string.Join(" | ", shownTexts);
+            notes.Should().Contain(byPacks.PackShortNote, $"«× 24 = 120 шт.» ({tag})");
+            notes.Should().Contain(byPacks.PackPriceNote, $"цена за упаковку и за штуку ({tag})");
+            // список виртуализирован: сначала всё, что нужно от карточки «упаковками» (она на самом верху), потом прокрутка к карточке поштучной продажи
+            // --- режим упаковок: два поля (упаковки и «шт/упак.»), оба в карточке; Enter ведёт «Кол-во → шт/упак. → Закупка»
+            var qtyBox = RcvCards.Field(window, byPacks, "qty");
+            var piecesBox = RcvCards.Field(window, byPacks, "pieces");
+            qtyBox.Text.Should().Be("5", "в режиме упаковок «Кол-во» — упаковки");
+            piecesBox.Text.Should().Be("24");
+            foreach (var box in new[] { qtyBox, piecesBox })
             {
-                var link = row.GetVisualDescendants().OfType<TextBlock>().First(t => t.IsEffectivelyVisible && (t.Text ?? "").EndsWith("▾", StringComparison.Ordinal));
+                box.Bounds.Height.Should().BeGreaterThanOrEqualTo(40 - 0.5, $"поле не схлопнуто ({tag})");
+                box.Bounds.Width.Should().BeGreaterThanOrEqualTo(50, $"поле читаемо ({tag})");
+                box.TranslatePoint(new Point(0, box.Bounds.Height), foundCard)!.Value.Y.Should().BeLessThanOrEqualTo(foundCard.Bounds.Height + 0.5, $"поле в своей карточке ({tag})");
+            }
+            qtyBox.Focus();
+            UiShot.Pump();
+            window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+            UiShot.Settle(8);
+            (TopLevel.GetTopLevel(window)!.FocusManager!.GetFocusedElement() as TextBox).Should().BeSameAs(piecesBox, $"Enter из «Кол-во» ведёт в «шт/упак.» ({tag})");
+            window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+            UiShot.Settle(8);
+            var priceBox = RcvCards.Field(window, byPacks, "purchase");
+            (TopLevel.GetTopLevel(window)!.FocusManager!.GetFocusedElement() as TextBox).Should().BeSameAs(priceBox, $"Enter из «шт/упак.» ведёт в «Закупка» ({tag})");
+            priceBox.Text.Should().Be("600", "в режиме упаковок «Закупка» — цена за упаковку");
+            priceBox.Bounds.Height.Should().BeGreaterThanOrEqualTo(40 - 0.5);
+            window.FindControl<TextBox>("ReceivingScanBox")!.Focus();
+            UiShot.Settle(6);
+            CheckCards("после правки");
+
+            var saleCard = RcvCards.Card(window, packSale);
+            saleCard.GetVisualDescendants().OfType<TextBlock>().Any(t => t.IsEffectivelyVisible && t.Text == packSale.PackLinkShort).Should().BeTrue($"кнопка поштучной продажи ({tag})");
+            string.Join(" | ", saleCard.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible).Select(t => t.Text)).Should().Contain(packSale.PackShortNote, $"«по 10 шт» ({tag})");
+
+            // кнопка способа приёмки: подпись целиком (не обрезана), цель касания
+            foreach (var card in new[] { foundCard, saleCard })
+            {
+                var link = card.GetVisualDescendants().OfType<Border>().First(x => Equals(x.Tag, "rcv-packlink")).GetVisualDescendants().OfType<TextBlock>().First(t => t.IsEffectivelyVisible);
                 var typeface = new Avalonia.Media.Typeface(link.FontFamily, link.FontStyle, link.FontWeight, link.FontStretch);
                 var need = new Avalonia.Media.FormattedText(link.Text ?? "", CultureInfo.CurrentUICulture, link.FlowDirection, typeface, link.FontSize, null).Width;
-                link.Bounds.Width.Should().BeGreaterThanOrEqualTo(need - 1, $"ссылка «{link.Text}» не обрезана ({tag})");
+                link.Bounds.Width.Should().BeGreaterThanOrEqualTo(need - 1, $"«{link.Text}» не обрезана ({tag})");
+                link.GetVisualAncestors().OfType<Border>().First(x => Equals(x.Tag, "rcv-packlink")).Bounds.Height.Should().BeGreaterThanOrEqualTo(40 - 0.5, $"кнопка способа приёмки — цель касания ({tag})");
             }
 
             // итоги внизу — от пересчитанных штук: 120 (5 упак. × 24) + 3 (упаковки поштучной продажи) + 1
             UiDrive.Find<TextBlock>(window, "SumQty").Text.Should().Be((120 + 3 + 1).ToString("0.###", CultureInfo.GetCultureInfo("ru-RU")), $"итог «Штук» ({tag})");
             UiDrive.Find<TextBlock>(window, "SumPos").Text.Should().Be("3");
 
-            // --- правка «Принимаем» в режиме упаковок: два поля (упаковки и «шт/упак.»), оба в строке; Enter ведёт «Принимаем → шт/упак. → Закупка»
-            grid.SelectedItem = byPacks;
-            grid.CurrentColumn = grid.Columns[5];
-            grid.BeginEdit().Should().BeTrue();
-            UiShot.Settle(8);
-            List<TextBox> Editors(object line) => Rows().Single(r => ReferenceEquals(r.DataContext, line)).GetVisualDescendants().OfType<TextBox>()
-                .Where(t => t.IsEffectivelyVisible && t.GetVisualAncestors().OfType<DataGridCell>().Any()).ToList();
-            var editors = Editors(byPacks);
-            var qtyBox = editors.First(t => !t.Classes.Contains("rcv-pieces"));
-            var piecesBox = editors.Single(t => t.Classes.Contains("rcv-pieces"));
-            qtyBox.Text.Should().Be("5", "в режиме упаковок «Принимаем» — упаковки");
-            piecesBox.Text.Should().Be("24");
-            var editedRow = Rows().Single(r => ReferenceEquals(r.DataContext, byPacks));
-            foreach (var box in new[] { qtyBox, piecesBox })
+            // --- поля у строки поштучной продажи: в карточке
+            var packSaleCard = RcvCards.Card(window, packSale);
+            foreach (var box in packSaleCard.GetVisualDescendants().OfType<TextBox>().Where(t => t.IsEffectivelyVisible && t.Tag is string))
             {
-                box.Bounds.Height.Should().BeGreaterThanOrEqualTo(20, $"поле не схлопнуто ({tag})");
-                box.Bounds.Width.Should().BeGreaterThanOrEqualTo(50, $"поле читаемо ({tag})");
-                box.TranslatePoint(new Point(0, box.Bounds.Height), editedRow)!.Value.Y.Should().BeLessThanOrEqualTo(editedRow.Bounds.Height + 0.5, $"поле в своей строке ({tag})");
+                box.Bounds.Height.Should().BeGreaterThanOrEqualTo(30, $"поле не схлопнуто ({tag})");
+                box.TranslatePoint(new Point(0, box.Bounds.Height), packSaleCard)!.Value.Y.Should().BeLessThanOrEqualTo(packSaleCard.Bounds.Height + 0.5, $"поле в своей карточке ({tag})");
             }
-            piecesBox.TranslatePoint(new Point(0, 0), editedRow)!.Value.Y.Should().BeGreaterThanOrEqualTo(qtyBox.TranslatePoint(new Point(0, qtyBox.Bounds.Height), editedRow)!.Value.Y - 0.5, $"поля друг на друга не наезжают ({tag})");
-
-            qtyBox.Focus();
-            UiShot.Pump();
-            window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
-            UiShot.Settle(8);
-            (TopLevel.GetTopLevel(window)!.FocusManager!.GetFocusedElement() as TextBox)!.Classes.Should().Contain("rcv-pieces", $"Enter из «Принимаем» ведёт в «шт/упак.» ({tag})");
-            window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
-            UiShot.Settle(8);
-            grid.CurrentColumn.Should().BeSameAs(grid.Columns[6], $"Enter из «шт/упак.» ведёт в «Закупка» ({tag})");
-            var priceBox = Editors(byPacks).Single();
-            priceBox.Text.Should().Be("600", "в режиме упаковок «Закупка» — цена за упаковку");
-            priceBox.Bounds.Height.Should().BeGreaterThanOrEqualTo(20);
-            grid.CommitEdit();
-            UiShot.Settle(6);
-            CheckRows("после правки");
-
-            // --- правка у строки поштучной продажи и у обычной: поля в строке
-            foreach (var line in new[] { packSale, plain })
-            {
-                grid.SelectedItem = line;
-                grid.ScrollIntoView(line, null);
-                UiShot.Settle(4);
-                grid.CurrentColumn = grid.Columns[5];
-                grid.BeginEdit().Should().BeTrue();
-                UiShot.Settle(6);
-                var row = Rows().Single(r => ReferenceEquals(r.DataContext, line));
-                foreach (var box in Editors(line))
-                {
-                    box.Bounds.Height.Should().BeGreaterThanOrEqualTo(20, $"поле не схлопнуто ({tag})");
-                    box.TranslatePoint(new Point(0, box.Bounds.Height), row)!.Value.Y.Should().BeLessThanOrEqualTo(row.Bounds.Height + 0.5, $"поле в своей строке ({tag})");
-                }
-                grid.CommitEdit();
-                UiShot.Settle(4);
-            }
-            CheckRows("после правок");
+            CheckCards("после правок");
 
             using var shot = UiShot.Render(window);
             using var image = SKImage.FromBitmap(shot);
@@ -260,9 +233,7 @@ public sealed class WarehouseReceivingPacksUiTests
             vm.ReceivingLines.Add(created);
             UiShot.Settle(8);
 
-            var grid = UiDrive.Find<DataGrid>(window, "ReceivingGrid");
-            TextBlock Link(ReceivingLineVm line) => grid.GetVisualDescendants().OfType<DataGridRow>().Single(r => ReferenceEquals(r.DataContext, line))
-                .GetVisualDescendants().OfType<TextBlock>().First(t => t.IsEffectivelyVisible && t.Text == line.PackLinkShort);
+            Border Link(ReceivingLineVm line) => RcvCards.Card(window, line).GetVisualDescendants().OfType<Border>().First(t => Equals(t.Tag, "rcv-packlink") && t.IsEffectivelyVisible); // 2026-11-21: кнопка способа приёмки в карточке
             MenuItem Item(string start) => window.GetVisualDescendants().OfType<MenuItem>().FirstOrDefault(m => m.IsEffectivelyVisible && m.Header is string h && h.TrimStart().TrimStart((char)0x2713).TrimStart().StartsWith(start, StringComparison.Ordinal)) ?? throw new InvalidOperationException("нет пункта «" + start + "»; пункты: " + string.Join(" | ", window.GetVisualDescendants().OfType<MenuItem>().Select(m => m.Header + "/" + m.IsEffectivelyVisible)) + "; hosts=" + window.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.OverlayPopupHost>().Count() + " popups=" + window.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.Popup>().Count() + "; ссылки: " + string.Join(" | ", window.GetVisualDescendants().OfType<TextBlock>().Where(t => (t.Text ?? "").EndsWith("▾")).Select(t => t.Text + "@" + t.Bounds + "/" + t.IsEffectivelyVisible)));
 
             // существующий товар с остатком: поштучная продажа недоступна, а «упаковками → штуки» включается

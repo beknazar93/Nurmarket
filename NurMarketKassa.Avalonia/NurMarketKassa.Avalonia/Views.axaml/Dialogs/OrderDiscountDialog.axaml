@@ -54,18 +54,19 @@
 
             <!-- Выбор: Чекбокс для применимости к отдельному товару -->
             <StackPanel x:Name="ScopePanel">
-                <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Text="{DynamicResource discount.applyToSelected}"
+                <!-- 2026-11-21 (обход кассы, № 12): флажок слева от подписи — как везде в программе (был справа). -->
+                <Grid ColumnDefinitions="Auto,*">
+                    <CheckBox x:Name="ScopeCheckBox"
+                              Grid.Column="0"
+                              IsChecked="False"
+                              MinWidth="36" MinHeight="44"
+                              Margin="0,0,4,0"
+                              VerticalAlignment="Center"/>
+
+                    <TextBlock Grid.Column="1" Text="{DynamicResource discount.applyToSelected}"
                                FontSize="14" FontWeight="Medium" TextWrapping="Wrap"
                                Foreground="{DynamicResource BrushText}"
                                VerticalAlignment="Center"/>
-
-                    <CheckBox x:Name="ScopeCheckBox"
-                              Grid.Column="1"
-                              IsChecked="False"
-                              MinWidth="44" MinHeight="44"
-                              Margin="12,0,0,0"
-                              VerticalAlignment="Center"/>
                 </Grid>
             </StackPanel>
 

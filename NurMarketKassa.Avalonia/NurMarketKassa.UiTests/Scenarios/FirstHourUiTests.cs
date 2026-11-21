@@ -268,10 +268,15 @@ public sealed class FirstHourUiTests : IDisposable
         public static string SearchWatermark => Tr.T("Скан, код или название", "Скан, код же аты", "Scan, code or name", "Tara, kod veya ad", "Skan, kod yoki nom");
     }
 
-    private static void TypeKeys(Window w, string text)
+    /// <summary>2026-11-21: диагностика — куда ушёл фокус и что лежит в поле поиска (цифры «скана» могут попасть в поле, а не в буфер сканера).</summary>
+    private static string FocusInfo(Window w) =>
+        (TopLevel.GetTopLevel(w)?.FocusManager?.GetFocusedElement() is Control f ? f.GetType().Name + "#" + f.Name : "нет") + ", обрыв связи=" + ServerOutageMonitor.IsOutage + ", офлайн=" + PosApp.IsOfflineBootstrap + ", поле поиска=«" + (w.GetVisualDescendants().OfType<TextBox>().FirstOrDefault(t => t.Name == "ProductSearchBox")?.Text ?? "") + "»";
+
+    private static void TypeKeys(Window w, string text, VirtualKeyClock? clock = null)
     {
         foreach (var ch in text)
         {
+            clock?.Tick(); // 2026-11-21: «часы нажатий» теста (VirtualKeyClock): каждое нажатие — +8 мс, как у сканера
             if (ch == '*')
             {
                 w.KeyPress(Key.Multiply, RawInputModifiers.None, PhysicalKey.NumPadMultiply, "*");
@@ -344,17 +349,25 @@ public sealed class FirstHourUiTests : IDisposable
         SetShift(PosApp.ActiveShiftId is { Length: > 0 } open ? open : Guid.NewGuid().ToString());
         var main = OpenMain(UiSize.Large);
         using var guard = UiRobot.Guard();
+        // 2026-11-21 (прогон 1.17.91, «7 вместо 4», «5 вместо 4»): сканер от человека касса отличает по паузам между нажатиями; в Headless пауза бралась из настоящих часов обработки
+        // (GetMessageTime потока) и на нагруженной машине «скан» из 13 цифр превращался в ручной ввод. Время нажатий задаёт сам тест (VirtualKeyClock): сканер — по 8 мс, человек — паузой.
+        using var clock = new VirtualKeyClock();
         try
         {
             // 2026-11-21 (прогон 1.17.91): в полном прогоне в чеке уже лежал товар (3 шт от соседнего сценария «3*код»), скан «4 *» давал 7 вместо 4 — тест начинается с пустого чека.
             var leftover = Basket(main).Lines.Count;
+            // 2026-11-21: корзина одна на весь прогон (ICartService — синглтон), а «Строки» окна синхронизируются с ней не сразу: чужая строка из прежнего теста не видна в Lines, но прибавляется к скану (4 + 1 = 5).
+            // ClearTrainingReceipt чистит только когда в Lines что-то есть — поэтому сбрасываем саму корзину.
+            var cartService = TestHost.Services.GetRequiredService<ICartService>();
+            var cartLeft = cartService.LineCount;
+            cartService.ResetForNewReceipt();
             Basket(main).ClearTrainingReceipt();
             UiShot.Settle(3, 20);
             main.Focus();
             // Человек набирает «3», потом «*» (паузы длиннее сканерных), курсор не в поле.
-            TypeKeys(main, "3");
-            Thread.Sleep(150);
-            TypeKeys(main, "*");
+            TypeKeys(main, "3", clock);
+            clock.Pause(150);
+            TypeKeys(main, "*", clock);
             UiRobot.WaitFor(() => Basket(main).HasPendingQuantity).Should().BeTrue("«3», «*» вне поля — количество для следующего скана");
             Basket(main).ManualQuantity.Should().Be("3");
 
@@ -365,17 +378,18 @@ public sealed class FirstHourUiTests : IDisposable
             Basket(main).HasPendingQuantity.Should().BeFalse("Esc сбрасывает «3*»");
 
             // Снова «4 *» и скан.
-            Thread.Sleep(300);
-            TypeKeys(main, "4");
-            Thread.Sleep(150);
-            TypeKeys(main, "*");
+            clock.Pause(300);
+            TypeKeys(main, "4", clock);
+            clock.Pause(150);
+            TypeKeys(main, "*", clock);
             UiRobot.WaitFor(() => Basket(main).ManualQuantity == "4").Should().BeTrue();
-            Thread.Sleep(400);
-            TypeKeys(main, "4600000000001");
+            clock.Pause(400);
+            TypeKeys(main, "4600000000001", clock);
+            clock.Tick(); // Enter сразу за цифрами, как у сканера
             main.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
             main.KeyReleaseQwerty(PhysicalKey.Enter, RawInputModifiers.None);
             UiRobot.WaitFor(() => Basket(main).Lines.Count == 1 && Basket(main).Lines[0].Quantity == 4, 5000)
-                .Should().BeTrue($"скан после «4 *» — четыре штуки; в чеке до теста было строк {leftover}; строк {Basket(main).Lines.Count}, количество {string.Join('/', Basket(main).Lines.Select(l => l.Quantity))}, ожидание «N*» {Basket(main).HasPendingQuantity}/{Basket(main).ManualQuantity}, открыто: {UiRobot.OpenNames()}"); // 2026-11-21: диагностика (в полном прогоне падает, отдельно проходит)
+                .Should().BeTrue($"скан после «4 *» — четыре штуки; в чеке до теста было строк {leftover}, в корзине службы {cartLeft}; строк {Basket(main).Lines.Count}, количество {string.Join('/', Basket(main).Lines.Select(l => l.Quantity))}, ожидание «N*» {Basket(main).HasPendingQuantity}/{Basket(main).ManualQuantity}, открыто: {UiRobot.OpenNames()}; фокус: {FocusInfo(main)}"); // 2026-11-21: диагностика (в полном прогоне падает, отдельно проходит)
             Basket(main).HasPendingQuantity.Should().BeFalse();
         }
         finally
@@ -457,7 +471,6 @@ public sealed class FirstHourUiTests : IDisposable
             SetupPrinter = () => { calls.Add("printer"); return Task.FromResult<string?>(null); },
             SetupScale = () => { calls.Add("scale"); return Task.FromResult<string?>(null); },
             AddProducts = () => { calls.Add("add"); products++; return Task.FromResult<string?>(FirstRunWizardWindow.ProductCountText(products)); },
-            ImportProducts = () => { calls.Add("import"); return Task.FromResult<string?>(null); },
             ProductCount = () => products,
         };
 

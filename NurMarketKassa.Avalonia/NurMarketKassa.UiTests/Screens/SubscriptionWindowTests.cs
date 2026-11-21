@@ -29,6 +29,8 @@ public sealed class SubscriptionWindowTests
         public int FailCreates;                       // сколько первых созданий падает обрывом связи
         public List<string> Keys { get; } = [];
         public int Created;
+        public List<string?> Periods { get; } = [];                   // 2026-11-21: period каждого счёта (null — по месяцам)
+        public List<int> CreatedMonths { get; } = [];
         public Queue<BillingInvoice> Polls { get; } = new();
         public bool PollFails;
         public int PollCount;
@@ -40,8 +42,15 @@ public sealed class SubscriptionWindowTests
         public Task<BillingConfig> GetConfigAsync(CancellationToken ct = default) =>
             ConfigError is not null ? Task.FromException<BillingConfig>(ConfigError) : Task.FromResult(Config);
 
+        public Task<BillingInvoice> CreateInvoiceAsync(int months, string? planCode, string? period, string idempotencyKey, CancellationToken ct = default)
+        {
+            Periods.Add(period);
+            return CreateInvoiceAsync(months, planCode, idempotencyKey, ct);
+        }
+
         public Task<BillingInvoice> CreateInvoiceAsync(int months, string? planCode, string idempotencyKey, CancellationToken ct = default)
         {
+            CreatedMonths.Add(months);
             Keys.Add(idempotencyKey);
             if (FailCreates-- > 0)
                 throw new HttpRequestException("обрыв связи");
@@ -84,10 +93,12 @@ public sealed class SubscriptionWindowTests
         return Convert.ToBase64String(data.ToArray());
     }
 
-    private static BillingConfig Cfg(string mode = "test", bool available = true, string? until = "2026-12-19") =>
+    private static BillingConfig Cfg(string mode = "test", bool available = true, string? until = "2026-12-19", bool year = false) =>
         BillingParser.ParseConfig(JsonDocument.Parse("{\"available\":" + (available ? "true" : "false") + ",\"mode\":\"" + mode + "\",\"bank_fee\":\"30.00\",\"months\":[1,3,6,12],\"current_plan\":\"standard\","
             + (until is null ? "" : "\"valid_until\":\"" + until + "\",")
-            + "\"plans\":[{\"code\":\"start\",\"price_month\":\"1300.00\"},{\"code\":\"standard\",\"price_month\":\"3600.00\"}],\"qr_ttl_seconds\":1200}").RootElement.Clone());
+            + (year ? "\"plans\":[{\"code\":\"start\",\"price_month\":\"1300.00\",\"price_year\":\"13000.00\"},{\"code\":\"standard\",\"price_month\":\"3600.00\",\"price_year\":\"36000.00\"}],\"periods\":[\"month\",\"year\"],\"year_paid_months\":10,"
+                : "\"plans\":[{\"code\":\"start\",\"price_month\":\"1300.00\"},{\"code\":\"standard\",\"price_month\":\"3600.00\"}],")
+            + "\"qr_ttl_seconds\":1200}").RootElement.Clone());
 
     private static BillingInvoice Invoice(string status, int months, string? qr, string? paidUntil = null) =>
         BillingParser.ParseInvoice(JsonDocument.Parse("{\"invoice_id\":\"inv-1\",\"status\":\"" + status + "\",\"test_mode\":true,\"plan\":\"standard\",\"plan_name\":\"Стандарт\",\"months\":" + months
@@ -154,6 +165,54 @@ public sealed class SubscriptionWindowTests
         finally
         {
             window.Close();
+            UiShot.Pump();
+        }
+    }
+
+    /// <summary>2026-11-21 (ответ Умара 21.11): «Месяц / Год» — год = 10 месяцев: переключатель есть, когда сервер отдал periods и price_year; цена тарифа за год — только серверная;
+    /// счёт на год уходит с period "year" (12 месяцев); без годовой оплаты на сервере переключателя нет, а «12 мес.» остаётся в списке сроков.</summary>
+    [AvaloniaFact]
+    public async Task Year_Toggle_SendsPeriodYear_ShowsServerYearPrice_AndHiddenWithoutServerSupport()
+    {
+        await TestHost.WarmAsync();
+        UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
+        var api = new FakeBillingApi { Config = Cfg(year: true) };
+        var window = Make(api);
+        try
+        {
+            window.Show();
+            await window.LoadAsync();
+            window.PeriodChoiceVisible.Should().BeTrue();
+            window.MonthChoices.Should().Equal(1, 3, 6);
+            Norm(window.PlanChipText("standard")).Should().Contain("3 600").And.Contain("/ мес");
+            window.SetYear(true);
+            Norm(window.PlanChipText("standard")).Should().Contain("36 000").And.Contain("/ год");
+            window.YearNoteText.Should().Contain("10");
+            await window.CreateForTestAsync();
+            api.Periods.Should().Equal("year");
+            api.CreatedMonths.Should().Equal(12);
+        }
+        finally
+        {
+            window.Close();
+            UiShot.Pump();
+        }
+
+        var old = new FakeBillingApi();
+        var window2 = Make(old);
+        try
+        {
+            window2.Show();
+            await window2.LoadAsync();
+            window2.PeriodChoiceVisible.Should().BeFalse("сервер года не отдал — переключателя нет");
+            window2.MonthChoices.Should().Equal(1, 3, 6, 12);
+            window2.SetMonths(12);
+            await window2.CreateForTestAsync();
+            old.Periods.Should().BeEmpty("без года — прежний счёт по месяцам");
+        }
+        finally
+        {
+            window2.Close();
             UiShot.Pump();
         }
     }

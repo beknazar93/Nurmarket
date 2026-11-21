@@ -118,7 +118,7 @@ public sealed class ReturnEdit24hContractTests : IDisposable
         new object[] { 412, "{\"code\":\"version_conflict\",\"current_version\":7}", ReturnEditFailure.VersionConflict, true, "другим сотрудником" },
         new object[] { 400, "{\"code\":\"validation_error\",\"detail\":\"quantity\"}", ReturnEditFailure.Validation, false, "не принял" },
         new object[] { 400, "{\"code\":\"idempotency_key_required\"}", ReturnEditFailure.IdempotencyKeyRequired, false, "ключ" },
-        new object[] { 400, "{\"code\":\"new_lines_not_allowed\"}", ReturnEditFailure.NewLinesNotAllowed, false, "новые строки" },
+        new object[] { 400, "{\"code\":\"new_lines_not_allowed\"}", ReturnEditFailure.NewLinesNotAllowed, false, "добавленные строки" },
         new object[] { 409, "{\"code\":\"negative_stock\"}", ReturnEditFailure.NegativeStock, false, "остатка" },
         new object[] { 409, "{\"code\":\"exceeds_returnable\"}", ReturnEditFailure.ExceedsReturnable, false, "больше" },
         new object[] { 409, "{\"code\":\"debt_already_paid\"}", ReturnEditFailure.DebtAlreadyPaid, true, "погашен" },

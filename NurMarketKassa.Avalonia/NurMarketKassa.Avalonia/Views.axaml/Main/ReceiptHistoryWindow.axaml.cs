@@ -850,7 +850,7 @@ public partial class ReceiptHistoryWindow : Window
         var names = new List<string>();
         foreach (var line in CartDisplayHelper.EnumerateSaleLineItems(detail))
         {
-            var name = CartDisplayHelper.ItemName(line);
+            var name = CartDisplayHelper.ItemTitle(line); // 2026-11-21: название товара + variant_name
             names.Add(name);
 
             var qty = CartDisplayHelper.LineQuantity(line);

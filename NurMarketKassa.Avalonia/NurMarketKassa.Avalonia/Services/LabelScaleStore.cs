@@ -57,6 +57,10 @@ public sealed class LabelScaleProfile
     /// номер, код и название. По нему при смене номера находятся старая ячейка и клавиши весов.</summary>
     public Dictionary<string, ScaleSentPlu> SentPlus { get; set; } = new();
 
+    /// <summary>2026-11-21 (Rongta, «Стереть старые ячейки»): ячейки, из которых товар переехал на другой номер, но стёрты они ещё не были: номер → название товара.
+    /// Заполняется после отправки («Сменился PLU у товаров»), чистится после стирания или когда в ячейку записан другой товар.</summary>
+    public Dictionary<int, string> StaleSlots { get; set; } = new();
+
     /// <summary>2026-09-29: номер ПЛУ брать из карточки товара (галочка «Постоянный PLU» снята).</summary>
     public bool PluFromCatalog { get; set; }
 
@@ -98,6 +102,7 @@ public sealed class LabelScaleProfile
         PluNumbers = new Dictionary<string, int>(PluNumbers),
         BarcodeCodes = new Dictionary<string, string>(BarcodeCodes),
         SentPlus = SentPlus.ToDictionary(kv => kv.Key, kv => new ScaleSentPlu { Plu = kv.Value.Plu, Code = kv.Value.Code, Name = kv.Value.Name, Sig = kv.Value.Sig }),
+        StaleSlots = new Dictionary<int, string>(StaleSlots), // 2026-11-21: без этого «Отмена» в окне настроек весов теряла бы список старых ячеек
         PluFromCatalog = PluFromCatalog,
         PluPinnedFrom = PluPinnedFrom,
         AutoSend = AutoSend,
@@ -355,6 +360,7 @@ public static class LabelScaleStore
                         s.PluNumbers ??= new();
                         s.BarcodeCodes ??= new();
                         s.SentPlus ??= new();
+                        s.StaleSlots ??= new(); // 2026-11-21
                         if (string.IsNullOrWhiteSpace(s.Id))
                             s.Id = Guid.NewGuid().ToString("N")[..10];
                     }

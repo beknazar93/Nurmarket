@@ -134,6 +134,9 @@ public static class ServerAddons
             return false;
         try
         {
+            // 2026-11-21 (ответ Умара 20.11, В.16): «Ремонт и сервис» и «Trade-in» — модули профиля «Электроника» (из коробки, без ключа); включил владелец — тоже открыто. Платных ключей это не отменяет.
+            if (slug is "repair" or "trade_in" && CompanyModules.IsOn(slug, false))
+                return true;
             var snap = Current(account);
             if (snap is null)
                 return false;
@@ -368,6 +371,8 @@ public static class ServerAddons
     {
         StartAutoRefresh();
         _ = RefreshAsync();
+        CompanyModules.RefreshInBackground(force: true); // 2026-11-21: модули компании (GET users/company/modules/) — сразу после входа
+        PublicModules.RefreshInBackground(); // 2026-11-21: цены модулей (GET public/modules/) для Маркетплейса
         NurMarketKassa.Services.Api.ServerCapabilities.WarmUp(); // 2026-11-05: признаки сервера (capabilities) — заранее, чтобы синхронные проверки сразу знали ответ
     }
 

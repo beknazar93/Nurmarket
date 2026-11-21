@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless.XUnit;
 using Avalonia.VisualTree;
 using FluentAssertions;
@@ -56,7 +57,7 @@ public sealed class StaffTimesheetWindowTests
         Cells(w).Single(c => c.Tag is ValueTuple<string, string, DateOnly> t && t.Item1 == key && t.Item3 == date);
 
     public static IEnumerable<object[]> Sizes() =>
-        new (int W, int H)[] { (1024, 600), (1366, 768) }
+        new (int W, int H)[] { (1024, 600), (1366, 768), (1024, 1024) } // 2026-11-21: + квадратный 1024×1024 (просьба владельца)
             .SelectMany(s => new[] { AppLanguage.Russian, AppLanguage.Kyrgyz }.Select(l => new object[] { s.W, s.H, l }));
 
     [AvaloniaTheory]
@@ -108,6 +109,122 @@ public sealed class StaffTimesheetWindowTests
             var outDir = Path.Combine(Path.GetTempPath(), "nurmarket-tests", "ui-actual");
             Directory.CreateDirectory(outDir);
             File.WriteAllBytes(Path.Combine(outDir, $"timesheet-{langCode}-{width}x{height}.png"), data.ToArray());
+        }
+        finally
+        {
+            window.Close();
+            UiShot.Pump();
+            try { Directory.Delete(dir, true); } catch (IOException) { }
+        }
+    }
+
+    // ------------------------------------------------------------------ 2026-11-21: раскладка (владелец: «снизу сотрудники не видны, не удобно», 1024×600)
+
+    private static (TimesheetDeps Deps, string Dir) MakeBigDeps(int count, DateTime today)
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "nurmarket-ui-timesheet-" + Guid.NewGuid().ToString("N")[..8]);
+        var staff = Enumerable.Range(1, count).Select(i => ($"u{i}", $"Сотрудник {i} Тестовый")).ToList();
+        IReadOnlyList<ShiftHistoryEntry> shifts = [Shift("u1", "Сотрудник 1 Тестовый", new DateTime(2026, 11, 5, 9, 0, 0), new DateTime(2026, 11, 5, 17, 0, 0))];
+        return (new TimesheetDeps
+        {
+            Shifts = _ => Task.FromResult(shifts),
+            Employees = _ => Task.FromResult<IReadOnlyList<(string Key, string Name)>>(staff),
+            Marks = new TimesheetMarksService(Path.Combine(dir, "timesheet-marks.json")),
+            Today = () => today,
+            CanEdit = true,
+        }, dir);
+    }
+
+    public static IEnumerable<object[]> LayoutCases()
+    {
+        foreach (var (w, h) in new[] { (1024, 600), (1366, 768), (1024, 768), (1024, 1024) })
+        foreach (var lang in new[] { AppLanguage.Russian, AppLanguage.Kyrgyz, AppLanguage.Uzbek })
+        foreach (var count in new[] { 7, 30 })
+            yield return [w, h, lang, count];
+    }
+
+    /// <summary>Таблица сотрудников занимает всю оставшуюся высоту: видно не меньше 4 строк (или всех, если их меньше), строки ≥ 44 px, сетка прокручивается по вертикали (30 сотрудников),
+    /// легенда — отдельная строка под таблицей и её не перекрывает, «Закрыть» ниже таблицы, окно внутри экрана, сегодняшний день виден (прокрутка к нему при открытии).
+    /// Снимок для глаз: %TEMP%\nurmarket-tests\ui-actual\timesheet-layout-{язык}-{ширина}x{высота}-{число}.png.</summary>
+    [AvaloniaTheory]
+    [MemberData(nameof(LayoutCases))]
+    public async Task Layout_TableFillsHeight_ShowsRows_LegendAndCloseDoNotOverlap(int width, int height, AppLanguage lang, int count)
+    {
+        await TestHost.WarmAsync();
+        UiShot.Setup(UiTheme.Light, lang);
+        var (deps, dir) = MakeBigDeps(count, new DateTime(2026, 11, 25));
+        var window = new StaffTimesheetWindow(deps);
+        var tag = $"{width}x{height} {lang} {count} сотр.";
+        try
+        {
+            using var _ = UiShot.Render(window, new UiSize(width, height));
+            await window.LoadAsync();
+            UiShot.Settle(8);
+
+            var scroll = UiDrive.Find<ScrollViewer>(window, "TableScroll");
+            var legend = UiDrive.Find<WrapPanel>(window, "LegendPanel");
+            var card = scroll.GetVisualAncestors().OfType<Border>().First(b => b.Classes.Contains("Card"));
+            Rect RectIn(Control c) => new(c.TranslatePoint(new Point(0, 0), window) ?? default, c.Bounds.Size);
+            var cardRect = RectIn(card);
+            var legendRect = RectIn(legend);
+            var winRect = new Rect(0, 0, window.Bounds.Width, window.Bounds.Height);
+
+            // окно внутри экрана и без «дыхания»
+            window.Bounds.Width.Should().BeLessThanOrEqualTo(width + 0.5, tag);
+            window.Bounds.Height.Should().BeLessThanOrEqualTo(height + 0.5, tag);
+
+            // строки: полностью видимые в окне прокрутки
+            var scrollTop = scroll.TranslatePoint(new Point(0, 0), window)!.Value.Y;
+            var viewportH = scroll.Viewport.Height;
+            const double headH = 40, rowH = 44;
+            var rows = Cells(window).GroupBy(c => ((ValueTuple<string, string, DateOnly>)c.Tag!).Item1).Select(g => g.First()).ToList();
+            rows.Should().HaveCount(count, tag);
+            rows.Should().OnlyContain(c => c.Bounds.Height >= 44, $"строка ≥ 44 px для касания ({tag})");
+            var visible = rows.Count(c =>
+            {
+                var top = c.TranslatePoint(new Point(0, 0), window)!.Value.Y - scrollTop;
+                return top >= headH - 1 && top + c.Bounds.Height <= viewportH + 1;
+            });
+            visible.Should().BeGreaterThanOrEqualTo(Math.Min(count, 4), $"видно не меньше 4 строк сотрудников ({tag}); высота таблицы {viewportH:0}, плитки «Итоги» {(UiDrive.Find<UniformGrid>(window, "SummaryTiles").IsVisible ? "видны" : "свёрнуты")}");
+            if (count == 30)
+                scroll.Extent.Height.Should().BeGreaterThan(scroll.Viewport.Height, $"30 сотрудников не помещаются — есть вертикальная прокрутка ({tag})");
+            scroll.Extent.Width.Should().BeGreaterThan(scroll.Viewport.Width, $"дни месяца прокручиваются по горизонтали ({tag})");
+
+            // легенда вне таблицы и не перекрывает её; «Закрыть» ниже таблицы
+            legendRect.Top.Should().BeGreaterThanOrEqualTo(cardRect.Bottom - 1, $"легенда под таблицей ({tag})");
+            legendRect.Height.Should().BeLessThan(60, $"легенда — одна низкая строка ({tag})");
+            var close = window.GetVisualDescendants().OfType<Button>().First(b => b.IsCancel);
+            var closeRect = RectIn(close);
+            closeRect.Top.Should().BeGreaterThanOrEqualTo(cardRect.Bottom - 1, $"«Закрыть» не накрывает таблицу ({tag})");
+            closeRect.Top.Should().BeGreaterThanOrEqualTo(legendRect.Bottom - 1, $"«Закрыть» не накрывает легенду ({tag})");
+            closeRect.Bottom.Should().BeLessThanOrEqualTo(winRect.Bottom + 0.5, $"«Закрыть» внутри окна ({tag})");
+            cardRect.Right.Should().BeLessThanOrEqualTo(winRect.Right + 0.5, tag);
+
+            // сегодня (25 ноября) прокручено в видимую часть: клетка дня правее закреплённого столбца и левее края
+            var todayCell = Cells(window).First(c => ((ValueTuple<string, string, DateOnly>)c.Tag!).Item3 == new DateOnly(2026, 11, 25));
+            var cx = todayCell.TranslatePoint(new Point(0, 0), scroll)!.Value.X;
+            cx.Should().BeGreaterThanOrEqualTo(210 - 1, $"сегодняшний день не под закреплённым столбцом ({tag})");
+            (cx + todayCell.Bounds.Width).Should().BeLessThanOrEqualTo(scroll.Viewport.Width + 1, $"сегодняшний день виден при открытии ({tag})");
+
+            // длинная таблица: прокрутка вниз показывает последнюю строку
+            if (count == 30)
+            {
+                scroll.Offset = new Vector(scroll.Offset.X, Math.Max(0, scroll.Extent.Height - scroll.Viewport.Height));
+                UiShot.Settle(3);
+                var last = Cells(window).First(c => ((ValueTuple<string, string, DateOnly>)c.Tag!).Item1 == "u30");
+                var lastBottom = last.TranslatePoint(new Point(0, last.Bounds.Height), window)!.Value.Y - scrollTop;
+                lastBottom.Should().BeLessThanOrEqualTo(viewportH + 1, $"после прокрутки вниз последняя строка видна ({tag})");
+                scroll.Offset = new Vector(scroll.Offset.X, 0);
+                UiShot.Settle(2);
+            }
+
+            var code = lang == AppLanguage.Kyrgyz ? "ky" : lang == AppLanguage.Uzbek ? "uz" : "ru";
+            using var shot = UiShot.Render(window);
+            using var image = SKImage.FromBitmap(shot);
+            using var data = image.Encode(SKEncodedImageFormat.Png, 90);
+            var outDir = Path.Combine(Path.GetTempPath(), "nurmarket-tests", "ui-actual");
+            Directory.CreateDirectory(outDir);
+            File.WriteAllBytes(Path.Combine(outDir, $"timesheet-layout-{code}-{width}x{height}-{count}.png"), data.ToArray());
         }
         finally
         {

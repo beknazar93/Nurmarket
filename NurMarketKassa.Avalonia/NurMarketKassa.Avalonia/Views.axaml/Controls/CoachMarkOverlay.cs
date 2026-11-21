@@ -131,7 +131,8 @@ public sealed class CoachMarkOverlay : Canvas
             panel.Children.Add(doIt);
         }
         var footer = new WrapPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-        footer.Children.Add(MakeButton("CoachQuit", CoachTour.QuitText, "nur-ghost", () => QuitRequested?.Invoke()));
+        footer.Children.Add(MakeButton("CoachQuit", CoachTour.QuitText, "nur-secondary", // 2026-11-21: «Закончить позже» с обводкой, как «Назад» (владелец: без обводки сливалась)
+() => QuitRequested?.Invoke()));
         if (_engine.Index > 0)
             footer.Children.Add(MakeButton("CoachBack", CoachTour.BackText, "nur-secondary", _engine.Back));
         if (manual)

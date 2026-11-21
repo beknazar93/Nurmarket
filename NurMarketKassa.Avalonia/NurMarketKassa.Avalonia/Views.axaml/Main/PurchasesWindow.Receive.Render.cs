@@ -248,9 +248,9 @@ public partial class PurchasesWindow
             "An own EAN-13 barcode for the new product, as in the product window and on the website. Does not repeat catalog products or lines of this receipt.", "Yeni ürün için kendi EAN-13 barkodu, ürün penceresindeki ve sitedeki gibi. Katalog ürünlerini ve bu girişin satırlarını tekrarlamaz.",
             "Yangi mahsulot uchun o'z EAN-13 shtrix-kodi, mahsulot oynasidagi va saytdagidek. Katalog mahsulotlari va bu qabul qatorlarini takrorlamaydi."));
         Avalonia.Automation.AutomationProperties.SetName(genButton, T("Сгенерировать штрихкод", "Штрихкод түзүү", "Generate barcode", "Barkod oluştur", "Shtrix-kod yaratish") + " " + line.ProductName);
-        genButton.Click += (_, _) =>
+        genButton.Click += async (_, _) =>
         {
-            if (!BarcodeGenerator.GenerateForReceivingLine(line, s.Lines))
+            if (!await BarcodeGenerator.GenerateForReceivingLineAsync(line, s.Lines).ConfigureAwait(true)) // 2026-11-21: код с сервера, запасной — локальный
                 return;
             PosLogger.Log($"Приём товара: новому товару «{line.ProductName}» сгенерирован штрихкод {line.Barcode}.", "STOCK");
             ReceiveMessage(T($"Штрихкод {line.Barcode} сгенерирован.", $"{line.Barcode} штрихкоду түзүлдү.", $"Barcode {line.Barcode} generated.", $"{line.Barcode} barkodu oluşturuldu.", $"{line.Barcode} shtrix-kodi yaratildi."));

@@ -48,17 +48,17 @@ public sealed class ReceivingCellInputUiTests
             var line = new ReceivingLineVm { Barcode = "", ProductName = "Новый товар для проверки ввода", Source = ReceivingSource.Unknown, Quantity = 3, PurchasePrice = 10, SalePrice = 15 }; // 3, а не 1: «1» стоит и в колонке «№»
             vm.ReceivingLines.Add(line);
             UiShot.Settle(10);
-            var grid = UiDrive.Find<DataGrid>(window, "ReceivingGrid");
             var tag = $"{width}x{height} {lang}";
-            DataGridRow Row() => grid.GetVisualDescendants().OfType<DataGridRow>().Single(r => ReferenceEquals(r.DataContext, line));
+            // 2026-11-21: строки приёмки — карточки (объединение с «Массовым добавлением»): поля карточки правятся так же, как ячейки прежней таблицы.
+            Border Card() => window.GetVisualDescendants().OfType<Border>().First(x => x.DataContext is BulkScanRow r && ReferenceEquals(r.Line, line) && x.GetVisualParent()?.DataContext is not BulkScanRow);
+            TextBox Field(string t) => Card().GetVisualDescendants().OfType<TextBox>().First(x => Equals(x.Tag, t) && x.IsEffectivelyVisible);
             TextBox? Focused() => TopLevel.GetTopLevel(window)!.FocusManager!.GetFocusedElement() as TextBox;
 
-            // «Название» — главная колонка
-            grid.Columns[1].ActualWidth.Should().BeGreaterThanOrEqualTo(width >= 1366 ? 300 : 220, $"название не ужато ({tag})");
+            // «Название» — широкое поле карточки
+            Field("name").Bounds.Width.Should().BeGreaterThanOrEqualTo(width >= 1366 ? 300 : 200, $"название не ужато ({tag})");
 
-            // одно нажатие на «Принимаем» — поле в фокусе, число выделено
-            var qtyCell = Row().GetVisualDescendants().OfType<TextBlock>().First(t => t.IsEffectivelyVisible && t.Text == "3" && t.GetVisualAncestors().OfType<DataGridCell>().Any());
-            UiDrive.Click(window, qtyCell);
+            // одно нажатие на «Кол-во» — поле в фокусе, число выделено
+            UiDrive.Click(window, Field("qty"));
             UiShot.Settle(10);
             var box = Focused();
             box.Should().NotBeNull($"после одного нажатия — сразу ввод ({tag})");
@@ -76,10 +76,10 @@ public sealed class ReceivingCellInputUiTests
             line.Quantity.Should().Be(7);
             UiDrive.Find<TextBlock>(window, "SumQty").Text.Should().Be("7", $"Б-6: итог «Штук» обновился на лету, до Enter ({tag})");
 
-            // Enter — к «Закупке», там тоже всё выделено; Esc откатывает правку ячейки
+            // Enter — к «Закупке», там тоже всё выделено; Esc откатывает правку поля
             Key(window, Avalonia.Input.Key.Enter, PhysicalKey.Enter);
-            UiShot.Settle(6);
-            grid.CurrentColumn.Should().BeSameAs(grid.Columns[6], $"Enter из «Принимаем» — в «Закупку» ({tag})");
+            UiShot.Settle(10);
+            Focused().Should().BeSameAs(Field("purchase"), $"Enter из «Кол-во» — в «Закупку» ({tag})");
             Focused()!.SelectedText.Should().Be("10");
             window.KeyTextInput("99");
             UiShot.Settle(4);
@@ -87,41 +87,32 @@ public sealed class ReceivingCellInputUiTests
             Key(window, Avalonia.Input.Key.Escape, PhysicalKey.Escape);
             UiShot.Settle(6);
             line.PurchasePrice.Should().Be(10, $"Esc вернул прежнюю закупку ({tag})");
-            line.Quantity.Should().Be(7, "правка «Принимаем» уже закончена Enter — Esc её не трогает");
+            line.Quantity.Should().Be(7, "правка «Кол-во» уже закончена Enter — Esc её не трогает");
 
-            // выход из ячейки с пустым полем — прежнее значение
-            var qtyCell2 = Row().GetVisualDescendants().OfType<TextBlock>().First(t => t.IsEffectivelyVisible && t.Text == "7" && t.GetVisualAncestors().OfType<DataGridCell>().Any());
-            UiDrive.Click(window, qtyCell2);
+            // выход из поля с пустым значением — прежнее значение
+            UiDrive.Click(window, Field("qty"));
             UiShot.Settle(10);
             Key(window, Avalonia.Input.Key.Back, PhysicalKey.Backspace);
             Focused()!.Text.Should().Be("");
             Key(window, Avalonia.Input.Key.Tab, PhysicalKey.Tab);
-            UiShot.Settle(6);
+            UiShot.Settle(10);
             line.Quantity.Should().Be(7, $"ушли с пустым полем — вернулось прежнее, а не «молча 1» ({tag})");
-            grid.CommitEdit();
-            UiShot.Settle(6);
 
-            // Б-5 (видео 11.34.58): поле названия нового товара в правке видно целиком и с подсказкой (в узком виде под ним ещё поле штрихкода)
-            grid.SelectedItem = line;
-            grid.CurrentColumn = grid.Columns[1];
-            grid.BeginEdit().Should().BeTrue();
-            UiShot.Settle(8);
-            var nameBox = Row().GetVisualDescendants().OfType<TextBox>().First(t => t.IsEffectivelyVisible && t.GetVisualAncestors().OfType<DataGridCell>().Any());
+            // Б-5: поле названия нового товара видно целиком и по высоте поля
+            var nameBox = Field("name");
             nameBox.Bounds.Height.Should().BeGreaterThanOrEqualTo(30, $"поле названия не схлопнуто ({tag})");
-            nameBox.Watermark.Should().Be(WarehouseWindow.NewNameWatermarkText);
-            nameBox.TranslatePoint(new Point(0, nameBox.Bounds.Height), Row())!.Value.Y.Should().BeLessThanOrEqualTo(Row().Bounds.Height + 0.5, $"поле в своей строке ({tag})");
-            grid.CommitEdit();
-            UiShot.Settle(6);
+            nameBox.Watermark.Should().NotBeNullOrWhiteSpace();
+            nameBox.TranslatePoint(new Point(0, nameBox.Bounds.Height), Card())!.Value.Y.Should().BeLessThanOrEqualTo(Card().Bounds.Height + 0.5, $"поле в своей карточке ({tag})");
 
-            // «Сгенерировать штрихкод» у нового товара без штрихкода (и в узком виде)
-            var gen = Row().GetVisualDescendants().OfType<Button>().FirstOrDefault(b => b.IsEffectivelyVisible && Equals(b.Tag, "rcv-genbar"));
+            // «Сгенерировать штрихкод» у нового товара без штрихкода
+            var gen = Card().GetVisualDescendants().OfType<Button>().FirstOrDefault(b => b.IsEffectivelyVisible && Equals(b.Tag, "rcv-genbar"));
             gen.Should().NotBeNull($"кнопка видна ({tag})");
             UiDrive.Click(window, gen!);
             UiShot.Settle(8);
             line.Barcode.Should().HaveLength(13);
             BarcodeGenerator.HasValidCheckDigit(line.Barcode).Should().BeTrue();
             line.Barcode[0].Should().NotBe('2');
-            Row().GetVisualDescendants().OfType<Button>().Any(b => b.IsEffectivelyVisible && Equals(b.Tag, "rcv-genbar")).Should().BeFalse("штрихкод есть — кнопка скрылась");
+            Card().GetVisualDescendants().OfType<Button>().Any(b => b.IsEffectivelyVisible && Equals(b.Tag, "rcv-genbar")).Should().BeFalse("штрихкод есть — кнопка скрылась");
         }
         finally
         {

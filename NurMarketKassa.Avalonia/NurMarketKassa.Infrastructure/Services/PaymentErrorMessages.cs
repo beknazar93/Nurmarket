@@ -68,6 +68,10 @@ public static class PaymentErrorMessages
             if (ServerErrorCodes.HardwareFriendly(api) is { } hardwareText)
                 return hardwareText;
 
+            // 2026-11-21 («Базар», модуль currencies; ответ сервера 20.11 В.19): currency_amount_mismatch / currency_unknown / currency_rate_required — понятный текст.
+            if (BazaarCurrencies.ServerErrorText(ServerErrorCodes.Code(api)) is { } currencyText)
+                return currencyText;
+
             if (LooksLikeDiscountError(api.Message))
                 return DiscountFailure;
 

@@ -158,7 +158,10 @@ internal static class MainViewModelRegistration
             ?? CatalogCacheService.Products.FirstOrDefault(item =>
                 string.Equals(item.Id, productId, StringComparison.OrdinalIgnoreCase));
         // Услуге остаток не нужен — «+» в строке чека не упирается в ноль на складе.
+        // 2026-11-21: «Продавать товар без остатка (в минус)» включено — у строки чека лимита по остатку нет («+» и ручной ввод не упираются в склад).
         if (product is null || product.IsService)
+            return null;
+        if (NegativeStockPolicy.Enabled)
             return null;
 
         var reserved = StockAvailabilityService.CalculateReservedQuantity(productId)

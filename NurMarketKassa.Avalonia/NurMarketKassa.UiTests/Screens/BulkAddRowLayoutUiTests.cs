@@ -133,7 +133,7 @@ public sealed class BulkAddRowLayoutUiTests
         name.Watermark.Should().EndWith("*", $"заглушка названия с отметкой обязательного поля ({tag})");
     }
 
-    [AvaloniaTheory]
+    [AvaloniaTheory(Skip = "2026-11-21: вкладки «Массовое добавление» больше нет — карточки в «Приёмке», проверка — ReceivingTabLayoutUiTests")]
     [MemberData(nameof(Sizes))]
     public async Task BulkAdd_Row_IsCompact_NameBoxNotHuge_InAllStates(int width, int height, AppLanguage lang)
     {
@@ -180,7 +180,7 @@ public sealed class BulkAddRowLayoutUiTests
     }
 
     /// <summary>2026-11-12 (Т-15): СЛУЧАЙ ВЛАДЕЛЬЦА — раздел «Склад» внутри оболочки программы владельца (1850×750 из жалобы и узкое 1100×750): те же пределы, название 200…450 px.</summary>
-    [AvaloniaTheory]
+    [AvaloniaTheory(Skip = "2026-11-21: вкладки «Массовое добавление» больше нет — карточки в «Приёмке», проверка — ReceivingTabLayoutUiTests")]
     [InlineData(1850, 750)]
     [InlineData(1100, 750)]
     public async Task OwnerShell_BulkAdd_RowsKeepTheLimits_NameBetween200And640(int width, int height)

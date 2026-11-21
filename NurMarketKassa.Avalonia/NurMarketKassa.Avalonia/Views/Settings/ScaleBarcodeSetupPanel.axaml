@@ -237,7 +237,10 @@
                 <TextBlock Text="{DynamicResource scaleSetup.barcode.desc}" Classes="SettingsCardBody"/>
                 <WrapPanel x:Name="ExampleSegments"/>
                 <TextBlock x:Name="ExampleText" TextWrapping="Wrap" FontSize="13.5" Foreground="{DynamicResource BrushText}"/>
-                <TextBlock x:Name="CompanyFormatText" Classes="SettingsCardBody"/>
+                <!-- 2026-11-21: длинная раскладка компании («2 цифры префикса + PLU 5 + …») — в сворачиваемом «Подробнее», а не стеной серого текста -->
+                <Expander x:Name="CompanyDetails" Foreground="{DynamicResource BrushTextSoft}" FontSize="13" HorizontalAlignment="Stretch">
+                    <TextBlock x:Name="CompanyFormatText" Classes="SettingsCardBody" TextWrapping="Wrap"/>
+                </Expander>
                 <!-- 2026-11-05: выбор единицы суммы «в тыйынах / в сомах» на этой кассе (код: ScaleUi.AmountUnitPicker) -->
                 <StackPanel x:Name="UnitBox" Spacing="6"/>
                 <WrapPanel x:Name="OnScaleRow" Margin="0,2,-8,-8">

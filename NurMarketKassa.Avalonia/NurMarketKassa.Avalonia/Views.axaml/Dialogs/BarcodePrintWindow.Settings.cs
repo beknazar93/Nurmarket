@@ -457,6 +457,16 @@ public partial class BarcodePrintView
                 }
             }
             var price = sample != null ? BarcodePrintCatalog.LabelPrice(sample) : "85,00 сом";
+            // 2026-11-21 («Редактор ценников»): свои элементы шаблона получают данные этого товара (или образец).
+            previewTemplate = previewTemplate.Clone();
+            if (sample != null)
+            {
+                var (p2, d2) = BarcodePrintCatalog.LabelFor(new BarcodePrintItem(sample, code, 1), previewTemplate);
+                price = p2 ?? price;
+                previewTemplate.Item = d2;
+            }
+            else
+                previewTemplate.Item = LabelExtras.Sample;
             // 2026-10-29: Android/Linux — System.Drawing недоступен, картинку рисует Avalonia (LabelSceneRenderer).
             var next = LabelSceneRenderer.LabelPreview(name, code, price, previewTemplate, sample?.Article, sample?.Unit, UserPreferences.Instance.StoreName);
             _previewImage.Source = next;

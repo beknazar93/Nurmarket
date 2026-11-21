@@ -261,7 +261,7 @@ public sealed class BarcodesPerfLayoutUiTests : IDisposable
 
     [AvaloniaTheory]
     [MemberData(nameof(OwnerSizes))]
-    public async Task OwnerShell_BarcodesSection_And_WarehouseTab_FillTheArea_NoBlankTop(int w, int h)
+    public async Task OwnerShell_WarehouseLabelsTab_FillsTheArea_NoBlankTop(int w, int h)
     {
         await TestHost.WarmAsync();
         UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
@@ -277,17 +277,8 @@ public sealed class BarcodesPerfLayoutUiTests : IDisposable
         {
             shell.Show();
             UiShot.Settle(4, 40);
-            NavButtons(shell)["barcodes"].RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
-            WaitFor(() => shell.OwnedWindows.OfType<BarcodePrintSectionWindow>().Any(), 3000);
-            var section = shell.OwnedWindows.OfType<BarcodePrintSectionWindow>().Single();
-            UiShot.Settle(10, 50);
-            var view = section.Host.View!;
-            var top = view.SearchBox.TranslatePoint(default, section)!.Value.Y;
-            Log($"owner-shell barcodes {w}x{h}: раздел {section.Bounds.Width:0}x{section.Bounds.Height:0}, поиск сверху {top:0}");
-            top.Should().BeLessThan(80, "поиск у верха раздела — без пустой области");
-            CheckLayout(section, view, $"owner barcodes {w}x{h}");
-            SaveShot(section, $"barcodes-big-owner-section-{w}x{h}", new UiSize((int)section.Bounds.Width, (int)section.Bounds.Height));
-
+            // 2026-11-21: отдельного раздела «Штрихкоды и ценники» больше нет — только вкладка «Склад» → «Ценники и штрихкоды».
+            NavButtons(shell).Should().NotContainKey("barcodes");
             NavButtons(shell)["warehouse"].RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
             WaitFor(() => shell.OwnedWindows.OfType<WarehouseWindow>().Any(), 3000);
             var warehouse = shell.OwnedWindows.OfType<WarehouseWindow>().Single();

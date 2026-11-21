@@ -86,23 +86,9 @@ public sealed class WarehouseDesign1119UiTests
             row.GetVisualDescendants().OfType<Button>().Count(b => b.Classes.Contains("stock-btn")).Should().Be(1, $"{tag}: остаток — кнопка");
         }
 
-        // Выбор: «выбрать все на странице» в шапке → панель массовых действий; «Снять выбор» → панель скрыта.
-        var bar = UiDrive.Find<Border>(wh, "BulkBar");
-        bar.IsVisible.Should().BeFalse($"{tag}: без выбора панели массовых действий нет");
-        var all = (CheckBox)typeof(WarehouseWindow).GetField("_selectPageCheck", Inst)!.GetValue(wh)!;
-        all.IsEffectivelyVisible.Should().BeTrue($"{tag}: галочка «выбрать все» видна в шапке");
-        UiDrive.Click(wh, all);
-        UiShot.Settle(3, 30);
-        wh.PrintPickedIds.Count.Should().Be(vm.PagedProducts.Count, $"{tag}: отмечена вся страница");
-        bar.IsVisible.Should().BeTrue($"{tag}: панель массовых действий видна");
-        var barRight = bar.TranslatePoint(new Avalonia.Point(bar.Bounds.Width, 0), wh)!.Value.X;
-        foreach (var b in bar.GetVisualDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible))
-            b.TranslatePoint(new Avalonia.Point(b.Bounds.Width, 0), wh)!.Value.X.Should().BeLessThanOrEqualTo(barRight + 0.5, $"{tag}: кнопки панели внутри неё");
-        Shot(wh, $"wh1119-bulkbar-{tag}");
-        UiDrive.Click(wh, UiDrive.Find<Button>(wh, "BulkBarClearButton"));
-        UiShot.Settle(3, 30);
-        wh.PrintPickedIds.Count.Should().Be(0, tag);
-        bar.IsVisible.Should().BeFalse($"{tag}: после «Снять выбор» панели нет");
+        // 2026-11-21 (владелец: «все редакторы — в одну вкладку»): выбора галочками и панели массовых действий больше нет — печать только на вкладке «Ценники и штрихкоды».
+        wh.FindControl<Control>("BulkBar").Should().BeNull($"{tag}: панели массовых действий нет");
+        rows.SelectMany(r => r.GetVisualDescendants().OfType<CheckBox>()).Should().BeEmpty($"{tag}: галочек «в печать» в строках нет");
 
         // Пустое состояние: ничего не найдено — блок с кнопкой «Сбросить поиск и фильтры».
         vm.ProductSearchText = "zzqq-нет-такого-товара";

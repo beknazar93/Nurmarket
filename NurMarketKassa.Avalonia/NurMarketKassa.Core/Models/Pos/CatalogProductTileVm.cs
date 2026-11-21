@@ -487,6 +487,28 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
         }
     }
 
+    /// <summary>2026-11-21 (просьба владельца «сначала товары без штрихкода — хлеб и т. д.»): у товара нет заводского штрихкода. Признаки (только существующие поля):
+    /// основной штрихкод пуст; либо он — «запасной» код: ProductCatalogMapper при пустом barcode кладёт в него sku/article/code (у таких товаров Barcode == Article / ProductCode,
+    /// например «0160»), и это не штрихкод из 8–14 цифр. Доп. штрихкоды (скан упаковки) считаются штрихкодом — такой товар «со штрихкодом». Весовой товар с PLU без кода попадает сюда сам.</summary>
+    public bool HasNoFactoryBarcode => NoFactoryBarcodeMarks.IsMarked(Id) || LooksWithoutFactoryBarcode;
+
+    /// <summary>2026-11-21: «без заводского штрихкода» по самому коду (пустой / запасной). Явная отметка владельца (<see cref="NoFactoryBarcodeMarks"/>) учитывается в <see cref="HasNoFactoryBarcode"/>.</summary>
+    public bool LooksWithoutFactoryBarcode
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(AlternateBarcodesRaw))
+                return false;
+            var code = _barcode?.Trim();
+            if (string.IsNullOrEmpty(code))
+                return true;
+            if (code.Length is >= 8 and <= 14 && code.All(char.IsAsciiDigit))
+                return false; // EAN-8 / UPC-A / EAN-13 / ITF-14 — настоящий штрихкод, даже если совпал с артикулом
+            return string.Equals(code, Article?.Trim(), StringComparison.OrdinalIgnoreCase)
+                || string.Equals(code, ProductCode?.Trim(), StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
     /// <summary>Коды (артикул, код, PLU, доп. штрихкоды) дописаны после показа строки — обновить колонку.</summary>
     public void RaiseCodesChanged()
     {

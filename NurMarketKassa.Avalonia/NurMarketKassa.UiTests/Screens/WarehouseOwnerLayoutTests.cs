@@ -243,7 +243,7 @@ public sealed class WarehouseOwnerLayoutTests
         var bottom = Bottom(commit, wh);
         bottom.Should().BeGreaterThan(wh.ClientSize.Height - 140, $"«Оприходовать» у нижнего края ({step}); окно {wh.ClientSize}, низ кнопки {bottom:0}");
         bottom.Should().BeLessThanOrEqualTo(wh.ClientSize.Height + 0.5, $"«Оприходовать» видна целиком ({step})");
-        var grid = UiDrive.Find<DataGrid>(wh, "ReceivingGrid");
+        var grid = UiDrive.Find<ItemsControl>(wh, "ReceivingCards"); // 2026-11-21: строки приёмки — карточки
         if (wh.ClientSize.Height >= 600) // на совсем низком окне (масштаб 90 % и −120 px) таблица законно ужимается
             grid.Bounds.Height.Should().BeGreaterThan(120, $"таблица приёмки занимает остаток высоты ({step}); таблица {grid.Bounds}");
     }

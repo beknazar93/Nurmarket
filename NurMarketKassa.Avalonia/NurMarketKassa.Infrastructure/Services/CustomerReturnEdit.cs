@@ -48,7 +48,7 @@ public static class CustomerReturnEdit
             var sale = hasSale ? saleLines[sid] : default;
             var name = FirstStr(item, "product_name", "name", "title");
             if (name.Length == 0 && hasSale)
-                name = CartDisplayHelper.ItemName(sale);
+                name = CartDisplayHelper.ItemTitle(sale); // 2026-11-21: название товара + variant_name
             var unit = FirstStr(item, "unit", "unit_display");
             if (unit.Length == 0 && hasSale)
                 unit = FirstStr(sale, "unit", "unit_display", "product_unit");

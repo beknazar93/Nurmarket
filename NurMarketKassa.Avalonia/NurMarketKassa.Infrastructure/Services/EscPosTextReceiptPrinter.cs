@@ -136,9 +136,9 @@ public static class EscPosTextReceiptPrinter
     public static byte[] BuildEscPosPayload(ReceiptPrinterSettings cfg, string text, int? charWidth = null)
     {
         ArgumentNullException.ThrowIfNull(cfg);
-        var prepared = ReceiptSanitizer.StripShiftCashboxAndEnsureWelcome(text ?? string.Empty);
         var w = charWidth ?? ReceiptLayout.CharWidth;
-        var raw = ReceiptTextFormatter.FormatForPrinter(prepared, w).Trim().ToUpperInvariant();
+        // 2026-11-21 (редактор чека): тот же конвейер, что и у предпросмотра в редакторе, — на бумаге то же, что на экране.
+        var raw = ReceiptPrintPipeline.Prepare(text ?? string.Empty, w);
         if (raw.Length == 0)
             throw new InvalidOperationException("Пустой текст чека.");
 
@@ -190,8 +190,15 @@ public static class EscPosTextReceiptPrinter
         EscPosCommands.WriteCharacterSize(s, widthMultiplier: 1, heightMultiplier: TextFontHeightMultiplier());
 
         var boldFirst = true;
+        var laidOut = ReceiptLineStyle.IsLaidOut(text);
         foreach (var line in lines)
         {
+            if (laidOut)
+            {
+                WriteLaidOutLine(s, encoding, line, TextFontHeightMultiplier());
+                continue;
+            }
+
             if (boldFirst && !string.IsNullOrWhiteSpace(line))
             {
                 s.WriteByte(0x1B);
@@ -226,6 +233,21 @@ public static class EscPosTextReceiptPrinter
     private static int TextFontHeightMultiplier() =>
         Math.Clamp((int)Math.Round(UserPreferences.Instance.GraphicFontSize / 5.0), 1, 5);
 
+    /// <summary>2026-11-21 (редактор чека): строка чека по шаблону — жирность и размер (двойная высота / двойной размер) этой строки, затем возврат к обычному.</summary>
+    private static void WriteLaidOutLine(Stream s, Encoding encoding, string rawLine, int baseHeight)
+    {
+        var text = ReceiptLineStyle.Parse(rawLine, out var bold, out var size);
+        if (bold)
+            s.Write(new byte[] { 0x1B, 0x45, 0x01 });
+        if (size > 1 && !string.IsNullOrWhiteSpace(text))
+            EscPosCommands.WriteCharacterSize(s, widthMultiplier: size >= 3 ? 2 : 1, heightMultiplier: Math.Clamp(baseHeight * 2, 2, 8)); // 2026-11-21: «высокий» — вдвое выше обычного текста (обычный уже зависит от размера шрифта в настройках)
+        WriteTextLine(s, encoding, text);
+        if (size > 1 && !string.IsNullOrWhiteSpace(text))
+            EscPosCommands.WriteCharacterSize(s, widthMultiplier: 1, heightMultiplier: baseHeight);
+        if (bold)
+            s.Write(new byte[] { 0x1B, 0x45, 0x00 });
+    }
+
     private static void WriteTextLine(Stream s, Encoding encoding, string line)
     {
         if (!string.IsNullOrEmpty(line))
@@ -251,8 +273,15 @@ public static class EscPosTextReceiptPrinter
         EscPosCommands.WriteCharacterSize(s, widthMultiplier: 1, heightMultiplier: TextFontHeightMultiplier());
         var utf8 = new UTF8Encoding(false);
         var boldFirst = true;
+        var laidOut = ReceiptLineStyle.IsLaidOut(text);
         foreach (var line in lines)
         {
+            if (laidOut)
+            {
+                WriteLaidOutLine(s, utf8, line, TextFontHeightMultiplier());
+                continue;
+            }
+
             if (boldFirst && !string.IsNullOrWhiteSpace(line))
             {
                 s.Write(new byte[] { 0x1B, 0x45, 0x01 });

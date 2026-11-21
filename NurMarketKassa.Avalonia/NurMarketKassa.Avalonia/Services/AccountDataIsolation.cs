@@ -200,6 +200,7 @@ public static class AccountDataIsolation
             OfflineClientCache.ResetMemory(); // 2026-10-29: кэш клиентов прежней компании не должен остаться в памяти
             NurMarketKassa.Services.Api.ServerCapabilities.Reset(); // 2026-11-01: признаки сервера прежнего аккаунта (receipt_edit и др.) не должны жить в новом
             NurMarketKassa.AvaloniaHost.Services.PhotoSearchMemory.ResetMemory(); // 2026-11-03: память поиска фото прежней компании (файл уже стёрт)
+            CompanyModules.Reset(); // 2026-11-21: модули прежней компании не должны жить в новой
             ServerAddons.ResetMemory(); // 2026-10-31: функции, включённые сервером прежней компании, не должны открывать функции новой
             MarketplaceThemesClient.Shared.ResetMemory(); // 2026-11-06: каталог тем с сайта и запись о поставленных — прежней компании (файлы уже унесены)
             ServerThemeRegistry.Shared.ResetMemory();

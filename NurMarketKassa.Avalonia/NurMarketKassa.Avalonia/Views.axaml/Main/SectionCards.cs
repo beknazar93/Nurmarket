@@ -108,7 +108,7 @@ internal static class SectionCards
 
     public static StackPanel Buttons(params Button[] buttons)
     {
-        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, HorizontalAlignment = HorizontalAlignment.Right };
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 /* 2026-11-21: было 10 — зазор между кнопками низа */, HorizontalAlignment = HorizontalAlignment.Right };
         foreach (var b in buttons)
             row.Children.Add(b);
         return row;

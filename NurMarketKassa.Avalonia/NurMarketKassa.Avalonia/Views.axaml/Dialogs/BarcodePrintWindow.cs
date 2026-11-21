@@ -141,6 +141,22 @@ public sealed partial class BarcodePrintView : UserControl
     /// <summary>2026-11-11: окно, в котором стоит элемент (диалог или раздел «Склад»/«Штрихкоды и ценники»); вопросы и вложенные окна открываются над ним.</summary>
     private Window? Host => TopLevel.GetTopLevel(this) as Window;
 
+    /// <summary>2026-11-21: задан во вкладке «Ценники и штрихкоды» (LabelsHubView) — «Редактор этикетки…» переключает её на режим «Редактор».</summary>
+    public Action? OpenEditorRequested { get; set; }
+
+    /// <summary>2026-11-21: подставить шаблон из режима «Редактор»/«Шаблоны» (после сохранения) и перерисовать настройки и предпросмотр.</summary>
+    internal void ReloadTemplate()
+    {
+        _template = LabelTemplateStore.Load();
+        _templateDirty = false;
+        SyncSettingsFromTemplate();
+        if (_presetCombo != null)
+            FillPresets(null);
+        UpdateSummary();
+        RenderPage();
+        RefreshPreview();
+    }
+
     /// <summary>2026-11-11: строка поиска (окно-оболочка отдаёт ей фокус при открытии).</summary>
     public Control SearchBox => _search;
 
@@ -448,7 +464,17 @@ public sealed partial class BarcodePrintView : UserControl
             "O'lcham yorliqlari uchun (kiyim): shtrix-kod yoki o'lcham kodi bilan QR chop etish. Boshqa mahsulotlar — shablondagidek."));
 
         var editorButton = Ghost(T("Редактор этикетки…", "Этикетка редактору…", "Label editor…", "Etiket düzenleyici…", "Yorliq muharriri…"));
-        editorButton.Click += async (_, _) => await OpenEditorAsync().ConfigureAwait(true);
+        // 2026-11-21: во вкладке «Ценники и штрихкоды» редактор — её режим «Редактор» (LabelsHubView), а не второе окно.
+        editorButton.Click += async (_, _) =>
+        {
+            if (OpenEditorRequested is { } openEditor)
+            {
+                SaveState();
+                openEditor();
+                return;
+            }
+            await OpenEditorAsync().ConfigureAwait(true);
+        };
         var autoButton = Ghost(T("Расставить заново", "Кайра иретке келтирүү", "Re-arrange", "Yeniden diz", "Qayta joylash"));
         ToolTip.SetTip(autoButton, T("Расставить элементы этикетки автоматически по размеру и высоте штрих-кода", "Этикетканын элементтерин өлчөмү жана штрих-кодунун бийиктиги боюнча автоматтык түрдө иретке келтирүү",
             "Arrange the label elements automatically by size and barcode height", "Etiket öğelerini boyuta ve barkod yüksekliğine göre otomatik diz", "Yorliq elementlarini o'lcham va shtrix-kod balandligiga qarab avtomatik joylashtirish"));

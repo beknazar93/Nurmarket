@@ -167,5 +167,6 @@ public static class EstimateFeature
 {
     public const decimal PriceSom = 0m;
 
-    public static bool IsAvailable => MarketSpheres.Profile.HasEstimate || UserPreferences.Instance.EstimateEnabled; // 2026-11-20: сразу только в Строймаге (Хозмаг и остальные — Маркетплейс)
+    // 2026-11-21: решает модуль estimate с сервера (CompanyModules: профиль + «добавил / убрал» владелец); нет ответа сервера — как раньше: Строймаг сразу, остальные — признак из Маркетплейса.
+    public static bool IsAvailable => CompanyModules.IsOn(ModuleIds.Estimate, MarketSpheres.Profile.HasEstimate, UserPreferences.Instance.EstimateEnabled); // 2026-11-20: сразу только в Строймаге (Хозмаг и остальные — Маркетплейс)
 }

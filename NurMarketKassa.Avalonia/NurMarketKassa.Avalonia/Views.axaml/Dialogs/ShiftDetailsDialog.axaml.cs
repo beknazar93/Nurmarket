@@ -353,7 +353,8 @@ public partial class ShiftDetailsDialog : Window
             ? "—"
             : (shift.ShiftNumber.Length > 8 ? shift.ShiftNumber[..8].ToUpperInvariant() : shift.ShiftNumber.ToUpperInvariant());
         // 2026-11-06: В6 Д4-18 — вместо технического кода (C31F8ECE) под подписью «Смена» — дата и время открытия; код остался в подсказке (по нему смену ищут на сервере и в печатном отчёте).
-        ShiftNumberText.Text = shift.OpenedAt is { } openedForTitle ? openedForTitle.ToString("dd.MM HH:mm") : shiftCode;
+        // 2026-11-21 (обход кассы, № 15): рядом уже есть «Открыта 20.11.2026 00:31» — «Смена 20.11 00:31» повторяла то же другим форматом. Теперь «Смена» — короткий номер (по нему смену ищут на сервере и в печатном отчёте), а дата открытия — только в «Открыта»; нет номера — дата, как раньше.
+        ShiftNumberText.Text = shiftCode != "—" ? shiftCode : shift.OpenedAt is { } openedForTitle ? openedForTitle.ToString("dd.MM HH:mm") : shiftCode;
         ToolTip.SetTip(ShiftNumberText, shiftCode == "—" ? null : Tr.T($"Код смены: {shiftCode}", $"Смена коду: {shiftCode}", $"Shift code: {shiftCode}", $"Vardiya kodu: {shiftCode}", $"Smena kodi: {shiftCode}"));
         OpenedAtText.Text = shift.OpenedAt?.ToString("dd.MM.yyyy HH:mm") ?? "—";
         ClosedAtText.Text = shift.ClosedAt?.ToString("dd.MM.yyyy HH:mm") ?? "—";
@@ -939,6 +940,10 @@ public partial class ShiftDetailsDialog : Window
             sb.AppendLine($"  {Tr.T("наличные", "накталай", "cash", "nakit", "naqd")}: {cash.ToString("0.00", CultureInfo.InvariantCulture)} {Som}");
         if (server is { MixedCash: > 0m })
             sb.AppendLine($"    {Tr.T("в т.ч. смешанная", "анын ичинде аралаш", "incl. mixed", "karışık dahil", "shu jumladan aralash")}: {server.MixedCash.ToString("0.00", CultureInfo.InvariantCulture)} {Som}");
+        // 2026-11-21 («Базар», модуль «Валюты», cash_by_currency сервера): сколько валюты наличными в ящике; её сомы уже входят в «наличные» выше.
+        if (server is { CashByCurrency.Count: > 0 })
+            foreach (var (code, sums) in server.CashByCurrency)
+                sb.AppendLine($"    {Tr.T("в т.ч. валюта", "анын ичинде валюта", "incl. currency", "döviz dahil", "shu jumladan valyuta")} {code}: {sums.AmountCurrency.ToString("0.##", CultureInfo.InvariantCulture)} ({sums.AmountSom.ToString("0.00", CultureInfo.InvariantCulture)} {Som})");
         // 2026-10-04, стресс-тест (К4): наличные — с предоплатой долга (как в окне закрытия и у сервера),
         // сама предоплата — строкой «в т.ч.», а не отдельным приходом ниже (было: «Внесено при продаже в долг»).
         if (server is { DebtPrepaymentsCash: > 0m })

@@ -146,6 +146,8 @@ public sealed class QrCropSurface : Control
         _dragStart = p;
         _startCrop = (_l, _t, _r, _b);
         e.Pointer.Capture(this);
+        if (e.Pointer.Type is PointerType.Touch or PointerType.Pen)
+            e.PreventGestureRecognition(); // 2026-11-21: палец на рамке обрезки не уходит в прокрутку окна
         e.Handled = true;
     }
 

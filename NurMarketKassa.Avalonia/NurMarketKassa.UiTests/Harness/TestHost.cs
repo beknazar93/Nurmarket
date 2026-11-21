@@ -95,6 +95,21 @@ public static class TestHost
         }
         if (_seedProducts is { Count: > 0 } seed && CatalogCacheService.Products.Count == 0)
             CatalogCacheService.Products.AddRange(seed);
+        // 2026-11-21 (флаки полного прогона 1.17.91): тест, которому нужен свой каталог, кладёт товары в общий CatalogCacheService.Products уже после WarmAsync — а закрытое окно кассы
+        // из прошлого теста ещё грузит каталог в фоне и переписывает этот список. Перед тестом дожидаемся, пока фоновые загрузки прежних окон закончатся.
+        await QuiesceAsync();
+    }
+
+    /// <summary>2026-11-21: ждёт (до 20 с), пока закрытые окна кассы из прежних тестов доделают запуск и загрузку каталога; пока они идут, общий список товаров и корзина «чужие».
+    /// Переключатель NURMARKET_UI_SKIP_QUIESCE=1 отключает ожидание — только для проверки, что HarnessIsolationUiTests действительно ловит это (без ожидания он красный).</summary>
+    public static async Task QuiesceAsync()
+    {
+        if (Environment.GetEnvironmentVariable("NURMARKET_UI_SKIP_QUIESCE") == "1")
+            return;
+        var until = Environment.TickCount64 + 20000;
+        while ((NurMarketKassa.AvaloniaHost.Views.MainKassir.MainWindow.StartupsInProgress > 0 || NurMarketKassa.ViewModels.Main.CatalogPanelViewModel.ActiveLoads > 0)
+               && Environment.TickCount64 < until)
+            await Task.Delay(25);
     }
 
     private static List<NurMarketKassa.Models.Pos.CatalogProductTileVm>? _seedProducts;

@@ -62,6 +62,13 @@ internal static class HeadlessRootServices
                 return;
             BindConstant(typeof(IFontManagerImpl), fonts);
             BindConstant(typeof(ITextShaperImpl), shaper);
+            // 2026-11-21 (PlatformNotSupportedException в Dispatcher.PushFrame, 1 мс, в случайных тестах: 3 раза за ~10 полных прогонов): Dispatcher.UIThread создаётся при первом обращении
+            // и берёт IDispatcherImpl из ТЕКУЩЕЙ области служб; если не нашёл — делает NullDispatcherImpl, у которого PushFrame бросает PlatformNotSupportedException. Headless кладёт реализацию
+            // только в область теста, и фоновая задача прежнего теста, обратившаяся к Dispatcher.UIThread в промежутке между сбросом диспетчера и настройкой платформы нового теста
+            // (или вне области), получала такой «пустой» диспетчер. Кладём ту же реализацию и в корневую область — «пустого» диспетчера больше не получается.
+            var dispatcherType = typeof(Avalonia.Threading.Dispatcher).Assembly.GetType("Avalonia.Threading.IDispatcherImpl");
+            if (dispatcherType is not null && getService.Invoke(current, [dispatcherType]) is { } dispatcherImpl)
+                BindConstant(dispatcherType, dispatcherImpl);
             _copied = true;
         }
         catch (Exception ex)

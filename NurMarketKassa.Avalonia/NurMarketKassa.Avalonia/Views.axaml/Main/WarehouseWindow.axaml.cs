@@ -96,6 +96,9 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         InitReceivingScan();
         // 2026-10-27: «Загрузить накладную» (Excel/CSV/XML) в приёмке (WarehouseWindow.InvoiceImport.cs).
         InitInvoiceImport();
+        // 2026-11-21: «Массовая загрузка» (перенос из другой программы) — только в программе владельца; в кассе кнопки в строке товаров нет совсем.
+        if (!ImportAccess.Allowed)
+            (BulkImportButton.Parent as Panel)?.Children.Remove(BulkImportButton);
         // 2026-10-24, ТЗ «Склад», пакет Р2: вкладка «Ревизия» — «скан → факт» на движке RevisionSession (WarehouseWindow.Revision.cs).
         InitRevision();
         WarehouseTabs.SelectionChanged += WarehouseTabs_SelectionChanged;
@@ -118,8 +121,6 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         // вкладкой склада, иначе её было бы негде открыть.
         AnalyticsTabItem.IsVisible = (!_isOwnerSection || !TariffGate.CanUseSalesAnalytics)
                                      && UserPreferences.Instance.WarehouseAnalyticsUnlocked;
-        BulkPriceTagButton.IsVisible = UserPreferences.Instance.BulkPriceTagUnlocked;
-        UpdatePrintPickButton(); // 2026-11-11: с отмеченными товарами кнопка «Печать ценников (N)» видна и без покупки (нажатие спросит серийный номер)
     }
 
     /// <summary>Аналитика считается только когда кассир реально открыл эту вкладку — сразу
@@ -239,7 +240,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
     {
         // 2026-10-24, ТЗ «Склад» (Б1): скан во время правки ячейки сначала дописывает правку (поле возвращено к тексту до серии символов
         // скана в HandleScanInsideField), и только потом обрабатывается — введённое «Принято»/цена не теряется.
-        ReceivingGrid.CommitEdit();
+        CommitReceivingEdit();
         if (!double.TryParse(ReceivingQuantityBox.Text?.Replace(',', '.'),
                 System.Globalization.NumberStyles.AllowDecimalPoint | System.Globalization.NumberStyles.AllowLeadingSign | System.Globalization.NumberStyles.AllowLeadingWhite | System.Globalization.NumberStyles.AllowTrailingWhite,
                 System.Globalization.CultureInfo.InvariantCulture, out var quantity) || quantity <= 0)
@@ -369,7 +370,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
             Unit = "шт",
             Quantity = quantity,
         };
-        ReceivingGrid.CommitEdit();
+        CommitReceivingEdit();
         line.EnableAutoSale(); // 2026-10-28: новый товар вручную — цена продажи сразу по наценке, как только введена закупка
         _viewModel.ApplyNewLineDefaults(line); // 2026-11-11: способ приёмки с верхней панели (новый товар вручную — тоже)
         _viewModel.ReceivingLines.Insert(0, line); // 2026-10-24, ТЗ «Склад» (Б1): новая строка сверху
@@ -461,16 +462,16 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
 
     /// <summary>2026-10-03: «Оприходовать» при открытой правке ячейки — сначала дописываем правку (Click идёт раньше
     /// команды): иначе проведённая строка вернулась бы в таблицу при уходе с вкладки и её провели бы второй раз.</summary>
-    private void ReceivingCommit_Click(object? sender, RoutedEventArgs e) => ReceivingGrid.CommitEdit();
+    private void ReceivingCommit_Click(object? sender, RoutedEventArgs e) => CommitReceivingEdit();
 
     private void ReceivingRemove_Click(object? sender, RoutedEventArgs e)
     {
-        if (ReceivingGrid.SelectedItem is NurMarketKassa.Models.ReceivingLineVm line)
+        if (_rcvSelectedLine is { } line && _viewModel.ReceivingLines.Contains(line)) // 2026-11-21: «выбранная» — строка, в карточке которой был курсор
         {
             // 2026-10-03, владелец: «в приёмке нажал „Убрать“, перешёл на другие вкладки — убранные товары
             // вернулись». Воспроизведено: строка была в режиме правки ячейки (нажали «Принято»/цену); при уходе
             // с вкладки таблица дописывала незаконченную правку и возвращала строку. Сначала отменяем правку.
-            ReceivingGrid.CancelEdit();
+            CancelReceivingEdit();
             _viewModel.ReceivingLines.Remove(line);
             RefreshReceivingSummary();
         }

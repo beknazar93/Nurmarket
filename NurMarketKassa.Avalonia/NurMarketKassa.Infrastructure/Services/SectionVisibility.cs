@@ -40,7 +40,6 @@ public static class SectionVisibility
     {
         ("aiadvisor", Tr.T("Нур Советник", "Нур Кеңешчи", "Nur Advisor", "Nur Danışman", "Nur Maslahatchi")),
         ("warehouse", Tr.T("Склад", "Кампа", "Warehouse", "Depo", "Ombor")),
-        ("barcodes", Tr.T("Штрихкоды и ценники", "Штрих-коддор жана баа белгилери", "Barcodes and price tags", "Barkodlar ve fiyat etiketleri", "Shtrix-kodlar va narx yorliqlari")), // 2026-11-11: печать штрихкодов и ценников (как вкладка «Штрихкоды» в «Складе»)
         ("calculator", Tr.T("Калькуляция", "Калькуляция", "Pricing calculator", "Hesaplama", "Kalkulyatsiya")),
         ("scales", Tr.T("Настройки → Весы", "Жөндөөлөр → Тараза", "Settings → Scales", "Ayarlar → Tartı", "Sozlamalar → Tarozi")), // 2026-11-20: «Весы» — страница Настроек (не пункт меню ☰); тумблер скрывает её (сфера «Канцтовары» скрывает по умолчанию)
         ("restock", Tr.T("Пополнение и сроки", "Толуктоо жана мөөнөттөр", "Restock & expiry", "Stok yenileme ve SKT", "To'ldirish va muddatlar")),

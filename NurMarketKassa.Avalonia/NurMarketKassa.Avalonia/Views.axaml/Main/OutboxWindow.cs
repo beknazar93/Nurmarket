@@ -68,6 +68,7 @@ public sealed class OutboxWindow : Window
         public Button Support = null!;
         public Button Remove = null!;
         public Button Confirm = null!; // 2026-11-19: «Подтвердить отправку…» (старый чек, PIN владельца/админа)
+        public CheckBox Select = null!; // 2026-11-21: отметка чека для «Очистить неотправленные чеки» (владелец/админ, только чеки продаж)
         public string StatusBrush = "";
         public string ReasonBrush = "";
         public bool DetailsOpen;
@@ -98,6 +99,9 @@ public sealed class OutboxWindow : Window
     private readonly Button _openIrregular;
     private readonly Button _openBackground;
     private readonly Button _confirmAll; // 2026-11-19: «Подтвердить отправку (N)…» — все старые чеки одним PIN
+    private readonly Button _clear; // 2026-11-21: «Очистить неотправленные чеки…» (владелец/админ + PIN, копия чеков перед очисткой)
+    private readonly HashSet<string> _selected = new(StringComparer.OrdinalIgnoreCase); // ключи отмеченных чеков; по умолчанию пусто
+    private bool _syncingSelect;
     // 2026-11-19: пометки «Отправлено, но: продано ниже закупки / ушло в минус по остатку» (OutboxSentNotes) — остаются в окне после отправки
     private readonly StackPanel _sentNotes = new() { Spacing = 4 };
     private readonly Button _sentNotesHide;
@@ -183,6 +187,9 @@ public sealed class OutboxWindow : Window
         _confirmAll = Small(UiKit.Primary(this, ""));
         _confirmAll.IsVisible = false;
         _confirmAll.Click += async (_, _) => await OnConfirmAsync(_rows.Values.Select(r => r.Item).Where(i => i.CanConfirm).ToList()).ConfigureAwait(true);
+        _clear = Small(UiKit.Ghost(this, ""));
+        _clear.IsVisible = false;
+        _clear.Click += async (_, _) => await OnClearAsync().ConfigureAwait(true);
         _sentNotesHide = Small(UiKit.Ghost(this, ""));
         _sentNotesHide.HorizontalAlignment = HorizontalAlignment.Left;
         _sentNotesHide.Click += (_, _) => OutboxSentNotes.Clear();
@@ -194,7 +201,7 @@ public sealed class OutboxWindow : Window
         _statusFilter.SelectionChanged += (_, _) => { if (!_buildingFilters) Refresh(); };
 
         var filters = new WrapPanel { Orientation = Orientation.Horizontal };
-        foreach (var c in new Control[] { _kindFilter, _statusFilter, _order })
+        foreach (var c in new Control[] { _kindFilter, _statusFilter, _order, _clear })
         {
             c.Margin = new Thickness(0, 0, 8, 8);
             filters.Children.Add(c);
@@ -293,6 +300,7 @@ public sealed class OutboxWindow : Window
         _order.Content = _newestFirst
             ? T("Сначала новые", "Адегенде жаңылары", "Newest first", "Önce yeniler", "Avval yangilari")
             : T("Сначала старые", "Адегенде эскилери", "Oldest first", "Önce eskiler", "Avval eskilari");
+        _clear.Content = T("Очистить неотправленные чеки…", "Жөнөтүлбөгөн чектерди тазалоо…", "Clear unsent receipts…", "Gönderilmemiş fişleri temizle…", "Yuborilmagan cheklarni tozalash…");
         _openIrregular.Content = T("Некорректные чеки", "Туура эмес чектер", "Irregular receipts", "Hatalı fişler", "Noto'g'ri cheklar");
         _sentNotesHide.Content = T("Скрыть пометки", "Белгилерди жашыруу", "Hide the notes", "Notları gizle", "Belgilarni yashirish");
         _openBackground.Content = T("Приходы в фоне", "Фондогу кирүүлөр", "Background receivings", "Arka plandaki mal kabulleri", "Fondagi kirimlar");
@@ -448,6 +456,14 @@ public sealed class OutboxWindow : Window
         _resetFilter.IsVisible = hiddenByFilter;
         _scroll.IsVisible = shown.Count > 0;
         _openIrregular.IsVisible = all.Any(i => i.Kind == OutboxKind.Sale);
+        // 2026-11-21: «Очистить неотправленные чеки…» — только владельцу/админу и когда есть чеки продаж; отметки убранных из очереди чеков снимаются
+        _clear.IsVisible = _access.IsAdmin && all.Any(i => i.Kind == OutboxKind.Sale);
+        _clear.IsEnabled = !_batchBusy;
+        if (_selected.Count > 0)
+        {
+            var saleKeys = new HashSet<string>(all.Where(i => i.Kind == OutboxKind.Sale).Select(i => i.Key), StringComparer.OrdinalIgnoreCase);
+            _selected.RemoveWhere(k => !saleKeys.Contains(k));
+        }
         _openBackground.IsVisible = all.Any(i => i.Kind == OutboxKind.Receiving);
     }
 
@@ -564,8 +580,25 @@ public sealed class OutboxWindow : Window
             buttons.Children.Add(b);
         }
 
+        // 2026-11-21: отметка чека для «Очистить неотправленные чеки…» слева от заголовка (виден владельцу/админу у чеков продаж); по умолчанию не отмечен
+        row.Select = new CheckBox { IsVisible = false, MinWidth = 0, MinHeight = 32, Margin = new Thickness(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Top };
+        Avalonia.Automation.AutomationProperties.SetName(row.Select, T("Выбрать для очистки", "Тазалоо үчүн тандоо", "Select for clearing", "Temizlemek için seç", "Tozalash uchun tanlash"));
+        row.Select.IsCheckedChanged += (_, _) =>
+        {
+            if (_syncingSelect || row.Item is null)
+                return;
+            if (row.Select.IsChecked == true)
+                _selected.Add(row.Key);
+            else
+                _selected.Remove(row.Key);
+        };
+        var headRow = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
+        Grid.SetColumn(row.Head, 1);
+        headRow.Children.Add(row.Select);
+        headRow.Children.Add(row.Head);
+
         var body = new StackPanel { Spacing = 4 };
-        body.Children.Add(row.Head);
+        body.Children.Add(headRow);
         body.Children.Add(row.Info);
         body.Children.Add(row.Status);
         body.Children.Add(row.Reason);
@@ -654,6 +687,15 @@ public sealed class OutboxWindow : Window
         row.Remove.IsEnabled = !busy;
         row.Copy.IsVisible = item.CanCopy;
         row.Support.IsVisible = item.CanSupport && SupportLogService.IsConfigured;
+        // 2026-11-21: отметка «для очистки» — только чеки продаж и только владельцу/админу; отправляемый сейчас чек не отмечается
+        var selectable = _access.IsAdmin && item.Kind == OutboxKind.Sale && item.Status != OutboxStatus.Sending;
+        row.Select.IsVisible = selectable;
+        row.Select.IsEnabled = !busy;
+        _syncingSelect = true;
+        try { row.Select.IsChecked = selectable && _selected.Contains(item.Key); }
+        finally { _syncingSelect = false; }
+        if (!selectable)
+            _selected.Remove(item.Key);
 
         var hasDetails = true; // 2026-11-14 (Л-6): в подробностях всегда «Если не отправить: …»
         row.Details.IsVisible = hasDetails;
@@ -833,6 +875,46 @@ public sealed class OutboxWindow : Window
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             PosLogger.Log($"Неотправленное: «Подтвердить отправку» не удалось: {ex.GetType().Name}: {ex.Message}", "WARNING");
+            ShowNotice(ServerOutageMonitor.FriendlyError(ex), OutboxSendKind.Rejected);
+        }
+        finally
+        {
+            _batchBusy = false;
+            Refresh();
+        }
+    }
+
+    /// <summary>2026-11-21 («Очистить неотправленные чеки»): окно подтверждения (счёт, сумма, самый старый, «не попадут в отчёты и учёт», фискальные чеки) → PIN владельца/админа →
+    /// резервная копия (JSON + CSV) → очистка → запись в журнал. Что отмечено галочками — «выбранные», иначе «все»; ничего не отмечено по умолчанию.</summary>
+    private async Task OnClearAsync()
+    {
+        if (_batchBusy)
+            return;
+        _batchBusy = true;
+        _clear.IsEnabled = false;
+        _sendAll.IsEnabled = false;
+        _confirmAll.IsEnabled = false;
+        foreach (var r in _rows.Values)
+            Apply(r, r.Item);
+        try
+        {
+            var selectedIds = _rows.Values.Where(r => _selected.Contains(r.Key) && r.Item.Kind == OutboxKind.Sale).Select(r => r.Item.Id).ToList();
+            var result = await UnsentClearDialog.RunAsync(this, _access, selectedIds).ConfigureAwait(true);
+            if (result is null)
+                return;
+            ShowNotice(result.Message, result.Done ? OutboxSendKind.Sent : OutboxSendKind.Rejected);
+            if (result.Done)
+            {
+                _selected.Clear();
+                // Шапка кассы: «В очереди» / «Не отправлено» пересчитываются сразу, а не по таймеру.
+                object? main = (Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow;
+                if (main is NurMarketKassa.AvaloniaHost.Views.MainKassir.MainWindow kassa)
+                    kassa.RefreshQueueBadge();
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            PosLogger.Log($"Неотправленное: «Очистить неотправленные чеки» не удалось: {ex}", "WARNING");
             ShowNotice(ServerOutageMonitor.FriendlyError(ex), OutboxSendKind.Rejected);
         }
         finally

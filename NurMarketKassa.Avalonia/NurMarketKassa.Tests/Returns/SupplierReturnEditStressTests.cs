@@ -110,3 +110,73 @@ public sealed class SupplierReturnEditStressTests : IDisposable
         sw.ElapsedMilliseconds.Should().BeLessThan(2000);
     }
 }
+
+// 2026-11-21 (владелец: «редактор возвраты поставщикам нету!»): предпросмотр «что изменится» при правке накладной возврата поставщику
+public sealed class SupplierReturnEditPreviewTests : IDisposable
+{
+    private readonly AppLanguage _oldLanguage = UserPreferences.Instance.Language;
+
+    public SupplierReturnEditPreviewTests() => UserPreferences.Instance.Language = AppLanguage.Russian;
+
+    public void Dispose() => UserPreferences.Instance.Language = _oldLanguage;
+
+    private static List<SupplierReturnEditLine> Two() => new()
+    {
+        new SupplierReturnEditLine("l1", "p1", "Молоко", "шт", 10, 100, 0, ""),
+        new SupplierReturnEditLine("l2", "p2", "Сыр", "кг", 2.5, 400, 0, ""),
+    };
+
+    [Fact]
+    public void NoChanges_NoPreview() =>
+        SupplierReturnEdit.Preview(Two(), Two(), "cash").Should().BeEmpty();
+
+    [Fact]
+    public void LessQty_GoesBackToStock_AndCashIsLess()
+    {
+        var edited = Two();
+        edited[0] = edited[0] with { Qty = 7 }; // −3 шт × 100 = −300 сом
+        var p = SupplierReturnEdit.Preview(Two(), edited, "cash");
+        p.Should().Contain(x => x.Contains("Молоко") && x.Contains("+3 шт") && x.Contains("вернётся на склад"));
+        p.Should().Contain(x => x.StartsWith("Деньги:") && x.Contains("меньше") && x.Replace(' ', ' ').Contains("300,00"));
+    }
+
+    [Fact]
+    public void RemovedLine_AndDebtOffset_DebtGrows()
+    {
+        var edited = Two();
+        edited[1] = edited[1] with { Qty = 0 }; // убрали сыр: +2,5 кг на склад, −1000 сом
+        var p = SupplierReturnEdit.Preview(Two(), edited, "debt_offset");
+        p.Should().Contain(x => x.Contains("Сыр") && x.Contains("+2,5 кг") || x.Contains("Сыр") && x.Contains("+2.5 кг"));
+        p.Should().Contain(x => x.StartsWith("Долг поставщику:") && x.Contains("долг станет больше") && x.Replace(' ', ' ').Contains("1 000,00"));
+    }
+
+    [Fact]
+    public void MoreQty_LeavesStock_StockOnlyReturnHasNoMoney()
+    {
+        var edited = Two();
+        edited[0] = edited[0] with { Qty = 12 };
+        var p = SupplierReturnEdit.Preview(Two(), edited, "none");
+        p.Should().Contain(x => x.Contains("уйдёт со склада") && x.Contains("2 шт"));
+        p.Should().Contain(x => x.Contains("Деньги и долг не затрагиваются"));
+    }
+
+    [Fact]
+    public void PriceChangeOnly_ChangesMoneyNotStock()
+    {
+        var edited = Two();
+        edited[0] = edited[0] with { Price = 90 }; // −100 сом
+        var p = SupplierReturnEdit.Preview(Two(), edited, "cash");
+        p.Should().NotContain(x => x.StartsWith("Склад:"));
+        p.Should().ContainSingle(x => x.StartsWith("Деньги:") && x.Contains("100,00"));
+    }
+
+    [Fact]
+    public void ManyLines_StockListIsCapped()
+    {
+        var a = Enumerable.Range(0, 12).Select(i => new SupplierReturnEditLine("l" + i, "p" + i, "Т" + i, "шт", 5, 10, 0, "")).ToList();
+        var b = a.Select(l => l with { Qty = 1 }).ToList();
+        var p = SupplierReturnEdit.Preview(a, b, "cash");
+        p.Count(x => x.StartsWith("Склад:")).Should().Be(6, "пять строк и «и ещё N»");
+        p.Should().Contain(x => x.Contains("и ещё 7"));
+    }
+}

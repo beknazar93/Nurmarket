@@ -96,9 +96,45 @@ public static class ReturnDocKinds
 public sealed record ReturnEditState(
     int Version, bool IsVoided, bool CanEdit, bool CanVoid, bool HasServerFlags,
     DateTimeOffset? ClosedAt, DateTimeOffset? EditableUntil, DateTimeOffset? ServerNow, string BlockReason,
-    DateTimeOffset? VoidedAt, string VoidedBy, string VoidReason, string VoidApprovedBy, int EditCount, DateTime ReceivedUtc)
+    DateTimeOffset? VoidedAt, string VoidedBy, string VoidReason, string VoidApprovedBy, int EditCount, DateTime ReceivedUtc,
+    // 2026-11-21 (ответ Умара 21.11, п. 5): owner_override — владелец/админ правит и после 24 ч (PIN в X-Confirm-Token, всё в журнал); editable_fields — что сервер разрешает менять в этом документе (null — сервер не прислал).
+    bool OwnerOverride = false, IReadOnlyList<string>? EditableFields = null)
 {
     public static readonly ReturnEditState None = new(0, false, false, false, false, null, null, null, "", null, "", "", "", 0, DateTime.MinValue);
+
+    /// <summary>2026-11-21: можно ли менять поле документа (reason, compensation, items, comment). Сервер прислал editable_fields — только перечисленные; не прислал — по контракту (обычные поля можно).</summary>
+    public bool CanEditField(string field, bool whenUnknown = true)
+    {
+        if (EditableFields is not { Count: > 0 } list)
+            return whenUnknown;
+        return list.Any(f => string.Equals(f, field, StringComparison.OrdinalIgnoreCase)
+            || (string.Equals(field, "items", StringComparison.OrdinalIgnoreCase) && string.Equals(f, "lines", StringComparison.OrdinalIgnoreCase))
+            || (string.Equals(field, "compensation", StringComparison.OrdinalIgnoreCase) && string.Equals(f, "compensation_type", StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private static bool ParseOwnerOverride(JsonElement x) =>
+        x.ValueKind == JsonValueKind.Object && x.TryGetProperty("owner_override", out var v) && v.ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.Object => v.EnumerateObject().Any(),
+            JsonValueKind.String => v.GetString() is { } t && (t.Equals("true", StringComparison.OrdinalIgnoreCase) || t == "1"),
+            _ => false,
+        };
+
+    /// <summary>editable_fields: массив имён ("reason") или объект {"reason": true}; нет поля или пусто — null.</summary>
+    private static IReadOnlyList<string>? ParseEditableFields(JsonElement x)
+    {
+        if (x.ValueKind != JsonValueKind.Object || !x.TryGetProperty("editable_fields", out var v))
+            return null;
+        var list = v.ValueKind switch
+        {
+            JsonValueKind.Array => v.EnumerateArray().Where(e => e.ValueKind == JsonValueKind.String).Select(e => e.GetString() ?? "").ToList(),
+            JsonValueKind.Object => v.EnumerateObject().Where(p => p.Value.ValueKind == JsonValueKind.True).Select(p => p.Name).ToList(),
+            _ => new List<string>(),
+        };
+        list = list.Where(f => f.Length > 0).ToList();
+        return list.Count > 0 ? list : null;
+    }
 
     /// <summary>Разбор полей редактируемости из строки списка или карточки возврата. <paramref name="receivedUtc"/> — когда пришёл ответ (для подсказки «осталось N ч»).</summary>
     public static ReturnEditState Parse(JsonElement x, DateTime? receivedUtc = null)
@@ -114,7 +150,7 @@ public sealed record ReturnEditState(
             Date(x, "closed_at") ?? Date(x, "posted_at"), Date(x, "editable_until"), Date(x, "server_now"), Str(x, "edit_block_reason"),
             // 2026-11-11: поля voided_* реального сервера (voided_reason / voided_by) — плюс прежние имена из нашего ТЗ
             Date(x, "voided_at"), First(x, "voided_by_name", "voided_by"), First(x, "void_reason", "voided_reason"), First(x, "void_approved_by_name", "voided_approved_by_name"), (int)Num(x, "edit_count"),
-            receivedUtc ?? DateTime.UtcNow);
+            receivedUtc ?? DateTime.UtcNow, ParseOwnerOverride(x), ParseEditableFields(x));
     }
 
     /// <summary>Сколько осталось до конца срока правки — ТОЛЬКО ДЛЯ ПОДСКАЗКИ: editable_until − server_now из того же ответа минус время, прошедшее с ответа.
@@ -152,6 +188,16 @@ public static class ReturnEditGate
 
     public static bool ShowEdit(ReturnDocKind kind, ReturnEditState state) =>
         FeatureOn(kind) && state.HasServerFlags && state.CanEdit && !state.IsVoided && state.Version > 0;
+
+    /// <summary>2026-11-21 (ответ Умара 21.11, п. 5): у возврата поставщику владелец/админ правит и после 24 ч — сервер разрешает по owner_override (If-Match, Idempotency-Key, PIN руководителя в X-Confirm-Token),
+    /// правка пишется в журнал. Кассир — как раньше, только в срок. Окончательно решает сервер (откажет — покажем его причину); другие запреты (закрытая смена, погашенный долг…) не обходятся.</summary>
+    public static bool ShowEdit(ReturnDocKind kind, ReturnEditState state, bool isManager) =>
+        ShowEdit(kind, state) || IsOwnerOverride(kind, state, isManager);
+
+    /// <summary>Правка идёт «владельцем» сверх обычного срока: сервер не разрешает её кассиру (can_edit = false), но владельцу/админу — да.</summary>
+    public static bool IsOwnerOverride(ReturnDocKind kind, ReturnEditState state, bool isManager) =>
+        kind == ReturnDocKind.Supplier && isManager && FeatureOn(kind) && state.HasServerFlags && !state.IsVoided && state.Version > 0 && !state.CanEdit
+        && (state.OwnerOverride || string.Equals(state.BlockReason, "edit_window_expired", StringComparison.OrdinalIgnoreCase));
 
     public static bool ShowVoid(ReturnDocKind kind, ReturnEditState state) =>
         FeatureOn(kind) && state.HasServerFlags && state.CanVoid && !state.IsVoided && state.Version > 0;
@@ -210,6 +256,8 @@ public enum ReturnEditFailure
     DebtAlreadyPaid,
     PeriodClosed,
     NewLinesNotAllowed,
+    // 2026-11-21 (ответ Умара 21.11): 400 field_not_editable — поле (например дата) в возврате менять нельзя
+    FieldNotEditable,
 }
 
 /// <summary>Отказ сервера при подтверждении PIN, правке, аннулировании или истории.</summary>
@@ -281,6 +329,7 @@ public static class ReturnEditErrors
             "debt_already_paid" => ReturnEditFailure.DebtAlreadyPaid,
             "period_closed" => ReturnEditFailure.PeriodClosed,
             "new_lines_not_allowed" => ReturnEditFailure.NewLinesNotAllowed,
+            "field_not_editable" => ReturnEditFailure.FieldNotEditable,
             "has_later_documents" or "shift_closed" or "legacy_return_not_supported" or "debt_sale_not_supported" or "agent_sale_not_supported" => ReturnEditFailure.Blocked,
             _ when api.StatusCode == 400 && api.Payload is { ValueKind: JsonValueKind.Object } pp && pp.TryGetProperty("pin", out _) => ReturnEditFailure.PinInvalid,
             _ => api.StatusCode switch
@@ -382,11 +431,15 @@ public static class ReturnEditErrors
             "Server so'rovni takrorlash kalitini talab qiladi — kassani oxirgi versiyaga yangilang. Hech narsa o'zgarmadi."),
         ReturnEditFailure.DebtAlreadyPaid => BlockReasonText("debt_already_paid")!,
         ReturnEditFailure.PeriodClosed => BlockReasonText("period_closed")!,
-        ReturnEditFailure.NewLinesNotAllowed => Tr.T("Добавлять новые строки в возврат нельзя — можно только менять количество и цену существующих строк или убирать их.",
-            "Кайтарууга жаңы саптарды кошууга болбойт — бар саптардын санын жана баасын гана өзгөртүүгө же алып салууга болот.",
-            "New lines cannot be added to the return — you can only change the quantity and price of existing lines or remove them.",
-            "İadeye yeni satır eklenemez — yalnızca mevcut satırların miktarını ve fiyatını değiştirebilir veya kaldırabilirsiniz.",
-            "Qaytarishga yangi qatorlar qo'shib bo'lmaydi — faqat mavjud qatorlarning miqdori va narxini o'zgartirish yoki olib tashlash mumkin."),
+        // 2026-11-21: сервер принимает новые строки в возврат поставщику; код остался как отказ по существу (у возврата клиента добавлять строки по-прежнему нельзя)
+        ReturnEditFailure.NewLinesNotAllowed => Tr.T("Сервер не принял добавленные строки для этого документа — уберите добавленные товары или оформите отдельный возврат.",
+            "Сервер бул документке кошулган саптарды кабыл алган жок — кошулган товарларды алып салыңыз же өзүнчө кайтаруу тариздеңиз.",
+            "The server did not accept the added lines for this document — remove the added products or make a separate return.",
+            "Sunucu bu belge için eklenen satırları kabul etmedi — eklenen ürünleri kaldırın veya ayrı bir iade kaydedin.",
+            "Server bu hujjat uchun qo'shilgan qatorlarni qabul qilmadi — qo'shilgan mahsulotlarni olib tashlang yoki alohida qaytarish rasmiylashtiring."),
+        ReturnEditFailure.FieldNotEditable => Tr.T("Сервер не даёт менять это поле в возврате (например, дату). Ничего не сохранено. ", "Сервер кайтарууда бул талааны (мисалы, датаны) өзгөртүүгө жол бербейт. Эч нерсе сакталган жок. ",
+            "The server does not allow changing this field of the return (for example the date). Nothing was saved. ", "Sunucu iadede bu alanın (örneğin tarihin) değiştirilmesine izin vermiyor. Hiçbir şey kaydedilmedi. ",
+            "Server qaytarishda bu maydonni (masalan, sanani) o'zgartirishga ruxsat bermaydi. Hech narsa saqlanmadi. ") + e.Message,
         _ =>Tr.T("Сервер отказал: ", "Сервер четке какты: ", "The server refused: ", "Sunucu reddetti: ", "Server rad etdi: ") + e.Message,
     };
 

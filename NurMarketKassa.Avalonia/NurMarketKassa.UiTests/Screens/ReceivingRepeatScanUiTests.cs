@@ -362,18 +362,15 @@ public sealed class ReceivingRepeatScanUiTests
             var atField = typeof(ReceivingRepeatScanGuard).GetField("_at", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
             atField.SetValue(vm.RepeatScanGuard, DateTime.UtcNow - TimeSpan.FromSeconds(25));
 
-            var grid = UiDrive.Find<DataGrid>(window, "ReceivingGrid");
-            var qtyColumn = grid.Columns[5]; // «Принимаем» (WarehouseWindow.RcvColQty)
-            grid.SelectedItem = a;
-            grid.CurrentColumn = qtyColumn;
-            grid.BeginEdit().Should().BeTrue();
+            // 2026-11-21: строки приёмки — карточки: правка поля «Кол-во» карточки, окончание правки — уход курсора в поле скана
+            var box = RcvCards.Field(window, a, "qty");
+            box.Focus();
             UiShot.Settle(8);
-            var box = TopLevel.GetTopLevel(window)!.FocusManager!.GetFocusedElement() as TextBox;
-            box.Should().NotBeNull("правка «Принимаем» — поле в фокусе");
-            box!.SelectAll();
+            (TopLevel.GetTopLevel(window)!.FocusManager!.GetFocusedElement() as TextBox).Should().BeSameAs(box, "правка «Кол-во» — поле в фокусе");
+            box.SelectAll();
             window.KeyTextInput("6");
             UiShot.Settle(4);
-            grid.CommitEdit();
+            scan.Focus();
             UiShot.Settle(6);
             a.Quantity.Should().Be(6, "ручная правка принята");
             vm.RepeatScanGuard.LastCode.Should().Be(Code, "правка количества — не сброс «тот же код подряд»");

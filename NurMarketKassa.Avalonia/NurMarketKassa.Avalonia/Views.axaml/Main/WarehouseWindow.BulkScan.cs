@@ -46,6 +46,7 @@ public partial class WarehouseWindow
     private Control _bulkEmpty = null!;
     private Control _bulkHeader = null!;
     private TextBox _bulkScanBox = null!;
+    private Control _bulkOpsPanel = null!;
     private readonly ObservableCollection<string> _bulkCategories = new();
 
     private static string TrB(string ru, string ky, string en, string tr, string uz) => Tr.T(ru, ky, en, tr, uz);
@@ -67,13 +68,9 @@ public partial class WarehouseWindow
         BarcodeInput.Attach(this, tb => ReceivingGrid.IsKeyboardFocusWithin && tb.GetVisualAncestors().Contains(ReceivingGrid) && (_rcvBarcodeEditing || tb.Classes.Contains("rcv-baredit"))); // 2026-11-07: + поле штрихкода в ячейке названия (узкий вид)
         var body = BuildBulkBody();
         _bulkTab = new TabItem { Header = TrB("Массовое добавление", "Массалык кошуу", "Bulk add", "Toplu ekleme", "Ommaviy qo'shish"), Content = body };
-        var index = WarehouseTabs.Items.IndexOf(ReceivingTabItem);
-        WarehouseTabs.Items.Insert(index < 0 ? WarehouseTabs.Items.Count : index + 1, _bulkTab);
-        WarehouseTabs.SelectionChanged += (_, _) =>
-        {
-            if (ReferenceEquals(WarehouseTabs.SelectedItem, _bulkTab))
-                OnBulkTabOpened();
-        };
+        // 2026-11-21 (владелец: «Массовое добавление и Приёмку ОБЪЕДИНИТЬ»): отдельной вкладки больше нет — карточки строк и действия над отмеченными живут в «Приёмке»
+        // (WarehouseWindow.ReceivingCards.cs). Тело вкладки собирается как прежде (из него берутся поле «Действия над отмеченными» и строка последнего действия), но в ряд вкладок не вставляется.
+        InitReceivingCards(body);
     }
 
     private Control BuildBulkBody()
@@ -117,7 +114,7 @@ public partial class WarehouseWindow
         var inputRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 0, 0, 8) };
         inputRow.Children.Add(_bulkScanBox);
         inputRow.Children.Add(pickFromList);
-        var bulkOps = BuildBulkOps(); // 2026-10-29: установить единицу / наценку / цену / количество у отмеченных строк (сворачивается кнопкой)
+        var bulkOps = _bulkOpsPanel = BuildBulkOps(); // 2026-10-29: установить единицу / наценку / цену / количество у отмеченных строк (сворачивается кнопкой)
         inputRow.Children.Add(_bulkOpsToggle);
 
         // Заголовки колонок над строками (те же ширины, что в BuildBulkRow): «Штрихкод · Название · Кол-во».
@@ -201,7 +198,14 @@ public partial class WarehouseWindow
         // 2026-11-19 («Неудобства от владельца», п. 10: «пустая тёмная пустыня с мелким текстом»): пустой список — блок состояния с понятным действием
         // («Сканируйте штрихкод» + «Загрузить из файла»), а не одна мелкая строка посреди пустой области.
         var bulkEmptyButtons = new WrapPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
-        bulkEmptyButtons.Children.Add(EmptyAction(TrB("Загрузить из файла (Excel)", "Файлдан жүктөө (Excel)", "Import from a file (Excel)", "Dosyadan yükle (Excel)", "Fayldan yuklash (Excel)"), primary: false, BulkImport_Click));
+        if (ImportAccess.Allowed) // 2026-11-21: загрузка из файла — только в программе владельца; в кассе кнопки нет, под пояснением — строка «Импорт — в программе владельца»
+            bulkEmptyButtons.Children.Add(EmptyAction(TrB("Загрузить из файла (Excel)", "Файлдан жүктөө (Excel)", "Import from a file (Excel)", "Dosyadan yükle (Excel)", "Fayldan yuklash (Excel)"), primary: false, BulkImport_Click));
+        else
+        {
+            var kassaNote = new TextBlock { Text = ImportAccess.KassaNote, FontSize = 12.5, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 4, 0, 0) };
+            kassaNote.Bind(TextBlock.ForegroundProperty, kassaNote.GetResourceObservable("BrushTextSoft"));
+            bulkEmptyButtons.Children.Add(kassaNote);
+        }
         _bulkEmpty = new StackPanel
         {
             Spacing = 4, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, MaxWidth = 560,
@@ -314,8 +318,8 @@ public partial class WarehouseWindow
         // 2026-11-13: жалоба «в массовой загрузке наименование очень большое» — поле названия теперь не шире 440 px (колонка 448 с отступом 8), было 600.
         grid.ColumnDefinitions.Add(new ColumnDefinition(36, GridUnitType.Pixel));
         grid.ColumnDefinitions.Add(new ColumnDefinition(1000, GridUnitType.Star) { MinWidth = 170, MaxWidth = 300 });
-        grid.ColumnDefinitions.Add(new ColumnDefinition(1000, GridUnitType.Star) { MinWidth = 200, MaxWidth = 448 });
-        grid.ColumnDefinitions.Add(new ColumnDefinition(92, GridUnitType.Pixel));
+        grid.ColumnDefinitions.Add(new ColumnDefinition(1000, GridUnitType.Star) { MinWidth = 200, MaxWidth = 900 });
+        grid.ColumnDefinitions.Add(new ColumnDefinition(112, GridUnitType.Pixel)); // 2026-11-21: «упак. ▾» (способ приёмки) и «Цены ▾» рядом, в одной линии с названием и количеством
         grid.ColumnDefinitions.Add(new ColumnDefinition(172, GridUnitType.Pixel));
         grid.ColumnDefinitions.Add(new ColumnDefinition(52, GridUnitType.Pixel));
         grid.ColumnDefinitions.Add(new ColumnDefinition(1, GridUnitType.Star));
@@ -335,7 +339,7 @@ public partial class WarehouseWindow
         var selectAll = new CheckBox { Content = TrB("Все", "Баары", "All", "Tümü", "Hammasi"), Focusable = false, VerticalAlignment = VerticalAlignment.Center, MinHeight = 44 };
         selectAll.IsCheckedChanged += (_, _) =>
         {
-            foreach (var r in _bulk.Rows.ToList())
+            foreach (var r in BulkOpsRows())
                 r.IsSelected = selectAll.IsChecked == true;
             BulkSelectionInfo();
         };
@@ -405,7 +409,7 @@ public partial class WarehouseWindow
 
     private void BulkSelectionInfo()
     {
-        var n = _bulk.Rows.Count(r => r.IsSelected);
+        var n = BulkOpsRows().Count(r => r.IsSelected);
         _bulkOpsInfo.Text = n == 0
             ? TrB("Отметьте строки галочками слева или поставьте «Все».", "Саптарды сол жактагы белгилер менен белгилеңиз же «Баары» коюңуз.",
                 "Tick rows on the left or press “All”.", "Soldaki kutularla satırları işaretleyin veya «Tümü»nü seçin.", "Qatorlarni chap tomondagi katakchalar bilan belgilang yoki «Hammasi»ni tanlang.")
@@ -416,7 +420,7 @@ public partial class WarehouseWindow
     /// Единица ставится только новым товарам (у товара склада её задаёт карточка), наценка — строкам с закупкой, цена и количество — строкам с полями цен / любому.</summary>
     private void BulkApplyToSelected(string what, string text)
     {
-        var rows = _bulk.Rows.Where(r => r.IsSelected).ToList();
+        var rows = BulkOpsRows().Where(r => r.IsSelected).ToList();
         _bulkLastScan.IsVisible = true;
         _bulkLastScanRow = null;
         if (rows.Count == 0)
@@ -587,7 +591,7 @@ public partial class WarehouseWindow
     private Control BuildBulkRow(BulkScanRow row)
     {
         // 2026-10-29: слева галочка «выбрать» — для действий над выбранными строками.
-        var pick = new CheckBox { Focusable = false, VerticalAlignment = VerticalAlignment.Center, MinWidth = 0, Margin = new Thickness(0, 0, 4, 0) };
+        var pick = new CheckBox { Focusable = false, VerticalAlignment = VerticalAlignment.Center, MinWidth = 0, MinHeight = 44, Margin = new Thickness(0, 0, 4, 0) }; // 2026-11-21: цель касания ≥ 40 px
         pick.Bind(CheckBox.IsCheckedProperty, new Binding(nameof(BulkScanRow.IsSelected)) { Mode = BindingMode.TwoWay });
         pick.IsCheckedChanged += (_, _) => BulkSelectionInfo();
         ToolTip.SetTip(pick, TrB("Отметить строку для действий над выбранными", "Тандалган саптар үчүн аракеттерге белгилөө", "Tick the row for actions on selected rows",
@@ -605,7 +609,7 @@ public partial class WarehouseWindow
         {
             Bindings =
             {
-                new Binding(nameof(BulkScanRow.KindText)), new Binding(nameof(BulkScanRow.StockInfo)), new Binding(nameof(BulkScanRow.IsKnown)),
+                new Binding("Line.SourceText"), new Binding(nameof(BulkScanRow.StockInfo)), new Binding(nameof(BulkScanRow.IsKnown)),
                 new Binding("Line.SalePriceText"), new Binding("Line.Unit"),
             },
             Converter = new Avalonia.Data.Converters.FuncMultiValueConverter<object?, string>(v =>
@@ -623,14 +627,30 @@ public partial class WarehouseWindow
             }),
         });
         var priceToggle = BulkButton(TrB("Цены ▾", "Баалар ▾", "Prices ▾", "Fiyatlar ▾", "Narxlar ▾"), primary: false);
-        priceToggle.MinHeight = 36;
+        priceToggle.MinHeight = 44; // 2026-11-21: цель касания ≥ 40 px (было 36)
         priceToggle.Width = 84;
         priceToggle.Padding = new Thickness(8, 2);
         priceToggle.HorizontalAlignment = HorizontalAlignment.Left;
         priceToggle.VerticalAlignment = VerticalAlignment.Center;
-        priceToggle.Bind(Visual.IsVisibleProperty, new Binding(nameof(BulkScanRow.IsKnown)));
+        priceToggle.IsVisible = false; // 2026-11-21: цены видны у всех строк приёмки
         var codeCol = new StackPanel { Spacing = 1, VerticalAlignment = VerticalAlignment.Center };
-        codeCol.Children.Add(barcode);
+        // 2026-11-21: у нового товара (неизвестный код, «+ Новый товар», «Из интернета») штрихкод вписывается и правится в самой карточке, только цифры (как колонка «Штрихкод» прежней таблицы);
+        // у товара склада и общей базы CRM — подпись.
+        var barcodeEditable = row.Line.Source is ReceivingSource.Unknown or ReceivingSource.Internet;
+        var barcodeBox = new TextBox { Watermark = BarcodeHintText, Height = 40, MinHeight = 40, FontSize = 13, VerticalContentAlignment = VerticalAlignment.Center, Tag = "barcode", IsVisible = barcodeEditable };
+        barcodeBox.Bind(TextBox.TextProperty, new Binding("Line.Barcode") { Mode = BindingMode.TwoWay });
+        BarcodeInput.Attach(barcodeBox, _ => true);
+        HookReceivingCell(barcodeBox, row.Line);
+        barcode.IsVisible = !barcodeEditable;
+        // 2026-11-21: значок источника товара (склад / общая база CRM / неизвестный / из интернета) — первым в строке, как в прежней таблице приёмки (ReceivingSourceBadge, подсказка и имя для скринридера).
+        var sourceBadge = new ReceivingSourceBadge { Margin = new Thickness(0, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center };
+        sourceBadge.Bind(ReceivingSourceBadge.SourceProperty, new Binding("Line.Source"));
+        var barcodeStack = new StackPanel { Children = { barcodeBox, barcode } };
+        var codeLine = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
+        Grid.SetColumn(barcodeStack, 1);
+        codeLine.Children.Add(sourceBadge);
+        codeLine.Children.Add(barcodeStack);
+        codeCol.Children.Add(codeLine);
         codeCol.Children.Add(kind);
 
         // 2026-11-11: поле названия — одна строка высотой 40, по центру строки (раньше растягивалось на высоту левой колонки ~100 px
@@ -648,39 +668,36 @@ public partial class WarehouseWindow
             Tag = "name",
         };
         name.Bind(TextBox.TextProperty, new Binding("Line.ProductName") { Mode = BindingMode.TwoWay });
-        name.Bind(ToolTip.TipProperty, new Binding("Line.ProductName"));
-        name.Bind(TextBox.IsReadOnlyProperty, new Binding(nameof(BulkScanRow.IsKnown)));
+        name.Bind(ToolTip.TipProperty, new Binding("Line.NameTip")); // 2026-11-21: название товара склада правится (переименование карточки при проведении), подсказка — полное название и «было: …»
         // 2026-10-24 (приёмка, ПР-11): у известного товара название не правится — серый фон и приглушённый текст (IsReadOnly уже стоит).
         void NameLook()
         {
-            if (row.IsKnown)
-            {
-                name.Bind(TextBox.BackgroundProperty, name.GetResourceObservable("BrushInputAlt"));
-                name.Bind(TextBox.ForegroundProperty, name.GetResourceObservable("BrushTextSoft"));
-            }
-            else
-            {
-                name.ClearValue(TextBox.BackgroundProperty);
-                name.ClearValue(TextBox.ForegroundProperty);
-            }
+            // 2026-11-21: в приёмке название товара склада правится (прежняя таблица это разрешала), серого вида «только чтение» нет.
+            name.ClearValue(TextBox.BackgroundProperty);
+            name.ClearValue(TextBox.ForegroundProperty);
         }
         NameLook();
 
         var minus = BulkButton("−", false, 44);
         minus.Width = 44;
+        minus.FontSize = 20; // 2026-11-21: «−» и «+» крупно и по центру кнопки
+        minus.Padding = new Thickness(0);
         minus.Click += (_, _) =>
         {
             // 2026-11-01 (контрольный аудит, С2-36): у весовой строки меньше 1 кг «−» не увеличивает количество до 1
-            row.Line.Quantity = Math.Max(Math.Min(1, row.Line.Quantity), Math.Round(row.Line.Quantity - 1, 3));
+            var step = row.Line.PackMode && !row.Line.PackSale && row.Line.PiecesPerPack > 0 ? row.Line.PiecesPerPack : 1; // 2026-11-21: в режиме упаковок шаг — одна упаковка
+            row.Line.Quantity = Math.Max(Math.Min(step, row.Line.Quantity), Math.Round(row.Line.Quantity - step, 3));
             RefreshBulkLastScan(row);
         };
         var qty = new TextBox { MinHeight = 44, Width = 68, TextAlignment = TextAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, Tag = "qty" };
-        qty.Bind(TextBox.TextProperty, new Binding("Line.QuantityText") { Mode = BindingMode.TwoWay });
+        qty.Bind(TextBox.TextProperty, new Binding("Line.QtyInputText") { Mode = BindingMode.TwoWay, Converter = CommaDecimal });
         var plus = BulkButton("+", false, 44);
         plus.Width = 44;
+        plus.FontSize = 20;
+        plus.Padding = new Thickness(0);
         plus.Click += (_, _) =>
         {
-            row.Line.Quantity = Math.Round(row.Line.Quantity + 1, 3);
+            ReceivingRepeatScan.AddTo(row.Line, 1); // 2026-11-21: тот же шаг, что у повторного скана (упаковка — на N штук)
             RefreshBulkLastScan(row);
         };
         var qtyBox = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
@@ -691,24 +708,27 @@ public partial class WarehouseWindow
         var remove = BulkButton("✕", false, 44);
         remove.Width = 44;
         remove.Height = 44; // 2026-11-19: глиф «✕» берётся из запасного шрифта и с отступами новой шкалы раздувал кнопку до 56 px (строка 74 вместо ≤ 68) — высота фиксируется на цели касания 44
-        remove.Click += (_, _) => _bulk.Remove(row);
+        remove.Focusable = true; // 2026-11-21: «✕» доступна с Tab (аудит БП-8), Del на ней убирает строку
+        remove.Click += (_, _) => RcvRemoveRow(row);
         ToolTip.SetTip(remove, TrB("Убрать строку", "Сапты өчүрүү", "Remove the row", "Satırı kaldır", "Qatorni olib tashlash"));
 
+        HookReceivingCell(name, row.Line);
+        HookReceivingCell(qty, row.Line);
         var line1 = BulkLine1Columns(new Grid());
         name.Margin = new Thickness(8, 0, 0, 0);
-        priceToggle.Margin = new Thickness(8, 0, 0, 0);
+        var col3 = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center, Children = { priceToggle } };
         qtyBox.Margin = new Thickness(8, 0, 0, 0);
         remove.Margin = new Thickness(8, 0, 0, 0);
         Grid.SetColumn(pick, 0);
         Grid.SetColumn(codeCol, 1);
         Grid.SetColumn(name, 2);
-        Grid.SetColumn(priceToggle, 3);
+        Grid.SetColumn(col3, 3);
         Grid.SetColumn(qtyBox, 4);
         Grid.SetColumn(remove, 5);
         line1.Children.Add(pick);
         line1.Children.Add(codeCol);
         line1.Children.Add(name);
-        line1.Children.Add(priceToggle);
+        line1.Children.Add(col3);
         line1.Children.Add(qtyBox);
         line1.Children.Add(remove);
 
@@ -723,15 +743,19 @@ public partial class WarehouseWindow
                 row.Line.Unit = unitPicker.Value;
         };
         var purchase = BulkInput(TrB("Закупка *", "Сатып алуу *", "Cost *", "Alış *", "Xarid *"), 110);
-        purchase.Bind(TextBox.TextProperty, new Binding("Line.PurchasePriceText") { Mode = BindingMode.TwoWay, Converter = CommaDecimal });
+        purchase.Bind(TextBox.TextProperty, new Binding("Line.PurchaseInputText") { Mode = BindingMode.TwoWay, Converter = CommaDecimal });
         // Наценка — по уходу из поля (иначе при вводе «25» поле переписывалось бы округлённым «25,03» на лету).
         var markup = BulkInput(TrB("Наценка %", "Үстөк %", "Markup %", "Kâr %", "Ustama %"), 100);
         markup.Bind(TextBox.TextProperty, new Binding("Line.MarkupText") { Mode = BindingMode.TwoWay, UpdateSourceTrigger = UpdateSourceTrigger.LostFocus, Converter = CommaDecimal });
         var sale = BulkInput(TrB("Продажа *", "Сатуу *", "Price *", "Satış *", "Sotuv *"), 110);
         sale.Bind(TextBox.TextProperty, new Binding("Line.SalePriceText") { Mode = BindingMode.TwoWay, Converter = CommaDecimal });
         // 2026-10-28 (ДЕНЬГИ, «100.60» давало 10060): пока поле правят, в нём сырой набранный текст; по уходу из поля — нормальный показ («100,60»).
+        purchase.Tag = "purchase"; // 2026-11-21: по тегам ячейку находит порядок Enter и фокус после скана (WarehouseWindow.ReceivingCards.cs)
+        markup.Tag = "markup";
+        sale.Tag = "sale";
+        // 2026-11-21: правка поля карточки — как правка ячейки прежней таблицы приёмки (запомнить значения, Esc — откат, пустое поле — прежнее значение): WarehouseWindow.ReceivingCards.cs
         foreach (var priceBox in new[] { purchase, markup, sale })
-            priceBox.LostFocus += (_, _) => row.Line.CommitText();
+            HookReceivingCell(priceBox, row.Line);
         var auto = BulkButton("", primary: false);
         auto.MinWidth = 0;
         auto.MinHeight = 44;
@@ -755,8 +779,104 @@ public partial class WarehouseWindow
         var markupHost = Labeled(TrB("Наценка, %", "Үстөк, %", "Markup, %", "Kâr, %", "Ustama, %"), markup);
         var saleHost = Labeled(TrB("Цена продажи *", "Сатуу баасы *", "Sale price *", "Satış fiyatı *", "Sotuv narxi *"), sale);
         var categoryHost = Labeled(TrB("Категория", "Категория", "Category", "Kategori", "Kategoriya"), category);
-        var line2 = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(44, 6, 52, 0) }; // 2026-11-11: слева — под галочкой (раньше 194 = под названием; при узком окне поля цен рвались по одному в строку)
-        foreach (var c in new Control[] { unitHost, purchaseHost, markupHost, saleHost, autoHost, categoryHost })
+        // 2026-11-21 (объединение «Массового добавления» и «Приёмки»): возможности прежней таблицы приёмки — «штук в упаковке» и ссылка выбора способа приёмки у строки, «Сгенерировать штрихкод» и «Найти в интернете» у нового товара.
+        var piecesBox = BulkInput(TrB("шт/упак.", "даана/таңгак", "pcs/pack", "adet/koli", "dona/qadoq"), 110);
+        piecesBox.Tag = "pieces";
+        piecesBox.Bind(TextBox.TextProperty, new Binding("Line.PiecesInputText") { Mode = BindingMode.TwoWay, Converter = CommaDecimal });
+        HookReceivingCell(piecesBox, row.Line);
+        var piecesHost = Labeled(TrB("Штук в упаковке", "Таңгактагы даана", "Pieces per pack", "Koli içi adet", "Qadoqdagi dona"), piecesBox);
+        piecesHost.Bind(Visual.IsVisibleProperty, new Binding("Line.PackMode"));
+        var packLink = new TextBlock { FontSize = 13, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+        packLink.Bind(TextBlock.ForegroundProperty, packLink.GetResourceObservable("BrushAccent"));
+        packLink.Bind(TextBlock.TextProperty, new Binding("PackLinkShort"));
+        packLink.Bind(ToolTip.TipProperty, new Binding("PackLinkHint"));
+        // 2026-11-21 (фото владельца: «упак ▾» обрезан рамкой): переключатель «шт / упак.» — кнопка с рамкой и подписью целиком, по высоте поля.
+        var packBtn = new Border { MinHeight = 44, MinWidth = 96, Padding = new Thickness(12, 0), CornerRadius = new CornerRadius(8), BorderThickness = new Thickness(1), Background = Brushes.Transparent, Cursor = new Cursor(StandardCursorType.Hand), DataContext = row.Line, Tag = "rcv-packlink", Child = packLink };
+        packBtn.Bind(Border.BorderBrushProperty, packBtn.GetResourceObservable("BrushBorder"));
+        packBtn.Bind(Border.BackgroundProperty, packBtn.GetResourceObservable("BrushPanel")); // кнопка, а не бледная надпись
+        packBtn.PointerPressed += ReceivingPackLink_PointerPressed;
+        packBtn.Bind(Visual.IsVisibleProperty, new Binding("Line.PackLinkClickable"));
+        col3.Children.Insert(0, packBtn); // не отдельный ряд полей: известный товар не раздувается в высоту
+        var genBtn = BulkButton(TrB("Сгенерировать штрихкод", "Штрихкод түзүү", "Generate barcode", "Barkod üret", "Shtrix-kod yaratish"), false);
+        genBtn.DataContext = row.Line;
+        genBtn.Tag = "rcv-genbar";
+        genBtn.Bind(Visual.IsVisibleProperty, new Binding("CanGenerateBarcode"));
+        genBtn.Click += ReceivingGenerateBarcode_Click;
+        var netBtn = BulkButton(InternetSearchText, false);
+        netBtn.DataContext = row.Line;
+        netBtn.Tag = "rcv-netlink";
+        netBtn.Bind(Visual.IsVisibleProperty, new Binding("CanSearchInternet"));
+        netBtn.Bind(Button.IsEnabledProperty, new Binding("NotSearchingInternet"));
+        netBtn.Click += ReceivingInternetSearch_Click;
+        // 2026-11-21: «Размеры» (одежда, WarehouseWindow.Variants.cs) и «Срок годности и партия» (признак сервера) — как в прежней таблице приёмки.
+        var sizesBtn = BulkButton(TrB("Размеры", "Өлчөмдөр", "Sizes", "Bedenler", "O'lchamlar"), false);
+        sizesBtn.IsVisible = MarketSpheres.IsClothing;
+        sizesBtn.Click += (_, _) => _ = OpenVariantGridAsync(row.Line, automatic: false);
+        var batchBtn = BulkButton(BatchButtonText, false);
+        batchBtn.DataContext = row.Line;
+        batchBtn.Tag = "rcv-batch";
+        batchBtn.IsVisible = BatchFieldsOn;
+        batchBtn.Click += ReceivingBatch_Click;
+        var extraHost = Labeled(" ", new WrapPanel { Orientation = Orientation.Horizontal, Children = { genBtn, netBtn, sizesBtn, batchBtn } });
+        foreach (var extra in new Control[] { genBtn, netBtn, sizesBtn, batchBtn })
+            extra.Margin = new Thickness(0, 0, 8, 0);
+        // Строка итогов карточки: размеры, изменение закупки, сумма и прибыль по строке — компактно, одной подписью.
+        var info = new TextBlock { FontSize = 12.5, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(44, 0, 52, 4) };
+        info.Bind(TextBlock.ForegroundProperty, info.GetResourceObservable("BrushTextSoft"));
+        void Info()
+        {
+            var l = row.Line;
+            var parts = new List<string>();
+            if (!string.IsNullOrEmpty(l.VariantSummary))
+                parts.Add(TrB("Размеры: ", "Өлчөмдөр: ", "Sizes: ", "Bedenler: ", "O'lchamlar: ") + l.VariantSummary);
+            if (l.PackMode)
+            {
+                // режим упаковок: «× 24 = 120 шт.» под количеством, цена за упаковку и за штуку под закупкой, потеря на округлении
+                if (!string.IsNullOrEmpty(l.PackShortNote))
+                    parts.Add(l.PackShortNote);
+                if (!string.IsNullOrEmpty(l.PackPriceNote))
+                    parts.Add(l.PackPriceNote);
+                if (!string.IsNullOrEmpty(l.PackLossShort))
+                    parts.Add(l.PackLossShort);
+            }
+            if (l.NameRenamed)
+                parts.Add(l.NameWasHint);
+            if (l.LineTotal > 0)
+                parts.Add(TrB("Сумма ", "Суммасы ", "Total ", "Tutar ", "Summa ") + l.LineTotal.ToString("N2"));
+            // «Подробнее ▸» (запоминается): изменение закупки, прибыль с единицы и как посчитана цена — как подробные колонки прежней таблицы.
+            if (ReceivingDetailsShown(_rcvLastWidth))
+            {
+                if (!string.IsNullOrEmpty(l.PurchaseChangeText))
+                    parts.Add(l.PurchaseChangeText + (string.IsNullOrEmpty(l.PurchaseWasText) ? "" : " (" + l.PurchaseWasText + ")"));
+                if (!string.IsNullOrEmpty(l.ProfitNumberText))
+                    parts.Add(TrB("Прибыль ", "Пайда ", "Profit ", "Kâr ", "Foyda ") + l.ProfitNumberText);
+                if (!string.IsNullOrEmpty(l.ModeText))
+                    parts.Add(l.ModeText);
+            }
+            info.Text = string.Join(" · ", parts);
+            info.IsVisible = parts.Count > 0;
+        }
+        PropertyChangedEventHandler infoHandler = (_, pe) =>
+        {
+            Info();
+            // итоги внизу (Штук, Сумма, Прибыль) обновляются на лету, пока набирают количество или цену, — как при правке ячейки таблицы
+            if (pe.PropertyName is nameof(ReceivingLineVm.Quantity) or nameof(ReceivingLineVm.PurchasePrice) or nameof(ReceivingLineVm.SalePrice) or nameof(ReceivingLineVm.LandedExtraPerUnit))
+                ScheduleReceivingSummary();
+        };
+        Action detailsHandler = Info;
+        info.AttachedToVisualTree += (_, _) =>
+        {
+            row.Line.PropertyChanged += infoHandler;
+            _rcvDetailsChanged += detailsHandler;
+            Info();
+        };
+        info.DetachedFromVisualTree += (_, _) =>
+        {
+            row.Line.PropertyChanged -= infoHandler;
+            _rcvDetailsChanged -= detailsHandler;
+        };
+        var line2 = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(44, 4, 52, 0) }; // 2026-11-11: слева — под галочкой (раньше 194 = под названием; при узком окне поля цен рвались по одному в строку)
+        foreach (var c in new Control[] { unitHost, purchaseHost, markupHost, saleHost, autoHost, piecesHost, categoryHost, extraHost })
         {
             c.Margin = new Thickness(0, 0, 8, 6);
             line2.Children.Add(c);
@@ -800,13 +920,14 @@ public partial class WarehouseWindow
         var stack = new StackPanel();
         stack.Children.Add(line1);
         stack.Children.Add(line2);
+        stack.Children.Add(info);
         stack.Children.Add(chips);
         stack.Children.Add(error);
 
         var border = new Border
         {
             CornerRadius = new CornerRadius(10),
-            Padding = new Thickness(10, 8),
+            Padding = new Thickness(10, 6),
             Margin = new Thickness(0, 0, 0, 6),
             BorderThickness = new Thickness(1),
             Child = stack,
@@ -828,13 +949,13 @@ public partial class WarehouseWindow
             border.Bind(Border.BackgroundProperty, border.GetResourceObservable(key));
             if (!string.Equals(unitPicker.Value, row.Line.Unit, StringComparison.Ordinal))
                 unitPicker.Value = row.Line.Unit;
-            var prices = row.ShowPrices || pricesOpen;
+            var prices = true; // 2026-11-21: в приёмке цена закупки нужна у каждой строки (в накладной она своя) — поля цен видны и у товара склада; кнопки «Цены ▾» больше нет
             // Строка автонаценки: новая строка и строка без цен считаются по закупке сами (пока цену не вписали руками).
             // У товара склада с готовой ценой продажи автоматика не включается (цену не меняем молча), у нового и у товара без цены — включается.
             if (prices && row.Line.SaleMode == SalePriceMode.None && (row.IsNewProduct || row.Line.SalePrice <= 0) && (row.Line.SalePrice <= 0 || !row.SaleEditedManually))
                 row.Line.EnableAutoSale();
-            line2.IsVisible = prices || row.IsNewProduct;
-            unitHost.IsVisible = row.IsNewProduct;
+            line2.IsVisible = prices || row.IsNewProduct || row.Line.PackMode; // 2026-11-21: ряд полей — у нового товара, по «Цены ▾» и в режиме упаковок (там «шт/упак.»)
+            unitHost.IsVisible = prices || row.IsNewProduct; // 2026-11-21: единицу правят и у товара склада (как в прежней таблице приёмки)
             categoryHost.IsVisible = row.IsNewProduct;
             purchaseHost.IsVisible = prices;
             markupHost.IsVisible = prices;
@@ -852,13 +973,23 @@ public partial class WarehouseWindow
                 or nameof(BulkScanRow.StockInfo) or null)
                 Look();
         };
+        PropertyChangedEventHandler packHandler = (_, e) =>
+        {
+            if (e.PropertyName is nameof(ReceivingLineVm.PackMode) or null)
+                Look();
+        };
         border.AttachedToVisualTree += (_, _) =>
         {
+            row.Line.PropertyChanged += packHandler;
             row.PropertyChanged += handler;
             NameLook();
             Look();
         };
-        border.DetachedFromVisualTree += (_, _) => row.PropertyChanged -= handler;
+        border.DetachedFromVisualTree += (_, _) =>
+        {
+            row.PropertyChanged -= handler;
+            row.Line.PropertyChanged -= packHandler;
+        };
         return border;
     }
 

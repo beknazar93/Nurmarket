@@ -464,7 +464,7 @@ public sealed partial class ClientDocEditorWindow : Window
         _sellerFields.Children.Add(sellerNote);
         var sellerCard = Card(T("Продавец (реквизиты)", "Сатуучу (реквизиттер)", "Seller (details)", "Satıcı (bilgiler)", "Sotuvchi (rekvizitlar)"), sellerHead, _sellerFields);
 
-        var form = new StackPanel { Spacing = 12, Margin = new Thickness(0, 0, 12, 0), Children = { buyerCard, linesCard, totalsCard, dateCard, noteCard, sellerCard } };
+        var form = new StackPanel { Spacing = 12, Margin = new Thickness(0, 0, 12, 0), Children = { buyerCard, linesCard, BuildCargoCard(), totalsCard, dateCard, noteCard, sellerCard } }; // 2026-11-21 («Базар», опт): карточка «Карго» накладной (скрыта вне накладной / без модуля)
         _formScroll = new ScrollViewer { Content = form, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
 
         // ── предпросмотр ──

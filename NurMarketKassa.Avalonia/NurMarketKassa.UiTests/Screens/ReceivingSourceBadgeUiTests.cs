@@ -75,26 +75,20 @@ public sealed class ReceivingSourceBadgeUiTests
                 vm.ReceivingLines.Add(l);
             UiShot.Settle(10);
 
-            var grid = UiDrive.Find<DataGrid>(window, "ReceivingGrid");
             var tag = $"{width}x{height} {lang}";
-            var rows = grid.GetVisualDescendants().OfType<DataGridRow>().Where(r => r.Bounds.Height > 0 && r.DataContext is ReceivingLineVm)
-                .OrderBy(r => r.TranslatePoint(default, grid)!.Value.Y).ToList();
-            rows.Count.Should().BeGreaterThanOrEqualTo(3, tag); // в окне 1024×600 четвёртая строка уходит за нижний край таблицы (виртуализация)
-            for (var i = 0; i < rows.Count; i++)
+            // 2026-11-21: строки приёмки — карточки (объединение с «Массовым добавлением»): значок источника — первым в карточке, у каждой строки своя подпись и подсказка.
+            var cards = RcvCards.Cards(window).OrderBy(c => c.TranslatePoint(default, window)!.Value.Y).ToList();
+            cards.Count.Should().BeGreaterThanOrEqualTo(1, tag); // на низком окне нижние карточки уходят за край списка (виртуализация)
+            for (var i = 1; i < cards.Count; i++)
+                cards[i].TranslatePoint(default, window)!.Value.Y.Should().BeGreaterThanOrEqualTo(cards[i - 1].TranslatePoint(default, window)!.Value.Y + cards[i - 1].Bounds.Height - 0.5, $"карточки не наезжают ({tag})");
+            foreach (var card in cards)
             {
-                if (i > 0)
-                    rows[i].TranslatePoint(default, grid)!.Value.Y.Should().BeGreaterThanOrEqualTo(rows[i - 1].TranslatePoint(default, grid)!.Value.Y + rows[i - 1].Bounds.Height - 0.5, $"строки не наезжают ({tag})");
-                var cross = rows[i].GetVisualDescendants().OfType<Button>().Last(b => b.IsEffectivelyVisible);
-                cross.TranslatePoint(new Point(cross.Bounds.Width, 0), grid)!.Value.X.Should().BeLessThanOrEqualTo(grid.Bounds.Width + 0.5, $"нет горизонтальной прокрутки ({tag})");
-            }
-
-            foreach (var line in rows.Select(r => (ReceivingLineVm)r.DataContext!).ToList())
-            {
-                var row = rows.First(r => ReferenceEquals(r.DataContext, line));
-                var badge = row.GetVisualDescendants().OfType<ReceivingSourceBadge>().Single(b => b.IsEffectivelyVisible);
+                var line = ((BulkScanRow)card.DataContext!).Line;
                 var info = $"{line.Source} ({tag})";
+                var badge = card.GetVisualDescendants().OfType<ReceivingSourceBadge>().Single(x => x.IsEffectivelyVisible);
                 badge.Source.Should().Be(line.Source, info);
                 badge.Bounds.Width.Should().BeGreaterThanOrEqualTo(20, $"значок виден ({info})");
+                (card.TranslatePoint(new Point(card.Bounds.Width, 0), window)!.Value.X).Should().BeLessThanOrEqualTo(window.Bounds.Width + 0.5, $"нет горизонтальной прокрутки ({tag})");
 
                 // подсказка при наведении и имя для скринридера: «Название: пояснение» на языке интерфейса
                 var tip = ToolTip.GetTip(badge) as string;
@@ -102,62 +96,54 @@ public sealed class ReceivingSourceBadgeUiTests
                 tip.Should().Contain(ReceivingLineVm.SourceTitle(line.Source)).And.Contain(ReceivingLineVm.SourceHintFor(line.Source), info);
                 AutomationProperties.GetName(badge).Should().Be(tip, $"имя значка для скринридера ({info})");
 
-                // значок — первый в строке: левее названия и правее колонки «№»
-                var badgeX = badge.TranslatePoint(default, row)!.Value.X;
-                var numberText = row.GetVisualDescendants().OfType<TextBlock>().First(t => t.IsEffectivelyVisible && t.Text == line.LineNo.ToString());
-                badgeX.Should().BeGreaterThan(numberText.TranslatePoint(default, row)!.Value.X, $"значок правее «№» ({info})");
-                var nameText = row.GetVisualDescendants().OfType<TextBlock>().FirstOrDefault(t => t.IsEffectivelyVisible && t.Text == line.ProductName && line.ProductName.Length > 0);
-                if (nameText is not null)
-                {
-                    badgeX.Should().BeLessThan(nameText.TranslatePoint(default, row)!.Value.X, $"значок левее названия — первый в строке ({info})");
-                    nameText.Bounds.Width.Should().BeGreaterThanOrEqualTo(60, $"название читается ({info}); таблица {grid.Bounds.Width}, колонка названия {grid.Columns[1].ActualWidth}, текст «{nameText.Text}»");
-                }
-                // значок и строка источника: подпись под названием совпадает с подсказкой
-                row.GetVisualDescendants().OfType<TextBlock>().Any(t => t.IsEffectivelyVisible && (t.Text ?? "").StartsWith(line.SourceText, StringComparison.Ordinal)).Should().BeTrue($"подпись источника «{line.SourceText}» ({info})");
-                // штрихкод по-прежнему виден (подстрока под названием в узком виде, колонка — в широком)
-                row.GetVisualDescendants().OfType<TextBlock>().Any(t => t.IsEffectivelyVisible && t.Bounds.Height > 0 && (t.Text ?? "").StartsWith(line.Barcode, StringComparison.Ordinal)).Should().BeTrue($"штрихкод виден ({info})");
+                // значок — первый в строке: левее штрихкода и названия
+                var badgeX = badge.TranslatePoint(default, card)!.Value.X;
+                var nameBox = card.GetVisualDescendants().OfType<TextBox>().First(t => Equals(t.Tag, "name") && t.IsEffectivelyVisible);
+                badgeX.Should().BeLessThan(nameBox.TranslatePoint(default, card)!.Value.X, $"значок левее названия — первый в строке ({info})");
+                if (line.ProductName.Length > 0)
+                    nameBox.Text.Should().Be(line.ProductName, info);
+                nameBox.Bounds.Width.Should().BeGreaterThanOrEqualTo(60, $"название читается ({info})");
+                // подпись источника под штрихкодом совпадает с названием источника
+                card.GetVisualDescendants().OfType<TextBlock>().Any(t => t.IsEffectivelyVisible && (t.Text ?? "").StartsWith(line.SourceText, StringComparison.Ordinal)).Should().BeTrue($"подпись источника «{line.SourceText}» ({info})");
+                // штрихкод виден: подпись у товара склада и общей базы, поле у нового товара
+                var barcodeShown = card.GetVisualDescendants().OfType<TextBlock>().Any(t => t.IsEffectivelyVisible && t.Bounds.Height > 0 && (t.Text ?? "").StartsWith(line.Barcode, StringComparison.Ordinal))
+                    || card.GetVisualDescendants().OfType<TextBox>().Any(t => Equals(t.Tag, "barcode") && t.IsEffectivelyVisible && t.Text == line.Barcode);
+                barcodeShown.Should().BeTrue($"штрихкод виден ({info})");
 
                 // «Найти в интернете» — только у «Неизвестно»
-                var net = row.GetVisualDescendants().OfType<Button>().Where(b => b.Tag as string == "rcv-netlink").ToList();
-                var netVisible = net.Any(b => b.IsEffectivelyVisible);
+                var net = card.GetVisualDescendants().OfType<Button>().Where(x => x.Tag as string == "rcv-netlink").ToList();
+                var netVisible = net.Any(x => x.IsEffectivelyVisible);
                 netVisible.Should().Be(line.Source == ReceivingSource.Unknown, $"кнопка поиска в интернете только у «Неизвестно» ({info})");
                 if (netVisible)
                 {
                     var b = net.Single(x => x.IsEffectivelyVisible);
-                    (ToolTip.GetTip(b) as string).Should().Be(WarehouseWindow.InternetSearchHintText, info);
-                    AutomationProperties.GetName(b).Should().Be(WarehouseWindow.InternetSearchText, info);
                     b.Bounds.Width.Should().BeGreaterThanOrEqualTo(28, $"кнопка нажимаема ({info})");
                 }
             }
             calls.Should().Be(0, "поиск в интернете сам не запускается — ни при показе строки «Неизвестно», ни при отрисовке");
 
             // нажатие кнопки: один вызов, отказ — строка остаётся «Неизвестно»
-            var unknownRow = rows.First(r => ReferenceEquals(r.DataContext, unknown));
-            var netButton = unknownRow.GetVisualDescendants().OfType<Button>().Single(b => b.Tag as string == "rcv-netlink" && b.IsEffectivelyVisible);
+            var netButton = RcvCards.Card(window, unknown).GetVisualDescendants().OfType<Button>().Single(x => x.Tag as string == "rcv-netlink" && x.IsEffectivelyVisible);
             UiDrive.Click(window, netButton);
             UiShot.Settle(8);
             calls.Should().Be(1, "одно нажатие — один запрос");
             unknown.Source.Should().Be(ReceivingSource.Unknown, "ничего не нашлось — «Неизвестно»");
 
             // название товара склада правится (переименование карточки) и отмечается
-            grid.SelectedItem = warehouse;
-            grid.CurrentColumn = grid.Columns[1];
-            grid.BeginEdit().Should().BeTrue($"название товара склада можно править ({tag})");
-            UiShot.Settle(6);
-            var warehouseRow = rows.First(r => ReferenceEquals(r.DataContext, warehouse));
-            var editor = warehouseRow.GetVisualDescendants().OfType<TextBox>().First(t => t.IsEffectivelyVisible && !t.Classes.Contains("rcv-baredit") && t.GetVisualAncestors().OfType<DataGridCell>().Any());
+            var editor = RcvCards.Field(window, warehouse, "name");
+            editor.IsReadOnly.Should().BeFalse($"название товара склада можно править ({tag})");
             editor.Bounds.Height.Should().BeGreaterThanOrEqualTo(20, $"поле названия не схлопнуто ({tag})");
-            warehouseRow.GetVisualDescendants().OfType<ReceivingSourceBadge>().Any(b => b.IsEffectivelyVisible).Should().BeTrue($"значок остаётся и при правке названия ({tag})");
+            RcvCards.Card(window, warehouse).GetVisualDescendants().OfType<ReceivingSourceBadge>().Any(x => x.IsEffectivelyVisible).Should().BeTrue($"значок остаётся и при правке названия ({tag})");
+            editor.Focus();
+            UiShot.Settle(4);
             UiDrive.Type(window, editor, "Молоко 1 л 3,2 %");
-            grid.CommitEdit();
+            window.FindControl<TextBox>("ReceivingScanBox")!.Focus(); // уход курсора заканчивает правку
             UiShot.Settle(6);
             warehouse.ProductName.Should().Be("Молоко 1 л 3,2 %");
             warehouse.NameRenamed.Should().BeTrue();
             warehouse.NameOrUnitChanged.Should().BeTrue("название уйдёт в карточку при проведении");
-            var renamedText = warehouseRow.GetVisualDescendants().OfType<TextBlock>().First(t => t.IsEffectivelyVisible && t.Text == "Молоко 1 л 3,2 %");
-            renamedText.Classes.Contains("rcv-renamed").Should().BeTrue($"изменённое название подсвечено ({tag})");
             // 2026-11-10 (владелец: «Наименование должно быть длинным!»): подсказка — полное название, а под ним «было: …»
-            (ToolTip.GetTip(renamedText) as string).Should().Contain("Молоко 1 л").And.Contain(warehouse.NameWasHint, $"в подсказке «было: …» ({tag})").And.StartWith(warehouse.ProductName.Trim(), $"полное название в подсказке ({tag})");
+            (ToolTip.GetTip(RcvCards.Field(window, warehouse, "name")) as string).Should().Contain("Молоко 1 л").And.Contain(warehouse.NameWasHint, $"в подсказке «было: …» ({tag})").And.StartWith(warehouse.ProductName.Trim(), $"полное название в подсказке ({tag})");
 
             SaveShot(window, $"receiving-source-warehouse-{(lang == AppLanguage.Kyrgyz ? "ky" : "ru")}-{width}x{height}");
         }

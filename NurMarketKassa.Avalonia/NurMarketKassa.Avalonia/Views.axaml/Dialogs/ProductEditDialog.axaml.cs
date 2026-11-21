@@ -133,6 +133,10 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
     /// обычную карточку товара в Складе. См. OfferAddUnknownProductAsync в MainWindow.Dialogs.cs.</summary>
     public bool IsQuickAddMode { get; }
 
+    /// <summary>2026-11-21 (отчёт «Проверка сфер», п. 5; ответ Умара 20.11: варианты работают в любой сфере — показывать по модулю variants): вкладка «Размеры и цвета» есть у сферы с модулем variants (Одежда),
+    /// а также у товара, у которого размеры уже заведены (чтобы их не потерять из виду после смены сферы). Без ответа сервера модуль берётся из профиля сферы (Одежда).</summary>
+    public bool ShowVariantsTab => !IsQuickAddMode && (ModuleFeatures.Variants || (_existing is { Id: { Length: > 0 } variantProductId } && VariantBarcodeIndex.ForProduct(variantProductId).Count > 0));
+
     /// <summary>2026-10-30 (приёмка 1.17.65, «Права»): закупка, наценка, прибыль и закупка упаковки видны только ролям с правом «видеть закупку»
     /// (как в ревизии склада и во вкладке «Поступления»). Кассиру поля скрыты; внутри окна значение хранится лишь затем, чтобы сохранение
     /// не стёрло закупку на сервере (в привязки она не отдаётся).</summary>
@@ -311,6 +315,8 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
         SalePriceFieldLabel.Text = Tr.T("Цена продажи *", "Сатуу баасы *", "Sale price *", "Satış fiyatı *", "Sotuv narxi *");
         InitSerialsBlock(existing); // 2026-11-13 (сервер sn1311): серийники и гарантия товара — только сфера «Электроника»
         InitAutoPartBlock(existing); // 2026-11-20 (ТЗ «Автозапчасти», АЗ5): блок «Автозапчасть» — только сфера «Автозапчасти»
+        InitNoFactoryBarcodeCheck(existing); // 2026-11-21: отметка «Без заводского штрихкода»
+        InitBazaarTiersBlock(existing); // 2026-11-21 («Базар», модуль «Цена по количеству»): ступени цены товара
         InitVatBlock(existing); // 2026-11-14 (П0-1): «Ставка НДС» товара — только при включённой фискализации
         Opened += (_, _) => _ = LoadMinimumQuantityAsync();
         // 2026-10-07, владелец: «если наименование есть — поставь штрихкод из barcode-list.ru, но дай проверить и сверить».

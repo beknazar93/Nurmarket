@@ -8,7 +8,6 @@ Views.axaml\Customer\CustomerDisplayView.axaml.cs;1
 Views.axaml\Dialogs\AcceptDebtPaymentWindow.cs;1
 Views.axaml\Dialogs\BarcodePrintWindow.Cards.cs;1
 Views.axaml\Dialogs\BarcodePrintWindow.Settings.cs;4
-Views.axaml\Dialogs\CartRemovalReasonDialog.axaml.cs;1
 Views.axaml\Dialogs\CartRemovalsWindow.axaml.cs;1
 Views.axaml\Dialogs\CheckoutDialog.axaml.cs;8
 Views.axaml\Dialogs\ClientPickerDialog.axaml.cs;10
@@ -18,6 +17,8 @@ Views.axaml\Dialogs\DialogDragHelper.cs;2
 Views.axaml\Dialogs\DialogScreenFit.cs;1
 Views.axaml\Dialogs\ExchangeWindow.cs;3
 Views.axaml\Dialogs\HardwareCalcWindow.cs;1
+Views.axaml\Dialogs\LabelDesignerView.cs;3
+Views.axaml\Dialogs\LabelDesignerView.Props.cs;1
 Views.axaml\Dialogs\LabelTemplateEditorDialog.axaml.cs;1
 Views.axaml\Dialogs\ModalShell.cs;2
 Views.axaml\Dialogs\OrderDiscountDialog.axaml.cs;2
@@ -82,8 +83,8 @@ Views.axaml\Main\SiteOrdersWindow.axaml.cs;2
 Views.axaml\Main\StartupCostDialog.cs;1
 Views.axaml\Main\SuccessToast.cs;2
 Views.axaml\Main\SupplierCardView.cs;1
-Views.axaml\Main\SupplierReturnsWindow.cs;2
-Views.axaml\Main\WarehouseWindow.BulkScan.cs;2
+Views.axaml\Main\SupplierReturnsWindow.cs;1
+Views.axaml\Main\WarehouseWindow.BulkScan.cs;1
 Views.axaml\Main\WarehouseWindow.O9.cs;2
 Views.axaml\Main\WarehouseWindow.Revision.Flow.cs;1
 Views.axaml\Main\WarehouseWindow.Variants.cs;1

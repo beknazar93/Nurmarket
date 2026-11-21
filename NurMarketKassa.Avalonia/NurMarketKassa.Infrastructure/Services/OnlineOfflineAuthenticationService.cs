@@ -156,6 +156,15 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
                     "Another till is already signed in on this login.", "Bu kullanıcı adında başka bir kasa zaten çalışıyor.", "Bu loginda boshqa kassa allaqachon ishlayapti."),
             };
         }
+        catch (ApiException ex) when (ex.StatusCode == 403 && PlanBlockMonitor.TryParse(ex.Payload ?? default) is { IsClientBlock: true })
+        {
+            // 2026-11-21 (живая проверка тарифов): «Мини» на ПК — 403 plan_client_not_allowed. Окно «Тариф не подходит» уже показано (PlanBlockMonitor); под ним в форме входа
+            // раньше оставалось «Неверный логин или пароль.» — ложь: логин и пароль верные. Пишем причину.
+            _api.ClearSession();
+            return AuthenticationResult.Failed(
+                AuthenticationFailure.ServerError,
+                Tr.T("Тариф компании не подходит для этой программы.", "Компаниянын тарифи бул программага ылайыксыз.", "The company plan does not fit this program.", "Şirket tarifesi bu programa uygun değil.", "Kompaniya tarifi bu dasturga mos kelmaydi."));
+        }
         catch (ApiException ex) when (ex.StatusCode is 400 or 401 or 403)
         {
             _api.ClearSession();

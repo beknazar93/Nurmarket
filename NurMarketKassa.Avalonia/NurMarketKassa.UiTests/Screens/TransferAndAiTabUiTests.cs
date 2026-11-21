@@ -1,3 +1,4 @@
+using System.Reflection;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.VisualTree;
@@ -15,8 +16,18 @@ namespace NurMarketKassa.UiTests.Screens;
 /// программы» (1С, МойСклад, Poster…) — заметная карточка на «Операциях», видна владельцу и скрыта без права «Склад: редактирование»; тексты не обрезаются
 /// на 1366×768 и 1024×600 (ru/ky/uz).</summary>
 [Collection("UiScenarios")]
-public sealed class TransferAndAiTabUiTests
+public sealed class TransferAndAiTabUiTests : IDisposable
 {
+    // 2026-11-21: «Перенос данных» — только в программе владельца (ImportAccess); карточка строится лишь при AppMode.IsOwner, поэтому тесты карточки идут в режиме владельца.
+    private static readonly PropertyInfo IsOwnerProp = typeof(AppMode).GetProperty(nameof(AppMode.IsOwner))!;
+    private readonly bool _savedIsOwner = AppMode.IsOwner;
+
+    public void Dispose()
+    {
+        IsOwnerProp.SetValue(null, _savedIsOwner);
+        BulkImportWizardWindow.CanOpenTransferOverride = null;
+    }
+
     public static IEnumerable<object[]> SizesAndLanguages() =>
         new (int W, int H)[] { (1024, 600), (1366, 768) }
             .SelectMany(s => new[] { AppLanguage.Russian, AppLanguage.Kyrgyz, AppLanguage.Uzbek }.Select(l => new object[] { s.W, s.H, l }));
@@ -28,6 +39,7 @@ public sealed class TransferAndAiTabUiTests
         await TestHost.WarmAsync();
         UiShot.Setup(UiTheme.Light, lang);
         BulkImportWizardWindow.CanOpenTransferOverride = null;
+        IsOwnerProp.SetValue(null, true); // программа владельца: карточка «Перенос данных» есть
         var window = TestHost.Services.GetRequiredService<PosSettingsWindow>();
         window.Width = w;
         window.Height = h;
@@ -69,6 +81,7 @@ public sealed class TransferAndAiTabUiTests
         {
             window.Close();
             UiShot.Pump();
+            IsOwnerProp.SetValue(null, _savedIsOwner);
         }
     }
 
@@ -78,6 +91,7 @@ public sealed class TransferAndAiTabUiTests
         await TestHost.WarmAsync();
         UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
         BulkImportWizardWindow.CanOpenTransferOverride = () => false;
+        IsOwnerProp.SetValue(null, true); // карточка строится только в программе владельца; без права «Склад: редактирование» она скрыта
         try
         {
             var ops = new OperationsSettingsView();
@@ -105,6 +119,7 @@ public sealed class TransferAndAiTabUiTests
         finally
         {
             BulkImportWizardWindow.CanOpenTransferOverride = null;
+            IsOwnerProp.SetValue(null, _savedIsOwner);
         }
     }
 }

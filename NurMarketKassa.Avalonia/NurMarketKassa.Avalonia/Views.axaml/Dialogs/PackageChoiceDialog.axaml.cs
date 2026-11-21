@@ -214,7 +214,7 @@ public partial class PackageChoiceDialog : Window
         }
 
         var maxAllowed = MaxAllowedQuantity;
-        if (value > maxAllowed + 1e-6)
+        if (value > maxAllowed + 1e-6 && !NegativeStockPolicy.Enabled) // 2026-11-21: продажа без остатка разрешена настройкой — вопрос про склад не задаём
         {
             var unit = IsPieceMode ? Tr.T("шт", "даана", "pcs", "adet", "dona") : Tr.T("пачек", "пачка", "packs", "paket", "paket");
 

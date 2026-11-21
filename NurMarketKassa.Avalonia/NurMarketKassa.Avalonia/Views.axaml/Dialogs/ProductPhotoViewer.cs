@@ -72,8 +72,11 @@ public class PhotoOverlayButton : Button
     public const string ChevronRightPath = "M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z";
 }
 
-/// <summary>Общий просмотрщик фото товара (владелец 20.11.2026): тёмный фон, фото по центру на максимальный размер (Uniform), закрытие кликом
-/// вне фото, кнопкой ✕ и Esc; колесо мыши / щипок — масштаб, перетаскивание при увеличении; двойное нажатие — 1× ↔ 2,5×; у товара несколько фото —
+/// <summary>Общий просмотрщик фото товара (владелец 20.11.2026): фото на максимальный размер (Uniform) внутри рамки-карточки, закрытие кликом
+/// по затемнённому полю вне рамки, кнопкой ✕ и Esc;
+/// 2026-11-21, владелец: «при нажатии на фото в товаре не на всю страницу! сделай рамку и хотя бы 70% экрана» — окно по-прежнему на весь экран, но
+/// прозрачное и затемнённое, а видимый просмотр — скруглённая карточка с тенью (80 % × 85 % экрана, по центру; заголовок с названием и ✕ сверху,
+/// счётчик/точки/подсказка снизу). Размер задают доли строк/столбцов сетки, поэтому он один для всех мест входа и сам следует за размером экрана; колесо мыши / щипок — масштаб, перетаскивание при увеличении; двойное нажатие — 1× ↔ 2,5×; у товара несколько фото —
 /// стрелки ←/→, свайп и точки; под фото — название. Пока грузится полноразмерное (ProductThumbService.GetFullPathAsync, кэш product_thumbs/full),
 /// показывается миниатюра; ошибка загрузки — понятная надпись, окно не падает без сети. Окно собрано в коде и на Android-оболочке работает слоем
 /// (только API, которые есть в Window оболочки: WindowState, SystemDecorations, Opened, ShowDialog).</summary>
@@ -102,14 +105,20 @@ public sealed class ProductPhotoViewerWindow : Window
     private readonly Func<CancellationToken, Task<IReadOnlyList<ViewerPhoto>?>>? _galleryLoader;
     private readonly CancellationTokenSource _cts = new();
 
+    // 2026-11-21: рамка-карточка по центру затемнённого окна (доли сетки 1:8:1 по ширине и 0,75:8,5:0,75 по высоте = 80 % × 85 % экрана).
+    private readonly Grid _root = new() { Background = new SolidColorBrush(Color.FromArgb(0x99, 0, 0, 0)), ColumnDefinitions = new ColumnDefinitions("*,8*,*"), RowDefinitions = new RowDefinitions("0.75*,8.5*,0.75*") };
+    private readonly Border _card = new() { CornerRadius = new CornerRadius(16), BorderThickness = new Thickness(1), ClipToBounds = true, BoxShadow = BoxShadows.Parse("0 16 48 0 #99000000") };
+    private bool _pressedOutside;
+
     private readonly Panel _stage = new() { Background = Brushes.Transparent, ClipToBounds = true, Focusable = false };
     private readonly Image _image = new() { Stretch = Stretch.Uniform, IsHitTestVisible = false };
-    private readonly TextBlock _titleText = new() { Foreground = Brushes.White, FontSize = 16, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, MaxLines = 2, TextTrimming = TextTrimming.CharacterEllipsis, TextAlignment = TextAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center };
-    private readonly TextBlock _counter = new() { Foreground = new SolidColorBrush(Color.FromRgb(0xB8, 0xB8, 0xB8)), FontSize = 13, HorizontalAlignment = HorizontalAlignment.Center };
-    private readonly StackPanel _dots = new() { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
+    private readonly TextBlock _titleText = new() { FontSize = 17, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, MaxLines = 2, TextTrimming = TextTrimming.CharacterEllipsis, TextAlignment = TextAlignment.Left, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center };
+    private readonly TextBlock _counter = new() { FontSize = 13, VerticalAlignment = VerticalAlignment.Center };
+    private readonly TextBlock _hint = new() { FontSize = 12, TextWrapping = TextWrapping.Wrap, MaxLines = 2, TextAlignment = TextAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center };
+    private readonly StackPanel _dots = new() { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
     private readonly Border _statusPill = new() { CornerRadius = new CornerRadius(14), Padding = new Thickness(12, 6), Margin = new Thickness(16, 16, 0, 0), HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, Background = new SolidColorBrush(Color.FromArgb(0xCC, 0, 0, 0)), IsVisible = false, IsHitTestVisible = false };
     private readonly TextBlock _statusText = new() { Foreground = Brushes.White, FontSize = 14, TextWrapping = TextWrapping.Wrap, MaxWidth = 520 };
-    private readonly TextBlock _errorText = new() { Foreground = Brushes.White, FontSize = 18, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, MaxWidth = 520, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(24), IsVisible = false, IsHitTestVisible = false };
+    private readonly TextBlock _errorText = new() { FontSize = 18, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, MaxWidth = 520, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(24), IsVisible = false, IsHitTestVisible = false };
     private readonly PhotoOverlayButton _prev = new(52);
     private readonly PhotoOverlayButton _next = new(52);
     private readonly PhotoOverlayButton _close = new(48);
@@ -119,7 +128,7 @@ public sealed class ProductPhotoViewerWindow : Window
     private readonly Dictionary<int, Point> _pointers = new();
     private Point _downPoint;
     private (double Tx, double Ty) _dragOrigin;
-    private bool _moved, _downOutside, _pinching;
+    private bool _moved, _pinching;
     private double _pinchDist, _pinchScale;
 
     // Для проверок: что сейчас на экране.
@@ -131,6 +140,8 @@ public sealed class ProductPhotoViewerWindow : Window
     public bool IsLoadingFull => _slots.Count > _index && _slots[_index].FullLoading;
     public Image PhotoImage => _image;
     public Control Stage => _stage;
+    /// <summary>Рамка-карточка просмотра (для проверок размера и места).</summary>
+    public Control Card => _card;
 
     public ProductPhotoViewerWindow(string title, IReadOnlyList<ViewerPhoto> photos, int startIndex = 0, PhotoPathLoader? fullLoader = null,
         PhotoPathLoader? thumbLoader = null, Func<CancellationToken, Task<IReadOnlyList<ViewerPhoto>?>>? galleryLoader = null)
@@ -148,7 +159,9 @@ public sealed class ProductPhotoViewerWindow : Window
         Title = _title;
         WindowState = WindowState.FullScreen;
         SystemDecorations = SystemDecorations.None;
-        Background = new SolidColorBrush(Color.FromRgb(0x0A, 0x0A, 0x0A));
+        // 2026-11-21: окно прозрачное (как остальные диалоги), затемнение и рамку рисует содержимое; без прозрачности (слабое устройство) — просто тёмный фон.
+        Bind(BackgroundProperty, this.GetResourceObservable("DialogWindowBackground"));
+        Bind(TransparencyLevelHintProperty, this.GetResourceObservable("DialogTransparencyHint"));
         ShowInTaskbar = false;
         Focusable = true;
 
@@ -173,8 +186,8 @@ public sealed class ProductPhotoViewerWindow : Window
         Avalonia.Automation.AutomationProperties.SetName(_close, Tr.T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"));
         _close.Content = PhotoOverlayButton.Icon(PhotoOverlayButton.ClosePath);
         _close.HorizontalAlignment = HorizontalAlignment.Right;
-        _close.VerticalAlignment = VerticalAlignment.Top;
-        _close.Margin = new Thickness(0, 12, 12, 0);
+        _close.VerticalAlignment = VerticalAlignment.Center;
+        _close.Margin = new Thickness(12, 0, 0, 0);
         _close.Click += (_, _) => Close();
 
         _prev.Content = PhotoOverlayButton.Icon(PhotoOverlayButton.ChevronLeftPath, 28);
@@ -201,21 +214,49 @@ public sealed class ProductPhotoViewerWindow : Window
         _stage.Children.Add(_statusPill);
         _stage.Children.Add(_prev);
         _stage.Children.Add(_next);
-        _stage.Children.Add(_close);
 
-        // Подпись: название (до двух строк), «2 / 5», точки. Нажатие по тёмному полю подписи — тоже «вне фото» (закрывает).
-        var caption = new StackPanel { Spacing = 4, Margin = new Thickness(20, 10, 20, 14), HorizontalAlignment = HorizontalAlignment.Center, MaxWidth = 900 };
-        caption.Children.Add(_titleText);
-        caption.Children.Add(_counter);
-        caption.Children.Add(_dots);
-        var captionBar = new Border { Background = Brushes.Transparent, Child = caption };
-        captionBar.Tapped += (_, _) => Close();
+        // Цвета — из темы кассы (карточка светлая или тёмная вместе с программой).
+        _card.Bind(Border.BackgroundProperty, _card.GetResourceObservable("BrushDialogPanel"));
+        _card.Bind(Border.BorderBrushProperty, _card.GetResourceObservable("BrushBorderStrong"));
+        _titleText.Bind(TextBlock.ForegroundProperty, _titleText.GetResourceObservable("BrushText"));
+        _errorText.Bind(TextBlock.ForegroundProperty, _errorText.GetResourceObservable("BrushText"));
+        _counter.Bind(TextBlock.ForegroundProperty, _counter.GetResourceObservable("BrushTextMuted"));
+        _hint.Bind(TextBlock.ForegroundProperty, _hint.GetResourceObservable("BrushTextMuted"));
+        _hint.Text = OperatingSystem.IsAndroid()
+            ? Tr.T("Щипок — масштаб · двойное касание — увеличить · свайп — другое фото", "Чымчуу — масштаб · эки жолу тийүү — чоңойтуу · сүрүү — башка сүрөт",
+                "Pinch — zoom · double-tap — magnify · swipe — next photo", "Çimdik — yakınlaştır · çift dokunuş — büyüt · kaydır — sonraki fotoğraf", "Chimdish — masshtab · ikki marta tegish — kattalashtirish · suring — boshqa rasm")
+            : Tr.T("Колёсико мыши — масштаб · двойной клик — увеличить · Esc — закрыть", "Чычкан дөңгөлөгү — масштаб · эки жолу басуу — чоңойтуу · Esc — жабуу",
+                "Mouse wheel — zoom · double-click — magnify · Esc — close", "Fare tekerleği — yakınlaştır · çift tıklama — büyüt · Esc — kapat", "Sichqoncha g'ildiragi — masshtab · ikki marta bosish — kattalashtirish · Esc — yopish");
 
-        var root = new Grid { RowDefinitions = new RowDefinitions("*,Auto") };
-        root.Children.Add(_stage);
-        Grid.SetRow(captionBar, 1);
-        root.Children.Add(captionBar);
-        Content = root;
+        // Шапка карточки: название товара (до двух строк) и ✕.
+        var header = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(20, 8, 8, 4) };
+        header.Children.Add(_titleText);
+        Grid.SetColumn(_close, 1);
+        header.Children.Add(_close);
+
+        // Подвал карточки: точки и «2 / 5» в одну строку, под ними подсказка.
+        var meta = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, HorizontalAlignment = HorizontalAlignment.Center };
+        meta.Children.Add(_dots);
+        meta.Children.Add(_counter);
+        var footer = new StackPanel { Spacing = 2, Margin = new Thickness(20, 2, 20, 10) };
+        footer.Children.Add(meta);
+        footer.Children.Add(_hint);
+
+        // Фото вписано в сцену с отступом от краёв карточки.
+        var stageHost = new Border { Padding = new Thickness(12, 4, 12, 10), Child = _stage };
+        ToolTip.SetTip(_titleText, _title); // очень длинное название обрезается двумя строками — целиком видно в подсказке
+        var inner = new Grid { RowDefinitions = new RowDefinitions("Auto,*,Auto") };
+        inner.Children.Add(header);
+        Grid.SetRow(stageHost, 1);
+        inner.Children.Add(stageHost);
+        Grid.SetRow(footer, 2);
+        inner.Children.Add(footer);
+        _card.Child = inner;
+
+        Grid.SetColumn(_card, 1);
+        Grid.SetRow(_card, 1);
+        _root.Children.Add(_card);
+        Content = _root;
     }
 
     // ---------------------------------------------------------------- ввод
@@ -253,6 +294,16 @@ public sealed class ProductPhotoViewerWindow : Window
             }
         };
 
+        // 2026-11-21: клик по затемнённому полю вне рамки закрывает просмотр (клик внутри рамки — нет, даже рядом с фото).
+        _root.PointerPressed += (_, e) => _pressedOutside = !_card.Bounds.Contains(e.GetPosition(_root));
+        _root.PointerReleased += (_, e) =>
+        {
+            var outside = _pressedOutside && !_card.Bounds.Contains(e.GetPosition(_root));
+            _pressedOutside = false;
+            if (outside)
+                Close();
+        };
+
         _stage.SizeChanged += (_, _) => ApplyTransform();
         _stage.PointerPressed += OnStagePressed;
         _stage.PointerMoved += OnStageMoved;
@@ -286,7 +337,6 @@ public sealed class ProductPhotoViewerWindow : Window
             _downPoint = p;
             _dragOrigin = (_tx, _ty);
             _moved = false;
-            _downOutside = !ImageRect().Contains(p);
         }
         else if (_pointers.Count == 2)
         {
@@ -338,11 +388,7 @@ public sealed class ProductPhotoViewerWindow : Window
             return;
 
         if (!_moved)
-        {
-            if (_downOutside)
-                Close(); // клик по тёмному полю вне фото
-            return;
-        }
+            return; // 2026-11-21: простой клик внутри рамки (и рядом с фото) окно не закрывает — закрывают ✕, Esc и клик вне рамки
         // Свайп по неувеличенному фото — следующее/предыдущее (если фото несколько).
         var dx = p.X - _downPoint.X;
         var dy = p.Y - _downPoint.Y;
@@ -492,12 +538,10 @@ public sealed class ProductPhotoViewerWindow : Window
                 var dot = new Border
                 {
                     Width = 24, Height = 28, Background = Brushes.Transparent, Cursor = new Cursor(StandardCursorType.Hand),
-                    Child = new Ellipse
-                    {
-                        Width = 9, Height = 9, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
-                        Fill = new SolidColorBrush(i == _index ? Colors.White : Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF)),
-                    },
+                    Child = new Ellipse { Width = 9, Height = 9, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
                 };
+                var ellipse = (Ellipse)dot.Child;
+                ellipse.Bind(Shape.FillProperty, ellipse.GetResourceObservable(i == _index ? "BrushText" : "BrushBorderStrong"));
                 dot.Tapped += (_, e) => { e.Handled = true; _index = index; ShowCurrent(); };
                 _dots.Children.Add(dot);
             }

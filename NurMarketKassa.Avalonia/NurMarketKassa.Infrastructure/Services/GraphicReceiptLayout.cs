@@ -27,6 +27,18 @@ internal static class GraphicReceiptLayout
     public static float GetLineStepMm(string line, float lineHeightPx) =>
         GetLineStepPx(line, lineHeightPx) * 0.264583f;
 
+    /// <summary>2026-11-21 (редактор чека): во сколько раз строка выше обычной (размер 2 — 1,6×, размер 3 — 2×).</summary>
+    public static float SizeScale(int size) => size >= 3 ? 2f : size == 2 ? 1.6f : 1f;
+
+    /// <summary>Высота чека по шаблону: строки со своим размером занимают больше места. <paramref name="styled"/> — разобранные строки (<see cref="ReceiptLineStyle.Parse"/>).</summary>
+    public static float ComputeStyledHeightPx(IReadOnlyList<(string Text, bool Bold, int Size)> styled, float lineHeightPx)
+    {
+        var height = TestReceiptLineBuilder.StartOffsetPx + TestReceiptLineBuilder.BottomPaddingPx;
+        foreach (var l in styled)
+            height += GetLineStepPx(l.Text, lineHeightPx) * SizeScale(l.Size);
+        return height;
+    }
+
     public static float ComputeContentHeightPx(IReadOnlyList<string> lines, float lineHeightPx)
     {
         var height = TestReceiptLineBuilder.StartOffsetPx + TestReceiptLineBuilder.BottomPaddingPx;

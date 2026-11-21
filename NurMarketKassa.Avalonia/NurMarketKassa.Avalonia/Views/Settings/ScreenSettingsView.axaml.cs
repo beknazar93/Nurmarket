@@ -135,7 +135,7 @@ public partial class ScreenSettingsView : UserControl
         InitializeComponent();
         // 2026-11-11 (Д-5, живой показ 1.17.85): переключатели и ползунки, которые применяются и сохраняются сразу (без «Сохранить»), — не повод
         // спрашивать при закрытии «Есть несохранённые изменения» (PosSettingsWindow.SnapshotEditable их пропускает).
-        foreach (var immediate in new Control[] { QuickProductsCheck, UpsellCheck, PayDockBottomCheck, UiScaleSlider, TileSizeSlider, CompactAutoRadio, CompactOnRadio, CompactOffRadio })
+        foreach (var immediate in new Control[] { QuickProductsCheck, UpsellCheck, NoBarcodeFirstCheck, PayDockBottomCheck, UiScaleSlider, TileSizeSlider, CompactAutoRadio, CompactOnRadio, CompactOffRadio })
             immediate.Classes.Add(NurMarketKassa.AvaloniaHost.Views.PosSettingsWindow.ImmediateSettingClass);
         // 2026-11-05 (В4-10): пункт «Авто» списка касс следует за языком программы.
         AttachedToVisualTree += (_, _) =>
@@ -178,6 +178,7 @@ public partial class ScreenSettingsView : UserControl
         CompactAutoRadio.IsChecked = compactMode is not ("on" or "off");
         _suppressUiScaleChange = false;
         QuickProductsCheck.IsChecked = UserPreferences.Instance.ShowQuickProducts;
+        NoBarcodeFirstCheck.IsChecked = UserPreferences.Instance.CatalogNoBarcodeFirst; // 2026-11-21
         // 2026-10-27, аудит владельца Б-1: «Быстрые товары в пустом чеке» — личная привычка кассира, она хранится у каждого пользователя в
         // его программе и в программу владельца не доходит. В программе владельца чека нет — переключатель только вводил в заблуждение, скрыт.
         if (AppMode.IsOwner && QuickProductsCheck.Parent is Control quickRow)
@@ -219,6 +220,7 @@ public partial class ScreenSettingsView : UserControl
     private CheckBox? _blurCheck;
     private TextBlock? _blurDesc;
     private TextBlock? _renderNote;
+    private TextBlock? _lowPerfNote; // 2026-11-21: «применится после перезапуска» — только для программной отрисовки
     private Button? _renderResetButton;
     private RadioButton? _renderAutoRadio;
     private bool _suppressGfx;
@@ -248,6 +250,20 @@ public partial class ScreenSettingsView : UserControl
             return;
         var index = perfStack.Children.IndexOf(lowRow) + 1;
         var prefs = UserPreferences.Instance;
+
+        // 2026-11-21 (просьба владельца «при включении режима слабого ПК не обязательно перезаходить»): переключатель действует сразу, без «Сохранить»:
+        // анимации, затемнение, тема, обои, опросы — на лету (LowPerformanceLive); только программная отрисовка — после перезапуска (строка ниже).
+        lowRow.Classes.Add(NurMarketKassa.AvaloniaHost.Views.PosSettingsWindow.ImmediateSettingClass);
+        _lowPerfNote = GfxText("GfxLowPerfNote", "", 12, "BrushTextSoft");
+        _lowPerfNote.MaxWidth = 480;
+        _lowPerfNote.IsVisible = false;
+        perfStack.Children.Insert(index++, _lowPerfNote);
+        LowPerformanceModeCheck.IsCheckedChanged += (_, _) =>
+        {
+            if (!_suppressGfx)
+                UserPreferences.SetLowPerformanceMode(LowPerformanceModeCheck.IsChecked == true);
+            UpdateGraphicsRows();
+        };
 
         // Размытие фона под окнами.
         var blurRow = new Grid { Name = "GfxBlurRow", ColumnDefinitions = new ColumnDefinitions("*,Auto") };
@@ -332,7 +348,6 @@ public partial class ScreenSettingsView : UserControl
             perfStack.Children.Insert(index, block);
         }
 
-        LowPerformanceModeCheck.IsCheckedChanged += (_, _) => UpdateGraphicsRows();
         UpdateGraphicsRows();
     }
 
@@ -354,6 +369,23 @@ public partial class ScreenSettingsView : UserControl
     {
         var prefs = UserPreferences.Instance;
         var low = LowPerformanceModeCheck.IsChecked == true;
+        if (_lowPerfNote is not null)
+        {
+            // 2026-11-21: честная строка только для той части, что на лету не меняется — способ отрисовки (GPU ↔ программная) выбирается при запуске.
+            var restart = RenderModeSettings.LowPerformanceRestartNeeded(low);
+            _lowPerfNote.IsVisible = restart;
+            _lowPerfNote.Text = low
+                ? Tr.T("Включено сразу: без анимаций, размытия и узоров, реже опрос сервера. Программная отрисовка (без видеокарты) применится после перезапуска.",
+                    "Дароо күйдү: анимациясыз, бүдөмүктөтүүсүз жана оюусуз, сервер сейректей сурайт. Программалык сүрөт тартуу (видеокартасыз) кайра ачылгандан кийин күчүнө кирет.",
+                    "Turned on right away: no animations, blur or patterns, less frequent server polling. Software rendering (no graphics card) applies after a restart.",
+                    "Hemen açıldı: animasyon, bulanıklık ve desen yok, sunucu daha seyrek sorgulanır. Yazılımsal çizim (ekran kartı olmadan) yeniden başlatmadan sonra geçerli olur.",
+                    "Darhol yoqildi: animatsiya, xiralashtirish va naqshlarsiz, server kamroq so'raladi. Dasturiy chizish (videokartasiz) qayta ishga tushgandan keyin kuchga kiradi.")
+                : Tr.T("Выключено сразу. Отрисовка на видеокарте вернётся после перезапуска программы.",
+                    "Дароо өчтү. Видеокартада сүрөт тартуу программа кайра ачылгандан кийин кайтат.",
+                    "Turned off right away. Drawing on the graphics card comes back after the program restarts.",
+                    "Hemen kapandı. Ekran kartında çizim program yeniden başlatıldıktan sonra geri döner.",
+                    "Darhol o'chdi. Videokartada chizish dastur qayta ishga tushgandan keyin qaytadi.");
+        }
         if (_blurCheck is not null && _blurDesc is not null)
         {
             _suppressGfx = true;
@@ -388,6 +420,10 @@ public partial class ScreenSettingsView : UserControl
 
     private void QuickProductsCheck_Changed(object? sender, RoutedEventArgs e) =>
         UserPreferences.SetShowQuickProducts(QuickProductsCheck.IsChecked == true);
+
+    /// <summary>2026-11-21: «Сначала товары без штрихкода» — сразу, без «Сохранить»; каталог пересортировывается.</summary>
+    private void NoBarcodeFirstCheck_Changed(object? sender, RoutedEventArgs e) =>
+        UserPreferences.SetCatalogNoBarcodeFirst(NoBarcodeFirstCheck.IsChecked == true);
 
     /// <summary>2026-10-01: подсказки допродажи — сразу, без «Сохранить».</summary>
     private void UpsellCheck_Changed(object? sender, RoutedEventArgs e) =>

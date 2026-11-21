@@ -83,6 +83,7 @@ public sealed partial class UserPreferences
                 TrueFullscreen = TrueFullscreen,
                 LowPerformanceMode = LowPerformanceMode,
                 ModalBackgroundBlur = ModalBackgroundBlur, // 2026-11-11
+                WeakPcHintShown = WeakPcHintShown, // 2026-11-21
                 WindowsRenderMode = WindowsRenderMode, // 2026-11-11
                 AskOwnerPinOnKassaPc = AskOwnerPinOnKassaPc, // 2026-11-06 (Л4-19)
                 VoiceControlEnabled = VoiceControlEnabled,
@@ -134,6 +135,7 @@ public sealed partial class UserPreferences
                 LastFilterBrand = LastFilterBrand,
                 CatalogViewMode = CatalogViewMode,
                 ShowCatalogPhotos = ShowCatalogPhotos,
+                CatalogNoBarcodeFirst = CatalogNoBarcodeFirst, // 2026-11-21
                 MarketplaceWebUrl = MarketplaceWebUrl, // 2026-11-06
                 AutoInstallPurchasedThemes = AutoInstallPurchasedThemes,
                 Language = Language,
@@ -178,9 +180,13 @@ public sealed partial class UserPreferences
                 ShiftAnalyticsUnlocked = ShiftAnalyticsUnlocked,
                 TelegramCommandsEnabled = TelegramCommandsEnabled,
                 DebtPrepaymentChooseMethod = DebtPrepaymentChooseMethod,
+                SellWithoutStock = SellWithoutStock, // 2026-11-21
                 AdvisorCapabilitiesJson = AdvisorCapabilitiesJson,
                 SphereSettingsJson = SphereSettingsJson, // 2026-11-12: ХМ15
                 ClientPriceGroupsJson = ClientPriceGroupsJson, // 2026-11-12: ХМ15
+                LabelDesignsJson = LabelDesignsJson, // 2026-11-21: «Мои шаблоны» ценников
+                ReceiptTemplateJson = ReceiptTemplateJson, // 2026-11-21: редактор чека
+                NoFactoryBarcodeIdsJson = NoFactoryBarcodeIdsJson, // 2026-11-21: отметки «Без заводского штрихкода»
                 PurchaseEditWindow = PurchaseEditWindow,
                 StaffAutoMarkMode = StaffAutoMarkMode,
                 IdleLogoutMinutes = IdleLogoutMinutes, // 2026-11-08
@@ -456,6 +462,7 @@ public sealed partial class UserPreferences
         public bool? TrueFullscreen { get; set; }
         public bool? LowPerformanceMode { get; set; }
         public bool? ModalBackgroundBlur { get; set; }
+        public bool? WeakPcHintShown { get; set; } // 2026-11-21
         public string? WindowsRenderMode { get; set; }
         public bool? AskOwnerPinOnKassaPc { get; set; }
         public bool? VoiceControlEnabled { get; set; }
@@ -510,6 +517,7 @@ public sealed partial class UserPreferences
         public string? LastFilterBrand { get; set; }
         public CatalogViewMode? CatalogViewMode { get; set; }
         public bool? ShowCatalogPhotos { get; set; }
+        public bool? CatalogNoBarcodeFirst { get; set; } // 2026-11-21
         public string? MarketplaceWebUrl { get; set; } // 2026-11-06
         public bool? AutoInstallPurchasedThemes { get; set; }
         public AppLanguage? Language { get; set; }
@@ -552,9 +560,13 @@ public sealed partial class UserPreferences
         public bool? ShiftAnalyticsUnlocked { get; set; }
         public bool? TelegramCommandsEnabled { get; set; }
         public bool? DebtPrepaymentChooseMethod { get; set; }
+        public bool? SellWithoutStock { get; set; } // 2026-11-21
         public string? AdvisorCapabilitiesJson { get; set; }
         public string? SphereSettingsJson { get; set; }
         public string? ClientPriceGroupsJson { get; set; }
+        public string? LabelDesignsJson { get; set; }
+        public string? ReceiptTemplateJson { get; set; } // 2026-11-21
+        public string? NoFactoryBarcodeIdsJson { get; set; } // 2026-11-21
         public string? PurchaseEditWindow { get; set; }
         public string? StaffAutoMarkMode { get; set; }
         public int? IdleLogoutMinutes { get; set; }

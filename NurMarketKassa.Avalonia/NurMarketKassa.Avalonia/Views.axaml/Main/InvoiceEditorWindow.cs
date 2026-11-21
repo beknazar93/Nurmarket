@@ -594,18 +594,23 @@ public sealed class InvoiceEditorWindow : Window
             "Set an own barcode on new products that have none. Barcodes already typed are not changed.",
             "Kodu olmayan yeni ürünlere kendi barkodunu ver. Girilmiş barkodlar değişmez.",
             "Kodi bo'sh yangi mahsulotlarga o'z shtrix-kodini qo'yish. Kiritilgan kodlar o'zgarmaydi."));
-        makeCodes.Click += (_, _) =>
+        makeCodes.Click += async (_, _) =>
         {
             if (_draft.Posting)
                 return;
             var typed = _draft.Rows.Select(r => r.Barcode).ToList();
             var made = 0;
-            foreach (var row in _draft.Rows)
+            // 2026-11-21: коды берёт сервер пачкой (main/barcodes/next/), запасной — локальный генератор.
+            var empty = _draft.Rows.Where(row => row.Existing is null && !row.CreatedEarlier && string.IsNullOrWhiteSpace(row.Barcode)).ToList();
+            if (empty.Count == 0)
+                return;
+            var codes = await BarcodeGenerator.GenerateManyForCatalogAsync(empty.Count, typed).ConfigureAwait(true);
+            for (var i = 0; i < empty.Count; i++)
             {
-                if (row.Existing is not null || row.CreatedEarlier || !string.IsNullOrWhiteSpace(row.Barcode))
-                    continue;
-                row.Barcode = BarcodeGenerator.GenerateForCatalog(typed);
-                typed.Add(row.Barcode);
+                var row = empty[i];
+                if (!string.IsNullOrWhiteSpace(row.Barcode) || _draft.Posting)
+                    continue; // пока ждали сервер, строку заполнили руками
+                row.Barcode = codes[i];
                 made++;
             }
             if (made > 0)

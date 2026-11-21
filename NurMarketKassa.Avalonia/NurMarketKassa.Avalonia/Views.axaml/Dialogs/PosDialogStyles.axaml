@@ -59,8 +59,10 @@
        кнопка (акцент темы; у «NurMarket» — жёлтая с тёмно-синим текстом; опасное — красная)
        справа. Шапка и низ на месте, содержимое между ними прокручивается.
        =================================================================================== -->
+  <!-- 2026-11-21 (жалоба «отступов не хватает»): поля окна 24,18 → 24,20 (NurPadWindow), шапка 24,16,24,14 → 24,18,24,16, низ 24,14 → 24,16,
+       строка «Ждём ответ сервера» 24,8 → 24,10; зазор между кнопками низа — 12 (см. SectionCards.Row). -->
   <Style Selector="dlg|ModalShell">
-    <Setter Property="Padding" Value="24,18" />
+    <Setter Property="Padding" Value="{DynamicResource NurPadWindow}" />
     <Setter Property="HorizontalAlignment" Value="Stretch" />
     <Setter Property="Template">
       <ControlTemplate>
@@ -74,7 +76,7 @@
               <!-- 2026-10-30: шапка — «ручка» перетаскивания окна (DialogDragHelper); ✕ и кнопки в ней перетаскивание не запускают. -->
               <!-- 2026-11-19 (единые отступы окон, живой обход): справа было 16 — ✕ стоял на 8 px ближе к краю, чем кнопки подвала и
                    содержимое (24); теперь шапка симметрична: 24 слева и справа, ✕ по одной линии с правым краем кнопок. -->
-              <Border DockPanel.Dock="Top" Padding="24,16,24,14" dlg:DialogDragHelper.IsHandle="True"
+              <Border DockPanel.Dock="Top" Padding="24,18,24,16" dlg:DialogDragHelper.IsHandle="True"
                       Background="Transparent"
                       BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,0,1">
                 <Grid ColumnDefinitions="*,Auto">
@@ -92,7 +94,7 @@
                   </Button>
                 </Grid>
               </Border>
-              <Border DockPanel.Dock="Bottom" Padding="24,14"
+              <Border DockPanel.Dock="Bottom" Padding="24,16"
                       BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,1,0,0">
                 <!-- Подсказка слева от кнопок; если места мало (длинные надписи ky/tr/uz), ModalShell
                      переносит её строкой над кнопками (UpdateFooterLayout), а не режет по буквам. -->
@@ -105,7 +107,7 @@
                 </Grid>
               </Border>
               <!-- 2026-11-03 (С-01, аудит «зависание при медленном сервере»): строка «Ждём ответ сервера NurCRM… N с» и «Отменить ожидание»; скрыта, пока сервер отвечает вовремя (ModalShell.RunServerAsync). -->
-              <Border Name="PART_ServerWait" DockPanel.Dock="Bottom" Padding="24,8" IsVisible="False"
+              <Border Name="PART_ServerWait" DockPanel.Dock="Bottom" Padding="24,10" IsVisible="False"
                       BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,1,0,0">
                 <Grid ColumnDefinitions="*,Auto">
                   <TextBlock Name="PART_ServerWaitText" VerticalAlignment="Center" FontSize="{DynamicResource NurFontCaption}" TextWrapping="Wrap"
@@ -323,7 +325,7 @@
   <!-- 2026-10-17, этап 3: чип модалки (быстрая причина, товар из чека) — 44 px, скруглённый, с обводкой. -->
   <Style Selector="Button.modal-chip">
     <Setter Property="MinHeight" Value="{DynamicResource NurHeightControl}" />
-    <Setter Property="Padding" Value="16,0" />
+    <Setter Property="Padding" Value="{DynamicResource NurPadChip}" /> <!-- 2026-11-21: было 16,0; шаг 16, в «Плотной» 12 -->
     <Setter Property="Background" Value="{DynamicResource BrushPanel}" />
     <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
     <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}" />
@@ -379,6 +381,10 @@
 
   <!-- 2026-10-22 (модалки, пакет 0): поле ввода в модалке — касание ≥ 44 px (стандарт: «поля MinHeight 44»).
        Класс ставит окно: Classes="modal-field" (или SectionCards.Field(...) в коде). -->
+  <!-- 2026-11-21: текст в поле модалки не прилипает к рамке — отступ по бокам 12 (токен NurPadField; у Fluent было 10 слева, 6 справа). -->
+  <Style Selector="TextBox.modal-field">
+    <Setter Property="Padding" Value="{DynamicResource NurPadField}" />
+  </Style>
   <Style Selector="TextBox.modal-field, ComboBox.modal-field, DatePicker.modal-field, NumericUpDown.modal-field, AutoCompleteBox.modal-field, CalendarDatePicker.modal-field, TimePicker.modal-field">
     <Setter Property="MinHeight" Value="{DynamicResource NurHeightControl}" />
   </Style>
@@ -409,7 +415,7 @@
     <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="{DynamicResource NurRadiusCard}" />
-    <Setter Property="Padding" Value="3" />
+    <Setter Property="Padding" Value="4" /> <!-- 2026-11-21: было 3 -->
     <Setter Property="HorizontalAlignment" Value="Left" />
     <Setter Property="VerticalAlignment" Value="Center" />
   </Style>

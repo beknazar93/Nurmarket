@@ -199,8 +199,6 @@ public static class CoachTour
             CoachCondition.Manual, Actions:
             [
                 new("sphere", () => T("Выбрать вид магазина", "Дүкөндүн түрүн тандоо", "Choose the store type", "Mağaza türünü seç", "Do'kon turini tanlash")),
-                // 2026-11-20 (владелец: «где импорт из других программ?»): перенос товаров из 1С, МойСклад, Poster… — тот же мастер «Массовая загрузка»; кнопка только при праве на загрузку (MainWindow.RunCoachActionAsync).
-                new("import", () => T("Перенести товары из другой программы", "Товарларды башка программадан которуу", "Move products from another program", "Ürünleri başka programdan aktar", "Mahsulotlarni boshqa dasturdan ko'chirish")),
             ]),
         new("menu-open", "menu", () => T("Меню кассы", "Кассанын менюсу", "The till menu", "Kasa menüsü", "Kassa menyusi"),
             () => T("Здесь меню: Настройки, Смена, Помощь. Нажмите кнопку ☰.", "Бул жерде меню: Жөндөөлөр, Смена, Жардам. ☰ баскычын басыңыз.",

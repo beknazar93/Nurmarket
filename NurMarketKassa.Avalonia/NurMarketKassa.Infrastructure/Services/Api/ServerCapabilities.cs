@@ -266,6 +266,7 @@ public static class ServerCapabilities
                 var set = Parse(d);
                 Fiscal.FiscalSettings.Apply(d, set, account); // 2026-11-14 (П0-1): блок capabilities.fiscal — режим фискализации компании
                 _plan = (account, PlanInfo.Parse(d)); // 2026-11-20: блок capabilities.plan — тариф (нет плана → null, без падения)
+                CompanyModules.NoteCapabilities(d); // 2026-11-21: блок capabilities.modules {profile, version, enabled} — версия изменилась, модули перечитываются
                 // 2026-11-19 (оплата подписки): список признаков изменился (или получен впервые) — меню программы владельца пересчитывает пункты, зависящие от признаков (billing_elqr → «Подписка»).
                 var changed = !(_cache is { Ok: true } prev && prev.Account == account && prev.Features.SetEquals(set));
                 _cache = (DateTime.UtcNow, account, set, true, false);
