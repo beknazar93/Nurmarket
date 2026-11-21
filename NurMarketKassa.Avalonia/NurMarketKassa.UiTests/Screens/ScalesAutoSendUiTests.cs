@@ -27,10 +27,14 @@ public sealed class ScalesAutoSendUiTests : IDisposable
     private readonly int _tmPort = UserPreferences.Instance.TmScalePort;
     private readonly LabelScaleProfile _profile;
     private readonly (bool Auto, DateTime? At, int Count, string? Error) _savedAuto;
+    private readonly string _savedBrandOfProfile;
 
     public ScalesAutoSendUiTests()
     {
         TestHost.Ensure();
+        // 2026-11-20: стартовые весы создаются при первом обращении ИЗ ТЕКУЩИХ настроек (LabelScaleStore.Load → CaptureInto). Если первым был этот тест, в них попадали «tm»,
+        // 127.0.0.1:9 и имя на языке прежнего теста — снимки «Настройки → Весы» в полном прогоне расходились с эталоном. Создаём стартовые весы до изменения настроек.
+        _profile = LabelScaleStore.Active;
         var prefs = UserPreferences.Instance;
         prefs.ScaleBrand = "tm";
         prefs.TmScaleIp = "127.0.0.1";
@@ -40,8 +44,8 @@ public sealed class ScalesAutoSendUiTests : IDisposable
         CatalogCacheService.Products.Add(Tile("a", "Яблоки красные", "120", 1));
         CatalogCacheService.Products.Add(Tile("b", "Груши Нан ү ө", "0", 2));   // цена 0 и кыргызские буквы — замечания проверки
         CatalogCacheService.Products.Add(Tile("c", "Сыр российский", "650", 3));
-        _profile = LabelScaleStore.Active;
         _savedAuto = (_profile.AutoSend, _profile.AutoSendAt, _profile.AutoSendCount, _profile.AutoSendError);
+        _savedBrandOfProfile = _profile.Brand;
         _profile.Brand = "tm";
         _profile.AutoSend = true;
         _profile.AutoSendAt = new DateTime(2026, 11, 13, 14, 32, 0);
@@ -60,6 +64,11 @@ public sealed class ScalesAutoSendUiTests : IDisposable
         CatalogCacheService.Products.AddRange(_savedProducts);
         (_profile.AutoSend, _profile.AutoSendAt, _profile.AutoSendCount, _profile.AutoSendError) = _savedAuto;
         _profile.PluNumbers.Remove("a");
+        // 2026-11-20: тест оставлял общим весам марку «tm» и (если создавал стартовые весы в кыргызском/другом языке) имя «Тараза 1» — снимок «Настройки → Весы»
+        // (ru, «Весы 1 · Штрих-ПРИНТ») потом расходился в полном прогоне. Возвращаем марку и русское имя стартовых весов.
+        _profile.Brand = _savedBrandOfProfile;
+        if (_profile.Name is "Тараза 1" or "Scale 1" or "Tartı 1" or "Tarozi 1")
+            _profile.Name = "Весы 1";
     }
 
     private static CatalogProductTileVm Tile(string id, string title, string price, int plu)

@@ -31,13 +31,14 @@ public partial class BulkImportWizardWindow
     /// <summary>Строка таблицы окна: оболочка над строкой плана с текстами для ячеек и правкой через строку прихода (ReceivingLineVm).</summary>
     internal sealed class ImportRowVm : INotifyPropertyChanged
     {
-        private readonly int _cBarcode, _cName, _cQty, _cPurchase, _cSale, _cMarkup, _cUnit;
+        private readonly int _cBarcode, _cName, _cQty, _cPurchase, _cSale, _cMarkup, _cUnit, _cCategory, _cBrand;
         private bool _checked;
 
-        public ImportRowVm(BulkImportRow row, int cBarcode, int cName, int cQty, int cPurchase, int cSale, int cMarkup, int cUnit)
+        public ImportRowVm(BulkImportRow row, int cBarcode, int cName, int cQty, int cPurchase, int cSale, int cMarkup, int cUnit, int cCategory = -1, int cBrand = -1)
         {
             Row = row;
             (_cBarcode, _cName, _cQty, _cPurchase, _cSale, _cMarkup, _cUnit) = (cBarcode, cName, cQty, cPurchase, cSale, cMarkup, cUnit);
+            (_cCategory, _cBrand) = (cCategory, cBrand);
         }
 
         public BulkImportRow Row { get; }
@@ -69,6 +70,13 @@ public partial class BulkImportWizardWindow
                     line.ProductName = value ?? "";
             }
         }
+
+        // 2026-11-20: колонки «Категория», «Бренд» (из файла) и «Доп. коды» (разобранные: код, код×N — штук в упаковке, «+N» — сколько добавится)
+        public string CategoryText => Row.Line?.CategoryName is { Length: > 0 } c ? c : Raw(_cCategory).Trim();
+
+        public string BrandText => Row.Brand is { Length: > 0 } b ? b : Raw(_cBrand).Trim();
+
+        public string AltText => Row.AltFull.Count == 0 ? "" : string.Join(", ", Row.AltFull.Select(v => v.Quantity > 0 ? $"{v.Barcode}×{MoneyText.Qty(v.Quantity)}" : v.Barcode)) + (Row.AltAdded > 0 ? $" +{Row.AltAdded}" : "");
 
         public string UnitText
         {
@@ -132,6 +140,9 @@ public partial class BulkImportWizardWindow
         {
             nameof(Barcode) => Barcode,
             nameof(Name) => Name,
+            nameof(CategoryText) => CategoryText,
+            nameof(BrandText) => BrandText,
+            nameof(AltText) => AltText,
             nameof(UnitText) => UnitText,
             nameof(QuantityText) => QuantityText.Replace('.', ','),
             nameof(PurchaseText) => PurchaseText.Replace('.', ','),
@@ -142,7 +153,7 @@ public partial class BulkImportWizardWindow
 
         public void RaiseAll()
         {
-            foreach (var name in new[] { nameof(Name), nameof(UnitText), nameof(QuantityText), nameof(PurchaseText), nameof(MarkupText), nameof(SaleText), nameof(StatusText), "Row" })
+            foreach (var name in new[] { nameof(Name), nameof(AltText), nameof(UnitText), nameof(QuantityText), nameof(PurchaseText), nameof(MarkupText), nameof(SaleText), nameof(StatusText), "Row" })
                 Raise(name);
         }
 

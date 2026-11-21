@@ -52,25 +52,45 @@ public sealed record HardwareFeatures
 /// </summary>
 public static class HardwareProfile
 {
+    /// <summary>2026-11-20: прежний id единой сферы «Хозтовары и стройматериалы». Теперь это СТАРОЕ значение: <see cref="SphereCatalog.TryGet"/> читает его как Строймаг
+    /// (у компаний, которые выбрали hardware раньше, Смета, прокат и уровни цен остаются). Новые записи — hozmag / stroymag.</summary>
     public const string Id = "hardware";
+    public const string HozmagId = "hozmag";
+    public const string StroymagId = "stroymag";
 
-    public static SphereProfile Create() => new()
+    /// <summary>2026-11-20, решение владельца: «Хозмаг» — розница хозтоваров, упаковки и фасовка, цена по клиенту. Смета и прокат — через Маркетплейс.</summary>
+    public static SphereProfile CreateHozmag() => Common(HozmagId,
+        new L5("Хозмаг", "Чарба дүкөнү", "Hardware store", "Hırdavat", "Xo'jalik do'koni"),
+        new L5("Хозмаг", "Чарба дүкөнү", "Hardware store", "Hırdavat", "Xo'jalik do'koni"),
+        new L5("Хозтовары, сантехника, электрика, краски, садовые товары. Метры, мешки, коробки, фасовка. Смета и прокат — в Маркетплейсе",
+            "Чарба буюмдары, сантехника, электр, боёк, бак буюмдары. Метр, кап, куту, фасовка. Смета жана прокат — Маркетплейсте",
+            "Household goods, plumbing, electrical, paint, garden. Metres, bags, boxes, repacking. Estimate and rentals — in the Marketplace",
+            "Ev eşyaları, tesisat, elektrik, boya, bahçe. Metre, torba, kutu, paketleme. Keşif ve kiralama — Pazaryeri'nde",
+            "Xo'jalik mollari, santexnika, elektr, bo'yoq, bog' mollari. Metr, qop, quti, fasovka. Smeta va prokat — Marketplace'da"),
+        estimateAndRentals: false);
+
+    /// <summary>2026-11-20: «Строймаг» — строительные материалы: всё, что раньше давал hardware (упаковки sale_units, уровни цен «прораб», Смета, прокат по умолчанию, калькулятор расхода).</summary>
+    public static SphereProfile CreateStroymag() => Common(StroymagId,
+        new L5("Строймаг", "Курулуш дүкөнү", "Building materials store", "Yapı market", "Qurilish do'koni"),
+        new L5("Строймаг", "Курулуш дүкөнү", "Building store", "Yapı market", "Qurilish do'koni"),
+        new L5("Стройматериалы, сантехника, электрика, краски. Метры, м², мешки и коробки, цена прораба, смета, прокат инструмента",
+            "Курулуш материалдары, сантехника, электр, боёк. Метр, м², кап жана куту, прораб баасы, смета, аспап прокаты",
+            "Building materials, plumbing, electrical, paint. Metres, m², bags and boxes, foreman price, estimate, tool rental",
+            "Yapı malzemeleri, tesisat, elektrik, boya. Metre, m², torba ve kutu, usta fiyatı, keşif, alet kiralama",
+            "Qurilish materiallari, santexnika, elektr, bo'yoq. Metr, m², qop va quti, prorab narxi, smeta, asbob prokati"),
+        estimateAndRentals: true);
+
+    /// <summary>2026-11-20: общая часть Хозмага и Строймага (единицы, категории, дробные количества, скан упаковки, калькулятор расхода, цена по клиенту).</summary>
+    private static SphereProfile Common(string id, L5 title, L5 shortTitle, L5 description, bool estimateAndRentals) => new()
     {
-        Id = Id,
+        Id = id,
         BaseBehavior = MarketSpheres.Grocery,
-        Title = new L5(
-            "Хозтовары и стройматериалы",
-            "Чарба буюмдары жана курулуш материалдары",
-            "Hardware and building materials",
-            "Hırdavat ve yapı malzemeleri",
-            "Xo'jalik mollari va qurilish materiallari"),
-        ShortTitle = new L5("Хозмаг и стройка", "Чарба дүкөнү жана курулуш", "Hardware store", "Hırdavat ve yapı", "Xo'jalik va qurilish"),
-        Description = new L5(
-            "Хозмаг, стройматериалы, сантехника, электрика, краски. Метры, м², мешки и коробки",
-            "Чарба дүкөнү, курулуш материалдары, сантехника, электр, боёк. Метр, м², кап жана куту",
-            "Hardware, building materials, plumbing, electrical, paint. Metres, m², bags and boxes",
-            "Hırdavat, yapı malzemeleri, tesisat, elektrik, boya. Metre, m², torba ve kutu",
-            "Xo'jalik do'koni, qurilish materiallari, santexnika, elektr, bo'yoq. Metr, m², qop va quti"),
+        Title = title,
+        ShortTitle = shortTitle,
+        Description = description,
+        HardwareFamily = true,
+        HasEstimate = estimateAndRentals,
+        HasRentalsByDefault = estimateAndRentals,
         Icon = "🔨",
         IconKey = "hammer",
         AccentHex = "#F59E0B",

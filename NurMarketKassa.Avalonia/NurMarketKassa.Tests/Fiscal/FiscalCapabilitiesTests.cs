@@ -181,6 +181,97 @@ public sealed class FiscalCapabilitiesTests : IDisposable
         FiscalRequisites.Parse(J("[]")).Should().Be(FiscalRequisites.None);
     }
 
+    // ───────────── 2026-11-20: строка «ККМ» в режиме server и сведения о ККМ с сервера ─────────────
+
+    private sealed class ConnectedProvider : IFiscalProvider
+    {
+        public string Name => "eKassa";
+        public bool IsConnected => true;
+        public Task<FiscalResult> SaleAsync(FiscalReceiptRequest request, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<FiscalResult> ReturnAsync(FiscalReceiptRequest request, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<FiscalShiftResult> ShiftAsync(FiscalShiftAction action, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<FiscalReportResult> ReportAsync(FiscalReportKind kind, CancellationToken ct = default) => throw new NotSupportedException();
+    }
+
+    [Fact]
+    public void Server_mode_without_kkm_data_says_server_fiscalizes_and_never_mentions_telemedia()
+    {
+        var caps = FiscalCapabilities.ParseBlock(J("{\"mode\":\"server\",\"fiscal_enabled\":true}"), false);
+        caps.Kkm.Should().BeNull("сервер сведений о ККМ не отдал — ничего не выдумываем");
+        var text = FiscalFormRules.KkmStatusText(caps, new NotConnectedFiscalProvider());
+        text.Should().Be(FiscalFormRules.ServerFiscalizesText);
+        text.Should().NotContain("Telemedia");
+    }
+
+    [Fact]
+    public void Telemedia_wait_text_is_shown_only_when_the_kassa_must_fiscalize_and_has_no_local_kkm()
+    {
+        var kassa = FiscalCapabilities.ParseBlock(J("{\"mode\":\"kassa\",\"fiscal_enabled\":true}"), true);
+        FiscalFormRules.KkmStatusText(kassa, new NotConnectedFiscalProvider()).Should().Be(NotConnectedFiscalProvider.NotConnectedText).And.Contain("Telemedia");
+        FiscalFormRules.KkmStatusText(kassa, new ConnectedProvider()).Should().Be("eKassa");
+        var off = FiscalCapabilities.ParseBlock(J("{\"mode\":\"off\"}"), true);
+        FiscalFormRules.KkmStatusText(off, new NotConnectedFiscalProvider()).Should().NotContain("Telemedia");
+    }
+
+    [Fact]
+    public void Server_mode_with_kkm_data_shows_registered_on_server()
+    {
+        var caps = FiscalCapabilities.ParseBlock(J("{\"mode\":\"server\",\"kkm\":{\"serial_number\":\"EK00044889\",\"reg_number\":\"0000000318879\",\"fm_number\":\"0000000002470706\"," +
+            "\"fm_valid_until\":\"2029-11-18\",\"ofd_inn\":\"01102201510234\",\"version\":\"2.0\",\"shift_open\":true,\"last_receipt_number\":\"57\"}}"), false);
+        caps.Kkm.Should().NotBeNull();
+        FiscalFormRules.KkmStatusText(caps, new NotConnectedFiscalProvider()).Should().NotBe(FiscalFormRules.ServerFiscalizesText).And.NotContain("Telemedia");
+        var rows = caps.Kkm!.Rows().ToDictionary(r => r.Key, r => r.Value);
+        rows["Serial"].Should().Be("EK00044889");
+        rows["Reg"].Should().Be("0000000318879");
+        rows["Fm"].Should().Be("0000000002470706");
+        rows["FmUntil"].Should().Be("18.11.2029");
+        rows["Ofd"].Should().Be("01102201510234");
+        rows["Version"].Should().Be("2.0");
+        rows["Shift"].Should().Be(Tr.T("открыта", "ачык", "open", "açık", "ochiq"));
+        rows["LastReceipt"].Should().Be("57");
+    }
+
+    [Fact]
+    public void Kkm_info_is_read_from_flat_fields_skips_empty_values_and_returns_null_without_data()
+    {
+        var flat = FiscalKkmInfo.Parse(J("{\"mode\":\"server\",\"kkm_serial\":\"EK1\",\"kkm_reg_number\":\"\",\"fm_number\":null,\"shift\":{\"status\":\"closed\"}}"));
+        flat.Should().NotBeNull();
+        flat!.Serial.Should().Be("EK1");
+        flat.RegNumber.Should().BeNull();
+        flat.FmNumber.Should().BeNull();
+        flat.ShiftOpen.Should().BeFalse();
+        FiscalKkmInfo.Parse(J("{\"mode\":\"server\",\"fiscal_enabled\":true,\"vat_rates\":[\"12.00\"]}")).Should().BeNull();
+        FiscalKkmInfo.Parse(J("[]")).Should().BeNull();
+    }
+
+    [Fact]
+    public void Kkm_info_survives_restart_from_disk_and_a_put_without_kkm_keeps_it()
+    {
+        var root = J("{\"features\":[],\"fiscal\":{\"mode\":\"server\",\"fiscal_enabled\":true,\"kkm\":{\"serial_number\":\"EK00044889\",\"fm_valid_until\":\"2029-11-18\"}}}");
+        FiscalSettings.Apply(root, Features(root), "acc-1|company-1");
+        FiscalSettings.ResetMemoryForTests();
+        FiscalSettings.Current.Kkm!.Serial.Should().Be("EK00044889");
+        FiscalSettings.Current.Kkm!.FmValidUntil.Should().Be("2029-11-18");
+        // тот же ответ capabilities ещё раз — «ничего не изменилось», обработчик не дёргается
+        var changed = 0;
+        void Handler() => changed++;
+        FiscalSettings.Changed += Handler;
+        try { FiscalSettings.Apply(root, Features(root), "acc-1|company-1"); }
+        finally { FiscalSettings.Changed -= Handler; }
+        changed.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Not_connected_provider_does_not_scare_in_server_mode()
+    {
+        var root = J("{\"features\":[],\"fiscal\":{\"mode\":\"server\",\"fiscal_enabled\":true}}");
+        FiscalSettings.Apply(root, Features(root), "acc-1|company-1");
+        var shift = await new NotConnectedFiscalProvider().ShiftAsync(FiscalShiftAction.Open);
+        shift.ErrorText.Should().Be(FiscalFormRules.ServerFiscalizesText).And.NotContain("Telemedia");
+        var report = await new NotConnectedFiscalProvider().ReportAsync(FiscalReportKind.X);
+        report.ErrorText.Should().NotContain("Telemedia");
+    }
+
     [Fact]
     public void Receipt_template_is_off_without_a_connected_provider()
     {

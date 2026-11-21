@@ -36,6 +36,8 @@ public partial class BulkImportWizardWindow
         _loadBtn.IsEnabled = false;
         _errorsBtn.IsEnabled = false;
         _summary.Text = "";
+        UpdateBigSummary();
+        UpdateNav();
     }
 
     private void BuildRows()
@@ -44,13 +46,23 @@ public partial class BulkImportWizardWindow
             return;
         var m = _apOn ? AutoPartsPrepared.TableMapping() : _mapping; // 2026-11-20: прайс автозапчастей — столбцы очищенной таблицы
         var cols = (Barcode: m.ColumnOf(ProductImportField.Barcode), Name: m.ColumnOf(ProductImportField.Name), Qty: m.ColumnOf(ProductImportField.Quantity),
-            Purchase: m.ColumnOf(ProductImportField.Purchase), Sale: m.ColumnOf(ProductImportField.Sale), Markup: m.ColumnOf(ProductImportField.Markup), Unit: m.ColumnOf(ProductImportField.Unit));
-        _rows = _plan.Rows.Select(r => new ImportRowVm(r, cols.Barcode, cols.Name, cols.Qty, cols.Purchase, cols.Sale, cols.Markup, cols.Unit)).ToList();
+            Purchase: m.ColumnOf(ProductImportField.Purchase), Sale: m.ColumnOf(ProductImportField.Sale), Markup: m.ColumnOf(ProductImportField.Markup), Unit: m.ColumnOf(ProductImportField.Unit),
+            Category: m.ColumnOf(ProductImportField.Category), Brand: m.ColumnOf(ProductImportField.Brand));
+        _rows = _plan.Rows.Select(r => new ImportRowVm(r, cols.Barcode, cols.Name, cols.Qty, cols.Purchase, cols.Sale, cols.Markup, cols.Unit, cols.Category, cols.Brand)).ToList();
+        // 2026-11-20: колонки категории, бренда и доп. кодов — когда они есть в файле или у товаров
+        if (_grid.Columns.Count > 6)
+        {
+            _grid.Columns[4].IsVisible = cols.Category >= 0 || _rows.Any(v => v.CategoryText.Length > 0);
+            _grid.Columns[5].IsVisible = cols.Brand >= 0 || _rows.Any(v => v.BrandText.Length > 0);
+            _grid.Columns[6].IsVisible = _rows.Any(v => v.AltText.Length > 0);
+        }
+        UpdateNotProducts(); // 2026-11-20: плашка «не список товаров» — до фильтра: она прячет таблицу и блокирует «Загрузить»
         _checkedCount = 0;
         foreach (var vm in _rows)
             vm.PropertyChanged += OnRowChanged;
         _grid.IsVisible = true;
         _tiles.IsVisible = true;
+        _opsPanel.IsVisible = _advCol.IsVisible;
         ApplyFilter();
         Dispatcher.UIThread.Post(Refit, DispatcherPriority.Loaded);
     }
@@ -75,6 +87,7 @@ public partial class BulkImportWizardWindow
             Filter.Error => list.Where(r => r.Row.Kind == BulkImportRowKind.Error && (_errorGroup is null || r.Row.ErrorKey == _errorGroup)),
             Filter.Warning => list.Where(r => !string.IsNullOrEmpty(r.Row.Warning)),
             Filter.Merged => list.Where(r => r.Row.Kind == BulkImportRowKind.Merged || r.Row.HasMerged),
+            Filter.Skipped => list.Where(r => r.Row.Kind is BulkImportRowKind.Error or BulkImportRowKind.Merged || r.Row.Unchanged), // 2026-11-20: «Показать только пропущенные»
             _ => list,
         };
         // 2026-10-30: быстрый поиск по таблице (штрихкод, название, причина).
@@ -87,6 +100,7 @@ public partial class BulkImportWizardWindow
         _grid.ItemsSource = list.ToList();
         UpdateTiles();
         UpdateErrorGroups();
+        UpdateSkippedView();
     }
 
     /// <summary>2026-10-30: ошибки по типу: «15 412: укажите закупку… → показать». Видны на фильтре «Ошибки».</summary>
@@ -140,8 +154,8 @@ public partial class BulkImportWizardWindow
                 $"Rows ready to add: {ready}, with errors: {errors}" + (plan.MergedCount > 0 ? $", repeats added up: {plan.MergedCount}" : ""),
                 $"Eklemeye hazır satır: {ready}, hatalı: {errors}" + (plan.MergedCount > 0 ? $", birleştirilen tekrarlar: {plan.MergedCount}" : ""),
                 $"Qo'shishga tayyor qatorlar: {ready}, xatoli: {errors}" + (plan.MergedCount > 0 ? $", qo'shilgan takrorlar: {plan.MergedCount}" : ""));
-        _loadBtn.Content = ready > 0 ? T($"Загрузить {ready}", $"Жүктөө {ready}", $"Load {ready}", $"Yükle {ready}", $"Yuklash {ready}") : T("Загрузить", "Жүктөө", "Load", "Yükle", "Yuklash");
-        var canLoad = ready > 0 && !_started;
+        _loadBtn.Content = ready > 0 ? T($"Загрузить товары ({ready})", $"Товарларды жүктөө ({ready})", $"Load products ({ready})", $"Ürünleri yükle ({ready})", $"Mahsulotlarni yuklash ({ready})") : T("Загрузить", "Жүктөө", "Load", "Yükle", "Yuklash");
+        var canLoad = ready > 0 && !_started && !_notProductsBlock;
         // 2026-10-30: журнал знает часть строк — кнопка «Продолжить загрузку N» (остаток), а если всё уже записано — недоступна (повтор не прибавит остаток второй раз).
         if (ready > 0 && _journalDone > 0)
         {
@@ -153,6 +167,9 @@ public partial class BulkImportWizardWindow
         }
         _loadBtn.IsEnabled = canLoad;
         _errorsBtn.IsEnabled = errors > 0;
+        UpdateModeUi();
+        UpdateBigSummary();
+        UpdateNav();
     }
 
     // ------------------------------------------------------------------ таблица и правки
@@ -178,6 +195,10 @@ public partial class BulkImportWizardWindow
         _grid.Columns.Add(new DataGridTextColumn { Header = H("№"), Width = new DataGridLength(68), IsReadOnly = true, Binding = new Binding(nameof(ImportRowVm.FileRow)) });
         _grid.Columns.Add(Column(T("Штрихкод", "Штрих-код", "Barcode", "Barkod", "Shtrix-kod"), 150, nameof(ImportRowVm.Barcode), ProductImportField.Barcode, readOnly: true));
         _grid.Columns.Add(Column(T("Название", "Аталышы", "Name", "Ad", "Nomi"), 220, nameof(ImportRowVm.Name), ProductImportField.Name, star: true));
+        // 2026-11-20: «Категория», «Бренд», «Доп. коды» — рядом с названием; видны, если столбец сопоставлен или заполнен (BuildRows)
+        _grid.Columns.Add(Column(T("Категория", "Категория", "Category", "Kategori", "Kategoriya"), 130, nameof(ImportRowVm.CategoryText), ProductImportField.Category, readOnly: true));
+        _grid.Columns.Add(Column(T("Бренд", "Бренд", "Brand", "Marka", "Brend"), 110, nameof(ImportRowVm.BrandText), ProductImportField.Brand, readOnly: true));
+        _grid.Columns.Add(Column(T("Доп. коды", "Кошумча коддор", "Extra codes", "Ek kodlar", "Qo'shimcha kodlar"), 150, nameof(ImportRowVm.AltText), ProductImportField.AltBarcodes, readOnly: true));
         _grid.Columns.Add(Column(T("Единица", "Бирдик", "Unit", "Birim", "Birlik"), 104, nameof(ImportRowVm.UnitText), ProductImportField.Unit));
         _grid.Columns.Add(Column(T("Кол-во", "Саны", "Qty", "Miktar", "Soni"), 90, nameof(ImportRowVm.QuantityText), ProductImportField.Quantity, comma: true));
         _grid.Columns.Add(Column(T("Закупка", "Сатып алуу", "Purchase", "Alış", "Xarid"), 100, nameof(ImportRowVm.PurchaseText), ProductImportField.Purchase, comma: true));
@@ -254,6 +275,7 @@ public partial class BulkImportWizardWindow
         Filter.Error => vm.Row.Kind == BulkImportRowKind.Error,
         Filter.Warning => !string.IsNullOrEmpty(vm.Row.Warning),
         Filter.Merged => vm.Row.Kind == BulkImportRowKind.Merged,
+        Filter.Skipped => vm.Row.Kind is BulkImportRowKind.Error or BulkImportRowKind.Merged || vm.Row.Unchanged,
         _ => true,
     };
 

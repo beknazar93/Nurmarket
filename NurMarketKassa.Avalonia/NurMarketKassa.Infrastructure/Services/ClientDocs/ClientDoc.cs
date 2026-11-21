@@ -25,6 +25,9 @@ public sealed class ClientDocLine
     [JsonPropertyName("dp")] public double? DiscountPercent { get; set; }
     /// <summary>Свободная строка (услуга, доставка) — не из каталога.</summary>
     [JsonPropertyName("f")] public bool? Free { get; set; }
+    /// <summary>2026-11-20 («при создании накладных штрихкоды тоже добавь»): штрихкод товара строки — для колонки «Штрихкод» в ПЕЧАТНОЙ приходной накладной (по галочке в настройках; у документов клиентов не заполняется
+    /// и в файл не пишется).</summary>
+    [JsonPropertyName("bc"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Barcode { get; set; }
     /// <summary>2026-10-21 (ревью документов, A4): незнакомые поля строки (телефон, будущие версии) — сохраняются как есть.</summary>
     [JsonExtensionData] public Dictionary<string, JsonElement>? Extra { get; set; }
 

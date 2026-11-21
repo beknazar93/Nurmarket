@@ -288,7 +288,9 @@
           <Grid ColumnDefinitions="*,Auto">
             <TextBlock x:Name="ShiftProductsTitle" Grid.Column="0" VerticalAlignment="Center" FontSize="12.5" Foreground="{DynamicResource BrushTextSoft}"/>
             <ToggleButton x:Name="ShiftProductsNoteToggle" Grid.Column="1" Content="?" Width="44" Height="44" Padding="0" FontWeight="SemiBold"
-                          AutomationProperties.Name="?" Focusable="False"/>
+                          HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                          AutomationProperties.Name="?" Focusable="False"/><!-- 2026-11-20: обход кассы — «?» стоял в левом верхнем углу серого квадрата -->
+
           </Grid>
           <Border IsVisible="{Binding #ShiftProductsNoteToggle.IsChecked}">
             <TextBlock x:Name="ShiftProductsNote" FontSize="12.5" TextWrapping="Wrap" IsVisible="False"

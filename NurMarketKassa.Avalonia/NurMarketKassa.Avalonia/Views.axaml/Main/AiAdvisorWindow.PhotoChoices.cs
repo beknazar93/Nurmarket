@@ -293,11 +293,14 @@ public sealed partial class AiAdvisorWindow
                 TextTrimming = TextTrimming.CharacterEllipsis, MaxLines = 2, Margin = new Thickness(0, 4, 0, 0),
             };
             Use(caption, TextBlock.ForegroundProperty, "BrushTextSoft");
+            // 2026-11-20: нажатие на фото товара в чате — просмотр на весь экран (общий просмотрщик).
+            var photoBox = new Border { CornerRadius = new CornerRadius(8), ClipToBounds = true, Child = image, DataContext = product };
+            NurMarketKassa.AvaloniaHost.Views.Dialogs.ProductPhotoZoom.SetOpenOnClick(photoBox, true);
             var card = new Border
             {
                 CornerRadius = new CornerRadius(10), Padding = new Thickness(6), BorderThickness = new Thickness(1),
                 Margin = new Thickness(0, 0, 8, 0),
-                Child = new StackPanel { Children = { new Border { CornerRadius = new CornerRadius(8), ClipToBounds = true, Child = image }, caption } },
+                Child = new StackPanel { Children = { photoBox, caption } },
             };
             Use(card, Border.BackgroundProperty, "BrushPanel");
             Use(card, Border.BorderBrushProperty, "BrushBorder");

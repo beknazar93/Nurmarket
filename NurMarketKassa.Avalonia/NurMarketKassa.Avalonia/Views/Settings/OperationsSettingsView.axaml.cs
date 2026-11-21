@@ -40,6 +40,78 @@ public partial class OperationsSettingsView : UserControl
         return cards;
     }
 
+    /// <summary>2026-11-20: переход на вкладку «ИИ» окна настроек (ставит PosSettingsWindow); пусто — кнопка скрыта.</summary>
+    public Action? OpenAiTab { get; set; }
+
+    /// <summary>2026-11-20: подсказка «Настройки ИИ — на вкладке «ИИ»» вместо снятых карточек ИИ.</summary>
+    internal Border BuildAiHintCard()
+    {
+        var text = new TextBlock
+        {
+            Text = Tr.T("Настройки ИИ — на вкладке «ИИ»", "ИИ жөндөөлөрү — «ИИ» өтмөгүндө", "AI settings are on the “AI” tab",
+                "Yapay zeka ayarları «Yapay zeka» sekmesinde", "SI sozlamalari — «SI» yorlig'ida"),
+            FontSize = 13, TextWrapping = Avalonia.Media.TextWrapping.Wrap, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+        };
+        text.Bind(TextBlock.ForegroundProperty, text.GetResourceObservable("BrushText"));
+        var button = new Button
+        {
+            Content = Tr.T("Открыть вкладку «ИИ»", "«ИИ» өтмөгүн ачуу", "Open the “AI” tab", "Yapay zeka sekmesini aç", "«SI» yorlig'ini ochish"),
+            MinHeight = 40, Margin = new Avalonia.Thickness(12, 0, 0, 0), VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+        };
+        button.Classes.Add("btn-secondary");
+        Avalonia.Automation.AutomationProperties.SetAutomationId(button, "OpenAiTabButton");
+        button.Click += (_, _) => OpenAiTab?.Invoke();
+        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        row.Children.Add(text);
+        Grid.SetColumn(button, 1);
+        row.Children.Add(button);
+        var card = new Border { Padding = new Avalonia.Thickness(16), Child = row, Name = "AiMovedHintCard" };
+        card.Classes.Add("SettingsCard");
+        return card;
+    }
+
+    /// <summary>2026-11-20 (владелец: «где импорт из других программ?»): заметная карточка «Перенос данных из другой программы» — открывает тот же мастер,
+    /// что «Склад → Массовая загрузка». Видна только тем, у кого есть право на загрузку (владелец/администратор); обновляется при показе вкладки.</summary>
+    internal Border BuildTransferCard()
+    {
+        var title = new TextBlock
+        {
+            Text = Tr.T("Перенос данных из другой программы", "Башка программадан маалыматты которуу", "Move data from another program",
+                "Başka bir programdan veri aktarımı", "Boshqa dasturdan ma'lumot ko'chirish"),
+        };
+        title.Classes.Add("SettingsCardTitle");
+        title.FontSize = 14;
+        title.TextWrapping = Avalonia.Media.TextWrapping.Wrap;
+        var hint = new TextBlock
+        {
+            Text = Tr.T("Товары и клиентов можно перенести из 1С, МойСклад, Poster, Loyverse, Paloma365, Umag и других программ — из файла Excel или CSV. Мастер сам определит программу по столбцам и покажет, что будет загружено, прежде чем что-то записать.",
+                "Товарларды жана кардарларды 1С, МойСклад, Poster, Loyverse, Paloma365, Umag жана башка программалардан Excel же CSV файлы аркылуу которууга болот. Мастер программаны мамычалар боюнча өзү аныктайт жана жазуудан мурун эмне жүктөлөрүн көрсөтөт.",
+                "Products and customers can be moved from 1C, MoySklad, Poster, Loyverse, Paloma365, Umag and other programs — from an Excel or CSV file. The wizard recognises the program by its columns and shows what will be loaded before anything is saved.",
+                "Ürünler ve müşteriler 1C, MoySklad, Poster, Loyverse, Paloma365, Umag ve diğer programlardan Excel veya CSV dosyasıyla aktarılabilir. Sihirbaz programı sütunlardan tanır ve bir şey kaydetmeden önce nelerin yükleneceğini gösterir.",
+                "Mahsulot va mijozlarni 1C, MoySklad, Poster, Loyverse, Paloma365, Umag va boshqa dasturlardan Excel yoki CSV fayli orqali ko'chirish mumkin. Master dasturni ustunlar bo'yicha o'zi aniqlaydi va yozishdan oldin nima yuklanishini ko'rsatadi."),
+            FontSize = 12, TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+        };
+        hint.Bind(TextBlock.ForegroundProperty, hint.GetResourceObservable("BrushTextSoft"));
+        var button = new Button
+        {
+            Content = Tr.T("Загрузить товары и клиентов из файла", "Товарларды жана кардарларды файлдан жүктөө", "Load products and customers from a file",
+                "Ürünleri ve müşterileri dosyadan yükle", "Mahsulot va mijozlarni fayldan yuklash"),
+            MinHeight = 40, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
+        };
+        button.Classes.Add("btn-primary");
+        Avalonia.Automation.AutomationProperties.SetAutomationId(button, "TransferDataButton");
+        button.Click += (_, _) => BulkImportWizardWindow.OpenTransfer(TopLevel.GetTopLevel(this) as Window);
+        var panel = new StackPanel { Spacing = 8 };
+        panel.Children.Add(title);
+        panel.Children.Add(hint);
+        panel.Children.Add(button);
+        var card = new Border { Padding = new Avalonia.Thickness(16), Child = panel, Name = "TransferDataCard" };
+        card.Classes.Add("SettingsCard");
+        card.IsVisible = BulkImportWizardWindow.CanOpenTransfer();
+        AttachedToVisualTree += (_, _) => card.IsVisible = BulkImportWizardWindow.CanOpenTransfer();
+        return card;
+    }
+
     public OperationsSettingsView()
     {
         InitializeComponent();
@@ -58,6 +130,11 @@ public partial class OperationsSettingsView : UserControl
         // 2026-10-30: тумблеры возможностей Нур Советника — карточка из кода сразу за карточкой Telegram-бота и ключей ИИ.
         _advisorCard = new AdvisorSettingsCard();
         OpsCardList.Children.Insert(OpsCardList.Children.IndexOf(AiKeysCard) + 1, _advisorCard);
+        // 2026-11-20 (владелец: «убери настройки ИИ из Операции, у него своя вкладка»): окно настроек сразу снимает обе карточки на вкладку «ИИ»,
+        // а здесь остаётся только подсказка с кнопкой-переходом (OpenAiTab ставит окно настроек).
+        OpsCardList.Children.Insert(OpsCardList.Children.IndexOf(AiKeysCard), BuildAiHintCard());
+        // 2026-11-20 (владелец: «где импорт из других программ?»): карточка «Перенос данных из другой программы» сразу под видом магазина.
+        OpsCardList.Children.Insert(System.Math.Min(2, OpsCardList.Children.Count), BuildTransferCard());
         AiKeysCardTitle.Text = Tr.T("Ключи ИИ", "ИИ ачкычтары", "AI keys", "Yapay zeka anahtarları", "AI kalitlari");
         AttachedToVisualTree += Lan_Attached;
         DetachedFromVisualTree += Lan_Detached;
@@ -217,6 +294,7 @@ public partial class OperationsSettingsView : UserControl
                 "Oddiy do'kon kassasi, avvalgidek."),
         };
         RefreshHardwareUi(); // 2026-11-12 (ХМ14): размер магазина «Хозтовары» (OperationsSettingsView.Sphere.cs)
+        RefreshBazaarUi(); // 2026-11-20: режим «Базара» (розница / опт)
         // 2026-10-06 (О-31, О-32): правила обмена — только у одежды.
         RefreshExchangeRulesCard();
         RefreshSphereLockUi(); // 2026-11-08: замок «только через техподдержку» (OperationsSettingsView.Sphere.cs)

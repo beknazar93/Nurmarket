@@ -211,7 +211,7 @@ public static class TelegramAssistant
     /// null — прокат не подключён или сервер не ответил.</summary>
     public static string? RentalReport()
     {
-        if (RentalsLoader is null)
+        if (RentalsLoader is null || !MarketSpheres.HasRentals) // 2026-11-20: прокат выключен (не строймаркет и модуль не включён) — бот про него молчит
             return null;
         IReadOnlyList<RentalDto> active;
         if (_rentalCache is { } c && DateTime.UtcNow - c.At < TimeSpan.FromMinutes(1))

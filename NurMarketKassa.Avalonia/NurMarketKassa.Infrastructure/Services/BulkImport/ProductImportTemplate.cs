@@ -7,12 +7,14 @@ namespace NurMarketKassa.Services;
 // открывает такой файл двойным щелчком по столбцам), UTF-8 с BOM (кириллица не ломается).
 public static class ProductImportTemplate
 {
-    // 2026-10-30: колонки как в мастере: Штрихкод, Название, Доп. штрихкоды, Количество, Единица, Закупка, Наценка %, Цена продажи, Категория, Весовой.
+    // 2026-10-30: колонки как в мастере: Штрихкод, Название, Доп. штрихкоды, (2026-11-20: Штрихкод упаковки, Штук в упаковке), Количество, Единица, Закупка, Наценка %, Цена продажи, Категория, Весовой.
     private static string[] Headers() =>
     [
         ProductImportMapping.FieldLabel(ProductImportField.Barcode),
         ProductImportMapping.FieldLabel(ProductImportField.Name),
         ProductImportMapping.FieldLabel(ProductImportField.AltBarcodes),
+        ProductImportMapping.FieldLabel(ProductImportField.PackBarcode),
+        ProductImportMapping.FieldLabel(ProductImportField.PackQty),
         ProductImportMapping.FieldLabel(ProductImportField.Quantity),
         ProductImportMapping.FieldLabel(ProductImportField.Unit),
         ProductImportMapping.FieldLabel(ProductImportField.Purchase),
@@ -23,10 +25,10 @@ public static class ProductImportTemplate
     ];
 
     /// <summary>Примерные строки: «Доп. штрихкоды» — через «;»; «Количество» можно не заполнять (тогда остаток не меняется).</summary>
-    public static readonly (string Barcode, string Name, string Alt, double? Qty, string Unit, double Purchase, double? Markup, double? Sale, string Category, string Weight)[] Examples =
+    public static readonly (string Barcode, string Name, string Alt, string Pack, double? PackQty, double? Qty, string Unit, double Purchase, double? Markup, double? Sale, string Category, string Weight)[] Examples =
     [
-        ("4600000000001", "Хлеб белый", "4600000000018; 4600000000025", 50, "шт", 25, 20, 30, "Хлеб", "нет"),
-        ("4600000000032", "Картошка", "", 100, "кг", 20, null, 35, "Овощи", "да"),
+        ("4600000000001", "Хлеб белый", "4600000000018; 4600000000025", "4600000000100", 10, 50, "шт", 25, 20, 30, "Хлеб", "нет"),
+        ("4600000000032", "Картошка", "", "", null, 100, "кг", 20, null, 35, "Овощи", "да"),
     ];
 
     /// <summary>Шаблон .xlsx: шапка отчёта, строка заголовков, две примерные строки (удалите их перед загрузкой).</summary>
@@ -48,15 +50,17 @@ public static class ProductImportTemplate
             new XlColumn(titles[0], XlKind.Code),
             new XlColumn(titles[1], XlKind.Text),
             new XlColumn(titles[2], XlKind.Text),
-            new XlColumn(titles[3], XlKind.Quantity),
-            new XlColumn(titles[4], XlKind.Text),
-            new XlColumn(titles[5], XlKind.Money),
-            new XlColumn(titles[6], XlKind.Decimal2),
+            new XlColumn(titles[3], XlKind.Code),
+            new XlColumn(titles[4], XlKind.Quantity),
+            new XlColumn(titles[5], XlKind.Quantity),
+            new XlColumn(titles[6], XlKind.Text),
             new XlColumn(titles[7], XlKind.Money),
-            new XlColumn(titles[8], XlKind.Text),
-            new XlColumn(titles[9], XlKind.Text),
+            new XlColumn(titles[8], XlKind.Decimal2),
+            new XlColumn(titles[9], XlKind.Money),
+            new XlColumn(titles[10], XlKind.Text),
+            new XlColumn(titles[11], XlKind.Text),
         };
-        var rows = Examples.Select(e => new object?[] { e.Barcode, e.Name, e.Alt, e.Qty, e.Unit, e.Purchase, e.Markup, e.Sale, e.Category, e.Weight });
+        var rows = Examples.Select(e => new object?[] { e.Barcode, e.Name, e.Alt, e.Pack.Length == 0 ? null : e.Pack, e.PackQty, e.Qty, e.Unit, e.Purchase, e.Markup, e.Sale, e.Category, e.Weight });
         sheet.AddTable(columns, rows, main: true, totals: false);
         book.Save();
     }
@@ -69,7 +73,7 @@ public static class ProductImportTemplate
         foreach (var e in Examples)
         {
             // ="…" — чтобы Excel при двойном щелчке не превратил штрихкод в 4,6E+12.
-            sb.Append($"=\"{e.Barcode}\";{BulkImportPlan.CsvCell(e.Name)};{BulkImportPlan.CsvCell(e.Alt)};{e.Qty};{BulkImportPlan.CsvCell(e.Unit)};{e.Purchase};{(e.Markup is { } m ? m.ToString() : "")};{e.Sale};")
+            sb.Append($"=\"{e.Barcode}\";{BulkImportPlan.CsvCell(e.Name)};{BulkImportPlan.CsvCell(e.Alt)};{(e.Pack.Length > 0 ? $"=\"{e.Pack}\"" : "")};{(e.PackQty is { } pq ? pq.ToString() : "")};{e.Qty};{BulkImportPlan.CsvCell(e.Unit)};{e.Purchase};{(e.Markup is { } m ? m.ToString() : "")};{e.Sale};")
               .Append($"{BulkImportPlan.CsvCell(e.Category)};{e.Weight}\r\n");
         }
         return sb.ToString();

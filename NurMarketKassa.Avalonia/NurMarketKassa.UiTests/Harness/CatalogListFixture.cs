@@ -60,9 +60,9 @@ public static class CatalogListFixture
     }
 
     /// <summary>Окно шириной <paramref name="width"/> с панелью каталога; вкладка — «Все товары» (0) или «Весовые» (1).</summary>
-    public static Built Create(double width, double height = 700, int tab = 0)
+    public static Built Create(double width, double height = 700, int tab = 0, Action<CatalogProductTileVm>? onSelected = null, Action<List<CatalogProductTileVm>>? tweakItems = null)
     {
-        var vm = new CatalogPanelViewModel(new FakeCache(), new InlineDispatcher(), new Online());
+        var vm = new CatalogPanelViewModel(new FakeCache(), new InlineDispatcher(), new Online(), onSelected); // 2026-11-20: onSelected — проверка «нажатие по плитке кладёт товар в чек» (просмотр фото)
         var items = new List<CatalogProductTileVm>
         {
             Tile("w1", "Абрикос сушёный отборный крупный", "12500.00", true, 99999.999, "4600000000011"),
@@ -70,6 +70,7 @@ public static class CatalogListFixture
             Tile("w2", "Алма", "208.00", true, 8.03, "0376"),
             Tile("p2", "Айфон 15 Pro Max 256 ГБ титановый", "99999.99", false, 3, "9173310000012"),
         };
+        tweakItems?.Invoke(items); // 2026-11-20: фото товарам (просмотр фото)
         // Как в CatalogPanelTests: каталог попадает в модель тем же закрытым методом, что и после загрузки из базы.
         typeof(CatalogPanelViewModel).GetMethod("PublishProducts", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
             .Invoke(vm, [items, false]);

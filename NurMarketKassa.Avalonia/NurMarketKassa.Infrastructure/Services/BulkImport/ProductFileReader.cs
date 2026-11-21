@@ -19,6 +19,8 @@ public enum ProductFileKind
     Clipboard,
     /// <summary>2026-11-19 (Л-10): XML 1С (CommerceML: import.xml / offers.xml).</summary>
     Xml,
+    /// <summary>2026-11-20: таблица собрана из локальной базы (SQLite/DBF) в папке программы — «Автоподтяжка базы».</summary>
+    Database,
 }
 
 /// <summary>Кодировка CSV: «авто» — по BOM, иначе строгий UTF-8, не получилось — Windows-1251.</summary>

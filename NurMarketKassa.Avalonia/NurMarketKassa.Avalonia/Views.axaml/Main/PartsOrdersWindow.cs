@@ -27,6 +27,14 @@ public sealed class PartsOrderDeps
     public Func<string?> ShopName { get; init; } = () => UserPreferences.Instance.StoreName;
 
     public Func<bool> StartTariff { get; init; } = () => TariffGate.IsStartTariff;
+
+    /// <summary>2026-11-20 (ответ Умара 20.11, В.4): серверные заказы покупателя (customer-orders/). null — признака сервера customer_orders нет или нет входа: окно работает только с местными заказами, как раньше.
+    /// Серверные заказы показываются в списке копией, выдаются и отменяются через сервер.</summary>
+    public Func<ICustomerOrdersApi?> ServerOrders { get; init; } = () => CustomerOrdersApi.TryCreate();
+
+    /// <summary>Вопрос «да/нет» перед выдачей и отменой серверного заказа: окно, текст, заголовок, «да», «нет», опасное ли действие. Подменяется в проверках.</summary>
+    public Func<Window, string, string, string, string, bool, Task<bool>> Confirm { get; init; } = (owner, text, title, yes, no, danger) =>
+        PosDialogs.ConfirmYesNoModalAsync(owner, text, title, confirmText: yes, cancelText: no, danger: danger, enterCancels: danger);
 }
 
 /// <summary>
@@ -62,9 +70,40 @@ public sealed class PartsOrdersWindow : Window, IOwnerSection
         SystemDecorations = SystemDecorations.None;
         this[!BackgroundProperty] = this.GetResourceObservable("DialogWindowBackground").ToBinding();
         this[!TransparencyLevelHintProperty] = this.GetResourceObservable("DialogTransparencyHint").ToBinding();
-        Opened += (_, _) => { if (!_ownerSection) this.FitToKassaScreen(); };
+        Opened += (_, _) => { if (!_ownerSection) this.FitToKassaScreen(); _ = RefreshFromServerAsync(); };
         BuildUi();
         Reload();
+    }
+
+    private bool _serverBusy;
+
+    /// <summary>2026-11-20: подтянуть открытые заказы с сервера (копией в файл заказов) и обновить те, что пропали из списка открытых (выданы или отменены на другом устройстве). Нет признака/входа — ничего.
+    /// Сбой связи не показывается ошибкой: окно работает с тем, что есть.</summary>
+    public async Task RefreshFromServerAsync()
+    {
+        var api = _deps.ServerOrders();
+        if (api is null || _serverBusy)
+            return;
+        _serverBusy = true;
+        try
+        {
+            var open = await api.ListOpenAsync().ConfigureAwait(true);
+            var changed = _deps.Store.UpsertFromServer(open);
+            var openIds = open.Select(o => o.Id).ToHashSet(StringComparer.Ordinal);
+            foreach (var stale in _deps.Store.All().Where(o => o.IsServerOrder && PartsOrderRules.IsOpen(o.Status) && !openIds.Contains(o.ServerId!)).Take(20).ToList())
+                if (await api.GetAsync(stale.ServerId!).ConfigureAwait(true) is { } fresh)
+                    changed += _deps.Store.UpsertFromServer(new[] { fresh });
+            if (changed > 0)
+                Reload();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            PosLogger.Log($"Заказы под клиента: обновление с сервера не удалось ({ex.GetType().Name}).", "WARNING");
+        }
+        finally
+        {
+            _serverBusy = false;
+        }
     }
 
     public static void Open(Window? owner, PartsOrderDeps? deps = null) => WindowSingleton.ShowOnce(owner, () => new PartsOrdersWindow(deps));
@@ -116,6 +155,8 @@ public sealed class PartsOrdersWindow : Window, IOwnerSection
 
         var tools = new StackPanel { Spacing = 8, Margin = new Thickness(0, 0, 0, 8) };
         tools.Children.Add(newButton);
+        if (_deps.ServerOrders() is not null)
+            tools.Children.Add(ServiceDeskUi.Action("PartsOrderRefreshServer", T("Обновить с сервера", "Серверден жаңыртуу", "Refresh from server", "Sunucudan yenile", "Serverdan yangilash"), () => _ = RefreshFromServerAsync()));
         tools.Children.Add(_search);
         tools.Children.Add(_filter);
         var left = new DockPanel { Width = 330, Margin = new Thickness(0, 0, 14, 0) };
@@ -229,19 +270,41 @@ public sealed class PartsOrdersWindow : Window, IOwnerSection
 
         var id = o.Id;
         var actions = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 8) };
+        // 2026-11-20 (ответ Умара 20.11, В.4): серверный заказ (ServerId) — статус и резерв ведёт сервер, выдача — через customer-orders/<id>/deliver/ (обычным чеком нельзя: 409 reserved_stock).
+        var serverOrder = o.IsServerOrder;
         if (PartsOrderRules.IsOpen(o.Status))
         {
-            if (PartsOrderRules.Next(o.Status) is { } next && next != PartsOrderStatus.Issued)
-                actions.Children.Add(ServiceDeskUi.Action("PartsOrderAdvance", T("Отметить: ", "Белгилөө: ", "Mark: ", "İşaretle: ", "Belgilash: ") + PartsOrderRules.StatusName(next), () => Advance(id), primary: true));
-            if (_deps.SellAsync is not null)
-                actions.Children.Add(ServiceDeskUi.Action("PartsOrderSell", T("Оформить продажу", "Сатууну тариздөө", "Process sale", "Satışı yap", "Sotuvni rasmiylashtirish"), () => _ = SellAsync(id), primary: o.Status == PartsOrderStatus.Arrived));
+            if (serverOrder)
+            {
+                if (_deps.ServerOrders() is not null)
+                {
+                    var due = PartsOrderRules.Remainder(o);
+                    var ready = o.Status == PartsOrderStatus.Arrived;
+                    if (due > 0m)
+                    {
+                        actions.Children.Add(ServiceDeskUi.Action("PartsOrderDeliverCash", T("Выдать — наличные", "Берүү — накталай", "Hand over — cash", "Teslim et — nakit", "Topshirish — naqd"), () => _ = DeliverServerAsync(id, "cash"), primary: ready));
+                        actions.Children.Add(ServiceDeskUi.Action("PartsOrderDeliverCard", T("Выдать — карта", "Берүү — карта", "Hand over — card", "Teslim et — kart", "Topshirish — karta"), () => _ = DeliverServerAsync(id, "card")));
+                    }
+                    else
+                        actions.Children.Add(ServiceDeskUi.Action("PartsOrderDeliverCash", T("Выдать заказ", "Заказды берүү", "Hand over the order", "Siparişi teslim et", "Buyurtmani topshirish"), () => _ = DeliverServerAsync(id, "cash"), primary: true));
+                }
+            }
+            else
+            {
+                if (PartsOrderRules.Next(o.Status) is { } next && next != PartsOrderStatus.Issued)
+                    actions.Children.Add(ServiceDeskUi.Action("PartsOrderAdvance", T("Отметить: ", "Белгилөө: ", "Mark: ", "İşaretle: ", "Belgilash: ") + PartsOrderRules.StatusName(next), () => Advance(id), primary: true));
+                if (_deps.SellAsync is not null)
+                    actions.Children.Add(ServiceDeskUi.Action("PartsOrderSell", T("Оформить продажу", "Сатууну тариздөө", "Process sale", "Satışı yap", "Sotuvni rasmiylashtirish"), () => _ = SellAsync(id), primary: o.Status == PartsOrderStatus.Arrived));
+            }
         }
         if (!string.IsNullOrWhiteSpace(o.Phone) && o.Status is PartsOrderStatus.New or PartsOrderStatus.Ordered or PartsOrderStatus.Arrived)
             actions.Children.Add(ServiceDeskUi.Action("PartsOrderWhatsApp", T("Сообщение в WhatsApp", "WhatsApp билдирүүсү", "WhatsApp message", "WhatsApp mesajı", "WhatsApp xabari"), () => WhatsApp(id)));
         if (PartsOrderRules.IsOpen(o.Status))
         {
-            actions.Children.Add(ServiceDeskUi.Action("PartsOrderEdit", T("Изменить", "Өзгөртүү", "Edit", "Düzenle", "O'zgartirish"), () => _ = EditAsync(id)));
-            actions.Children.Add(ServiceDeskUi.Action("PartsOrderCancel", T("Отменить заказ", "Заказды жокко чыгаруу", "Cancel order", "Siparişi iptal et", "Buyurtmani bekor qilish"), () => _ = CancelAsync(id), danger: true));
+            if (!serverOrder) // правка серверного заказа (PATCH с If-Match) — этап 2 переноса
+                actions.Children.Add(ServiceDeskUi.Action("PartsOrderEdit", T("Изменить", "Өзгөртүү", "Edit", "Düzenle", "O'zgartirish"), () => _ = EditAsync(id)));
+            if (!serverOrder || _deps.ServerOrders() is not null)
+                actions.Children.Add(ServiceDeskUi.Action("PartsOrderCancel", T("Отменить заказ", "Заказды жокко чыгаруу", "Cancel order", "Siparişi iptal et", "Buyurtmani bekor qilish"), () => _ = CancelAsync(id), danger: true));
         }
         _detail.Children.Add(actions);
 
@@ -262,7 +325,12 @@ public sealed class PartsOrdersWindow : Window, IOwnerSection
                 $"{l.Title} — {MoneyText.Qty(l.Qty)} × {MoneyText.Som(l.Price)}");
         var total = PartsOrderRules.Total(o);
         Fact(T("Итого", "Жыйынтыгы", "Total", "Toplam", "Jami"), MoneyText.Som(total));
-        if (o.Prepayment > 0m)
+        if (serverOrder)
+            Fact(T("Заказ на сервере", "Заказ серверде", "Order on the server", "Sunucudaki sipariş", "Serverdagi buyurtma"), "NurCRM" + (string.IsNullOrWhiteSpace(o.ServerStatus) ? "" : " · " + o.ServerStatus));
+        if (o.Prepayment > 0m && serverOrder)
+            Fact(T("Предоплата (внесена в кассу смены)", "Алдын ала төлөм (смена кассасына киргизилди)", "Prepayment (posted to the shift cash)", "Ön ödeme (vardiya kasasına işlendi)", "Oldindan to'lov (smena kassasiga kiritilgan)"),
+                MoneyText.Som(o.Prepayment) + (o.PrepaymentRefunded ? " — " + T("возвращена клиенту", "кардарга кайтарылды", "refunded to the customer", "müşteriye iade edildi", "mijozga qaytarildi") : ""));
+        else if (o.Prepayment > 0m)
             Fact(T("Предоплата (получено на руки)", "Алдын ала төлөм (колго алынды)", "Prepayment (received in hand)", "Ön ödeme (elden alındı)", "Oldindan to'lov (qo'lga olindi)"),
                 MoneyText.Som(o.Prepayment) + (o.PrepaymentRefunded ? " — " + T("возвращена клиенту", "кардарга кайтарылды", "refunded to the customer", "müşteriye iade edildi", "mijozga qaytarildi") : ""));
         Fact(T("К доплате", "Төлөнө турган", "Balance due", "Kalan tutar", "To'lanadigan qoldiq"), MoneyText.Som(PartsOrderRules.Remainder(o)));
@@ -341,12 +409,119 @@ public sealed class PartsOrdersWindow : Window, IOwnerSection
         Reload();
     }
 
+    private bool _serverActionBusy;
+
+    /// <summary>2026-11-20 (ответ Умара 20.11, В.4): выдача серверного заказа — POST customer-orders/&lt;id&gt;/deliver/. Чек пробивает сервер: предоплата строкой «Зачёт», остаток — выбранным способом; выручка появляется только сейчас.
+    /// Наличные: «получено» = сумма к доплате (сдачу кассир при необходимости считает в окне оплаты — здесь точная сумма). Ошибки — понятным текстом (нет смены, товар ещё не пришёл и т. д.).</summary>
+    public async Task DeliverServerAsync(string id, string method)
+    {
+        var o = _deps.Store.Find(id);
+        var api = _deps.ServerOrders();
+        if (o is null || api is null || !o.IsServerOrder || !PartsOrderRules.IsOpen(o.Status) || _serverActionBusy)
+            return;
+        var due = PartsOrderRules.Remainder(o);
+        var prepay = o.PrepaymentRefunded ? 0m : o.Prepayment;
+        var how = method == "card" ? T("картой", "карта менен", "by card", "kartla", "karta bilan") : T("наличными", "накталай", "in cash", "nakit", "naqd");
+        var text = T($"Выдать заказ №{o.Number} клиенту и пробить чек на {MoneyText.Som(PartsOrderRules.Total(o))}?", $"№{o.Number} заказды кардарга берип, {MoneyText.Som(PartsOrderRules.Total(o))} чек чыгарасызбы?",
+            $"Hand over order No. {o.Number} to the customer and issue a receipt for {MoneyText.Som(PartsOrderRules.Total(o))}?", $"{o.Number} numaralı siparişi müşteriye teslim edip {MoneyText.Som(PartsOrderRules.Total(o))} tutarında fiş kesilsin mi?",
+            $"№{o.Number} buyurtmani mijozga topshirib, {MoneyText.Som(PartsOrderRules.Total(o))} ga chek chiqarilsinmi?");
+        if (prepay > 0m)
+            text += "\n\n" + T($"Предоплата {MoneyText.Som(prepay)} зачтётся.", $"Алдын ала төлөм {MoneyText.Som(prepay)} эсепке алынат.", $"The prepayment {MoneyText.Som(prepay)} will be offset.", $"Ön ödeme {MoneyText.Som(prepay)} mahsup edilecek.", $"Oldindan to'lov {MoneyText.Som(prepay)} hisobga olinadi.");
+        text += "\n" + T($"К оплате сейчас: {MoneyText.Som(due)} ({how}).", $"Азыр төлөнө турган: {MoneyText.Som(due)} ({how}).", $"To pay now: {MoneyText.Som(due)} ({how}).", $"Şimdi ödenecek: {MoneyText.Som(due)} ({how}).", $"Hozir to'lanadi: {MoneyText.Som(due)} ({how}).");
+        if (!await _deps.Confirm(this, text, T("Выдать заказ", "Заказды берүү", "Hand over the order", "Siparişi teslim et", "Buyurtmani topshirish"),
+                T("Выдать", "Берүү", "Hand over", "Teslim et", "Topshirish"), T("Пока нет", "Азырынча жок", "Not yet", "Henüz değil", "Hozircha yo'q"), false).ConfigureAwait(true))
+            return;
+        _serverActionBusy = true;
+        try
+        {
+            var result = await api.DeliverAsync(o.ServerId!, method, method == "cash" ? due : null).ConfigureAwait(true);
+            if (result.Order is not null)
+                _deps.Store.UpsertFromServer(new[] { result.Order });
+            else
+                _deps.Store.MarkIssued(id);
+            PosLogger.Log($"Заказ под клиента №{o.Number}: выдан через сервер (чек {(string.IsNullOrWhiteSpace(result.SaleId) ? "—" : "получен")}, к оплате {due:0.##}, предоплата {prepay:0.##} зачтена).", "SALES");
+            Reload();
+            Say(T($"Заказ №{o.Number} выдан, чек пробит на сервере.", $"№{o.Number} заказ берилди, чек серверде чыгарылды.", $"Order No. {o.Number} handed over, the receipt was issued on the server.", $"{o.Number} numaralı sipariş teslim edildi, fiş sunucuda kesildi.", $"№{o.Number} buyurtma topshirildi, chek serverda chiqarildi.")
+                  + (result.Change > 0m ? " " + T($"Сдача: {MoneyText.Som(result.Change)}.", $"Кайтарым: {MoneyText.Som(result.Change)}.", $"Change: {MoneyText.Som(result.Change)}.", $"Para üstü: {MoneyText.Som(result.Change)}.", $"Qaytim: {MoneyText.Som(result.Change)}.") : ""));
+        }
+        catch (ApiException ex) when (CustomerOrderErrors.IsAlreadyDelivered(ex))
+        {
+            // Первый ответ мог потеряться: заказ уже выдан — обновим копию, второго чека нет.
+            if (await api.GetAsync(o.ServerId!).ConfigureAwait(true) is { } fresh)
+                _deps.Store.UpsertFromServer(new[] { fresh });
+            Reload();
+            Say(CustomerOrderErrors.Text(ex));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            PosLogger.Log($"Заказ под клиента №{o.Number}: выдача через сервер не удалась ({ex.GetType().Name}{(ex is ApiException api2 ? " " + api2.StatusCode : "")}).", "WARNING");
+            Say(CustomerOrderErrors.Text(ex));
+        }
+        finally
+        {
+            _serverActionBusy = false;
+        }
+    }
+
+    /// <summary>Отмена серверного заказа: POST customer-orders/&lt;id&gt;/cancel/. Резерв снимается, предоплата возвращается ИЗ КАССЫ ТЕКУЩЕЙ СМЕНЫ тем же способом (с предоплатой — владелец/админ или кассир с правом «Касса», PIN руководителя спрашивается до запроса).</summary>
+    private async Task CancelServerAsync(PartsOrder o, ICustomerOrdersApi api)
+    {
+        if (_serverActionBusy)
+            return;
+        var hasPrepay = o.Prepayment > 0m && !o.PrepaymentRefunded;
+        var text = T($"Отменить заказ №{o.Number}?", $"№{o.Number} заказды жокко чыгарасызбы?", $"Cancel order No. {o.Number}?", $"{o.Number} numaralı sipariş iptal edilsin mi?", $"№{o.Number} buyurtma bekor qilinsinmi?");
+        if (hasPrepay)
+            text += "\n\n" + T($"Предоплата {MoneyText.Som(o.Prepayment)} вернётся клиенту из кассы текущей смены. Отмена — только по PIN руководителя.",
+                $"Алдын ала төлөм {MoneyText.Som(o.Prepayment)} учурдагы смена кассасынан кардарга кайтарылат. Жокко чыгаруу — жетекчинин PIN коду менен гана.",
+                $"The prepayment {MoneyText.Som(o.Prepayment)} will be returned to the customer from the current shift cash. Cancelling needs the manager PIN.",
+                $"Ön ödeme {MoneyText.Som(o.Prepayment)} mevcut vardiya kasasından müşteriye iade edilecek. İptal yalnızca yönetici PIN'i ile.",
+                $"Oldindan to'lov {MoneyText.Som(o.Prepayment)} joriy smena kassasidan mijozga qaytariladi. Bekor qilish — faqat rahbar PIN kodi bilan.");
+        if (!await _deps.Confirm(this, text, T("Отмена заказа", "Заказды жокко чыгаруу", "Cancel order", "Sipariş iptali", "Buyurtmani bekor qilish"),
+                T("Отменить заказ", "Заказды жокко чыгаруу", "Cancel order", "Siparişi iptal et", "Buyurtmani bekor qilish"),
+                T("Оставить", "Калтыруу", "Keep", "Kalsın", "Qoldirish"), true).ConfigureAwait(true))
+            return;
+        if (hasPrepay && !await _deps.AskPin().ConfigureAwait(true))
+        {
+            Say(T("PIN не принят — заказ не отменён.", "PIN кабыл алынган жок — заказ жокко чыгарылган жок.", "PIN not accepted — the order was not cancelled.", "PIN kabul edilmedi — sipariş iptal edilmedi.", "PIN qabul qilinmadi — buyurtma bekor qilinmadi."));
+            return;
+        }
+        _serverActionBusy = true;
+        try
+        {
+            var fresh = await api.CancelAsync(o.ServerId!).ConfigureAwait(true);
+            if (fresh is not null)
+                _deps.Store.UpsertFromServer(new[] { fresh });
+            else
+                _deps.Store.Cancel(o.Id, null);
+            PosLogger.Log($"Заказ под клиента №{o.Number}: отменён через сервер{(hasPrepay ? $", предоплата {o.Prepayment:0.##} возвращена из кассы текущей смены (по PIN руководителя)" : "")}.", "SALES");
+            Reload();
+            Say(hasPrepay
+                ? T($"Заказ отменён. Предоплата {MoneyText.Som(o.Prepayment)} возвращена из кассы текущей смены — отдайте её клиенту.", $"Заказ жокко чыгарылды. Алдын ала төлөм {MoneyText.Som(o.Prepayment)} учурдагы смена кассасынан кайтарылды — кардарга бериңиз.", $"Order cancelled. The prepayment {MoneyText.Som(o.Prepayment)} was returned from the current shift cash — give it to the customer.", $"Sipariş iptal edildi. Ön ödeme {MoneyText.Som(o.Prepayment)} mevcut vardiya kasasından iade edildi — müşteriye verin.", $"Buyurtma bekor qilindi. Oldindan to'lov {MoneyText.Som(o.Prepayment)} joriy smena kassasidan qaytarildi — mijozga bering.")
+                : T("Заказ отменён.", "Заказ жокко чыгарылды.", "Order cancelled.", "Sipariş iptal edildi.", "Buyurtma bekor qilindi."));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            PosLogger.Log($"Заказ под клиента №{o.Number}: отмена через сервер не удалась ({ex.GetType().Name}{(ex is ApiException api2 ? " " + api2.StatusCode : "")}).", "WARNING");
+            Say(CustomerOrderErrors.Text(ex, cancel: true));
+        }
+        finally
+        {
+            _serverActionBusy = false;
+        }
+    }
+
     /// <summary>Отмена заказа. С предоплатой — только по PIN руководителя; деньги клиенту отдают из конверта.</summary>
     private async Task CancelAsync(string id)
     {
         var o = _deps.Store.Find(id);
         if (o is null || !PartsOrderRules.IsOpen(o.Status))
             return;
+        if (o.IsServerOrder)
+        {
+            if (_deps.ServerOrders() is { } serverApi)
+                await CancelServerAsync(o, serverApi).ConfigureAwait(true);
+            return;
+        }
         var hasPrepay = o.Prepayment > 0m && !o.PrepaymentRefunded;
         var text = T($"Отменить заказ №{o.Number}?", $"№{o.Number} заказды жокко чыгарасызбы?", $"Cancel order No. {o.Number}?", $"{o.Number} numaralı sipariş iptal edilsin mi?", $"№{o.Number} buyurtma bekor qilinsinmi?");
         if (hasPrepay)

@@ -368,7 +368,8 @@ public static class TelegramAiChat
             rules.Append(' ').Append(RemindRules);
         if (image && access.Products && AdvisorCapabilities.IsOn("inv.read"))
             // 2026-11-03: словарь товаров склада и память поставщиков — подсказка для неразборчивого (рукописного) почерка.
-            rules.Append("\n").Append(ProductActionPlan.PhotoPromptText).Append(InvoiceReadingAid.DictionaryHint()).Append(' ').Append(InvoiceException);
+            // 2026-11-20: правила вариантов (вкус/цвет/размер → base + variant) и «Команда ИИ» владельца (InvoiceVariantPrefs).
+            rules.Append("\n").Append(ProductActionPlan.PhotoPromptText).Append(InvoiceVariantPrefs.PromptAddition()).Append(InvoiceReadingAid.DictionaryHint()).Append(' ').Append(InvoiceException);
         if (groqSearch)
             rules.Append('\n').Append(GroqSearchHint);
         // 2026-10-27, жалоба владельца («ИИ открывает не те разделы и врёт „открыла“»): переходы выполняет программа сама и сообщает результат;

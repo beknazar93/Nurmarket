@@ -347,7 +347,7 @@ public static class AdvisorCapabilities
         "stock_in" or "stock_out" or "stock_set" or "set_min" or "receive" => "act.stock",
         "set_price" or "set_purchase" => "act.price",
         "set_expiry" or "set_shelf_life" or "set_description" or "set_country" or "set_name" or "set_brand" or "set_category" or "set_article" => "act.card",
-        "set_barcode" => "bc.set",
+        "set_barcode" or "add_variants" => "bc.set", // 2026-11-20: варианты накладной — доп. штрихкоды
         "create" => "act.create",
         "open" or "open_section" => "nav.open",
         "photo" => "inv.photo",

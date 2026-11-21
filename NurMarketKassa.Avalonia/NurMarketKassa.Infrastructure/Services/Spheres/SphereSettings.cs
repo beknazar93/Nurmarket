@@ -93,6 +93,28 @@ public static class SphereSettings
             section["packScan"] = p;
         return TrySetSection(HardwareSection, section);
     }
+
+    // ───────────── bazaar ─────────────
+
+    private const string BazaarSection = "bazaar";
+
+    /// <summary>2026-11-20: режим сферы «Базар» — розница (по умолчанию) или опт. Если в настройках режима нет, а точная сфера пришла как bazaar_wholesale (значение сервера) — опт.</summary>
+    public static BazaarMode GetBazaarMode(string? json = null)
+    {
+        var prefs = UserPreferences.Instance;
+        var section = Section(json ?? prefs.SphereSettingsJson, BazaarSection);
+        if (section?["mode"] is JsonValue v && v.TryGetValue<string>(out var s))
+            return string.Equals(s, "wholesale", StringComparison.OrdinalIgnoreCase) ? BazaarMode.Wholesale : BazaarMode.Retail;
+        return string.Equals(prefs.MarketSphereDetail, BazaarProfile.WholesaleDetail, StringComparison.Ordinal) ? BazaarMode.Wholesale : BazaarMode.Retail;
+    }
+
+    /// <summary>Записать режим «Базара». Соседние ключи раздела не трогаются. false — не поместилось в лимит.</summary>
+    public static bool SetBazaarMode(BazaarMode mode)
+    {
+        var section = Section(UserPreferences.Instance.SphereSettingsJson, BazaarSection) ?? new JsonObject();
+        section["mode"] = mode == BazaarMode.Wholesale ? "wholesale" : "retail";
+        return TrySetSection(BazaarSection, section);
+    }
 }
 
 /// <summary>

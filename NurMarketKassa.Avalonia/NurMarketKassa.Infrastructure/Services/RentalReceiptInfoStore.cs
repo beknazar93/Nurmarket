@@ -83,6 +83,13 @@ public static class RentalReceiptInfoStore
         return JsonSerializer.Serialize(memory);
     }
 
+    /// <summary>2026-11-20: на этой кассе уже оформлялись прокаты (файл условий для чека не пуст) — признак «у компании есть данные проката» для RentalFeature.</summary>
+    public static bool HasAny()
+    {
+        lock (Sync)
+            return LoadUnsafe().Count > 0;
+    }
+
     public static RentalReceiptInfo? TryGet(int number)
     {
         lock (Sync)

@@ -33,6 +33,8 @@ public sealed class DocNumberingSettings
     public bool PrintMarkup { get; set; }
     /// <summary>Внутренняя копия (PDF «Скачать») — наценка по умолчанию ВКЛ (только у ролей с правом на закупочные цены).</summary>
     public bool PdfMarkup { get; set; } = true;
+    /// <summary>2026-11-20 («при создании накладных штрихкоды тоже добавь»): колонка «Штрихкод» в печатной и PDF приходной накладной. По умолчанию ВЫКЛ — форма накладной прежняя.</summary>
+    public bool PrintBarcode { get; set; }
 
     public string Prefix(DocSeries s) => s switch { DocSeries.Return => PrefixReturn, DocSeries.Order => PrefixOrder, _ => PrefixReceipt };
 
@@ -47,7 +49,7 @@ public sealed class DocNumberingSettings
         return new DocNumberingSettings
         {
             PrefixReceipt = P(PrefixReceipt, "ПР"), PrefixReturn = P(PrefixReturn, "ВП"), PrefixOrder = P(PrefixOrder, "ЗП"),
-            ResetByYear = ResetByYear, Width = Math.Clamp(Width, 4, 9), PrintMarkup = PrintMarkup, PdfMarkup = PdfMarkup,
+            ResetByYear = ResetByYear, Width = Math.Clamp(Width, 4, 9), PrintMarkup = PrintMarkup, PdfMarkup = PdfMarkup, PrintBarcode = PrintBarcode,
         };
     }
 }

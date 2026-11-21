@@ -219,19 +219,25 @@ public partial class OwnerShellWindow
         _navPeek = false;
         ApplySidebarLayout();
         PlaceRentalAlert();
-        foreach (var other in _sections)
+        void HideOtherSections()
         {
-            if (!ReferenceEquals(other, section))
+            foreach (var other in _sections)
             {
-                if (other.Window.IsVisible)
-                    other.Window.Hide();
-                other.HiddenSince ??= DateTime.UtcNow; // 2026-11-05 (Л4-11): отсчёт простоя спрятанного раздела
+                if (!ReferenceEquals(other, section))
+                {
+                    if (other.Window.IsVisible)
+                        other.Window.Hide();
+                    other.HiddenSince ??= DateTime.UtcNow; // 2026-11-05 (Л4-11): отсчёт простоя спрятанного раздела
+                }
             }
+            if (section != null)
+                section.HiddenSince = null;
+            // 2026-10-20, память: лишние спрятанные разделы — закрыть.
+            TrimHiddenSections();
         }
-        if (section != null)
-            section.HiddenSince = null;
-        // 2026-10-20, память: лишние спрятанные разделы — закрыть.
-        TrimHiddenSections();
+        // 2026-11-20 (мерцание при смене вкладки): прежний раздел прячем только ПОСЛЕ показа нового — раньше между Hide и Show область раздела 100–450 мс была пустой.
+        if (section == null)
+            HideOtherSections();
 
         var overview = section == null;
         // 2026-10-19, вторая живая проверка: возврат на «Сводку» — карточка долгов из свежего кэша раздела (без запросов).
@@ -287,6 +293,7 @@ public partial class OwnerShellWindow
         if (!section.Window.IsVisible)
             section.Window.Show(this);
         section.Window.Activate();
+        HideOtherSections();
         Dispatcher.UIThread.Post(SyncSectionBounds, DispatcherPriority.Loaded);
     }
 
@@ -317,8 +324,7 @@ public partial class OwnerShellWindow
         size = new Size(size.Width * _shellScale, size.Height * _shellScale);
 
         var topLeft = SectionHost.PointToScreen(new Point(0, 0));
-        var window = section.Window;
-        _positioningSection = true;
+        var window = section.Window;        _positioningSection = true;
         try
         {
             if (window.WindowState != WindowState.Normal)

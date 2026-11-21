@@ -69,8 +69,18 @@ public sealed class BarcodesGenerateUiTests : IDisposable
         return (window, view);
     }
 
-    private static Button GenButton(BarcodePrintView view) =>
-        view.GetVisualDescendants().OfType<Button>().First(b => (UiDrive.TextOf(b) ?? "") is var t && (t.StartsWith("Сгенерировать штрихкоды") || t.StartsWith("Создать коды") || t.StartsWith("Штрих-коддорду түзүү") || t.StartsWith("Коддорду түзүү")));
+    // 2026-11-20: подпись кнопки ставится после асинхронной загрузки списка (UpdateGenerateUi) — на нагруженной машине в полном прогоне её ещё нет; ждём, а не падаем.
+    private static Button GenButton(BarcodePrintView view)
+    {
+        UiRobot.WaitFor(() => FindGen(view) is not null, 8000);
+        return FindGen(view)
+        ?? throw new InvalidOperationException("2026-11-20: кнопки генерации штрихкодов нет; язык=" + NurMarketKassa.Services.Tr.T("ru", "ky", "en", "tr", "uz") + "; кнопки: "
+            + string.Join(" | ", view.GetVisualDescendants().OfType<Button>().Select(b => UiDrive.TextOf(b)).Where(t => !string.IsNullOrEmpty(t)).Take(25)));
+    }
+
+    private static Button? FindGen(BarcodePrintView view) =>
+        view.GetVisualDescendants().OfType<Button>().FirstOrDefault(b => (UiDrive.TextOf(b) ?? "") is var t && (t.StartsWith("Сгенерировать штрихкоды") || t.StartsWith("Создать коды") || t.StartsWith("Штрих-коддорду түзүү") || t.StartsWith("Коддорду түзүү")));
+
 
     [AvaloniaFact]
     public async Task Button_ShowsMissingCount_OnlyWhenThereAreProductsWithoutBarcode_AndHighlightsOnFilter()

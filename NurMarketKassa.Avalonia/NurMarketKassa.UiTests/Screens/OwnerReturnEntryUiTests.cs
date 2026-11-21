@@ -339,33 +339,5 @@ public sealed class OwnerReturnEntryUiTests : IDisposable
             UiShot.Pump();
         }
     }
-
-    [AvaloniaFact]
-    public async Task Print_OpensWhenSettingsHidden_AndIsHighlightedItself()
-    {
-        UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
-        // 2026-11-13: пункт «Печать» в оболочке владельца требует право can_view_settings (владельцу оно не дарится по роли) — в профиле заглушки входа его нет, добавляем
-        UiFake.Server.Json("POST", "/api/users/auth/login/", 200, "{\"access\":\"test-access\",\"refresh\":\"test-refresh\",\"user\":{\"id\":\"u1\",\"email\":\"cashier@test.kg\",\"full_name\":\"Тест Кассир\",\"role\":\"owner\",\"can_view_settings\":true}}");
-        await LoginAsync();
-        var wasHidden = SectionVisibility.IsHidden("settings");
-        SectionVisibility.Set("settings", true);
-        var shell = new OwnerShellWindow();
-        try
-        {
-            shell.Show();
-            UiShot.Settle(3);
-            NavButtons(shell).Should().NotContainKey("settings", "«Настройки» скрыты в «Разделах меню»");
-            NavButtons(shell).Should().ContainKey("print");
-            Press(NavButtons(shell)["print"]);
-            RunUntil(() => shell.OwnedWindows.OfType<PosSettingsWindow>().Any(w => w.IsVisible), 8000)
-                .Should().BeTrue("«Печать» открывается и при скрытых «Настройках» (аудит В-11)");
-            NavButtons(shell)["print"].Classes.Should().Contain("active", "подсвечена сама «Печать», а не «Настройки» (аудит С-21)");
-        }
-        finally
-        {
-            SectionVisibility.Set("settings", wasHidden);
-            shell.Close();
-            UiShot.Pump();
-        }
-    }
+    // 2026-11-20: тест Print_OpensWhenSettingsHidden_AndIsHighlightedItself убран — пункта «Печать» в меню ☰ программы владельца больше нет (это вкладка «Настройки → Печать»; см. ScalesMovedToOwnerUiTests).
 }

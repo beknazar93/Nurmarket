@@ -208,7 +208,7 @@ public sealed class FiscalApiTests : IDisposable
     [Fact]
     public async Task Other_409_errors_keep_the_server_message()
     {
-        _server.Json("PATCH", "/api/main/pos/sales/s-8/", 409, "{\"code\":\"version_conflict\",\"detail\":\"Версия устарела\"}");
+        _server.Json("PATCH", "/api/main/pos/sales/s-8/", 409, "{\"code\":\"sale_state_conflict\",\"detail\":\"Версия устарела\"}");
         var api = await LoginAsync();
         var ex = await Assert.ThrowsAsync<ApiException>(() => api.RequestAsync(HttpMethod.Patch, "api/main/pos/sales/s-8/", new { x = 1 }, null));
         ex.Message.Should().Be("Версия устарела");

@@ -121,9 +121,12 @@ public static class AdvisorNavRouter
 
     private static readonly NavTarget SetScreen = Sub(Settings, "settings.screen", "screen", null, "Экран", "Экран", "Screen", "Ekran", "Ekran",
         "экран|настройки экрана|язык|языка|тема|тему|темы|масштаб|вид меню|оформление|screen|display settings|language|theme|ekran|ekran ayarlari|dil|tema|til|mavzu");
-    // 2026-11-11: «Печать» в программе владельца (вкладка настроек и пункт меню «Печать»).
+    // 2026-11-11: «Печать» в программе владельца. 2026-11-20 (владелец: «убери из бургер»): только вкладка Настроек, отдельного пункта меню ☰ нет.
     private static readonly NavTarget SetPrint = Sub(Settings, "settings.print", "print", null, "Печать", "Басып чыгаруу", "Print", "Yazdır", "Chop etish",
         "печать|настройки печати|принтер|принтера|настройки принтера|принтер чеков|принтер этикеток|басма|басма жөндөөлөрү|принтер жөндөөлөрү|print|print settings|printer|printer settings|yazdirma|yazici|yazici ayarlari|chop etish|printer sozlamalari");
+    // 2026-11-20 (владелец: «весы в настройки засунь»): «Весы» — вкладка Настроек (раньше раздел «Товары → Весы» меню ☰ программы владельца).
+    private static readonly NavTarget SetScales = Sub(Settings, "settings.scales", "scales", null, "Весы", "Тараза", "Scales", "Tartı", "Tarozi",
+        "весы|весов|весам|весы с этикетками|отправка на весы|отправить товары на весы|товары на весы|тараза|таразалар|таразага|scales|scale|label scales|send to scales|tarti|tartilar|tartiya|tarozi|tarozilar|tarozilarga");
     private static readonly NavTarget SetUpdates = Sub(Settings, "settings.updates", "updates", null, "Обновления", "Жаңыртуулар", "Updates", "Güncellemeler", "Yangilanishlar",
         "обновления|обновление|обновить программу|жаңыртуулар|жаңыртуу|updates|update|guncellemeler|guncelleme|yangilanishlar|yangilanish");
     private static readonly NavTarget SetOperations = Sub(Settings, "settings.operations", "operations", null, "Операции", "Операциялар", "Operations", "İşlemler", "Operatsiyalar",
@@ -146,9 +149,6 @@ public static class AdvisorNavRouter
         Warehouse, WhReceiving, WhRevision, WhWriteOff, WhMovements, WhLabels, WhBarcodes, WhBulk, WhLow, WhOut, WhExpiry,
         S("calculator", "calculator", "Калькуляция", "Калькуляция", "Pricing calculator", "Hesaplama", "Kalkulyatsiya",
             "калькуляция|калькуляцию|калькулятор|расчет цены|расчет наценки|pricing calculator|calculator|hesaplama|hesap makinesi|kalkulyatsiya|kalkulyator"),
-        // 2026-11-11: «Весы» переехали из кассы (Настройки → Весы) в программу владельца — Товары → Весы.
-        S("scales", "scales", "Весы", "Тараза", "Scales", "Tartı", "Tarozi",
-            "весы|весов|весам|весы с этикетками|отправка на весы|отправить товары на весы|товары на весы|тараза|таразалар|таразага|scales|scale|label scales|send to scales|tarti|tartilar|tartiya|tarozi|tarozilar|tarozilarga"),
         S("restock", "restock", "Пополнение и сроки", "Толуктоо жана мөөнөттөр", "Restock & expiry", "Stok yenileme ve SKT", "To'ldirish va muddatlar",
             "пополнение|пополнения|пополнить|пополнение и сроки|сроки|срок|толуктоо|толуктоо жана мөөнөттөр|мөөнөттөр|мөөнөт|restock|replenish|replenishment|restock and expiry|stok yenileme|yenileme|skt|toldirish|toldirish va muddatlar|muddatlar"),
         Purchases, PurOrders, PurReceive,
@@ -197,7 +197,7 @@ public static class AdvisorNavRouter
             "nurcrm|нурсрм|нур срм|срм|crm|nur crm|сайт нурсрм"),
         S("marketplace", "marketplace", "Маркетплейс", "Маркетплейс", "Marketplace", "Pazar yeri", "Marketpleys",
             "маркетплейс|маркетплейса|магазин функций|купить функцию|marketplace|market place|pazar yeri|marketpleys|marketpleysi"),
-        Settings, SetScreen, SetPrint, SetUpdates, SetOperations, SetCustom, SetAccount, SetEmployees, SetKeys,
+        Settings, SetScreen, SetScales, SetPrint, SetUpdates, SetOperations, SetCustom, SetAccount, SetEmployees, SetKeys,
         S("kb", "kb", "База знаний", "Билим базасы", "Knowledge base", "Bilgi bankası", "Bilimlar bazasi",
             "база знаний|базу знаний|знания|инструкция|инструкции|помощь|справка|билим базасы|жардам|knowledge base|help|manual|guide|bilgi bankasi|yardim|bilimlar bazasi|yordam"),
         S("support", "support", "Тех. поддержка", "Тех колдоо", "Support", "Destek", "Texnik yordam",

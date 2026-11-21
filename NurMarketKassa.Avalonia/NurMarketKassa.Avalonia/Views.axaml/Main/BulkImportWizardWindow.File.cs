@@ -44,7 +44,7 @@ public partial class BulkImportWizardWindow
         var path = files[0].TryGetLocalPath() ?? await CopyToTempAsync(files[0]).ConfigureAwait(true);
         if (path is null)
             return;
-        await LoadPathAsync(path).ConfigureAwait(true);
+        await LoadPathAsync(path, advanceToReview: false).ConfigureAwait(true);
     }
 
     private async Task PasteAsync()
@@ -68,18 +68,21 @@ public partial class BulkImportWizardWindow
                 "Buferda jadval yo'q. Excel'da kataklarni nusxalang (Ctrl+C) va «Buferdan qo'yish»ni bosing.");
             return;
         }
-        await LoadResultAsync(ProductFileReader.ReadClipboard(text), T("из буфера обмена", "буферден", "from the clipboard", "panodan", "buferdan")).ConfigureAwait(true);
+        _fileSize = 0;
+        await LoadResultAsync(ProductFileReader.ReadClipboard(text), T("из буфера обмена", "буферден", "from the clipboard", "panodan", "buferdan"), advance: false).ConfigureAwait(true);
     }
 
     /// <summary>Прочитать файл и сразу проверить (стенд зовёт напрямую).</summary>
-    public async Task LoadPathAsync(string path)
+    /// <summary>2026-11-20: advanceToReview = true (стенд, прямой вызов) — после проверки сразу шаг «Проверьте»; из окна (выбор файла, перетаскивание) — false: остаёмся на шаге «Файл».</summary>
+    public async Task LoadPathAsync(string path, bool advanceToReview = true)
     {
         _status.Text = T("Читаю файл…", "Файл окулууда…", "Reading the file…", "Dosya okunuyor…", "Fayl o'qilmoqda…");
+        try { _fileSize = new FileInfo(path).Length; } catch { _fileSize = 0; }
         var result = await Task.Run(() => ProductFileReader.ReadFile(path)).ConfigureAwait(true);
-        await LoadResultAsync(result, Path.GetFileName(path)).ConfigureAwait(true);
+        await LoadResultAsync(result, Path.GetFileName(path), advanceToReview).ConfigureAwait(true);
     }
 
-    private async Task LoadResultAsync(ProductFileReadResult result, string name)
+    private async Task LoadResultAsync(ProductFileReadResult result, string name, bool advance = true)
     {
         if (_started)
             return;
@@ -91,21 +94,22 @@ public partial class BulkImportWizardWindow
             _fileWarn.IsVisible = true;
             _fileWarn.Text = result.Error ?? "";
             _status.Text = "";
-            _mapPanel.IsVisible = false;
             ClearResult();
+            UpdateFileCard();
+            GoToStep(2);
             return;
         }
 
         _table = result.Table;
+        _notProductsForced = false; // 2026-11-20: новый файл — плашка «не список товаров» снова возможна
         _fileName = name;
         _fileWarn.IsVisible = result.Table.Warnings.Count > 0;
         _fileWarn.Text = string.Join(" ", result.Table.Warnings);
         _mapping = ProductImportMapping.Resolve(_table.Headers, _table); // 2026-10-30: с проверкой по данным столбцов
         _loadingFile = true;
-        _cardsCheck.IsChecked = !_mapping.HasQuantity; // нет столбца количества — «только карточки и цены» по умолчанию
+        SetCardsMode(!_mapping.HasQuantity); // нет столбца количества — «только цену» по умолчанию
         _loadingFile = false;
         AutoSelectAutoParts(); // 2026-11-20: сфера «Автозапчасти» и файл — прайс поставщика: профиль включается сам
-        _hintPanel.IsVisible = false;
         var sheet = _table.SheetName is { Length: > 0 } s ? T($" · лист «{s}»", $" · «{s}» барагы", $" · sheet “{s}”", $" · «{s}» sayfası", $" · «{s}» varag'i") : "";
         var enc = _table.EncodingName is { Length: > 0 } e ? $" · {e}" : "";
         _fileInfo.Text = T($"«{name}»{sheet}{enc} · строк: {_table.DataRowCount}, столбцов: {_table.ColumnCount}",
@@ -116,8 +120,16 @@ public partial class BulkImportWizardWindow
         BuildMappingChoices();
         UpdateSourceUi(); // 2026-11-13 (Л-10): какая программа узнана
         _nextPanel.IsVisible = false;
-        _mapPanel.IsVisible = true; // развёрнута до «Проверить», потом сворачивается
+        _mapOpenedByUser = false; // 2026-11-20: новый файл — на низком экране Refit снова может свернуть панель
+        _filter = Filter.All; // 2026-11-20: новый файл — без «только пропущенные» от прошлого
+        _errorGroup = null;
+        _onlySkipped.IsChecked = false;
+        ApplyChosenSource(); // 2026-11-20: выбранная на шаге «Откуда» программа — столбцы по её профилю
         await CheckAsync().ConfigureAwait(true);
+        UpdateFileCard();
+        // Выбор файла в окне («Выбрать файл…», перетаскивание) остаётся на шаге «Файл» — видно, что за файл и какая программа узнана; «Далее» ведёт к проверке.
+        // Прямой вызов (стенд) сразу показывает шаг «Проверьте».
+        GoToStep(advance && _plan is { Problem: null } && _rows.Count > 0 ? 3 : 2);
     }
 
     private async Task SaveTemplateAsync(bool xlsx)
@@ -162,8 +174,8 @@ public partial class BulkImportWizardWindow
 
     private static readonly ProductImportField[] MappedFields =
     [
-        ProductImportField.Barcode, ProductImportField.Name, ProductImportField.AltBarcodes, ProductImportField.Quantity, ProductImportField.Unit, ProductImportField.Purchase,
-        ProductImportField.Markup, ProductImportField.Sale, ProductImportField.Category, ProductImportField.Weight,
+        ProductImportField.Barcode, ProductImportField.Name, ProductImportField.AltBarcodes, ProductImportField.PackBarcode, ProductImportField.PackQty, ProductImportField.AltName, ProductImportField.Quantity, ProductImportField.Unit, ProductImportField.Purchase,
+        ProductImportField.Markup, ProductImportField.Sale, ProductImportField.Category, ProductImportField.Brand, ProductImportField.Weight,
     ];
 
     private static bool IsRequired(ProductImportField f) => f is ProductImportField.Barcode; // 2026-10-30: количество необязательно
@@ -202,7 +214,7 @@ public partial class BulkImportWizardWindow
                 if (!_mapping.HasQuantity)
                 {
                     _loadingFile = true;
-                    _cardsCheck.IsChecked = true;
+                    SetCardsMode(true);
                     _loadingFile = false;
                 }
                 ScheduleRecheck(); // 2026-10-30: проверка заново сама (с задержкой), не вручную
@@ -245,8 +257,12 @@ public partial class BulkImportWizardWindow
             Duplicates = _dupFirst.IsChecked == true ? BulkImportDuplicateMode.FirstRow : BulkImportDuplicateMode.SumQuantity,
             DefaultUnit = _defUnitCheck.IsChecked == true ? _defUnit.Value : null,
             UseReceivingMarkup = true,
-            CardsOnly = _cardsCheck.IsChecked == true || !_mapping.HasQuantity,
+            CardsOnly = _apOn || _modePrice.IsChecked == true || !_mapping.HasQuantity, // 2026-11-20: режим — переключатель шага «Проверьте»
+            NewOnly = _modeNew.IsChecked == true,
             MergeSameName = _mergeNameCheck.IsChecked == true,
+            AddAltBarcodesToExisting = _altExistingCheck.IsChecked == true, // 2026-11-20: доп. штрихкоды / упаковки из файла
+            SkipBadAltCodes = _altSkipBadCheck.IsChecked == true,
+            GenerateInternalCodes = _internalCodeCheck.IsChecked == true, // 2026-11-20 (CT MAX)
         };
     }
 
@@ -303,8 +319,7 @@ public partial class BulkImportWizardWindow
             // 2026-10-30: панель столбцов сворачивается только по кнопке «Проверить» — чтобы владелец успел посмотреть подбор столбцов.
             if (collapse)
             {
-                _mapPanel.IsVisible = false;
-                _opsPanel.IsVisible = false;
+                SetAdvanced(false); // 2026-11-20: «Проверить» сворачивает боковую полосу «Дополнительно»
             }
             UpdateToggles();
             UpdateModeNote();
@@ -323,6 +338,7 @@ public partial class BulkImportWizardWindow
         finally
         {
             _building = false;
+            UpdateNav();
             _checkBtn.IsEnabled = true;
             _bar.IsVisible = false;
         }
@@ -454,19 +470,19 @@ public partial class BulkImportWizardWindow
         text.Bind(TextBlock.ForegroundProperty, text.GetResourceObservable("BrushTextSoft"));
         text.Text = T("Первая строка — заголовки столбцов: Штрихкод, Название, Доп. штрихкоды, Количество, Единица, Закупка, Наценка %, Цена продажи, Категория, Весовой. "
                 + "Обязателен только «Штрихкод» (для новых товаров ещё «Название» и «Цена продажи»). «Количество» можно не писать — тогда остаток не изменится. "
-                + "«Доп. штрихкоды» — несколько кодов в одной ячейке через ; , пробел или |. Штрихкоды — только цифры, 4–14 знаков; столбец штрихкода сохраняйте как текст. Для примера нажмите «Шаблон Excel».",
+                + "«Доп. штрихкоды» — несколько кодов в одной ячейке через ; , пробел или |; «код:N» — код упаковки с N штук. Пачка: столбцы «Штрихкод упаковки» и «Штук в упаковке» (пачка приходит, продаётся поштучно); можно несколько строк с одним штрихкодом — доп. коды сложатся (количество в таких строках оставьте пустым). Штрихкоды — только цифры, 4–14 знаков; столбец штрихкода сохраняйте как текст. Для примера нажмите «Шаблон Excel».",
             "Биринчи сап — мамычалардын аталыштары: Штрих-код, Аталышы, Кошумча штрих-коддор, Саны, Бирдик, Сатып алуу баасы, Үстөк %, Сатуу баасы, Категория, Весовой. "
                 + "Милдеттүү — «Штрих-код» гана (жаңы товарларга дагы «Аталышы» жана «Сатуу баасы»). «Саны» болбосо — калдык өзгөрбөйт. "
-                + "«Кошумча штрих-коддор» — бир уячада бир нече код ; , боштук же | менен. Штрих-коддор — цифралар гана, 4–14 белги; мамычаны текст катары сактаңыз. Үлгү үчүн «Excel үлгүсү» басыңыз.",
+                + "«Кошумча штрих-коддор» — бир уячада бир нече код ; , боштук же | менен; «код:N» — N даанадан турган куту коду. Куту: «Куту штрих-коду» жана «Куттагы даана саны» мамычалары (куту келет, даанасы менен сатылат); бир штрих-код менен бир нече сап болсо — кошумча коддор кошулат (мындай саптарда санын бош калтырыңыз). Штрих-коддор — цифралар гана, 4–14 белги; мамычаны текст катары сактаңыз. Үлгү үчүн «Excel үлгүсү» басыңыз.",
             "The first row holds column headers: Barcode, Name, Extra barcodes, Quantity, Unit, Purchase, Markup %, Sale price, Category, By weight. "
                 + "Only “Barcode” is required (new products also need “Name” and “Sale price”). “Quantity” may be left out — the stock then does not change. "
-                + "“Extra barcodes” — several codes in one cell separated by ; , space or |. Barcodes are digits only, 4–14 characters; save the barcode column as text. Press “Excel template” for an example.",
+                + "“Extra barcodes” — several codes in one cell separated by ; , space or |; “code:N” is a pack code with N pieces. Packs: columns “Pack barcode” and “Pieces in pack” (arrives as a pack, sold by the piece); several rows with one barcode are allowed — their extra codes are added (leave the quantity empty in such rows). Barcodes are digits only, 4–14 characters; save the barcode column as text. Press “Excel template” for an example.",
             "İlk satır sütun başlıklarıdır: Barkod, Ürün adı, Ek barkodlar, Miktar, Birim, Alış, Kâr %, Satış fiyatı, Kategori, Tartılı. "
                 + "Yalnızca «Barkod» zorunlu (yeni ürünler için ayrıca «Ürün adı» ve «Satış fiyatı»). «Miktar» yazılmayabilir — stok değişmez. "
-                + "«Ek barkodlar» — tek hücrede ; , boşluk veya | ile ayrılmış birkaç kod. Barkodlar yalnızca rakam, 4–14 karakter; sütunu metin olarak kaydedin. Örnek için «Excel şablonu»na basın.",
+                + "«Ek barkodlar» — tek hücrede ; , boşluk veya | ile ayrılmış birkaç kod; «kod:N» — N adetlik paket kodu. Paket: «Paket barkodu» ve «Paketteki adet» sütunları (paket gelir, adet adet satılır); aynı barkodlu birkaç satır olabilir — ek kodlar eklenir (bu satırlarda miktarı boş bırakın). Barkodlar yalnızca rakam, 4–14 karakter; sütunu metin olarak kaydedin. Örnek için «Excel şablonu»na basın.",
             "Birinchi qator — ustun sarlavhalari: Shtrix-kod, Nomi, Qo'shimcha shtrix-kodlar, Miqdor, Birlik, Xarid, Ustama %, Sotuv narxi, Kategoriya, Vaznli. "
                 + "Faqat «Shtrix-kod» majburiy (yangi mahsulotlar uchun yana «Nomi» va «Sotuv narxi»). «Miqdor»ni yozmasa ham bo'ladi — qoldiq o'zgarmaydi. "
-                + "«Qo'shimcha shtrix-kodlar» — bir katakda ; , bo'shliq yoki | bilan bir nechta kod. Shtrix-kodlar faqat raqam, 4–14 belgi; ustunni matn sifatida saqlang. Namuna uchun «Excel shabloni»ni bosing.");
+                + "«Qo'shimcha shtrix-kodlar» — bir katakda ; , bo'shliq yoki | bilan bir nechta kod; «kod:N» — N donalik qadoq kodi. Qadoq: «Qadoq shtrix-kodi» va «Qadoqdagi dona soni» ustunlari (qadoqda keladi, donalab sotiladi); bir shtrix-kodli bir nechta qator mumkin — qo'shimcha kodlar qo'shiladi (bunday qatorlarda miqdorni bo'sh qoldiring). Shtrix-kodlar faqat raqam, 4–14 belgi; ustunni matn sifatida saqlang. Namuna uchun «Excel shabloni»ni bosing.");
         _hintPanel.Child = new StackPanel { Spacing = 4, Children = { title, text, BuildSourcesHint() } };
     }
 

@@ -34,6 +34,8 @@ namespace NurMarketKassa.ViewModels
 
         // ------------------------------------------------------------------ строки под итогом
         public bool HasLineDiscounts => _lineDiscounts > 0.005;
+        /// <summary>2026-11-20: строка «Сумма позиций» нужна только как начало состава (скидки, округление, бонусы, долг); без них она в точности повторяла «Итог к оплате» — дубль.</summary>
+        public bool ShowSubtotalRow => HasRoundingAdjustment || HasLineDiscounts || HasDiscount || HasPointsRedeemed || IsDebtMode;
         public string LineDiscountsDisplay => "−" + MoneyText.Som(_lineDiscounts);
         public string OrderDiscountDisplay => "−" + MoneyText.Som(_orderDiscountAmount);
         public bool HasPointsRedeemed => _pointsRedeemed > 0.005;
@@ -199,7 +201,7 @@ namespace NurMarketKassa.ViewModels
         private static readonly string[] RedesignProperties =
         {
             nameof(ExactCashLabel), nameof(HasLineDiscounts), nameof(LineDiscountsDisplay), nameof(OrderDiscountDisplay),
-            nameof(HasPointsRedeemed), nameof(PointsRedeemedDisplay), nameof(ShowResultPlate), nameof(ResultTitle),
+            nameof(HasPointsRedeemed), nameof(ShowSubtotalRow), nameof(PointsRedeemedDisplay), nameof(ShowResultPlate), nameof(ResultTitle),
             nameof(ResultAmountDisplay), nameof(ResultFormula), nameof(HasResultFormula), nameof(ResultIsOk), nameof(ResultIsShort),
             nameof(ResultIsWarn), nameof(SelectedClientInitials), nameof(SelectedClientShortName), nameof(SelectedClientSubline),
             nameof(HasSelectedClientSubline), nameof(RedeemButtonText), nameof(CanRedeemPoints), nameof(ShowDebtCard), nameof(CurrentDebtDisplay),

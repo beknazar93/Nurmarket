@@ -458,6 +458,7 @@ public partial class App : Application
             _ = StartHostAndAuthenticationAsync(desktop, splash);
         }
 
+        NurMarketKassa.AvaloniaHost.Services.PlanBlockPrompt.Install(); // 2026-11-20: окно «Тариф» при 403 plan_client_not_allowed / plan_limit (тариф «Мини»)
         base.OnFrameworkInitializationCompleted();
     }
 

@@ -462,6 +462,8 @@ public sealed class SupplierReturnDialog : Window
         public double Max;
         public string? ReceiptItemId;
         public TextBox Qty = null!;
+        /// <summary>2026-11-20: штрихкод товара строки (из каталога; пусто — у товара кода нет) — колонка «Штрихкод» и поиск по скану.</summary>
+        public string Barcode = "";
     }
 
     private readonly NurMarketApiClient _api;
@@ -475,6 +477,10 @@ public sealed class SupplierReturnDialog : Window
     private readonly TextBox _comment = new() { MinHeight = 44, Watermark = T("Комментарий (необязательно)", "Комментарий (милдеттүү эмес)", "Comment (optional)", "Yorum (isteğe bağlı)", "Izoh (ixtiyoriy)") };
     private readonly TextBlock _total = new() { FontSize = 16, FontWeight = FontWeight.Bold };
     private readonly TextBlock _error = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap, IsVisible = false };
+    // 2026-11-20 («при создании накладных штрихкоды тоже добавь»): поле скана — сканер находит строку возврата и прибавляет 1 к количеству (не больше «можно вернуть»).
+    private readonly TextBox _scan = new() { MinHeight = 44, MaxLength = InvoiceBarcodeRules.MaxLength, Tag = "ret-scan" };
+    private readonly TextBlock _scanNote = new() { FontSize = 12.5, TextWrapping = TextWrapping.Wrap, IsVisible = false };
+    private StackPanel? _scanBox;
     private readonly Button _save;
     private readonly Button _cancel;
     private readonly Button _edit; // 2026-11-12: «Править накладную» после оформления
@@ -521,10 +527,26 @@ public sealed class SupplierReturnDialog : Window
         panel.Children.Add(UiKit.Segment(_sourceChips)); // 2026-10-20, этап О9б: «По приходу / Со склада» — сегменты
         _receipt.SelectionChanged += async (_, _) => await LoadReceiptLinesAsync().ConfigureAwait(true);
         panel.Children.Add(_receipt);
+        // 2026-11-20: скан штрихкода — найти строку возврата и прибавить 1 (поле видно, когда строки есть); код только цифры 4–14.
+        _scan.Watermark = T("Сканируйте штрихкод товара — строка найдётся, количество +1", "Товардын штрихкодун сканерлеңиз — сап табылат, саны +1", "Scan the product barcode — the line is found, quantity +1",
+            "Ürün barkodunu okutun — satır bulunur, miktar +1", "Mahsulot shtrix-kodini skanerlang — qator topiladi, miqdor +1");
+        Avalonia.Automation.AutomationProperties.SetName(_scan, T("Сканировать штрихкод", "Штрихкодду сканерлөө", "Scan a barcode", "Barkod okut", "Shtrix-kodni skanerlash"));
+        Use(_scanNote, TextBlock.ForegroundProperty, "BrushTextSoft");
+        _scan.KeyDown += (_, e) =>
+        {
+            if (e.Key != Key.Enter)
+                return;
+            e.Handled = true;
+            ScanLine(_scan.Text);
+            _scan.Text = "";
+        };
+        NurMarketKassa.AvaloniaHost.Views.Controls.BarcodeInput.Attach(this, tb => ReferenceEquals(tb, _scan));
+        var scanBox = _scanBox = new StackPanel { Spacing = 4, IsVisible = false, Children = { _scan, _scanNote } };
         // 2026-10-20, этап О9б: строки товаров — в рамке (видна, когда строки есть).
         var linesGroup = SectionCards.Group(this, _lines);
         linesGroup.IsVisible = false;
-        _lines.Children.CollectionChanged += (_, _) => linesGroup.IsVisible = _lines.Children.Count > 0;
+        _lines.Children.CollectionChanged += (_, _) => { linesGroup.IsVisible = _lines.Children.Count > 0; if (_lines.Children.Count == 0) scanBox.IsVisible = false; };
+        panel.Children.Add(scanBox);
         panel.Children.Add(linesGroup);
 
         panel.Children.Add(Label(T("Причина", "Себеп", "Reason", "Neden", "Sabab")));
@@ -841,8 +863,12 @@ public sealed class SupplierReturnDialog : Window
         Use(title, TextBlock.ForegroundProperty, "BrushText");
         var unitText = unit.Length > 0 ? unit : T("шт", "даана", "pcs", "adet", "dona");
         var meta = Hint($"{maxLabel}: {max.ToString("0.###", CultureInfo.GetCultureInfo("ru-RU"))} {unitText} · {SupplierReturnsWindow.Money(price)}");
+        // 2026-11-20: штрихкод товара — под названием (из каталога кассы; у товара без кода — «нет штрихкода»).
+        var code = (ProductActions.Find(productId) is { } known && string.Equals(known.Id, productId, StringComparison.OrdinalIgnoreCase) ? known.Barcode ?? "" : "").Trim();
+        var codeText = Hint(T("Штрихкод: ", "Штрихкод: ", "Barcode: ", "Barkod: ", "Shtrix-kod: ") + (code.Length > 0 ? code : T("нет", "жок", "none", "yok", "yo'q")));
         info.Children.Add(title);
         info.Children.Add(meta);
+        info.Children.Add(codeText);
         row.Children.Add(info);
         // 2026-11-12 (UX): число — по центру высоты поля (было прижато к верхнему краю), поле — по центру строки с длинным названием, отступ от текста 12
         var qty = new TextBox { Width = 110, MinHeight = 44, Watermark = "0", IsEnabled = max > 0, HorizontalContentAlignment = HorizontalAlignment.Right,
@@ -853,7 +879,42 @@ public sealed class SupplierReturnDialog : Window
         Grid.SetColumn(qty, 1);
         row.Children.Add(qty);
         _lines.Children.Add(row);
-        _rows.Add(new Line { ProductId = productId, Name = name, Unit = unitText, Price = price, Max = max, ReceiptItemId = receiptItemId, Qty = qty });
+        _rows.Add(new Line { ProductId = productId, Name = name, Unit = unitText, Price = price, Max = max, ReceiptItemId = receiptItemId, Qty = qty, Barcode = code });
+        if (_scanBox is not null)
+            _scanBox.IsVisible = true; // 2026-11-20: есть строки возврата — поле скана видно
+    }
+
+    /// <summary>2026-11-20: скан штрихкода — строка возврата с этим кодом (основной или доп. штрихкод товара) получает +1, но не больше «можно вернуть». Нет такой строки — подсказка.</summary>
+    private void ScanLine(string? raw)
+    {
+        var code = InvoiceBarcodeRules.Clean(raw);
+        if (code.Length == 0)
+            return;
+        void Say(string text, bool warning)
+        {
+            _scanNote.Text = text;
+            _scanNote.IsVisible = text.Length > 0;
+            Use(_scanNote, TextBlock.ForegroundProperty, warning ? "BrushDanger" : "BrushTextSoft");
+        }
+        var tile = ProductCodeLookup.FindLocal(code, allowWeightLabel: false)?.Product;
+        var row = _rows.FirstOrDefault(r => (tile is not null && string.Equals(r.ProductId, tile.Id, StringComparison.OrdinalIgnoreCase)) || InvoiceBarcodeRules.Same(r.Barcode, code));
+        if (row is null)
+        {
+            Say(T($"Товара с кодом {code} нет в этом списке (его нет в выбранном приходе или у выбранного поставщика).", $"{code} коду бар товар бул тизмеде жок (тандалган кирүүдө же тандалган жеткирүүчүдө жок).",
+                $"There is no product with code {code} in this list (not in the chosen delivery or at the chosen supplier).", $"{code} kodlu ürün bu listede yok (seçilen girişte veya seçilen tedarikçide yok).",
+                $"{code} kodli mahsulot bu ro'yxatda yo'q (tanlangan kirimda yoki tanlangan yetkazib beruvchida yo'q)."), true);
+            return;
+        }
+        var current = ParseQty(row.Qty.Text);
+        if (row.Max > 0 && current + 1 > row.Max + 1e-9)
+        {
+            Say(T($"«{row.Name}»: уже {current.ToString("0.###", CultureInfo.GetCultureInfo("ru-RU"))} — больше, чем можно вернуть.", $"«{row.Name}»: мурунтан эле {current.ToString("0.###", CultureInfo.GetCultureInfo("ru-RU"))} — кайтарууга мүмкүндөн көп.",
+                $"“{row.Name}”: already {current.ToString("0.###", CultureInfo.GetCultureInfo("ru-RU"))} — more than can be returned.", $"«{row.Name}»: zaten {current.ToString("0.###", CultureInfo.GetCultureInfo("ru-RU"))} — iade edilebilenden fazla.",
+                $"«{row.Name}»: allaqachon {current.ToString("0.###", CultureInfo.GetCultureInfo("ru-RU"))} — qaytarish mumkinidan ko'p."), true);
+            return;
+        }
+        row.Qty.Text = (current + 1).ToString("0.###", CultureInfo.CurrentCulture);
+        Say(T($"«{row.Name}»: {row.Qty.Text}.", $"«{row.Name}»: {row.Qty.Text}.", $"“{row.Name}”: {row.Qty.Text}.", $"«{row.Name}»: {row.Qty.Text}.", $"«{row.Name}»: {row.Qty.Text}."), false);
     }
 
     private static double ParseQty(string? text) =>

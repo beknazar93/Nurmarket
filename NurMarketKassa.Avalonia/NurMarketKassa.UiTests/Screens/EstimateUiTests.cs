@@ -496,6 +496,100 @@ public sealed class EstimateUiTests : IDisposable
         }
     }
 
+    // ───────────────────────── раскладка редактора (замечание владельца «очень неудобная!», 20.11) ─────────────────────────
+
+    public static IEnumerable<object[]> LayoutCases() =>
+        new[] { AppLanguage.Russian, AppLanguage.Kyrgyz, AppLanguage.Uzbek }.SelectMany(l => new[] { (1024, 600), (1366, 768) }.Select(sz => new object[] { l, sz.Item1, sz.Item2 }));
+
+    private static Avalonia.Rect RectOf(Window w, Control c) => new(Avalonia.VisualExtensions.TranslatePoint(c, default, w)!.Value, c.Bounds.Size);
+
+    /// <summary>2026-11-20: таблица позиций — главная часть окна. Закреплённый заголовок виден целиком, колонки строки совпадают с заголовком по X (±2 px), таблица занимает заметную долю высоты окна
+    /// (свёрнутая шапка — больше, развёрнутая — меньше), нижняя панель закреплена и видна, 20 позиций прокручиваются внутри таблицы, а таблица и нижняя панель не растут. Доли высоты — в отчёте
+    /// ui-actual/estimate-layout.txt (папка nurmarket-tests во временной папке), снимки — estimate-editor-table-*.png.</summary>
+    [AvaloniaTheory]
+    [MemberData(nameof(LayoutCases))]
+    public async Task Editor_Table_IsMainPart_HeaderAligned_BottomPinned_Scrolls(AppLanguage lang, int width, int height)
+    {
+        await TestHost.WarmAsync();
+        UiShot.Setup(UiTheme.Light, lang);
+        var (deps, catalog, _, _) = Deps(seeCost: true);
+        var doc = Filled(deps.Store, catalog);
+        var window = new EstimateEditorWindow(deps, doc);
+        try
+        {
+            using var _ = UiShot.Render(window, new UiSize(width, height));
+            UiShot.Settle(6);
+            var expander = window.GetVisualDescendants().OfType<Expander>().Single(e => e.Name == "EstimateHeaderExpander");
+            var table = Named<Grid>(window, "EstimateTable");
+            var sv = table.GetVisualDescendants().OfType<ScrollViewer>().First();
+            var report = new List<string>();
+            foreach (var expanded in new[] { false, true })
+            {
+                expander.IsExpanded = expanded;
+                UiShot.Settle(6);
+                var t = RectOf(window, sv);
+                Save(window, $"estimate-editor-table-{Code(lang)}-{width}x{height}-{(expanded ? "open" : "closed")}.png");
+                var frac = t.Height / window.ClientSize.Height;
+                report.Add($"{Code(lang)} {width}x{height} шапка {(expanded ? "развёрнута" : "свёрнута")}: таблица {t.Height:0} px = {frac:P0} окна");
+                frac.Should().BeGreaterThan(expanded ? (height <= 600 ? 0.10 : 0.28) : (height <= 600 ? 0.38 : 0.50), "таблица позиций — главная часть окна (" + report.Last() + ")");
+
+                // заголовок виден целиком и закреплён
+                var head = Named<Grid>(window, "EstimateHeaderRow");
+                var hr = RectOf(window, head);
+                hr.Left.Should().BeGreaterThanOrEqualTo(-1);
+                hr.Right.Should().BeLessThanOrEqualTo(window.ClientSize.Width + 1);
+                (hr.Bottom <= t.Top + 1).Should().BeTrue("заголовок над строками, не внутри прокрутки");
+                TextClipChecker.Find(window, "estimate-editor", Code(lang)).Should().BeEmpty("текст заголовка и строк не обрезан");
+
+                // колонки строки совпадают с заголовком по X
+                var row = Named<Grid>(window, "EstimateRow_1");
+                (string Field, int Col)[] cols = [("LineName_1", 1), ("LineUnit_1", 2), ("LineQty_1", 3), ("LinePrice_1", 4), ("LineDisc_1", 5), ("LineReserve_1", 6)];
+                var misaligned = new List<string>();
+                foreach (var (field, col) in cols)
+                {
+                    var f = RectOf(window, Named<TextBox>(window, field));
+                    var h = RectOf(window, Named<TextBlock>(window, "EstimateHead_" + col));
+                    if (Math.Abs(f.Left - h.Left) > 2)
+                        misaligned.Add($"{field}: поле {f.Left:0.#}…{f.Right:0.#}, заголовок {h.Left:0.#}…{h.Right:0.#}, колонка {row.ColumnDefinitions[col].ActualWidth:0.#}, заголовок-сетка {Named<Grid>(window, "EstimateHeaderRow").ColumnDefinitions[col].ActualWidth:0.#}");
+                }
+                misaligned.Should().BeEmpty($"колонки строки выровнены с заголовком ({Code(lang)} {width}x{height}, строка {RectOf(window, row).Left:0.#}…{RectOf(window, row).Right:0.#}, заголовок {RectOf(window, head).Left:0.#}…{RectOf(window, head).Right:0.#})");
+                var sumCol = row.ColumnDefinitions.Count - 2;
+                Math.Abs(RectOf(window, Named<TextBlock>(window, "LineSum_1")).Right - RectOf(window, Named<TextBlock>(window, "EstimateHead_" + sumCol)).Right)
+                    .Should().BeLessThanOrEqualTo(2, "«Сумма» выровнена по правому краю с заголовком");
+
+                // нижняя панель закреплена и видна целиком
+                var print = RectOf(window, Named<Button>(window, "EstimatePrint"));
+                print.Bottom.Should().BeLessThanOrEqualTo(window.ClientSize.Height + 1, "кнопки внизу видны");
+                (t.Bottom <= print.Top + 1).Should().BeTrue("таблица не заходит под нижнюю панель");
+                var totals = RectOf(window, Named<TextBlock>(window, "EstimateTotals"));
+                totals.Bottom.Should().BeLessThanOrEqualTo(window.ClientSize.Height + 1, "«Итого» видно целиком");
+                (totals.Top >= t.Bottom - 1).Should().BeTrue("«Итого» под таблицей");
+            }
+
+            // 20 позиций: прокручиваются внутри таблицы, размер таблицы и нижней панели не меняется
+            expander.IsExpanded = false;
+            UiShot.Settle(4);
+            var before = RectOf(window, sv).Height;
+            var printBefore = RectOf(window, Named<Button>(window, "EstimatePrint")).Top;
+            for (var i = 0; i < 20; i++)
+                window.AddCustomLine();
+            UiShot.Settle(8);
+            sv.Extent.Height.Should().BeGreaterThan(sv.Viewport.Height, "20 позиций не помещаются — таблица прокручивается");
+            RectOf(window, sv).Height.Should().BeApproximately(before, 1, "таблица не растёт от числа позиций");
+            RectOf(window, Named<Button>(window, "EstimatePrint")).Top.Should().BeApproximately(printBefore, 1, "нижняя панель закреплена");
+            var dir = Path.Combine(Path.GetTempPath(), "nurmarket-tests", "ui-actual");
+            Directory.CreateDirectory(dir);
+            File.AppendAllLines(Path.Combine(dir, "estimate-layout.txt"), report);
+            expander.IsExpanded = false;
+            Save(window, $"estimate-editor-table-{Code(lang)}-{width}x{height}.png");
+        }
+        finally
+        {
+            window.Close();
+            UiShot.Pump();
+        }
+    }
+
     // ───────────────────────── калькулятор материала ─────────────────────────
 
     [AvaloniaFact]

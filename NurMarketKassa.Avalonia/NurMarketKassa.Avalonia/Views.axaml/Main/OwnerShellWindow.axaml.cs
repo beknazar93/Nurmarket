@@ -843,11 +843,9 @@ public partial class OwnerShellWindow : Window, IMainShell
         // (сфера «Хозтовары и стройматериалы» или включён в Маркетплейсе); право — «Склад»; скрывается в «Разделах меню».
         Add("estimate", "EstimateIcon", Tr.T("Смета", "Смета", "Estimate", "Keşif", "Smeta"), EstimateFeature.IsAvailable,
             () => { if (Authorize(PosPermissions.ViewProducts)) OpenSection("estimate", () => new EstimatesWindow()); });
-        // 2026-11-11, запрос владельца «убрать пункт весов из кассы и поставить на владелец»: «Весы» — отправка товаров на весы с этикетками (Штрих-М/Штрих-ПРИНТ,
-        // РС-200, Rongta, TM-30F, AI), список весов и «Штрих-код этикеток» (ScalesSectionWindow = та же страница, что была в Настройках кассы). Платный доступ — как раньше
-        // (TariffGate.CanUseScales: на «Старте» нужна покупка), право — «Настройки» (владелец — всегда; без права пункта нет); скрывается в «Разделах меню».
-        Add("scales", "IconScale", Tr.T("Весы", "Тараза", "Scales", "Tartı", "Tarozi"), TariffGate.CanUseScales && HasPermissionSafe(PosPermissions.ViewSettings),
-            () => { if (Authorize(PosPermissions.ViewSettings)) OpenSection("scales", () => new ScalesSectionWindow()); });
+        // 2026-11-20, владелец: «весы в настройки засунь» — пункта «Весы» в меню ☰ больше нет: это страница Настроек («Настройки → Весы», PosSettingsWindow,
+        // вкладки «Весы с этикетками» и «Штрих-код»). Была здесь с 11.11 отдельным разделом (ScalesSectionWindow — удалён, страницу показывают Настройки).
+        // Видимость страницы — как была у пункта: тариф (TariffGate.CanUseScales), «Разделы меню» (ключ scales), право «Настройки» (нужно для самих Настроек).
         Add("restock", "RestockIcon", Tr.T("Пополнение и сроки", "Толуктоо жана мөөнөттөр", "Restock & expiry", "Stok yenileme ve SKT", "To'ldirish va muddatlar"), TariffGate.CanUseRestock,
             () => { if (Authorize(PosPermissions.ViewProducts)) OpenSection("restock", () => App.GetRequiredService<RestockSuggestionsWindow>()); });
         // 2026-10-22, владелец: «Закупки как у веба» — история приходов, заказы поставщикам, рекомендуемый заказ, приём товара с оплатой
@@ -988,20 +986,11 @@ public partial class OwnerShellWindow : Window, IMainShell
             () => SubscriptionWindow.ShowOrActivate(this));
         Add("marketplace", "MarketplaceIcon", Tr.T("Маркетплейс", "Маркетплейс", "Marketplace", "Pazar yeri", "Marketpleys"), true,
             () => { if (Authorize(PosPermissions.ViewSettings)) OpenSection("marketplace", () => new MarketplaceWindow().AsSection()); });
-        // 2026-11-11, запрос владельца «настройки печати тоже в владельца добавь»: «Печать» — те же настройки печати (вкладка «Печать» окна «Настройки»),
-        // но отдельным пунктом: открывает «Настройки» сразу на ней; право — «Настройки» (без права пункта нет), скрывается в «Разделах меню», находится поиском.
-        // Настройки печати — этой программы (своя папка данных NurMarketOwner); принтер чеков кассы задаётся на ПК кассы (подпись в «Настройках»).
-        Add("print", "IconPrinter", Tr.T("Печать", "Басып чыгаруу", "Print", "Yazdır", "Chop etish"), HasPermissionSafe(PosPermissions.ViewSettings),
-            () =>
-            {
-                // 2026-11-12 (аудит 12.11, В-11 / С-21): раньше «Печать» открывалась через пункт «Настройки» — при скрытых «Настройках» нажатие молча ничего не делало,
-                // а при открытии подсвечивались «Настройки». Теперь свой раздел «print» (те же настройки, сразу вкладка «Печать»), права — прежние.
-                if (!Authorize(PosPermissions.ViewSettings))
-                    return;
-                OpenSection("print", () => App.GetRequiredService<PosSettingsWindow>());
-                if (_sections.FirstOrDefault(s => s.Key == "print")?.Window is PosSettingsWindow printSettings && !printSettings.SelectNavTab("print"))
-                    PosLogger.Log("Owner app: «Печать» — вкладка печати в настройках не выбрана.", "WARNING");
-            });
+        // 2026-11-20, владелец: «в настройках есть печать! убери из бургер!» — отдельного пункта «Печать» в меню ☰ больше нет (с 11.11 он открывал «Настройки» на вкладке «Печать»).
+        // Настройки печати — «Настройки → Печать» (принтер этикеток/ценников/накладных этой программы; принтер чеков кассы задаётся на ПК кассы).
+        // 2026-11-20 (владелец: «где импорт из других программ?»): «Перенос данных» — второй, заметный вход в мастер «Склад → Массовая загрузка» (окно одно на программу); по праву «Склад: редактирование».
+        Add("transfer", "IconImport", Tr.T("Перенос данных", "Маалыматты которуу", "Data transfer", "Veri aktarımı", "Ma'lumot ko'chirish"), BulkImportWizardWindow.CanOpenTransfer(),
+            () => { if (Authorize(PosPermissions.EditProducts)) BulkImportWizardWindow.OpenTransfer(this); });
         Add("settings", "SettingsIcon", Tr.T("Настройки", "Жөндөөлөр", "Settings", "Ayarlar", "Sozlamalar"), true,
             () => { if (Authorize(PosPermissions.ViewSettings)) OpenSection("settings", () => App.GetRequiredService<PosSettingsWindow>()); });
 

@@ -440,6 +440,8 @@ public partial class SideMenuView : UserControl
         ["MiKnowledgeBase"] = "база знаний справка инструкция помощь faq knowledge help билим bilgi bilim yordam",
         // 2026-11-13 (Н-1): мастер первого запуска и учебная продажа — слова поиска на 5 языках.
         ["MiFirstRunWizard"] = "обучение экскурсия tutorial tour үйрөнүү eğitim o'rgatish мастер первый запуск начало настройка помощь wizard first start setup чебер биринчи ишке киргизүү sihirbaz ilk başlangıç usta birinchi ishga tushirish",
+        // 2026-11-20 (владелец: «где импорт из других программ?»): «Перенос данных» — слова поиска на 5 языках.
+        ["MiTransferData"] = "перенос данных импорт загрузка товаров из файла 1с мойсклад moysklad poster loyverse paloma umag excel csv import transfer migrate load products которуу жүктөө импорт aktarım içe aktar yükle ko'chirish yuklash import fayl файл",
         ["MiTrainingSale"] = "учебная продажа учебный режим обучение тренировка помощь training sale practice demo окуу сатуу режим eğitim satışı o'quv sotuvi",
         ["MiCashOperation"] = "внесение изъятие деньги касса наличные cash in out акча салуу алуу nakit kirim chiqim pul",
         ["MiFindCloseShift"] = "закрыть смену смена close shift сменаны жабуу vardiya kapat smena yopish",

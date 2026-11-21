@@ -24,6 +24,12 @@ public enum ProductImportField
     Brand,
     /// <summary>2026-10-30: «Доп. штрихкоды» — несколько значений через ; , пробел | или перенос строки.</summary>
     AltBarcodes,
+    /// <summary>2026-11-20: «Штрихкод упаковки/пачки/коробки» — доп. код с количеством штук (товар приходит пачкой, продаётся поштучно). Добавлено в конец: память сопоставлений хранит поля по имени.</summary>
+    PackBarcode,
+    /// <summary>2026-11-20: «Штук в упаковке» — сколько штук в пачке с кодом из «Штрихкод упаковки» (в сервере это quantity варианта доп. штрихкода).</summary>
+    PackQty,
+    /// <summary>2026-11-20: «Название варианта» доп. штрихкода (упаковки).</summary>
+    AltName,
 }
 
 /// <summary>2026-10-30: насколько автоподбор уверен в столбце (для подсветки спорных в окне).</summary>
@@ -108,6 +114,9 @@ public sealed class ProductImportMapping
         ProductImportField.Weight => Tr.T("Весовой", "Весовой", "By weight", "Tartılı", "Vaznli"),
         ProductImportField.Article => Tr.T("Артикул", "Артикул", "Article", "Ürün kodu", "Artikul"),
         ProductImportField.AltBarcodes => Tr.T("Доп. штрихкоды", "Кошумча штрих-коддор", "Extra barcodes", "Ek barkodlar", "Qo'shimcha shtrix-kodlar"),
+        ProductImportField.PackBarcode => Tr.T("Штрихкод упаковки", "Куту штрих-коду", "Pack barcode", "Paket barkodu", "Qadoq shtrix-kodi"),
+        ProductImportField.PackQty => Tr.T("Штук в упаковке", "Куттагы даана саны", "Pieces in pack", "Paketteki adet", "Qadoqdagi dona soni"),
+        ProductImportField.AltName => Tr.T("Название варианта", "Вариант аталышы", "Variant name", "Varyant adı", "Variant nomi"),
         _ => Tr.T("Бренд", "Бренд", "Brand", "Marka", "Brend"),
     };
 
@@ -122,6 +131,14 @@ public sealed class ProductImportMapping
         [ProductImportField.AltBarcodes] = ["допштрихкоды", "допштрихкод", "допшк", "дополнительныештрихкоды", "дополнительныйштрихкод", "альтернативныештрихкоды",
             "альтернативныйштрихкод", "altbarcodes", "altbarcode", "alternatebarcodes", "alternatebarcode", "additionalbarcodes", "extrabarcodes", "ekbarkodlar",
             "кошумчаштрихкоддор", "qoshimchashtrixkodlar", "штрихкоддоп", "допкод", "допкоды"],
+        // 2026-11-20: доп. код-упаковка: «Штрихкод упаковки/пачки/коробки», «Штук в упаковке/Фасовка/Pack/Multiplicity», «Название варианта».
+        [ProductImportField.PackBarcode] = ["штрихкодупаковки", "штрихкодпачки", "штрихкодкоробки", "штрихкодблока", "штрихкодупаковка", "штрихкодкоробка", "штрихкодпачка", "шкупаковки",
+            "шкпачки", "шккоробки", "кодупаковки", "кодпачки", "кодкоробки", "упаковочныйштрихкод", "packbarcode", "boxbarcode", "casebarcode", "cartonbarcode", "packagebarcode",
+            "кутуштрихкоду", "пакетштрихкоду", "paketbarkodu", "kolibarkodu", "kutubarkodu", "qadoqshtrixkodi", "qadoqshtrixkod"],
+        [ProductImportField.PackQty] = ["штуквупаковке", "штукупаковке", "штуквпачке", "штуквкоробке", "вупаковке", "колвовупаковке", "количествовупаковке", "колвоупаковке", "фасовка",
+            "кратность", "коэффициент", "коэфициент", "pack", "packqty", "packquantity", "packsize", "multiplicity", "qtyinpack", "qtyperpack", "itemsperpack", "piecesperpack", "unitsperpack",
+            "кутудагыдаанасаны", "пакеттегидаанасаны", "paketteadet", "paketteki", "qadoqdagidonasoni", "qadoqdagisoni"],
+        [ProductImportField.AltName] = ["названиеварианта", "названиедопштрихкода", "названиедопшк", "названиеупаковки", "вариант", "variantname", "altname", "packname", "вариантаталышы", "varyantadi", "variantnomi"],
         [ProductImportField.Name] = ["название", "наименование", "товар", "имя", "name", "продукт", "product", "номенклатура", "названиетовара", "наименованиетовара",
             "аталышы", "аты", "товардунаталышы", "nomi", "nom", "mahsulotnomi", "mahsulot", "ürünadı", "ürünadi", "ürün", "urunadi", "ad", "title"],
         [ProductImportField.Quantity] = ["количество", "колво", "кол", "qty", "quantity", "остаток", "остатки", "приход", "штук", "саны", "сан", "miktar", "soni", "miqdor",
@@ -134,12 +151,12 @@ public sealed class ProductImportMapping
             "прайс", "розничная", "рознцена", "ценапрайс", "продажная", "продажнаяцена"],
         [ProductImportField.Markup] = ["наценка", "наценкапроцент", "процентнаценки", "markup", "маржа", "үстөк", "үстөкакы", "ustama", "kârmarjı", "karmarji", "margin"],
         [ProductImportField.Category] = ["категория", "категории", "группа", "группатовара", "категориятовара", "раздел", "category", "group", "санат", "категориясы", "топ",
-            "kategori", "kategoriya", "toifa", "guruh"],
+            "kategori", "kategoriya", "toifa", "guruh", "группы", "родитель", "родительскаягруппа", "номенклатурнаягруппа", "товарнаягруппа", "категориятовара", "categoryname", "подгруппа"],
         [ProductImportField.Unit] = ["единица", "ед", "едизм", "единицаизмерения", "единицы", "едизмерения", "unit", "uom", "өлчөмбирдиги", "өлчөм", "бирдик", "birim",
             "birlik", "олчовбирлиги", "бирдиги", "олчөмбирдиги", "olchovbirligi", "oʻlchovbirligi", "olchov", "unitofmeasure", "measure", "еденицаизмерения", "единицаизм", "изм"],
         [ProductImportField.Weight] = ["весовой", "весовойтовар", "весовые", "isweight", "weight", "weighted", "weighable", "byweight", "tartılı", "tartili", "vaznli"],
         [ProductImportField.Article] = ["артикул", "art", "код", "кодтовара", "article", "sku", "артикултовара", "kod", "ürünkodu", "urunkodu", "mahsulotkodi", "artikul"],
-        [ProductImportField.Brand] = ["бренд", "марка", "производитель", "brand", "изготовитель", "marka", "brend", "üretici", "ishlabchiqaruvchi"],
+        [ProductImportField.Brand] = ["бренд", "марка", "производитель", "brand", "изготовитель", "marka", "brend", "üretici", "ishlabchiqaruvchi", "торговаямарка", "manufacturer", "vendor", "brandname", "названиебренда", "фирма"],
     };
 
     // Частичное совпадение (ключ заголовка СОДЕРЖИТ слово). Порядок полей важен: сначала более «узкие» (закупка до продажи,
@@ -149,13 +166,17 @@ public sealed class ProductImportMapping
         (ProductImportField.Purchase, ["закупк", "закупочн", "себестоим", "purchase", "costprice", "сатыпалуу", "alışfiyat", "alisfiyat", "xarid", "входящ", "входн", "ценаприход"]),
         (ProductImportField.Markup, ["наценк", "markup", "ustama", "үстөк"]),
         (ProductImportField.Sale, ["ценапродаж", "продажн", "розничн", "розниц", "saleprice", "retail", "сатуубаас", "satışfiyat", "satisfiyat", "sotuvnarx", "ценареализ"]),
+        // 2026-11-20: «упаковк/пачк/коробк» раньше «штрихкод» и «количеств»: «Штрихкод упаковки» — не основной код, «Кол-во в упаковке» — не остаток.
+        (ProductImportField.PackBarcode, ["штрихкодупаков", "штрихкодпачк", "штрихкодкоробк", "штрихкодблок", "шкупаков", "packbarcode", "boxbarcode", "casebarcode", "paketbarkod", "kolibarkod", "qadoqshtrix"]),
+        (ProductImportField.PackQty, ["вупаковке", "впачке", "вкоробке", "фасовк", "multiplicity", "packqty", "packsize", "qtyinpack", "qtyperpack", "itemsperpack", "piecesperpack", "paketteadet", "кратност"]),
+        (ProductImportField.AltName, ["названиеварианта", "названиедопштрихкод", "названиеупаковк", "variantname", "altname", "packname"]),
         (ProductImportField.AltBarcodes, ["допштрихкод", "допшк", "дополнительныештрихкод", "дополнительныйштрихкод", "альтернативныештрихкод", "alternatebarcode", "altbarcode",
             "additionalbarcode", "extrabarcode", "ekbarkod", "кошумчаштрих", "qoshimchashtrix"]),
         (ProductImportField.Barcode, ["штрихкод", "barcode", "barkod", "shtrixkod"]),
         (ProductImportField.Quantity, ["количеств", "колво", "quantity", "остаток", "саны", "miktar", "miqdor"]),
         (ProductImportField.Category, ["категори", "групп", "category", "санат", "kategori", "toifa", "guruh"]),
         (ProductImportField.Unit, ["единиц", "едизм", "өлчөм", "birim", "birlik", "бирдик"]),
-        (ProductImportField.Brand, ["бренд", "brand", "производител", "marka", "brend"]),
+        (ProductImportField.Brand, ["бренд", "brand", "производител", "marka", "brend", "торговаямарка", "manufacturer", "vendor"]),
         (ProductImportField.Weight, ["весов"]),
         (ProductImportField.Article, ["артикул", "article", "кодтовара", "artikul"]),
         (ProductImportField.Name, ["название", "наименование", "номенклатура", "аталышы", "productname", "mahsulotnomi", "ürünadı", "nomi"]),

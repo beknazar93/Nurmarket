@@ -386,7 +386,7 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
         Grid.SetColumn(attach, 1);
         inputRow.Children.Add(attach);
         _attachRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(4, 6, 0, 2), IsVisible = false };
-        composer.Child = new StackPanel { Children = { _attachRow, inputRow } };
+        composer.Child = new StackPanel { Children = { _attachRow, BuildVariantBar(), inputRow } }; // 2026-11-20: «Команда ИИ» (вкусы в один товар) над строкой ввода, пока приложена накладная
         Grid.SetRow(composer, 3);
         _root.Children.Add(composer);
         _composer = composer;
@@ -669,6 +669,16 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
         AddBubble(image is null ? question : "📎 " + imageName + "\n" + question, fromOwner: true);
         // 2026-11-05: команда смены языка («отвечай по-кыргызски», «переведи на русский») — выполняет программа, в ИИ не уходит.
         if (image is null && TryHandleLanguageCommand(question))
+        {
+            _busy = false;
+            RefreshKeyCard();
+            SaveCurrentChat();
+            ScrollToEnd();
+            _input.Focus();
+            return;
+        }
+        // 2026-11-20: «объединяй вкусы в один товар» / «не объединяй» / «бренд — Асу» — настройка «Команда ИИ» для накладных; только команда — в ИИ не уходит, с фото накладной — применяется и запрос идёт дальше.
+        if (TryHandleVariantCommand(question, image is not null))
         {
             _busy = false;
             RefreshKeyCard();

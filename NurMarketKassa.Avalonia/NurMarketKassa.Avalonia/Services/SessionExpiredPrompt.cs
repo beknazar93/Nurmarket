@@ -80,6 +80,9 @@ public static class SessionExpiredPrompt
         // Окно уже открыто (или сессия за это время восстановлена) — второй раз не спрашиваем.
         if (!SessionExpiryMonitor.IsExpired)
             return;
+        // 2026-11-20: вход потерян, потому что тариф не пускает этот клиент (403 plan_client_not_allowed) — об этом уже говорит окно «Тариф» (PlanBlockPrompt); второй вопрос поверх него не нужен.
+        if (PlanBlockMonitor.RecentClientBlock || PlanBlockPrompt.IsShowing)
+            return;
         // 2026-11-06 (Б-8): открыт фоновый анонс («Просрочка при продаже» и т. п.) — две модалки сразу не показываем: вопрос откладывается на несколько секунд (не теряется) и появится сразу после закрытия анонса.
         if (ModalAnnouncements.BackgroundOpen)
         {

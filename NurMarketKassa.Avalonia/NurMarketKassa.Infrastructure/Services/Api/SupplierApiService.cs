@@ -62,7 +62,9 @@ public sealed record SupplierPurchaseLine(string Id, string ProductName, double 
 /// <summary>Строка прихода (suppliers/receipts/{id}/ → items).</summary>
 public sealed record SupplierReceiptLine(string Id, string ProductId, string ProductName, string Code, double Qty, double PurchasePrice, double ReturnedQty, string Unit,
     // 2026-10-30 (нумерация и наценка в накладной): серверные поля строки, если сервер их начнёт отдавать (ТЗ Умару, пункт 13); сейчас null.
-    double? MarkupPercent = null, double? SalePrice = null, double? PreviousSalePrice = null);
+    double? MarkupPercent = null, double? SalePrice = null, double? PreviousSalePrice = null,
+    // 2026-11-21 (ответ Умара): у строк suppliers/receipts/<id>/ есть поле barcode — основной штрихкод товара (колонка «Штрихкод»); null — сервер не прислал (старый).
+    string? Barcode = null);
 
 /// <summary>Приход от поставщика (GET suppliers/receipts/). Способа оплаты в приходе сервер не отдаёт (вопрос бэкенду 6.8).</summary>
 public sealed record SupplierReceipt(
@@ -911,7 +913,8 @@ public sealed class SupplierApiService
         var lines = items.Select(i => new SupplierReceiptLine(Str(i, "id"), Str(i, "product_id") is { Length: > 0 } pid ? pid : Str(i, "product"), Str(i, "product_name"),
             Str(i, "product_code"), Num(i, "qty"), Num(i, "purchase_price"), Num(i, "returned_qty"), Str(i, "unit"),
             Has(i, "markup_percent") ? Num(i, "markup_percent") : null, Has(i, "sale_price") ? Num(i, "sale_price") : null,
-            Has(i, "previous_sale_price") ? Num(i, "previous_sale_price") : null)).ToList();
+            Has(i, "previous_sale_price") ? Num(i, "previous_sale_price") : null,
+            Str(i, "barcode") is { Length: > 0 } lineBarcode ? lineBarcode : null)).ToList();
         var comment = Str(x, "comment") is { Length: > 0 } c1 ? c1 : Str(x, "note") is { Length: > 0 } c2 ? c2 : Str(x, "description");
         return new SupplierReceipt(Str(x, "id"), Str(x, "supplier_id"), Str(x, "supplier_name"), Str(x, "created_by_name"), Date(Str(x, "created_at")),
             Has(x, "items_count") ? (int)Num(x, "items_count") : lines.Count, Num(x, "total_amount"), Num(x, "returned_amount"), lines,

@@ -129,7 +129,7 @@ public sealed class MarketSphereLockTests : IDisposable
             // Новое назначение (новая метка) — точная сфера «Хозтовары»: база grocery + detail hardware.
             MarketSphereLock.ApplyFromCompanyDoc(Doc("{\"SupportMarketSphere\":\"{\\\"sphere\\\":\\\"hardware\\\",\\\"stamp\\\":\\\"s2\\\"}\"}")).Should().BeTrue();
             p.MarketSphere.Should().Be(MarketSpheres.Grocery);
-            p.MarketSphereDetail.Should().Be(MarketSpheres.Hardware);
+            p.MarketSphereDetail.Should().Be(HardwareProfile.StroymagId, "2026-11-20: старое hardware = Строймаг, сохраняется новый id");
             MarketSpheres.IsHardware.Should().BeTrue();
         }
         finally

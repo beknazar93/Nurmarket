@@ -82,17 +82,20 @@ public sealed class NotConnectedFiscalProvider : IFiscalProvider
 
     public bool IsConnected => false;
 
+    /// <summary>2026-11-20: текст отказа зависит от режима — при «пробивает сервер» локальная ККМ не нужна, «ожидается документация Telemedia» пользователя не пугает.</summary>
+    public static string FailText => FiscalSettings.ServerFiscalizes ? FiscalFormRules.ServerFiscalizesText : NotConnectedText;
+
     public Task<FiscalResult> SaleAsync(FiscalReceiptRequest request, CancellationToken ct = default) =>
-        Task.FromResult(FiscalResult.Fail(ErrorCode, NotConnectedText, retryable: true));
+        Task.FromResult(FiscalResult.Fail(ErrorCode, FailText, retryable: true));
 
     public Task<FiscalResult> ReturnAsync(FiscalReceiptRequest request, CancellationToken ct = default) =>
-        Task.FromResult(FiscalResult.Fail(ErrorCode, NotConnectedText, retryable: true));
+        Task.FromResult(FiscalResult.Fail(ErrorCode, FailText, retryable: true));
 
     public Task<FiscalShiftResult> ShiftAsync(FiscalShiftAction action, CancellationToken ct = default) =>
-        Task.FromResult(FiscalShiftResult.Fail(ErrorCode, NotConnectedText));
+        Task.FromResult(FiscalShiftResult.Fail(ErrorCode, FailText));
 
     public Task<FiscalReportResult> ReportAsync(FiscalReportKind kind, CancellationToken ct = default) =>
-        Task.FromResult(FiscalReportResult.Fail(ErrorCode, NotConnectedText));
+        Task.FromResult(FiscalReportResult.Fail(ErrorCode, FailText));
 }
 
 /// <summary>2026-11-14: текущий провайдер ККМ. По умолчанию — заглушка «ЭККМ не подключена». Реализацию eKassa подставляют один раз при запуске (Ф1).</summary>

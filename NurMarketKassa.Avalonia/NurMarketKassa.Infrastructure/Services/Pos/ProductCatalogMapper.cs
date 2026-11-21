@@ -240,6 +240,21 @@ namespace NurMarketKassa.Services
                 }
             }
 
+            // 2026-11-20 (обход кассы, п. 24): признак «есть размеры/цвета», если сервер его отдаёт (ТЗ Умару: has_variants в списке товаров) —
+            // фоновый обход вариантов не спрашивает товары без вариантов. Нет поля — ничего не известно, обход как раньше.
+            // 2026-11-21 (ответ Умара 21.11, п. B): has_variants (bool) и variants_count (число АКТИВНЫХ вариантов) есть в products/list/ и products/changes; остаток варианта обновляет updated_at товара.
+            // Читаем оба: variants_count = 0 тоже значит «вариантов нет», если has_variants не пришёл. Признак — в карточку плитки (только память: колонки в базе кассы нет) и в ProductVariantCache.
+            bool? hasVariants = null;
+            if (JsonProps.TryGet(p, props, "has_variants", out var hvEl) && hvEl.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                hasVariants = hvEl.GetBoolean();
+            if (JsonProps.TryGet(p, props, "variants_count", out var vcEl) && TryGetDouble(vcEl, out var vcVal) && vcVal >= 0 && vcVal < 100000)
+            {
+                vm.ServerVariantsCount = (int)vcVal;
+                hasVariants ??= vcVal > 0;
+            }
+            vm.ServerHasVariants = hasVariants;
+            if (hasVariants is not null)
+                ProductVariantCache.NoteServerFlag(vm.Id, hasVariants); // нет полей (сокращённая карточка, поиск, старый сервер) — ничего не трогаем, обход как раньше
             if (JsonProps.TryGet(p, props, "is_favorite", out var favEl) &&
                 favEl.ValueKind is JsonValueKind.True or JsonValueKind.False)
             {

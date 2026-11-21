@@ -71,6 +71,14 @@ public sealed record SphereProfile
     /// <summary>Плитка сферы показывается в окне первого запуска и в Настройках. По умолчанию ВЫКЛ: профиль сам объявляет, что готов к выбору
     /// (три базовые и hardware — да); у скрытых выбор только через техподдержку (MarketSphereLock).</summary>
     public bool ChoiceVisible { get; init; }
+
+    // 2026-11-20 (решение владельца: Хозмаг и Строймаг — две сферы на одной серверной базе grocery): признаки профиля вместо проверок «id == hardware».
+    /// <summary>Семейство «Хозмаг / Строймаг» (общая основа: упаковки, фасовка, дробные единицы, калькулятор). Для остальных сфер false.</summary>
+    public bool HardwareFamily { get; init; }
+    /// <summary>«Смета» доступна без Маркетплейса — только Строймаг (в остальных сферах включается модулем).</summary>
+    public bool HasEstimate { get; init; }
+    /// <summary>Прокат включён по умолчанию — только Строймаг (в остальных сферах — модулем Маркетплейса или если прокат уже есть).</summary>
+    public bool HasRentalsByDefault { get; init; }
 }
 
 /// <summary>
@@ -92,7 +100,7 @@ public static class SphereCatalog
         {
             Id = MarketSpheres.Grocery,
             BaseBehavior = MarketSpheres.Grocery,
-            Title = new L5("Продукты", "Азык-түлүк", "Grocery", "Market (gıda)", "Oziq-ovqat"),
+            Title = new L5("Продуктовый", "Азык-түлүк", "Grocery", "Market (gıda)", "Oziq-ovqat"), // 2026-11-20: «Продуктовый» — как просил владелец
             ShortTitle = new L5("Продукты", "Азык-түлүк", "Grocery", "Market (gıda)", "Oziq-ovqat"),
             Description = new L5("Продуктовый магазин, супермаркет: весы и весовые товары, быстрые продажи.",
                 "Азык-түлүк дүкөнү, супермаркет: таразалар жана салмактуу товарлар, тез сатуу.",
@@ -106,13 +114,14 @@ public static class SphereCatalog
         {
             Id = MarketSpheres.Clothing,
             BaseBehavior = MarketSpheres.Clothing,
-            Title = new L5("Одежда, обувь и похожие", "Кийим, бут кийим жана ушул сыяктуулар", "Clothing, shoes and similar", "Giyim, ayakkabı ve benzeri", "Kiyim, poyabzal va shunga o'xshash"),
+            Title = new L5("Магазин одежды", "Кийим дүкөнү", "Clothing store", "Giyim mağazası", "Kiyim do'koni"), // 2026-11-20: название плитки по решению владельца (обувь и похожие — в описании)
             ShortTitle = new L5("Одежда", "Кийим", "Clothing", "Giyim", "Kiyim"),
-            Description = new L5("Размеры и цвета, этикетки размеров, обмен по закону, консультант, прокат.",
-                "Өлчөмдөр жана түстөр, өлчөм этикеткалары, мыйзам боюнча алмаштыруу, консультант, прокат.",
-                "Sizes and colours, size labels, legal exchange, consultant, rentals.",
-                "Beden ve renkler, beden etiketleri, yasal değişim, danışman, kiralama.",
-                "O'lcham va ranglar, o'lcham yorliqlari, qonun bo'yicha almashtirish, maslahatchi, prokat."),
+            // 2026-11-20: прокат по умолчанию только в Строймаге (решение владельца) — в описании не обещаем, он ставится из Маркетплейса.
+            Description = new L5("Одежда, обувь и похожие. Размеры и цвета, этикетки размеров, обмен по закону, консультант. Прокат — в Маркетплейсе",
+                "Кийим, бут кийим жана ушул сыяктуулар. Өлчөмдөр жана түстөр, өлчөм этикеткалары, мыйзам боюнча алмаштыруу, консультант. Прокат — Маркетплейсте",
+                "Clothing, shoes and similar. Sizes and colours, size labels, legal exchange, consultant. Rentals — in the Marketplace",
+                "Giyim, ayakkabı ve benzeri. Beden ve renkler, beden etiketleri, yasal değişim, danışman. Kiralama — Pazaryeri'nde",
+                "Kiyim, poyabzal va shunga o'xshash. O'lcham va ranglar, o'lcham yorliqlari, qonun bo'yicha almashtirish, maslahatchi. Prokat — Marketplace'da"),
             Icon = "👕",
             ChoiceVisible = true,
             ShowVariants = true,
@@ -123,39 +132,58 @@ public static class SphereCatalog
             BaseBehavior = MarketSpheres.Services,
             Title = new L5("Услуги", "Кызматтар", "Services", "Hizmetler", "Xizmatlar"),
             ShortTitle = new L5("Услуги", "Кызматтар", "Services", "Hizmetler", "Xizmatlar"),
-            Description = new L5("Салон, ремонт, прокат: услуги без остатка на складе, прокат вещей.",
-                "Салон, оңдоо, прокат: кампада калдыгы жок кызматтар, буюмдарды прокатка берүү.",
-                "Salon, repair, rentals: services without stock, item rentals.",
-                "Salon, tamir, kiralama: stoksuz hizmetler, eşya kiralama.",
-                "Salon, ta'mirlash, prokat: omborda qoldiqsiz xizmatlar, buyumlarni prokatga berish."),
+            // 2026-11-20: то же — прокат вещей теперь модуль Маркетплейса.
+            Description = new L5("Салон, ремонт: услуги без остатка на складе. Прокат вещей — в Маркетплейсе",
+                "Салон, оңдоо: кампада калдыгы жок кызматтар. Буюмдарды прокатка берүү — Маркетплейсте",
+                "Salon, repair: services without stock. Item rentals — in the Marketplace",
+                "Salon, tamir: stoksuz hizmetler. Eşya kiralama — Pazaryeri'nde",
+                "Salon, ta'mirlash: omborda qoldiqsiz xizmatlar. Buyumlarni prokatga berish — Marketplace'da"),
             Icon = "🛠",
             ChoiceVisible = true,
         });
 
         // ХМ1: профиль «Хозтовары и стройматериалы» — одна строка регистрации.
-        Add(HardwareProfile.Create());
+        Add(HardwareProfile.CreateHozmag());   // 2026-11-20: «Хозмаг» (hozmag) — без Сметы и проката по умолчанию
+        Add(HardwareProfile.CreateStroymag()); // 2026-11-20: «Строймаг» (stroymag) — всё как было у hardware
+        Add(BazaarProfile.Create()); // 2026-11-20: «Базар» (bazaar) — каркас: розница / опт внутри сферы
         Add(StationeryProfile.Create()); // 2026-11-12: КТ1 — «Канцтовары и книги»
         Add(ElectronicsProfile.Create()); // 2026-11-12: ЭЛ1 — «Электроника и техника»
         Add(AutoPartsProfile.Create()); // 2026-11-20: АЗ1 — «Автозапчасти и автотовары»
         return map;
     }
 
-    /// <summary>2026-11-12 (ХМ14): профили для плиток выбора (окно первого запуска и Настройки): сначала три базовые в прежнем порядке,
-    /// потом остальные с <see cref="SphereProfile.ChoiceVisible"/> по id.</summary>
+    /// <summary>2026-11-20 (решение владельца): порядок плиток выбора — главные шесть (Продуктовый, Хозмаг, Строймаг, Магазин одежды, Магазин электроники, Базар),
+    /// потом «Другие» (<see cref="OtherIds"/>: Автозапчасти, Канцтовары, Услуги).</summary>
+    public static readonly string[] MainIds =
+        { MarketSpheres.Grocery, HardwareProfile.HozmagId, HardwareProfile.StroymagId, MarketSpheres.Clothing, ElectronicsProfile.Id, BazaarProfile.Id };
+    public static readonly string[] OtherIds = { AutoPartsProfile.Id, StationeryProfile.Id, MarketSpheres.Services };
+
+    /// <summary>2026-11-12 (ХМ14): профили для плиток выбора (окно первого запуска и Настройки). 2026-11-20: порядок задан <see cref="MainIds"/> + <see cref="OtherIds"/>,
+    /// потом (на будущее) любые другие профили с <see cref="SphereProfile.ChoiceVisible"/> по id.</summary>
     public static IReadOnlyList<SphereProfile> ChoiceList()
     {
-        var baseIds = new[] { MarketSpheres.Grocery, MarketSpheres.Clothing, MarketSpheres.Services };
-        var list = baseIds.Select(Get).ToList();
-        list.AddRange(ById.Values.Where(p => p.ChoiceVisible && !baseIds.Contains(p.Id)).OrderBy(p => p.Id, StringComparer.Ordinal));
+        var fixedIds = MainIds.Concat(OtherIds).ToArray();
+        var list = fixedIds.Select(Get).Where(p => p.ChoiceVisible).ToList();
+        list.AddRange(ById.Values.Where(p => p.ChoiceVisible && !fixedIds.Contains(p.Id)).OrderBy(p => p.Id, StringComparer.Ordinal));
         return list;
     }
+
+    /// <summary>2026-11-20: прежние / серверные значения точной сферы → id текущего профиля. Старое «hardware» (одна сфера «Хозтовары и стройматериалы») —
+    /// это Строймаг: у таких компаний Смета, прокат и уровни цен остаются без потерь. bazaar_retail / bazaar_wholesale (значения market_profile из ТЗ) — профиль «Базар»
+    /// (режим розница / опт хранится в SphereSettings). Сохранённая строка в настройках не переписывается — читается через <see cref="TryGet"/>.</summary>
+    private static string CanonicalId(string id) => id switch
+    {
+        HardwareProfile.Id => HardwareProfile.StroymagId,
+        BazaarProfile.RetailDetail or BazaarProfile.WholesaleDetail => BazaarProfile.Id,
+        _ => id,
+    };
 
     /// <summary>Все известные профили (порядок не гарантируется).</summary>
     public static IReadOnlyCollection<SphereProfile> All => ById.Values;
 
     /// <summary>Профиль по точному id (регистр важен) или null, если такого id в каталоге нет.</summary>
     public static SphereProfile? TryGet(string? id) =>
-        id is not null && ById.TryGetValue(id, out var p) ? p : null;
+        id is not null && ById.TryGetValue(CanonicalId(id), out var p) ? p : null;
 
     /// <summary>Профиль по id; неизвестный id → grocery (поведение «Продуктов», значение не теряется — его хранит вызывающий).</summary>
     public static SphereProfile Get(string? id) => TryGet(id) ?? ById[MarketSpheres.Grocery];

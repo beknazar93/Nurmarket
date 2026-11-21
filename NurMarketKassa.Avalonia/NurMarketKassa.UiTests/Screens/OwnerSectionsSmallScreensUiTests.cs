@@ -121,7 +121,6 @@ public sealed class OwnerSectionsSmallScreensUiTests : IDisposable
         yield return ("barcodes", () => new BarcodePrintSectionWindow());
         yield return ("calculator", () => new CalculatorWindow());
         yield return ("estimate", () => new EstimatesWindow());
-        yield return ("scales", () => new ScalesSectionWindow());
         yield return ("restock", () => Svc<RestockSuggestionsWindow>());
         yield return ("purchases", () => new PurchasesWindow());
         yield return ("suppliers", () => new SuppliersWindow());
@@ -177,16 +176,8 @@ public sealed class OwnerSectionsSmallScreensUiTests : IDisposable
                 modes.Add((btn.Name!.Replace("Tab", "").Replace("Button", ""), () => btn.RaiseEvent(new RoutedEventArgs(Button.ClickEvent))));
             }
         if (key == "settings" && w is PosSettingsWindow ps)
-            foreach (var tab in new[] { "screen", "print", "updates", "operations", "customization", "employees", "keys", "ai" })
+            foreach (var tab in new[] { "screen", "scales", "print", "updates", "operations", "customization", "employees", "keys", "ai" })
                 modes.Add(("настройки: " + tab, () => ps.SelectNavTab(tab)));
-        if (key == "scales")
-            foreach (var view in w.GetVisualDescendants().OfType<NurMarketKassa.AvaloniaHost.Views.Settings.ScaleSettingsView>().Take(1))
-                foreach (var n in new[] { 1, 2 })
-                {
-                    var v = view;
-                    var i = n;
-                    modes.Add(("весы: вкладка " + i, () => v.ShowSection(i)));
-                }
         if (key == "marketplace" && w is MarketplaceWindow mp)
             modes.Add(("доп. функции", () => mp.ShowExtrasTab()));
         return modes;

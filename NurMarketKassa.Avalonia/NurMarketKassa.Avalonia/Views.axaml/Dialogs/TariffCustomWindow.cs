@@ -22,6 +22,7 @@ public sealed class TariffCustomWindow : Window
         public required TextBlock Monthly { get; init; }
         public required TextBlock Once { get; init; }
         public required Border Active { get; init; }
+        public required TextBlock ActiveText { get; init; } // 2026-11-20: «уже подключено» или «Входит в ваш тариф»
     }
 
     private static string T(string ru, string ky, string en, string tr, string uz) => Tr.T(ru, ky, en, tr, uz);
@@ -36,6 +37,10 @@ public sealed class TariffCustomWindow : Window
     private readonly TextBlock _done = new() { FontSize = 14, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, IsVisible = false };
     private readonly Button _submit;
     private readonly Button _close;
+    private readonly Button _manager; // 2026-11-20: «Написать менеджеру» — только когда сервер отказал по тарифу (409)
+    private readonly string? _currentPlan; // название/код текущего тарифа компании (TariffGate.CurrentPlanName)
+    private string? _planCode;
+    private readonly HashSet<string> _included = new(StringComparer.OrdinalIgnoreCase); // пакеты, уже входящие в текущий тариф
     private readonly Dictionary<string, PackRow> _packRows = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _active = new(StringComparer.OrdinalIgnoreCase);
     private readonly DispatcherTimer _debounce = new() { Interval = TimeSpan.FromMilliseconds(350) };
@@ -57,21 +62,30 @@ public sealed class TariffCustomWindow : Window
     public bool CanSubmit => _submit.IsEnabled;
     public string? DoneText => _done.IsVisible ? _done.Text : null;
     public string? ErrorText => _error.IsVisible ? _error.Text : null;
+    public bool ManagerButtonVisible => _manager.IsVisible;
+    public bool IsIncluded(string code) => _included.Contains(code);
+    public string PackStatusText(string code) => _packRows.TryGetValue(code, out var r) && r.Active.IsVisible ? r.ActiveText.Text ?? "" : "";
+
+    /// <summary>Открыть чат менеджера (общий путь поддержки — номер из RemoteSupportHost.SupportPhone); для проверок подменяется.</summary>
+    public Func<string, bool> OpenChat { get; set; } = url => PlatformLauncher.OpenUrl(url);
+    public void ManagerClickForTest() => _manager.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
     public Task SubmitForTestAsync() => SubmitAsync();
     public Task QuoteForTestAsync() { _debounce.Stop(); return RequestQuoteAsync(); }
     public void SetChecked(string code, bool value) => _packRows[code].Box.IsChecked = value;
 
-    public TariffCustomWindow(ITariffApi api)
+    public TariffCustomWindow(ITariffApi api, string? currentPlan = null)
     {
         _api = api;
+        _currentPlan = currentPlan;
         Title = T("Тариф «Своё»", "«Өзүмдүкү» тарифи", "“Custom” plan", "«Özel» tarife", "«O'zimniki» tarifi");
         SectionCards.AsModal(this, 672);
 
-        _intro.Text = T("Соберите свой набор функций поверх «Старта». Отметьте нужные пакеты — цены считает сервер. Заявку обработает менеджер и свяжется с вами; платить сейчас ничего не нужно.",
-            "«Старттын» үстүнө өз функциялар топтомун чогултуңуз. Керектүү пакеттерди белгилеңиз — баасын сервер эсептейт. Өтүнүчтү менеджер иштетип, сиз менен байланышат; азыр эч нерсе төлөбөйсүз.",
-            "Build your own set of features on top of “Start”. Tick the packs you need — the server calculates the prices. A manager will process the request and contact you; nothing to pay now.",
-            "«Start» üzerine kendi özellik setinizi oluşturun. İhtiyacınız olan paketleri işaretleyin — fiyatları sunucu hesaplar. Talebi bir yönetici işleyip sizinle iletişime geçer; şimdi ödeme yapmanız gerekmez.",
-            "«Start» ustiga o'z funksiyalar to'plamingizni yig'ing. Kerakli paketlarni belgilang — narxni server hisoblaydi. Arizani menejer ko'rib chiqib, siz bilan bog'lanadi; hozir hech narsa to'lash shart emas.");
+        // 2026-11-20: «поверх вашего тарифа» (было «поверх Старта») — конструктор нужен и на «Стандарте»; доступность решает сервер.
+        _intro.Text = T("Соберите свой набор функций поверх вашего тарифа. Отметьте нужные пакеты — цены считает сервер. Заявку обработает менеджер и свяжется с вами; платить сейчас ничего не нужно.",
+            "Тарифиңиздин үстүнө өз функциялар топтомун чогултуңуз. Керектүү пакеттерди белгилеңиз — баасын сервер эсептейт. Өтүнүчтү менеджер иштетип, сиз менен байланышат; азыр эч нерсе төлөбөйсүз.",
+            "Build your own set of features on top of your plan. Tick the packs you need — the server calculates the prices. A manager will process the request and contact you; nothing to pay now.",
+            "Tarifenizin üzerine kendi özellik setinizi oluşturun. İhtiyacınız olan paketleri işaretleyin — fiyatları sunucu hesaplar. Talebi bir yönetici işleyip sizinle iletişime geçer; şimdi ödeme yapmanız gerekmez.",
+            "Tarifingiz ustiga o'z funksiyalar to'plamingizni yig'ing. Kerakli paketlarni belgilang — narxni server hisoblaydi. Arizani menejer ko'rib chiqib, siz bilan bog'lanadi; hozir hech narsa to'lash shart emas.");
         Soft(_intro);
         Soft(_info);
         _summary.Bind(TextBlock.ForegroundProperty, _summary.GetResourceObservable("BrushText"));
@@ -87,10 +101,15 @@ public sealed class TariffCustomWindow : Window
         _submit = SectionCards.Primary(T("Отправить заявку", "Өтүнүч жөнөтүү", "Send request", "Talep gönder", "Ariza yuborish"));
         _submit.IsEnabled = false;
         _submit.Click += async (_, _) => await SubmitAsync().ConfigureAwait(true);
+        _manager = SectionCards.Cancel(T("Написать менеджеру", "Менеджерге жазуу", "Message the manager", "Yöneticiye yaz", "Menejerga yozish"));
+        _manager.IsCancel = false; // Esc закрывает окно кнопкой «Закрыть», не эту
+        _manager.IsVisible = false;
+        _manager.HorizontalAlignment = HorizontalAlignment.Left;
+        _manager.Click += (_, _) => OpenManagerChat();
 
         Content = SectionCards.Shell(Title, null,
             // 2026-11-08: итог и результат — над списком: на 1024×600 список прокручивается, итог должен быть виден без прокрутки.
-            new StackPanel { Spacing = 10, Children = { _intro, _info, SectionCards.ErrorBox(this, _error), _done, summaryBox, _rows } },
+            new StackPanel { Spacing = 10, Children = { _intro, _info, SectionCards.ErrorBox(this, _error), _manager, _done, summaryBox, _rows } },
             SectionCards.Buttons(_close, _submit));
 
         _debounce.Tick += (_, _) =>
@@ -139,20 +158,28 @@ public sealed class TariffCustomWindow : Window
             }
 
             BuildRows(_catalog);
+            // 2026-11-20: пакеты, что уже входят в текущий тариф (например, в «Стандарт»), — «Входит в ваш тариф», в расчёт не уходят (считает сервер, касса только показывает).
+            _planCode = TariffCustomRules.ResolvePlanCode(_catalog, _currentPlan);
+            foreach (var pack in _catalog.Packs.Where(p => TariffCustomRules.IsIncludedInPlan(p, _planCode)))
+                MarkActive(pack.Code, included: true);
             _info.Text = "";
             _info.IsVisible = false;
             try
             {
                 // Один расчёт по всем пакетам — узнаём, какие уже подключены (already_active), и сразу проверяем, что тариф «Своё» этой компании доступен.
-                var all = await _api.QuoteAsync(_catalog.Packs.Select(p => p.Code).ToList()).ConfigureAwait(true);
-                foreach (var qp in all.Packs.Where(p => p.AlreadyActive))
-                    MarkActive(qp.Code);
+                var rest = _catalog.Packs.Select(p => p.Code).Where(c => !_included.Contains(c)).ToList();
+                if (rest.Count > 0)
+                {
+                    var all = await _api.QuoteAsync(rest).ConfigureAwait(true);
+                    foreach (var qp in all.Packs.Where(p => p.AlreadyActive))
+                        MarkActive(qp.Code);
+                }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 ShowError(TariffApi.Describe(ex));
                 if (ex is ApiException { StatusCode: 403 or 409 })
-                    Lock();
+                    Lock(ex is ApiException { StatusCode: 409 });
             }
 
             RenderSummary();
@@ -167,8 +194,22 @@ public sealed class TariffCustomWindow : Window
         }
     }
 
-    private void Lock()
+    /// <summary>2026-11-20: ссылка на чат WhatsApp менеджера с готовым текстом — тот же номер поддержки, что в окне удалённой помощи.</summary>
+    private void OpenManagerChat()
     {
+        var digits = new string(MarketSphereLock.SupportPhone.Where(char.IsDigit).ToArray()); // 2026-11-21: RemoteSupportHost не собирается на Android — тот же номер из MarketSphereLock
+        var text = T($"Здравствуйте! Хочу собрать тариф «Своё» на тарифе «{_currentPlan ?? "—"}», в программе пишет, что недоступно.",
+            $"Саламатсызбы! «Өзүмдүкү» тарифин «{_currentPlan ?? "—"}» тарифинде түзгүм келет, программа жеткиликсиз деп жазат.",
+            $"Hello! I want to build the “Custom” plan on the “{_currentPlan ?? "—"}” plan, the app says it is unavailable.",
+            $"Merhaba! «{_currentPlan ?? "—"}» tarifesinde «Özel» tarife oluşturmak istiyorum, uygulama kullanılamaz diyor.",
+            $"Assalomu alaykum! «{_currentPlan ?? "—"}» tarifida «O'zimniki» tarifini yig'moqchiman, dastur mavjud emas deydi.");
+        if (!OpenChat("https://wa.me/" + digits + "?text=" + Uri.EscapeDataString(text)))
+            ShowError(T("Не удалось открыть WhatsApp.", "WhatsApp'ты ачуу мүмкүн болгон жок.", "Could not open WhatsApp.", "WhatsApp açılamadı.", "WhatsApp'ni ochib bo'lmadi."));
+    }
+
+    private void Lock(bool offerManager = false)
+    {
+        _manager.IsVisible = offerManager;
         _locked = true;
         foreach (var row in _packRows.Values)
             row.Box.IsEnabled = false;
@@ -209,7 +250,7 @@ public sealed class TariffCustomWindow : Window
             grid.Children.Add(price);
             _rows.Children.Add(grid);
 
-            var row = new PackRow { Pack = pack, Box = box, Monthly = monthly, Once = once, Active = active };
+            var row = new PackRow { Pack = pack, Box = box, Monthly = monthly, Once = once, Active = active, ActiveText = activeText };
             _packRows[pack.Code] = row;
             ShowListPrice(row);
             box.IsCheckedChanged += (_, _) => OnSelectionChanged();
@@ -223,10 +264,15 @@ public sealed class TariffCustomWindow : Window
         row.Once.Text = T("+ ", "+ ", "+ ", "+ ", "+ ") + M(row.Pack.ActivationFee) + " " + T("разово", "бир жолу", "one-off", "tek sefer", "bir marta");
     }
 
-    private void MarkActive(string code)
+    private void MarkActive(string code, bool included = false)
     {
-        if (!_packRows.TryGetValue(code, out var row))
+        if (!_packRows.TryGetValue(code, out var row) || _included.Contains(code))
             return;
+        if (included)
+        {
+            _included.Add(code);
+            row.ActiveText.Text = T("Входит в ваш тариф", "Тарифиңизге кирет", "Included in your plan", "Tarifinize dahil", "Tarifingizga kiradi");
+        }
         _active.Add(row.Pack.Code);
         _suppress = true;
         row.Box.IsChecked = true;
@@ -298,7 +344,7 @@ public sealed class TariffCustomWindow : Window
             ShowError(TariffApi.Describe(ex));
             RenderSummary();
             if (ex is ApiException { StatusCode: 403 or 409 })
-                Lock();
+                Lock(ex is ApiException { StatusCode: 409 });
         }
     }
 
@@ -314,7 +360,8 @@ public sealed class TariffCustomWindow : Window
         }
 
         var q = _quote;
-        var baseName = _catalog?.Plan("start")?.Name ?? T("Старт", "Старт", "Start", "Start", "Start");
+        // 2026-11-20: основа — ваш тариф («Старт» или «Стандарт»); цифру основы даёт сервер (quote.base), касса её не считает.
+        var baseName = _catalog?.Plan(_planCode is "start" or "standard" ? _planCode : "start")?.Name ?? T("Старт", "Старт", "Start", "Start", "Start");
         var lines = new List<string>
         {
             T($"Основа ({baseName}): {M(q.Base)} в месяц", $"Негиз ({baseName}): айына {M(q.Base)}", $"Base ({baseName}): {M(q.Base)} a month", $"Temel ({baseName}): ayda {M(q.Base)}", $"Asos ({baseName}): oyiga {M(q.Base)}"),
@@ -324,7 +371,7 @@ public sealed class TariffCustomWindow : Window
         };
         _summary.Text = string.Join("\n", lines);
 
-        if (q.StandardCheaper)
+        if (q.StandardCheaper && !string.Equals(_planCode, "standard", StringComparison.OrdinalIgnoreCase)) // на «Стандарте» подсказка «Стандарт дешевле» бессмысленна
         {
             var standard = _catalog?.Plan("standard")?.Name ?? T("Стандарт", "Стандарт", "Standard", "Standart", "Standart");
             var price = q.StandardPrice is { } sp ? M(sp) : "";
@@ -382,7 +429,7 @@ public sealed class TariffCustomWindow : Window
             ShowError(TariffApi.Describe(ex) + (_attemptKey is null ? "" : "\n" + T("Можно нажать «Отправить заявку» ещё раз — заявка не задвоится.", "«Өтүнүч жөнөтүү» баскычын дагы бир жолу басса болот — өтүнүч эки эсе болбойт.",
                 "You can press “Send request” again — the request will not be duplicated.", "«Talep gönder»e tekrar basabilirsiniz — talep ikiye katlanmaz.", "«Ariza yuborish»ni yana bosish mumkin — ariza ikkilanmaydi.")));
             if (ex is ApiException { StatusCode: 403 or 409 })
-                Lock();
+                Lock(ex is ApiException { StatusCode: 409 });
         }
         finally
         {

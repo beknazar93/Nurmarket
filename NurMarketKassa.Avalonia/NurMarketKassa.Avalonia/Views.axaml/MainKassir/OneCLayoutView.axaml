@@ -228,7 +228,8 @@
                                         <DataTemplate x:DataType="vm:ReceiptTabVm">
                                             <Button Classes="onec-tab" Classes.active="{Binding IsActive}"
                                                     Command="{Binding SelectCommand}" CommandParameter="{Binding}">
-                                                <TextBlock Text="{Binding Title}" MaxWidth="220" TextTrimming="CharacterEllipsis"/>
+                                                <!-- 2026-11-20 (обход кассы, п. 22): сумма не обрезается, активная вкладка видна целиком. -->
+                                                <ctl:ReceiptTabLabel Text="{Binding Title}" IsActive="{Binding IsActive}"/>
                                             </Button>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>

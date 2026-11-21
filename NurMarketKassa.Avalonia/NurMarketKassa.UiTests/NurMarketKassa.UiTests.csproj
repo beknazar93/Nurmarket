@@ -39,6 +39,8 @@
     <Compile Include="..\NurMarketKassa.Tests\Wave1\ScenarioSupport.cs" Link="Linked\ScenarioSupport.cs" />
     <!-- 2026-11-20: мини-файл .xls для проверки выбора .xls в мастере «Массовая загрузка» -->
     <Compile Include="..\NurMarketKassa.Tests\Infrastructure\MiniXls.cs" Link="Linked\MiniXls.cs" />
+    <!-- 2026-11-21: заглушка сервера для окна «Объединение товаров» (общая с unit-тестами слияния) -->
+    <Compile Include="..\NurMarketKassa.Tests\Stock\FakeMergeServer.cs" Link="Linked\FakeMergeServer.cs" />
   </ItemGroup>
 
 </Project>

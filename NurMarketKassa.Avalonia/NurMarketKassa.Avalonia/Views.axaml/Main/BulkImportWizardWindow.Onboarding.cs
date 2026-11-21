@@ -55,6 +55,29 @@ public partial class BulkImportWizardWindow
         return new OnboardingResult(window._anyLoaded, window._demoRequested);
     }
 
+    /// <summary>2026-11-20: только для тестов — подмена права (кассир без «Склад: редактирование»); в программе всегда пусто.</summary>
+    public static Func<bool>? CanOpenTransferOverride { get; set; }
+
+    /// <summary>2026-11-20 (владелец: «где импорт из других программ?»): общее право на заметные входы «Перенос данных» (Настройки → Операции, меню ☰ кассы,
+    /// программа владельца, обучение) — то же, что у кнопки «Массовая загрузка» в складе: «Склад: редактирование» (владелец и администратор его имеют).</summary>
+    public static bool CanOpenTransfer()
+    {
+        if (CanOpenTransferOverride is { } probe)
+            return probe();
+        var permissions = App.AppHost?.Services is { } sp
+            ? Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetService<NurMarketKassa.Core.Contracts.IPermissionService>(sp)
+            : null;
+        return permissions is null || permissions.HasPermission(NurMarketKassa.Core.Contracts.PosPermissions.EditProducts);
+    }
+
+    /// <summary>2026-11-20: все новые входы открывают это же окно мастера: он один на программу (<see cref="_openWizard"/>), повторный вход лишь выводит его вперёд.</summary>
+    public static void OpenTransfer(Window? owner)
+    {
+        if (!CanOpenTransfer())
+            return;
+        Open(owner);
+    }
+
     private void InitOnboarding()
     {
         _demoBtn = SectionCards.Secondary(T("Посмотреть на примере", "Мисалда көрүү", "See an example", "Örnekte görün", "Misolda ko'rish"));
@@ -128,7 +151,7 @@ public partial class BulkImportWizardWindow
             ImportSourceProfiles.Apply(ImportSourceProfiles.All[idx - 1], _mapping, _table.Headers, _table);
         }
         _loadingFile = true;
-        _cardsCheck.IsChecked = !_mapping.HasQuantity;
+        SetCardsMode(!_mapping.HasQuantity);
         _loadingFile = false;
         BuildMappingChoices();
         UpdateSourceNote();

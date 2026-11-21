@@ -216,8 +216,8 @@ public sealed class FiscalUiTests : IDisposable
             save.Bounds.Height.Should().BeGreaterThanOrEqualTo(44, $"«Сохранить» ≥ 44 ({slug})");
             foreach (var name in new[] { "FiscalRegimeBox", "FiscalRatesBox", "FiscalNspBox" })
                 Find<TextBox>(window, name).Bounds.Height.Should().BeGreaterThanOrEqualTo(44, name);
-            TextOf(window, "FiscalProviderText").Should().Be(NotConnectedFiscalProvider.NotConnectedText);
-            TextOf(window, "FiscalProviderText").Should().Contain("Telemedia");
+            // 2026-11-20: «ожидается документация Telemedia» — только когда пробивает касса; в режиме «выключено» ККМ не нужна.
+            TextOf(window, "FiscalProviderText").Should().NotContain("Telemedia");
             TextOf(window, "FiscalModeText").Should().Be(FiscalFormRules.ModeText(FiscalMode.Off), "режим пока «выключено» — как у компании без фискализации");
 
             // Ввод и потеря фокуса — ничего не отправляют.
@@ -249,6 +249,58 @@ public sealed class FiscalUiTests : IDisposable
             TextOf(window, "FiscalSaveResult").Should().Be(Tr.T("Сохранено.", "Сакталды.", "Saved.", "Kaydedildi.", "Saqlandi."));
             Save(window, "settings-saved-" + slug);
             TextClipChecker.Find(window, "fiscal-settings", lang.ToString()).Should().BeEmpty($"текст не обрезан ({slug})");
+        }
+        finally
+        {
+            window.Close();
+            UiShot.Pump();
+        }
+    }
+
+    /// <summary>2026-11-20 (скриншот владельца, «Авангард Трейдинг»): в режиме «пробивает сервер» строка «ККМ» не показывает «ожидается документация Telemedia»; когда сервер отдаёт сведения
+    /// о ККМ — карточка «ККМ зарегистрирована на сервере» (ЗН, РН, ФМ, срок ФМ, ОФД, смена); ru, ky, uz на 1024×600; поля и подписи не налезают, текст не обрезан.</summary>
+    [AvaloniaTheory]
+    [InlineData(AppLanguage.Russian)]
+    [InlineData(AppLanguage.Kyrgyz)]
+    [InlineData(AppLanguage.Uzbek)]
+    public async Task Settings_card_server_mode_shows_server_kkm_not_the_local_stub(AppLanguage lang)
+    {
+        await TestHost.WarmAsync();
+        UiShot.Setup(UiTheme.Light, lang);
+        var slug = $"{(lang == AppLanguage.Kyrgyz ? "ky" : lang == AppLanguage.Uzbek ? "uz" : "ru")}-1024x600";
+        var card = new FiscalSettingsCard { ForceVisible = true, SkipServerRead = true };
+        var window = HostWindow(card, 1024, 600, cardWidth: 640);
+        try
+        {
+            // Сервер ещё не отдаёт сведений о ККМ: честная строка, без «Telemedia» и «ожидается».
+            var server = new FiscalCapabilities(true, FiscalMode.Server, true, "simplified", false, new[] { 0m, 12m }, 2m);
+            card.ShowForPreview(server);
+            UiShot.Render(window, new UiSize(1024, 600));
+            TextOf(window, "FiscalModeText").Should().Be(FiscalFormRules.ModeText(FiscalMode.Server));
+            TextOf(window, "FiscalProviderText").Should().Be(FiscalFormRules.ServerFiscalizesText).And.NotContain("Telemedia");
+            Find<Control>(window, "FiscalKkmDetails").IsVisible.Should().BeFalse("сервер сведений не отдал — ничего не выдумываем");
+            Save(window, "settings-server-nodata-" + slug);
+
+            // Сервер отдал сведения: ЗН, РН, ФМ, срок ФМ, ОФД, версия, смена.
+            var kkm = new FiscalKkmInfo("EK00044889", "0000000318879", "0000000002470706", "2029-11-18", "01102201510234", "2.0", true, "57");
+            card.ShowForPreview(server with { Kkm = kkm });
+            UiShot.Render(window, new UiSize(1024, 600));
+            UiShot.Settle(2);
+            TextOf(window, "FiscalProviderText").Should().NotBe(FiscalFormRules.ServerFiscalizesText).And.NotContain("Telemedia");
+            Find<Control>(window, "FiscalKkmDetails").IsVisible.Should().BeTrue();
+            TextOf(window, "FiscalKkmSerialText").Should().Be("EK00044889");
+            TextOf(window, "FiscalKkmRegText").Should().Be("0000000318879");
+            TextOf(window, "FiscalKkmFmText").Should().Be("0000000002470706");
+            TextOf(window, "FiscalKkmFmUntilText").Should().Be("18.11.2029");
+            TextOf(window, "FiscalKkmOfdText").Should().Be("01102201510234");
+            Save(window, "settings-server-kkm-" + slug);
+            TextClipChecker.Find(window, "fiscal-settings-server", lang.ToString()).Should().BeEmpty($"текст не обрезан ({slug})");
+
+            // Режим «пробивает касса» без локальной ККМ — и только он — ждёт документацию Telemedia.
+            card.ShowForPreview(server with { Mode = FiscalMode.Kassa, Kkm = null });
+            UiShot.Settle(2);
+            TextOf(window, "FiscalProviderText").Should().Be(NotConnectedFiscalProvider.NotConnectedText).And.Contain("Telemedia");
+            Find<Control>(window, "FiscalKkmDetails").IsVisible.Should().BeFalse();
         }
         finally
         {

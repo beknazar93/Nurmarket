@@ -12,6 +12,9 @@ public sealed class SupportRequestRecord
     public const string StatusSent = "sent";
     public const string StatusFailed = "failed";
     public const string StatusNotConfigured = "notconfigured";
+    /// <summary>2026-11-20: серверного канала поддержки нет — обращение открыто в WhatsApp на номер поддержки NurCRM с готовым текстом.
+    /// Старые записи «notconfigured» показываются так же.</summary>
+    public const string StatusWhatsApp = "whatsapp";
 
     public string Id { get; set; } = "";
     public DateTime CreatedAt { get; set; }
@@ -35,13 +38,19 @@ public static class SupportInfo
 {
     private const string FileName = "support-info.json";
 
-    public static string Hours() => Read("hours");
+    public static string Hours() => Read("hours") ?? Pending();
 
-    public static string ResponseTime() => Read("response");
+    public static string ResponseTime() => Read("response") ?? Pending();
+
+    /// <summary>2026-11-20: часы работы только если они заданы в support-info.json (иначе null — окно скрывает строку, а не пишет «уточняется»).</summary>
+    public static string? HoursOrNull() => Read("hours");
+
+    /// <summary>2026-11-20: срок первого ответа только если задан (иначе null).</summary>
+    public static string? ResponseTimeOrNull() => Read("response");
 
     private static string Pending() => Tr.T("уточняется", "тактала элек", "to be confirmed", "netleştiriliyor", "aniqlanmoqda");
 
-    private static string Read(string key)
+    private static string? Read(string key)
     {
         foreach (var dir in new[] { AppContext.BaseDirectory, DataDirectory })
         {
@@ -67,7 +76,7 @@ public static class SupportInfo
                 PosLogger.Log($"Поддержка: файл {FileName} не прочитан ({ex.GetType().Name}).", "WARNING");
             }
         }
-        return Pending();
+        return null;
     }
 
     private static string? PickLanguage(JsonElement obj)
@@ -272,13 +281,25 @@ public static class SupportRequestService
             error = ex.Message;
         }
         record.Error = error;
-        record.Status = error is null ? SupportRequestRecord.StatusSent
-            : error == SupportLogService.NotConfiguredMessage ? SupportRequestRecord.StatusNotConfigured
-            : SupportRequestRecord.StatusFailed;
+        record.Status = StatusFor(error);
         SupportRequestJournal.Save(record);
         PosLogger.Log($"Поддержка: обращение {record.Id} — {record.Status} (журнал {record.LogLines} строк, снимок {(record.WithScreenshot ? "да" : "нет")}).", "SUPPORT");
         return record;
     }
+
+    /// <summary>2026-11-20: статус по ответу канала. Бот не подключён — не тупик «канал не подключён», а WhatsApp с готовым текстом.</summary>
+    public static string StatusFor(string? error) =>
+        error is null ? SupportRequestRecord.StatusSent
+        : error == SupportLogService.NotConfiguredMessage ? SupportRequestRecord.StatusWhatsApp
+        : SupportRequestRecord.StatusFailed;
+
+    /// <summary>Обращение ушло (или готово уйти) через WhatsApp: новый статус и старый «notconfigured».</summary>
+    public static bool IsWhatsApp(SupportRequestRecord record) =>
+        record.Status is SupportRequestRecord.StatusWhatsApp or SupportRequestRecord.StatusNotConfigured;
+
+    /// <summary>2026-11-20: ссылка WhatsApp на номер поддержки NurCRM (тот же, что показан в «Тех. поддержка») с готовым текстом обращения.</summary>
+    public static string WhatsAppUrl(SupportRequestRecord record) =>
+        $"https://wa.me/{new string(MarketSphereLock.SupportPhone.Where(char.IsDigit).ToArray())}?text={Uri.EscapeDataString(BuildFallbackText(record))}";
 
     /// <summary>Текст для WhatsApp, когда бот не подключён или не дошёл: описание и сведения, без журнала.</summary>
     public static string BuildFallbackText(SupportRequestRecord record) =>

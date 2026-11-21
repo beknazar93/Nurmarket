@@ -253,6 +253,7 @@ public static class BulkCardsLoader
 
         result.AuthExpired = authExpired == 1;
         PartMetaStore.SaveIfDirty(); // 2026-11-20: данные запчастей прайса — на диск один раз в конце загрузки
+        AutoPartsImportLog.SaveIfDirty(); // 2026-11-20: журнал импорта (дефект А) — тоже в конце загрузки
         result.Created = created;
         result.Updated = updated;
         result.Failed = failed;
@@ -332,6 +333,9 @@ public static class BulkCardsLoader
                 Price = line.SalePrice,
                 MarkupPercent = ReceivingPricing.MarkupPercent(line.PurchasePrice, line.SalePrice),
                 AlternateBarcodes = row.AltFull.Count > 0 ? string.Join('\n', row.AltFull.Select(v => v.Barcode)) : null,
+                KnownAlternateBarcodeVariants = row.AltFull.Count > 0 ? row.AltFull.ToList() : null, // 2026-11-20: название варианта и штук в упаковке уходят в «alternate_barcodes» (name, quantity)
+                Article = row.Article, // 2026-11-20 (CT MAX): прежний служебный код у товара с внутренним штрихкодом
+                BrandName = row.Brand, // 2026-11-20: столбец «Бренд» файла (brand_name, как в карточке товара)
                 IsNew = true,
             };
             // 2026-11-20: прайс автозапчастей — бренд, артикул (каталожный номер), attributes, ячейка и остаток уходят в тело создания (как у карточки товара).
@@ -357,12 +361,7 @@ public static class BulkCardsLoader
             // 2026-10-30 (приёмка 1.17.65): список из кэша каталога мог устареть — доп. штрихкод, добавленный на сайте позже, стирался. Перед записью
             // читаем карточку с сервера и шлём объединённый список: то, что уже на сервере, + новые из файла. (Только строки с доп. штрихкодами.)
             var merged = await MergeAlternatesAsync(row, api, ct, gate).ConfigureAwait(false);
-            fields["alternate_barcodes"] = merged.Select(v => (object)new Dictionary<string, object?>
-            {
-                ["barcode"] = v.Barcode,
-                ["name"] = v.Name ?? "",
-                ["quantity"] = v.Quantity,
-            }).ToArray();
+            fields["alternate_barcodes"] = InvoiceBarcodeRules.ToServerList(merged); // 2026-11-21 (ответ Умара): quantity целое > 0 или null, name ≤255, barcode ≤64
         }
         // 2026-11-20: прайс автозапчастей — у существующего товара пишутся только изменившиеся бренд, номера, ячейка, остаток.
         var existingPart = row.Extra as AutoPartsRowData;
@@ -424,8 +423,16 @@ public static class BulkCardsLoader
             }
         }
         foreach (var v in planned)
-            if (!string.IsNullOrWhiteSpace(v.Barcode) && !merged.Any(m => SameCode(m.Barcode, v.Barcode)))
+        {
+            if (string.IsNullOrWhiteSpace(v.Barcode))
+                continue;
+            var at = merged.FindIndex(m => SameCode(m.Barcode, v.Barcode));
+            if (at < 0)
                 merged.Add(v);
+            // 2026-11-20: код на сервере уже есть без «штук в упаковке» — дописываем штуки из файла (заполненное на сервере не меняем)
+            else if (merged[at].Quantity <= 0 && v.Quantity > 0)
+                merged[at] = new AlternateBarcodeVariant { Barcode = merged[at].Barcode, Name = string.IsNullOrWhiteSpace(merged[at].Name) ? v.Name : merged[at].Name, Quantity = v.Quantity };
+        }
         return merged;
     }
 

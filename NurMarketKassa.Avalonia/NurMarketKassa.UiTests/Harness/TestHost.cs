@@ -71,15 +71,33 @@ public static class TestHost
     /// <summary>Одинаковое исходное состояние для всех тестов: кассир вошёл, каталог (2 товара поддельного сервера) загружен — иначе вид окон зависел бы от того,
     /// успел ли ранний тест войти и подгрузить товары. Выполняется один раз; ждать нужно через await (поток интерфейса не блокируется: загрузка каталога
     /// сама обращается к нему).</summary>
-    public static Task WarmAsync()
+    public static async Task WarmAsync()
     {
         var services = Ensure();
-        return _warm ??= Task.Run(async () =>
+        await (_warm ??= Task.Run(async () =>
         {
             await services.GetRequiredService<NurMarketApiClient>().LoginAsync("cashier@test.kg", "12345678").ConfigureAwait(false);
             await CatalogCacheService.SyncCatalogFullAsync().ConfigureAwait(false);
-        });
+            _seedProducts = CatalogCacheService.Products.ToList();
+        }));
+        // 2026-11-20: тесты со «сохранить список → очистить → вернуть» (Штрихкоды, Приёмка…) запоминают список В КОНСТРУКТОРЕ, до первого WarmAsync; если такой тест оказывался
+        // первым, его Dispose «возвращал» пустой список, и все следующие сценарии (плитка «Хлеб», пустой каталог в снимках) видели каталог без товаров. Пустой каталог на
+        // входе теста — всегда следствие такой утечки (тесты, которым нужен пустой каталог, очищают его сами внутри), поэтому возвращаем исходные товары поддельного сервера.
+        // 2026-11-21 (прогон 1.17.91): окно кассы читает state.json (вкладка каталога, ширины колонок) — файл общий на весь прогон; сценарий со сферой «Услуги» оставлял вкладку «Услуги»,
+        // и следующие окна кассы (тур, «первый час», снимок main-kassa) открывались на пустой вкладке. Каждый тест начинает без чужого сохранённого состояния окна.
+        NurMarketKassa.ViewModels.Main.ApplicationStateService.CancelPendingSaves();
+        // 2026-11-21: то же для barcode-print-settings.json — окно «Штрихкоды» восстанавливает последний фильтр («Со штрихкодом» после соседнего сценария), и кнопка «Сгенерировать штрихкоды (N)» не появлялась.
+        foreach (var persisted in new[] { "state.json", "barcode-print-settings.json" })
+        {
+            try { File.Delete(Path.Combine(AppPaths.Roaming, AppMode.DataFolderName, persisted)); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+        if (_seedProducts is { Count: > 0 } seed && CatalogCacheService.Products.Count == 0)
+            CatalogCacheService.Products.AddRange(seed);
     }
+
+    private static List<NurMarketKassa.Models.Pos.CatalogProductTileVm>? _seedProducts;
 
     private static void SetStatic(string property, object value) =>
         typeof(AvaloniaApp).GetProperty(property, BindingFlags.Public | BindingFlags.Static)!

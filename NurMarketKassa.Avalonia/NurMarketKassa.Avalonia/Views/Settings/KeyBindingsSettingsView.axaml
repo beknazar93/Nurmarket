@@ -23,7 +23,7 @@
 
   <Border Classes="SettingsContentHost">
     <ScrollViewer Classes="SettingsPageScroll">
-      <StackPanel Classes="SettingsCardList" MaxWidth="{DynamicResource SettingsPageMaxWidth}" HorizontalAlignment="Stretch" Margin="0,16">
+      <StackPanel Classes="SettingsCardList" MaxWidth="{DynamicResource SettingsPageMaxWidth}" HorizontalAlignment="Stretch" Margin="0,0,0,16"> <!-- 2026-11-20: обход кассы — верхний отступ 16 сверх поля страницы сдвигал шапку на 16 px ниже, чем у «Печати», «Экрана», «Аккаунта»: шапка «прыгала» при смене вкладки -->
 
         <Border Classes="SettingsHeaderCard" HorizontalAlignment="Stretch">
           <StackPanel Orientation="Horizontal" Spacing="12">

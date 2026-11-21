@@ -422,6 +422,12 @@ public partial class CatalogPanelView : UserControl, ICatalogKeyboardSurface
     /// только там, где значок показывается (одежда и услуги или у товара есть описание). Товар в чек не добавляется.</summary>
     private void Tile_ContextRequested(object? sender, ContextRequestedEventArgs e)
     {
+        // 2026-11-20: долгое касание по ФОТО уже открыло просмотр фото — карточку «Подробнее» поверх него не открываем.
+        if (ProductPhotoZoom.LongPressJustHandled)
+        {
+            e.Handled = true;
+            return;
+        }
         if ((sender as Control)?.DataContext is not CatalogProductTileVm product
             || DataContext is not CatalogPanelViewModel vm
             || !(vm.ShowProductDetails || !string.IsNullOrEmpty(product.Description)))

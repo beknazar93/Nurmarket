@@ -214,7 +214,27 @@ public static class AutoPartsProductMeta
         }
     }
 
+    /// <summary>2026-11-20 (С5): сначала сервер (attributes warranty_days / electric / no_return, кэш — <see cref="PartMetaStore"/>), по полям; чего сервер не хранит — берётся из местного файла
+    /// (миграция: местные отметки уйдут на сервер при первом сохранении карточки). Нет ни там, ни там — null (решает название).</summary>
     public static Meta? Get(string? productId)
+    {
+        if (string.IsNullOrWhiteSpace(productId))
+            return null;
+        Meta? local;
+        lock (Gate)
+            local = Load().TryGetValue(productId.Trim(), out var m) ? m : null;
+        if (PartMetaStore.Get(productId) is not { HasMeta: true } server)
+            return local;
+        return new Meta
+        {
+            WarrantyDays = server.WarrantyDays is > 0 ? server.WarrantyDays : local?.WarrantyDays,
+            Electric = server.Electric ?? local?.Electric ?? false,
+            NoReturn = server.NoReturn ?? local?.NoReturn ?? false,
+        };
+    }
+
+    /// <summary>Только местный файл (для переноса на сервер и проверок).</summary>
+    public static Meta? GetLocal(string? productId)
     {
         if (string.IsNullOrWhiteSpace(productId))
             return null;

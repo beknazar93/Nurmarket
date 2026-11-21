@@ -139,6 +139,8 @@ public sealed class BelowCostRightTests
         var text = BelowCostGuard.BlockedText([new BelowCostHit("Хлеб", 10m)]);
         text.Should().Contain("ниже закупочной").And.Contain("Продажа ниже закупки").And.Contain("Хлеб");
         BelowCostGuard.ServerDeniedText().Should().Contain("Продажа ниже закупки").And.Contain("не проведена");
+        // 2026-11-20: прежнее «Продажа не проведена, чек сохранён» противоречило себе — теперь «товары остались в чеке»
+        BelowCostGuard.ServerDeniedText().Should().Contain("Товары остались в чеке").And.NotContain("чек сохранён");
         BelowCostGuard.ReplayRejectedText().Should().Contain("Требует проверки").And.Contain("Повторить отправку").And.Contain("тем же ключом")
             .And.NotContain("проведите продажу на сайте", "совет «проведите на сайте» мог бы дать дубль: ключ уже уходил");
     }

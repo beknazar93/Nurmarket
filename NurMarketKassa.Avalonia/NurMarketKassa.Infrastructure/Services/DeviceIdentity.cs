@@ -56,20 +56,31 @@ public static class DeviceIdentity
                 return saved;
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             var fresh = "k" + Guid.NewGuid().ToString("N");
+            // 2026-11-20 (ответ Умара: на ПК BEKNAZAR ключ менялся при каждом входе): ключ пишем во временный файл целиком и кладём на место атомарным переносом без перезаписи —
+            // другая программа не успеет прочитать «пустой» или недописанный файл, принять его за битый, удалить и подменить своим ключом.
+            var temp = path + "." + Guid.NewGuid().ToString("N")[..8] + ".tmp";
             try
             {
-                // CreateNew — «кто первый создал, тот и победил»; битый/пустой файл удаляем и пробуем снова.
+                File.WriteAllText(temp, fresh);
                 if (File.Exists(path))
+                {
+                    // Файл есть, но читается как невалидный: другая программа могла его только что создать — один раз подождать и перечитать, и лишь потом заменить.
+                    Thread.Sleep(60);
+                    if (TryReadValid(path, out var late))
+                        return late;
                     File.Delete(path);
-                using var fs = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
-                var bytes = System.Text.Encoding.UTF8.GetBytes(fresh);
-                fs.Write(bytes, 0, bytes.Length);
+                }
+                File.Move(temp, path); // без overwrite: кто первый положил, тот и победил
                 return fresh;
             }
             catch (IOException) when (attempt < 4)
             {
-                // Файл только что создала другая программа — читаем его на следующем круге (запись может ещё не завершиться).
+                // Файл только что создала другая программа — читаем его на следующем круге.
                 Thread.Sleep(30);
+            }
+            finally
+            {
+                try { File.Delete(temp); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* временный файл — не страшно */ }
             }
         }
         throw new IOException("Не удалось создать файл ключа установки.");

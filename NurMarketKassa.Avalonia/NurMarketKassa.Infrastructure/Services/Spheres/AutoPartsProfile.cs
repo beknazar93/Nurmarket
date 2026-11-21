@@ -121,5 +121,6 @@ public static class AutoPartsProfile
         NurMarketKassa.Models.Pos.AutoPartHub.Lookup = PartMetaStore.Get;
         NurMarketKassa.Models.Pos.AutoPartHub.StateBadge = StateBadge;
         NurMarketKassa.Models.Pos.AutoPartHub.CellLabel = () => CellWord;
+        NurMarketKassa.Models.Pos.AutoPartHub.BrandOf = AutoPartsImportLog.BrandOf; // 2026-11-20: бренд новых товаров на плитке до докачки карточки
     }
 }

@@ -74,11 +74,16 @@ internal static class EstimateUi
     private static readonly AvaloniaProperty TemplatedControlForeground = Avalonia.Controls.Primitives.TemplatedControl.ForegroundProperty;
     private static readonly AvaloniaProperty TemplatedControlBorder = Avalonia.Controls.Primitives.TemplatedControl.BorderBrushProperty;
 
-    /// <summary>Подпись над полем.</summary>
+    /// <summary>Подпись над полем.
+    /// 2026-11-20: владелец увидел, что поля шапки сметы налезают друг на друга: у поля была своя Width (260) больше ширины ячейки (240) и оно выходило за ячейку под соседа,
+    /// а подпись сидела вплотную к рамке. Теперь поле всегда растягивается по ширине ячейки (своя Width снимается), подпись — отдельной строкой с отступом 4 px (Д-8: 12,5).</summary>
     public static StackPanel Labeled(string label, Control field, double width)
     {
-        var p = new StackPanel { Width = width, Margin = new Thickness(0, 0, 10, 6) };
-        p.Children.Add(ServiceDeskUi.Text(label, 12, brush: "BrushTextSoft"));
+        var p = new StackPanel { Width = width, Margin = new Thickness(0, 0, 10, 8) };
+        p.Children.Add(ServiceDeskUi.Text(label, 12.5, brush: "BrushTextSoft"));
+        p.Children[0].Margin = new Thickness(0, 0, 0, 4);
+        field.Width = double.NaN;
+        field.HorizontalAlignment = HorizontalAlignment.Stretch;
         p.Children.Add(field);
         return p;
     }

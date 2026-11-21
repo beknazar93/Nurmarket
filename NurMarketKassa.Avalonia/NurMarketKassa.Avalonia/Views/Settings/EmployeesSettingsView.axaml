@@ -47,7 +47,7 @@
       <!-- 2026-10-21 (пакет 6, п. 64): справа 14 px под полосу прокрутки — кнопки «Доступы» уходили под неё (за край). -->
       <!-- 2026-11-19 (единые отступы окон, живой обход): поле только справа сдвигало колонку на 7 px влево от вкладок и других страниц —
            поля 14 с обеих сторон: колонка по центру, как у остальных страниц, полоса прокрутки по-прежнему не закрывает «Доступы». -->
-      <StackPanel Classes="SettingsCardList" MaxWidth="{DynamicResource SettingsPageMaxWidth}" HorizontalAlignment="Stretch" Margin="14,16,14,16">
+      <StackPanel Classes="SettingsCardList" MaxWidth="{DynamicResource SettingsPageMaxWidth}" HorizontalAlignment="Stretch" Margin="14,0,14,16"> <!-- 2026-11-20: обход кассы — верхний отступ 16 сверх поля страницы сдвигал шапку на 16 px ниже, чем у «Печати», «Экрана», «Аккаунта»: шапка «прыгала» при смене вкладки -->
 
         <Border Classes="SettingsHeaderCard" HorizontalAlignment="Stretch">
           <StackPanel Orientation="Horizontal" Spacing="12">

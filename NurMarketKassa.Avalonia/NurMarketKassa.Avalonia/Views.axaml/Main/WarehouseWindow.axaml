@@ -3,6 +3,7 @@
         xmlns:vm="using:NurMarketKassa.AvaloniaHost.ViewModels"
         xmlns:models="using:NurMarketKassa.Models"
         xmlns:conv="using:NurMarketKassa.AvaloniaHost.Converters"
+        xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
         xmlns:analytics="using:NurMarketKassa.AvaloniaHost.Views.Analytics"
         xmlns:views="using:NurMarketKassa.AvaloniaHost.Views"
         xmlns:dc="using:Avalonia.Data.Converters"
@@ -947,7 +948,7 @@
                                                         <PathIcon Width="16" Height="16" Foreground="{DynamicResource BrushTextMuted}"
                                                                   Data="M12,2L2,7V17L12,22L22,17V7L12,2M12,4.15L19.16,7.75L12,11.35L4.84,7.75L12,4.15M4,9.28L11,12.78V19.7L4,16.2V9.28M13,19.7V12.78L20,9.28V16.2L13,19.7Z"/>
                                                     </Border>
-                                                    <Border CornerRadius="6" ClipToBounds="True"
+                                                    <Border CornerRadius="6" ClipToBounds="True" dlg:ProductPhotoZoom.OpenOnClick="True"
                                                             IsVisible="{ReflectionBinding ProductImagePath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                                                         <Image Source="{ReflectionBinding ProductImagePath, Converter={x:Static conv:AssetPathToBitmapConverter.Instance}, ConverterParameter=thumb}"
                                                                Stretch="UniformToFill"/>
@@ -1149,7 +1150,7 @@
                                                     <PathIcon Width="26" Height="26"
                                                               Foreground="{DynamicResource BrushTextSoft}"
                                                               Data="M12,2L2,7V17L12,22L22,17V7L12,2M12,4.15L19.16,7.75L12,11.35L4.84,7.75L12,4.15M4,9.28L11,12.78V19.7L4,16.2V9.28M13,19.7V12.78L20,9.28V16.2L13,19.7Z"/>
-                                                    <Border CornerRadius="8" ClipToBounds="True"
+                                                    <Border CornerRadius="8" ClipToBounds="True" dlg:ProductPhotoZoom.OpenOnClick="True"
                                                             IsVisible="{ReflectionBinding ProductImagePath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                                                         <Image Source="{ReflectionBinding ProductImagePath, Converter={x:Static conv:AssetPathToBitmapConverter.Instance}, ConverterParameter=thumb}"
                                                                Stretch="UniformToFill"/>

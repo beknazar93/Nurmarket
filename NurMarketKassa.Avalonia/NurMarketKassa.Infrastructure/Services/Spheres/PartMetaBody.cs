@@ -13,13 +13,8 @@ internal static class PartMetaBody
     {
         if (r.Attributes is { } attrs)
         {
-            body["attributes"] = attrs.Select(a =>
-            {
-                var item = new Dictionary<string, object?> { ["key"] = a.Key, ["value"] = a.Value };
-                if (!string.IsNullOrWhiteSpace(a.Unit))
-                    item["unit"] = a.Unit;
-                return item;
-            }).ToArray();
+            // 2026-11-20 (ответ Умара 20.11, А.4): весь массив целиком; ключ — латиница до 32, значение — строка до 64 или число (флаги 1/0, не true/false), не больше 30 — см. AutoPartAttrWire.
+            body["attributes"] = NurMarketKassa.Models.Pos.AutoPartAttrWire.ToWire(attrs);
         }
         if (r.SendStorageLocation)
             body["storage_location"] = r.StorageLocation?.Trim() ?? "";

@@ -564,6 +564,7 @@ public partial class ProductEditDialog
     // читается с сервера при открытии; не прочитали и не вписали — на сервер не отправляется (не затираем).
     private string _minimumQuantity = "";
     private bool _minimumQuantityKnown;
+    private System.Text.Json.JsonElement? _openedCard; // 2026-11-20 (С7): карточка сервера при открытии окна; null — не прочитали (офлайн, сбой) → конфликт не проверяем
     public string MinimumQuantity { get => _minimumQuantity; set { _minimumQuantity = value; _minimumQuantityKnown = true; OnPropertyChanged(); } }
 
     private async Task LoadMinimumQuantityAsync()
@@ -574,6 +575,7 @@ public partial class ProductEditDialog
         {
             if (await PosApp.CatalogApi.ProductsDetailAsync(_existing.Id).ConfigureAwait(true) is not { ValueKind: System.Text.Json.JsonValueKind.Object } el)
                 return;
+            _openedCard = el.Clone(); // 2026-11-20 (С7): карточка «как при открытии» — перед записью сверяем с свежей (ProductConflict)
             // 2026-10-20: из той же карточки — поставщик товара (client / client_name), без второго запроса.
             ApplySupplierFromDetail(el);
             ApplySerialsFromDetail(el); // 2026-11-13 (сервер sn1311): track_serials / warranty_months той же карточки

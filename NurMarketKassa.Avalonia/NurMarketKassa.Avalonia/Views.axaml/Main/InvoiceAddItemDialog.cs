@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using NurMarketKassa.Core.Application;
@@ -90,6 +91,23 @@ internal sealed class InvoiceAddItemDialog : Window
         _ok.IsEnabled = false;
         _ok.Click += (_, _) => Accept();
         _search.TextChanged += (_, _) => Refresh();
+        // 2026-11-20 («при создании накладных штрихкоды тоже добавь»): скан сканером в поле (код + Enter) выбирает товар с этим штрихкодом (основной или доп.) и ставит курсор в «Количество»;
+        // код УПАКОВКИ (доп. штрихкод с «штук в упаковке» N) сразу ставит количество N.
+        _search.KeyDown += (_, e) =>
+        {
+            if (e.Key != Key.Enter)
+                return;
+            var code = InvoiceBarcodeRules.Clean(_search.Text);
+            if (!InvoiceBarcodeRules.IsValidNew(code) || InvoiceBarcodeRules.OwnerIn(_all, code) is not { } hit)
+                return;
+            e.Handled = true;
+            _list.ItemsSource = new List<CatalogProductTileVm> { hit };
+            _list.SelectedItem = hit;
+            if (InvoiceBarcodeRules.PackFor(hit, code) is { } pack)
+                _qty.Text = pack.Quantity.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+            _qty.Focus();
+            _qty.SelectAll();
+        };
         _qty.TextChanged += (_, _) => Check();
         _price.TextChanged += (_, _) => Check();
         Content = SectionCards.Shell(Title, T("Товар попадёт в правку; сохраняется он кнопкой «Сохранить правку» после проверки.", "Товар оңдоого түшөт; текшерүүдөн кийин «Оңдоону сактоо» баскычы менен сакталат.",

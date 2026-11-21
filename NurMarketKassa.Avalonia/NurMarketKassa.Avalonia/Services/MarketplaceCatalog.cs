@@ -301,6 +301,32 @@ public sealed class LocalMarketplaceCatalogSource : IMarketplaceCatalogSource
             isNew: true,
             note: T("Бесплатно. Данные хранятся на этом компьютере; кассир не видит закупочные цены (только владелец и сотрудники с правом на закупку).", "Акысыз. Маалымат ушул компьютерде сакталат; кассир сатып алуу баасын көрбөйт (ээси жана сатып алуу укугу бар кызматкерлер гана).", "Free. Data is stored on this computer; the cashier does not see purchase prices (only the owner and staff with the purchase right).", "Ücretsiz. Veriler bu bilgisayarda saklanır; kasiyer alış fiyatlarını görmez (yalnızca sahip ve alış hakkı olan personel).", "Bepul. Ma'lumotlar shu kompyuterda saqlanadi; kassir xarid narxlarini ko'rmaydi (faqat egasi va xarid huquqi bor xodimlar).")));
 
+        // --- 2026-11-20 («Прокат (аренда)», решение владельца: «аренда по умолчанию только в строймаге, у остальных — через Маркетплейс»): бесплатный модуль, цена в одном месте (RentalFeature.PriceSom = 0).
+        // Строймаркет — «Включено по умолчанию»; другие сферы — «Включить бесплатно»; у компаний с уже имеющимся прокатом включён автоматически (RentalFeature.EnableForExisting). Данные проката — на сервере NurCRM, смена сферы их не удаляет.
+        var rentalOn = RentalFeature.IsAvailable;
+        items.Add(Gated("rental", "📆", "#7C3AED",
+            T("Прокат (аренда)", "Прокат (ижара)", "Rentals", "Kiralama", "Prokat (ijara)"),
+            T("Выдача вещей и инструмента в прокат: залог, срок, возврат, штраф за просрочку", "Буюмдарды жана аспапты прокатка берүү: күрөө, мөөнөт, кайтаруу, кечиктирүү үчүн айып", "Renting out items and tools: deposit, term, return, late penalty", "Eşya ve alet kiralama: depozito, süre, iade, gecikme cezası", "Buyum va asbobni prokatga berish: garov, muddat, qaytarish, kechikish jarimasi"),
+            T("Оформление проката: клиент, вещь, срок, сумма за день, залог. «Оформить как прокат» в окне оплаты, возврат со штрафом за просрочку, значок сроков и напоминание в Телеграм-боте, раздел «Прокат» в меню кассы и в программе владельца.",
+              "Прокатты тариздөө: кардар, буюм, мөөнөт, күнүнө сумма, күрөө. Төлөм терезесинде «Прокатка тариздөө», кечиктирүү үчүн айыбы менен кайтаруу, мөөнөт белгиси жана Телеграм-ботто эскертме, касса менюсунда жана ээсинин программасында «Прокат» бөлүмү.",
+              "Renting out: customer, item, term, daily rate, deposit. “Rent it out” in the payment window, return with a late penalty, a term badge and a Telegram-bot reminder, a “Rentals” section in the till menu and in the owner's program.",
+              "Kiralama düzenleme: müşteri, eşya, süre, günlük ücret, depozito. Ödeme penceresinde «Kiralama olarak düzenle», gecikme cezalı iade, süre rozeti ve Telegram botunda hatırlatma, kasa menüsünde ve sahip programında «Kiralama» bölümü.",
+              "Prokatni rasmiylashtirish: mijoz, buyum, muddat, kunlik summa, garov. To'lov oynasida «Prokat sifatida rasmiylashtirish», kechikish jarimasi bilan qaytarish, muddat belgisi va Telegram-botda eslatma, kassa menyusida va egasining dasturida «Prokat» bo'limi."),
+            [T("Залог деньгами или документом, срок и сумма за день", "Күрөө акча же документ менен, мөөнөт жана күнүнө сумма", "Deposit in money or a document, term and daily rate", "Para veya belge ile depozito, süre ve günlük ücret", "Pul yoki hujjat bilan garov, muddat va kunlik summa"),
+             T("Штраф за просрочку — в чеке и при возврате", "Кечиктирүү үчүн айып — чекте жана кайтарууда", "Late penalty — on the receipt and at return", "Gecikme cezası — fişte ve iadede", "Kechikish jarimasi — chekda va qaytarishda"),
+             T("Напоминание о сроке возврата владельцу в Телеграм", "Кайтаруу мөөнөтү жөнүндө ээсине Телеграмда эскертме", "A reminder about the return date to the owner in Telegram", "İade tarihi için sahibe Telegram'da hatırlatma", "Qaytarish muddati haqida egasiga Telegramda eslatma")],
+            [T("Данные проката хранятся в NurCRM; нужен интернет", "Прокат маалыматы NurCRM'де сакталат; интернет керек", "Rental data is stored in NurCRM; internet needed", "Kiralama verileri NurCRM'de saklanır; internet gerekir", "Prokat ma'lumotlari NurCRM'da saqlanadi; internet kerak")],
+            true, null,
+            openLabel: rentalOn ? T("Открыть прокат", "Прокатты ачуу", "Open rentals", "Kiralamayı aç", "Prokatni ochish") : T("Включить бесплатно", "Акысыз күйгүзүү", "Turn on for free", "Ücretsiz aç", "Bepul yoqish"),
+            hint: T("Раздел «Прокат» — в меню кассы (☰ или «Ещё») и в программе владельца (Продажи → Прокат).", "«Прокат» бөлүмү — касса менюсунда (☰ же «Дагы») жана ээсинин программасында (Сатуулар → Прокат).", "The “Rentals” section is in the till menu (☰ or “More”) and in the owner's program (Sales → Rentals).", "«Kiralama» bölümü kasa menüsünde (☰ veya «Daha fazla») ve sahip programında (Satışlar → Kiralama).", "«Prokat» bo'limi — kassa menyusida (☰ yoki «Yana») va egasining dasturida (Sotuvlar → Prokat)."),
+            tags: [TagSales, T("Строймаркет", "Курулуш дүкөнү", "Building materials", "Yapı market", "Qurilish do'koni")],
+            statusText: rentalOn
+                ? (MarketSpheres.Profile.HasRentalsByDefault ? T("Включено по умолчанию", "Демейки күйгүзүлгөн", "On by default", "Varsayılan olarak açık", "Odatiy yoqilgan") : T("Включено", "Күйгүзүлгөн", "Enabled", "Etkin", "Yoqilgan"))
+                : T("Бесплатно", "Акысыз", "Free", "Ücretsiz", "Bepul"),
+            installedStatus: rentalOn,
+            isNew: true,
+            note: T("Бесплатно. В строймаркете включено по умолчанию; в других сферах включается здесь. Если у вас уже есть прокат — модуль остаётся включённым, смена сферы данные не удаляет.", "Акысыз. Курулуш дүкөнүндө демейки боюнча күйгүзүлгөн; башка чөйрөлөрдө ушул жерде күйгүзүлөт. Прокатыңыз мурдатан болсо — модуль күйгүзүлгөн бойдон калат, чөйрөнү алмаштыруу маалыматты өчүрбөйт.", "Free. On by default in building-material shops; in other spheres you turn it on here. If you already have rentals, the module stays on; changing the sphere does not delete the data.", "Ücretsiz. Yapı marketinde varsayılan olarak açıktır; diğer alanlarda burada açılır. Zaten kiralamanız varsa modül açık kalır; alan değişikliği verileri silmez.", "Bepul. Qurilish do'konida odatiy yoqilgan; boshqa sohalarda shu yerda yoqiladi. Prokatingiz allaqachon bo'lsa — modul yoqilgan holda qoladi, sohani almashtirish ma'lumotni o'chirmaydi.")));
+
         // --- Весы (только «Старт»)
         if (start)
         {

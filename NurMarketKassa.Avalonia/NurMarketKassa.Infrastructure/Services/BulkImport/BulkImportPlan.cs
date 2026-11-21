@@ -42,6 +42,22 @@ public sealed class BulkImportSettings
     /// <summary>2026-10-30: строки с одинаковым названием и разными штрихкодами — один товар, лишние штрихкоды становятся дополнительными.
     /// По умолчанию выключено (разные штрихкоды при одном названии бывают у разных товаров).</summary>
     public bool MergeSameName { get; set; }
+
+    /// <summary>2026-11-20 (мастер «Массовая загрузка», шаг «Проверьте»: «только добавить новые»): товары, которые уже есть на складе, пропускаются
+    /// («пропущен: уже есть на складе»), создаются только новые. Остальная логика разбора не меняется.</summary>
+    public bool NewOnly { get; set; }
+
+    /// <summary>2026-11-20 («Добавлять доп. штрихкоды»): false — доп. штрихкоды и упаковки из файла НЕ добавляются товарам, которые уже есть на складе
+    /// (новым товарам — всегда). По умолчанию включено (как работало с 30.10: файл без количества дописывает доп. коды существующим товарам).</summary>
+    public bool AddAltBarcodesToExisting { get; set; } = true;
+
+    /// <summary>2026-11-20: «Пропускать только плохой доп. код»: код занят другим товаром / не цифры / длиннее 14 / плохое «Штук в упаковке» — пропускается только
+    /// этот код (с предупреждением), сам товар загружается. Выключено (по умолчанию) — строка с таким кодом целиком получает ошибку, как раньше.</summary>
+    public bool SkipBadAltCodes { get; set; }
+
+    /// <summary>2026-11-20 (CT MAX): служебному коду («*10», без цифр) нового товара дать внутренний штрихкод NurCRM (прежний код — в артикул). Выключено — такая строка получает обычную ошибку «только цифры, 4–14 знаков».
+    /// Действует только для источника с флагом <see cref="ImportSourceProfile.ServiceCodes"/>.</summary>
+    public bool GenerateInternalCodes { get; set; } = true;
 }
 
 public enum BulkImportRowKind
@@ -58,6 +74,9 @@ public enum BulkImportRowKind
     /// <summary>Повтор штрихкода: количество сложено со строкой <see cref="BulkImportRow.MergedInto"/>.</summary>
     Merged,
 }
+
+/// <summary>2026-11-20: данные доп. штрихкода из файла: название варианта, штук в упаковке (0 — не задано), код пришёл из столбца «Штрихкод упаковки».</summary>
+internal readonly record struct AltMeta(string Name, double Qty, bool Pack);
 
 public sealed class BulkImportRow
 {
@@ -116,6 +135,24 @@ public sealed class BulkImportRow
     public IReadOnlyList<string> AltBarcodes => _alts;
     internal readonly List<string> _alts = [];
 
+    /// <summary>2026-11-20: название варианта и штук в упаковке по доп. штрихкоду (ключ — <see cref="BulkImportPlan.Canon"/> кода). «Код:N» и «Штрихкод упаковки» + «Штук в упаковке».</summary>
+    internal readonly Dictionary<string, AltMeta> _altMeta = new(StringComparer.Ordinal);
+
+    /// <summary>2026-11-20: сколько доп. кодов этой строки пропущено (занят другим товаром, не цифры, плохое количество) при «Пропускать только плохой код».</summary>
+    public int AltSkipped { get; internal set; }
+
+    /// <summary>2026-11-20 (CT MAX): прежний служебный код, записанный в артикул нового товара (штрихкод — внутренний код NurCRM).</summary>
+    public string? Article { get; internal set; }
+
+    /// <summary>2026-11-20: бренд из файла (столбец «Бренд»): уходит в brand_name при создании нового товара.</summary>
+    public string? Brand { get; internal set; }
+
+    /// <summary>2026-11-20: штрихкод этой строки — внутренний код NurCRM, созданный взамен служебного.</summary>
+    public bool InternalCode { get; internal set; }
+
+    /// <summary>2026-11-20: сколько из добавляемых доп. кодов — упаковки (со «Штук в упаковке» больше нуля).</summary>
+    public int AltPackAdded { get; internal set; }
+
     /// <summary>2026-10-30: товар склада, к которому относится строка (null — новый товар).</summary>
     internal CatalogProductTileVm? Tile { get; set; }
 
@@ -168,6 +205,7 @@ public sealed class BulkImportRow
                 BulkImportRowKind.Receipt or BulkImportRowKind.New when LoadOutcome == "created" => Tr.T("создан", "түзүлдү", "created", "oluşturuldu", "yaratildi"),
                 BulkImportRowKind.Receipt or BulkImportRowKind.New when LoadOutcome == "updated" => Tr.T("обновлён", "жаңыртылды", "updated", "güncellendi", "yangilandi"),
                 // 2026-10-30: режим «только карточки и цены» — остаток не меняется, пишем, что именно обновится.
+                BulkImportRowKind.Receipt when NewOnly && Unchanged => Tr.T("пропущен: уже есть на складе", "өткөрүлдү: кампада бар", "skipped: already in stock", "atlandı: depoda zaten var", "o'tkazildi: omborda bor"),
                 BulkImportRowKind.Receipt when CardsOnly => Unchanged
                     ? Tr.T("без изменений", "өзгөрүүсүз", "no changes", "değişiklik yok", "o'zgarishsiz")
                     : Tr.T("обновить: " + ChangeList(0), "жаңыртуу: " + ChangeList(1), "update: " + ChangeList(2), "güncelle: " + ChangeList(3), "yangilash: " + ChangeList(4)),
@@ -184,6 +222,9 @@ public sealed class BulkImportRow
                     $"{MergedInto}. satırla birleştirildi", $"{MergedInto}-qator bilan qo'shildi"),
                 _ => "",
             };
+            // 2026-11-20: сколько доп. кодов добавится (у карточек-обновлений это уже в списке «обновить: …»; пропущенные — в предупреждении)
+            if (AltAdded > 0 && Kind is BulkImportRowKind.New or BulkImportRowKind.Receipt && !Unchanged && !(CardsOnly && Kind == BulkImportRowKind.Receipt))
+                text += Tr.T($" · доп. кодов +{AltAdded}", $" · кошумча коддор +{AltAdded}", $" · extra codes +{AltAdded}", $" · ek kod +{AltAdded}", $" · qo'shimcha kod +{AltAdded}");
             if (MergedFrom is { Count: > 0 } from)
                 text += Tr.T($" · сложено со строками {string.Join(", ", from)}", $" · {string.Join(", ", from)}-саптар кошулду",
                     $" · rows added: {string.Join(", ", from)}", $" · birleşen satırlar: {string.Join(", ", from)}", $" · qo'shilgan qatorlar: {string.Join(", ", from)}");
@@ -194,6 +235,7 @@ public sealed class BulkImportRow
     private static string Num(double v) => v.ToString("0.###", CultureInfo.InvariantCulture);
 
     internal bool CardsOnly { get; set; }
+    internal bool NewOnly { get; set; }
     internal bool ChPurchase { get; set; }
     internal bool ChSale { get; set; }
 
@@ -237,6 +279,18 @@ public sealed class BulkImportPlan
 
     /// <summary>2026-10-30: в режиме карточек — товары склада, у которых в файле нет ничего нового (пропускаются).</summary>
     public int UnchangedCount { get; private set; }
+
+    /// <summary>2026-11-20: сколько доп. штрихкодов добавится (в загружаемых строках), из них упаковок (со «штук в упаковке»), и сколько кодов пропущено как плохие.</summary>
+    public int AltCodeCount { get; private set; }
+    public int AltPackCount { get; private set; }
+    public int AltSkippedCount { get; private set; }
+
+    /// <summary>2026-11-20 (CT MAX): строк-групп пропущено и служебных кодов, получивших внутренний штрихкод.</summary>
+    public int GroupRowsSkipped { get; private set; }
+    public int InternalCodeCount { get; private set; }
+
+    /// <summary>2026-11-20: сколько категорий из файла (у новых товаров) ещё нет в каталоге — они создадутся при загрузке.</summary>
+    public int NewCategoryCount { get; private set; }
 
     /// <summary>2026-10-30: строк с предупреждением.</summary>
     public int WarningCount => Rows.Count(r => !string.IsNullOrEmpty(r.Warning));
@@ -283,7 +337,8 @@ public sealed class BulkImportPlan
             };
         }
 
-        var index = new BarcodeIndex(catalog ?? SnapshotCatalog());
+        var catalogList = catalog ?? SnapshotCatalog();
+        var index = new BarcodeIndex(catalogList);
         var rows = new List<BulkImportRow>(table.DataRowCount);
         var seen = new Dictionary<string, BulkImportRow>(StringComparer.OrdinalIgnoreCase);
         var lines = new List<ReceivingLineVm>();
@@ -298,13 +353,22 @@ public sealed class BulkImportPlan
         var cUnit = mapping.ColumnOf(ProductImportField.Unit);
         var cWeight = mapping.ColumnOf(ProductImportField.Weight);
         var cAlt = mapping.ColumnOf(ProductImportField.AltBarcodes);
+        var cPack = mapping.ColumnOf(ProductImportField.PackBarcode); // 2026-11-20: «Штрихкод упаковки» + «Штук в упаковке» + «Название варианта»
+        var cPackQty = mapping.ColumnOf(ProductImportField.PackQty);
+        var cAltName = mapping.ColumnOf(ProductImportField.AltName);
+        var cBrand = mapping.ColumnOf(ProductImportField.Brand); // 2026-11-20: бренд нового товара
         // 2026-10-30: файл без количества — законная загрузка «только карточки и цены»: остаток не меняется.
         var cardsOnly = settings.CardsOnly || cQty < 0;
-        var cols = new Cols(cQty, cName, cPurchase, cSale, cUnit, cardsOnly);
+        var cols = new Cols(cQty, cName, cPurchase, cSale, cUnit, cardsOnly, settings.NewOnly);
         var byName = new Dictionary<string, BulkImportRow>(StringComparer.Ordinal);
 
         var done = 0;
         var fromDirectoryCount = 0;
+        // 2026-11-20 (CT MAX): профиль источника с пропуском строк-групп и служебными кодами
+        var skipGroups = mapping.Source?.SkipGroupRows == true;
+        var serviceCodes = mapping.Source?.ServiceCodes == true;
+        var groupRows = 0;
+        HashSet<string>? fileCodes = null;
         foreach (var src in table.DataRows)
         {
             if ((done & 255) == 0)
@@ -312,6 +376,13 @@ public sealed class BulkImportPlan
             if ((done % 500) == 0)
                 progress?.Report(done);
             done++;
+
+            // 2026-11-20: строка-группа (бренд/раздел): нет штрихкода, цены и закупки (пусто или 0) — не товар, в план не входит
+            if (skipGroups && src[cBarcode].Trim().Length == 0 && src[cName].Trim().Length > 0 && IsZeroOrEmpty(src[cSale]) && IsZeroOrEmpty(src[cPurchase]))
+            {
+                groupRows++;
+                continue;
+            }
 
             var row = new BulkImportRow { FileRow = src.FileRow, SourceCells = src.Cells, Name = src[cName].Trim(), Extra = src.Tag };
             rows.Add(row);
@@ -387,6 +458,13 @@ public sealed class BulkImportPlan
                     $"the sale price {sale.Value:0.####} is not above the purchase price {purchase.Value:0.####} — check the “Price” and “Purchase” columns",
                     $"satış fiyatı {sale.Value:0.####} alış fiyatı {purchase.Value:0.####} değerinin üstünde değil — «Fiyat» ve «Alış» sütunlarını kontrol edin",
                     $"sotuv narxi {sale.Value:0.####} xarid narxi {purchase.Value:0.####} dan yuqori emas — «Narx» va «Xarid» ustunlarini tekshiring"));
+            // 2026-11-20 (CT MAX): цена продажи 0 (или нет), а закупка есть — предупреждение
+            if (serviceCodes && (sale is null or <= 0) && purchase is > 0)
+                row.Warning = AppendWarning(row.Warning, Tr.T($"цена продажи 0, закупка {purchase.Value:0.####} — укажите цену продажи или наценку",
+                    $"сатуу баасы 0, сатып алуу {purchase.Value:0.####} — сатуу баасын же үстөктү көрсөтүңүз",
+                    $"the sale price is 0, the purchase price is {purchase.Value:0.####} — enter the sale price or a markup",
+                    $"satış fiyatı 0, alış {purchase.Value:0.####} — satış fiyatını veya kâr oranını girin",
+                    $"sotuv narxi 0, xarid {purchase.Value:0.####} — sotuv narxini yoki ustamani kiriting"));
             var name = row.Name;
             if (name.Length > 255)
             {
@@ -397,7 +475,8 @@ public sealed class BulkImportPlan
 
             // ---- 2026-10-30: доп. штрихкоды (несколько значений через ; , пробел | или перенос) — только цифры 4–14, без чужих
             var rowAlts = new List<string>();
-            if (cAlt >= 0 && src[cAlt].Trim().Length > 0 && !TryParseAlts(row, src[cAlt], cAlt, barcode, rowAlts))
+            var rowMeta = new Dictionary<string, AltMeta>(StringComparer.Ordinal);
+            if ((cAlt >= 0 || cPack >= 0) && !ParseRowAlts(row, src, cAlt, cPack, cPackQty, cAltName, barcode, settings.SkipBadAltCodes, rowAlts, rowMeta))
                 continue;
             row.CardsOnly = cardsOnly;
 
@@ -412,18 +491,39 @@ public sealed class BulkImportPlan
                     // доп. штрихкоды повторной строки уходят к первой (без дублей и без чужих)
                     foreach (var extra in rowAlts)
                     {
+                        if (first.Tile is not null && !settings.AddAltBarcodesToExisting)
+                            break; // 2026-11-20: «Добавлять доп. штрихкоды» выключено — товару склада коды не добавляем
                         if (!first._alts.Any(a => Canon(a) == Canon(extra)) && Canon(extra) != Canon(first.Barcode) && !seen.ContainsKey(Canon(extra)) && index.Find(extra) is null)
                         {
-                            first._alts.Add(extra);
+                            AddAlt(first, extra, rowMeta); // 2026-11-20: вместе с «код:N» / штуками в упаковке
                             seen[Canon(extra)] = first;
+                        }
+                        else if (first._alts.Any(a => Canon(a) == Canon(extra)))
+                        {
+                            if (rowMeta.TryGetValue(Canon(extra), out var again) && again.Qty > 0)
+                                AddAlt(first, extra, rowMeta); // тот же код повторён строкой, которая впервые говорит, сколько в нём штук
+                        }
+                        else if (Canon(extra) != Canon(first.Barcode) && (seen.TryGetValue(Canon(extra), out var other) ? other != first : index.Find(extra) is { } holderTile && !ReferenceEquals(holderTile, first.Tile)))
+                        {
+                            // код занят другим товаром — в повторную строку он не переносится (раньше пропадал молча)
+                            row.AltSkipped++;
+                            row.Warning = AppendWarning(row.Warning, Tr.T($"доп. код {extra} занят другим товаром", $"кошумча код {extra} башка товарда бар", $"extra code {extra} belongs to another product",
+                                $"ek kod {extra} başka üründe", $"qo'shimcha kod {extra} boshqa mahsulotda") + CodeSkippedText);
                         }
                     }
                     (first.MergedFrom ??= []).Add(row.FileRow);
                     row.Kind = BulkImportRowKind.Merged;
                     row.MergedInto = first.FileRow;
+                    // 2026-11-20: строка-дополнение (второй режим: один штрихкод — несколько строк, вторая добавляет доп. код) складывает и количество — предупреждаем
+                    if (!cardsOnly && quantity is > 0 && rowAlts.Count > 0)
+                        row.Warning = Tr.T($"количество {quantity.Value:0.###} сложено со строкой {first.FileRow} — если строка только добавляет доп. код, оставьте количество пустым",
+                            $"саны {quantity.Value:0.###} {first.FileRow}-сап менен кошулду — сап кошумча кодду гана кошсо, санын бош калтырыңыз",
+                            $"quantity {quantity.Value:0.###} was added to row {first.FileRow} — if the row only adds an extra code, leave the quantity empty",
+                            $"miktar {quantity.Value:0.###} {first.FileRow}. satırla toplandı — satır yalnızca ek kod ekliyorsa miktarı boş bırakın",
+                            $"miqdor {quantity.Value:0.###} {first.FileRow}-qator bilan qo'shildi — qator faqat qo'shimcha kod qo'shsa, miqdorni bo'sh qoldiring");
                     if ((purchase is > 0 && Math.Abs(purchase.Value - target.PurchasePrice) > 0.004) || (sale is > 0 && Math.Abs(sale.Value - target.SalePrice) > 0.004))
-                        row.Warning = Tr.T($"цена отличается — взята из строки {first.FileRow}", $"баасы айырмаланат — {first.FileRow}-саптан алынды",
-                            $"price differs — taken from row {first.FileRow}", $"fiyat farklı — {first.FileRow}. satırdan alındı", $"narx farq qiladi — {first.FileRow}-qatordan olindi");
+                        row.Warning = AppendWarning(row.Warning, Tr.T($"цена отличается — взята из строки {first.FileRow}", $"баасы айырмаланат — {first.FileRow}-саптан алынды",
+                            $"price differs — taken from row {first.FileRow}", $"fiyat farklı — {first.FileRow}. satırdan alındı", $"narx farq qiladi — {first.FileRow}-qatordan olindi"));
                     continue;
                 }
 
@@ -435,25 +535,69 @@ public sealed class BulkImportPlan
 
             // ---- 2026-10-30: доп. штрихкод уже основной/доп. у ДРУГОГО товара (в каталоге или выше в файле) — ошибка строки
             var ownTile = index.Find(barcode);
-            var altConflict = false;
-            foreach (var alt in rowAlts)
+            // 2026-11-20: «Добавлять доп. штрихкоды» выключено — у товара, который уже есть на складе, коды из файла не берём (и не проверяем)
+            if (ownTile is not null && !settings.AddAltBarcodesToExisting)
             {
+                rowAlts.Clear();
+                rowMeta.Clear();
+            }
+            // 2026-11-20 (CT MAX): служебный код («*10», без цифр, не 4–14 цифр) у товара, которого на складе нет: товар не теряется — внутренний штрихкод NurCRM,
+            // прежний код — в артикул. Код считается от прежнего кода и названия, а не случайно: повторная проверка/«Продолжить загрузку» даёт тот же код, дубля не будет
+            // (товар, созданный прошлым запуском с тем же названием, находится в каталоге по этому коду и идёт как существующий).
+            if (serviceCodes && ownTile is null && settings.GenerateInternalCodes && !IsCardBarcode(barcode))
+            {
+                fileCodes ??= new HashSet<string>(table.DataRows.Select(r => ProductCodeLookup.Normalize(r[cBarcode])).Where(c => c.Length > 0), StringComparer.OrdinalIgnoreCase);
+                var rawCode = barcode;
+                var nameKeyForCode = NameKey(row.Name);
+                var generated = InternalCode(rawCode + "|" + nameKeyForCode, c =>
+                    fileCodes.Contains(c) || (seen.TryGetValue(Canon(c), out var usedBy) && usedBy != row)
+                    || (index.Find(c) is { } holderOfCode && NameKey(holderOfCode.Title) != nameKeyForCode));
+                var noDigits = !rawCode.Any(char.IsDigit);
+                row.Article = rawCode.Length > 64 ? rawCode[..64] : rawCode;
+                row.InternalCode = true;
+                barcode = generated;
+                canon = Canon(generated);
+                row.Barcode = generated;
+                ownTile = index.Find(generated);
+                var shown = rawCode.Length > 20 ? rawCode[..20] + "…" : rawCode;
+                row.Warning = AppendWarning(row.Warning, noDigits
+                    ? Tr.T($"в штрихкоде «{shown}» нет цифр (похоже на сбой раскладки) — товар загружается с внутренним штрихкодом NurCRM {generated}, прежний код — в артикуле",
+                        $"штрих-кодто «{shown}» цифра жок (калып ката окшойт) — товар ички NurCRM штрих-коду {generated} менен жүктөлөт, мурунку код — артикулда",
+                        $"the barcode “{shown}” has no digits (looks like a keyboard-layout slip) — the product is loaded with the NurCRM internal barcode {generated}, the old code goes to the article",
+                        $"«{shown}» barkodunda rakam yok (klavye düzeni hatasına benziyor) — ürün NurCRM iç barkodu {generated} ile yüklenir, eski kod ürün koduna yazılır",
+                        $"«{shown}» shtrix-kodida raqam yo'q (klaviatura xatosiga o'xshaydi) — mahsulot NurCRM ichki shtrix-kodi {generated} bilan yuklanadi, eski kod artikulga yoziladi")
+                    : Tr.T($"служебный код «{shown}» — товар загружается с внутренним штрихкодом NurCRM {generated}, прежний код — в артикуле",
+                        $"кызматтык код «{shown}» — товар ички NurCRM штрих-коду {generated} менен жүктөлөт, мурунку код — артикулда",
+                        $"service code “{shown}” — the product is loaded with the NurCRM internal barcode {generated}, the old code goes to the article",
+                        $"hizmet kodu «{shown}» — ürün NurCRM iç barkodu {generated} ile yüklenir, eski kod ürün koduna yazılır",
+                        $"xizmat kodi «{shown}» — mahsulot NurCRM ichki shtrix-kodi {generated} bilan yuklanadi, eski kod artikulga yoziladi"));
+            }
+            var altConflict = false;
+            foreach (var alt in rowAlts.ToList())
+            {
+                string? conflict = null;
                 if (index.Find(alt) is { } holder && (ownTile is null || !string.Equals(holder.Id, ownTile.Id, StringComparison.OrdinalIgnoreCase)))
+                    conflict = Tr.T($"доп. код {alt} уже у товара «{holder.Title}»", $"кошумча код {alt} «{holder.Title}» товарында мурунтан бар",
+                        $"extra code {alt} already belongs to “{holder.Title}”", $"ek kod {alt} zaten «{holder.Title}» ürününde var", $"qo'shimcha kod {alt} «{holder.Title}» mahsulotida allaqachon bor");
+                else if (seen.TryGetValue(Canon(alt), out var inFile))
+                    conflict = Tr.T($"доп. код {alt} уже в строке {inFile.FileRow} файла", $"кошумча код {alt} файлдын {inFile.FileRow}-сабында мурунтан бар",
+                        $"extra code {alt} is already in row {inFile.FileRow} of the file", $"ek kod {alt} dosyanın {inFile.FileRow}. satırında zaten var",
+                        $"qo'shimcha kod {alt} faylning {inFile.FileRow}-qatorida allaqachon bor");
+                if (conflict is null)
+                    continue;
+                var packCode = rowMeta.TryGetValue(Canon(alt), out var altInfo) && altInfo.Pack;
+                if (settings.SkipBadAltCodes)
                 {
-                    Fail(row, Tr.T($"штрихкод {alt} уже у товара «{holder.Title}»", $"{alt} штрих-коду «{holder.Title}» товарында мурунтан бар",
-                        $"barcode {alt} already belongs to “{holder.Title}”", $"barkod {alt} zaten «{holder.Title}» ürününde var", $"{alt} shtrix-kodi «{holder.Title}» mahsulotida allaqachon bor"),
-                        ProductImportField.AltBarcodes, cAlt);
-                    altConflict = true;
-                    break;
+                    // 2026-11-20: пропускаем только этот код, товар загружается
+                    rowAlts.Remove(alt);
+                    rowMeta.Remove(Canon(alt));
+                    row.AltSkipped++;
+                    row.Warning = AppendWarning(row.Warning, conflict + CodeSkippedText);
+                    continue;
                 }
-                if (seen.TryGetValue(Canon(alt), out var inFile))
-                {
-                    Fail(row, Tr.T($"доп. штрихкод {alt} уже в строке {inFile.FileRow} файла", $"кошумча штрих-код {alt} файлдын {inFile.FileRow}-сабында мурунтан бар",
-                        $"extra barcode {alt} is already in row {inFile.FileRow} of the file", $"ek barkod {alt} dosyanın {inFile.FileRow}. satırında zaten var",
-                        $"qo'shimcha shtrix-kod {alt} faylning {inFile.FileRow}-qatorida allaqachon bor"), ProductImportField.AltBarcodes, cAlt);
-                    altConflict = true;
-                    break;
-                }
+                Fail(row, conflict, packCode ? ProductImportField.PackBarcode : ProductImportField.AltBarcodes, packCode ? cPack : cAlt);
+                altConflict = true;
+                break;
             }
             if (altConflict)
                 continue;
@@ -469,8 +613,7 @@ public sealed class BulkImportPlan
                 seen[canon] = head;
                 foreach (var extra in rowAlts)
                 {
-                    if (!head._alts.Any(a => Canon(a) == Canon(extra)))
-                        head._alts.Add(extra);
+                    AddAlt(head, extra, rowMeta); // 2026-11-20: доп. коды и штуки в упаковке из строк-«одно название» собираются в один товар
                     seen[Canon(extra)] = head;
                 }
                 (head.MergedFrom ??= []).Add(row.FileRow);
@@ -489,9 +632,9 @@ public sealed class BulkImportPlan
                 row.Tile = tile;
                 // 2026-10-30: штрихкод файла — доп. штрихкод существующего товара: строка относится к ЭТОМУ товару (обновление/приход), а не создаёт новый.
                 if (!string.IsNullOrWhiteSpace(tile.Barcode) && Canon(tile.Barcode) != canon)
-                    row.Warning = Tr.T($"штрихкод файла — доп. штрихкод товара «{tile.Title}» (основной {tile.Barcode})", $"файлдагы штрих-код — «{tile.Title}» товарынын кошумча штрих-коду (негизги {tile.Barcode})",
+                    row.Warning = AppendWarning(row.Warning, Tr.T($"штрихкод файла — доп. штрихкод товара «{tile.Title}» (основной {tile.Barcode})", $"файлдагы штрих-код — «{tile.Title}» товарынын кошумча штрих-коду (негизги {tile.Barcode})",
                         $"the file barcode is an extra barcode of “{tile.Title}” (main {tile.Barcode})", $"dosyadaki barkod «{tile.Title}» ürününün ek barkodu (ana {tile.Barcode})",
-                        $"fayldagi shtrix-kod «{tile.Title}» mahsulotining qo'shimcha shtrix-kodi (asosiy {tile.Barcode})");
+                        $"fayldagi shtrix-kod «{tile.Title}» mahsulotining qo'shimcha shtrix-kodi (asosiy {tile.Barcode})"));
                 line = PurchaseReceivingService.FromTile(tile, cardsOnly ? 0 : quantity ?? 0);
                 row.Kind = BulkImportRowKind.Receipt;
                 weighed = tile.MustWeigh;
@@ -524,7 +667,10 @@ public sealed class BulkImportPlan
                 {
                     Fail(row, Tr.T($"штрихкод «{barcode}»: для нового товара только цифры, 4–14 знаков", $"штрих-код «{barcode}»: жаңы товарга цифралар гана, 4–14 белги",
                         $"barcode “{barcode}”: a new product needs digits only, 4–14 characters", $"barkod «{barcode}»: yeni ürün için yalnızca rakamlar, 4–14 karakter",
-                        $"shtrix-kod «{barcode}»: yangi mahsulot uchun faqat raqamlar, 4–14 belgi"), ProductImportField.Barcode, cBarcode);
+                        $"shtrix-kod «{barcode}»: yangi mahsulot uchun faqat raqamlar, 4–14 belgi")
+                        + (serviceCodes ? Tr.T(" (включите в «Дополнительно» внутренний код NurCRM для служебных кодов или исправьте код в файле)", " («Кошумча» бөлүмүндө кызматтык коддорго NurCRM ички кодун күйгүзүңүз же файлда оңдоңуз)",
+                            " (turn on the NurCRM internal code for service codes in “More”, or fix the code in the file)", " («Ek»te hizmet kodları için NurCRM iç kodunu açın veya dosyadaki kodu düzeltin)",
+                            " («Qo'shimcha»da xizmat kodlari uchun NurCRM ichki kodini yoqing yoki fayldagi kodni tuzating)") : ""), ProductImportField.Barcode, cBarcode);
                     continue;
                 }
                 var salePrice = sale is > 0 ? sale.Value
@@ -581,6 +727,8 @@ public sealed class BulkImportPlan
                     && ReceivingPricing.AutoSalePrice(line, ReceivingMarkupSettingsStore.Current) is { } autoNew)
                     line.SalePrice = autoNew;
                 row.Kind = BulkImportRowKind.New;
+                if (cBrand >= 0 && src[cBrand].Trim() is { Length: > 0 } brandText)
+                    row.Brand = brandText.Length > 100 ? brandText[..100] : brandText;
             }
 
             // ---- проверка теми же правилами, что в приёмке (+ единица и дробное количество)
@@ -590,6 +738,8 @@ public sealed class BulkImportPlan
             row.Line = line;
             seen[canon] = row; // 2026-10-29: и строка с ошибкой проверки: повтор её штрихкода складывается в неё, а не заводит второй товар
             row._alts.AddRange(rowAlts);
+            foreach (var (metaKey, metaValue) in rowMeta)
+                row._altMeta[metaKey] = metaValue; // 2026-11-20: штуки в упаковке и названия вариантов
             foreach (var alt in rowAlts)
                 seen[Canon(alt)] = row;
             if (nameKey.Length > 0)
@@ -608,6 +758,8 @@ public sealed class BulkImportPlan
             FileRows = fileRows,
             _cols = cols,
             CardsOnly = cardsOnly,
+            GroupRowsSkipped = groupRows,
+            _knownCategories = new HashSet<string>(catalogList.Select(t => (t.Category ?? "").Trim()).Where(c => c.Length > 0), StringComparer.OrdinalIgnoreCase),
         };
         plan.Recompute();
         watch.Stop();
@@ -619,25 +771,155 @@ public sealed class BulkImportPlan
     /// <summary>2026-10-30: правило проекта для штрихкода нового товара и доп. штрихкодов: только цифры, 4–14 знаков.</summary>
     internal static bool IsCardBarcode(string code) => code.Length is >= 4 and <= 14 && code.All(char.IsDigit);
 
-    private static readonly char[] AltSeparators = [';', ',', ' ', '|', '\n', '\r', '\t'];
+    /// <summary>2026-11-20 (скриншот владельца: файл «Компания / Почта владельца / Цена в мес.» загрузили как товары — 111 красных строк «штрихкод market@gmail.com»):
+    /// файл не похож на список товаров. Да — когда больше 80 % непустых значений столбца штрихкода не цифровые (почты, адреса, текст), либо столбцы штрихкода/названия
+    /// угаданы с низкой уверенностью (по данным, не по заголовку) и половина строк и более — ошибки. Решает окно: показать плашку вместо таблицы ошибок.</summary>
+    public static bool LooksLikeNotProductList(ProductFileTable table, ProductImportMapping mapping, BulkImportPlan? plan)
+    {
+        var cBarcode = mapping.ColumnOf(ProductImportField.Barcode);
+        if (cBarcode < 0 || table.DataRowCount == 0)
+            return false;
+        int nonEmpty = 0, nonDigit = 0, seenRows = 0;
+        foreach (var row in table.DataRows)
+        {
+            if (seenRows++ >= 500)
+                break;
+            var value = ProductCodeLookup.Normalize(row[cBarcode]);
+            if (value.Length == 0)
+                continue;
+            nonEmpty++;
+            if (!value.All(char.IsDigit))
+                nonDigit++;
+        }
+        if (nonEmpty >= 3 && nonDigit * 100 > nonEmpty * 80)
+            return true;
+        var weak = mapping.ConfidenceOf(ProductImportField.Barcode) == MappingConfidence.Low || mapping.ConfidenceOf(ProductImportField.Name) == MappingConfidence.Low;
+        return weak && plan is { Rows.Count: > 0 } && plan.ErrorCount * 100 >= plan.Rows.Count * 50;
+    }
+
+    /// <summary>2026-11-20: ячейка цены пуста или это число не больше нуля.</summary>
+    private static bool IsZeroOrEmpty(string cell)
+    {
+        var t = cell.Trim();
+        return t.Length == 0 || (ProductCsvImporter.TryParseNumber(t, out var n) && n <= 0);
+    }
+
+    /// <summary>2026-11-20 (CT MAX): внутренний штрихкод NurCRM по «семени» (прежний код + название), а не случайный: EAN-13, первая цифра 1, 3–9 (не 0 и не 2 — как у
+    /// <see cref="BarcodeGenerator"/>), не «470…», верная контрольная цифра. Занятый код (<paramref name="taken"/>) — следующий вариант того же семени.</summary>
+    internal static string InternalCode(string seed, Func<string, bool> taken)
+    {
+        ReadOnlySpan<char> first = "13456789";
+        for (var salt = 0; salt < 1000; salt++)
+        {
+            var hash = System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(seed + "#" + salt));
+            var n = BitConverter.ToUInt64(hash, 0);
+            var body = first[(int)(n % 8)].ToString() + ((n / 8) % 100_000_000_000UL).ToString("D11", CultureInfo.InvariantCulture);
+            if (body.StartsWith("470", StringComparison.Ordinal))
+                continue;
+            var sum = 0;
+            for (var i = 0; i < 12; i++)
+                sum += (body[i] - '0') * (i % 2 == 0 ? 1 : 3);
+            var code = body + ((10 - sum % 10) % 10).ToString(CultureInfo.InvariantCulture);
+            if (!taken(code))
+                return code;
+        }
+        return BarcodeGenerator.Generate();
+    }
+
+    private static readonly char[] AltSeparators =[';', ',', ' ', '|', '\n', '\r', '\t'];
 
     /// <summary>2026-10-30: «Название» → ключ для объединения: нижний регистр, ё = е, пробелы схлопнуты.</summary>
     internal static string NameKey(string name) =>
         Regex.Replace(name.Trim().ToLowerInvariant().Replace('ё', 'е'), @"\s+", " ");
 
-    /// <summary>Разобрать ячейку «Доп. штрихкоды». false — строка помечена ошибкой (научная запись Excel, не цифры, не 4–14 знаков).</summary>
-    private static bool TryParseAlts(BulkImportRow row, string raw, int column, string mainBarcode, List<string> alts)
+    private static string CodeSkippedText => Tr.T(" — код пропущен", " — код өткөрүлдү", " — code skipped", " — kod atlandı", " — kod o'tkazildi");
+
+    /// <summary>Пробелы вокруг «:» / «×» / «*» в «код : N» убираются до разбиения ячейки по пробелам.</summary>
+    private static readonly Regex AltQtySeparator = new(@"\s*[:：×*]\s*", RegexOptions.Compiled);
+
+    /// <summary>2026-11-20: код не годится. Включено «пропускать только плохой код» — код пропущен с предупреждением (true, продолжаем), иначе строка с ошибкой (false).</summary>
+    private static bool SoftFail(BulkImportRow row, string error, ProductImportField field, int column, bool skipBad)
     {
-        foreach (var part in raw.Split(AltSeparators, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        if (!skipBad)
+        {
+            Fail(row, error, field, column);
+            return false;
+        }
+        row.AltSkipped++;
+        row.Warning = AppendWarning(row.Warning, error + CodeSkippedText);
+        return true;
+    }
+
+    private static bool PackQtyOk(double qty) => double.IsFinite(qty) && qty > 0 && qty <= PackScanRules.MaxPackQuantity;
+
+    private static string BadPackQtyText(string text, string code) => Tr.T($"штук в упаковке «{text}» у кода {code}: нужно число больше нуля (до {PackScanRules.MaxPackQuantity:0})",
+        $"{code} кодундагы даана саны «{text}»: нөлдөн чоң сан керек ({PackScanRules.MaxPackQuantity:0} чейин)",
+        $"pieces in pack “{text}” for code {code}: a number above zero is needed (up to {PackScanRules.MaxPackQuantity:0})",
+        $"{code} kodunda paketteki adet «{text}»: sıfırdan büyük sayı gerekir ({PackScanRules.MaxPackQuantity:0} değerine kadar)",
+        $"{code} kodi uchun qadoqdagi dona soni «{text}»: noldan katta son kerak ({PackScanRules.MaxPackQuantity:0} gacha)");
+
+    /// <summary>2026-11-20: доп. коды строки: столбец «Доп. штрихкоды» (код или «код:N» — N штук в упаковке), столбец «Штрихкод упаковки» + «Штук в упаковке»
+    /// + «Название варианта». false — строка помечена ошибкой (при выключенном «пропускать только плохой код»).</summary>
+    private static bool ParseRowAlts(BulkImportRow row, ProductFileRow src, int cAlt, int cPack, int cPackQty, int cAltName, string main, bool skipBad,
+        List<string> alts, Dictionary<string, AltMeta> meta)
+    {
+        if (cAlt >= 0 && src[cAlt].Trim().Length > 0
+            && !TryParseAlts(row, src[cAlt], ProductImportField.AltBarcodes, cAlt, main, skipBad, alts, meta, 0, ""))
+            return false;
+        var name = cAltName >= 0 ? src[cAltName].Trim() : "";
+        var altsBeforePack = alts.Count;
+        if (cPack >= 0 && src[cPack].Trim().Length > 0)
+        {
+            var qtyText = cPackQty >= 0 ? src[cPackQty].Trim() : "";
+            double qty = 0;
+            if (qtyText.Length > 0 && (!ProductCsvImporter.TryParseNumber(qtyText, out qty) || !PackQtyOk(qty)))
+            {
+                // «Штук в упаковке» не число больше нуля — код упаковки не берём
+                if (!SoftFail(row, BadPackQtyText(qtyText, src[cPack].Trim()), ProductImportField.PackQty, cPackQty, skipBad))
+                    return false;
+            }
+            else if (!TryParseAlts(row, src[cPack], ProductImportField.PackBarcode, cPack, main, skipBad, alts, meta, Math.Round(qty, 3), name))
+                return false;
+        }
+        // название варианта без штрихкода упаковки — относится к единственному доп. коду ячейки; если кодов несколько, к какому из них — неизвестно
+        if (name.Length > 0 && alts.Count == altsBeforePack && altsBeforePack > 0)
+        {
+            if (altsBeforePack == 1)
+                meta[Canon(alts[0])] = meta[Canon(alts[0])] with { Name = name };
+            else
+                row.Warning = AppendWarning(row.Warning, Tr.T("название варианта не загружено: в ячейке несколько кодов, непонятно, к какому оно относится",
+                    "вариант аталышы жүктөлгөн жок: уячада бир нече код, кайсынысына тиешелүү экени белгисиз",
+                    "variant name not loaded: the cell has several codes and it is unclear which one it belongs to",
+                    "varyant adı yüklenmedi: hücrede birkaç kod var, hangisine ait olduğu belli değil",
+                    "variant nomi yuklanmadi: katakda bir nechta kod bor, qaysi biriga tegishli ekani noma'lum"));
+        }
+        return true;
+    }
+
+    /// <summary>Разобрать ячейку доп. кодов: несколько кодов через ; , пробел | или перенос, «код:N» — N штук в упаковке. Повтор кода в ячейке схлопывается.
+    /// false — строка помечена ошибкой (научная запись Excel, не цифры, не 4–14 знаков, плохое N); при <paramref name="skipBad"/> плохой код просто пропускается.</summary>
+    private static bool TryParseAlts(BulkImportRow row, string raw, ProductImportField field, int column, string mainBarcode, bool skipBad, List<string> alts,
+        Dictionary<string, AltMeta> meta, double defaultQty, string defaultName)
+    {
+        var isPack = field == ProductImportField.PackBarcode;
+        foreach (var part in AltQtySeparator.Replace(raw, ":").Split(AltSeparators, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
             var code = part;
+            string? inlineQty = null;
+            var colon = code.IndexOf(':');
+            if (colon >= 0)
+            {
+                inlineQty = code[(colon + 1)..].Trim();
+                code = code[..colon].Trim();
+            }
             if (ExponentBarcode.IsMatch(code))
             {
-                Fail(row, Tr.T($"доп. штрихкод «{code}» испорчен Excel — сохраните столбец как текст и загрузите заново",
-                    $"кошумча штрих-код «{code}» Excel тарабынан бузулган — мамычаны текст катары сактап, кайра жүктөңүз",
-                    $"extra barcode “{code}” was mangled by Excel — save the column as text and load again",
-                    $"ek barkod «{code}» Excel tarafından bozulmuş — sütunu metin olarak kaydedip yeniden yükleyin",
-                    $"qo'shimcha shtrix-kod «{code}» Excel tomonidan buzilgan — ustunni matn sifatida saqlab, qayta yuklang"), ProductImportField.AltBarcodes, column);
+                if (SoftFail(row, Tr.T($"доп. штрихкод «{code}» испорчен Excel — сохраните столбец как текст и загрузите заново",
+                        $"кошумча штрих-код «{code}» Excel тарабынан бузулган — мамычаны текст катары сактап, кайра жүктөңүз",
+                        $"extra barcode “{code}” was mangled by Excel — save the column as text and load again",
+                        $"ek barkod «{code}» Excel tarafından bozulmuş — sütunu metin olarak kaydedip yeniden yükleyin",
+                        $"qo'shimcha shtrix-kod «{code}» Excel tomonidan buzilgan — ustunni matn sifatida saqlab, qayta yuklang"), field, column, skipBad))
+                    continue;
                 return false;
             }
             if (TrailingZeroDecimals.Match(code) is { Success: true } trimmed)
@@ -647,16 +929,53 @@ public sealed class BulkImportPlan
                 continue;
             if (!IsCardBarcode(code))
             {
-                Fail(row, Tr.T($"доп. штрихкод «{code}»: только цифры, 4–14 знаков", $"кошумча штрих-код «{code}»: цифралар гана, 4–14 белги",
-                    $"extra barcode “{code}”: digits only, 4–14 characters", $"ek barkod «{code}»: yalnızca rakamlar, 4–14 karakter", $"qo'shimcha shtrix-kod «{code}»: faqat raqamlar, 4–14 belgi"),
-                    ProductImportField.AltBarcodes, column);
+                if (SoftFail(row, Tr.T($"доп. штрихкод «{code}»: только цифры, 4–14 знаков", $"кошумча штрих-код «{code}»: цифралар гана, 4–14 белги",
+                        $"extra barcode “{code}”: digits only, 4–14 characters", $"ek barkod «{code}»: yalnızca rakamlar, 4–14 karakter", $"qo'shimcha shtrix-kod «{code}»: faqat raqamlar, 4–14 belgi"),
+                        field, column, skipBad))
+                    continue;
                 return false;
             }
-            if (Canon(code) == Canon(mainBarcode) || alts.Any(a => Canon(a) == Canon(code)))
+            var qty = defaultQty;
+            if (inlineQty is { Length: > 0 })
+            {
+                if (!ProductCsvImporter.TryParseNumber(inlineQty, out qty) || !PackQtyOk(qty))
+                {
+                    if (SoftFail(row, BadPackQtyText(inlineQty, code), field, column, skipBad))
+                        continue;
+                    return false;
+                }
+                qty = Math.Round(qty, 3);
+            }
+            if (Canon(code) == Canon(mainBarcode))
+            {
+                if (isPack) // код упаковки = основной код: упаковку от штуки не отличить — загружать нечего
+                    row.Warning = AppendWarning(row.Warning, Tr.T($"штрихкод упаковки {code} совпадает с основным — не загружен", $"куту штрих-коду {code} негизги менен дал келет — жүктөлгөн жок",
+                        $"pack barcode {code} is the same as the main one — not loaded", $"paket barkodu {code} ana barkodla aynı — yüklenmedi", $"qadoq shtrix-kodi {code} asosiy bilan bir xil — yuklanmadi"));
                 continue;
+            }
+            var key = Canon(code);
+            var found = alts.FindIndex(a => Canon(a) == key);
+            if (found >= 0)
+            {
+                // повтор кода в ячейке — один код; но если повтор впервые сообщает штуки в упаковке, они сохраняются
+                if (meta.TryGetValue(key, out var old) && old.Qty <= 0 && qty > 0)
+                    meta[key] = old with { Qty = qty, Pack = old.Pack || isPack };
+                continue;
+            }
             alts.Add(code);
+            meta[key] = new AltMeta(defaultName, qty, isPack);
         }
         return true;
+    }
+
+    /// <summary>2026-11-20: доп. код с названием и штуками в упаковке — к товару <paramref name="target"/> (без дублей; штуки дописываются, если их там ещё не было).</summary>
+    private static void AddAlt(BulkImportRow target, string code, IReadOnlyDictionary<string, AltMeta> meta)
+    {
+        var key = Canon(code);
+        if (!target._alts.Any(a => Canon(a) == key))
+            target._alts.Add(code);
+        if (meta.TryGetValue(key, out var m) && (!target._altMeta.TryGetValue(key, out var old) || (old.Qty <= 0 && m.Qty > 0)))
+            target._altMeta[key] = m;
     }
 
     /// <summary>Доп. штрихкоды, которые у товара склада уже есть (с названиями и количествами упаковок — их не затираем).</summary>
@@ -676,28 +995,46 @@ public sealed class BulkImportPlan
         return list;
     }
 
-    /// <summary>Слияние: уже имеющиеся доп. штрихкоды товара + новые из файла; без затирания, без дублей, без основного штрихкода.</summary>
+    /// <summary>Слияние: уже имеющиеся доп. штрихкоды товара + новые из файла; без затирания, без дублей, без основного штрихкода.
+    /// 2026-11-20: у кода, который у товара уже есть, но без «штук в упаковке», дописываются штуки (и название, если пустое) из файла; заполненное не меняется.</summary>
     private static void FinalizeAlts(BulkImportRow row)
     {
         if (row._alts.Count == 0)
         {
             row.AltFull = [];
             row.AltAdded = 0;
+            row.AltPackAdded = 0;
             return;
         }
         var full = row.Tile is { } tile ? ExistingAlts(tile) : [];
         var mainCanon = Canon(row.Tile?.Barcode ?? row.Barcode);
         var added = 0;
+        var packs = 0;
         foreach (var code in row._alts)
         {
             var c = Canon(code);
-            if (c == mainCanon || c == Canon(row.Barcode) || full.Any(v => Canon(v.Barcode) == c))
+            if (c == mainCanon || c == Canon(row.Barcode))
                 continue;
-            full.Add(new AlternateBarcodeVariant { Barcode = code, Name = "", Quantity = 0 });
+            var meta = row._altMeta.TryGetValue(c, out var m) ? m : default;
+            var at = full.FindIndex(v => Canon(v.Barcode) == c);
+            if (at >= 0)
+            {
+                if (full[at].Quantity <= 0 && meta.Qty > 0)
+                {
+                    full[at] = new AlternateBarcodeVariant { Barcode = full[at].Barcode, Name = string.IsNullOrWhiteSpace(full[at].Name) ? meta.Name : full[at].Name, Quantity = meta.Qty };
+                    added++;
+                    packs++;
+                }
+                continue;
+            }
+            full.Add(new AlternateBarcodeVariant { Barcode = code, Name = meta.Name ?? "", Quantity = meta.Qty });
             added++;
+            if (meta.Qty > 0)
+                packs++;
         }
         row.AltFull = full;
         row.AltAdded = added;
+        row.AltPackAdded = packs;
     }
 
     private static void Fail(BulkImportRow row, string error, ProductImportField? field, int column)
@@ -808,9 +1145,12 @@ public sealed class BulkImportPlan
     // ------------------------------------------------------------------ проверка строки и пересчёт после правок в таблице
 
     /// <summary>Столбцы файла, нужные проверке (для подсветки ячейки с ошибкой).</summary>
-    private readonly record struct Cols(int Quantity, int Name, int Purchase, int Sale, int Unit, bool CardsOnly);
+    private readonly record struct Cols(int Quantity, int Name, int Purchase, int Sale, int Unit, bool CardsOnly, bool NewOnly = false);
 
     private Cols _cols;
+
+    /// <summary>2026-11-20: категории, которые уже есть в каталоге (для «будет создано категорий: N»).</summary>
+    private HashSet<string> _knownCategories = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Проверка строки теми же правилами, что в приёмке (<see cref="PurchaseReceivingService.Validate"/>), плюс «единица» и «дробное
     /// количество у штучной единицы». Тексты — «укажите цену/количество/единицу». true — строка годна; иначе Kind = Error, Error заполнен, а
@@ -880,10 +1220,13 @@ public sealed class BulkImportPlan
         row.Kind = problems.Count == 0 ? row.BaseKind : BulkImportRowKind.Error;
         // 2026-10-30: «только карточки» — что именно изменится у товара склада (если ничего, строка пропускается).
         row.CardsOnly = cols.CardsOnly;
+        row.NewOnly = cols.NewOnly; // 2026-11-20: «только добавить новые»
         row.ChPurchase = cols.CardsOnly && !isNew && line.PurchasePrice > 0 && Math.Abs(line.PurchasePrice - line.OriginalPurchasePrice) > 0.004;
         row.ChSale = cols.CardsOnly && !isNew && line.SalePrice > 0 && Math.Abs(line.SalePrice - line.OriginalSalePrice) > 0.004;
         // 2026-11-20: прайс автозапчастей — строка с изменившимися полями запчасти (бренд, ячейка, номера, остаток) тоже пишется.
-        row.Unchanged = cols.CardsOnly && !isNew && problems.Count == 0 && !row.ChPurchase && !row.ChSale && row.AltAdded == 0 && row.Extra is not AutoPartsRowData { NeedsWrite: true };
+        // 2026-11-20: «только добавить новые» — существующие товары пропускаются целиком.
+        row.Unchanged = !isNew && problems.Count == 0 && (cols.NewOnly
+            || (cols.CardsOnly && !row.ChPurchase && !row.ChSale && row.AltAdded == 0 && row.Extra is not AutoPartsRowData { NeedsWrite: true }));
         return problems.Count == 0;
     }
 
@@ -893,7 +1236,7 @@ public sealed class BulkImportPlan
     {
         var lines = new List<ReceivingLineVm>();
         var fileRows = new List<int>();
-        int receipt = 0, created = 0, errors = 0, merged = 0, unchanged = 0;
+        int receipt = 0, created = 0, errors = 0, merged = 0, unchanged = 0, altCodes = 0, altPacks = 0, altSkipped = 0, internalCodes = 0;
         foreach (var row in Rows)
         {
             if (row.Line is not null && row.Kind != BulkImportRowKind.Merged)
@@ -903,7 +1246,16 @@ public sealed class BulkImportPlan
                 {
                     lines.Add(row.Line);
                     fileRows.Add(row.FileRow);
+                    if (row.InternalCode)
+                        internalCodes++;
+                    altCodes += row.AltAdded; // 2026-11-20: «доп. кодов: N» в итоге шага
+                    altPacks += row.AltPackAdded;
                 }
+            }
+            if (row.Kind != BulkImportRowKind.Error)
+                altSkipped += row.AltSkipped;
+            if (row.Line is not null && row.Kind != BulkImportRowKind.Merged)
+            {
                 if (row.Unchanged)
                     unchanged++;
             }
@@ -922,6 +1274,11 @@ public sealed class BulkImportPlan
         MergedCount = merged;
         ErrorCount = errors;
         UnchangedCount = unchanged;
+        AltCodeCount = altCodes;
+        AltPackCount = altPacks;
+        AltSkippedCount = altSkipped;
+        InternalCodeCount = internalCodes;
+        NewCategoryCount = Rows.Where(r => r.Kind == BulkImportRowKind.New && r.Line?.CategoryName is { Length: > 0 }).Select(r => r.Line!.CategoryName!.Trim()).Where(c => !_knownCategories.Contains(c)).Distinct(StringComparer.OrdinalIgnoreCase).Count();
     }
 
     /// <summary>Строк, которые уйдут в приход (приход к товарам склада + новые).</summary>

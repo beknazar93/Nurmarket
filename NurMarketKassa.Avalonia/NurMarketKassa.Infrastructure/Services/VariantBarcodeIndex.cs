@@ -290,14 +290,19 @@ public static class VariantBarcodeIndex
         }
     }
 
+    /// <summary>2026-11-21: пауза перед первым обходом и между товарами (90 с и 1,5 с; проверки ставят ноль).</summary>
+    internal static TimeSpan SweepStartDelay { get; set; } = TimeSpan.FromSeconds(90);
+
+    internal static TimeSpan SweepItemDelay { get; set; } = TimeSpan.FromMilliseconds(1500);
+
     /// <summary>Фоновый обход каталога (только пока <paramref name="enabled"/> — сфера «Одежда», касса на связи):
     /// по одному товару раз в 1,5 с, товары, проверенные меньше суток назад, пропускаются. Ответ 429 (лимит запросов
-    /// сервера) — пауза 2 минуты.</summary>
+    /// сервера) — пауза 2 минуты. 2026-11-21: товары с has_variants=false (ответ сервера в списке товаров) не запрашиваются вовсе.</summary>
     public static async Task RunBackgroundAsync(Func<bool> enabled, Func<IReadOnlyList<string>> productIds, CancellationToken ct)
     {
         try
         {
-            await Task.Delay(TimeSpan.FromSeconds(90), ct).ConfigureAwait(false);
+            await Task.Delay(SweepStartDelay, ct).ConfigureAwait(false);
             while (!ct.IsCancellationRequested)
             {
                 if (enabled() && ProductVariantCache.Loader is { } loader && !OfflineModeHelper.SellLocally)
@@ -325,6 +330,12 @@ public static class VariantBarcodeIndex
                             freshNow = Data.Checked.TryGetValue(id, out var at) && DateTime.UtcNow - at < TimeSpan.FromMinutes(30);
                         if (freshNow)
                             continue;
+                        // 2026-11-20 (обход кассы, п. 24): без запроса — сервер сказал «вариантов нет», товар только что
+                        // загружен кассиром/окном размеров или его загрузка уже идёт.
+                        if (ProductVariantCache.KnownWithoutVariants(id)
+                            || ProductVariantCache.IsFresh(id, TimeSpan.FromMinutes(30))
+                            || ProductVariantCache.IsLoading(id))
+                            continue;
                         try
                         {
                             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -346,7 +357,7 @@ public static class VariantBarcodeIndex
                         {
                             PosLogger.Log($"Штрихкоды размеров: товар {id} не проверен ({ex.Message}).", "CATALOG");
                         }
-                        await Task.Delay(1500, ct).ConfigureAwait(false);
+                        await Task.Delay(SweepItemDelay, ct).ConfigureAwait(false);
                     }
                     if (done > 0)
                         PosLogger.Log($"Штрихкоды размеров: проверено товаров {done}, в справочнике штрихкодов {Count}.", "CATALOG");

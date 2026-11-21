@@ -1194,7 +1194,7 @@
 
                         <!-- Состав итога: сумма позиций, скидки по строкам, скидка на чек, бонусы (строки со скидкой/бонусами — только когда они есть). -->
                         <StackPanel Spacing="4">
-                            <Grid ColumnDefinitions="*,Auto">
+                            <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding ShowSubtotalRow}">
                                 <TextBlock Text="{Binding SubtotalLabel}" Classes="line-k"/>
                                 <TextBlock Grid.Column="1" Text="{Binding SubtotalDisplay}" Classes="line-v"/>
                             </Grid>
@@ -1494,7 +1494,7 @@
                     </Button>
 
                     <!-- 2026-10-24 (приёмка, ПР-9): имя для UIA/экранного чтения = видимый текст кнопки («Получить 1,00 · в долг 3,00»), а не «Enter Оплатить …». -->
-                    <Button Classes="modal-primary foot-pay"
+                    <Button x:Name="PayButton" Classes="modal-primary foot-pay"
                             Command="{Binding PayCommand}"
                             IsEnabled="{Binding CanPay}"
                             AutomationProperties.Name="{Binding PayButtonText}"

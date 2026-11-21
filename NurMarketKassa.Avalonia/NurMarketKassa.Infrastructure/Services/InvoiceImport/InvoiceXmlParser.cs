@@ -275,6 +275,25 @@ public static class InvoiceXmlParser
         if (barcode.Length == 0 && InvoiceText.LooksLikeBarcode(article))
             barcode = InvoiceText.CleanBarcode(article);
         var mangled = barcode.Length == 0 && InvoiceText.IsMangledBarcode(Get(InvoiceField.Barcode));
+        // 2026-11-20 («при создании накладных штрихкоды тоже добавь»): у строки может быть несколько кодов (штучный и упаковки: <Штрихкод>, <EAN>, <GTIN>…) — первый верный
+        // остаётся основным, остальные уходят в доп. штрихкоды. Пустой/испорченный первый код не мешает взять следующий.
+        var extraCodes = new List<string>();
+        foreach (var (pairName, pairValue) in Pairs(el))
+        {
+            if (!(Lookup.TryGetValue(pairName, out var pairField) && pairField == InvoiceField.Barcode) && pairName != "standarditemidentification")
+                continue;
+            foreach (var part in pairValue.Split(['\n', ',', ';', '|'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                var c = InvoiceText.CleanBarcode(part, restoreLeadingZero: true);
+                if (c.Length > 0 && !InvoiceBarcodeRules.Same(c, barcode) && !extraCodes.Any(x => InvoiceBarcodeRules.Same(x, c)))
+                    extraCodes.Add(c);
+            }
+        }
+        if (barcode.Length == 0 && extraCodes.Count > 0)
+        {
+            barcode = extraCodes[0];
+            extraCodes.RemoveAt(0);
+        }
         if (name.Length == 0 && barcode.Length == 0)
             return null;
 
@@ -292,6 +311,7 @@ public static class InvoiceXmlParser
             SumWithVat = InvoiceText.ParseNumberOrNull(Get(InvoiceField.SumWithVat)),
             VatSum = InvoiceText.ParseNumberOrNull(Get(InvoiceField.VatSum)),
         };
+        item.ExtraBarcodes.AddRange(extraCodes);
         var qtyText = Get(InvoiceField.Quantity);
         if (InvoiceText.TryParseNumber(qtyText, out var qty))
             item.Quantity = qty;

@@ -1324,7 +1324,7 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
     }
 
     // 2026-11-20 (ТЗ «Автозапчасти», АЗ3): у «Автозапчастей» база тоже grocery, но поиск по доп. штрихкодам нужен им (номера аналогов) — признак профиля, а не базы.
-    private static bool IsGrocerySphere => !MarketSpheres.IsClothing && !MarketSpheres.IsServices && !MarketSpheres.IsAutoParts;
+    private static bool IsGrocerySphere => !MarketSpheres.IsClothing && !MarketSpheres.IsServices && !MarketSpheres.IsAutoParts && !MarketSpheres.IsBazaar; // 2026-11-20: «Базар» тоже на базе grocery, но «продуктовым» не считается
 
     /// <summary>2026-11-20 (АЗ3): нормализованный запрос-номер для сферы «Автозапчасти» («0 986-452 041» → «0986452041»); пусто — не номер или другая сфера.</summary>
     private static string PartQuery(string query)

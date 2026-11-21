@@ -78,6 +78,7 @@
   <x:String x:Key="csh.catalog.favoriteTooltip">Favorites</x:String>
   <x:String x:Key="csh.catalog.details">Details</x:String>
   <x:String x:Key="csh.catalog.detailsTooltip">Product description from the seller</x:String>
+  <x:String x:Key="csh.catalog.photoZoomTooltip">Enlarge the photo</x:String>
   <x:String x:Key="csh.catalog.tabAll">All products</x:String>
   <x:String x:Key="csh.catalog.tabWeighted">Weighed</x:String>
   <x:String x:Key="csh.catalog.tabPiece">Piece items</x:String>
@@ -129,6 +130,7 @@
   <x:String x:Key="csh.cart.keysLink">Keys: ?</x:String>
   <x:String x:Key="csh.menu.firstRunWizard">Tutorial: guided tour of the till</x:String>
   <x:String x:Key="csh.menu.trainingSale">Training sale</x:String>
+  <x:String x:Key="csh.menu.transferData">Move data from another program</x:String>
   <x:String x:Key="hotkeyGroup.title">Hotkey</x:String>
   <x:String x:Key="header.labelCustomerDisplay">Display</x:String>
   <x:String x:Key="header.labelTheme">Theme</x:String>

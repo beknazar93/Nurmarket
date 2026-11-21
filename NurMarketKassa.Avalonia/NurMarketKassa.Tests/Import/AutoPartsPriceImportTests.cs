@@ -19,10 +19,14 @@ public sealed class AutoPartsPriceImportTests : IDisposable
         PartMetaStore.FileOverride = Path.Combine(_dir, "autopart-meta.json");
         PartMetaStore.ResetForTests();
         AutoPartsProductMeta.FileOverride = Path.Combine(_dir, "autoparts-products.json");
+        AutoPartsImportLog.FileOverride = Path.Combine(_dir, "autoparts-import-log.json"); // 2026-11-20: журнал импорта (AfterSaved пишет в него)
+        AutoPartsImportLog.ResetForTests();
     }
 
     public void Dispose()
     {
+        AutoPartsImportLog.FileOverride = null;
+        AutoPartsImportLog.ResetForTests();
         PartMetaStore.FileOverride = null;
         PartMetaStore.ResetForTests();
         AutoPartsProductMeta.FileOverride = null;

@@ -11,12 +11,11 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 
 /// <summary>2026-11-13 (Л-9 «Поддержка»): «Написать в поддержку» — одной кнопкой собрать обращение: описание проблемы, последние строки журнала
 /// (без паролей и ключей — SensitiveDataRedactor), версия, компания и филиал, снимок окна по желанию. Уходит существующим каналом поддержки
-/// (SupportLogService → бот поддержки). Бот не подключён или связи нет — обращение остаётся в списке «Мои обращения» со статусом, его можно
-/// отправить повторно, а текст — открыть в WhatsApp. Часы работы и срок ответа — SupportInfo (по умолчанию «уточняется»).
+/// (SupportLogService → бот поддержки). Бот не подключён — WhatsApp открывается сам с готовым текстом (статус «Отправлено через WhatsApp»); связи нет —
+/// обращение остаётся в списке со статусом «Не отправлено» и кнопкой «Повторить». Часы работы и срок ответа — SupportInfo (нет данных — строки скрыты).
 /// Открывается из меню «Тех. поддержка» (касса и программа владельца), из окна ошибки и из «Журнала ошибок».</summary>
 public sealed class SupportRequestWindow : Window
 {
-    private const string WhatsAppPhone = "996221068796";
     private const int HistoryRows = 5;
 
     private readonly string _source;
@@ -78,17 +77,21 @@ public sealed class SupportRequestWindow : Window
         var root = new StackPanel { Spacing = 12 };
 
         // Часы работы и срок первого ответа (тексты-настройки SupportInfo).
-        var hours = new TextBlock
+        // 2026-11-20: строки без данных («уточняется») не показываем; нет ни часов, ни срока — карточки нет совсем.
+        var hoursLines = new List<string>();
+        if (SupportInfo.HoursOrNull() is { } hoursValue)
+            hoursLines.Add(T("Часы работы поддержки: ", "Колдоонун иш убактысы: ", "Support hours: ", "Destek saatleri: ", "Yordam ish vaqti: ") + hoursValue);
+        if (SupportInfo.ResponseTimeOrNull() is { } responseValue)
+            hoursLines.Add(T("Первый ответ: ", "Биринчи жооп: ", "First reply: ", "İlk yanıt: ", "Birinchi javob: ") + responseValue);
+        if (hoursLines.Count > 0)
         {
-            Text = T("Часы работы поддержки: ", "Колдоонун иш убактысы: ", "Support hours: ", "Destek saatleri: ", "Yordam ish vaqti: ") + SupportInfo.Hours() + "\n" +
-                   T("Первый ответ: ", "Биринчи жооп: ", "First reply: ", "İlk yanıt: ", "Birinchi javob: ") + SupportInfo.ResponseTime(),
-            FontSize = 13, TextWrapping = TextWrapping.Wrap,
-        };
-        hours.Bind(TextBlock.ForegroundProperty, hours.GetResourceObservable("BrushText"));
-        var hoursCard = new Border { CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 10), BorderThickness = new Thickness(1), Child = hours };
-        hoursCard.Bind(Border.BackgroundProperty, hoursCard.GetResourceObservable("BrushAccentSoft"));
-        hoursCard.Bind(Border.BorderBrushProperty, hoursCard.GetResourceObservable("BrushAccent"));
-        root.Children.Add(hoursCard);
+            var hours = new TextBlock { Text = string.Join("\n", hoursLines), FontSize = 13, TextWrapping = TextWrapping.Wrap };
+            hours.Bind(TextBlock.ForegroundProperty, hours.GetResourceObservable("BrushText"));
+            var hoursCard = new Border { CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 10), BorderThickness = new Thickness(1), Child = hours };
+            hoursCard.Bind(Border.BackgroundProperty, hoursCard.GetResourceObservable("BrushAccentSoft"));
+            hoursCard.Bind(Border.BorderBrushProperty, hoursCard.GetResourceObservable("BrushAccent"));
+            root.Children.Add(hoursCard);
+        }
 
         root.Children.Add(Soft(T("Что случилось? Опишите коротко: что делали и что пошло не так.",
             "Эмне болду? Кыскача жазыңыз: эмне кылдыңыз жана эмне туура эмес болду.",
@@ -250,7 +253,7 @@ public sealed class SupportRequestWindow : Window
             var branch = _branch;
             var record = await Task.Run(() => SupportRequestService.SubmitAsync(text, includeLog, shot, source, branch)).ConfigureAwait(true);
             ShowResult(record);
-            if (record.Status == SupportRequestRecord.StatusSent)
+            if (record.Status == SupportRequestRecord.StatusSent || SupportRequestService.IsWhatsApp(record))
                 _description.Text = "";
         }
         catch (Exception ex)
@@ -279,14 +282,18 @@ public sealed class SupportRequestWindow : Window
                     $"№ {record.Id} numaralı talep gönderildi. Yanıt telefon veya WhatsApp ile gelir.",
                     $"№ {record.Id} murojaat yuborildi. Javob telefon yoki WhatsApp orqali keladi."), "BrushSuccess");
                 break;
+            case SupportRequestRecord.StatusWhatsApp:
             case SupportRequestRecord.StatusNotConfigured:
+                // 2026-11-20: серверного канала нет — WhatsApp открывается сам, с готовым текстом на номер поддержки NurCRM; не тупик «канал не подключён».
                 _lastFailed = record;
-                ShowStatus(T($"Обращение № {record.Id} сохранено, но канал поддержки в этой программе не подключён. Отправьте его в WhatsApp — текст уже готов.",
-                    $"№ {record.Id} кайрылуу сакталды, бирок бул программада колдоо каналы туташкан эмес. WhatsApp'ка жөнөтүңүз — тексти даяр.",
-                    $"Request № {record.Id} is saved, but the support channel is not connected in this program. Send it via WhatsApp — the text is ready.",
-                    $"№ {record.Id} numaralı talep kaydedildi, ancak bu programda destek kanalı bağlı değil. WhatsApp ile gönderin — metin hazır.",
-                    $"№ {record.Id} murojaat saqlandi, lekin bu dasturda yordam kanali ulanmagan. WhatsApp orqali yuboring — matn tayyor."), "BrushWarning");
+                ShowStatus(T($"Обращение № {record.Id} отправлено через WhatsApp: текст уже готов — нажмите в WhatsApp «Отправить».",
+                    $"№ {record.Id} кайрылуу WhatsApp аркылуу жөнөтүлдү: тексти даяр — WhatsApp'та «Жөнөтүү» баскычын басыңыз.",
+                    $"Request № {record.Id} sent via WhatsApp: the text is ready — press “Send” in WhatsApp.",
+                    $"№ {record.Id} numaralı talep WhatsApp ile gönderildi: metin hazır — WhatsApp'ta «Gönder»e basın.",
+                    $"№ {record.Id} murojaat WhatsApp orqali yuborildi: matn tayyor — WhatsApp'da «Yuborish»ni bosing."), "BrushSuccess");
+                _whatsApp.Content = T("Открыть WhatsApp ещё раз", "WhatsApp'ты кайра ачуу", "Open WhatsApp again", "WhatsApp'ı tekrar aç", "WhatsApp'ni yana ochish");
                 _whatsApp.IsVisible = true;
+                OpenWhatsApp(record);
                 break;
             default:
                 _lastFailed = record;
@@ -295,6 +302,8 @@ public sealed class SupportRequestWindow : Window
                     $"Request № {record.Id} was not sent: {record.Error}. It is saved in the list — press “Retry” when the connection is back.",
                     $"№ {record.Id} numaralı talep gönderilmedi: {record.Error}. Listede kayıtlı — bağlantı gelince «Tekrar dene»ye basın.",
                     $"№ {record.Id} murojaat yuborilmadi: {record.Error}. U ro'yxatda saqlandi — aloqa paydo bo'lganda «Qayta urinish»ni bosing."), "BrushDanger");
+                _whatsApp.Content = T("Открыть WhatsApp с текстом обращения", "Кайрылуунун тексти менен WhatsApp ачуу", "Open WhatsApp with the request text",
+                    "Talep metniyle WhatsApp'ı aç", "Murojaat matni bilan WhatsApp'ni ochish");
                 _whatsApp.IsVisible = true;
                 break;
         }
@@ -309,8 +318,7 @@ public sealed class SupportRequestWindow : Window
 
     private static void OpenWhatsApp(SupportRequestRecord? record)
     {
-        var text = record is null ? "" : SupportRequestService.BuildFallbackText(record);
-        if (!PlatformLauncher.OpenUrl($"https://wa.me/{WhatsAppPhone}?text={Uri.EscapeDataString(text)}"))
+        if (record is null || !PlatformLauncher.OpenUrl(SupportRequestService.WhatsAppUrl(record)))
             PosLogger.Log("Поддержка: WhatsApp не открылся.", "WARNING");
     }
 
@@ -332,7 +340,7 @@ public sealed class SupportRequestWindow : Window
         var (label, brush, soft) = item.Status switch
         {
             SupportRequestRecord.StatusSent => (T("Отправлено", "Жөнөтүлдү", "Sent", "Gönderildi", "Yuborildi"), "BrushSuccess", "BrushSuccessSoft"),
-            SupportRequestRecord.StatusNotConfigured => (T("Канал не подключён", "Канал туташкан эмес", "Channel not connected", "Kanal bağlı değil", "Kanal ulanmagan"), "BrushWarning", "BrushWarningSoft"),
+            SupportRequestRecord.StatusWhatsApp or SupportRequestRecord.StatusNotConfigured => (T("Отправлено через WhatsApp", "WhatsApp аркылуу жөнөтүлдү", "Sent via WhatsApp", "WhatsApp ile gönderildi", "WhatsApp orqali yuborildi"), "BrushSuccess", "BrushSuccessSoft"),
             _ => (T("Не отправлено", "Жөнөтүлгөн жок", "Not sent", "Gönderilmedi", "Yuborilmadi"), "BrushDanger", "BrushDangerSoft"),
         };
         var description = item.Description.Replace('\n', ' ').Replace('\r', ' ');
@@ -349,7 +357,8 @@ public sealed class SupportRequestWindow : Window
 
         var right = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
         right.Children.Add(badge);
-        if (item.Status != SupportRequestRecord.StatusSent)
+        var whatsApp = SupportRequestService.IsWhatsApp(item);
+        if (item.Status != SupportRequestRecord.StatusSent && !whatsApp)
         {
             var retry = new Button
             {
@@ -359,7 +368,19 @@ public sealed class SupportRequestWindow : Window
             right.Children.Add(retry);
         }
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
-        grid.Children.Add(new StackPanel { Spacing = 2, Children = { title, body } });
+        var left = new StackPanel { Spacing = 2, Children = { title, body } };
+        if (whatsApp)
+        {
+            // 2026-11-20: для WhatsApp-статуса вместо «Повторить» — «Открыть WhatsApp ещё раз» (под текстом, чтобы строка не распирала окно).
+            var again = new Button
+            {
+                Content = T("Открыть WhatsApp ещё раз", "WhatsApp'ты кайра ачуу", "Open WhatsApp again", "WhatsApp'ı tekrar aç", "WhatsApp'ni yana ochish"),
+                Classes = { "nur-ghost" }, MinHeight = 44, HorizontalAlignment = HorizontalAlignment.Left,
+            };
+            again.Click += (_, _) => OpenWhatsApp(item);
+            left.Children.Add(again);
+        }
+        grid.Children.Add(left);
         Grid.SetColumn(right, 1);
         grid.Children.Add(right);
         var card = new Border { CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 8), BorderThickness = new Thickness(1), Child = grid };

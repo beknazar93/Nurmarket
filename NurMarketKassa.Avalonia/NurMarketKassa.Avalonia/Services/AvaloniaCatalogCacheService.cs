@@ -1189,6 +1189,8 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
                 _products = newList;
                 SyncInMemoryCatalog();
             }
+            if (_products.Count > 0)
+                AutoPartsImportLog.Prune(_products); // 2026-11-20: журнал импорта прайса — убрать записи, которые каталог уже догнал или товар удалён
 
             // Экран кассира узнаёт об изменениях каталога (2026-09-07) — раньше результат фонового
             // sync'а оседал только в SQLite и до плиток не доходил до перезапуска.

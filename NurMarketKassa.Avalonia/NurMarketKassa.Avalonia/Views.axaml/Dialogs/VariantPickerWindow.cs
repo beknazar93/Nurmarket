@@ -140,12 +140,15 @@ public sealed class VariantPickerWindow : Window
         if (ShowProductPhotoConverter.Instance.Convert(product.ProductImagePath, typeof(bool), null, CultureInfo.CurrentCulture) is true
             && AssetPathToBitmapConverter.Instance.Convert(product.ProductImagePath, typeof(IImage), "thumb", CultureInfo.CurrentCulture) is IImage img)
         {
-            return new Border
+            var photo = new Border
             {
                 Width = 72, Height = 72, CornerRadius = new CornerRadius(12), ClipToBounds = true, Margin = new Thickness(0, 0, 16, 0),
                 VerticalAlignment = VerticalAlignment.Center,
                 Child = new Image { Source = img, Stretch = Stretch.UniformToFill },
+                DataContext = product,
             };
+            ProductPhotoZoom.SetOpenOnClick(photo, true); // 2026-11-20: нажатие на фото — просмотр на весь экран
+            return photo;
         }
         return null;
     }

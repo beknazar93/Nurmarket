@@ -604,6 +604,10 @@ public sealed partial class UserPreferences
     /// Данные смет — локальный файл estimates.json (EstimateStore).</summary>
     public bool EstimateEnabled { get; set; }
 
+    /// <summary>2026-11-20, решение владельца: «аренда по умолчанию только в строймаге, у остальных — через Маркетплейс». Модуль «Прокат (аренда)» включён
+    /// (бесплатно, без ключа); в сфере «Хозтовары и стройматериалы» доступен и без этого, а у компаний с уже имеющимся прокатом признак ставится сам — см. <see cref="RentalFeature"/>.</summary>
+    public bool RentalEnabled { get; set; }
+
     /// <summary>Доп. услуга "Весы" (2026-09-21, по просьбе владельца — "весы надо добавить в
     /// доп услуги в тарифе старт") — на тарифе «Старт» отправка PLU на весы (Штрих-М/Rongta,
     /// экран Настройки → Весы) требует серийного номера, как остальные карточки в Маркетплейс →
@@ -1288,7 +1292,18 @@ public static class MarketSpheres
     public static SphereProfile Profile => SphereCatalog.Resolve(UserPreferences.Instance.MarketSphere, UserPreferences.Instance.MarketSphereDetail);
 
     /// <summary>2026-10-26 (ХМ1): магазин «Хозтовары и стройматериалы». Для других сфер всегда false — их поведение не меняется.</summary>
-    public static bool IsHardware => Profile.Id == Hardware;
+    /// <summary>2026-11-20: теперь это семейство «Хозмаг» + «Строймаг» (общая серверная база hardware): истинно для обоих; различия Сметы / проката — признаки профиля
+    /// (<see cref="SphereProfile.HasEstimate"/>, <see cref="SphereProfile.HasRentalsByDefault"/>). Старое значение hardware читается как Строймаг.</summary>
+    public static bool IsHardware => Profile.HardwareFamily;
+
+    /// <summary>2026-11-20: «Строймаг» (в том числе старое hardware).</summary>
+    public static bool IsStroymag => Profile.Id == HardwareProfile.StroymagId;
+
+    /// <summary>2026-11-20: «Хозмаг».</summary>
+    public static bool IsHozmag => Profile.Id == HardwareProfile.HozmagId;
+
+    /// <summary>2026-11-20: «Базар» (розница / опт — <see cref="SphereSettings.GetBazaarMode"/>). Базовая сфера у него grocery, но продуктовой он не считается — проверяйте этот признак, а не «база grocery».</summary>
+    public static bool IsBazaar => Profile.Id == BazaarProfile.Id;
 
     /// <summary>2026-11-12 (КТ1): магазин «Канцтовары и книги». Для других сфер всегда false — их поведение не меняется.</summary>
     public static bool IsStationery => Profile.Id == StationeryProfile.Id;
@@ -1297,8 +1312,9 @@ public static class MarketSpheres
     public static bool IsAutoParts => Profile.Id == AutoPartsProfile.Id;
 
     /// <summary>2026-10-20, владелец: «добавь возможность проката во всех видах магазина» — прокат есть в любой сфере
-    /// (было только «Одежда» и «Услуги»). Убрать — галочкой в «Показывать разделы» (kassa.rental / rentals).</summary>
-    public static bool HasRentals => true;
+    /// (было только «Одежда» и «Услуги»). Убрать — галочкой в «Показывать разделы» (kassa.rental / rentals).
+    /// 2026-11-20, решение владельца: теперь только строймаркет, у остальных — модуль из Маркетплейса или уже имеющийся прокат (одно место — <see cref="RentalFeature.IsAvailable"/>).</summary>
+    public static bool HasRentals => RentalFeature.IsAvailable;
 
     /// <summary>Сфера сменилась в настройках — окна, которые от неё зависят, перестраиваются сразу.</summary>
     public static event Action? Changed;

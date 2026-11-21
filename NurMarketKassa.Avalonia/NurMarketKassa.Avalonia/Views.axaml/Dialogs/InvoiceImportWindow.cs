@@ -351,6 +351,12 @@ public sealed class InvoiceImportWindow : Window
         _grid.Columns.Add(_colName);
         _colBarcode = new DataGridTextColumn { Header = H(T("Штрихкод", "Штрих-код", "Barcode", "Barkod", "Shtrix-kod")), Width = new DataGridLength(124), Binding = new Binding("Line.Barcode") };
         _grid.Columns.Add(_colBarcode);
+        // 2026-11-20 («при создании накладных штрихкоды тоже добавь»): «+N» — доп. штрихкоды строки (упаковка, второй код; XML с несколькими штрихкодами кладёт их сюда сам).
+        _grid.Columns.Add(new DataGridTemplateColumn
+        {
+            Header = H(T("Доп. коды", "Кошумча код", "Extra codes", "Ek kodlar", "Qo'sh. kodlar")), Width = new DataGridLength(84), IsReadOnly = true,
+            CellTemplate = new FuncDataTemplate<InvoicePlanRow>((row, _) => ExtrasCell(row), supportsRecycling: false),
+        });
         _colUnit = new DataGridTextColumn { Header = H(T("Ед.", "Бир.", "Unit", "Birim", "Birlik")), Width = new DataGridLength(64), Binding = new Binding("Line.Unit") };
         _grid.Columns.Add(_colUnit);
         _grid.Columns.Add(new DataGridTextColumn { Header = H(T("Кол-во", "Саны", "Qty", "Miktar", "Soni")), Width = new DataGridLength(84), Binding = new Binding("Line.QuantityText") { Converter = WarehouseWindow.CommaDecimal } });
@@ -369,14 +375,17 @@ public sealed class InvoiceImportWindow : Window
         _grid.BeginningEdit += (_, e) =>
         {
             _barcodeEditing = ReferenceEquals(e.Column, _colBarcode);
+            _barcodeBefore = ReferenceEquals(e.Column, _colBarcode) && e.Row.DataContext is InvoicePlanRow editing ? editing.Line.Barcode : null;
             // Название, штрихкод и единицу правим только у новых товаров (у найденного они живут в карточке товара).
             if (e.Row.DataContext is InvoicePlanRow row && (ReferenceEquals(e.Column, _colName) || ReferenceEquals(e.Column, _colBarcode) || ReferenceEquals(e.Column, _colUnit)) && row.IsFound)
                 e.Cancel = true;
         };
         _grid.CellEditEnded += (_, e) =>
         {
-            if (e.Row?.DataContext is InvoicePlanRow planRow)
-                planRow.Line.CommitText(); // 2026-10-28 (ДЕНЬГИ): сырой набранный текст цены («100.», «100,6») → нормальный показ («100,60») по выходу из ячейки
+            if (e.Row?.DataContext is InvoicePlanRow planRow && ReferenceEquals(e.Column, _colBarcode) && e.EditAction == DataGridEditAction.Commit && _barcodeBefore is { } before)
+                _ = ValidateBarcodeAsync(planRow, before); // 2026-11-20: формат 4–14 цифр, дубль в накладной, владелец в каталоге
+            if (e.Row?.DataContext is InvoicePlanRow planRow2)
+                planRow2.Line.CommitText(); // 2026-10-28 (ДЕНЬГИ): сырой набранный текст цены («100.», «100,6») → нормальный показ («100,60») по выходу из ячейки
             Dispatcher.UIThread.Post(RefreshSummary, DispatcherPriority.Background);
         };
     }
@@ -474,6 +483,68 @@ public sealed class InvoiceImportWindow : Window
         // Подсказка с полным текстом (название и замечания длинные).
         panel.Bind(ToolTip.TipProperty, new Binding("SubText"));
         return panel;
+    }
+
+    private string? _barcodeBefore;
+
+    private IEnumerable<InvoiceCodeRow> PlanCodeRows() =>
+        _plan.Rows.Select(r => new InvoiceCodeRow(r, r.Line.ProductName, r.IsFound ? r.Line.ProductId : null, r.Line.Barcode, r.Line.ExtraBarcodes.Select(v => v.Barcode).ToList()));
+
+    /// <summary>2026-11-20: код новой строки поправили руками или сканером — тот же шаг, что в «Приёме товара»: формат, дубль внутри накладной, владелец в каталоге («Выбрать его» — строка становится этим
+    /// товаром). Не принят — прежний код возвращается, причина — в строке сообщений.</summary>
+    private async Task ValidateBarcodeAsync(InvoicePlanRow row, string before)
+    {
+        var typed = row.Line.Barcode;
+        if (row.IsFound || string.Equals(InvoiceBarcodeRules.Clean(typed), before, StringComparison.OrdinalIgnoreCase))
+            return;
+        var ctx = new BarcodeRowContext(row, null, true, row.Line.ProductName, PlanCodeRows);
+        var r = await InvoiceBarcodeKit.CommitAsync(this, ctx, typed).ConfigureAwait(true);
+        switch (r.Kind)
+        {
+            case BarcodeCommitKind.Set or BarcodeCommitKind.Cleared:
+                row.Line.Barcode = r.Code;
+                break;
+            case BarcodeCommitKind.UseOwner when r.Owner is { } owner:
+                _plan.ChooseCandidate(row, new InvoiceCandidate(owner, 1.0), InvoiceMatchKind.Barcode);
+                break;
+            default:
+                row.Line.Barcode = before;
+                break;
+        }
+        _aiNote.IsVisible = r.Message.Length > 0;
+        _aiNote.Text = r.Message;
+        RefreshSummary();
+    }
+
+    /// <summary>«+N» строки: окно доп. штрихкодов (новый товар — список остаётся в строке и уйдёт в создание; товар склада — пишется на сервер).</summary>
+    private Control ExtrasCell(InvoicePlanRow? row)
+    {
+        if (row is null)
+            return new Border();
+        var count = row.Line.IsNew ? row.Line.ExtraBarcodes.Count : ProductActions.Find(row.Line.ProductId)?.AlternateBarcodeVariants?.Count(v => !string.IsNullOrWhiteSpace(v.Barcode)) ?? 0;
+        var b = new Button
+        {
+            Content = count > 0 ? "+" + count.ToString(CultureInfo.InvariantCulture) : "+", MinHeight = 36, MinWidth = 48, Padding = new Thickness(8, 0), FontSize = 12,
+            HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+        };
+        b.Classes.Add("sec-outline");
+        var tip = InvoiceBarcodeKit.ExtrasFull;
+        ToolTip.SetTip(b, tip);
+        Avalonia.Automation.AutomationProperties.SetName(b, tip + " " + row.Line.ProductName);
+        b.Click += async (_, _) =>
+        {
+            _grid.CommitEdit();
+            var outcome = await InvoiceBarcodeKit.EditExtrasFlowAsync(this, row.Line.ProductName, row.Line.Barcode, row.Line.ProductId, row.Line.IsNew, row.Line.ExtraBarcodes, row, PlanCodeRows).ConfigureAwait(true);
+            if (outcome is null)
+                return;
+            if (outcome.List is not null && row.Line.IsNew)
+                row.Line.ExtraBarcodes = outcome.List;
+            _aiNote.IsVisible = outcome.Message.Length > 0;
+            _aiNote.Text = outcome.Message;
+            var shown = row.Line.IsNew ? row.Line.ExtraBarcodes.Count : outcome.List?.Count ?? count;
+            b.Content = shown > 0 ? "+" + shown.ToString(CultureInfo.InvariantCulture) : "+";
+        };
+        return b;
     }
 
     private Control RemoveCell()

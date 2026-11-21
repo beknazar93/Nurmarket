@@ -16,7 +16,7 @@ namespace NurMarketKassa.Services;
 public static class ProductActions
 {
     /// <summary>2026-11-14 (Л-6): Queued — списание принято без связи и стоит в очереди «Неотправленного» (на сервере ещё не проведено).</summary>
-    public sealed record Result(bool Ok, string Message, bool Partial = false, bool Queued = false);
+    public sealed record Result(bool Ok, string Message, bool Partial = false, bool Queued = false, ServerBarcodeOwner? Duplicate = null); // 2026-11-21: Duplicate — 409 barcode_duplicate сервера (кто владеет кодом)
 
     /// <summary>Учёт остатков (документ ревизии). Задаётся приложением при запуске.</summary>
     public static IInventoryApiService? InventoryApi { get; set; }
@@ -284,7 +284,7 @@ public static class ProductActions
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             PosLogger.Log($"Действие с товаром: «{product.Title}» — {what} не сохранено ({ex.Message}).", "WARNING");
-            return new Result(false, T("Сервер не сохранил: ", "Сервер сактаган жок: ", "The server didn't save it: ", "Sunucu kaydetmedi: ", "Server saqlamadi: ") + ex.Message);
+            return new Result(false, T("Сервер не сохранил: ", "Сервер сактаган жок: ", "The server didn't save it: ", "Sunucu kaydetmedi: ", "Server saqlamadi: ") + ex.Message, Duplicate: ServerBarcodeErrors.TryDuplicate(ex));
         }
         RequestCatalogRefresh?.Invoke();
         // 2026-10-27 (цена склад-касса): RequestCatalogRefresh идёт через проверку «версии» каталога, а она не замечает смену цены —

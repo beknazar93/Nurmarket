@@ -183,8 +183,45 @@ public partial class OperationsSettingsView
     /// <summary>Сфера выбрана в Настройках. Новый магазин (первый выбор) получает «скан коробки» включённым (В-Х4), перешедший — выключенным.</summary>
     private static void OnSphereChosen(string sphere, bool firstChoice)
     {
-        if (sphere == MarketSpheres.Hardware && firstChoice)
-            SphereSettings.SetHardwareChoice(SphereSettings.GetHardwareSize(), packScan: true);
+        // 2026-11-20: Хозмаг / Строймаг — отдельные плитки (старое hardware читается как Строймаг); размер магазина следует за выбранной плиткой.
+        if (firstChoice && sphere is HardwareProfile.HozmagId or HardwareProfile.StroymagId or MarketSpheres.Hardware)
+            SphereSettings.SetHardwareChoice(sphere == HardwareProfile.HozmagId ? HardwareSize.Shop : HardwareSize.Market, packScan: true);
+    }
+
+    private bool _bazaarUiBusy;
+
+    /// <summary>2026-11-20: переключатель «Розница / Опт» сферы «Базар» (каркас: пока только хранит режим в SphereSettings).</summary>
+    private void RefreshBazaarUi()
+    {
+        var isBazaar = MarketSpheres.IsBazaar;
+        BazaarPanel.IsVisible = isBazaar;
+        if (!isBazaar)
+            return;
+        _bazaarUiBusy = true;
+        try
+        {
+            BazaarModeTitle.Text = Tr.T("Режим «Базара»", "«Базар» режими", "Bazaar mode", "Pazar modu", "«Bozor» rejimi");
+            BazaarRetailRadio.Content = BazaarProfile.ModeName(BazaarMode.Retail);
+            BazaarWholesaleRadio.Content = BazaarProfile.ModeName(BazaarMode.Wholesale);
+            var mode = SphereSettings.GetBazaarMode();
+            BazaarRetailRadio.IsChecked = mode == BazaarMode.Retail;
+            BazaarWholesaleRadio.IsChecked = mode == BazaarMode.Wholesale;
+            BazaarModeHint.Text = BazaarProfile.ModeHint(mode);
+        }
+        finally
+        {
+            _bazaarUiBusy = false;
+        }
+    }
+
+    private void BazaarMode_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_bazaarUiBusy)
+            return;
+        var mode = BazaarWholesaleRadio.IsChecked == true ? BazaarMode.Wholesale : BazaarMode.Retail;
+        if (!SphereSettings.SetBazaarMode(mode))
+            PosLogger.Log("Режим «Базара» не записан: настройки сфер не помещаются в лимит.", "WARNING");
+        RefreshBazaarUi();
     }
 
     private bool _hardwareUiBusy;
@@ -198,13 +235,10 @@ public partial class OperationsSettingsView
         _hardwareUiBusy = true;
         try
         {
-            HardwareSizeTitle.Text = Dialogs.HardwareChoiceTexts.SizeStepTitle;
-            HardwareShopRadio.Content = Dialogs.HardwareChoiceTexts.SizeName(HardwareSize.Shop);
-            HardwareMarketRadio.Content = Dialogs.HardwareChoiceTexts.SizeName(HardwareSize.Market);
-            var size = SphereSettings.GetHardwareSize();
-            HardwareShopRadio.IsChecked = size == HardwareSize.Shop;
-            HardwareMarketRadio.IsChecked = size == HardwareSize.Market;
-            HardwareSizeHint.Text = Dialogs.HardwareChoiceTexts.SizeDescription(size);
+            // 2026-11-20: размер магазина больше не выбирают — это сами сферы Хозмаг и Строймаг; строка размера скрыта (значение в SphereSettings остаётся для совместимости).
+            HardwareSizeTitle.IsVisible = false;
+            HardwareSizeRow.IsVisible = false;
+            HardwareSizeHint.IsVisible = false;
             HardwarePackScanText.Text = Dialogs.HardwareChoiceTexts.PackScanText;
             HardwarePackScanCheck.IsChecked = SphereSettings.GetHardwarePackScan();
             HardwareChangesText.Text = Dialogs.HardwareChoiceTexts.WhatChangesText();

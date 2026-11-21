@@ -17,12 +17,13 @@ public static class PurchaseDocs
     private static readonly CultureInfo Ru = CultureInfo.GetCultureInfo("ru-RU");
 
     // 2026-10-30: Extra — приписка к названию строки (наценка и цена продажи во внутренней копии накладной; печатному бланку колонок не добавляем).
-    public sealed record DocLine(string Name, string Unit, double Qty, double Price, string? Extra = null);
+    // 2026-11-20: Barcode — штрихкод товара строки; печатается колонкой «Штрихкод», только если Build(…, barcodes: true) (настройка «Колонка «Штрихкод» в печатной накладной»).
+    public sealed record DocLine(string Name, string Unit, double Qty, double Price, string? Extra = null, string? Barcode = null);
 
     public sealed record Party(string Name, string Phone, string Inn, string Address);
 
     /// <summary>receipt — приходная накладная, order — заказ поставщику.</summary>
-    public static ClientDocRenderer.Input Build(Control host, string kind, Party supplier, string number, DateTime date, IReadOnlyList<DocLine> lines, string? note)
+    public static ClientDocRenderer.Input Build(Control host, string kind, Party supplier, string number, DateTime date, IReadOnlyList<DocLine> lines, string? note, bool barcodes = false)
     {
         var profile = ClientDocsStore.Profile;
         var order = kind == "order";
@@ -48,8 +49,12 @@ public static class PurchaseDocs
         {
             var line = new ClientDocLine { Name = l.Name + (l.Extra is { Length: > 0 } extra ? " · " + extra : ""), Unit = string.IsNullOrWhiteSpace(l.Unit) ? "шт" : l.Unit, Qty = l.Qty };
             line.SetPrice(Math.Round(l.Price, 2), 0);
+            if (barcodes && !string.IsNullOrWhiteSpace(l.Barcode))
+                line.Barcode = l.Barcode.Trim();
             doc.Lines.Add(line);
         }
+        if (barcodes && !order && doc.Lines.Any(x => !string.IsNullOrWhiteSpace(x.Barcode)))
+            doc.Extra["barcodes"] = JsonSerializer.SerializeToElement(true);
         var seller = new ClientDocProfile { Name = supplier.Name, Phone = supplier.Phone, Inn = supplier.Inn, Address = supplier.Address, ShowStamp = false };
         return new ClientDocRenderer.Input(doc, seller, ClientDocRenderer.Classic, ClientDocsUi.AccentHex(host), null);
     }

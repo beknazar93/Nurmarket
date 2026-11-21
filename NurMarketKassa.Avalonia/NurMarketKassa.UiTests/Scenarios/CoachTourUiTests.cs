@@ -86,9 +86,24 @@ public sealed class CoachTourUiTests : IDisposable
     private static Button MenuButton(Window main) =>
         main.GetVisualDescendants().OfType<Button>().First(b => b.IsEffectivelyVisible && ReferenceEquals(b.Command, Vm(main).Toolbar.ToggleSideMenuCommand));
 
-    private static Control Tile(Window main, string title) =>
-        main.GetVisualDescendants().OfType<TextBlock>().First(t => t.IsEffectivelyVisible && t.Text == title
+    private static TextBlock? WaitTile(Window main, string title)
+    {
+        UiRobot.WaitFor(() => FindTile(main, title) is not null, 8000);
+        return FindTile(main, title);
+    }
+
+    private static TextBlock? FindTile(Window main, string title) =>
+        main.GetVisualDescendants().OfType<TextBlock>().FirstOrDefault(t => t.IsEffectivelyVisible && t.Text == title
             && t.FindAncestorOfType<NurMarketKassa.AvaloniaHost.Views.Main.Controls.CatalogPanelView>() is not null);
+
+    // 2026-11-20: плитки каталога строятся после асинхронной загрузки списка — на нагруженной машине в полном прогоне окно кассы ещё пустое; ждём, а не падаем.
+    private static Control Tile(Window main, string title) =>
+        WaitTile(main, title)
+        ?? throw new InvalidOperationException($"2026-11-20: плитки «{title}» нет; язык=" + NurMarketKassa.Services.Tr.T("ru", "ky", "en", "tr", "uz")
+            + "; видимые тексты каталога: " + string.Join(" | ", main.GetVisualDescendants().OfType<TextBlock>()
+                .Where(t => t.IsEffectivelyVisible && t.FindAncestorOfType<NurMarketKassa.AvaloniaHost.Views.Main.Controls.CatalogPanelView>() is not null)
+                .Select(t => t.Text).Where(t => !string.IsNullOrEmpty(t)).Take(30))
+            + "; сфера=" + NurMarketKassa.Services.UserPreferences.Instance.MarketSphere + "/" + NurMarketKassa.Services.UserPreferences.Instance.MarketSphereDetail);
 
     private static Point CenterIn(Control target, Visual space) =>
         target.TranslatePoint(new Point(target.Bounds.Width / 2, target.Bounds.Height / 2), space)!.Value;

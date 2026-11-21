@@ -38,7 +38,7 @@ public sealed class TextNotClippedTests
 
     /// <summary>2026-11-19 (список владельца, п. 8): окна, которых нет в каталоге снимков (разделы и мастера «Маркетплейс», «Журнал», «Склад»-мелочь,
     /// «Старая загрузка»…), — на всех четырёх языках (ru, ky, uz, tr), светлая тема, 1024×600.</summary>
-    private static readonly Dictionary<string, Func<Window>> ExtraWindows = new()
+    internal static readonly Dictionary<string, Func<Window>> ExtraWindows = new() // 2026-11-20: internal — список использует FormFieldsOverlapUiTests
     {
         ["x-marketplace"] = () => new MarketplaceWindow(),
         ["x-logs-errors"] = () => new LogsAndErrorsWindow(),

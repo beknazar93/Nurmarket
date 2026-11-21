@@ -1189,6 +1189,7 @@ namespace NurMarketKassa.ViewModels
 
         /// <summary>Прокат — только в сферах «Одежда» и «Услуги».</summary>
         // 2026-10-20: прокат во всех сферах; скрыт галочкой «Прокат» в «Показывать разделы» — и кнопки нет.
+        // 2026-11-20: теперь только строймаркет, модуль «Прокат» из Маркетплейса или уже имеющийся прокат (RentalFeature.IsAvailable через HasRentals).
         public bool ShowRentalButton => HasRentableItems && NurMarketKassa.Services.MarketSpheres.HasRentals
                                         && !NurMarketKassa.Services.SectionVisibility.IsHidden("kassa.rental");
 
@@ -1301,6 +1302,7 @@ namespace NurMarketKassa.ViewModels
             OnPropertyChanged(nameof(SubtotalDisplay));
             OnPropertyChanged(nameof(DiscountSummaryDisplay));
             OnPropertyChanged(nameof(HasDiscount));
+            OnPropertyChanged(nameof(ShowSubtotalRow));
             OnPropertyChanged(nameof(DiscountAmountPreview));
             OnPropertyChanged(nameof(PayableDisplay));
             OnPropertyChanged(nameof(PayButtonText));
@@ -1709,6 +1711,7 @@ namespace NurMarketKassa.ViewModels
             OnPropertyChanged(nameof(IsCashMode));
             OnPropertyChanged(nameof(IsBankSelectionVisible));
             OnPropertyChanged(nameof(IsDebtMode));
+            OnPropertyChanged(nameof(ShowSubtotalRow));
             // 2026-10-20 (К13): у долга бонусы — только с внесённой части.
             OnPropertyChanged(nameof(EarnedPointsPreview));
             OnPropertyChanged(nameof(EarnedPointsPreviewDisplay));

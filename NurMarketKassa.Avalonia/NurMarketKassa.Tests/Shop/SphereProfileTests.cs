@@ -26,8 +26,8 @@ public sealed class SphereProfileTests
     [Fact]
     public void Hardware_HasFeaturesFromSpec()
     {
-        var p = SphereCatalog.Get(HardwareProfile.Id);
-        p.Id.Should().Be("hardware");
+        var p = SphereCatalog.Get(HardwareProfile.Id); // 2026-11-20: старое hardware читается как Строймаг
+        p.Id.Should().Be("stroymag");
         p.BaseBehavior.Should().Be(MarketSpheres.Grocery, "на сервер уходит grocery");
         p.FractionalUnits.Should().BeTrue();
         p.PackScan.Should().BeTrue();
@@ -43,7 +43,7 @@ public sealed class SphereProfileTests
     [Fact]
     public void AllProfiles_HaveCompleteTexts()
     {
-        foreach (var p in SphereCatalog.All.Where(x => x.Id is "grocery" or "clothing" or "services" or "hardware"))
+        foreach (var p in SphereCatalog.All.Where(x => x.Id is "grocery" or "clothing" or "services" or "hozmag" or "stroymag" or "bazaar"))
         {
             p.Title.IsComplete.Should().BeTrue(p.Id + " Title");
             p.ShortTitle.IsComplete.Should().BeTrue(p.Id + " ShortTitle");

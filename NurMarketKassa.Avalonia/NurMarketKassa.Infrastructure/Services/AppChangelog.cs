@@ -11,11 +11,20 @@
 /// кыргызским, а сами пункты русскими.</summary>
 public static class AppChangelog
 {
+    // 2026-11-21: 1.17.91 (тестовый канал) — сверху всех Latest* 8 пунктов (смета, массовая загрузка, дубли и варианты, фото товара, накладные, сферы/налоги/заказы, вид и экраны, тариф и вход), сверху AndroidLatest* — первые пять.
     // 2026-11-20: 1.17.90 (тестовый канал) — сверху всех Latest* 5 пунктов (импорт прайсов автозапчастей, чек, один аккаунт, закрытие установщиком, ценники), сверху AndroidLatest* — первые два.
     // 2026-11-20: 1.17.89 (тестовый канал) — сверху всех Latest* 3 пункта (Автозапчасти: аналоги, поиск и оплата, окна и меню), сверху AndroidLatest* — первые два.
     // 2026-11-20: 1.17.88 (тестовый канал) — сверху всех Latest* 8 пунктов (табель, подписка, чеки старше 7 суток, склад, Автозапчасти, малые экраны, разделы владельца, исправления), сверху AndroidLatest* — 4 общих.
     public static readonly string[] Latest =
     [
+        "Смета для строймаркета: Калькулятор сметы: разделы и позиции из каталога, расход с запасом, итог, печать и PDF клиенту; открывается из Маркетплейса.",
+        "Массовая загрузка: Мастер из четырёх шагов: плитки программ (11 штук), профиль CT MAX, несколько штрихкодов на строку, режимы «только цену» и «только новые»; база прежней программы подтягивается из её папки сама.",
+        "Дубли и варианты: На складе касса находит карточки одного товара (вкусы, цвета) и объединяет их на сервере с дополнительными штрихкодами; есть журнал и откат.",
+        "Фото товара: Нажатие на фото в каталоге, на складе и в Маркетплейсе открывает его крупно; закрыть — Esc или клик.",
+        "Накладные, штрихкоды и вкусы: Код привязывается к строке по одному; если код уже у другого товара — понятное сообщение; Нур Советник сводит вкусы одного товара в один.",
+        "Сферы, налоги и заказы: Сферы «Базар», «Автозапчасти», «Контейнер»; аренда по умолчанию только у строймаркета; карточка «Налоги и ККМ»; заказы под клиента хранятся на сервере.",
+        "Вид и экраны: Окно оплаты не меняет размер; программа владельца без «дыхания» при смене раздела; каталог и вкладки чеков на узких окнах; весы — в «Настройки»; мелкая полировка.",
+        "Тариф и вход: «Своё» на Стандарте — понятное окно вместо ошибки 403; потеря входа (401) не стирает введённое и не ломает продажу; ключ устройства стабилен.",
         "Автозапчасти: импорт прайсов: В мастере «Массовая загрузка» новый профиль «Прайс поставщика (автозапчасти)»: колонки находятся по синонимам, группы и строки без цены пропускаются, остаток вида «10-20» читается диапазоном, повторная загрузка не плодит дубли, читается и старый .xls.",
         "Чек: возвраты: Строки возвратов в чеке не выходят за край, а сумма не рвётся по цифре.",
         "Один аккаунт для кассы и владельца: В кассу и в программу владельца можно входить одним аккаунтом владельца; общий ключ устройства создаётся атомарно.",
@@ -297,6 +306,14 @@ public static class AppChangelog
 
     public static readonly string[] LatestKy =
     [
+        "Курулуш дүкөнү үчүн смета: Смета калькулятору: каталогдон бөлүмдөр жана позициялар, запас менен чыгым, жыйынтык, кардарга басып чыгаруу жана PDF; Маркетплейстен ачылат.",
+        "Жапырт жүктөө: Төрт кадамдуу уста: программа плиткалары (11), CT MAX профили, бир сапка бир нече штрих-код, «баасы гана» жана «жаңылары гана» режимдери; мурунку программанын базасы анын папкасынан өзү алынат.",
+        "Кайталанмалар жана варианттар: Кассада бир товардын карточкалары (даамдар, түстөр) табылат да, кошумча штрих-коддор менен серверде бириктирилет; журнал жана кайтаруу бар.",
+        "Товардын сүрөтү: Каталогдогу, кампадагы жана Маркетплейстеги сүрөттү басканда ал чоң көрүнөт; жабуу — Esc же клик.",
+        "Жүк кагаздары, штрих-коддор жана даамдар: Код сапка бирден байланат; код башка товарда болсо — түшүнүктүү билдирүү; Нур Кеңешчи бир товардын даамдарын бирге бириктирет.",
+        "Чөйрөлөр, салыктар жана буйрутмалар: «Базар», «Автобөлүктөр», «Контейнер» чөйрөлөрү; ижара демейде курулуш дүкөнүндө гана; «Салык жана ККМ» карточкасы; кардарга буйрутмалар серверде сакталат.",
+        "Көрүнүш жана экрандар: Төлөм терезеси өлчөмүн өзгөртпөйт; ээсинин программасы бөлүм алмашканда «дем албайт»; тар терезелерде каталог жана чек өтмөктөрү; таразалар — «Жөндөөлөр» ичинде; майда жылмалоолор.",
+        "Тариф жана кирүү: Стандартта «Өзүнкү» — 403 катасынын ордуна түшүнүктүү терезе; кирүүнү жоготуу (401) киргизилгенди өчүрбөйт жана сатууну бузбайт; түзмөк ачкычы туруктуу.",
         "Автобөлүктөр: прайс импорту: «Жапырт жүктөө» устасында жаңы профиль «Жеткирүүчүнүн прайси (автобөлүктөр)»: мамычалар синонимдери боюнча табылат, топтор жана баасы жок саптар өткөрүлөт, «10-20» түрүндөгү калдык диапазон катары окулат, кайра жүктөө кайталанмаларды жаратпайт, эски .xls да окулат.",
         "Чек: кайтаруулар: Чектеги кайтаруу саптары четтен чыкпайт, сумма цифра боюнча үзүлбөйт.",
         "Касса жана ээси үчүн бир аккаунт: Кассага да, ээсинин программасына да ээсинин бир аккаунту менен кирүүгө болот; түзмөктүн жалпы ачкычы атомардык түрдө түзүлөт.",
@@ -576,6 +593,14 @@ public static class AppChangelog
 
     public static readonly string[] LatestEn =
     [
+        "Estimate for building-supply stores: Estimate calculator: sections and items from the catalog, quantity with a reserve, total, printing and PDF for the customer; opens from the Marketplace.",
+        "Bulk import: A four-step wizard: program tiles (11), the CT MAX profile, several barcodes per row, “price only” and “new only” modes; the old program's database is picked up from its folder automatically.",
+        "Duplicates and variants: In Warehouse the till finds cards of one product (flavors, colors) and merges them on the server with extra barcodes; there is a journal and undo.",
+        "Product photo: Click a photo in the catalog, warehouse or Marketplace to view it large; close with Esc or a click.",
+        "Invoices, barcodes and flavors: A code is attached to a line one at a time; if the code already belongs to another product you get a clear message; Nur Advisor merges flavors of one product into one.",
+        "Spheres, taxes and orders: Spheres “Bazaar”, “Auto parts”, “Container”; rental is on by default only for building-supply stores; a “Taxes and cash register” card; customer orders are stored on the server.",
+        "Look and screens: The payment window keeps its size; the owner program no longer “breathes” when switching sections; catalog and receipt tabs on narrow windows; scales moved to Settings; small polish.",
+        "Plan and sign-in: “Custom” on Standard shows a clear window instead of a 403 error; losing sign-in (401) no longer wipes what you typed or breaks a sale; the device key is stable.",
         "Auto parts: price list import: The “Bulk import” wizard has a new profile “Supplier price list (auto parts)”: columns are found by synonyms, groups and rows without a price are skipped, a stock like “10-20” is read as a range, re-uploading does not create duplicates, and the old .xls format is readable.",
         "Receipt: returns: Return lines on the receipt no longer go past the edge, and the total is no longer split in the middle of a number.",
         "One account for the till and the owner: You can sign in to both the till and the owner program with one owner account; the shared device key is created atomically.",
@@ -855,6 +880,14 @@ public static class AppChangelog
 
     public static readonly string[] LatestTr =
     [
+        "Yapı market için keşif: Keşif hesaplayıcı: katalogdan bölümler ve kalemler, yedekli miktar, toplam, müşteriye yazdırma ve PDF; Pazar Yeri'nden açılır.",
+        "Toplu yükleme: Dört adımlı sihirbaz: program kutucukları (11), CT MAX profili, satır başına birkaç barkod, «yalnız fiyat» ve «yalnız yeni» kipleri; eski programın veritabanı klasöründen kendiliğinden alınır.",
+        "Kopyalar ve varyantlar: Depoda kasa aynı ürünün kartlarını (tatlar, renkler) bulur ve ek barkodlarla sunucuda birleştirir; günlük ve geri alma vardır.",
+        "Ürün fotoğrafı: Katalogda, depoda ve Pazar Yeri'nde fotoğrafa tıklayınca büyük görünür; kapatmak için Esc veya tık.",
+        "Faturalar, barkodlar ve tatlar: Kod satıra tek tek bağlanır; kod başka üründeyse açık bir mesaj çıkar; Nur Danışman bir ürünün tatlarını tek ürüne indirir.",
+        "Alanlar, vergiler ve siparişler: «Pazar», «Oto yedek parça», «Konteyner» alanları; kiralama varsayılan olarak yalnız yapı marketlerinde; «Vergiler ve ÖKC» kartı; müşteri siparişleri sunucuda saklanır.",
+        "Görünüm ve ekranlar: Ödeme penceresi boyutunu değiştirmez; sahip programı bölüm değişince «nefes almaz»; dar pencerelerde katalog ve fiş sekmeleri; teraziler Ayarlar'a taşındı; küçük cilalar.",
+        "Tarife ve giriş: Standart'ta «Özel» için 403 hatası yerine anlaşılır pencere; oturum kaybı (401) yazılanı silmez ve satışı bozmaz; cihaz anahtarı kararlıdır.",
         "Oto yedek parça: fiyat listesi içe aktarma: «Toplu yükleme» sihirbazında yeni «Tedarikçi fiyat listesi (oto yedek parça)» profili: sütunlar eş anlamlılarla bulunur, grup satırları ve fiyatsız satırlar atlanır, «10-20» gibi stok aralık olarak okunur, yeniden yükleme kopya oluşturmaz, eski .xls da okunur.",
         "Fiş: iadeler: Fişteki iade satırları kenardan taşmaz, tutar rakamın ortasından bölünmez.",
         "Kasa ve sahip için tek hesap: Hem kasaya hem sahip programına tek sahip hesabıyla girilebilir; ortak cihaz anahtarı atomik olarak oluşturulur.",
@@ -1134,6 +1167,14 @@ public static class AppChangelog
 
     public static readonly string[] LatestUz =
     [
+        "Qurilish do'koni uchun smeta: Smeta kalkulyatori: katalogdan bo'limlar va pozitsiyalar, zaxira bilan sarf, jami, mijozga chop etish va PDF; Marketpleysdan ochiladi.",
+        "Ommaviy yuklash: To'rt bosqichli usta: dastur plitkalari (11), CT MAX profili, bir qatorga bir nechta shtrix-kod, «faqat narx» va «faqat yangi» rejimlari; avvalgi dastur bazasi uning papkasidan o'zi olinadi.",
+        "Dublikatlar va variantlar: Omborda kassa bitta tovarning kartalarini (ta'mlar, ranglar) topadi va qo'shimcha shtrix-kodlar bilan serverda birlashtiradi; jurnal va qaytarish bor.",
+        "Tovar surati: Katalogda, omborda va Marketpleysda suratni bossangiz, u katta ko'rinadi; yopish — Esc yoki bosish.",
+        "Hisob-fakturalar, shtrix-kodlar va tamlar: Kod qatorga bittadan bog'lanadi; kod boshqa tovarda bo'lsa — tushunarli xabar; Nur Maslahatchi bir tovarning ta'mlarini bittaga birlashtiradi.",
+        "Sohalar, soliqlar va buyurtmalar: «Bozor», «Avtoehtiyot qismlar», «Konteyner» sohalari; ijara odatda faqat qurilish do'konida; «Soliqlar va KKM» kartasi; mijoz buyurtmalari serverda saqlanadi.",
+        "Ko'rinish va ekranlar: To'lov oynasi o'lchamini o'zgartirmaydi; egasi dasturi bo'lim almashganda «nafas olmaydi»; tor oynalarda katalog va chek yorliqlari; tarozilar «Sozlamalar»ga ko'chirildi; mayda sayqallar.",
+        "Tarif va kirish: Standartda «O'zimniki» — 403 xatosi o'rniga tushunarli oyna; kirishni yo'qotish (401) kiritilganni o'chirmaydi va sotuvni buzmaydi; qurilma kaliti barqaror.",
         "Avtoehtiyot qismlar: narx-navo importi: «Ommaviy yuklash» ustasida yangi profil «Yetkazib beruvchi narx-navosi (avtoehtiyot qismlar)»: ustunlar sinonimlar bo'yicha topiladi, guruhlar va narxsiz qatorlar o'tkazib yuboriladi, «10-20» ko'rinishidagi qoldiq oraliq sifatida o'qiladi, qayta yuklash dublikat yaratmaydi, eski .xls ham o'qiladi.",
         "Chek: qaytarishlar: Chekdagi qaytarish qatorlari chetdan chiqmaydi, summa raqam o'rtasidan uzilmaydi.",
         "Kassa va egasi uchun bitta akkaunt: Kassaga ham, egasi dasturiga ham egasining bitta akkaunti bilan kirish mumkin; qurilmaning umumiy kaliti atomar yaratiladi.",
@@ -1474,6 +1515,11 @@ public static class AppChangelog
     // 2026-10-05: Android 1.17.52. Без эмодзи — на Android их шрифт не рисует (снимок владельца: «Кнопка  в поиске»).
     public static readonly string[] AndroidLatest =
     [
+        "Смета для строймаркета: Калькулятор сметы: разделы и позиции из каталога, расход с запасом, итог, печать и PDF клиенту; открывается из Маркетплейса.",
+        "Массовая загрузка: Мастер из четырёх шагов: плитки программ (11 штук), профиль CT MAX, несколько штрихкодов на строку, режимы «только цену» и «только новые»; база прежней программы подтягивается из её папки сама.",
+        "Дубли и варианты: На складе касса находит карточки одного товара (вкусы, цвета) и объединяет их на сервере с дополнительными штрихкодами; есть журнал и откат.",
+        "Фото товара: Нажатие на фото в каталоге, на складе и в Маркетплейсе открывает его крупно; закрыть — Esc или клик.",
+        "Накладные, штрихкоды и вкусы: Код привязывается к строке по одному; если код уже у другого товара — понятное сообщение; Нур Советник сводит вкусы одного товара в один.",
         "Автозапчасти: импорт прайсов: В мастере «Массовая загрузка» новый профиль «Прайс поставщика (автозапчасти)»: колонки находятся по синонимам, группы и строки без цены пропускаются, остаток вида «10-20» читается диапазоном, повторная загрузка не плодит дубли, читается и старый .xls.",
         "Чек: возвраты: Строки возвратов в чеке не выходят за край, а сумма не рвётся по цифре.",
         "Автозапчасти: аналоги: Аналоги сохраняются на сервере; подсказка про кросс-номера показывается только на «Старте».",
@@ -1651,6 +1697,11 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestKy =
     [
+        "Курулуш дүкөнү үчүн смета: Смета калькулятору: каталогдон бөлүмдөр жана позициялар, запас менен чыгым, жыйынтык, кардарга басып чыгаруу жана PDF; Маркетплейстен ачылат.",
+        "Жапырт жүктөө: Төрт кадамдуу уста: программа плиткалары (11), CT MAX профили, бир сапка бир нече штрих-код, «баасы гана» жана «жаңылары гана» режимдери; мурунку программанын базасы анын папкасынан өзү алынат.",
+        "Кайталанмалар жана варианттар: Кассада бир товардын карточкалары (даамдар, түстөр) табылат да, кошумча штрих-коддор менен серверде бириктирилет; журнал жана кайтаруу бар.",
+        "Товардын сүрөтү: Каталогдогу, кампадагы жана Маркетплейстеги сүрөттү басканда ал чоң көрүнөт; жабуу — Esc же клик.",
+        "Жүк кагаздары, штрих-коддор жана даамдар: Код сапка бирден байланат; код башка товарда болсо — түшүнүктүү билдирүү; Нур Кеңешчи бир товардын даамдарын бирге бириктирет.",
         "Автобөлүктөр: прайс импорту: «Жапырт жүктөө» устасында жаңы профиль «Жеткирүүчүнүн прайси (автобөлүктөр)»: мамычалар синонимдери боюнча табылат, топтор жана баасы жок саптар өткөрүлөт, «10-20» түрүндөгү калдык диапазон катары окулат, кайра жүктөө кайталанмаларды жаратпайт, эски .xls да окулат.",
         "Чек: кайтаруулар: Чектеги кайтаруу саптары четтен чыкпайт, сумма цифра боюнча үзүлбөйт.",
         "Автобөлүктөр: аналогдор: Аналогдор серверде сакталат; кросс-номерлер боюнча кеңеш «Старт»та гана көрүнөт.",
@@ -1826,6 +1877,11 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestEn =
     [
+        "Estimate for building-supply stores: Estimate calculator: sections and items from the catalog, quantity with a reserve, total, printing and PDF for the customer; opens from the Marketplace.",
+        "Bulk import: A four-step wizard: program tiles (11), the CT MAX profile, several barcodes per row, “price only” and “new only” modes; the old program's database is picked up from its folder automatically.",
+        "Duplicates and variants: In Warehouse the till finds cards of one product (flavors, colors) and merges them on the server with extra barcodes; there is a journal and undo.",
+        "Product photo: Click a photo in the catalog, warehouse or Marketplace to view it large; close with Esc or a click.",
+        "Invoices, barcodes and flavors: A code is attached to a line one at a time; if the code already belongs to another product you get a clear message; Nur Advisor merges flavors of one product into one.",
         "Auto parts: price list import: The “Bulk import” wizard has a new profile “Supplier price list (auto parts)”: columns are found by synonyms, groups and rows without a price are skipped, a stock like “10-20” is read as a range, re-uploading does not create duplicates, and the old .xls format is readable.",
         "Receipt: returns: Return lines on the receipt no longer go past the edge, and the total is no longer split in the middle of a number.",
         "Auto parts: analogues: Analogues are saved on the server; the hint about cross numbers is shown only on “Start”.",
@@ -2001,6 +2057,11 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestTr =
     [
+        "Yapı market için keşif: Keşif hesaplayıcı: katalogdan bölümler ve kalemler, yedekli miktar, toplam, müşteriye yazdırma ve PDF; Pazar Yeri'nden açılır.",
+        "Toplu yükleme: Dört adımlı sihirbaz: program kutucukları (11), CT MAX profili, satır başına birkaç barkod, «yalnız fiyat» ve «yalnız yeni» kipleri; eski programın veritabanı klasöründen kendiliğinden alınır.",
+        "Kopyalar ve varyantlar: Depoda kasa aynı ürünün kartlarını (tatlar, renkler) bulur ve ek barkodlarla sunucuda birleştirir; günlük ve geri alma vardır.",
+        "Ürün fotoğrafı: Katalogda, depoda ve Pazar Yeri'nde fotoğrafa tıklayınca büyük görünür; kapatmak için Esc veya tık.",
+        "Faturalar, barkodlar ve tatlar: Kod satıra tek tek bağlanır; kod başka üründeyse açık bir mesaj çıkar; Nur Danışman bir ürünün tatlarını tek ürüne indirir.",
         "Oto yedek parça: fiyat listesi içe aktarma: «Toplu yükleme» sihirbazında yeni «Tedarikçi fiyat listesi (oto yedek parça)» profili: sütunlar eş anlamlılarla bulunur, grup satırları ve fiyatsız satırlar atlanır, «10-20» gibi stok aralık olarak okunur, yeniden yükleme kopya oluşturmaz, eski .xls da okunur.",
         "Fiş: iadeler: Fişteki iade satırları kenardan taşmaz, tutar rakamın ortasından bölünmez.",
         "Oto yedek parça: muadiller: Muadiller sunucuda saklanır; çapraz numara ipucu yalnızca «Başlangıç»ta gösterilir.",
@@ -2176,6 +2237,11 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestUz =
     [
+        "Qurilish do'koni uchun smeta: Smeta kalkulyatori: katalogdan bo'limlar va pozitsiyalar, zaxira bilan sarf, jami, mijozga chop etish va PDF; Marketpleysdan ochiladi.",
+        "Ommaviy yuklash: To'rt bosqichli usta: dastur plitkalari (11), CT MAX profili, bir qatorga bir nechta shtrix-kod, «faqat narx» va «faqat yangi» rejimlari; avvalgi dastur bazasi uning papkasidan o'zi olinadi.",
+        "Dublikatlar va variantlar: Omborda kassa bitta tovarning kartalarini (ta'mlar, ranglar) topadi va qo'shimcha shtrix-kodlar bilan serverda birlashtiradi; jurnal va qaytarish bor.",
+        "Tovar surati: Katalogda, omborda va Marketpleysda suratni bossangiz, u katta ko'rinadi; yopish — Esc yoki bosish.",
+        "Hisob-fakturalar, shtrix-kodlar va tamlar: Kod qatorga bittadan bog'lanadi; kod boshqa tovarda bo'lsa — tushunarli xabar; Nur Maslahatchi bir tovarning ta'mlarini bittaga birlashtiradi.",
         "Avtoehtiyot qismlar: narx-navo importi: «Ommaviy yuklash» ustasida yangi profil «Yetkazib beruvchi narx-navosi (avtoehtiyot qismlar)»: ustunlar sinonimlar bo'yicha topiladi, guruhlar va narxsiz qatorlar o'tkazib yuboriladi, «10-20» ko'rinishidagi qoldiq oraliq sifatida o'qiladi, qayta yuklash dublikat yaratmaydi, eski .xls ham o'qiladi.",
         "Chek: qaytarishlar: Chekdagi qaytarish qatorlari chetdan chiqmaydi, summa raqam o'rtasidan uzilmaydi.",
         "Avtoehtiyot qismlar: analoglar: Analoglar serverda saqlanadi; kross-raqamlar haqidagi maslahat faqat «Start»da ko'rsatiladi.",

@@ -449,7 +449,8 @@
                                                  Watermark="{DynamicResource product.variantBarcodeWatermark}"/>
                                         <TextBox Grid.Column="2" Text="{Binding VariantNameSuffix}"
                                                  Watermark="{DynamicResource product.variantNameWatermark}"/>
-                                        <StackPanel Grid.Column="4" Spacing="4" Width="90">
+                                        <!-- 2026-11-20: было Width="90" — подпись «Таңгактагы саны» (ky) и «Qadoqdagi soni» (uz) не влезала; теперь колонка растёт под подпись -->
+                                        <StackPanel Grid.Column="4" Spacing="4" MinWidth="90">
                                             <TextBlock Classes="FieldLabel" FontSize="12" Text="{DynamicResource product.variantQuantityLabel}"/>
                                             <TextBox Text="{Binding VariantQuantity}"/>
                                         </StackPanel>

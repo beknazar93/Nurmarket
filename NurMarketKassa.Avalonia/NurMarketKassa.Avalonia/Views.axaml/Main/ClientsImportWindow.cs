@@ -53,6 +53,20 @@ public sealed class ClientsImportWindow : Window
         return window.Created;
     }
 
+    /// <summary>2026-11-20: открыть окно сразу с таблицей клиентов, найденной в папке программы (мастер загрузки товаров, «Автоподтяжка базы»).</summary>
+    public static async Task<int> ShowAsync(Window? owner, ProductFileTable preloaded)
+    {
+        var window = new ClientsImportWindow();
+        window.Opened += async (_, _) => await window.ShowResultAsync(new ProductFileReadResult { Table = preloaded }).ConfigureAwait(true);
+        if (owner is null)
+        {
+            window.Show();
+            return 0;
+        }
+        await window.ShowDialog(owner).ConfigureAwait(true);
+        return window.Created;
+    }
+
     public ClientsImportWindow()
     {
         Title = T("Перенос клиентов", "Кардарларды которуу", "Import customers", "Müşteri aktarımı", "Mijozlarni ko'chirish");

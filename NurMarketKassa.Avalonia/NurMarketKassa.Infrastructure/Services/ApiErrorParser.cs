@@ -21,6 +21,12 @@ internal static class ApiErrorParser
         "debt_already_paid" => Tr.T("Долг по документу уже оплачен — менять нельзя.", "Документ боюнча карыз төлөнгөн — өзгөртүүгө болбойт.", "The debt for this document is already paid — it cannot be changed.", "Belgenin borcu ödenmiş — değiştirilemez.", "Hujjat bo'yicha qarz to'langan — o'zgartirib bo'lmaydi."),
         "period_closed" => Tr.T("Период закрыт — изменить документ нельзя.", "Мезгил жабык — документти өзгөртүүгө болбойт.", "The period is closed — the document cannot be changed.", "Dönem kapalı — belge değiştirilemez.", "Davr yopiq — hujjatni o'zgartirib bo'lmaydi."),
         "permission_denied" => Tr.T("Нет прав на это действие — обратитесь к владельцу.", "Бул аракетке укук жок — ээсине кайрылыңыз.", "You do not have permission for this action — ask the owner.", "Bu işlem için yetkiniz yok — sahibine başvurun.", "Bu amalga ruxsat yo'q — egasiga murojaat qiling."),
+        // 2026-11-20 (ответ Умара 20.11, А.4): 400 invalid_attributes — характеристики запчасти (attributes) не прошли проверку сервера.
+        "invalid_attributes" => Tr.T("Характеристики товара (каталожный номер, OEM, гарантия и другие) не приняты сервером: название — латиницей до 32 знаков, значение — текст до 64 знаков или число, не больше 30 характеристик. Проверьте поля и сохраните ещё раз.",
+            "Товардын мүнөздөмөлөрү (каталог номери, OEM, кепилдик ж.б.) сервер тарабынан кабыл алынган жок: аталышы — латынча 32 белгиге чейин, мааниси — 64 белгиге чейинки текст же сан, 30дан ашык эмес. Талааларды текшерип, кайра сактаңыз.",
+            "The product characteristics (part number, OEM, warranty and others) were not accepted by the server: the name is Latin letters up to 32 characters, the value is text up to 64 characters or a number, at most 30 characteristics. Check the fields and save again.",
+            "Ürün özellikleri (parça numarası, OEM, garanti vb.) sunucu tarafından kabul edilmedi: ad en fazla 32 karakterlik Latin harfleri, değer en fazla 64 karakterlik metin veya sayı, en çok 30 özellik. Alanları kontrol edip tekrar kaydedin.",
+            "Mahsulot xususiyatlari (katalog raqami, OEM, kafolat va boshqalar) server tomonidan qabul qilinmadi: nomi — lotin harflarida 32 belgigacha, qiymati — 64 belgigacha matn yoki son, 30 tadan oshmasin. Maydonlarni tekshirib, qayta saqlang."),
         "has_sales_after" => Tr.T("После этого прихода уже были продажи — остаток уйдёт в минус, удалить нельзя.", "Бул кирүүдөн кийин сатуулар болгон — калдык минуска кетет, өчүрүүгө болбойт.", "There were sales after this delivery — the stock would go negative, so it cannot be deleted.", "Bu girişten sonra satış yapılmış — stok eksiye düşer, silinemez.", "Bu kirimdan keyin sotuvlar bo'lgan — qoldiq minusga ketadi, o'chirib bo'lmaydi."),
         _ => null,
     };
@@ -47,6 +53,12 @@ internal static class ApiErrorParser
 
             if (root.ValueKind != JsonValueKind.Object)
                 return root.ToString();
+
+            // 2026-11-21 (ответ Умара): 409 barcode_duplicate — «код уже у товара «…»» из data сервера (одно место для карточки, мастера загрузки, приёмки); 409 version_conflict — карточку успели изменить.
+            if (ServerBarcodeErrors.TryDuplicate(root) is { } duplicate)
+                return ServerBarcodeErrors.DuplicateText(duplicate);
+            if (ServerErrorCodes.Code(root) == ServerBarcodeErrors.VersionConflict)
+                return ServerBarcodeErrors.VersionConflictText;
 
             // 2026-11-19 (план «удобство 10 из 10», Л-11): коды ошибок сервера — человеческим языком и что делать (5 языков).
             if (root.TryGetProperty("code", out var codeEl) && codeEl.ValueKind == JsonValueKind.String && Friendly(codeEl.GetString()) is { } friendly)

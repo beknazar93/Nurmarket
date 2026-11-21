@@ -1215,6 +1215,7 @@ public sealed partial class AiAdvisorWindow
         if (_attachRow is null)
             return;
         _attachRow.Children.Clear();
+        RefreshVariantBar(); // 2026-11-20: панель «Команда ИИ» — только пока приложена накладная
         if (_attachments.Count == 0)
         {
             _attachRow.IsVisible = false;

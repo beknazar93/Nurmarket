@@ -45,6 +45,9 @@ public sealed partial class ReceivingLineVm
         SaleFromHistory = _saleFromHistory,
         VariantQuantities = VariantQuantities is { Count: > 0 } vq ? new Dictionary<string, double>(vq) : null,
         VariantLabels = VariantLabels is { Count: > 0 } vl ? new Dictionary<string, string>(vl) : null,
+        ExtraBarcodes = ExtraBarcodes.Count > 0 ? ExtraBarcodes.ToList() : null, // 2026-11-20
+        VariantNote = VariantNote.Length > 0 ? VariantNote : null, // 2026-11-20
+        ScanPackNote = ScanPackNote.Length > 0 ? ScanPackNote : null,
     };
 
     private static double Finite(double v, double max = 1e12) => double.IsFinite(v) && Math.Abs(v) < max ? v : 0;
@@ -94,6 +97,10 @@ public sealed partial class ReceivingLineVm
             vm.VariantQuantities = new Dictionary<string, double>(d.VariantQuantities, StringComparer.OrdinalIgnoreCase);
             vm.VariantLabels = new Dictionary<string, string>(d.VariantLabels ?? new Dictionary<string, string>(), StringComparer.OrdinalIgnoreCase);
         }
+        if (d.ExtraBarcodes is { Count: > 0 })
+            vm.ExtraBarcodes = d.ExtraBarcodes.Where(v => !string.IsNullOrWhiteSpace(v.Barcode)).ToList(); // 2026-11-20
+        vm.ScanPackNote = d.ScanPackNote ?? "";
+        vm.VariantNote = d.VariantNote ?? ""; // 2026-11-20
         return vm;
     }
 }

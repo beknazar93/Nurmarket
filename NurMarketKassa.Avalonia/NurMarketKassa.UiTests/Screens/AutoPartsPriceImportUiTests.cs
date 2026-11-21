@@ -5,6 +5,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.VisualTree;
 using FluentAssertions;
 using NurMarketKassa.AvaloniaHost.Views;
+using NurMarketKassa.AvaloniaHost.Views.Dialogs;
 using NurMarketKassa.Services;
 using NurMarketKassa.Tests.Import;
 using NurMarketKassa.UiTests.Harness;
@@ -82,6 +83,9 @@ public sealed class AutoPartsPriceImportUiTests : IDisposable
             window.Plan.Rows.All(r => r.Extra is AutoPartsRowData).Should().BeTrue();
 
             // «Предпросмотр: первые 200 строк» — раскрыть список (строки пропущенных и пометки остатка)
+            // 2026-11-20: предпросмотр лежит в боковой полосе «Дополнительно» шага «Проверьте» — открыть её
+            typeof(BulkImportWizardWindow).GetMethod("SetAdvanced", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.Invoke(window, [true]);
+            UiShot.Settle(6, 30);
             var previewButton = window.GetVisualDescendants().OfType<Button>().First(b => (b.Content as string ?? "").Contains("200"));
             previewButton.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
             UiShot.Settle(6, 30);
@@ -108,6 +112,61 @@ public sealed class AutoPartsPriceImportUiTests : IDisposable
             window.Close();
             UiShot.Pump();
         }
+    }
+
+    /// <summary>2026-11-20 (дефект Г): после выбора файла с длинным прайсом окно не выходит за экран, кнопки подвала («Загрузить») видны, а содержимое
+    /// (таблица, плитки «Все / Новые / Ошибки») не требует прокрутки колесом: высота таблицы подгоняется под рабочую область. 1024×600 и 1366×768, ru/ky/uz.</summary>
+    [AvaloniaTheory]
+    [MemberData(nameof(Cases))]
+    public async Task Long_price_list_keeps_footer_visible_and_body_unscrolled(int width, int height, AppLanguage lang)
+    {
+        await TestHost.WarmAsync();
+        UiShot.Setup(UiTheme.Light, lang);
+        var prefs = UserPreferences.Instance;
+        prefs.MarketSphere = MarketSpheres.Grocery;
+        prefs.MarketSphereDetail = AutoPartsProfile.Id;
+        BulkImportWizardWindow.RefreshCatalogBeforeCheck = false;
+
+        var sb = new StringBuilder("Наименование;Каталожный номер;Бренд;Остаток;Цена\r\n");
+        for (var i = 1; i <= 40; i++)
+            sb.Append($"Фильтр масляный {i};W {800 + i}/80;Mann;{i};{400 + i}\r\n");
+        var path = Path.Combine(_dir, "price-long.csv");
+        File.WriteAllText(path, sb.ToString(), new UTF8Encoding(true));
+
+        ModalShell.WorkingAreaForTests = new Size(width, height);
+        var window = new BulkImportWizardWindow();
+        try
+        {
+            using var _ = UiShot.Render(window, new UiSize(width, height));
+            await window.LoadPathAsync(path);
+            UiShot.Settle(10, 30);
+            window.Plan.Should().NotBeNull();
+            window.Plan!.NewCount.Should().Be(40);
+
+            window.Bounds.Height.Should().BeLessThanOrEqualTo(height + 0.5, $"окно не выше экрана ({width}x{height} {lang})");
+            var load = window.GetVisualDescendants().OfType<Button>().First(b => b.Classes.Contains("modal-primary"));
+            var bottom = load.TranslatePoint(new Point(0, load.Bounds.Height), window)!.Value.Y;
+            bottom.Should().BeLessThanOrEqualTo(height + 0.5, "нижняя панель кнопок («Загрузить») видна и закреплена");
+            var scroll = window.GetVisualDescendants().OfType<ScrollViewer>().First(s => s.Classes.Contains("hide-scrollbar"));
+            // 1024×600: после шапки, подвала и плиток таблице остаётся ~70–100 px; в ky плитки переносятся — допустима короткая прокрутка (до 45 px), таблица и кнопки видны
+            (scroll.Extent.Height - scroll.Viewport.Height).Should().BeLessThanOrEqualTo(height < 640 ? 45 : 2, $"содержимое влезает без прокрутки колесом ({width}x{height} {lang}; extent {scroll.Extent.Height:0}, окно {scroll.Viewport.Height:0}; {Layout(window)})");
+        }
+        finally
+        {
+            ModalShell.WorkingAreaForTests = null;
+            window.Close();
+            UiShot.Pump();
+        }
+    }
+
+    private static string Layout(BulkImportWizardWindow w)
+    {
+        var f = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+        var top = (Control)typeof(BulkImportWizardWindow).GetField("_top", f)!.GetValue(w)!;
+        var grid = (Control)typeof(BulkImportWizardWindow).GetField("_grid", f)!.GetValue(w)!;
+        var shell = (Control)w.Content!;
+        var parts = string.Join(",", ((Panel)top).Children.Select((c, i) => c.IsVisible ? $"{i}={c.Bounds.Height:0}" : ""));
+        return $"top {top.Bounds.Height:0}, grid {grid.Bounds.Height:0}, shell {shell.Bounds.Height:0} max {shell.MaxHeight:0}; дети {parts}";
     }
 
     /// <summary>2026-11-20: двоичный .xls (ExcelDataReader) открывается в мастере так же, как .xlsx: профиль включается сам, итог «Будет создано 2 …» виден, сообщения «сохраните как .xlsx» нет.</summary>

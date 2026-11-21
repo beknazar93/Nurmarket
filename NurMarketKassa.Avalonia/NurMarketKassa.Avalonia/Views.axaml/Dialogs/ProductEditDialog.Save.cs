@@ -362,15 +362,23 @@ public partial class ProductEditDialog
                 // 2026-11-01 (расследование «остаток не меняется», п. 6): в журнале видно, что именно ушло на сервер.
                 // 2026-11-02 (аудит №2, С3-02): остаток уходит «как введён» — а пока окно было открыто, другая касса могла продать. Перед записью читаем остаток с сервера;
                 // он отличается от того, что было при открытии, — спрашиваем: применить вашу разницу к текущему остатку или оставить серверный.
+                // 2026-11-20 (С7): поля, которые правит владелец, уже изменили на другом устройстве — «обновить / перезаписать / отмена» (введённое не теряется).
+                if (!await ResolveEditConflictAsync(request).ConfigureAwait(true))
+                    return;
                 if (request.SendQuantity && _existing.Id is { Length: > 0 })
                 {
                     double? serverNow = null;
                     try
                     {
-                        // 2026-11-03 (С-06, аудит «зависание при медленном сервере»): сверка остатка перед записью — не дольше 8 с (раньше до 55 с); не успели — остаток НЕ шлём, остальные поля сохраняются (ветка catch; 2026-11-05, Т3-14: комментарий приведён к коду).
-                        var existingId = _existing.Id;
-                        if (await ServerAnswerWait.ForegroundAsync("products/detail", t => PosApp.CatalogApi.ProductsDetailAsync(existingId, t)).ConfigureAwait(true) is { ValueKind: System.Text.Json.JsonValueKind.Object } freshCard)
-                            serverNow = StockSyncService.ResolveStockQuantity(freshCard, _isWeight);
+                        if (_conflictFresh is { } sharedFresh)
+                            serverNow = StockSyncService.ResolveStockQuantity(sharedFresh, _isWeight); // свежая карточка уже прочитана для проверки конфликта
+                        else
+                        {
+                            // 2026-11-03 (С-06, аудит «зависание при медленном сервере»): сверка остатка перед записью — не дольше 8 с (раньше до 55 с); не успели — остаток НЕ шлём, остальные поля сохраняются (ветка catch; 2026-11-05, Т3-14: комментарий приведён к коду).
+                            var existingId = _existing.Id;
+                            if (await ServerAnswerWait.ForegroundAsync("products/detail", t => PosApp.CatalogApi.ProductsDetailAsync(existingId, t)).ConfigureAwait(true) is { ValueKind: System.Text.Json.JsonValueKind.Object } freshCard)
+                                serverNow = StockSyncService.ResolveStockQuantity(freshCard, _isWeight);
+                        }
                     }
                     catch (Exception readEx) when (readEx is not OperationCanceledException)
                     {

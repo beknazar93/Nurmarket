@@ -37,6 +37,8 @@ public sealed class InvoiceItem
     public int SourceRow { get; init; }
 
     public string Barcode { get; set; } = "";
+    /// <summary>2026-11-20 («при создании накладных штрихкоды тоже добавь»): остальные штрихкоды строки (XML: несколько тегов штрихкод/EAN/GTIN/баркод) — станут доп. штрихкодами товара.</summary>
+    public List<string> ExtraBarcodes { get; } = [];
     public string Article { get; set; } = "";
     public string Name { get; set; } = "";
     public string Unit { get; set; } = "";

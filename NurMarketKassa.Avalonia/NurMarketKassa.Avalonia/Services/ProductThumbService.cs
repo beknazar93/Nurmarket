@@ -127,6 +127,23 @@ internal sealed class ProductThumbService
             }));
     }
 
+    /// <summary>2026-11-20 (просмотр фото на весь экран): путь к миниатюре (кэш product_thumbs, при отсутствии — скачать и ужать до 320 px) для просмотрщика,
+    /// когда у фото нет плитки (второе, третье фото карточки). null — не скачалось (нет сети и т.п.).</summary>
+    public async Task<string?> GetThumbPathAsync(IAuthApiService authApi, string apiBaseUrl, string imageUrl, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(imageUrl))
+            return null;
+        try
+        {
+            var p = await Task.Run(() => GetOrDownloadPathAsync(authApi, apiBaseUrl, imageUrl, ct), ct).ConfigureAwait(false);
+            return !string.IsNullOrEmpty(p) && File.Exists(p) ? p : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     /// <summary>Расшифровать миниатюру в фоне и положить в кэш конвертера (тот же ключ «путь|thumb»): плитка получит готовую картинку без расшифровки в потоке интерфейса.</summary>
     private static void PrewarmBitmap(string path)
     {

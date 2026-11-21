@@ -41,6 +41,7 @@ public static class RentalDueNotifier
     private static Func<string?, CancellationToken, Task<IReadOnlyList<RentalDto>>>? _loader;
     private static CancellationTokenSource? _cts;
     private static bool _unavailable;
+    private static bool _probed; // 2026-11-20: проверка «есть ли открытые прокаты» при выключенном модуле сделана (раз за запуск)
 
     /// <summary>Срок проката относительно сегодняшнего дня.</summary>
     public static DueKind Kind(RentalDto r, DateTime? today = null)
@@ -71,6 +72,7 @@ public static class RentalDueNotifier
     /// <summary>Запускает проверку (повторный вызов ничего не делает). loader — RentalsApi.ListAsync.</summary>
     public static void Start(Func<string?, CancellationToken, Task<IReadOnlyList<RentalDto>>> loader)
     {
+        RentalFeature.MigrateLocal(); // 2026-11-20: прокаты уже оформлялись на этой кассе — модуль остаётся включённым
         lock (Gate)
         {
             if (_cts != null)
@@ -123,7 +125,9 @@ public static class RentalDueNotifier
 
     private static async Task CheckAsync(CancellationToken ct)
     {
-        if (_loader is null || _unavailable || !MarketSpheres.HasRentals) // 2026-10-20: прокат во всех сферах
+        // 2026-11-20: прокат выключен (не строймаркет, модуль не включён) — один раз за запуск спрашиваем сервер, нет ли открытых прокатов (миграция); если есть — модуль включается сам.
+        var enabledNow = MarketSpheres.HasRentals;
+        if (_loader is null || _unavailable || (!enabledNow && _probed))
             return;
         if (ApiThrottle.RemainingBlock > TimeSpan.Zero)
             return;
@@ -133,6 +137,14 @@ public static class RentalDueNotifier
             var active = await _loader("active", ct).ConfigureAwait(false);
             var overdue = await _loader("overdue", ct).ConfigureAwait(false);
             summary = Classify(active.Concat(overdue));
+            if (active.Count + overdue.Count > 0)
+                RentalFeature.EnableForExisting(); // у компании есть данные проката — модуль остаётся включённым и после смены сферы
+            else if (!enabledNow)
+            {
+                _probed = true;
+                return;
+            }
+            _probed = true;
         }
         catch (OperationCanceledException)
         {

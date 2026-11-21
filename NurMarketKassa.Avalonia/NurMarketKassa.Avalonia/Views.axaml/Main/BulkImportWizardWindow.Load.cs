@@ -150,6 +150,7 @@ public partial class BulkImportWizardWindow
         _cancelBtn.IsEnabled = true;
         _cancelBtn.IsVisible = true; // «Остановить загрузку» работает и на приходе в фоне
         _started = true;
+        GoToStep(4); // 2026-11-20: ход и итог загрузки — шаг «Загрузка»
         _loadBtn.IsEnabled = false;
         _checkBtn.IsEnabled = false;
         _grid.IsReadOnly = true;
@@ -178,6 +179,7 @@ public partial class BulkImportWizardWindow
         }
         var total = BulkCardsLoader.Select(plan).Count;
         _started = true;
+        GoToStep(4); // 2026-11-20: ход и итог загрузки — шаг «Загрузка»
         _loadBtn.IsEnabled = false;
         _checkBtn.IsEnabled = false;
         _grid.IsReadOnly = true;

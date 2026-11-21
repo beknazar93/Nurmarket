@@ -78,6 +78,7 @@
   <x:String x:Key="csh.catalog.favoriteTooltip">Тандалмалар</x:String>
   <x:String x:Key="csh.catalog.details">Толугураак</x:String>
   <x:String x:Key="csh.catalog.detailsTooltip">Сатуучунун товар жөнүндө сүрөттөмөсү</x:String>
+  <x:String x:Key="csh.catalog.photoZoomTooltip">Сүрөттү чоңойтуу</x:String>
   <x:String x:Key="csh.catalog.tabAll">Бардыгы</x:String>
   <x:String x:Key="csh.catalog.tabWeighted">Салмактуу</x:String>
   <x:String x:Key="csh.catalog.tabPiece">Даана</x:String>
@@ -129,6 +130,7 @@
   <x:String x:Key="csh.cart.keysLink">Баскычтар: ?</x:String>
   <x:String x:Key="csh.menu.firstRunWizard">Үйрөнүү: кассадагы экскурсия</x:String>
   <x:String x:Key="csh.menu.trainingSale">Окуу сатуусу</x:String>
+  <x:String x:Key="csh.menu.transferData">Башка программадан маалыматты которуу</x:String>
   <x:String x:Key="hotkeyGroup.title">Ыкчам баскыч</x:String>
   <x:String x:Key="header.labelCustomerDisplay">Экран</x:String>
   <x:String x:Key="header.labelTheme">Тема</x:String>

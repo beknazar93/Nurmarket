@@ -103,3 +103,12 @@ BenchmarkDotNet.Artifacts/
 docs/Образцы/Автозапчасти/*.xlsx
 docs/Образцы/Автозапчасти/*.xls
 docs/Образцы/Автозапчасти/*.zip
+docs/Образцы/Ситимакс/*.xlsx
+docs/Образцы/Ситимакс/*.xls
+docs/Образцы/Ситимакс/*.zip
+# 2026-11-21: большие папки снимков обхода (≈15 МБ), временные результаты тестов и кэши — не коммитить
+docs/Отчеты/Обход кассы 20.11.2026 - снимки/
+docs/Отчеты/проверка-сфер-20.11/*.actual.png
+NurMarketKassa.Avalonia/NurMarketKassa.UiTests/TestResults/
+NurMarketKassa.Avalonia/bash.exe.stackdump
+__pycache__/

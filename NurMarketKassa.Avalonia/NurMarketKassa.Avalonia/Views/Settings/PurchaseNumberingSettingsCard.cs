@@ -19,6 +19,7 @@ public sealed class PurchaseNumberingSettingsCard : Border
     private readonly CheckBox _byYear;
     private readonly CheckBox _printMarkup;
     private readonly CheckBox _pdfMarkup;
+    private readonly CheckBox _printBarcode; // 2026-11-20
     private readonly TextBlock _sample = new() { FontSize = 12, TextWrapping = TextWrapping.Wrap };
     private bool _suppress;
 
@@ -48,6 +49,9 @@ public sealed class PurchaseNumberingSettingsCard : Border
             "Show markup on the printed invoice (better not to show it to the supplier)", "Basılı faturada kârı göster (tedarikçiye göstermemek daha iyi)", "Bosma yuk xatida ustamani ko'rsatish (yetkazib beruvchiga ko'rsatmagan ma'qul)"));
         _pdfMarkup = Toggle(stack, T("Наценка во внутренней копии накладной (PDF «Скачать»)", "Накладнойдун ички көчүрмөсүндө кошумча (PDF «Жүктөө»)",
             "Markup in the internal invoice copy (PDF “Download”)", "Faturanın iç kopyasında kâr (PDF «İndir»)", "Yuk xatining ichki nusxasida ustama (PDF «Yuklab olish»)"));
+        // 2026-11-20 («при создании накладных штрихкоды тоже добавь»): колонка «Штрихкод» в печатной накладной и PDF — по умолчанию выключена (форма прежняя).
+        _printBarcode = Toggle(stack, T("Колонка «Штрихкод» в печатной накладной и PDF", "Басма накладной жана PDFте «Штрих-код» мамычасы", "“Barcode” column in the printed invoice and PDF",
+            "Basılı fatura ve PDF'de «Barkod» sütunu", "Bosma yuk xati va PDFda «Shtrix-kod» ustuni"));
         stack.Children.Add(Hint(T("Наценку в накладных видят только роли с правом на закупочные цены.", "Накладнойлордогу кошумчаны сатып алуу баасына укугу бар ролдор гана көрөт.",
             "Only roles allowed to see purchase prices can see markup on invoices.", "Faturalardaki kârı yalnızca alış fiyatlarını görme yetkisi olan roller görür.", "Yuk xatlaridagi ustamani faqat xarid narxlarini ko'rish huquqi bor rollar ko'radi.")));
         _sample.Bind(TextBlock.ForegroundProperty, _sample.GetResourceObservable("BrushTextSoft"));
@@ -64,7 +68,7 @@ public sealed class PurchaseNumberingSettingsCard : Border
                     Commit();
             };
         }
-        foreach (var check in new[] { _byYear, _printMarkup, _pdfMarkup })
+        foreach (var check in new[] { _byYear, _printMarkup, _pdfMarkup, _printBarcode })
             check.IsCheckedChanged += (_, _) => Commit();
     }
 
@@ -113,6 +117,7 @@ public sealed class PurchaseNumberingSettingsCard : Border
             _byYear.IsChecked = s.ResetByYear;
             _printMarkup.IsChecked = s.PrintMarkup;
             _pdfMarkup.IsChecked = s.PdfMarkup;
+            _printBarcode.IsChecked = s.PrintBarcode;
             _sample.Text = T("Пример: ", "Мисал: ", "Example: ", "Örnek: ", "Misol: ") + DocumentNumberingCore.Format(s, new DocNumber(DocSeries.Receipt, DateTime.Now.Year, 123)) + ", "
                            + DocumentNumberingCore.Format(s, new DocNumber(DocSeries.Return, DateTime.Now.Year, 7)) + ", "
                            + DocumentNumberingCore.Format(s, new DocNumber(DocSeries.Order, DateTime.Now.Year, 45)) + ", "
@@ -132,7 +137,7 @@ public sealed class PurchaseNumberingSettingsCard : Border
         var next = new DocNumberingSettings
         {
             PrefixReceipt = _receipt.Text ?? "", PrefixReturn = _return.Text ?? "", PrefixOrder = _order.Text ?? "", Width = width,
-            ResetByYear = _byYear.IsChecked == true, PrintMarkup = _printMarkup.IsChecked == true, PdfMarkup = _pdfMarkup.IsChecked == true,
+            ResetByYear = _byYear.IsChecked == true, PrintMarkup = _printMarkup.IsChecked == true, PdfMarkup = _pdfMarkup.IsChecked == true, PrintBarcode = _printBarcode.IsChecked == true,
         }.Normalized();
         DocumentNumbering.Store.SaveSettings(next);
         PosLogger.Log($"Закупки: настройки нумерации — {next.PrefixReceipt}/{next.PrefixReturn}/{next.PrefixOrder}, цифр {next.Width}, сброс по годам {(next.ResetByYear ? "да" : "нет")}.", "INFO");

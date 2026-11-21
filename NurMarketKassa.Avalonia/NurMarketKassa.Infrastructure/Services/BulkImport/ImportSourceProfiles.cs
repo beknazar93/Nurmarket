@@ -25,6 +25,13 @@ public sealed class ImportSourceProfile
 
     private readonly Func<string> _howTo;
 
+    /// <summary>2026-11-20 (CT MAX): строки-группы (нет штрихкода, цена и закупка пусты или 0 — это названия групп/брендов) в загрузку не берутся и не считаются ошибками.</summary>
+    public bool SkipGroupRows { get; init; }
+
+    /// <summary>2026-11-20 (CT MAX): в выгрузке бывают служебные коды («*10», без цифр, короче 4, длиннее 14): товар не теряется — получает внутренний штрихкод NurCRM
+    /// (прежний код — в артикул), если это включено в «Дополнительно»; цена 0 при непустой закупке — предупреждение.</summary>
+    public bool ServiceCodes { get; init; }
+
     /// <summary>Технический код («1c», «moysklad», «poster», «loyverse», «paloma365», «umag»).</summary>
     public string Id { get; }
 
@@ -106,6 +113,7 @@ public static class ImportSourceProfiles
                 R(ProductImportField.Unit, "единицаизмерения", "единицахранения", "базоваяединицаизмерения", "едизм"),
                 R(ProductImportField.Category, "родитель", "группа", "номенклатурнаягруппа", "видноменклатуры"),
                 R(ProductImportField.Weight, "весовой", "весовойтовар"),
+                R(ProductImportField.Brand, "производитель", "бренд", "марка"),
             ],
             howTo: () => Tr.T("1С: «Номенклатура» → «Вывести список…» → «Сохранить» в Excel (.xlsx) или CSV; при необходимости добавьте столбцы «Штрихкод» и «Цена».",
                 "1С: «Номенклатура» → «Тизмени чыгаруу…» → Excel (.xlsx) же CSV катары сактаңыз; керек болсо «Штрих-код» жана «Баа» мамычаларын кошуңуз.",
@@ -128,6 +136,7 @@ public static class ImportSourceProfiles
                 R(ProductImportField.Unit, "единицаизмерения", "едизм"),
                 R(ProductImportField.Category, "группы", "группа"),
                 R(ProductImportField.Weight, "весовойтовар", "весовой"),
+                R(ProductImportField.Brand, "бренд", "производитель", "торговаямарка"),
             ],
             howTo: () => Tr.T("МойСклад: «Товары» → «Экспорт» → файл Excel; в списке столбцов отметьте «Штрихкод», «Закупочная цена», «Цена продажи», «Остаток».",
                 "МойСклад: «Товарлар» → «Экспорт» → Excel файлы; мамычалардан «Штрих-код», «Сатып алуу баасы», «Сатуу баасы», «Калдык» белгилеңиз.",
@@ -236,6 +245,27 @@ public static class ImportSourceProfiles
                 "Rosta: “Products” → “Export” (Excel). If columns are not recognised, set them by hand.",
                 "Rosta: «Ürünler» → «Dışa aktar» (Excel). Sütunlar tanınmazsa elle seçin.",
                 "Rosta: «Tovarlar» → «Eksport» (Excel). Ustunlar topilmasa, qo'lda tanlang.")),
+        // 2026-11-20: CT MAX (КР). Выгрузка товаров — 4 столбца («Штрих Код», «Наименование», «Цена», «Закупочная»), заголовок не в первой строке, остатка, единицы и категории нет:
+        // грузятся только карточки и цены. Строки-группы без штрихкода пропускаются; служебные коды получают внутренний штрихкод (см. BulkImportPlan).
+        new("ctmax", "CT MAX",
+            signature: ["штрихкод", "наименование", "цена", "закупочная"],
+            minScore: 4,
+            rules:
+            [
+                R(ProductImportField.Barcode, "штрихкод"),
+                R(ProductImportField.Name, "наименование"),
+                R(ProductImportField.Sale, "цена"),
+                R(ProductImportField.Purchase, "закупочная"),
+            ],
+            howTo: () => Tr.T("CT MAX: выгрузите список товаров в Excel (.xlsx) со столбцами «Штрих Код», «Наименование», «Цена», «Закупочная» → загрузите файл здесь. Остатков в файле нет — загрузятся только карточки и цены, остаток не изменится.",
+                "CT MAX: товарлардын тизмесин Excel (.xlsx) катары «Штрих Код», «Наименование», «Цена», «Закупочная» мамычалары менен чыгарыңыз → файлды ушул жерге жүктөңүз. Файлда калдык жок — карточкалар жана баалар гана жүктөлөт, калдык өзгөрбөйт.",
+                "CT MAX: export the product list to Excel (.xlsx) with the columns “Штрих Код”, “Наименование”, “Цена”, “Закупочная” → load the file here. The file has no stock — only cards and prices are loaded, the stock does not change.",
+                "CT MAX: ürün listesini «Штрих Код», «Наименование», «Цена», «Закупочная» sütunlarıyla Excel (.xlsx) olarak dışa aktarın → dosyayı buraya yükleyin. Dosyada stok yok — yalnızca kart ve fiyatlar yüklenir, stok değişmez.",
+                "CT MAX: mahsulotlar ro'yxatini «Штрих Код», «Наименование», «Цена», «Закупочная» ustunlari bilan Excel (.xlsx) sifatida chiqaring → faylni shu yerga yuklang. Faylda qoldiq yo'q — faqat kartochkalar va narxlar yuklanadi, qoldiq o'zgarmaydi."))
+        {
+            SkipGroupRows = true,
+            ServiceCodes = true,
+        },
     ];
 
     public static ImportSourceProfile? ById(string? id) =>

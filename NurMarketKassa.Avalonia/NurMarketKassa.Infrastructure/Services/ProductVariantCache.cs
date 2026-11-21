@@ -123,6 +123,8 @@ public static class ProductVariantCache
         if (!string.IsNullOrWhiteSpace(productId) && list is not null)
         {
             Cache[productId.Trim()] = new Entry { At = DateTime.UtcNow, List = Clone(list) };
+            if (list.Count > 0)
+                ServerFlags.TryRemove(productId.Trim(), out _); // правка в карточке: признак сервера устарел
             // 2026-10-06 (О-01): штрихкоды размеров — в справочник для скана этикетки размера.
             VariantBarcodeIndex.Update(productId, list);
         }
@@ -136,7 +138,47 @@ public static class ProductVariantCache
     }
 
     /// <summary>Смена компании/кассира — варианты чужой компании показывать нельзя.</summary>
-    public static void Clear() => Cache.Clear();
+    public static void Clear()
+    {
+        Cache.Clear();
+        ServerFlags.Clear();
+    }
+
+    // 2026-11-20 (обход кассы, п. 24): фоновый обход каталога («Одежда») делал ~180 запросов вариантов за 5 минут —
+    // по одному на каждый товар. Теперь обход пропускает товар, у которого сервер в списке товаров сам написал
+    // «вариантов нет» (has_variants=false), и товар, который уже свежо загружен или загружается другим окном.
+    private static readonly ConcurrentDictionary<string, bool> ServerFlags = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Признак из списка товаров сервера (has_variants); null — сервер признака не дал (тогда ничего не известно).
+    /// Живёт только в памяти: заполняется при каждой загрузке каталога.</summary>
+    public static void NoteServerFlag(string? productId, bool? hasVariants)
+    {
+        if (string.IsNullOrWhiteSpace(productId))
+            return;
+        if (hasVariants is { } flag)
+            ServerFlags[productId.Trim()] = flag;
+        else
+            ServerFlags.TryRemove(productId.Trim(), out _);
+    }
+
+    /// <summary>Сервер в списке товаров прямо сказал «вариантов нет» — запрашивать их незачем.</summary>
+    public static bool KnownWithoutVariants(string? productId) =>
+        !string.IsNullOrWhiteSpace(productId)
+        && ServerFlags.TryGetValue(productId.Trim(), out var flag) && !flag;
+
+    /// <summary>Товар загружен не раньше чем <paramref name="maxAge"/> назад (повторный запрос не нужен).</summary>
+    public static bool IsFresh(string? productId, TimeSpan maxAge) =>
+        !string.IsNullOrWhiteSpace(productId)
+        && Cache.TryGetValue(productId.Trim(), out var e) && DateTime.UtcNow - e.At < maxAge;
+
+    /// <summary>Запрос вариантов этого товара уже идёт (его начало окно размеров, прокат или обход).</summary>
+    public static bool IsLoading(string? productId)
+    {
+        if (string.IsNullOrWhiteSpace(productId))
+            return false;
+        lock (InFlightLock)
+            return InFlight.ContainsKey(productId.Trim());
+    }
 
     private static bool CanAskServer => Loader is not null && !OfflineModeHelper.SellLocally;
 

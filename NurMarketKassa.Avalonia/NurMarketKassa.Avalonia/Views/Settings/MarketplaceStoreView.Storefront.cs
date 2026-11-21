@@ -48,8 +48,7 @@ public sealed partial class MarketplaceStoreView
 
     private void BuildStorefrontShell()
     {
-        _search.Watermark = Tr.T("Поиск функций, тем и видов кассы", "Функцияларды, темаларды жана касса көрүнүштөрүн издөө",
-            "Search features, themes and till layouts", "Özellik, tema ve kasa görünümü ara", "Funksiya, mavzu va kassa ko'rinishlarini qidirish");
+        _search.Watermark = SearchWatermarkLong();
         _search.Height = 40;
         _search.MinHeight = 40;
         _search.VerticalContentAlignment = VerticalAlignment.Center;
@@ -112,12 +111,20 @@ public sealed partial class MarketplaceStoreView
                 return;
             _narrow = narrow;
             _searchBox.Width = narrow ? 240 : 340;
+            // 2026-11-20: обход кассы — в узком виде (240 px) подсказка «Поиск функций, тем и видов кассы» обрезалась на полуслове: берём короткую.
+            _search.Watermark = narrow ? SearchWatermarkShort() : SearchWatermarkLong();
             if (_openId == null && _items.Count > 0)
                 RenderList();
         };
     }
 
     private Grid? _storefront;
+
+    private static string SearchWatermarkLong() => Tr.T("Поиск функций, тем и видов кассы", "Функцияларды, темаларды жана касса көрүнүштөрүн издөө",
+        "Search features, themes and till layouts", "Özellik, tema ve kasa görünümü ara", "Funksiya, mavzu va kassa ko'rinishlarini qidirish");
+
+    private static string SearchWatermarkShort() => Tr.T("Поиск функций и тем", "Функция, тема издөө",
+        "Search features", "Özellik ara", "Funksiya qidirish");
 
     private void ShowStorefront()
     {

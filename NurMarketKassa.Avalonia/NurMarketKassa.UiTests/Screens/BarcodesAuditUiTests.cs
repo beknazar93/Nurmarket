@@ -78,8 +78,18 @@ public sealed class BarcodesAuditUiTests : IDisposable
         await TestHost.Services.GetRequiredService<NurMarketApiClient>().LoginAsync("cashier@test.kg", "12345678");
     }
 
+    // 2026-11-20: подпись кнопки ставится после асинхронной загрузки списка (UpdateGenerateUi) — на нагруженной машине в полном прогоне её ещё нет; ждём, а не падаем.
     private static Button GenButton(Visual root) =>
-        root.GetVisualDescendants().OfType<Button>().First(b => IsGenText(UiDrive.TextOf(b)));
+        WaitGen(root)
+        ?? throw new InvalidOperationException("2026-11-20: кнопки генерации штрихкодов нет; язык=" + NurMarketKassa.Services.Tr.T("ru", "ky", "en", "tr", "uz") + "; кнопки: "
+            + string.Join(" | ", root.GetVisualDescendants().OfType<Button>().Select(b => UiDrive.TextOf(b)).Where(t => !string.IsNullOrEmpty(t)).Take(25)));
+
+    private static Button? WaitGen(Visual root)
+    {
+        Button? found = null;
+        UiRobot.WaitFor(() => (found = root.GetVisualDescendants().OfType<Button>().FirstOrDefault(b => IsGenText(UiDrive.TextOf(b)))) is not null, 8000);
+        return found;
+    }
 
     private static bool IsGenText(string? t) => t is not null && (t.StartsWith("Сгенерировать штрихкоды", StringComparison.Ordinal) || t.StartsWith("Создать коды", StringComparison.Ordinal) || t.StartsWith("Штрих-коддорду түзүү", StringComparison.Ordinal) || t.StartsWith("Коддорду түзүү", StringComparison.Ordinal));
 

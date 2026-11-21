@@ -731,8 +731,12 @@ public partial class CheckoutDialog : Window
     /// <summary>2026-11-06 (Д4-14): постоянная высота окна оплаты — по самому высокому способу («В долг»: ≈ 640 в одной колонке, ≈ 560 в двух), а не по содержимому:
     /// раньше высота прыгала (486 / 416 / 526 / 641) вместе с кнопкой «Оплатить», и рука промахивалась. Ниже доступной высоты (моноблок 1024×600) — вся доступная высота;
     /// выше (рассрочка с таблицей) окно по-прежнему растёт до потолка, дальше прокрутка.</summary>
-    private const double FixedPanelHeightOneCol = 640;
-    private const double FixedPanelHeightTwoCol = 560;
+    /// 2026-11-20 (жалоба владельца «при оплате безнал окно резко меняет размер»): высота окна теперь ЗАДАНА (Height), а не по содержимому. Причина прыжка:
+    /// у вкладки «Безналичные → QR» содержимое выше всех остальных (QR 300 + рамка, сумма, банк, кнопка ≈ 870), и окно с SizeToContent на ней вытягивалось до потолка
+    /// (498 → 752 на 1366×768, 372 → 584 на 1024×600), а при переходе на другой способ сжималось обратно — и сдвигалось по вертикали. Теперь высота одна для всех
+    /// способов — по самой высокой вкладке (QR), но не выше рабочей области: на маленьком экране это вся доступная высота, лишнее прокручивается в теле, подвал «Отмена / Оплатить» закреплён.
+    private const double FixedPanelHeightOneCol = 960;
+    private const double FixedPanelHeightTwoCol = 880;
 
     private Window? _dockOwner;
     private bool _redockQueued;
@@ -846,7 +850,7 @@ public partial class CheckoutDialog : Window
             // Потолок высоты: доступная область минус отступы сверху и снизу; от него считаются плотность (compact/tiny) и прокрутка тела.
             var maxHeight = area.Height / scaling - 2 * DockMargin;
             var fixedHeight = Math.Min(maxHeight, twoCol ? FixedPanelHeightTwoCol : FixedPanelHeightOneCol);
-            var height = Bounds.Height > 0 ? Bounds.Height : Math.Min(Math.Max(GuessWindowHeight, fixedHeight), maxHeight);
+            var height = _qrOverlayOpen ? maxHeight : fixedHeight; // 2026-11-20: высота известна заранее — окно не прыгает при первом показе и при смене способа
 
             var x = origin.X + (int)Math.Round(left * scaling);
             x = Math.Clamp(x, area.X, Math.Max(area.X, area.Right - (int)Math.Round(width * scaling)));
@@ -866,12 +870,16 @@ public partial class CheckoutDialog : Window
                 y = Math.Clamp(y + _userDy, wa.Y, Math.Max(wa.Y, wa.Bottom - hPx));
             }
 
-            SizeToContent = SizeToContent.Height;
+            // 2026-11-20: высота задана, а не по содержимому (см. FixedPanelHeightTwoCol) — размер окна не зависит от способа оплаты, вкладки, банка и QR.
+            SizeToContent = SizeToContent.Manual;
             WindowStartupLocation = WindowStartupLocation.Manual;
             MinWidth = 0;
             MinHeight = _qrOverlayOpen ? maxHeight : fixedHeight; // 2026-11-06 (Д4-14): постоянная высота; 2026-11-12: «QR крупнее» — вся доступная высота
             MaxWidth = width;
             MaxHeight = maxHeight;
+            var targetHeight = _qrOverlayOpen ? maxHeight : fixedHeight;
+            if (double.IsNaN(Height) || Math.Abs(Height - targetHeight) > 0.5)
+                Height = targetHeight;
             if (double.IsNaN(Width) || Math.Abs(Width - width) > 0.5)
                 Width = width; // 2026-10-23: ту же ширину заново не ставим — иначе бесконечный пересчёт («качели»)
             Position = new PixelPoint(x, y);
@@ -923,6 +931,9 @@ public partial class CheckoutDialog : Window
             Classes.Set("tiny", availH.Value < TinyPanelHeight);
             var wideFit = availW.Value >= TwoColWindowWidth + 40 && availH.Value < TinyPanelHeight;
             MinHeight = Math.Min(availH.Value, wideFit ? FixedPanelHeightTwoCol : FixedPanelHeightOneCol); // 2026-11-06 (Д4-14): постоянная высота и не прилипшего окна
+            // 2026-11-20: и у не прилипшего окна высота задана, а не по содержимому (см. FixedPanelHeightTwoCol).
+            SizeToContent = SizeToContent.Manual;
+            Height = MinHeight;
             if (availW.Value >= TwoColWindowWidth + 40 && availH.Value < TinyPanelHeight)
             {
                 var width = Math.Min(availW.Value, 800);

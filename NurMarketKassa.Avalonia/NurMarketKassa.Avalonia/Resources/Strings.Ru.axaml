@@ -78,6 +78,7 @@
   <x:String x:Key="csh.catalog.favoriteTooltip">Избранное</x:String>
   <x:String x:Key="csh.catalog.details">Подробнее</x:String>
   <x:String x:Key="csh.catalog.detailsTooltip">Описание товара от продавца</x:String>
+  <x:String x:Key="csh.catalog.photoZoomTooltip">Увеличить фото</x:String>
   <x:String x:Key="csh.catalog.tabAll">Все товары</x:String>
   <x:String x:Key="csh.catalog.tabWeighted">Весовые</x:String>
   <x:String x:Key="csh.catalog.tabPiece">Штучные</x:String>
@@ -129,6 +130,7 @@
   <x:String x:Key="csh.cart.keysLink">Клавиши: ?</x:String>
   <x:String x:Key="csh.menu.firstRunWizard">Обучение: экскурсия по кассе</x:String>
   <x:String x:Key="csh.menu.trainingSale">Учебная продажа</x:String>
+  <x:String x:Key="csh.menu.transferData">Перенос данных из другой программы</x:String>
   <x:String x:Key="hotkeyGroup.title">Горячая клавиша</x:String>
   <x:String x:Key="header.labelCustomerDisplay">Экран</x:String>
   <x:String x:Key="header.labelTheme">Тема</x:String>

@@ -40,6 +40,9 @@ public sealed class JwtBearerRefreshHandler : DelegatingHandler
             // 2026-11-13 (ответ Умара, п. 5): 401 session_revoked — логин открыли на другом устройстве; вход этой кассы закрыт, окно «Вход выполнен на другом устройстве» вместо тихого выброса.
             if (status == 401)
                 await NoteSessionRevokedAsync(request, response, cancellationToken).ConfigureAwait(false);
+            // 2026-11-20 (ответ Умара 20.11, В.2, тариф «Мини»): 403 plan_client_not_allowed / plan_limit — тариф компании, а не «нет прав»: окно с текстом сервера и «Перейти на Старт».
+            else if (status == 403)
+                await NotePlanBlockAsync(response, cancellationToken).ConfigureAwait(false);
             // 2026-11-03 (С-18, аудит «зависание при медленном сервере»): долгий ответ — строка в журнал (метод, путь, секунды; без токенов и тел),
             // чтобы владелец и мы видели «сервер медлил». Быстрые ответы подряд снимают значок «Сервер медлит».
             var elapsed = DateTime.UtcNow - started;
@@ -121,6 +124,23 @@ public sealed class JwtBearerRefreshHandler : DelegatingHandler
         catch (Exception ex) when (ex is System.Text.Json.JsonException or HttpRequestException or ObjectDisposedException or InvalidOperationException)
         {
             // Не JSON или обрыв при чтении тела — это не session_revoked; обычная обработка 401 продолжается.
+        }
+    }
+
+    /// <summary>2026-11-20: тело 403 с кодом plan_client_not_allowed / plan_limit → <see cref="PlanBlockMonitor"/>. Тело буферизуется, вызывающие читают его как обычно. Любая другая 403 (нет прав, чужой узел) обрабатывается прежним путём.</summary>
+    private static async Task NotePlanBlockAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        try
+        {
+            if (response.Content is null)
+                return;
+            await response.Content.LoadIntoBufferAsync().ConfigureAwait(false);
+            var text = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            PlanBlockMonitor.Note(403, text);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or ObjectDisposedException or InvalidOperationException or IOException)
+        {
+            // Обрыв при чтении тела — это не отказ по тарифу; обычная обработка 403 продолжается.
         }
     }
 

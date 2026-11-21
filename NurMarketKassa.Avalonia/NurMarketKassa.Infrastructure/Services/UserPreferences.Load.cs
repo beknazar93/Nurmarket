@@ -243,6 +243,8 @@ public sealed partial class UserPreferences
                 p.TradeInUnlocked = fromFile.TradeInUnlocked.Value;
             if (fromFile.EstimateEnabled is not null) // 2026-11-19: модуль «Смета» из Маркетплейса
                 p.EstimateEnabled = fromFile.EstimateEnabled.Value;
+            if (fromFile.RentalEnabled is not null) // 2026-11-20: модуль «Прокат (аренда)» из Маркетплейса
+                p.RentalEnabled = fromFile.RentalEnabled.Value;
             if (fromFile.ScalesUnlocked is not null)
                 p.ScalesUnlocked = fromFile.ScalesUnlocked.Value;
             else if (fromFile.ScaleEnabled == true)

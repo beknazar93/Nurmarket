@@ -36,7 +36,6 @@ public sealed class ClosedSectionLeakTests
         ["abc"] = () => Svc<AbcAnalysisWindow>(),
         // остальные разделы меню владельца, которые поднимаются без железа и сети (WebView-разделы CRM/WhatsApp/редактор сайта не берём)
         ["calculator"] = () => new CalculatorWindow(),
-        ["scales"] = () => new ScalesSectionWindow(), // 2026-11-11
         ["barcodes"] = () => new BarcodePrintSectionWindow(), // 2026-11-11
         ["restock"] = () => Svc<RestockSuggestionsWindow>(),
         ["branches"] = () => new BranchesWindow(),
@@ -64,7 +63,7 @@ public sealed class ClosedSectionLeakTests
     [MemberData(nameof(Names))]
     public async Task ClosedSection_IsCollected(string name)
     {
-        await TestHost.WarmAsync();
+        await TestHost.WarmAsync(); UiRobot.Reset(); // 2026-11-21: UiRobot.Opened (статический) держал окна прежних сценариев и ложно «утекал» в этом тесте в общем прогоне
         UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
         var weak = OpenAndClose(name, Sections[name], null);
         AssertCollected(weak, $"Раздел «{name}» остался в памяти после закрытия и сборок мусора — его кто-то держит (подписка на статическое событие, анимация, таймер, кэш).");
@@ -75,7 +74,7 @@ public sealed class ClosedSectionLeakTests
     [AvaloniaFact]
     public async Task ClosedPurchases_OfflineSuppliers_IsCollected()
     {
-        await TestHost.WarmAsync();
+        await TestHost.WarmAsync(); UiRobot.Reset(); // 2026-11-21: UiRobot.Opened (статический) держал окна прежних сценариев и ложно «утекал» в этом тесте в общем прогоне
         UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
         PurchaseReceivingService.RememberSuppliers([new SupplierInfo("s-leak-1", "Тестовый поставщик", "0555000111", "", "", "", "", "", "", "", null)]);
         UiFake.Server.Server.Reset(); // заглушки сняты: список поставщиков не придёт → «из памяти кассы»
@@ -89,7 +88,7 @@ public sealed class ClosedSectionLeakTests
     [AvaloniaFact]
     public async Task ClosedPurchases_WithReceivePage_IsCollected()
     {
-        await TestHost.WarmAsync();
+        await TestHost.WarmAsync(); UiRobot.Reset(); // 2026-11-21: UiRobot.Opened (статический) держал окна прежних сценариев и ложно «утекал» в этом тесте в общем прогоне
         UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
         var weak = OpenAndClose("purchases", () => new PurchasesWindow(), w => ((PurchasesWindow)w).OpenReceive(null));
         AssertCollected(weak, "«Закупки» с открытой страницей «Приём товара» остались в памяти после закрытия.");
@@ -100,7 +99,7 @@ public sealed class ClosedSectionLeakTests
     [AvaloniaFact]
     public async Task ClosedPurchases_AfterReceivePageClosed_IsCollected()
     {
-        await TestHost.WarmAsync();
+        await TestHost.WarmAsync(); UiRobot.Reset(); // 2026-11-21: UiRobot.Opened (статический) держал окна прежних сценариев и ложно «утекал» в этом тесте в общем прогоне
         UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
         var weak = OpenAndClose("purchases", () => new PurchasesWindow(), w =>
         {

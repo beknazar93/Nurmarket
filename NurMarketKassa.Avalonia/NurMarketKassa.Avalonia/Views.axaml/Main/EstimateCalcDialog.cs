@@ -65,8 +65,12 @@ public sealed class EstimateCalcDialog : Window
     {
         var box = EstimateUi.Box("Calc_" + key, "", width, label, watermark, maxLength: 10);
         box.TextChanged += (_, _) => { if (!_filling) Recalc(); };
-        var text = ServiceDeskUi.Text(label, 12, brush: "BrushTextSoft");
-        var cell = new StackPanel { Width = width, Margin = new Thickness(0, 0, 10, 6) };
+        // 2026-11-20: подпись 12,5 с отступом 4 px от поля, поле растягивается по ячейке (как EstimateUi.Labeled) — без наложений.
+        var text = ServiceDeskUi.Text(label, 12.5, brush: "BrushTextSoft");
+        text.Margin = new Thickness(0, 0, 0, 4);
+        box.Width = double.NaN;
+        box.HorizontalAlignment = HorizontalAlignment.Stretch;
+        var cell = new StackPanel { Width = width, Margin = new Thickness(0, 0, 10, 8) };
         cell.Children.Add(text);
         cell.Children.Add(box);
         _f[key] = (box, cell, text);

@@ -14,6 +14,33 @@ public static class FiscalFormRules
         _ => Tr.T("Выключено — чек «Товарный», нефискальный", "Өчүрүлгөн — «Товардык» чек, фискалдык эмес", "Off — a non-fiscal sales receipt", "Kapalı — mali olmayan satış fişi", "O'chirilgan — fiskal bo'lmagan tovar cheki"),
     };
 
+    /// <summary>2026-11-20: честная строка для режима server, пока сервер не отдаёт сведений о ККМ (раньше тут вылезало «ЭККМ не подключена: ожидается документация Telemedia»).</summary>
+    public static string ServerFiscalizesText => Tr.T(
+        "Чеки пробивает сервер NurCRM, отдельная ККМ в кассе не нужна",
+        "Чектерди NurCRM сервери бекитет, кассада өзүнчө ККМ керек эмес",
+        "The NurCRM server fiscalizes receipts, a separate cash register in the kassa is not needed",
+        "Fişleri NurCRM sunucusu keser, kasada ayrı ÖKC gerekmez",
+        "Cheklarni NurCRM serveri uradi, kassada alohida KKM kerak emas");
+
+    /// <summary>2026-11-20: строка «ККМ» карточки «Налоги и ККМ». Режим server — состояние с сервера (не локальной заглушки); «ожидается документация Telemedia» — только когда
+    /// чеки должна пробивать касса, а локальной ККМ нет. Выключено — ККМ не нужна.</summary>
+    public static string KkmStatusText(FiscalCapabilities caps, IFiscalProvider provider)
+    {
+        switch (caps.Mode)
+        {
+            case FiscalMode.Server:
+                return caps.Kkm is { HasData: true }
+                    ? Tr.T("ККМ зарегистрирована на сервере", "ККМ серверде катталган", "The cash register is registered on the server", "ÖKC sunucuda kayıtlı", "KKM serverda ro'yxatdan o'tgan")
+                    : ServerFiscalizesText;
+            case FiscalMode.Kassa:
+                return provider.IsConnected ? provider.Name : NotConnectedFiscalProvider.NotConnectedText;
+            default:
+                return provider.IsConnected ? provider.Name
+                    : Tr.T("Фискализация выключена — ККМ не используется", "Фискалдаштыруу өчүрүлгөн — ККМ колдонулбайт", "Fiscalization is off — no cash register is used",
+                        "Mali fiş kapalı — ÖKC kullanılmıyor", "Fiskallashtirish o'chirilgan — KKM ishlatilmaydi");
+        }
+    }
+
     /// <summary>Ставки «0; 12» → список. Разделители — «;», пробел или перевод строки (запятая — десятичная: «12,5»). Пусто — пустой список. error — понятная причина (null — верно).</summary>
     public static (IReadOnlyList<decimal> Rates, string? Error) ParseRates(string? text)
     {

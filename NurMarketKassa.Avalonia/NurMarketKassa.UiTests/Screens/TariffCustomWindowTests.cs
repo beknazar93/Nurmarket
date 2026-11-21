@@ -25,6 +25,7 @@ public sealed class TariffCustomWindowTests
         public List<string> Keys { get; } = [];
         public int FailSubmits;
         public Exception? QuoteError;
+        public HashSet<string>? Included; // 2026-11-20: какие пакеты входят в «Стандарт» (included_in); null — все (как раньше)
         public List<IReadOnlyList<string>> Quotes { get; } = [];
         public List<IReadOnlyList<string>> Submits { get; } = [];
 
@@ -32,7 +33,7 @@ public sealed class TariffCustomWindowTests
             Task.FromResult(new TariffCatalog(
                 [new TariffPlan("start", "Старт", 1300m, null), new TariffPlan("standard", "Стандарт", 3600m, null), new TariffPlan("custom", "Своё", null, "start")],
                 Codes.Select(c => new TariffPack(c, c switch { "ai" => "ИИ-помощник", "clients" => "Клиенты и бонусы", "sales_analytics" => "Аналитика продаж", "analytics_export" => "Выгрузка аналитики", _ => "Пакет " + c },
-                    "Описание пакета, которое может быть достаточно длинным и переноситься на вторую строку в узком окне", 1500m, 400m, ["standard"])).ToList()));
+                    "Описание пакета, которое может быть достаточно длинным и переноситься на вторую строку в узком окне", 1500m, 400m, Included is null || Included.Contains(c) ? ["standard"] : [])).ToList()));
 
         public Task<TariffQuote> QuoteAsync(IReadOnlyList<string> packs, CancellationToken ct = default)
         {
@@ -170,6 +171,132 @@ public sealed class TariffCustomWindowTests
         finally
         {
             window2.Close();
+            UiShot.Pump();
+        }
+    }
+
+    private static readonly (int W, int H)[] SmallSizes = [(1024, 600), (1366, 768)];
+    private static readonly AppLanguage[] Langs3 = [AppLanguage.Russian, AppLanguage.Kyrgyz, AppLanguage.Uzbek];
+
+    public static IEnumerable<object[]> Sizes3() =>
+        SmallSizes.SelectMany(s => Langs3.Select(l => new object[] { s.W, s.H, l }));
+
+    private static string Code(AppLanguage l) => l switch { AppLanguage.Kyrgyz => "ky", AppLanguage.Uzbek => "uz", _ => "ru" };
+
+    private static void SaveShot(Window window, string name)
+    {
+        using var shot = UiShot.Render(window);
+        using var image = SKImage.FromBitmap(shot);
+        using var data = image.Encode(SKEncodedImageFormat.Png, 90);
+        var dir = Path.Combine(Path.GetTempPath(), "nurmarket-tests", "ui-actual");
+        Directory.CreateDirectory(dir);
+        File.WriteAllBytes(Path.Combine(dir, name + ".png"), data.ToArray());
+    }
+
+    /// <summary>2026-11-20: тариф «Стандарт» — конструктор доступен; пакеты, что входят в «Стандарт», помечены «Входит в ваш тариф» и в расчёт не уходят; ru/ky/uz без обрезки.</summary>
+    [AvaloniaTheory]
+    [MemberData(nameof(Sizes3))]
+    public async Task Standard_MarksIncludedPacks_NotQuoted_AndFitsScreen(int width, int height, AppLanguage lang)
+    {
+        await TestHost.WarmAsync();
+        UiShot.Setup(UiTheme.Light, lang);
+        var api = new FakeTariffApi { Included = ["ai", "clients", "scales"] };
+        var window = new TariffCustomWindow(api, "Стандарт");
+        try
+        {
+            using var _ = UiShot.Render(window, new UiSize(width, height));
+            await window.LoadAsync();
+            UiShot.Settle(8);
+            var tag = $"{width}x{height} {lang}";
+
+            foreach (var code in new[] { "ai", "clients", "scales" })
+            {
+                window.IsIncluded(code).Should().BeTrue($"{code} входит в Стандарт ({tag})");
+                window.PackStatusText(code).Should().NotBeEmpty();
+            }
+            window.IsIncluded("salary").Should().BeFalse();
+            window.PackStatusText("ai").Should().Be(Tr.T("Входит в ваш тариф", "Тарифиңизге кирет", "Included in your plan", "Tarifinize dahil", "Tarifingizga kiradi"));
+            api.Quotes.Single().Should().NotContain(["ai", "clients", "scales"], "входящие в тариф пакеты в расчёт не уходят");
+            window.ErrorText.Should().BeNull("конструктор доступен");
+            window.ManagerButtonVisible.Should().BeFalse();
+
+            window.SetChecked("salary", true);
+            window.SetChecked("debts", true);
+            await window.QuoteForTestAsync();
+            UiShot.Settle(8);
+            api.Quotes.Last().Should().Equal("salary", "debts");
+            Norm(window.SummaryText).Should().Contain("Стандарт");
+            window.CanSubmit.Should().BeTrue();
+            Norm(UiDrive.AllText(window)).Should().NotContain("«Старта»").And.NotContain("“Start”");
+
+            var clipped = TextClipChecker.Find(window, "tariff-custom-standard", Code(lang));
+            clipped.Should().BeEmpty($"текст не обрезан ({tag}): " + string.Join("; ", clipped.Select(v => v.Detail)));
+            SaveShot(window, $"tariff-custom-standard-{Code(lang)}-{width}x{height}");
+        }
+        finally
+        {
+            window.Close();
+            UiShot.Pump();
+        }
+    }
+
+    /// <summary>2026-11-20: сервер отказал по тарифу (409, «Мини»/«Старт» без права) — понятный текст без «поверх Старта», без «обратитесь к менеджеру», кнопка «Написать менеджеру» открывает чат поддержки.</summary>
+    [AvaloniaTheory]
+    [MemberData(nameof(Sizes3))]
+    public async Task ServerRefusal409_ShowsClearText_AndManagerButton_AndFitsScreen(int width, int height, AppLanguage lang)
+    {
+        await TestHost.WarmAsync();
+        UiShot.Setup(UiTheme.Light, lang);
+        var api = new FakeTariffApi { QuoteError = new ApiException("plan_not_allowed", 409, System.Text.Json.JsonDocument.Parse("""{"detail":"plan_not_allowed"}""").RootElement) };
+        var window = new TariffCustomWindow(api, "Мини");
+        string? opened = null;
+        window.OpenChat = url => { opened = url; return true; };
+        try
+        {
+            using var _ = UiShot.Render(window, new UiSize(width, height));
+            await window.LoadAsync();
+            UiShot.Settle(8);
+            var tag = $"{width}x{height} {lang}";
+
+            window.ErrorText.Should().NotBeNullOrWhiteSpace();
+            window.ErrorText.Should().NotContain("Старта").And.NotContain("Обратитесь к менеджеру");
+            window.ManagerButtonVisible.Should().BeTrue($"({tag})");
+            window.CanSubmit.Should().BeFalse();
+            window.GetVisualDescendants().OfType<CheckBox>().Should().OnlyContain(c => !c.IsEnabled);
+
+            window.ManagerClickForTest();
+            opened.Should().NotBeNull().And.StartWith("https://wa.me/996221068796?text=");
+
+            var clipped = TextClipChecker.Find(window, "tariff-custom-refusal", Code(lang));
+            clipped.Should().BeEmpty($"текст не обрезан ({tag}): " + string.Join("; ", clipped.Select(v => v.Detail)));
+            SaveShot(window, $"tariff-custom-refusal-{Code(lang)}-{width}x{height}");
+        }
+        finally
+        {
+            window.Close();
+            UiShot.Pump();
+        }
+    }
+
+    /// <summary>2026-11-20: «Старт» — как прежде: пакеты не входят в тариф, считаются все; помеченных «Входит в ваш тариф» нет.</summary>
+    [AvaloniaFact]
+    public async Task Start_NoIncludedPacks_AllQuoted()
+    {
+        await TestHost.WarmAsync();
+        UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
+        var api = new FakeTariffApi { Included = [] };
+        var window = new TariffCustomWindow(api, "Старт");
+        try
+        {
+            window.Show();
+            await window.LoadAsync();
+            FakeTariffApi.Codes.Should().OnlyContain(c => !window.IsIncluded(c));
+            api.Quotes.Single().Should().HaveCount(11);
+            window.ManagerButtonVisible.Should().BeFalse();
+        }
+        finally
+        {
+            window.Close();
             UiShot.Pump();
         }
     }

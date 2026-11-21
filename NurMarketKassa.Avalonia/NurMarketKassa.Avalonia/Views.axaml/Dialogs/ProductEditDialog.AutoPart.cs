@@ -26,6 +26,7 @@ public partial class ProductEditDialog
     private CheckBox _apElectric = null!, _apNoReturn = null!;
     private (int? Days, bool Electric, bool NoReturn) _apOrigMeta;
     private bool _apTouched;          // владелец менял блок — подстановка из карточки сервера его не затирает
+    private bool _apMetaExplicit;     // 2026-11-20 (С5): у товара уже есть явная отметка (сервер или местный файл) — «0» пишем, а не молчим
 
     private bool AutoPartVisible => AutoPartsProfile.IsActive && AutoPartBlock.IsVisible;
 
@@ -105,7 +106,7 @@ public partial class ProductEditDialog
         relatedRow.Children.Add(pick);
         panel.Children.Add(relatedRow);
 
-        // 2026-11-20 (склейка с исполнителем Б): местные признаки для чека/возврата — гарантия, «Электрика», «Установленные не принимаются» (AutoPartsProductMeta, файл кассы, на сервер не уходят).
+        // 2026-11-20 (склейка с исполнителем Б): признаки для чека/возврата — гарантия, «Электрика», «Установленные не принимаются». С 2026-11-20 (С5) уходят на сервер в attributes (warranty_days / electric / no_return); файл кассы (AutoPartsProductMeta) — кэш.
         panel.Children.Add(Label(Tr.T("Гарантия, дней", "Кепилдик, күн", "Warranty, days", "Garanti, gün", "Kafolat, kun")));
         _apWarranty = new TextBox { MaxLength = 4, Width = 160, HorizontalAlignment = HorizontalAlignment.Left, Watermark = Tr.T("нет", "жок", "none", "yok", "yo'q") };
         _apWarranty.TextChanged += (_, _) =>
@@ -119,15 +120,25 @@ public partial class ProductEditDialog
         _apNoReturn = new CheckBox { MinHeight = 40, Content = WrapText(Tr.T("Установленные детали не принимаются", "Орнотулган тетиктер кабыл алынбайт", "Installed parts are not accepted", "Takılmış parçalar iade alınmaz", "O'rnatilgan detallar qabul qilinmaydi")) };
         panel.Children.Add(_apElectric);
         panel.Children.Add(_apNoReturn);
-        var meta = existing is null ? null : AutoPartsProductMeta.Get(existing.Id);
-        _apWarranty.Text = meta?.WarrantyDays?.ToString() ?? "";
-        _apElectric.IsChecked = meta?.Electric ?? false;
-        _apNoReturn.IsChecked = meta?.NoReturn ?? false;
-        _apOrigMeta = (AutoPartsProductMeta.ParseDays(_apWarranty.Text), _apElectric.IsChecked == true, _apNoReturn.IsChecked == true);
+        FillAutoPartMeta(existing is null ? null : AutoPartsProductMeta.Get(existing.Id));
+        // 2026-11-20 (С5): правка этих полей — тоже «владелец менял блок» (ответ сервера не затрёт ввод)
+        _apWarranty.TextChanged += (_, _) => _apTouched = true;
+        _apElectric.IsCheckedChanged += (_, _) => _apTouched = true;
+        _apNoReturn.IsCheckedChanged += (_, _) => _apTouched = true;
 
         _apBase = existing is null ? null : PartMetaStore.Get(existing.Id)?.Clone();
         FillAutoPart(_apBase);
         RememberAutoPartOriginal();
+    }
+
+    /// <summary>2026-11-20 (С5): гарантия и признаки — из слияния «сервер, потом местный файл» (<see cref="AutoPartsProductMeta.Get"/>).</summary>
+    private void FillAutoPartMeta(AutoPartsProductMeta.Meta? meta)
+    {
+        _apWarranty.Text = meta?.WarrantyDays?.ToString() ?? "";
+        _apElectric.IsChecked = meta?.Electric ?? false;
+        _apNoReturn.IsChecked = meta?.NoReturn ?? false;
+        _apMetaExplicit = meta is not null;
+        _apOrigMeta = (AutoPartsProductMeta.ParseDays(_apWarranty.Text), _apElectric.IsChecked == true, _apNoReturn.IsChecked == true);
     }
 
     private static TextBlock WrapText(string text) => new() { Text = text, TextWrapping = TextWrapping.Wrap };
@@ -201,9 +212,15 @@ public partial class ProductEditDialog
                 .Select(x => x.Length > AutoPartInfo.MaxValueLength ? x[..AutoPartInfo.MaxValueLength] : x).Take(AutoPartInfo.MaxFits).ToList(),
             Location = (_apLocation.Text ?? "").Trim(),
             Related = new List<string>(_apRelated),
-            Other = _apBase?.Other.Select(o => new AutoPartAttr { Key = o.Key, Value = o.Value, Unit = o.Unit }).ToList() ?? new(),
+            Other = _apBase?.Other.Select(o => new AutoPartAttr { Key = o.Key, Value = o.Value, Unit = o.Unit, IsNumber = o.IsNumber }).ToList() ?? new(),
         };
         (info.Condition, info.PartType) = AutoPartInfo.FromState(_apState);
+        // 2026-11-20 (С5): гарантия и признаки возврата уходят на сервер в attributes (warranty_days / electric / no_return). Без отметки (и без прежней) — не пишем ничего,
+        // чек решает по названию; явная отметка (в том числе «0» — «можно») сохраняется.
+        info.WarrantyDays = AutoPartsProductMeta.ParseDays(_apWarranty.Text);
+        var explicitMeta = _apMetaExplicit || info.WarrantyDays is not null || _apElectric.IsChecked == true || _apNoReturn.IsChecked == true;
+        info.Electric = explicitMeta ? _apElectric.IsChecked == true : null;
+        info.NoReturn = explicitMeta ? _apNoReturn.IsChecked == true : null;
         return info;
     }
 
@@ -212,7 +229,12 @@ public partial class ProductEditDialog
     private void RememberAutoPartOriginal()
     {
         var info = BuildAutoPartInfo();
-        _apOrigAttrs = AttrsSignature(info);
+        // 2026-11-20 (С5, миграция): «исходное» — то, что знает СЕРВЕР. Если отметки пока только в местном файле, подпись отличается от текущей и при сохранении карточки они уходят на сервер.
+        var onServer = info.Clone();
+        onServer.WarrantyDays = _apBase?.WarrantyDays;
+        onServer.Electric = _apBase?.Electric;
+        onServer.NoReturn = _apBase?.NoReturn;
+        _apOrigAttrs = AttrsSignature(onServer);
         _apOrigLocation = info.Location;
         _apOrigRelated = string.Join(",", info.Related);
         _apTouched = false;
@@ -227,6 +249,7 @@ public partial class ProductEditDialog
         var info = AutoPartInfo.Parse(card);
         _apBase = info?.Clone();
         FillAutoPart(_apBase);
+        FillAutoPartMeta(AutoPartsProductMeta.Get(_existing.Id)); // 2026-11-20 (С5): сервер главнее местного файла
         RememberAutoPartOriginal(); // подстановка из карточки — не правка владельца
     }
 

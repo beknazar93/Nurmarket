@@ -924,9 +924,25 @@ public sealed partial class CatalogApiService : ICatalogApiService
         throw last!;
     }
 
-    public Task<JsonElement> UpdateProductAsync(string productId, ProductEditRequest request, CancellationToken ct = default) =>
-        _client.RequestAsync(
-            HttpMethod.Patch, $"api/main/products/{Uri.EscapeDataString(productId.Trim())}/", BuildProductBody(request), null, ct);
+    public async Task<JsonElement> UpdateProductAsync(string productId, ProductEditRequest request, CancellationToken ct = default)
+    {
+        var path = $"api/main/products/{Uri.EscapeDataString(productId.Trim())}/";
+        // 2026-11-20 (ответ Умара 20.11, А.4): PATCH заменяет attributes ЦЕЛИКОМ. Копия карточки в окне могла устареть или не загрузиться (чужие ключи, part_no_norm) —
+        // перед записью читаем свежий список с сервера и накладываем на него только то, что менял владелец. Нет такого товара (404) — пишем как есть.
+        if (request.Attributes is { } own)
+        {
+            try
+            {
+                var card = await _client.RequestAsync(HttpMethod.Get, path, null, null, ct).ConfigureAwait(false);
+                request.Attributes = NurMarketKassa.Models.Pos.AutoPartAttrWire.Merge(own, NurMarketKassa.Models.Pos.AutoPartAttrWire.ReadServer(card));
+            }
+            catch (ApiException ex) when (ex.StatusCode == 404)
+            {
+                request.Attributes = NurMarketKassa.Models.Pos.AutoPartAttrWire.Sanitize(own);
+            }
+        }
+        return await _client.RequestAsync(HttpMethod.Patch, path, BuildProductBody(request), null, ct).ConfigureAwait(false);
+    }
 
     public async Task<JsonElement?> FindWarehouseProductByBarcodeAsync(string barcode, CancellationToken ct = default)
     {
@@ -1015,6 +1031,24 @@ public sealed partial class CatalogApiService : ICatalogApiService
         return _client.RequestAsync(
             HttpMethod.Patch, $"api/main/products/{Uri.EscapeDataString(productId.Trim())}/", fields, null, ct);
     }
+
+    private static IReadOnlyDictionary<string, string>? IfMatch(string? version) =>
+        string.IsNullOrWhiteSpace(version) ? null : new Dictionary<string, string> { ["If-Match"] = version.Trim() };
+
+    public Task<JsonElement> AddProductBarcodeAsync(string productId, string barcode, string? name, long? quantity, string? version, CancellationToken ct = default)
+    {
+        // 2026-11-21 (ответ Умара): name не пустое — иначе поле не шлём; quantity — целое > 0 или не шлём (0 и дробное сервер отклоняет); barcode ≤64, name ≤255.
+        var code = (barcode ?? "").Trim();
+        var body = new Dictionary<string, object?> { ["barcode"] = code.Length > InvoiceBarcodeRules.ServerBarcodeMax ? code[..InvoiceBarcodeRules.ServerBarcodeMax] : code };
+        if (!string.IsNullOrWhiteSpace(name))
+            body["name"] = name.Trim().Length > InvoiceBarcodeRules.ServerNameMax ? name.Trim()[..InvoiceBarcodeRules.ServerNameMax] : name.Trim();
+        if (quantity is > 0)
+            body["quantity"] = quantity.Value;
+        return _client.RequestAsync(HttpMethod.Post, $"api/main/products/{Uri.EscapeDataString(productId.Trim())}/barcodes/", body, null, ct, null, IfMatch(version));
+    }
+
+    public Task<JsonElement> DeleteProductBarcodeAsync(string productId, string barcode, string? version, CancellationToken ct = default) =>
+        _client.RequestAsync(HttpMethod.Delete, $"api/main/products/{Uri.EscapeDataString(productId.Trim())}/barcodes/{Uri.EscapeDataString((barcode ?? "").Trim())}/", null, null, ct, null, IfMatch(version));
 
     /// <summary>2026-11-11: атомарный перевод остатка в упаковки (см. ICatalogApiService). Ключ повтора — и в теле, и заголовком Idempotency-Key (как у прихода):
     /// повтор после обрыва с тем же ключом сервер не выполняет второй раз.</summary>
@@ -1118,12 +1152,8 @@ public sealed partial class CatalogApiService : ICatalogApiService
         foreach (var code in codes)
         {
             var match = known?.FirstOrDefault(v => string.Equals(v.Barcode?.Trim(), code, StringComparison.OrdinalIgnoreCase));
-            result.Add(new Dictionary<string, object?>
-            {
-                ["barcode"] = code,
-                ["name"] = match?.Name ?? "",
-                ["quantity"] = match?.Quantity ?? 0,
-            });
+            // 2026-11-21 (ответ Умара): quantity — целое > 0 или null (раньше уходил 0 — сервер отклоняет); name до 255, barcode до 64.
+            result.Add(InvoiceBarcodeRules.ToServerItem(code, match?.Name, match?.Quantity ?? 0));
         }
         return result.ToArray();
     }

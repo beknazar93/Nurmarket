@@ -81,6 +81,14 @@ public sealed class InvoiceEditorWindow : Window
             return string.Join("; ", parts);
         }
 
+        /// <summary>2026-11-20: строка прихода к товару склада; у объединённого товара накладной (вкусы) — разбивка по вкусам для комментария документа.</summary>
+        private static ReceivingLineVm FromTileWithVariants(CatalogProductTileVm tile, double qty, ProductActionPlan.Step step)
+        {
+            var line = PurchaseReceivingService.FromTile(tile, qty);
+            line.VariantNote = InvoiceVariantPlan.BreakdownNote(step);
+            return line;
+        }
+
         public static PurchaseDraft FromSteps(IEnumerable<ProductActionPlan.Step> steps, string? supplierName, string? supplierInn, InvoiceReference? reference = null)
         {
             var draft = new PurchaseDraft
@@ -118,7 +126,7 @@ public sealed class InvoiceEditorWindow : Window
                         : "";
                     draft.Rows.Add(new DraftRow
                     {
-                        Line = PurchaseReceivingService.FromTile(tile, qty),
+                        Line = FromTileWithVariants(tile, qty, step), // 2026-11-20: у товара склада — разбивка по вкусам в комментарий прихода
                         Existing = tile,
                         InvoiceName = tile.Title,
                         Barcode = string.IsNullOrWhiteSpace(tile.Barcode) ? cardCode : tile.Barcode!,
@@ -154,7 +162,9 @@ public sealed class InvoiceEditorWindow : Window
                 }
                 draft.Rows.Add(new DraftRow
                 {
-                    Line = new ReceivingLineVm { Source = ReceivingSource.Unknown, Unit = unit },
+                    // 2026-11-20 («в один товар и доп. штрихкоды»): вкусы накладной — доп. штрихкоды нового товара и разбивка прихода по вкусам в комментарий документа.
+                    Line = new ReceivingLineVm { Source = ReceivingSource.Unknown, Unit = unit, ExtraBarcodes = InvoiceVariantPlan.ExtraCodes(step, step.Barcode), VariantNote = InvoiceVariantPlan.BreakdownNote(step) },
+                    Variants = step.Variants,
                     InvoiceName = step.Product.Title,
                     Barcode = step.Barcode?.Trim() ?? "",
                     Unit = unit,
@@ -329,6 +339,8 @@ public sealed class InvoiceEditorWindow : Window
         /// <summary>Товар склада (приход к нему); null — новый товар.</summary>
         public CatalogProductTileVm? Existing { get; set; }
         public string InvoiceName { get; set; } = "";
+        /// <summary>2026-11-20: варианты (вкусы) объединённого товара накладной — доп. штрихкоды нового товара пересчитываются от основного кода при проведении.</summary>
+        public IReadOnlyList<VariantPart>? Variants { get; set; }
         public string ReceiptName { get; set; } = "";
         public string Barcode { get; set; } = "";
         /// <summary>2026-10-24 (П4): код введён в карточке советника для прихода к товару без штрихкода (ставится шагом set_barcode после закупки).</summary>
@@ -358,7 +370,7 @@ public sealed class InvoiceEditorWindow : Window
         {
             new ColumnDefinition(32, GridUnitType.Pixel), new ColumnDefinition(96, GridUnitType.Pixel),
             new ColumnDefinition(2, GridUnitType.Star) { MinWidth = 130 }, new ColumnDefinition(2, GridUnitType.Star) { MinWidth = 130 },
-            new ColumnDefinition(132, GridUnitType.Pixel), new ColumnDefinition(70, GridUnitType.Pixel), new ColumnDefinition(88, GridUnitType.Pixel),
+            new ColumnDefinition(152, GridUnitType.Pixel), new ColumnDefinition(70, GridUnitType.Pixel), new ColumnDefinition(88, GridUnitType.Pixel),
             // 2026-10-22 (модалки, пакет 2): последняя колонка 48 (было 44) — ✕ строки теперь 44×44 плюс отступ 4.
             new ColumnDefinition(88, GridUnitType.Pixel), new ColumnDefinition(94, GridUnitType.Pixel), new ColumnDefinition(48, GridUnitType.Pixel),
         },
@@ -366,6 +378,8 @@ public sealed class InvoiceEditorWindow : Window
     private readonly List<TextBox> _navBoxes = new();
     // 2026-10-24 (П4): правимые поля «Штрихкод» в порядке строк — Enter из штрихкода идёт к штрихкоду следующей строки.
     private readonly List<TextBox> _barcodeBoxes = new();
+    // 2026-11-20: все правимые поля штрихкода (новые товары и товары склада без кода) — только цифры, 4–14 знаков (BarcodeInput).
+    private readonly HashSet<TextBox> _digitBoxes = new();
     private readonly TextBlock _error = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap, IsVisible = false, LineHeight = 19 };
     private readonly TextBlock _total = new() { FontSize = 15, FontWeight = FontWeight.Bold, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
     // 2026-10-31: контрольная сверка итога накладной с суммой строк (вверху окна) и подтверждение расхождения перед проведением.
@@ -421,6 +435,7 @@ public sealed class InvoiceEditorWindow : Window
         MinHeight = 420;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Res(this, BackgroundProperty, "BrushPanel");
+        NurMarketKassa.AvaloniaHost.Views.Controls.BarcodeInput.Attach(this, tb => _digitBoxes.Contains(tb)); // 2026-11-20
 
         var hint = new TextBlock
         {
@@ -915,6 +930,7 @@ public sealed class InvoiceEditorWindow : Window
         _grid.RowDefinitions.Clear();
         _navBoxes.Clear();
         _barcodeBoxes.Clear();
+        _digitBoxes.Clear();
         string[] headers =
         {
             "№", T("Действие", "Аракет", "Action", "İşlem", "Amal"),
@@ -975,14 +991,18 @@ public sealed class InvoiceEditorWindow : Window
             var receiptName = Box(row.ReceiptName, v => row.ReceiptName = v, existing ? row.Existing!.Title : string.IsNullOrWhiteSpace(row.InvoiceName) ? null : row.InvoiceName,
                 readOnly: row.CreatedEarlier);
             invoiceName.TextChanged += (_, _) => receiptName.Watermark = string.IsNullOrWhiteSpace(invoiceName.Text) ? null : invoiceName.Text;
-            var barcode = Box(row.Barcode, v => row.Barcode = v.Trim(), existing ? "" : T("скан или вписать", "скан же жазуу", "scan or type", "okut veya yaz", "skan yoki yozing"),
-                readOnly: existing || row.CreatedEarlier);
+            // 2026-11-20 («при создании накладных штрихкоды тоже добавь», как в мобилке): код правится у нового товара и у товара склада, у которого кода ещё нет (скан сканером, «Сканировать», «+N»).
+            var codeEditable = !row.CreatedEarlier && (!existing || (string.IsNullOrWhiteSpace(row.Existing!.Barcode) && !row.BarcodeFromCard));
+            var barcode = Box(row.Barcode, v => row.Barcode = v.Trim(), codeEditable ? T("скан или вписать", "скан же жазуу", "scan or type", "okut veya yaz", "skan yoki yozing") : "",
+                readOnly: !codeEditable);
             if (existing && row.BarcodeFromCard)
                 ToolTip.SetTip(barcode, T($"{row.Barcode} — введён в карточке советника, будет поставлен товару после проведения закупки.",
                     $"{row.Barcode} — кеңешчи картасында киргизилген, сатып алуу өткөрүлгөндөн кийин товарга коюлат.",
                     $"{row.Barcode} — entered on the advisor card, will be set on the product after the purchase is posted.",
                     $"{row.Barcode} — danışman kartında girildi, alım işlendikten sonra ürüne atanacak.",
                     $"{row.Barcode} — maslahatchi kartasida kiritilgan, xarid o'tkazilgach mahsulotga qo'yiladi."));
+            if (codeEditable)
+                _digitBoxes.Add(barcode);
             if (!existing && !row.CreatedEarlier)
             {
                 // 2026-10-24 (П4): пустой штрихкод нового товара — мягкая подсветка рамки (не ошибка: товар создастся и без кода).
@@ -997,6 +1017,9 @@ public sealed class InvoiceEditorWindow : Window
                 Soft();
                 barcode.TextChanged += (_, _) => Soft();
             }
+            var rowTitle = string.IsNullOrWhiteSpace(row.ReceiptName) ? row.InvoiceName : row.ReceiptName;
+            var bc = new InvoiceBarcodeCell(this, rowTitle, vertical: true, boxHeight: 44, buttonHeight: 32, existingBox: barcode);
+            WireBarcode(row, bc, codeEditable, existing);
             var qty = Box(row.Qty, v => row.Qty = v, right: true);
             var purchase = Box(row.Purchase, v => row.Purchase = v, right: true);
             var price = Box(row.Price, v => row.Price = v, right: true);
@@ -1057,7 +1080,7 @@ public sealed class InvoiceEditorWindow : Window
                 similar.Click += (_, _) => ShowSimilarMenu(row, similar);
                 actionCell = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center, Children = { action, similar } };
             }
-            var cells = new Control[] { no, actionCell, invoiceName, receiptName, barcode, qty, purchase, price, sum, remove };
+            var cells = new Control[] { no, actionCell, invoiceName, receiptName, bc.Root!, qty, purchase, price, sum, remove };
             for (var c = 0; c < cells.Length; c++)
             {
                 Grid.SetRow(cells[c], r);
@@ -1090,6 +1113,12 @@ public sealed class InvoiceEditorWindow : Window
         e.Handled = true;
         if (sender is not TextBox box)
             return;
+        NavNext(box);
+    }
+
+    /// <summary>Enter в поле: к следующему (см. NavKeyDown); из «Штрихкода» — к штрихкоду следующей строки без кода.</summary>
+    private void NavNext(TextBox box)
+    {
         // 2026-10-24 (П4): Enter в «Штрихкоде» — к штрихкоду следующей строки (первой пустой правимой); если пустых дальше нет — как раньше.
         var b = _barcodeBoxes.IndexOf(box);
         if (b >= 0 && _barcodeBoxes.Skip(b + 1).FirstOrDefault(x => string.IsNullOrWhiteSpace(x.Text)) is { } nextCode)
@@ -1107,6 +1136,109 @@ public sealed class InvoiceEditorWindow : Window
             next.SelectAll();
             next.BringIntoView();
         }
+    }
+
+    // ------------------------------------------------------------------ 2026-11-20: штрихкоды строк (привязка, «+N», проверки)
+
+    /// <summary>Все строки накладной для проверки кода: код ещё не на сервере — каталог его не знает, поэтому смотрим и сами строки.</summary>
+    private IEnumerable<InvoiceCodeRow> EditorCodeRows() =>
+        _draft.Rows.Select(r => new InvoiceCodeRow(r, string.IsNullOrWhiteSpace(r.ReceiptName) ? r.InvoiceName : r.ReceiptName, r.Existing?.Id, r.Barcode, r.Line.ExtraBarcodes.Select(v => v.Barcode).ToList()));
+
+    /// <summary>Поле штрихкода строки + «Сканировать» + «+N»: Enter (скан сканером) и уход из поля — шаг «код у строки» (формат 4–14 цифр, дубль в накладной, владелец в каталоге, у товара склада
+    /// запись на сервер); «Выбрать его» у занятого кода превращает строку в этот товар.</summary>
+    private void WireBarcode(DraftRow row, InvoiceBarcodeCell bc, bool codeEditable, bool existing)
+    {
+        var box = bc.Box;
+        var committed = row.Barcode;
+        var committing = false;
+        void Visibility()
+        {
+            bc.Scan.IsVisible = codeEditable && (box.Text ?? "").Trim().Length == 0;
+            var extras = existing ? row.Existing?.AlternateBarcodeVariants?.Count(v => !string.IsNullOrWhiteSpace(v.Barcode)) ?? 0 : row.Line.ExtraBarcodes.Count;
+            bc.Extras.IsVisible = !row.CreatedEarlier;
+            bc.Extras.Content = extras > 0 ? "+" + extras.ToString(CultureInfo.InvariantCulture) : "+";
+        }
+        Visibility();
+        box.TextChanged += (_, _) => Visibility();
+        async Task CommitAsync(bool thenNext)
+        {
+            if (committing || !codeEditable || _draft.Posting)
+                return;
+            var typed = (box.Text ?? "").Trim();
+            if (string.Equals(InvoiceBarcodeRules.Clean(typed), committed, StringComparison.OrdinalIgnoreCase))
+            {
+                if (thenNext)
+                    NavNext(box);
+                return;
+            }
+            committing = true;
+            try
+            {
+                var title = string.IsNullOrWhiteSpace(row.ReceiptName) ? row.InvoiceName : row.ReceiptName;
+                var ctx = new BarcodeRowContext(row, existing ? row.Existing!.Id : null, !existing, title, EditorCodeRows);
+                var r = await InvoiceBarcodeKit.CommitAsync(this, ctx, typed).ConfigureAwait(true);
+                if (!_draft.Rows.Contains(row))
+                    return;
+                switch (r.Kind)
+                {
+                    case BarcodeCommitKind.Set:
+                        committed = r.Code;
+                        row.Barcode = r.Code;
+                        row.BarcodeFromCard = false;
+                        box.Text = r.Code;
+                        break;
+                    case BarcodeCommitKind.Cleared:
+                        committed = "";
+                        row.Barcode = "";
+                        box.Text = "";
+                        break;
+                    case BarcodeCommitKind.UseOwner when r.Owner is { } owner:
+                        UseExisting(row, owner);
+                        return;
+                    default:
+                        row.Barcode = committed;
+                        box.Text = committed;
+                        break;
+                }
+                if (r.Kind == BarcodeCommitKind.Rejected && r.Message.Length > 0)
+                    ShowError(r.Message);
+                Visibility();
+                if (thenNext && r.Kind is BarcodeCommitKind.Set or BarcodeCommitKind.Cleared)
+                    NavNext(box);
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Закупка по накладной: штрихкод строки не принят ({ex.Message}).", "WARNING");
+                ShowError(ex.Message);
+            }
+            finally
+            {
+                committing = false;
+                bc.Disarm();
+            }
+        }
+        box.AddHandler(InputElement.KeyDownEvent, (_, e) =>
+        {
+            if (e.Key != Key.Enter || !codeEditable)
+                return;
+            e.Handled = true; // скан сканером заканчивается Enter: шаг «код у строки», затем — к следующей строке без кода
+            _ = CommitAsync(true);
+        }, RoutingStrategies.Tunnel);
+        box.LostFocus += (_, _) => _ = CommitAsync(false);
+        bc.Extras.Click += async (_, _) =>
+        {
+            if (_draft.Posting)
+                return;
+            var title = string.IsNullOrWhiteSpace(row.ReceiptName) ? row.InvoiceName : row.ReceiptName;
+            var outcome = await InvoiceBarcodeKit.EditExtrasFlowAsync(this, title, row.Barcode, existing ? row.Existing!.Id : null, !existing, row.Line.ExtraBarcodes, row, EditorCodeRows).ConfigureAwait(true);
+            if (outcome is null || !_draft.Rows.Contains(row))
+                return;
+            if (outcome.List is not null && !existing)
+                row.Line.ExtraBarcodes = outcome.List;
+            if (outcome.Warning)
+                ShowError(outcome.Message);
+            Visibility();
+        };
     }
 
     // ------------------------------------------------------------------ 2026-11-03: «новый или тот же?» для новых товаров накладной по фото
@@ -1411,6 +1543,15 @@ public sealed class InvoiceEditorWindow : Window
         {
             line.ProductName = receipt.Length > 0 ? receipt : row.InvoiceName.Trim();
             line.Barcode = row.Barcode.Trim();
+            if (row.Variants is { Count: > 0 } variantParts)
+            {
+                // 2026-11-20: владелец мог сменить основной код — прежний основной становится дополнительным, код, равный основному, из дополнительных убирается; вручную добавленные доп. коды сохраняются.
+                var merged = InvoiceVariantPlan.ExtraCodes(variantParts, line.Barcode);
+                foreach (var old in line.ExtraBarcodes)
+                    if (!InvoiceBarcodeRules.Same(old.Barcode, line.Barcode) && !merged.Any(x => InvoiceBarcodeRules.Same(x.Barcode, old.Barcode)))
+                        merged.Add(old);
+                line.ExtraBarcodes = merged;
+            }
             line.IsWeight = ProductUnitNormalizer.IsKilogramWord(row.Unit);
             line.Unit = line.IsWeight ? "кг" : row.Unit;
             line.CategoryName = string.IsNullOrWhiteSpace(row.Category) ? null : row.Category;

@@ -175,7 +175,8 @@ public static class FiscalApi
         // режим в ответе PUT может не прийти — тогда остаётся прежний (его определяет сервер)
         if (data.ValueKind != JsonValueKind.Object || !data.TryGetProperty("mode", out _))
             saved = saved with { Mode = FiscalSettings.Current.Mode };
-        FiscalSettings.SetCurrent(saved with { FeatureAvailable = FiscalSettings.Current.FeatureAvailable });
+        // 2026-11-20: ответ PUT может не содержать сведений о ККМ — не затираем то, что сервер отдавал раньше
+        FiscalSettings.SetCurrent(saved with { FeatureAvailable = FiscalSettings.Current.FeatureAvailable, Kkm = saved.Kkm ?? FiscalSettings.Current.Kkm });
         return saved;
     }
 

@@ -212,6 +212,7 @@ public sealed class SupplierReturnEditStressUiTests
     [InlineData(2000)]
     public async Task Stress_Rows_OpenTypeScrollSave_TimesAndMemory(int lines)
     {
+        UiRobot.Reset(); // 2026-11-21: статический UiRobot.Opened от прежних сценариев держал окно правки и ложно «утекал» в полном прогоне
         UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
         await using var stand = await Stand.StartAsync();
         var json = CardJson(lines);
@@ -1141,7 +1142,7 @@ public sealed class SupplierReturnEditStressUiTests
     [MemberData(nameof(Screens))]
     public async Task CreateDialog_AfterSave_EditWaybillButtonVisible(int width, int height, AppLanguage lang)
     {
-        await TestHost.WarmAsync();
+        await TestHost.WarmAsync(); UiRobot.Reset(); // 2026-11-21: UiRobot.Opened (статический) держал окна прежних сценариев и ложно «утекал» в этом тесте в общем прогоне
         UiShot.Setup(UiTheme.Light, lang);
         UiFake.Reset();
         var owner = Owner(width, height);
@@ -1184,7 +1185,7 @@ public sealed class SupplierReturnEditStressUiTests
     [InlineData(1024, 600, AppLanguage.Kyrgyz)]
     public async Task OwnerSection_SupplierReturns_EditButton_OpensEditDialog(int width, int height, AppLanguage lang)
     {
-        await TestHost.WarmAsync();
+        await TestHost.WarmAsync(); UiRobot.Reset(); // 2026-11-21: UiRobot.Opened (статический) держал окна прежних сценариев и ложно «утекал» в этом тесте в общем прогоне
         UiShot.Setup(UiTheme.Light, lang);
         var fake = UiFake.Reset();
         var card = CardJson(3);
@@ -1249,7 +1250,7 @@ public sealed class SupplierReturnEditStressUiTests
     [InlineData(AppLanguage.Kyrgyz)]
     public async Task SupplierReturnsList_WithVoided_TilesAddUpToTheKopeck(AppLanguage lang)
     {
-        await TestHost.WarmAsync();
+        await TestHost.WarmAsync(); UiRobot.Reset(); // 2026-11-21: UiRobot.Opened (статический) держал окна прежних сценариев и ложно «утекал» в этом тесте в общем прогоне
         UiShot.Setup(UiTheme.Light, lang);
         var fake = UiFake.Reset();
         fake.Json("GET", "/api/main/capabilities/", 200, "[\"supplier_return_edit_24h\"]");

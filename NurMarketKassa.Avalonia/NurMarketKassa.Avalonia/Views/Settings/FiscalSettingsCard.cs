@@ -10,13 +10,16 @@ using NurMarketKassa.Services.Fiscal;
 namespace NurMarketKassa.AvaloniaHost.Views.Settings;
 
 /// <summary>2026-11-14 (П0-1, ответ Умара 13.11 вечер): карточка «Налоги и ККМ» в «Настройках → Операции» — только владельцу и администратору, только когда сервер знает фискализацию (признак fiscal_kassa).
-/// Показывает режим (его задаёт сервер: выключено / пробивает касса / пробивает сервер), статус ККМ («ЭККМ не подключена: ожидается документация Telemedia») и даёт править налоговую форму:
+/// Показывает режим (его задаёт сервер: выключено / пробивает касса / пробивает сервер), статус ККМ (режим server — «ККМ зарегистрирована на сервере» со сведениями с сервера или «отдельная ККМ в кассе не нужна»;
+/// «ожидается документация Telemedia» — только когда пробивает касса, а локальной ККМ нет) и даёт править налоговую форму:
 /// «Фискализация включена», режим налогообложения, «Плательщик НДС», ставки НДС, ставка НсП. Правки уходят на сервер (PUT settings/fiscal/) ТОЛЬКО по кнопке «Сохранить»;
 /// ничего не отправляется при открытии, при вводе и при потере фокуса. Деньги — decimal (проценты, не суммы).</summary>
 public sealed class FiscalSettingsCard : Border
 {
     private readonly TextBlock _mode = Text("FiscalModeText", semi: true);
     private readonly TextBlock _provider = Text("FiscalProviderText");
+    // 2026-11-20: сведения о ККМ, зарегистрированной на сервере (режим server): ЗН, РН, ФМ, срок ФМ, ОФД, смена, последний чек — только то, что сервер отдал.
+    private readonly Grid _kkmDetails = new() { Name = "FiscalKkmDetails", ColumnDefinitions = new ColumnDefinitions("Auto,*"), IsVisible = false };
     private readonly CheckBox _enabled = new() { Name = "FiscalEnabledCheck" };
     private readonly TextBox _regime = new() { Name = "FiscalRegimeBox", MaxLength = 32 };
     private readonly CheckBox _vatPayer = new() { Name = "FiscalVatPayerCheck" };
@@ -57,6 +60,8 @@ public sealed class FiscalSettingsCard : Border
 
         stack.Children.Add(Row(Tr.T("Режим", "Режим", "Mode", "Mod", "Rejim"), _mode));
         stack.Children.Add(Row(Tr.T("ККМ", "ККМ", "Cash register", "ÖKC", "KKM"), _provider));
+        _kkmDetails.Margin = new Thickness(0, 0, 0, 2);
+        stack.Children.Add(_kkmDetails);
 
         Toggle(_enabled, Tr.T("Фискализация включена", "Фискалдаштыруу күйгүзүлгөн", "Fiscalization is on", "Mali fiş açık", "Fiskallashtirish yoqilgan"));
         stack.Children.Add(_enabled);
@@ -116,15 +121,15 @@ public sealed class FiscalSettingsCard : Border
         return error is null ? form : null;
     }
 
+    /// <summary>Только для тестов и снимков: показать заданные настройки (режим, сведения о ККМ) без сервера и без записи на диск.</summary>
+    public void ShowForPreview(FiscalCapabilities caps) => Fill(caps);
+
     private void Fill(FiscalCapabilities caps)
     {
         _filling = true;
         try
         {
-            _mode.Text = FiscalFormRules.ModeText(caps.Mode);
-            _provider.Text = FiscalProviders.Current.IsConnected
-                ? FiscalProviders.Current.Name
-                : NotConnectedFiscalProvider.NotConnectedText;
+            FillStatus(caps);
             _enabled.IsChecked = caps.FiscalEnabled;
             _regime.Text = caps.TaxRegime;
             _vatPayer.IsChecked = caps.VatPayer;
@@ -137,6 +142,34 @@ public sealed class FiscalSettingsCard : Border
         }
     }
 
+    /// <summary>2026-11-20: режим и строка «ККМ» (не поля формы — их не трогаем, пока владелец правит). В режиме server «ККМ» — состояние с сервера, а не локальной заглушки.</summary>
+    private void FillStatus(FiscalCapabilities caps)
+    {
+        var kkm = (caps.Kkm ?? FiscalSettings.Current.Kkm) is { HasData: true } k ? k : null;
+        _mode.Text = FiscalFormRules.ModeText(caps.Mode);
+        _provider.Text = FiscalFormRules.KkmStatusText(caps with { Kkm = kkm }, FiscalProviders.Current);
+        _kkmDetails.Children.Clear();
+        _kkmDetails.RowDefinitions.Clear();
+        var rows = caps.Mode == FiscalMode.Server && kkm is not null ? kkm.Rows().ToList() : new List<(string Key, string Label, string Value)>();
+        for (var i = 0; i < rows.Count; i++)
+        {
+            _kkmDetails.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            var label = Soft(rows[i].Label);
+            label.MinWidth = 90;
+            label.Margin = new Thickness(0, 2, 12, 2);
+            label.VerticalAlignment = VerticalAlignment.Top;
+            var value = Text("FiscalKkm" + rows[i].Key + "Text");
+            value.Text = rows[i].Value;
+            value.Margin = new Thickness(0, 2, 0, 2);
+            Grid.SetRow(label, i);
+            Grid.SetRow(value, i);
+            Grid.SetColumn(value, 1);
+            _kkmDetails.Children.Add(label);
+            _kkmDetails.Children.Add(value);
+        }
+        _kkmDetails.IsVisible = rows.Count > 0;
+    }
+
     /// <summary>Прочитать настройки с сервера (GET, ничего не меняет). Правки владельца, пока он их не сохранил, не затираются.</summary>
     public async Task ReloadAsync()
     {
@@ -145,8 +178,11 @@ public sealed class FiscalSettingsCard : Border
         try
         {
             var caps = await FiscalApi.GetSettingsAsync(api).ConfigureAwait(true);
+            var shown = caps with { FeatureAvailable = FiscalSettings.Current.FeatureAvailable };
             if (!_edited)
-                Fill(caps with { FeatureAvailable = FiscalSettings.Current.FeatureAvailable });
+                Fill(shown);
+            else
+                FillStatus(shown); // 2026-11-20: правки владельца не затираем, но режим и «ККМ» обновляем
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

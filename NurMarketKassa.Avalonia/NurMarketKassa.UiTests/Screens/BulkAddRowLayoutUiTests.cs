@@ -250,6 +250,7 @@ public sealed class BulkAddRowLayoutUiTests
             typeof(BulkImportWizardWindow).GetField("_mapping", Flags)!.SetValue(window, mapping);
             typeof(BulkImportWizardWindow).GetField("_plan", Flags)!.SetValue(window, plan);
             typeof(BulkImportWizardWindow).GetMethod("BuildRows", Flags)!.Invoke(window, null);
+            typeof(BulkImportWizardWindow).GetMethod("GoToStep", Flags)!.Invoke(window, [3]); // 2026-11-20: таблица — на шаге «Проверьте»
             UiShot.Settle(8, 30);
             var grid = (DataGrid)typeof(BulkImportWizardWindow).GetField("_grid", Flags)!.GetValue(window)!;
             grid.Columns.Should().NotBeEmpty();

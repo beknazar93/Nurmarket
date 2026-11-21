@@ -58,6 +58,21 @@ public partial class MarketplaceView
         EstimatesWindow.Open(owner);
     }
 
+    /// <summary>2026-11-20 («Прокат (аренда)», решение владельца): модуль бесплатный. В строймаркете включён сразу; в других сферах «Включить бесплатно» ставит признак RentalEnabled (сохраняется, уходит на другие кассы)
+    /// и открывает окно «Прокат». Цена — RentalFeature.PriceSom (0).</summary>
+    private void OpenRental()
+    {
+        if (!RentalFeature.IsAvailable)
+        {
+            UserPreferences.Instance.RentalEnabled = true;
+            UserPreferences.Instance.SaveToDisk();
+            TariffGate.RaisePacksChanged(); // меню кассы и программы владельца перечитывают пункты
+            ScheduleStoreReload();
+        }
+        var owner = TopLevel.GetTopLevel(this) as Window;
+        _ = new NurMarketKassa.AvaloniaHost.Views.RentalsWindow(null, null).ShowDialog(owner!);
+    }
+
     private void OpenServiceDesk(string slug)
     {
         var owner = TopLevel.GetTopLevel(this) as Window;

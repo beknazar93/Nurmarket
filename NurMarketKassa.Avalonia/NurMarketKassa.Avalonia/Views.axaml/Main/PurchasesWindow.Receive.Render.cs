@@ -211,15 +211,18 @@ public partial class PurchasesWindow
         who.Children.Add(renamedNote);
         if (line.IsNew)
             who.Children.Add(ReceiveUnitChips(line)); // 2026-10-31: единица нового товара (кг — весовой)
-        string MetaText() => (line.Barcode.Length > 0 ? line.Barcode : "—") + (line.IsNew ? " · " + T("новый товар", "жаңы товар", "new product", "yeni ürün", "yangi mahsulot") : "")
-                             + (s.Narrow && !line.IsNew ? " · " + T("ост. ", "калд. ", "stock ", "stok ", "qold. ") + Q(line.StockBefore) : "");
+        // 2026-11-20 («при создании накладных штрихкоды тоже добавь»): сам штрихкод — теперь поле «штрихкод» (bcCell: правится, «Сканировать», «+N»), в подписи остаётся только «новый товар» и остаток на узком окне.
+        var bcCell = new InvoiceBarcodeCell(this, line.ProductName, vertical: false);
+        string MetaText() => (line.IsNew ? T("новый товар", "жаңы товар", "new product", "yeni ürün", "yangi mahsulot") : "")
+                             + (s.Narrow && !line.IsNew ? T("ост. ", "калд. ", "stock ", "stok ", "qold. ") + Q(line.StockBefore) : "");
         // 2026-11-11 (аудит «Закупки», БП-11): красным «новый товар» — только у действительно неизвестного («Неизвестно»); «База NurCRM» и «Из интернета» — нейтрально.
         string MetaBrush() => line.Source == ReceivingSource.Unknown ? "BrushDanger" : "BrushTextSoft";
         var meta = Cell(MetaText(), MetaBrush(), 12);
-        meta.Margin = default;
+        meta.Margin = new Thickness(0, 0, 6, 4);
         meta.VerticalAlignment = VerticalAlignment.Center;
+        meta.IsVisible = MetaText().Length > 0;
         // 2026-11-09 (владелец: «не найден — только предложить найти в интернете, по нажатию»): у «Неизвестно» рядом со штрихкодом — кнопка; поиск идёт только по её нажатию.
-        var netButton = new Button { Content = T("Найти в интернете", "Интернеттен издөө", "Find on the internet", "İnternette bul", "Internetdan topish"), MinHeight = ReceiveTouchMin(32), Padding = new Thickness(10, 0), Margin = new Thickness(8, 0, 0, 0), FontSize = 12, IsVisible = false, Tag = "rcv-netlink", Focusable = true }; // 2026-11-11 (БП-8/9)
+        var netButton = new Button { Content = T("Найти в интернете", "Интернеттен издөө", "Find on the internet", "İnternette bul", "Internetdan topish"), MinHeight = ReceiveTouchMin(32), Padding = new Thickness(10, 0), Margin = new Thickness(0, 0, 6, 4), VerticalAlignment = VerticalAlignment.Center, FontSize = 12, IsVisible = false, Tag = "rcv-netlink", Focusable = true }; // 2026-11-11 (БП-8/9)
         ToolTip.SetTip(netButton, T("Найти название по штрихкоду в открытых базах интернета. Выполняется только по нажатию; найденное нужно проверить.", "Штрихкод боюнча атын интернеттин ачык базаларынан издөө. Басканда гана аткарылат; табылганды текшериңиз.",
             "Look up the name by barcode in open internet databases. Runs only when you press it; check what is found.", "Adı barkoda göre internetin açık bazalarında bul. Yalnızca basınca çalışır; bulunanı kontrol edin.", "Nomini shtrix-kod bo'yicha internetning ochiq bazalaridan topish. Faqat bosganda ishlaydi; topilganini tekshiring."));
         Avalonia.Automation.AutomationProperties.SetName(netButton, T("Найти в интернете", "Интернеттен издөө", "Find on the internet", "İnternette bul", "Internetdan topish") + " " + line.Barcode);
@@ -240,7 +243,7 @@ public partial class PurchasesWindow
             }
         };
         // 2026-11-10 (владелец: «Генерация штрихкода как в вебе!»): у нового товара без штрихкода — «Сгенерировать штрихкод» (тот же генератор, что в окне товара; без дублей среди каталога и строк приёма).
-        var genButton = new Button { Content = T("Сгенерировать штрихкод", "Штрихкод түзүү", "Generate barcode", "Barkod oluştur", "Shtrix-kod yaratish"), MinHeight = ReceiveTouchMin(32), Padding = new Thickness(10, 0), Margin = new Thickness(8, 0, 0, 0), FontSize = 12, IsVisible = line.CanGenerateBarcode, Tag = "rcv-genbar", Focusable = true }; // 2026-11-11 (БП-8/9)
+        var genButton = new Button { Content = T("Сгенерировать штрихкод", "Штрихкод түзүү", "Generate barcode", "Barkod oluştur", "Shtrix-kod yaratish"), MinHeight = ReceiveTouchMin(32), Padding = new Thickness(10, 0), Margin = new Thickness(0, 0, 6, 4), VerticalAlignment = VerticalAlignment.Center, FontSize = 12, IsVisible = line.CanGenerateBarcode, Tag = "rcv-genbar", Focusable = true }; // 2026-11-11 (БП-8/9)
         ToolTip.SetTip(genButton, T("Свой штрихкод EAN-13 для нового товара, как в окне товара и на сайте. Не повторяет товары каталога и строки этого приёма.", "Жаңы товар үчүн өз EAN-13 штрихкоду, товар терезесиндегидей жана сайттагыдай. Каталогдогу товарларды жана бул кабыл алуунун саптарын кайталабайт.",
             "An own EAN-13 barcode for the new product, as in the product window and on the website. Does not repeat catalog products or lines of this receipt.", "Yeni ürün için kendi EAN-13 barkodu, ürün penceresindeki ve sitedeki gibi. Katalog ürünlerini ve bu girişin satırlarını tekrarlamaz.",
             "Yangi mahsulot uchun o'z EAN-13 shtrix-kodi, mahsulot oynasidagi va saytdagidek. Katalog mahsulotlari va bu qabul qatorlarini takrorlamaydi."));
@@ -252,12 +255,14 @@ public partial class PurchasesWindow
             PosLogger.Log($"Приём товара: новому товару «{line.ProductName}» сгенерирован штрихкод {line.Barcode}.", "STOCK");
             ReceiveMessage(T($"Штрихкод {line.Barcode} сгенерирован.", $"{line.Barcode} штрихкоду түзүлдү.", $"Barcode {line.Barcode} generated.", $"{line.Barcode} barkodu oluşturuldu.", $"{line.Barcode} shtrix-kodi yaratildi."));
         };
-        var metaRow = new StackPanel { Orientation = Orientation.Horizontal, Children = { meta, netButton, genButton } };
+        // 2026-11-20: строка под названием — WrapPanel (на узком окне элементы переносятся целиком): поле штрихкода, «Сканировать», «+N», подпись, «Найти в интернете», «Сгенерировать».
+        bcCell.Box.VerticalAlignment = VerticalAlignment.Center;
+        var metaRow = new WrapPanel { Orientation = Orientation.Horizontal, Children = { bcCell.Box, bcCell.Scan, bcCell.Extras, meta, netButton, genButton } };
         // 2026-11-19 (склад К-5): «Срок годности и партия» — кнопка в строке прихода, только при признаке сервера expiry_batches / stock_batches; без признака строка прежняя.
         if (ServerStock.ExpiryFieldsOn)
         {
             var batchLabel = T("Срок и партия", "Мөөнөт жана партия", "Expiry and batch", "SKT ve parti", "Muddat va partiya");
-            var batchButton = new Button { Content = batchLabel, MinHeight = ReceiveTouchMin(32), Padding = new Thickness(10, 0), Margin = new Thickness(8, 0, 0, 0), FontSize = 12, MaxWidth = 240, Tag = "rcv-batch", Focusable = true };
+            var batchButton = new Button { Content = batchLabel, MinHeight = ReceiveTouchMin(32), Padding = new Thickness(10, 0), Margin = new Thickness(0, 0, 6, 4), VerticalAlignment = VerticalAlignment.Center, FontSize = 12, MaxWidth = 240, Tag = "rcv-batch", Focusable = true };
             Avalonia.Automation.AutomationProperties.SetName(batchButton, batchLabel + " " + line.ProductName);
             void PaintBatch()
             {
@@ -274,6 +279,10 @@ public partial class PurchasesWindow
             metaRow.Children.Add(batchButton);
         }
         who.Children.Add(metaRow);
+        // 2026-11-20: количество поставлено сканом упаковки — «пачка = 12 шт.» (число можно поправить в «Принимаем»).
+        var scanPackNote = new TextBlock { FontSize = 12, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, IsVisible = false };
+        Use(scanPackNote, TextBlock.ForegroundProperty, "BrushAccent");
+        who.Children.Add(scanPackNote);
         // 2026-11-09 (владелец: «указывать вначале как на старом — база / база NurCRM / неизвестно / из интернета, значками, с подсказкой»): значок источника — первый в строке, перед названием.
         var badge = new ReceivingSourceBadge { Source = line.Source, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 7, 8, 0) };
         var whoRow = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
@@ -438,7 +447,11 @@ public partial class PurchasesWindow
                 badge.Source = line.Source;
                 netButton.IsVisible = line.CanSearchInternet;
                 genButton.IsVisible = line.CanGenerateBarcode; // 2026-11-10
+                ReceiveBarcodeApply(line, bcCell); // 2026-11-20: штрихкод, «Сканировать», «+N»
+                scanPackNote.IsVisible = line.ScanPackNote.Length > 0;
+                scanPackNote.Text = line.ScanPackNote.Length > 0 ? line.ScanPackNote + " · " + T("количество можно поправить", "санды оңдосо болот", "you can change the quantity", "miktarı değiştirebilirsiniz", "miqdorni o'zgartirish mumkin") : "";
                 meta.Text = MetaText();
+                meta.IsVisible = meta.Text.Length > 0;
                 Use(meta, TextBlock.ForegroundProperty, MetaBrush()); // 2026-11-11 (БП-11): после «Найти в интернете» источник меняется
                 netButton.IsEnabled = line.NotSearchingInternet;
                 renamedNote.IsVisible = line.NameRenamed;
@@ -472,6 +485,7 @@ public partial class PurchasesWindow
         }
         parts.Refresh = Sync;
         Sync(true);
+        ReceiveBarcodeWire(s, line, bcCell, parts); // 2026-11-20
 
         // 2026-11-10: снимок значений строки на входе в КАЖДОЕ поле (для Esc и пустого поля при уходе): у каждого поля свой — фокус нового поля приходит раньше ухода из старого.
         var cellSnaps = new Dictionary<TextBox, object>();

@@ -452,9 +452,15 @@ public static class ClientDocRenderer
 
     // ── таблица строк (шапка повторяется на каждой странице) ──
 
+    /// <summary>2026-11-20: у документа включена опция «штрихкод в печати» (Extra["barcodes"] = true, ставит PurchaseDocs.Build) и хоть у одной строки есть код.</summary>
+    public static bool ShowBarcodes(ClientDoc d) =>
+        d.Extra is { } x && x.TryGetValue("barcodes", out var v) && v.ValueKind == System.Text.Json.JsonValueKind.True
+        && d.Lines.Any(l => !string.IsNullOrWhiteSpace(l.Barcode));
+
     private static void LinesTable(ColumnDescriptor col, ClientDoc d, L l, Palette pal, string template)
     {
         var showDiscount = d.Lines.Any(x => x.DiscountPercent is > 0);
+        var showBarcode = ShowBarcodes(d); // 2026-11-20: колонка «Штрихкод» — только у приходной накладной с включённой опцией (по умолчанию форма прежняя)
         var minimal = template == Minimal;
         var modern = template == Modern;
         col.Item().PaddingTop(4).Table(t =>
@@ -463,6 +469,8 @@ public static class ClientDocRenderer
             {
                 c.ConstantColumn(9, Unit.Millimetre);
                 c.RelativeColumn(6);
+                if (showBarcode)
+                    c.ConstantColumn(30, Unit.Millimetre);
                 c.ConstantColumn(13, Unit.Millimetre);
                 c.ConstantColumn(17, Unit.Millimetre);
                 c.ConstantColumn(23, Unit.Millimetre);
@@ -486,6 +494,8 @@ public static class ClientDocRenderer
             {
                 h.Cell().Element(Head).AlignCenter().Text("№");
                 h.Cell().Element(Head).Text(l.T("Наименование", "Аталышы"));
+                if (showBarcode)
+                    h.Cell().Element(Head).Text(l.T("Штрихкод", "Штрих-код"));
                 h.Cell().Element(Head).AlignCenter().Text(l.T("Ед.", "Бирд."));
                 h.Cell().Element(Head).AlignRight().Text(l.T("Кол-во", "Саны"));
                 h.Cell().Element(Head).AlignRight().Text(l.T("Цена", "Баасы"));
@@ -511,6 +521,8 @@ public static class ClientDocRenderer
                 }
                 t.Cell().Element(Cell).AlignCenter().Text(i.ToString(CultureInfo.InvariantCulture));
                 t.Cell().Element(Cell).Text(line.Name.Length == 0 ? "—" : line.Name);
+                if (showBarcode)
+                    t.Cell().Element(Cell).Text(string.IsNullOrWhiteSpace(line.Barcode) ? "—" : line.Barcode!.Trim()).FontSize(8.5f);
                 t.Cell().Element(Cell).AlignCenter().Text(line.Unit);
                 t.Cell().Element(Cell).AlignRight().Text(Q(line.Qty));
                 t.Cell().Element(Cell).AlignRight().Text(M(line.BasePrice));
@@ -520,7 +532,7 @@ public static class ClientDocRenderer
             }
             if (d.Lines.Count == 0)
             {
-                var span = (uint)(showDiscount ? 7 : 6);
+                var span = (uint)((showDiscount ? 7 : 6) + (showBarcode ? 1 : 0));
                 t.Cell().ColumnSpan(span).Element(x => minimal ? x.BorderBottom(0.4f).BorderColor(pal.Line).Padding(6) : x.Border(0.7f).BorderColor(pal.Line).Padding(6))
                     .AlignCenter().Text(l.T("Товары не добавлены", "Товарлар кошула элек")).FontColor(pal.Soft);
             }

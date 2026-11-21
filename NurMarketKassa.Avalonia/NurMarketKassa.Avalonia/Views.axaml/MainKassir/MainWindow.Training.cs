@@ -411,6 +411,20 @@ public partial class MainWindow
                         ? null
                         : Tr.T("Вид магазина: ", "Дүкөндүн түрү: ", "Store type: ", "Mağaza türü: ", "Do'kon turi: ") + MarketSpheres.Profile.Title.Get();
                     break;
+                case "import":
+                    // 2026-11-20: перенос из другой программы — окно мастера одно на программу (BulkImportWizardWindow.OpenTransfer); без права кнопка ничего не открывает.
+                    if (!BulkImportWizardWindow.CanOpenTransfer())
+                    {
+                        result = WarehouseWindow.NoEditRightText;
+                        break;
+                    }
+                    BulkImportWizardWindow.OpenTransfer(this);
+                    result = Tr.T("Мастер загрузки открыт. Вернуться: меню ☰ → «Помощь» → «Перенос данных из другой программы».",
+                        "Жүктөө устасы ачылды. Кайтуу: ☰ меню → «Жардам» → «Башка программадан маалыматты которуу».",
+                        "The import wizard is open. To return: menu ☰ → “Help” → “Move data from another program”.",
+                        "Yükleme sihirbazı açıldı. Geri dönmek için: ☰ menü → «Yardım» → «Başka programdan veri aktarımı».",
+                        "Yuklash ustasi ochildi. Qaytish: ☰ menyu → «Yordam» → «Boshqa dasturdan ma'lumot ko'chirish».");
+                    break;
                 case "printer":
                     result = await PrinterSetupWizardWindow.ShowAsync(this, PrinterRole.Receipt).ConfigureAwait(true) is null
                         ? null

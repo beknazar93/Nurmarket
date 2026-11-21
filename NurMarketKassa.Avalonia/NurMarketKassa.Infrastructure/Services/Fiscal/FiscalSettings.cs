@@ -112,7 +112,7 @@ public static class FiscalSettings
 
     private static bool Same(FiscalCapabilities a, FiscalCapabilities b) =>
         a.FeatureAvailable == b.FeatureAvailable && a.Mode == b.Mode && a.FiscalEnabled == b.FiscalEnabled && a.TaxRegime == b.TaxRegime
-        && a.VatPayer == b.VatPayer && a.NspRate == b.NspRate && a.Rates.SequenceEqual(b.Rates);
+        && a.VatPayer == b.VatPayer && a.NspRate == b.NspRate && a.Rates.SequenceEqual(b.Rates) && a.Kkm == b.Kkm;
 
     private static FiscalCapabilities? TryLoadFromDisk(string account)
     {
@@ -154,6 +154,8 @@ public static class FiscalSettings
                 ["vat_rates"] = value.Rates.Select(r => r.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)).ToArray(),
                 ["nsp_rate"] = value.NspRate?.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture),
             };
+            if (value.Kkm is { HasData: true } kkm) // 2026-11-20: сведения о ККМ с сервера — последний известный блок (имена те же, что разбирает FiscalKkmInfo.Parse)
+                block["kkm"] = kkm.ToBlock();
             var json = JsonSerializer.Serialize(new Dictionary<string, object?>
             {
                 ["account"] = account,

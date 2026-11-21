@@ -42,6 +42,41 @@ public static class UiShot
         Pump();
     }
 
+    /// <summary>2026-11-20: изоляция снимков экранов от прежних тестов общего прогона. Всё это лежит во временной папке данных одного прогона и переживает тесты:
+    /// state.json (касса при каждом окне пишет ширину колонок, вкладку каталога, чеки — следующее окно кассы читает; main-kassa выходил с другой шириной чека),
+    /// label-template.json и barcode-print-settings.json (тесты штрихкодов оставляли размер этикетки 58×40 вместо 40×30), события смены ShiftEvents
+    /// (тесты возвратов оставляли «Возвраты 625,00 сом» в окне «Продажи»). Перед снимком отменяем отложенные записи и возвращаем чистое состояние.</summary>
+    public static void ResetPersistedStateForSnapshots()
+    {
+        NurMarketKassa.ViewModels.Main.ApplicationStateService.CancelPendingSaves();
+        // 2026-11-20: выбранная вкладка «Весы» — статическое поле окна (общее для всех экземпляров): тесты весов оставляли «Весы на кассе», и снимки «Настройки → Весы»
+        // в полном прогоне расходились с эталоном («Весы с этикетками» при первом заходе). Возвращаем «первый заход».
+        typeof(NurMarketKassa.AvaloniaHost.Views.Settings.ScaleSettingsView)
+            .GetField("_lastSection", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)?.SetValue(null, -1);
+        // 2026-11-20: и сфера магазина: тест сфер, оставивший «Услуги», открывал снимок кассы на вкладке «Кызматтар» с пустым списком (main-kassa ky в полном прогоне).
+        UserPreferences.Instance.MarketSphere = MarketSpheres.Grocery;
+        UserPreferences.Instance.MarketSphereDetail = null;
+        foreach (var file in new[] { "state.json", "label-template.json", "barcode-print-settings.json" })
+        {
+            try
+            {
+                File.Delete(Path.Combine(AppPaths.Roaming, AppMode.DataFolderName, file));
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+        }
+        DatabaseService.Instance.WithConnection(connection =>
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = "DELETE FROM ShiftEvents";
+            command.ExecuteNonQuery();
+        });
+    }
+
     private static Application? _lastApp;
 
     /// <summary>Avalonia.Headless.XUnit может создать новый экземпляр приложения для следующего теста, а LocalizationManager держит в статических полях
@@ -121,7 +156,14 @@ public static class UiShot
         if (!window.IsVisible)
             window.Show();
         Settle();
-        using var frame = window.CaptureRenderedFrame() ?? throw new InvalidOperationException("Кадр не получен (проверьте UseSkia и UseHeadlessDrawing=false).");
+        // 2026-11-21 (прогон 1.17.91): headless иногда не успевает отдать кадр сразу после Show при нагрузке (случайно в разных тестах: «Кадр не получен») — ждём кадр до ~2 с, а не падаем на первом null.
+        var captured = window.CaptureRenderedFrame();
+        for (var attempt = 0; attempt < 10 && captured is null; attempt++)
+        {
+            Settle(2, 100);
+            captured = window.CaptureRenderedFrame();
+        }
+        using var frame = captured ?? throw new InvalidOperationException("Кадр не получен (проверьте UseSkia и UseHeadlessDrawing=false).");
         using var ms = new MemoryStream();
         frame.Save(ms);
         ms.Position = 0;

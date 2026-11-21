@@ -29,9 +29,16 @@ public static class ServerCapabilities
     /// <summary>Забыть признаки (смена аккаунта, выход).</summary>
     public static void Reset()
     {
+        _plan = null;
         _cache = null;
         _diskTriedFor = null; // 2026-11-06: после смены аккаунта список нового аккаунта снова ищется на диске
     }
+
+    // 2026-11-20 (ответ Умара 20.11, В.2): тариф компании из capabilities.plan — «Мини», «Старт» и т. д. Привязан к аккаунту, как список признаков; нет плана/другой аккаунт — null.
+    private static (string Account, PlanInfo? Plan)? _plan;
+
+    /// <summary>Тариф компании (последний ответ capabilities этого аккаунта); null — ответа ещё не было, плана нет (нет компании или тарифа) или аккаунт другой.</summary>
+    public static PlanInfo? Plan => _plan is { } p && p.Account == AccountKey() ? p.Plan : null;
 
     // 2026-11-05 (сервер ceba67c): имена новых признаков — в одном месте.
     public const string DebtReturnDrawerCash = "debt_return_drawer_cash";
@@ -70,11 +77,16 @@ public static class ServerCapabilities
     public const string ExpiredSalePolicy = "expired_sale_policy";
     /// <summary>К-8: резервы (reservations/), поля reserved/available у товара, политика reserved_sale_policy.</summary>
     public const string Reservations = "reservations";
+    /// <summary>2026-11-20 (ответ Умара 20.11, В.4): серверный «заказ покупателя» api/main/customer-orders/ (резерв, предоплата, выдача, отмена). Касса берёт серверные заказы в «Заказы под клиента» только при этом признаке.</summary>
+    public const string CustomerOrders = "customer_orders";
     /// <summary>2026-11-19 (ответ Умара 19.11, п. 5): сервер принимает офлайн-чек старше 7 суток (до 90) по accept_late + X-Confirm-Token из users/auth/pin/verify/.
     /// Без признака кнопка «Подтвердить отправку…» в «Неотправленном» не показывается (прежнее поведение).</summary>
     public const string OfflineAcceptLate = "offline_accept_late";
     /// <summary>2026-11-19 (ответ Умара 19.11, раздел 2): оплата подписки магазином через ELQR (users/billing/…). Экран «Подписка» показывается только при признаке (дальше — config.available).</summary>
     public const string BillingElqr = "billing_elqr";
+    /// <summary>2026-11-20 (ответ Умара 19.11, «Ответы Умара 19.11 — закупка, признаки»): GET stock/balance/ — остатки по ведомости. Форма ответа и фильтр по товару Умаром не описаны
+    /// (в ТЗ «Склад 10 из 10» — отчёт «остатки на дату»), поэтому касса пока признак только знает; чтение остатка оттуда включим после ответа (вопрос в отчёте «Синхронизация», волна А, С4).</summary>
+    public const string StockBalance = "stock_balance";
     /// <summary>2026-11-19 (ответ Умара 19.11, п. 1): construction/shifts/?month=YYYY-MM&amp;page_size=100 — смены месяца одним запросом (~1 с). Без признака табель листает историю страницами.</summary>
     public const string ShiftsMonthFilter = "shifts_month_filter";
     /// <summary>2026-11-19: то же по датам (?date_from=&amp;date_to=), есть с 03.11.</summary>
@@ -253,6 +265,7 @@ public static class ServerCapabilities
                 var d = await api.RequestAsync(HttpMethod.Get, "api/main/capabilities/", null, null, ct).ConfigureAwait(false);
                 var set = Parse(d);
                 Fiscal.FiscalSettings.Apply(d, set, account); // 2026-11-14 (П0-1): блок capabilities.fiscal — режим фискализации компании
+                _plan = (account, PlanInfo.Parse(d)); // 2026-11-20: блок capabilities.plan — тариф (нет плана → null, без падения)
                 // 2026-11-19 (оплата подписки): список признаков изменился (или получен впервые) — меню программы владельца пересчитывает пункты, зависящие от признаков (billing_elqr → «Подписка»).
                 var changed = !(_cache is { Ok: true } prev && prev.Account == account && prev.Features.SetEquals(set));
                 _cache = (DateTime.UtcNow, account, set, true, false);

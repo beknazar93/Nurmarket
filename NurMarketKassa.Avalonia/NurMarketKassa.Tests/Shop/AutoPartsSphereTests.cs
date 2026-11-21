@@ -329,6 +329,36 @@ public sealed class AutoPartsSphereTests : IDisposable
         tile.PartCellText.Should().Contain("A-16-5");
     }
 
+    [Fact]
+    public void Tile_line_shows_brand_from_card_or_from_import_log_only_in_autoparts_sphere()
+    {
+        // 2026-11-20 (дефект В): бренд на плитке — «Mann-Filter · W 712/94 · яч. A-16-5»; у нового товара прайса бренд берётся из журнала импорта, пока каталог не дочитал карточку
+        PartMetaStore.Remember("7", Json(ServerCard));
+        var tile = Tile("7", "Фильтр масляный", "W 712/94");
+        AutoPartsImportLog.FileOverride = Path.Combine(Path.GetTempPath(), "nurmarket-tests", "tile-log-" + Guid.NewGuid().ToString("N")[..8] + ".json");
+        AutoPartsImportLog.ResetForTests();
+        try
+        {
+            AutoParts();
+            tile.PartTileLine.Should().Be(tile.PartLine, "бренда нет ни в карточке, ни в журнале");
+            AutoPartsImportLog.Record("7", "W71294", "mann", "Mann-Filter");
+            tile.PartTileLine.Should().StartWith("Mann-Filter · W 712/94");
+            tile.Brand = "Bosch";
+            tile.PartTileLine.Should().StartWith("Bosch · W 712/94", "бренд карточки главнее журнала");
+            tile.Brand = "Bosch";
+            var named = Tile("7", "Фильтр масляный Bosch", "W 712/94");
+            named.Brand = "Bosch";
+            named.PartTileLine.Should().Be(named.PartLine, "бренд уже в названии — не повторяется");
+            SetSphere(MarketSpheres.Grocery, null);
+            tile.PartTileLine.Should().BeEmpty();
+        }
+        finally
+        {
+            AutoPartsImportLog.FileOverride = null;
+            AutoPartsImportLog.ResetForTests();
+        }
+    }
+
     // ── АЗ3: поиск и порядок ──
 
     private static List<CatalogProductTileVm> Catalog()

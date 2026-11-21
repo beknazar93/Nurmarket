@@ -97,6 +97,7 @@ public sealed partial class UserPreferences
                 RepairUnlocked = RepairUnlocked, // 2026-11-13
                 TradeInUnlocked = TradeInUnlocked, // 2026-11-13
                 EstimateEnabled = EstimateEnabled, // 2026-11-19
+                RentalEnabled = RentalEnabled, // 2026-11-20
                 ScalesUnlocked = ScalesUnlocked,
                 BulkPriceTagKind = BulkPriceTagKind,
                 BulkPriceTagWidthMm = BulkPriceTagWidthMm,
@@ -469,6 +470,7 @@ public sealed partial class UserPreferences
         public bool? RepairUnlocked { get; set; } // 2026-11-13
         public bool? TradeInUnlocked { get; set; } // 2026-11-13
         public bool? EstimateEnabled { get; set; } // 2026-11-19
+        public bool? RentalEnabled { get; set; } // 2026-11-20
         public bool? ScalesUnlocked { get; set; }
         public int? BulkPriceTagKind { get; set; }
         public double? BulkPriceTagWidthMm { get; set; }

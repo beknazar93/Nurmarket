@@ -160,12 +160,12 @@ public static class EstimateText
     }
 }
 
-/// <summary>2026-11-19: доступность «Сметы» — ОДНО место (ТЗ 1: «признак легко менять в одном месте»). Модуль входит в сферу «Хозтовары и стройматериалы» сразу (без покупки);
+/// <summary>2026-11-19: доступность «Сметы» — ОДНО место (ТЗ 1: «признак легко менять в одном месте»). Модуль входит в сферу «Строймаг» (2026-11-20: не в Хозмаг) сразу (без покупки);
 /// в остальных сферах его включают в Маркетплейсе (<see cref="UserPreferences.EstimateEnabled"/>). <see cref="PriceSom"/> — цена модуля (пока 0 — бесплатно; если владелец назначит цену,
 /// включение пойдёт через ключ, как у «Ремонта» — понадобится хэш ключа в LicenseKeys).</summary>
 public static class EstimateFeature
 {
     public const decimal PriceSom = 0m;
 
-    public static bool IsAvailable => MarketSpheres.IsHardware || UserPreferences.Instance.EstimateEnabled;
+    public static bool IsAvailable => MarketSpheres.Profile.HasEstimate || UserPreferences.Instance.EstimateEnabled; // 2026-11-20: сразу только в Строймаге (Хозмаг и остальные — Маркетплейс)
 }

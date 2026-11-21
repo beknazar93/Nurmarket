@@ -137,10 +137,11 @@ public sealed partial class InvoiceDocumentWindow : Window
             var input = inputs[i];
             var effective = ReceiptEditPlanner.Effective(input);
             double stock = double.NaN;
-            string barcode = "";
+            string barcode = l.Barcode ?? ""; // 2026-11-21: основной штрихкод строки прихода — с сервера (suppliers/receipts/<id>/ → items[].barcode)
             if (byId.TryGetValue(l.ProductId, out var tile))
             {
-                barcode = tile.Barcode ?? "";
+                if (barcode.Length == 0)
+                    barcode = tile.Barcode ?? "";
                 stock = tile.Quantity;
             }
             var view = markup?[i].View;
@@ -649,14 +650,15 @@ public sealed partial class InvoiceDocumentWindow : Window
     private ClientDocRenderer.Input BuildDoc(bool withMarkup)
     {
         var lines = _rows.Where(x => x.Qty > 0).Select(x => new PurchaseDocs.DocLine(x.Name + (x.HasMark ? "  " + x.MarkText : ""), x.Unit, /* 2026-11-01: отметка последней правки позиции — и в печатной копии */ x.Qty, x.Purchase,
-            withMarkup && _showMoney && x.Sale > 0 ? PurchaseDocs.MarkupSuffix(new MarkupView(InvoiceMath.MarkupFromSale(x.Purchase, x.Sale), x.Sale, InvoiceMath.ProfitPerUnit(x.Purchase, x.Sale), x.SaleEstimated, false, false)) : null)).ToList();
+            withMarkup && _showMoney && x.Sale > 0 ? PurchaseDocs.MarkupSuffix(new MarkupView(InvoiceMath.MarkupFromSale(x.Purchase, x.Sale), x.Sale, InvoiceMath.ProfitPerUnit(x.Purchase, x.Sale), x.SaleEstimated, false, false)) : null,
+            x.Barcode)).ToList(); // 2026-11-20: штрихкод строки — для колонки «Штрихкод» (по настройке)
         var supplierDoc = PurchaseNumberUi.SupplierDocText(_r.SupplierDocNumber, _r.SupplierDocDate);
         var totals = withMarkup && _showMoney ? (MarkupTotals?)ReceiptMarkupLog.Totals(_rows.Where(x => x.Qty > 0).Select(x => (x.Qty, x.Purchase, new MarkupView(InvoiceMath.MarkupFromSale(x.Purchase, x.Sale), x.Sale, 0, x.SaleEstimated, false, false)))) : null;
         var note = PurchaseDocs.ReceiptNote(supplierDoc.Length > 0 ? char.ToUpperInvariant(supplierDoc[0]) + supplierDoc[1..] : null, totals);
         // «ИСПРАВЛЕНО · версия N от … · причина: …» — шапкой примечания у правленной накладной.
         if (ReceiptEditService.CorrectedStamp(_store.Get(_r.Id)) is { } stamp)
             note = stamp + (note is { Length: > 0 } ? "\n" + note : "");
-        return PurchaseDocs.Build(this, "receipt", Party, _docNumber, _r.CreatedAt ?? DateTime.Now, lines, note);
+        return PurchaseDocs.Build(this, "receipt", Party, _docNumber, _r.CreatedAt ?? DateTime.Now, lines, note, DocumentNumbering.Settings.PrintBarcode);
     }
 
     private string VersionSuffix => _store.IsEdited(_r.Id) ? $"_v{_store.Version(_r.Id)}" : "";

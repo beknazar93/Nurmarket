@@ -32,8 +32,8 @@ public sealed class SupportRequestWindowUiTests
             var tag = lang.ToString();
 
             var texts = window.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible).Select(t => t.Text ?? "").ToList();
-            var pending = lang == AppLanguage.Kyrgyz ? "тактала элек" : "уточняется";
-            texts.Should().Contain(t => t.Contains(pending), $"часы работы и срок ответа — заглушка «{pending}» ({tag})");
+            // 2026-11-20: данных о часах работы нет — строки скрыты, фразы «уточняется» в окне быть не должно
+            texts.Should().NotContain(t => t.Contains("уточняется") || t.Contains("тактала элек"), $"часы работы без данных скрыты ({tag})");
 
             window.GetVisualDescendants().OfType<TextBox>().Should().ContainSingle("одно поле описания");
             var boxes = window.GetVisualDescendants().OfType<CheckBox>().ToList();
@@ -59,6 +59,53 @@ public sealed class SupportRequestWindowUiTests
             var dir = Path.Combine(Path.GetTempPath(), "nurmarket-tests", "ui-actual");
             Directory.CreateDirectory(dir);
             File.WriteAllBytes(Path.Combine(dir, $"support-request-{(lang == AppLanguage.Kyrgyz ? "ky" : "ru")}-1024x600.png"), data.ToArray());
+        }
+        finally
+        {
+            window.Close();
+            UiShot.Pump();
+        }
+    }
+
+    /// <summary>2026-11-20: запись со статусом WhatsApp в «Моих обращениях» — «Отправлено через WhatsApp» и «Открыть WhatsApp ещё раз»,
+    /// без «Канал не подключён» и «Повторить»; текст не обрезан на 1024×600 и 1366×768 (ru, ky, uz).</summary>
+    [AvaloniaTheory]
+    [InlineData(AppLanguage.Russian, 1024, 600)]
+    [InlineData(AppLanguage.Kyrgyz, 1024, 600)]
+    [InlineData(AppLanguage.Uzbek, 1024, 600)]
+    [InlineData(AppLanguage.Russian, 1366, 768)]
+    [InlineData(AppLanguage.Kyrgyz, 1366, 768)]
+    [InlineData(AppLanguage.Uzbek, 1366, 768)]
+    public async Task WhatsApp_row_has_no_dead_end_texts(AppLanguage lang, int width, int height)
+    {
+        await TestHost.WarmAsync();
+        UiShot.Setup(UiTheme.Light, lang);
+        var window = new SupportRequestWindow(null, "меню", null);
+        try
+        {
+            var flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+            var history = (StackPanel)typeof(SupportRequestWindow).GetField("_history", flags)!.GetValue(window)!;
+            var build = typeof(SupportRequestWindow).GetMethod("BuildRow", flags)!;
+            var record = new SupportRequestRecord
+            {
+                Id = "261120-121338", CreatedAt = new DateTime(2026, 11, 20, 12, 13, 0), Description = "не печатает чек",
+                Status = SupportRequestRecord.StatusWhatsApp,
+            };
+            history.Children.Clear();
+            history.Children.Add((Control)build.Invoke(window, [record])!);
+
+            using var _ = UiShot.Render(window, new UiSize(width, height));
+            var tag = $"{lang} {width}x{height}";
+            var texts = window.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible).Select(t => t.Text ?? "").ToList();
+            var buttons = window.GetVisualDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible).Select(b => b.Content?.ToString() ?? "").ToList();
+            var sent = lang switch { AppLanguage.Kyrgyz => "WhatsApp аркылуу жөнөтүлдү", AppLanguage.Uzbek => "WhatsApp orqali yuborildi", _ => "Отправлено через WhatsApp" };
+            var again = lang switch { AppLanguage.Kyrgyz => "WhatsApp'ты кайра ачуу", AppLanguage.Uzbek => "WhatsApp'ni yana ochish", _ => "Открыть WhatsApp ещё раз" };
+            texts.Should().Contain(sent, $"статус WhatsApp ({tag})");
+            buttons.Should().Contain(again, $"кнопка «ещё раз» ({tag})");
+            texts.Should().NotContain(t => t.Contains("Канал не подключён") || t.Contains("Канал туташкан эмес") || t.Contains("Kanal ulanmagan"), $"тупика нет ({tag})");
+            buttons.Should().NotContain(b => b == "Повторить" || b == "Кайталоо" || b == "Qayta urinish", $"«Повторить» для WhatsApp-статуса не нужен ({tag})");
+            var clipped = TextClipChecker.Find(window, "support-request-whatsapp", lang == AppLanguage.Kyrgyz ? "ky" : lang == AppLanguage.Uzbek ? "uz" : "ru");
+            clipped.Should().BeEmpty($"текст не обрезан ({tag}): " + string.Join("; ", clipped.Select(v => v.Detail)));
         }
         finally
         {

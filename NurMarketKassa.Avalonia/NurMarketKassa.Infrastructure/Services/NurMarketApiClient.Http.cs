@@ -154,7 +154,8 @@ public sealed partial class NurMarketApiClient
         object? jsonBody,
         IReadOnlyDictionary<string, string>? query,
         CancellationToken ct = default,
-        TimeSpan? requestTimeout = null)
+        TimeSpan? requestTimeout = null,
+        IReadOnlyDictionary<string, string>? extraHeaders = null) // 2026-11-21: If-Match для POST/DELETE products/<id>/barcodes/
     {
         if (string.IsNullOrEmpty(AccessToken))
             throw new ApiException(AuthInvalidHintRu, 401);
@@ -184,7 +185,7 @@ public sealed partial class NurMarketApiClient
             var slot = await AcquireSlotAsync(linked.Token).ConfigureAwait(false);
             try
             {
-                var result = await SendOnceAsync(method, relativePath, jsonBody, query, linked.Token, idempotencyKey: moneyKey)
+                var result = await SendOnceAsync(method, relativePath, jsonBody, query, linked.Token, idempotencyKey: moneyKey, extraHeaders: extraHeaders)
                     .ConfigureAwait(false);
                 if (moneySig != null)
                     MoneyRequestKeys.OnSuccess(moneySig);
@@ -209,7 +210,8 @@ public sealed partial class NurMarketApiClient
         IReadOnlyDictionary<string, string>? query,
         CancellationToken ct,
         bool retryThrottle = true,
-        string? idempotencyKey = null)
+        string? idempotencyKey = null,
+        IReadOnlyDictionary<string, string>? extraHeaders = null)
     {
         relativePath = ApiPathNormalizer.EnsureTrailingSlash(relativePath, method);
         var uri = BuildUri(relativePath, query);
@@ -217,6 +219,9 @@ public sealed partial class NurMarketApiClient
         ApplyBearerAuthorization(req);
         if (idempotencyKey != null)
             req.Headers.TryAddWithoutValidation("Idempotency-Key", idempotencyKey); // 2026-11-05 (Л4-08)
+        if (extraHeaders != null)
+            foreach (var h in extraHeaders)
+                req.Headers.TryAddWithoutValidation(h.Key, h.Value);
         if (jsonBody is not null)
         {
             var json = JsonSerializer.Serialize(jsonBody, _jsonWrite);
@@ -236,7 +241,7 @@ public sealed partial class NurMarketApiClient
         // 2026-11-05 (сервер ceba67c): 429 pin_locked на users/auth/pin/verify — блокировка PIN на 15 минут, а не «слишком частые запросы»: повторять бессмысленно.
         if ((int)resp.StatusCode == 429 && retryThrottle && ApiThrottle.RemainingBlock <= TimeSpan.FromSeconds(15) && !ct.IsCancellationRequested
             && !relativePath.Contains("pin/verify", StringComparison.OrdinalIgnoreCase))
-            return await SendOnceAsync(method, relativePath, jsonBody, query, ct, retryThrottle: false, idempotencyKey: idempotencyKey).ConfigureAwait(false);
+            return await SendOnceAsync(method, relativePath, jsonBody, query, ct, retryThrottle: false, idempotencyKey: idempotencyKey, extraHeaders: extraHeaders).ConfigureAwait(false);
 
         if (!resp.IsSuccessStatusCode)
         {

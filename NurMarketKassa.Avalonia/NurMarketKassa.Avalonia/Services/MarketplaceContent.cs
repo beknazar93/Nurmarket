@@ -59,6 +59,7 @@ internal static partial class MarketplaceContent
             case "repair": Repair(item); return;     // 2026-11-13
             case "trade_in": TradeIn(item); return;  // 2026-11-13
             case "estimate": Estimate(item); return; // 2026-11-19
+            case "rental": Rental(item); return;     // 2026-11-20
             case "scales": Scales(item); return;
             case "analytics": Analytics(item); return;
             case "pricetag": PriceTag(item); return;

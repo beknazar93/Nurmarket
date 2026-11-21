@@ -106,7 +106,7 @@ public sealed class TariffApiTests : IDisposable
 
     [Theory]
     [InlineData(400, "{\"detail\":\"pack_unknown\"}", "не знает")]
-    [InlineData(409, "{\"detail\":\"plan_not_allowed\"}", "недоступно")]
+    [InlineData(409, "{\"detail\":\"plan_not_allowed\"}", "пока недоступен")]
     [InlineData(403, "{\"detail\":\"forbidden\"}", "только владелец")]
     public async Task Quote_Errors_AreMappedToReadableText(int status, string body, string expected)
     {
@@ -147,7 +147,7 @@ public sealed class TariffApiTests : IDisposable
     }
 
     [Theory]
-    [InlineData(409, "{\"detail\":\"plan_not_allowed\"}", "недоступно")]
+    [InlineData(409, "{\"detail\":\"plan_not_allowed\"}", "пока недоступен")]
     [InlineData(403, "{}", "только владелец")]
     [InlineData(400, "{\"code\":\"pack_unknown\"}", "не знает")]
     public async Task Custom_Errors_AreMappedToReadableText(int status, string body, string expected)
@@ -159,6 +159,32 @@ public sealed class TariffApiTests : IDisposable
 
         var ex = (await act.Should().ThrowAsync<ApiException>()).Which;
         TariffApi.Describe(ex).Should().Contain(expected);
+    }
+
+    // 2026-11-20 (замечание владельца «в Стандарте тоже можешь»): недоступность решает сервер; касса по имени плана ничего не запрещает.
+    [Fact]
+    public void Describe_409_NoOldStartOnlyWording_NoDeadEndManagerPhrase_AndShowsServerText()
+    {
+        var plain = TariffApi.Describe(new ApiException("plan_not_allowed", 409, JsonDocument.Parse("""{"detail":"plan_not_allowed"}""").RootElement));
+        plain.Should().NotContain("Старта").And.NotContain("Обратитесь к менеджеру");
+        var withText = TariffApi.Describe(new ApiException("x", 409, JsonDocument.Parse("""{"detail":"Тариф «Мини» не поддерживает конструктор."}""").RootElement));
+        withText.Should().Contain("пока недоступен").And.Contain("Тариф «Мини» не поддерживает конструктор.");
+    }
+
+    [Fact]
+    public async Task Rules_ResolvePlanCode_ByNameOrCode_AndMarkIncludedPacks()
+    {
+        _server.Json("GET", "/api/public/tariffs/", 200, CatalogJson);
+        var catalog = await (await MakeAsync()).GetCatalogAsync();
+
+        TariffCustomRules.ResolvePlanCode(catalog, "Стандарт").Should().Be("standard");
+        TariffCustomRules.ResolvePlanCode(catalog, " стартовый ").Should().BeNull("неизвестное имя — не угадываем");
+        TariffCustomRules.ResolvePlanCode(catalog, "start").Should().Be("start");
+        TariffCustomRules.ResolvePlanCode(catalog, null).Should().BeNull();
+        var ai = catalog.Packs.Single(p => p.Code == "ai");
+        TariffCustomRules.IsIncludedInPlan(ai, "standard").Should().BeTrue("ИИ входит в «Стандарт» — доплата не нужна");
+        TariffCustomRules.IsIncludedInPlan(ai, "start").Should().BeFalse();
+        TariffCustomRules.IsIncludedInPlan(ai, null).Should().BeFalse();
     }
 
     [Fact]

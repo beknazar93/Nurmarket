@@ -212,7 +212,8 @@
               <StackPanel Spacing="4">
                 <TextBlock Text="{DynamicResource posSettings.screen.cashbox}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
                 <TextBlock Text="{DynamicResource posSettings.screen.cashboxDesc}"
-                           FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" Margin="0,0,0,6"/>
+                           FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" Margin="0,0,0,6" HorizontalAlignment="Left"/><!-- 2026-11-20: обход кассы — при MaxWidth без Left пояснение «Касса» уезжало к центру -->
+
                 <Grid ColumnDefinitions="*,Auto">
                   <ComboBox x:Name="CashboxCombo" x:FieldModifier="public" Grid.Column="0" HorizontalAlignment="Stretch"/>
                   <Button x:Name="RefreshCashboxesButton" x:FieldModifier="public" Grid.Column="1" Content="↻"

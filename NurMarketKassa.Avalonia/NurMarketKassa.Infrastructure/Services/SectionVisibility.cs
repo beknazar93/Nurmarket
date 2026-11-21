@@ -42,7 +42,7 @@ public static class SectionVisibility
         ("warehouse", Tr.T("Склад", "Кампа", "Warehouse", "Depo", "Ombor")),
         ("barcodes", Tr.T("Штрихкоды и ценники", "Штрих-коддор жана баа белгилери", "Barcodes and price tags", "Barkodlar ve fiyat etiketleri", "Shtrix-kodlar va narx yorliqlari")), // 2026-11-11: печать штрихкодов и ценников (как вкладка «Штрихкоды» в «Складе»)
         ("calculator", Tr.T("Калькуляция", "Калькуляция", "Pricing calculator", "Hesaplama", "Kalkulyatsiya")),
-        ("scales", Tr.T("Весы", "Тараза", "Scales", "Tartı", "Tarozi")), // 2026-11-11: переехали из кассы (Настройки → Весы)
+        ("scales", Tr.T("Настройки → Весы", "Жөндөөлөр → Тараза", "Settings → Scales", "Ayarlar → Tartı", "Sozlamalar → Tarozi")), // 2026-11-20: «Весы» — страница Настроек (не пункт меню ☰); тумблер скрывает её (сфера «Канцтовары» скрывает по умолчанию)
         ("restock", Tr.T("Пополнение и сроки", "Толуктоо жана мөөнөттөр", "Restock & expiry", "Stok yenileme ve SKT", "To'ldirish va muddatlar")),
         // 2026-10-18: «Продажи» и «Финансы» — один пункт «Продажи и финансы»; ключи прежние, теперь это его части
         // (скрыта одна — пункт открывает другую, скрыты обе — пункта нет; OwnerShellWindow.SalesFinance.cs).
@@ -78,7 +78,7 @@ public static class SectionVisibility
         ("tradein", Tr.T("Trade-in / скупка", "Trade-in / сатып алуу", "Trade-in / buy-back", "Trade-in / alım", "Trade-in / sotib olish")), // 2026-11-13
         ("estimate", Tr.T("Смета", "Смета", "Estimate", "Keşif", "Smeta")), // 2026-11-19
         ("subscription", Tr.T("Подписка", "Жазылуу", "Subscription", "Abonelik", "Obuna")), // 2026-11-19: оплата подписки через ELQR (только при признаке billing_elqr)
-        ("print", Tr.T("Печать", "Басып чыгаруу", "Print", "Yazdır", "Chop etish")), // 2026-11-11: настройки печати программы владельца
+        // 2026-11-20: «Печать» убрана из меню ☰ (это вкладка «Настройки → Печать», её скрыть нельзя); сохранённый ключ print в списке скрытых безвреден.
         ("crm", "NurCRM"),
         ("whatsapp", "WhatsApp"),
         ("funnel", Tr.T("Воронка", "Воронка", "Sales funnel", "Satış hunisi", "Savdo voronkasi")),

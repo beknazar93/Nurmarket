@@ -194,32 +194,40 @@ internal static class DialogScreenFit
                 }
             });
         }
-        Window.WindowOpenedEvent.AddClassHandler<Window>((window, _) =>
+        Window.WindowOpenedEvent.AddClassHandler<Window>((window, _) => OnWindowOpened(window));
+    }
+
+    /// <summary>2026-11-20: тело обработчика Opened вынесено в метод, чтобы тест (UiTests) мог вызвать его без глобальной регистрации на весь процесс.</summary>
+    internal static void OnWindowOpened(Window window)
+    {
+        try
         {
-            try
-            {
-                if (window.WindowState != WindowState.Normal)
-                    return;
-                var name = window.GetType().Name;
-                if (name.Contains("CustomerDisplay", StringComparison.Ordinal) || name is "SplashWindow" or "MainWindow" or "OwnerShellWindow")
-                    return;
-                var main = (Avalonia.Application.Current?.ApplicationLifetime
-                    as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow;
-                if (ReferenceEquals(main, window))
-                    return;
-                // 2026-10-27: «Полный экран» — окна разделов (Склад, Закупки, Клиенты…) открываются развёрнутыми, а не окном 1200×780.
-                if (NurMarketKassa.AvaloniaHost.Services.FullscreenHelper.TryApplySectionWindowMode(window))
-                    return;
-                window.FitToKassaScreen();
-                // 2026-10-23: окно с SizeToContent растёт вниз, когда внутри появляется ошибка/подсказка, а позиция остаётся —
-                // подвал с кнопками уходил под панель задач (жалоба владельца). Каждый рост возвращает окно в рабочую область.
-                window.SizeChanged += (w, _) => KeepInsideWorkingArea((Window)w!);
-            }
-            catch (Exception ex)
-            {
-                NurMarketKassa.Services.PosLogger.Log($"Подгонка окна {window.GetType().Name} под экран: {ex.Message}", "WARNING");
-            }
-        });
+            if (window.WindowState != WindowState.Normal)
+                return;
+            var name = window.GetType().Name;
+            if (name.Contains("CustomerDisplay", StringComparison.Ordinal) || name is "SplashWindow" or "MainWindow" or "OwnerShellWindow")
+                return;
+            var main = (Avalonia.Application.Current?.ApplicationLifetime
+                as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow;
+            if (ReferenceEquals(main, window))
+                return;
+            // 2026-10-27: «Полный экран» — окна разделов (Склад, Закупки, Клиенты…) открываются развёрнутыми, а не окном 1200×780.
+            if (NurMarketKassa.AvaloniaHost.Services.FullscreenHelper.TryApplySectionWindowMode(window))
+                return;
+            // 2026-11-20 (жалоба владельца: «при смене вкладки окно быстро увеличивается и уменьшается»): раздел, встроенный в программу владельца, место и размер
+            // получает только от SyncSectionBounds; подгонка «под экран кассы» при каждом показе ставила его по центру экрана, сжимала до рабочей области и
+            // лишь через 10–600 мс раздел возвращался на своё место — окно «прыгало» (141,8 → 284,46) и недотягивало 17 точек по высоте (MaxHeight).
+            if (NurMarketKassa.AvaloniaHost.Services.FullscreenHelper.IsEmbedded(window))
+                return;
+            window.FitToKassaScreen();
+            // 2026-10-23: окно с SizeToContent растёт вниз, когда внутри появляется ошибка/подсказка, а позиция остаётся —
+            // подвал с кнопками уходил под панель задач (жалоба владельца). Каждый рост возвращает окно в рабочую область.
+            window.SizeChanged += (w, _) => KeepInsideWorkingArea((Window)w!);
+        }
+        catch (Exception ex)
+        {
+            NurMarketKassa.Services.PosLogger.Log($"Подгонка окна {window.GetType().Name} под экран: {ex.Message}", "WARNING");
+        }
     }
 
     /// <summary>2026-10-23: если нижний край обычного окна ушёл за рабочую область экрана (после роста по содержимому) —

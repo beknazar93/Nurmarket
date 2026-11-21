@@ -58,7 +58,7 @@ public sealed class StationeryProfileTests : IDisposable
     {
         var ids = SphereCatalog.ChoiceList().Select(p => p.Id).ToList();
         ids.Should().Contain("stationery");
-        ids.Take(3).Should().Equal("grocery", "clothing", "services"); // базовые — первыми, как раньше
+        ids.Should().Equal("grocery", "hozmag", "stroymag", "clothing", "electronics", "bazaar", "autoparts", "stationery", "services"); // 2026-11-20: порядок по решению владельца
         SphereCatalog.Get("stationery").PackScan.Should().BeTrue();
         SphereCatalog.Get("grocery").PackScan.Should().BeFalse();
         SphereCatalog.Get("clothing").ChoiceVisible.Should().BeTrue();

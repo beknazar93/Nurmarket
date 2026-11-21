@@ -24,7 +24,7 @@
         <Style Selector="DataGrid.ModernGrid">
             <Setter Property="Background" Value="#00FFFFFF" />
             <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="RowHeight" Value="44" />
+            <Setter Property="RowHeight" Value="52" /><!-- 2026-11-20: обход кассы — кнопки действий 44 px слипались в строках по 44 -->
             <Setter Property="GridLinesVisibility" Value="None" />
             <Setter Property="VerticalAlignment" Value="Stretch"/>
         </Style>
@@ -83,7 +83,7 @@
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="{DynamicResource common.date}" Width="92" MinWidth="84" Binding="{ReflectionBinding DateText}"/>
                     <DataGridTextColumn Header="{DynamicResource common.time}" Width="96" MinWidth="88" Binding="{ReflectionBinding TimeText}"/>
-                    <DataGridTemplateColumn Header="{DynamicResource irregular.colStatus}" Width="210">
+                    <DataGridTemplateColumn Header="{DynamicResource irregular.colStatus}" Width="Auto" MinWidth="210"><!-- 2026-11-20: подпись «Возврат больше положенного» обрезалась в 210 px -->
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <Border Classes="StatusBadge" Classes.pending="{ReflectionBinding IsPending}"

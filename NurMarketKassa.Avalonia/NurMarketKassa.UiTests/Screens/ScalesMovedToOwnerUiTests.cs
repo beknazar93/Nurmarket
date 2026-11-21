@@ -7,10 +7,15 @@ using Avalonia.VisualTree;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using NurMarketKassa.AvaloniaHost.Views;
+using NurMarketKassa.AvaloniaHost.Views.Main.Controls;
+using NurMarketKassa.AvaloniaHost.Views.MainKassir;
 using NurMarketKassa.AvaloniaHost.Views.Settings;
 using NurMarketKassa.Services;
 using NurMarketKassa.Services.Api;
+using NurMarketKassa.AvaloniaHost.Services;
+using NurMarketKassa.Ui.Shared;
 using NurMarketKassa.UiTests.Harness;
+using NurMarketKassa.ViewModels.Main;
 using SkiaSharp;
 using Xunit;
 
@@ -18,9 +23,9 @@ namespace NurMarketKassa.UiTests.Screens;
 
 /// <summary>2026-11-11 (владелец: «убрать пункт весов из кассы и поставить на владелец»): настоящие окна в Avalonia.Headless.
 /// 2026-11-12, решение владельца («оставь их»): в кассе «Настройки → Весы» — полный набор (4 вкладки, как в 1.17.85), и в автономном режиме тоже;
-/// в программе владельца есть пункт «Товары → Весы», он открывает страницу
-/// (с 2026-11-12 — две вкладки: «Весы с этикетками» и «Штрих-код: вес / сумма»; COM-весы и табло — только в кассе), находится поиском по меню,
-/// скрывается в «Разделах меню».
+/// в программе владельца была страница «Товары → Весы» (две вкладки: «Весы с этикетками» и «Штрих-код: вес / сумма»; COM-весы и табло — только в кассе).
+/// 2026-11-20 (владелец: «в настройках есть печать! убери из бургер! и весы в настройки засунь»): пунктов «Печать» и «Весы» в меню ☰ нет ни в кассе, ни в программе
+/// владельца; «Настройки → Весы» и «Настройки → Печать» есть в обеих программах, открываются; «Весы» скрываются тумблером «Разделы меню».
 /// Снимки: %TEMP%\nurmarket-tests\ui-actual\scales-*.png.</summary>
 [Collection("UiScenarios")]
 public sealed class ScalesMovedToOwnerUiTests : IDisposable
@@ -91,7 +96,7 @@ public sealed class ScalesMovedToOwnerUiTests : IDisposable
     private static bool TabVisible(ScaleSettingsView view, string name) => view.FindControl<RadioButton>(name)!.IsVisible;
 
     private static string OwnerPath(string text) =>
-        (string)typeof(ScalesSectionWindow).Assembly.GetType("NurMarketKassa.AvaloniaHost.Views.Dialogs.ScaleUi")!
+        (string)typeof(PosSettingsWindow).Assembly.GetType("NurMarketKassa.AvaloniaHost.Views.Dialogs.ScaleUi")!
             .GetMethod("OwnerPath", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, [text])!;
 
     public static IEnumerable<object[]> Sizes() => new[] { new object[] { 1024, 600 }, new object[] { 1366, 768 } };
@@ -165,118 +170,25 @@ public sealed class ScalesMovedToOwnerUiTests : IDisposable
         }
     }
 
-    [AvaloniaTheory]
-    [MemberData(nameof(Sizes))]
-    public async Task OwnerMenu_ScalesItem_OpensSection_WithLabelScalesOnly(int w, int h)
-    {
-        UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
-        await LoginOwnerAsync();
-        var shell = new OwnerShellWindow();
-        try
-        {
-            shell.Show();
-            UiShot.Settle(3, 30);
-            NavButtons(shell).Should().ContainKey("scales", "пункт «Весы» в группе «Товары» виден владельцу");
-            IsOwnerProp.SetValue(null, true); // каталог «Разделов меню» зависит от режима программы
-            SectionVisibility.Catalog.Select(c => c.Key).Should().Contain("scales", "пункт можно скрыть в «Разделах меню»");
-            // группа «Товары» в меню — раскрыть и снять снимок меню с новым пунктом «Весы»
-            IsOwnerProp.SetValue(null, true);
-            ShowMenuGroup(shell, "products");
-            SaveShot(shell, $"scales-owner-menu-{w}x{h}", new UiSize(w, h));
-            NavButtons(shell)["scales"].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            WaitFor(() => shell.OwnedWindows.OfType<ScalesSectionWindow>().Any(), 3000);
-            var section = shell.OwnedWindows.OfType<ScalesSectionWindow>().FirstOrDefault();
-            section.Should().NotBeNull("пункт открывает страницу весов");
-            UiShot.Settle(3, 30);
-            var view = section!.GetVisualDescendants().OfType<ScaleSettingsView>().Single();
-            TabVisible(view, "TabLabelButton").Should().BeTrue();
-            TabVisible(view, "TabBarcodeButton").Should().BeTrue();
-            // 2026-11-12, решение владельца: у владельца только две вкладки — COM-весы и табло остались в кассе (ScalesOwnerFullSetUiTests)
-            TabVisible(view, "TabWeighingButton").Should().BeFalse("«Весы на кассе» (COM) — только в кассе");
-            TabVisible(view, "TabDisplayButton").Should().BeFalse("«Табло цены» — только в кассе");
-            view.FindControl<Control>("PluCard")!.IsVisible.Should().BeTrue("первая вкладка — список весов с кнопками «Настроить…» и «Отправить товары»");
-            UiShot.Settle(12, 60); // раздел показывает «Открываем раздел…», пока строится
-            SaveShot(section, $"scales-owner-section-{w}x{h}", new UiSize(w, h));
-        }
-        finally
-        {
-            IsOwnerProp.SetValue(null, _savedIsOwner);
-            shell.Close();
-            UiShot.Pump();
-        }
-    }
-
-    [AvaloniaFact]
-    public async Task OwnerMenu_ScalesItem_FoundBySearch_HiddenByMenuSections()
-    {
-        UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
-        await LoginOwnerAsync();
-        var shell = new OwnerShellWindow();
-        try
-        {
-            shell.Show();
-            UiShot.Settle(3, 30);
-            var buttons = NavButtons(shell);
-            buttons.Should().ContainKey("scales");
-
-            // поиск по меню («Найти раздел · Ctrl+K»): слово «весы» оставляет пункт
-            var search = shell.FindControl<TextBox>("NavSearchText")!;
-            search.Text = "весы";
-            UiShot.Settle(3, 30);
-            NavButtons(shell)["scales"].IsEffectivelyVisible.Should().BeTrue("поиск по меню находит «Весы»");
-            search.Text = "";
-            UiShot.Settle(2, 30);
-
-            // «Разделы меню»: скрыт — пункта нет, показан — вернулся
-            SectionVisibility.Set("scales", true);
-            UiShot.Settle(5, 40);
-            NavButtons(shell).Should().NotContainKey("scales", "скрытый в «Разделах меню» пункт в меню не показывается");
-            SectionVisibility.Set("scales", false);
-            UiShot.Settle(5, 40);
-            NavButtons(shell).Should().ContainKey("scales");
-        }
-        finally
-        {
-            SectionVisibility.Set("scales", false);
-            shell.Close();
-            UiShot.Pump();
-        }
-    }
-
-    [AvaloniaFact]
-    public async Task OwnerMenu_ScalesItem_HiddenWithoutSettingsPermission()
-    {
-        UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
-        UiFake.Server.Json("POST", "/api/users/auth/login/", 200,
-            "{\"access\":\"test-access\",\"refresh\":\"test-refresh\",\"user\":{\"id\":\"u2\",\"email\":\"seller@test.kg\",\"full_name\":\"Продавец\",\"role\":\"salesperson\",\"can_view_cashier\":true}}");
-        UiFake.Server.Json("GET", "/api/users/profile/", 200,
-            "{\"id\":\"u2\",\"email\":\"seller@test.kg\",\"full_name\":\"Продавец\",\"role\":\"salesperson\",\"can_view_cashier\":true,\"company\":{\"id\":\"fake-company-1\",\"name\":\"Тест\"}}");
-        await LoginAsync();
-        var shell = new OwnerShellWindow();
-        try
-        {
-            shell.Show();
-            UiShot.Settle(3, 30);
-            NavButtons(shell).Should().NotContainKey("scales", "без права «Настройки» пункта «Весы» нет");
-        }
-        finally
-        {
-            shell.Close();
-            UiShot.Pump();
-            UiFake.Reset();
-            await LoginAsync(); // вернуть владельца для следующих тестов
-        }
-    }
-
     public static IEnumerable<object[]> SizesAndLanguages() =>
         new (int W, int H)[] { (1024, 600), (1366, 768) }
             .SelectMany(s => new[] { AppLanguage.Russian, AppLanguage.Kyrgyz }.Select(l => new object[] { s.W, s.H, l }));
 
-    // ------------------------------------------------------------------ «Печать» в программе владельца (2026-11-11)
+    /// <summary>2026-11-20: снимки «Настройки → Весы / Печать» и меню ☰ — на трёх языках (ru, ky, uz).</summary>
+    public static IEnumerable<object[]> SizesAndThreeLanguages() =>
+        new (int W, int H)[] { (1024, 600), (1366, 768) }
+            .SelectMany(s => new[] { AppLanguage.Russian, AppLanguage.Kyrgyz, AppLanguage.Uzbek }.Select(l => new object[] { s.W, s.H, l }));
+
+    private static string Lang(AppLanguage language) => language switch { AppLanguage.Russian => "ru", AppLanguage.Kyrgyz => "ky", _ => "uz" };
+
+    // ------------------------------------------------------------------ 2026-11-20 (владелец: «в настройках есть печать! убери из бургер! и весы в настройки засунь»)
+    // В меню ☰ нет пунктов «Печать» и «Весы» — ни в кассе, ни в программе владельца; в «Настройках» есть страницы «Печать» и «Весы», обе открываются.
+
+    private static readonly string[] BannedMenuTitles = { "Печать", "Весы", "Басып чыгаруу", "Тараза", "Chop etish", "Tarozi", "Print", "Scales", "Yazdır", "Tartı", "Tartılar", "Tarozilar" };
 
     [AvaloniaTheory]
-    [MemberData(nameof(SizesAndLanguages))]
-    public async Task OwnerMenu_PrintItem_OpensSettingsOnPrintTab(int w, int h, AppLanguage language)
+    [MemberData(nameof(SizesAndThreeLanguages))]
+    public async Task OwnerMenu_HasNoPrintNorScales_SettingsHaveBothPagesAndOpenThem(int w, int h, AppLanguage language)
     {
         UiShot.Setup(UiTheme.Light, language);
         await LoginOwnerAsync();
@@ -285,22 +197,57 @@ public sealed class ScalesMovedToOwnerUiTests : IDisposable
         {
             shell.Show();
             UiShot.Settle(3, 30);
-            NavButtons(shell).Should().ContainKey("print", "пункт «Печать» виден владельцу");
-            IsOwnerProp.SetValue(null, true); // каталог «Разделов меню» зависит от режима программы
-            SectionVisibility.Catalog.Select(c => c.Key).Should().Contain("print", "пункт можно скрыть в «Разделах меню»");
-            IsOwnerProp.SetValue(null, true);
-            NavButtons(shell)["print"].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            IsOwnerProp.SetValue(null, true); // каталог «Разделов меню» и окно «Настройки» зависят от режима программы
+            var buttons = NavButtons(shell);
+            buttons.Should().NotContainKey("print", "в меню ☰ нет пункта «Печать» — это вкладка Настроек");
+            buttons.Should().NotContainKey("scales", "в меню ☰ нет пункта «Весы» — это вкладка Настроек");
+            buttons.Should().ContainKey("settings");
+            buttons.Values.Select(b => (UiDrive.TextOf(b) ?? "").Trim()).Should().NotContain(t => BannedMenuTitles.Contains(t), "ни одного пункта меню с названием «Печать» или «Весы»");
+            SectionVisibility.Catalog.Select(c => c.Key).Should().NotContain("print", "«Печать» нельзя скрыть в «Разделах меню» — это не пункт меню");
+            foreach (var group in new[] { "products", "manage" })
+            {
+                ShowMenuGroup(shell, group);
+                SaveShot(shell, $"scales-owner-menu-{group}-{Lang(language)}-{w}x{h}", new UiSize(w, h)); // меню без «Весов» и «Печати» — смотреть глазами
+            }
+
+            buttons["settings"].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             UiShot.Settle(4, 40);
-            // раздел «Настройки» встроен как отдельное окно, принадлежащее оболочке
             WaitFor(() => shell.OwnedWindows.OfType<PosSettingsWindow>().Any(), 3000);
             var settings = shell.OwnedWindows.OfType<PosSettingsWindow>().FirstOrDefault();
-            settings.Should().NotBeNull("«Печать» открывает те же настройки печати");
-            settings!.FindControl<Button>("NavPrint")!.IsVisible.Should().BeTrue("вкладка «Печать» в программе владельца показана");
-            settings.FindControl<Button>("NavPrint")!.Classes.Should().Contain("nav-active", "открыта сразу страница «Печать»");
-            settings.FindControl<Button>("NavScales")!.IsVisible.Should().BeFalse("весы — раздел «Товары → Весы»");
-            settings.FindControl<Button>("NavMonitor")!.IsVisible.Should().BeFalse("экран покупателя — на ПК кассы, как и раньше");
+            settings.Should().NotBeNull("«Настройки» открываются из меню");
             UiShot.Settle(12, 60); // раздел показывает «Открываем раздел…», пока строится
-            SaveShot(settings, $"scales-owner-print-{(language == AppLanguage.Russian ? "ru" : "ky")}-{w}x{h}", new UiSize(w, h));
+            settings!.FindControl<Button>("NavScales")!.IsVisible.Should().BeTrue("в Настройках программы владельца есть страница «Весы»");
+            settings.FindControl<Button>("NavPrint")!.IsVisible.Should().BeTrue("в Настройках программы владельца есть страница «Печать»");
+            settings.FindControl<Button>("NavMonitor")!.IsVisible.Should().BeFalse("экран покупателя — на ПК кассы, как и раньше");
+
+            settings.SelectNavTab("scales").Should().BeTrue("страница «Весы» открывается");
+            UiShot.Settle(6, 40);
+            settings.FindControl<Button>("NavScales")!.Classes.Should().Contain("nav-active");
+            var view = settings.GetVisualDescendants().OfType<ScaleSettingsView>().Single();
+            TabVisible(view, "TabLabelButton").Should().BeTrue("«Весы с этикетками» — список весов, подключение, «Настроить…», «Отправить товары»");
+            TabVisible(view, "TabBarcodeButton").Should().BeTrue("«Штрих-код: вес / сумма»");
+            TabVisible(view, "TabWeighingButton").Should().BeFalse("«Весы на кассе» (COM) — только в кассе");
+            TabVisible(view, "TabDisplayButton").Should().BeFalse("«Табло цены» — только в кассе");
+            view.FindControl<Control>("PluCard")!.IsVisible.Should().BeTrue("первая вкладка — список весов с кнопками «Настроить…» и «Отправить товары»");
+            // Страница строится по Loaded; в Headless первый кадр заново созданных надписей пуст (то же у прежних снимков «Весов» программы владельца): текст в дереве есть,
+            // а на картинке — нет, пока страницу не покажут заново. Для настоящего снимка уходим на «Печать» и возвращаемся (в живой программе кадры рисуются непрерывно).
+            view.ShowSection(1);
+            UiShot.Settle(6, 40);
+            using (UiShot.Render(settings, new UiSize(w, h))) { }
+            settings.SelectNavTab("print");
+            UiShot.Settle(6, 40);
+            settings.SelectNavTab("scales");
+            UiShot.Settle(6, 40);
+            SaveShot(settings, $"scales-owner-settings-scales-{Lang(language)}-{w}x{h}", new UiSize(w, h));
+            view.ShowSection(2);
+            UiShot.Settle(4, 40);
+            view.FindControl<Control>("BarcodeSection")!.IsVisible.Should().BeTrue("вкладка «Штрих-код: вес / сумма» открывается");
+
+            settings.SelectNavTab("print").Should().BeTrue("страница «Печать» открывается");
+            UiShot.Settle(6, 40);
+            settings.FindControl<Button>("NavPrint")!.Classes.Should().Contain("nav-active", "открыта страница «Печать»");
+            settings.FindControl<Button>("NavScales")!.Classes.Should().NotContain("nav-active");
+            SaveShot(settings, $"scales-owner-settings-print-{Lang(language)}-{w}x{h}", new UiSize(w, h));
         }
         finally
         {
@@ -310,8 +257,9 @@ public sealed class ScalesMovedToOwnerUiTests : IDisposable
         }
     }
 
+    /// <summary>Находится поиском по меню: слова «весы» и «принтер» ведут на пункт «Настройки» (самих пунктов «Весы» и «Печать» нет).</summary>
     [AvaloniaFact]
-    public async Task OwnerMenu_PrintItem_FoundBySearch_HiddenByMenuSections()
+    public async Task OwnerMenu_Search_FindsSettings_ByScalesAndPrinterWords()
     {
         UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
         await LoginOwnerAsync();
@@ -320,50 +268,101 @@ public sealed class ScalesMovedToOwnerUiTests : IDisposable
         {
             shell.Show();
             UiShot.Settle(3, 30);
-            NavButtons(shell).Should().ContainKey("print");
             var search = shell.FindControl<TextBox>("NavSearchText")!;
-            search.Text = "принтер";
-            UiShot.Settle(3, 30);
-            NavButtons(shell)["print"].IsEffectivelyVisible.Should().BeTrue("поиск по меню находит «Печать»");
+            foreach (var word in new[] { "весы", "принтер", "печать" })
+            {
+                search.Text = word;
+                UiShot.Settle(3, 30);
+                NavButtons(shell)["settings"].IsEffectivelyVisible.Should().BeTrue($"поиск «{word}» находит «Настройки»");
+            }
             search.Text = "";
             UiShot.Settle(2, 30);
-            SectionVisibility.Set("print", true);
-            UiShot.Settle(5, 40);
-            NavButtons(shell).Should().NotContainKey("print", "скрытый в «Разделах меню» пункт в меню не показывается");
-            SectionVisibility.Set("print", false);
-            UiShot.Settle(5, 40);
-            NavButtons(shell).Should().ContainKey("print");
         }
         finally
         {
-            SectionVisibility.Set("print", false);
             shell.Close();
             UiShot.Pump();
         }
     }
 
+    /// <summary>Страница «Весы» видна, как был виден пункт: скрыта тумблером «Разделы меню» (ключ scales); «Печать» скрыть нельзя.</summary>
     [AvaloniaFact]
-    public async Task OwnerMenu_PrintItem_HiddenWithoutSettingsPermission()
+    public async Task OwnerSettings_ScalesPage_HiddenByMenuSections_PrintStays()
     {
         UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
-        UiFake.Server.Json("POST", "/api/users/auth/login/", 200,
-            "{\"access\":\"test-access\",\"refresh\":\"test-refresh\",\"user\":{\"id\":\"u2\",\"email\":\"seller@test.kg\",\"full_name\":\"Продавец\",\"role\":\"salesperson\",\"can_view_cashier\":true}}");
-        UiFake.Server.Json("GET", "/api/users/profile/", 200,
-            "{\"id\":\"u2\",\"email\":\"seller@test.kg\",\"full_name\":\"Продавец\",\"role\":\"salesperson\",\"can_view_cashier\":true,\"company\":{\"id\":\"fake-company-1\",\"name\":\"Тест\"}}");
-        await LoginAsync();
-        var shell = new OwnerShellWindow();
+        await LoginOwnerAsync();
+        IsOwnerProp.SetValue(null, true);
+        SectionVisibility.Set("scales", true);
+        var window = TestHost.Services.GetRequiredService<PosSettingsWindow>();
         try
         {
-            shell.Show();
+            window.Show();
             UiShot.Settle(3, 30);
-            NavButtons(shell).Should().NotContainKey("print", "без права «Настройки» пункта «Печать» нет");
+            window.FindControl<Button>("NavScales")!.IsVisible.Should().BeFalse("скрытая в «Разделах меню» страница «Весы» не показывается");
+            window.FindControl<Button>("NavPrint")!.IsVisible.Should().BeTrue("«Печать» скрыть нельзя");
+            window.SelectNavTab("scales").Should().BeFalse("скрытая страница по ключу не открывается");
         }
         finally
         {
-            shell.Close();
+            window.Close();
             UiShot.Pump();
-            UiFake.Reset();
-            await LoginAsync();
+            SectionVisibility.Set("scales", false);
+        }
+    }
+
+    /// <summary>Касса: в меню ☰ нет «Печати» и «Весов» (были только в Настройках), в Настройках — обе страницы.</summary>
+    [AvaloniaTheory]
+    [InlineData(AppLanguage.Russian)]
+    [InlineData(AppLanguage.Kyrgyz)]
+    [InlineData(AppLanguage.Uzbek)]
+    public async Task Kassa_SideMenu_HasNoPrintNorScales_SettingsHaveBoth(AppLanguage language)
+    {
+        await TestHost.WarmAsync();
+        UiShot.Setup(UiTheme.Light, language);
+        await LoginAsync();
+        AppMode.OwnerSectionsInKassa = false;
+        var savedLayout = UserPreferences.Instance.MainLayoutMode;
+        UserPreferences.Instance.MainLayoutMode = KassaLayouts.Standard;
+        var main = TestHost.Services.GetRequiredService<MainWindow>();
+        UiRobot.Reset(main);
+        using var guard = UiRobot.Guard();
+        try
+        {
+            using (UiShot.Render(main, UiSize.Large)) { }
+            main.Activate();
+            UiShot.Settle(10, 40);
+            var vm = (MainWindowViewModel)main.DataContext!;
+            vm.Toolbar.ToggleSideMenuCommand.Execute(null);
+            UiShot.Settle(10, 40);
+            // пункты меню ☰ — кнопки с именами Mi… (SideMenuView.axaml); команда «Настройки» — для проверки, что меню собрано
+            var items = main.GetVisualDescendants().OfType<Button>().Where(b => ReferenceEquals(b.Command, vm.SideMenu.NavigateSettingsCommand)
+                || (b.Name ?? "").StartsWith("Mi", StringComparison.Ordinal)).ToList();
+            items.Should().NotBeEmpty("пункты меню ☰ найдены");
+            items.Select(b => (UiDrive.TextOf(b) ?? "").Trim()).Should().NotContain(t => BannedMenuTitles.Contains(t), $"в меню ☰ кассы нет пунктов «Печать» и «Весы» ({language})");
+            items.Select(b => b.Name).Should().NotContain(new[] { "MiPrint", "MiScales" });
+            vm.CloseSideMenu();
+            UiShot.Settle(4, 30);
+        }
+        finally
+        {
+            UserPreferences.Instance.MainLayoutMode = savedLayout;
+            UiShot.Pump();
+        }
+
+        var window = TestHost.Services.GetRequiredService<PosSettingsWindow>();
+        try
+        {
+            window.Show();
+            UiShot.Settle(3, 30);
+            window.FindControl<Button>("NavScales")!.IsVisible.Should().BeTrue("в кассе «Настройки → Весы» есть");
+            window.FindControl<Button>("NavPrint")!.IsVisible.Should().BeTrue("в кассе «Настройки → Печать» есть");
+            window.SelectNavTab("scales").Should().BeTrue();
+            window.SelectNavTab("print").Should().BeTrue();
+        }
+        finally
+        {
+            window.Close();
+            UiShot.Pump();
         }
     }
 
@@ -395,25 +394,27 @@ public sealed class ScalesMovedToOwnerUiTests : IDisposable
         route.Target.Tab.Should().Be("print");
     }
 
+    /// <summary>2026-11-20: «открой весы» ведёт на вкладку «Весы» Настроек, а не на раздел меню.</summary>
     [Fact]
-    public void AdvisorRouter_OpensScalesSection()
+    public void AdvisorRouter_OpensScalesTabOfSettings()
     {
         var route = AdvisorNavRouter.Parse("открой весы");
         route.Target.Should().NotBeNull();
-        route.Target!.Section.Should().Be("scales");
+        route.Target!.Section.Should().Be("settings");
+        route.Target.Tab.Should().Be("scales");
     }
 
+    /// <summary>2026-11-20: путь «Настройки → Весы» верен и в кассе, и в программе владельца — подсказки не переписываются.</summary>
     [Fact]
-    public void OwnerPath_ReplacesSettingsPath_OnlyInOwnerProgram()
+    public void OwnerPath_KeepsSettingsPath_InBothPrograms()
     {
         const string ru = "Настройки → Весы → «Весы с этикетками»";
-        IsOwnerProp.SetValue(null, false);
-        OwnerPath(ru).Should().Be(ru, "в кассе подсказка не меняется");
-        IsOwnerProp.SetValue(null, true);
-        OwnerPath(ru).Should().Be("Товары → Весы → «Весы с этикетками»");
-        OwnerPath("Settings → Scales → “Label scales”").Should().Be("Products → Scales → “Label scales”");
-        OwnerPath("Sozlamalar → Tarozilar").Should().Be("Mahsulotlar → Tarozilar");
-        OwnerPath("Ayarlar → Tartılar").Should().Be("Ürünler → Tartılar");
-        OwnerPath("Жөндөөлөр → Тараза").Should().Be("Товарлар → Тараза");
+        foreach (var owner in new[] { false, true })
+        {
+            IsOwnerProp.SetValue(null, owner);
+            OwnerPath(ru).Should().Be(ru);
+            OwnerPath("Settings → Scales → “Label scales”").Should().Be("Settings → Scales → “Label scales”");
+            OwnerPath("Жөндөөлөр → Тараза").Should().Be("Жөндөөлөр → Тараза");
+        }
     }
 }

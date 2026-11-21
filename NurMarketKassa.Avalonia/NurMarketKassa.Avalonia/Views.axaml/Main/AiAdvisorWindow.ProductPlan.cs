@@ -197,8 +197,19 @@ public sealed partial class AiAdvisorWindow
     /// <summary>2026-10-06: предложенные ИИ действия с товарами — карточкой; выполняются только по «Выполнить» (ProductActionPlan).</summary>
     /// <param name="proposedUtc">2026-10-16: когда предложена исходная карточка (у отредактированной — время исходной): карточка,
     /// предложенная раньше выполнения такой же (в боте или здесь), не выполняется повторно (ProductActionPlan.ExecuteAllAsync).</param>
-    private void AddProductActionsCard(List<ProductActionPlan.Step> steps, string request, DateTime? proposedUtc = null)
+    /// <param name="variantPlan">2026-11-20 («в один товар и доп. штрихкоды»): план группировки вариантов (вкусов) накладной — при пересборке карточки после «Разъединить / Объединить с …» передаётся тот же.</param>
+    /// <param name="replaceCard">2026-11-20: прежняя карточка, на месте которой встаёт пересобранная.</param>
+    private void AddProductActionsCard(List<ProductActionPlan.Step> steps, string request, DateTime? proposedUtc = null, InvoiceVariantPlan? variantPlan = null, Border? replaceCard = null)
     {
+        // 2026-11-20: ИИ прочитал у строк накладной название без вкуса (base/variant/brand) — вкусы одного товара объединяются в один товар с доп. штрихкодами (InvoiceVariantPlan),
+        // если не выключено переключателем «Объединять вкусы/варианты» или своей командой ИИ («не объединяй»). Показ — блок InvoiceVariantsPanel; запись — только после «Провести закупку…».
+        if (variantPlan is null && steps.Any(st => ProductActionPlan.IsPurchaseStep(st) && !string.IsNullOrWhiteSpace(st.Base)))
+            variantPlan = InvoiceVariantPlan.Build(steps, InvoiceVariantPlan.ProgramOptions(InvoiceVariantPrefs.EffectiveMerge, InvoiceVariantPrefs.CommandBrand));
+        if (variantPlan is not null)
+        {
+            steps = variantPlan.ToSteps();
+        }
+        Border? builtCard = null;
         var proposed = proposedUtc ?? DateTime.UtcNow;
         var invoice = LooksLikeInvoiceRequest(request);
         // 2026-10-19, владелец: «при скане накладной добавляет товар на склад напрямую, а не через закупку». Приход и новые товары
@@ -330,6 +341,13 @@ public sealed partial class AiAdvisorWindow
             Use(totals, TextBlock.ForegroundProperty, "BrushText");
             body.Children.Add(totals);
         }
+        // 2026-11-20: блок «вкусы одного товара» — группы, итог «товаров: N, вариантов/доп. кодов: M», «Разъединить» / «Объединить с …» (панель создаётся ниже, когда готовы Cancel/Apply карточки).
+        Border? variantHost = null;
+        if (variantPlan is { HasAnything: true })
+        {
+            variantHost = new Border();
+            body.Children.Add(variantHost);
+        }
         if (purchase)
         {
             var purchaseNote = new TextBlock
@@ -375,7 +393,7 @@ public sealed partial class AiAdvisorWindow
         // сама не ставится, как и у прихода из разбора (ProductActionPlan.KeepCurrentPriceIfLower).
         static ProductActionPlan.Step AsReceive(ProductActionPlan.Step st, NurMarketKassa.Models.Pos.CatalogProductTileVm existing) =>
             ProductActionPlan.KeepCurrentPriceIfLower(st.Price, existing.PriceValue) is var (price, notLowered)
-                ? new ProductActionPlan.Step("receive", existing, st.Qty, null, null, st.Purchase, price, ExpectedStock: existing.Quantity, PriceNotLowered: notLowered)
+                ? new ProductActionPlan.Step("receive", existing, st.Qty, null, null, st.Purchase, price, ExpectedStock: existing.Quantity, PriceNotLowered: notLowered, Base: st.Base, Variants: st.Variants) // 2026-11-20: вкусы не теряются
                 : st;
         // 2026-10-24, владелец: «внизу … поле для ввода штрих кода (столько поле для ввода, сколько товара)», «разделить каждому
         // товару своё поле». Прежде поля были безымянными, только у новых товаров без кода. Теперь — блок «Штрихкоды товаров»:
@@ -683,9 +701,10 @@ public sealed partial class AiAdvisorWindow
         List<ProductActionPlan.Step> ResolveSteps()
         {
             var list = new List<ProductActionPlan.Step>();
-            for (var i = 0; i < steps.Count; i++)
+            var current = variantPlan is null ? steps : variantPlan.ToSteps(); // 2026-11-20: правка названия вариантов не пересобирает карточку — шаги берём из плана
+            for (var i = 0; i < current.Count; i++)
             {
-                var st = steps[i];
+                var st = current[i];
                 if (!barcodeBoxes.TryGetValue(i, out var b) || (b.Box.Text ?? "").Trim() is not { Length: >= 4 } code)
                 {
                     list.Add(st);
@@ -703,6 +722,7 @@ public sealed partial class AiAdvisorWindow
                 }
                 list.Add(ByBarcode(code) is { Id.Length: > 0 } existing ? AsReceive(st, existing) : st with { Barcode = code });
             }
+            list.AddRange(InvoiceVariantWriter.StepsFor(list)); // 2026-11-20: вкусы к существующему товару — доп. штрихкодами после закупки
             return list;
         }
         var scanTargets = barcodeBoxes.OrderBy(kv => kv.Key).Select(kv => kv.Value.Box).ToList();
@@ -746,6 +766,21 @@ public sealed partial class AiAdvisorWindow
         Use(card, Border.BorderBrushProperty, "BrushAccentStrong");
         var finished = false;
         var superseded = false;
+        builtCard = card;
+        // 2026-11-20: «Разъединить» / «Объединить с …» меняют состав групп — карточка пересобирается на том же месте с тем же планом (введённые коды переносятся); правка названия варианта — без пересборки.
+        void RebuildCard()
+        {
+            if (finished || editorOpen)
+                return;
+            AddProductActionsCard(steps, request, proposed, variantPlan, builtCard);
+        }
+        if (variantHost is not null && variantPlan is not null)
+            variantHost.Child = new InvoiceVariantsPanel(variantPlan, RebuildCard, () =>
+            {
+                // До правки состава групп: введённые коды штрихкодов переходят в план по прежним номерам позиций (после правки номера сдвинутся).
+                if (!finished && !editorOpen)
+                    variantPlan?.ApplyTypedCodes(barcodeRows.Where(r => r.Editable && r.Code.Length > 0).ToDictionary(r => r.Index, r => r.Code));
+            });
         void Cancel()
         {
             // 2026-10-19: пока открыто окно закупки, карточка не гаснет (новое предложение ниже её не отменяет).
@@ -763,6 +798,8 @@ public sealed partial class AiAdvisorWindow
             result.IsVisible = true;
             foreach (var (box, _) in barcodeBoxes.Values)
                 box.IsEnabled = false;
+            if (variantHost is not null)
+                variantHost.IsEnabled = false; // 2026-11-20
             // 2026-10-19, ревью: замена карточки после частичного проведения — «Проведено частично: …», карточка больше не нажимается,
             // остальные строки — в новой (там проведённые помечены по реестру InvoiceEditorWindow.PostedLines).
             result.Text = (draft is { PostedSummaries.Count: > 0 }
@@ -788,6 +825,8 @@ public sealed partial class AiAdvisorWindow
                 {
                     draft = InvoiceEditorWindow.PurchaseDraft.FromSteps(ResolveSteps(), supplierHint.Name, supplierHint.Inn, invoiceTotals);
                     // Штрихкоды теперь правятся в окне закупки — поля карточки больше не действуют.
+                    if (variantHost is not null)
+                        variantHost.IsEnabled = false; // 2026-11-20: варианты (вкусы) дальше правятся в окне закупки — группы карточки больше не меняются
                     foreach (var (box, _) in barcodeBoxes.Values)
                         box.IsEnabled = false;
                     if (ReferenceEquals(_scanTargets, scanTargets))
@@ -945,7 +984,15 @@ public sealed partial class AiAdvisorWindow
         };
         _pendingProductApply = Apply;
         _pendingProductCancel = Cancel;
-        _messages.Children.Add(card);
+        // 2026-11-20: пересобранная карточка встаёт на место прежней.
+        var replaceAt = replaceCard is null ? -1 : _messages.Children.IndexOf(replaceCard);
+        if (replaceAt >= 0)
+        {
+            _messages.Children.RemoveAt(replaceAt);
+            _messages.Children.Insert(replaceAt, card);
+        }
+        else
+            _messages.Children.Add(card);
         ScrollToEnd();
     }
 

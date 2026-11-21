@@ -154,13 +154,14 @@ public static class BelowCostGuard
         };
     }
 
-    /// <summary>Понятный текст при отказе сервера в онлайн-оплате: продажа не проведена, чек остался в кассе. <paramref name="detail"/> — <see cref="LineDetail"/> (позиция и минимальная цена).</summary>
+    /// <summary>Понятный текст при отказе сервера в онлайн-оплате: продажа не проведена, товары остались в чеке (в корзине кассы). <paramref name="detail"/> — <see cref="LineDetail"/> (позиция и минимальная цена).
+    /// 2026-11-20: прежний текст «Продажа не проведена, чек сохранён» путал (казалось, что чек пробит) — теперь «товары остались в чеке».</summary>
     public static string ServerDeniedText(string detail = "") => Tr.T(
-        $"Сервер не принял продажу: цена со скидкой ниже закупочной, а у вас нет права «{RightName()}». Продажа не проведена, чек сохранён.{detail} Уменьшите скидку или попросите владельца (администратора) оформить продажу.",
-        $"Сервер сатууну кабыл алган жок: арзандатуудан кийинки баа сатып алуу баасынан төмөн, ал эми сизде «{RightName()}» укугу жок. Сатуу өткөрүлгөн жок, чек сакталды.{detail} Арзандатууну азайтыңыз же ээсинен (администратордон) сатууну жасоону сураныңыз.",
-        $"The server did not accept the sale: the discounted price is below the purchase price and you do not have the “{RightName()}” permission. The sale was not recorded, the receipt is kept.{detail} Reduce the discount or ask the owner (administrator) to make the sale.",
-        $"Sunucu satışı kabul etmedi: indirimli fiyat alış fiyatının altında ve «{RightName()}» yetkiniz yok. Satış kaydedilmedi, fiş saklandı.{detail} İndirimi azaltın veya sahibinden (yöneticiden) satışı yapmasını isteyin.",
-        $"Server sotuvni qabul qilmadi: chegirmadan keyingi narx xarid narxidan past, sizda esa «{RightName()}» huquqi yo'q. Sotuv o'tkazilmadi, chek saqlandi.{detail} Chegirmani kamaytiring yoki egasidan (administratordan) sotuvni rasmiylashtirishni so'rang.");
+        $"Продажа не проведена: цена после скидки ниже закупочной, а у вас нет права «{RightName()}». Товары остались в чеке — уменьшите скидку или попросите владельца (администратора).{detail}",
+        $"Сатуу өткөрүлгөн жок: арзандатуудан кийинки баа сатып алуу баасынан төмөн, ал эми сизде «{RightName()}» укугу жок. Товарлар чекте калды — арзандатууну азайтыңыз же ээсинен (администратордон) сураныңыз.{detail}",
+        $"The sale was not made: the price after the discount is below the purchase price and you do not have the “{RightName()}” permission. The items are still in the receipt — reduce the discount or ask the owner (administrator).{detail}",
+        $"Satış yapılmadı: indirimden sonraki fiyat alış fiyatının altında ve «{RightName()}» yetkiniz yok. Ürünler fişte duruyor — indirimi azaltın veya sahibinden (yöneticiden) isteyin.{detail}",
+        $"Sotuv o'tkazilmadi: chegirmadan keyingi narx xarid narxidan past, sizda esa «{RightName()}» huquqi yo'q. Mahsulotlar chekda qoldi — chegirmani kamaytiring yoki egasidan (administratordan) so'rang.{detail}");
 
     /// <summary>Тот же текст по самому отказу и корзине-JSON (позиция по <c>index</c>, минимальная цена).</summary>
     public static string ServerDeniedText(Exception? ex, string? cartJson) =>

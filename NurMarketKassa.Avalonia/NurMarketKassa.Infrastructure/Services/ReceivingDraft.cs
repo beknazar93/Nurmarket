@@ -64,6 +64,11 @@ public sealed class ReceivingDraftLine
 
     public Dictionary<string, double>? VariantQuantities { get; set; }
     public Dictionary<string, string>? VariantLabels { get; set; }
+
+    /// <summary>2026-11-20: доп. штрихкоды строки и подпись «пачка = N шт.» (в старых черновиках нет — null).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public List<NurMarketKassa.Models.Pos.AlternateBarcodeVariant>? ExtraBarcodes { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? ScanPackNote { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? VariantNote { get; set; } // 2026-11-20: разбивка по вкусам объединённого товара
 }
 
 /// <summary>Файл черновика: шапка приёмки и строки.</summary>

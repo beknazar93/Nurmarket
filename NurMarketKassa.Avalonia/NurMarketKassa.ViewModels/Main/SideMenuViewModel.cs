@@ -355,6 +355,20 @@ public sealed class SideMenuViewModel : ViewModelBase
     });
 
     /// <summary>2026-11-13 (Н-1, «Первый час»): «Мастер первого запуска» и «Учебная продажа» в группе «Помощь»; окна открывает главное окно кассы.</summary>
+    /// <summary>2026-11-20 (владелец: «где импорт из других программ?»): пункт меню «Перенос данных из другой программы» (раздел «Помощь», рядом с обучением) —
+    /// открывает мастер «Массовая загрузка» (его окно одно на программу); виден тем, у кого есть право «Склад: редактирование».</summary>
+    public Action? NavigateTransferDataAction { get; set; }
+
+    private ICommand? _navigateTransferDataCommand;
+
+    public ICommand NavigateTransferDataCommand => _navigateTransferDataCommand ??= new RelayCommand(() =>
+    {
+        CloseMenuCommand.Execute(null);
+        NavigateTransferDataAction?.Invoke();
+    });
+
+    public bool CanTransferData => _permissions?.HasPermission(PosPermissions.EditProducts) ?? true;
+
     public Action? NavigateFirstRunWizardAction { get; set; }
 
     public Action? NavigateTrainingSaleAction { get; set; }
@@ -419,6 +433,7 @@ public sealed class SideMenuViewModel : ViewModelBase
         // 2026-11-13 (живая проверка доступов, ошибка 1): «Настройки» и «Удалено из чека» (CanViewSettings — вычисляемое свойство) не обновлялись на лету, пока право не менялось
         // перезаходом. Все вычисляемые права меню уведомляются при каждом пересчёте (остальные — сохраняемые, ниже).
         OnPropertyChanged(nameof(CanViewSettings));
+        OnPropertyChanged(nameof(CanTransferData)); // 2026-11-20: «Перенос данных» — по праву «Склад: редактирование»
         // 2026-09-26, разделение программ: склад, продажи, финансы, зарплата, ABC, клиенты, CRM и
         // пополнение — в программе владельца. В кассе они остаются только в автономном режиме
         // (см. AppMode.OwnerSectionsInKassa).

@@ -9,6 +9,8 @@ public sealed class AutoPartAttr
     public string Key { get; set; } = "";
     public string Value { get; set; } = "";
     public string? Unit { get; set; }
+    /// <summary>2026-11-20 (ответ Умара 20.11, А.4): сервер прислал значение числом — при записи обратно оно уходит числом, а не строкой (чужие атрибуты не меняют тип).</summary>
+    public bool IsNumber { get; set; }
 }
 
 /// <summary>
@@ -39,6 +41,12 @@ public sealed class AutoPartInfo
     public string Location { get; set; } = "";
     public List<string> Related { get; set; } = new();
     public List<AutoPartAttr> Other { get; set; } = new();
+    // 2026-11-20 (С5, решение владельца): признаки для чека и возврата тоже на сервере, в attributes: warranty_days (число), electric и no_return («1»/«0»).
+    // null — сервер значения не хранит (решает местный файл или название). «0» — явная отметка «можно», она сильнее названия.
+    public int? WarrantyDays { get; set; }
+    public bool? Electric { get; set; }
+    public bool? NoReturn { get; set; }
+    public bool HasMeta => WarrantyDays is > 0 || Electric is not null || NoReturn is not null;
 
     /// <summary>Состояние для значка: original / oes / aftermarket / used / refurb; пусто — не задано.</summary>
     public string State => Condition switch
@@ -50,7 +58,7 @@ public sealed class AutoPartInfo
     };
 
     public bool IsEmpty => PartNo.Length == 0 && Oem.Count == 0 && Cross.Count == 0 && Fits.Count == 0 && Condition.Length == 0
-                           && PartType.Length == 0 && Location.Length == 0 && Related.Count == 0;
+                           && PartType.Length == 0 && Location.Length == 0 && Related.Count == 0 && !HasMeta;
 
     /// <summary>Все нормализованные номера товара (кроме артикула, он берётся из карточки): <c>part_no_norm</c>, OEM, кроссы.</summary>
     public IEnumerable<string> Numbers()
@@ -91,6 +99,7 @@ public sealed class AutoPartInfo
                     continue;
                 var key = kEl.GetString()?.Trim() ?? "";
                 var value = ReadValue(a);
+                var isNumber = a.TryGetProperty("value", out var vEl) && vEl.ValueKind == JsonValueKind.Number;
                 string? unit = a.TryGetProperty("unit", out var uEl) && uEl.ValueKind == JsonValueKind.String ? uEl.GetString() : null;
                 if (key.Length == 0)
                     continue;
@@ -100,6 +109,16 @@ public sealed class AutoPartInfo
                     info.Condition = value.Trim().ToLowerInvariant() is "new" or "used" or "refurb" ? value.Trim().ToLowerInvariant() : "";
                 else if (key == "part_type")
                     info.PartType = value.Trim().ToLowerInvariant() is "original" or "oes" or "aftermarket" ? value.Trim().ToLowerInvariant() : "";
+                else if (key == "warranty_days")
+                    info.WarrantyDays = int.TryParse(value.Trim(), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var wd) && wd > 0 ? Math.Min(wd, 3650) : null;
+                else if (key is "electric" or "no_return")
+                {
+                    bool? flag = value.Trim().ToLowerInvariant() switch { "1" or "true" => true, "0" or "false" => false, _ => null };
+                    if (key == "electric")
+                        info.Electric = flag;
+                    else
+                        info.NoReturn = flag;
+                }
                 else if (key == "oem" || key.StartsWith("oem_", StringComparison.Ordinal))
                     AddIndexed(oem, key, "oem", value);
                 else if (key.StartsWith("cross_", StringComparison.Ordinal))
@@ -107,7 +126,7 @@ public sealed class AutoPartInfo
                 else if (key.StartsWith("fits_", StringComparison.Ordinal))
                     AddIndexed(fits, key, "fits", value, keepText: true);
                 else
-                    info.Other.Add(new AutoPartAttr { Key = key, Value = value, Unit = unit });
+                    info.Other.Add(new AutoPartAttr { Key = key, Value = value, Unit = unit, IsNumber = isNumber });
             }
         }
         info.Oem = Ordered(oem);
@@ -186,10 +205,16 @@ public sealed class AutoPartInfo
         }
         // Чужие — первыми: они были на карточке до нас, терять их нельзя.
         foreach (var o in Other.Take(MaxAttributes))
-            result.Add(new AutoPartAttr { Key = o.Key, Value = Cut(o.Value), Unit = o.Unit });
+            result.Add(new AutoPartAttr { Key = o.Key, Value = Cut(o.Value), Unit = o.Unit, IsNumber = o.IsNumber });
         Add("part_no_norm", PartNo);
         Add("condition", Condition);
         Add("part_type", PartType);
+        if (WarrantyDays is > 0)
+            Add("warranty_days", Math.Min(WarrantyDays.Value, 3650).ToString(System.Globalization.CultureInfo.InvariantCulture));
+        if (Electric is { } el)
+            Add("electric", el ? "1" : "0");
+        if (NoReturn is { } nr)
+            Add("no_return", nr ? "1" : "0");
         for (var i = 0; i < Oem.Count; i++)
             Add(i == 0 ? "oem" : $"oem_{i + 1}", Oem[i]);
         for (var i = 0; i < Cross.Count; i++)
@@ -202,8 +227,8 @@ public sealed class AutoPartInfo
     public AutoPartInfo Clone() => new()
     {
         PartNo = PartNo, Oem = new(Oem), Cross = new(Cross), Fits = new(Fits), Condition = Condition, PartType = PartType,
-        Location = Location, Related = new(Related),
-        Other = Other.Select(o => new AutoPartAttr { Key = o.Key, Value = o.Value, Unit = o.Unit }).ToList(),
+        Location = Location, Related = new(Related), WarrantyDays = WarrantyDays, Electric = Electric, NoReturn = NoReturn,
+        Other = Other.Select(o => new AutoPartAttr { Key = o.Key, Value = o.Value, Unit = o.Unit, IsNumber = o.IsNumber }).ToList(),
     };
 }
 
@@ -219,6 +244,8 @@ public static class AutoPartHub
     public static Func<string, string>? StateBadge { get; set; }
     /// <summary>Слово «яч.» на языке кассы.</summary>
     public static Func<string>? CellLabel { get; set; }
+    /// <summary>2026-11-20: бренд только что загруженного прайсом товара, пока каталог не дочитал его карточку (журнал импорта).</summary>
+    public static Func<string, string?>? BrandOf { get; set; }
 
     public static bool Active => IsActive?.Invoke() ?? false;
 

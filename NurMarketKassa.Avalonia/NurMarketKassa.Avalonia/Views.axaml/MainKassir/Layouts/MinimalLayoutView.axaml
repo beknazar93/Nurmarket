@@ -3,6 +3,7 @@
                          xmlns:ctl="using:NurMarketKassa.AvaloniaHost.Views.Main.Controls"
                          xmlns:layouts="using:NurMarketKassa.AvaloniaHost.Views.MainKassir.Layouts"
                          xmlns:conv="using:NurMarketKassa.AvaloniaHost.Converters"
+                         xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
                          xmlns:vm="using:NurMarketKassa.ViewModels.Main"
                          xmlns:pos="using:NurMarketKassa.Models.Pos"
                          x:Class="NurMarketKassa.AvaloniaHost.Views.MainKassir.Layouts.MinimalLayoutView"
@@ -150,13 +151,15 @@
                                     <Border Classes="mn-tile lx-tile-face">
                                         <Grid RowDefinitions="*,Auto">
                                             <Border Background="{Binding Title, Converter={x:Static conv:TileColorConverter.Instance}}">
-                                                <Panel>
+                                                <Panel dlg:ProductPhotoZoom.LongPress="True">
                                                     <TextBlock Text="{Binding Title, Converter={x:Static conv:MonogramConverter.Instance}}"
                                                                FontSize="30" FontWeight="SemiBold" Foreground="White"
                                                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                     <Image Stretch="UniformToFill"
                                                            IsVisible="{Binding ProductImagePath, Converter={x:Static conv:ShowProductPhotoConverter.Instance}}"
                                                            Source="{Binding ProductImagePath, Converter={x:Static conv:AssetPathToBitmapConverter.Instance}, ConverterParameter=thumb}"/>
+                                                    <!-- 2026-11-20: кнопка-лупа — увеличить фото (нажатие по плитке по-прежнему кладёт товар в чек; кнопка забирает нажатие себе) -->
+                                                    <dlg:PhotoZoomButton HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,4,4"/>
                                                 </Panel>
                                             </Border>
                                             <StackPanel Grid.Row="1" Spacing="2" Margin="12,8,12,10">

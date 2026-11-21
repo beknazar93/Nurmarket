@@ -72,12 +72,14 @@ public sealed class ScalesOwnerFullSetUiTests : IDisposable
     private static Dictionary<string, Button> NavButtons(OwnerShellWindow shell) =>
         (Dictionary<string, Button>)typeof(OwnerShellWindow).GetField("_navButtons", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(shell)!;
 
-    /// <summary>Страница весов в окне раздела программы владельца (как открывает пункт «Товары → Весы»).</summary>
-    private static (ScalesSectionWindow Window, ScaleSettingsView View) OpenOwnerSection()
+    /// <summary>Страница весов программы владельца: 2026-11-20 (владелец: «весы в настройки засунь») — вкладка «Весы» окна «Настройки» (раньше пункт меню «Товары → Весы»).</summary>
+    private static (PosSettingsWindow Window, ScaleSettingsView View) OpenOwnerSection()
     {
         IsOwnerProp.SetValue(null, true);
-        var window = new ScalesSectionWindow();
+        var window = TestHost.Services.GetRequiredService<PosSettingsWindow>();
         window.Show();
+        UiShot.Settle(4, 40);
+        window.SelectNavTab("scales").Should().BeTrue("в программе владельца вкладка «Весы» есть в Настройках");
         UiShot.Settle(4, 40);
         return (window, window.GetVisualDescendants().OfType<ScaleSettingsView>().Single());
     }
@@ -140,8 +142,10 @@ public sealed class ScalesOwnerFullSetUiTests : IDisposable
                 view.ShowSection(section);
                 UiShot.Settle(3, 30);
             }
-            view.ScaleComCombo.ItemsSource.Should().BeNull("список COM-портов у владельца не заполняется — порты не перечисляются и не открываются");
-            view.PoleDisplayComCombo.ItemsSource.Should().BeNull("список портов табло у владельца не заполняется");
+            // 2026-11-20: страница теперь внутри окна «Настройки», а оно заполняет списки портов само (только перечисление, порты не открываются) — поэтому
+            // проверяем не пустоту списков, а что COM-весов и табло у владельца не видно и не включено.
+            view.ScaleComCombo.IsEffectivelyVisible.Should().BeFalse("список COM-портов у владельца не показан");
+            view.PoleDisplayComCombo.IsEffectivelyVisible.Should().BeFalse("список портов табло у владельца не показан");
             view.ScaleEnabledCheck.IsChecked.Should().NotBe(true, "включённых COM-весов у владельца нет");
         }
         finally
@@ -233,13 +237,15 @@ public sealed class ScalesOwnerFullSetUiTests : IDisposable
             shell.Show();
             UiShot.Settle(3, 30);
             IsOwnerProp.SetValue(null, true);
-            NavButtons(shell).Should().ContainKey("scales");
-            NavButtons(shell)["scales"].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            WaitFor(() => shell.OwnedWindows.OfType<ScalesSectionWindow>().Any(), 3000);
-            var section = shell.OwnedWindows.OfType<ScalesSectionWindow>().FirstOrDefault();
+            NavButtons(shell).Should().NotContainKey("scales", "2026-11-20: «Весы» — вкладка Настроек, пункта в меню ☰ нет");
+            NavButtons(shell)["settings"].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WaitFor(() => shell.OwnedWindows.OfType<PosSettingsWindow>().Any(), 3000);
+            var section = shell.OwnedWindows.OfType<PosSettingsWindow>().FirstOrDefault();
             section.Should().NotBeNull();
             UiShot.Settle(12, 60);
-            var view = section!.GetVisualDescendants().OfType<ScaleSettingsView>().Single();
+            section!.SelectNavTab("scales").Should().BeTrue("вкладка «Весы» в Настройках программы владельца");
+            UiShot.Settle(6, 40);
+            var view = section.GetVisualDescendants().OfType<ScaleSettingsView>().Single();
             var lang = language == AppLanguage.Russian ? "ru" : "ky";
             var names = new[] { "label", "barcode" };
             var sections = new[] { 1, 2 };

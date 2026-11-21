@@ -163,6 +163,34 @@ public sealed class SupportRequestTests : IDisposable
         SupportRequestJournal.Load().Should().BeEmpty();
     }
 
+    // 2026-11-20: бот не подключён — не тупик «канал не подключён», а WhatsApp с готовым текстом на номер поддержки NurCRM.
+    [Fact]
+    public void NotConfiguredChannel_BecomesWhatsApp_AndOtherErrorsStayFailed()
+    {
+        SupportRequestService.StatusFor(null).Should().Be(SupportRequestRecord.StatusSent);
+        SupportRequestService.StatusFor(SupportLogService.NotConfiguredMessage).Should().Be(SupportRequestRecord.StatusWhatsApp);
+        SupportRequestService.StatusFor("нет связи").Should().Be(SupportRequestRecord.StatusFailed);
+        SupportRequestService.IsWhatsApp(new SupportRequestRecord { Status = SupportRequestRecord.StatusWhatsApp }).Should().BeTrue();
+        SupportRequestService.IsWhatsApp(new SupportRequestRecord { Status = SupportRequestRecord.StatusNotConfigured }).Should().BeTrue("старые записи показываются так же");
+        SupportRequestService.IsWhatsApp(new SupportRequestRecord { Status = SupportRequestRecord.StatusFailed }).Should().BeFalse();
+    }
+
+    [Fact]
+    public void WhatsAppUrl_UsesSupportPhone_AndCarriesRequestText()
+    {
+        var record = new SupportRequestRecord { Id = "261120-121338", Version = "1.17.90", Company = "NBS", Description = "не печатает чек" };
+        var url = SupportRequestService.WhatsAppUrl(record);
+        url.Should().StartWith("https://wa.me/996221068796?text=");
+        Uri.UnescapeDataString(url).Should().Contain("261120-121338").And.Contain("не печатает чек");
+    }
+
+    [Fact]
+    public void SupportInfo_WithoutSettings_HasNoValues_SoWindowHidesTheRows()
+    {
+        SupportInfo.HoursOrNull().Should().BeNull();
+        SupportInfo.ResponseTimeOrNull().Should().BeNull();
+    }
+
     [Fact]
     public void SupportInfo_WithoutSettings_ShowsPlaceholder()
     {

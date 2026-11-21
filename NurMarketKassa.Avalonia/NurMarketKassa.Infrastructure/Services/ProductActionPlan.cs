@@ -22,7 +22,11 @@ public static class ProductActionPlan
         double? Purchase = null, double? Price = null, string? Barcode = null, string? Unit = null, string? Category = null,
         bool RaisedToMin = false, double? ExpectedStock = null, double? PriceNotLowered = null,
         // 2026-11-03: чтение накладной по фото — № строки, сумма строки как в документе, уверенность 0..1 и «нечётко прочитано» (строка подсвечивается в окне закупки).
-        double? Confidence = null, bool Unclear = false, double? LineTotal = null, int? Number = null);
+        double? Confidence = null, bool Unclear = false, double? LineTotal = null, int? Number = null,
+        // 2026-11-20 («в один товар и доп. штрихкоды»: «Асу» и «Асу со вкусом клубники» — один товар): ИИ-разбор строки — название без вкуса (Base), вкус/цвет/размер (Variant), марка (Brand),
+        // полное название из накладной (InvoiceName). У объединённого шага (InvoiceVariantPlan) Variants — все варианты с кодом и количеством; Op = create (новый товар) или receive (вкус
+        // добавляется существующему товару). Qty — сумма вариантов.
+        string? Base = null, string? Variant = null, string? Brand = null, IReadOnlyList<VariantPart>? Variants = null, string? InvoiceName = null);
 
     /// <summary>2026-10-06, владелец: «при загрузке товаров и создании товаров из накладной надо сразу ставить маржу минимум 20%».
     /// Минимальная наценка прихода и нового товара по накладной (UserPreferences.AiMinMarkupPercent, по умолчанию 20).</summary>
@@ -461,7 +465,7 @@ public static class ProductActionPlan
                         var (newPrice, raised) = EnsureMinMarkup(np, price, 0);
                         steps.Add(new Step("create", new CatalogProductTileVm("", newName, $"{newPrice ?? 0:0.00}", false), nq, null, null, np, newPrice,
                             S("barcode") is { Length: >= 4 } bc && bc.All(char.IsDigit) ? bc : null, S("unit"), S("category"), raised,
-                            Confidence: confidence, Unclear: unclear, LineTotal: lineTotal, Number: rowNo));
+                            Confidence: confidence, Unclear: unclear, LineTotal: lineTotal, Number: rowNo, Base: S("base"), Variant: S("variant"), Brand: S("brand"), InvoiceName: newName));
                         continue;
                     }
                     else
@@ -479,7 +483,7 @@ public static class ProductActionPlan
                         var (newPrice, raised) = EnsureMinMarkup(up, price, 0);
                         steps.Add(new Step("create", new CatalogProductTileVm("", unknownName, $"{newPrice ?? 0:0.00}", false), uq, null, null, up, newPrice,
                             S("barcode") is { Length: >= 4 } ubc && ubc.All(char.IsDigit) ? ubc : null, S("unit"), S("category"), raised,
-                            Confidence: confidence, Unclear: unclear, LineTotal: lineTotal, Number: rowNo));
+                            Confidence: confidence, Unclear: unclear, LineTotal: lineTotal, Number: rowNo, Base: S("base"), Variant: S("variant"), Brand: S("brand"), InvoiceName: unknownName));
                         continue;
                     }
                     if (op is not "photo" and not "open" && !string.IsNullOrWhiteSpace(rawProductName))
@@ -506,7 +510,7 @@ public static class ProductActionPlan
                     "receive" when N("qty", "quantity") is { } rq && rq > 0 => EnsureMinMarkup(purchase, price, product.PriceValue) is var (rp, rr)
                         && KeepCurrentPriceIfLower(rp, product.PriceValue) is var (kp, low)
                         ? new Step(op, product, rq, null, null, purchase, kp, S("barcode") ?? S("article") ?? S("sku"), S("unit"), RaisedToMin: rr && kp is not null,
-                            PriceNotLowered: low, Confidence: confidence, Unclear: unclear, LineTotal: lineTotal, Number: rowNo)
+                            PriceNotLowered: low, Confidence: confidence, Unclear: unclear, LineTotal: lineTotal, Number: rowNo, Base: S("base"), Variant: S("variant"), Brand: S("brand"), InvoiceName: S("name") ?? rawProductName)
                         : null,
                     _ => null,
                 };
@@ -675,6 +679,8 @@ public static class ProductActionPlan
             "set_category" => await ProductActions.UpdateFieldsAsync(id, new Dictionary<string, object?> { ["category_name"] = s.Text }, T("категория", "категория", "category", "kategori", "kategoriya"), who, ct).ConfigureAwait(false),
             "set_barcode" => await ProductActions.UpdateFieldsAsync(id, new Dictionary<string, object?> { ["barcode"] = s.Text }, T("штрихкод", "штрихкод", "barcode", "barkod", "shtrix-kod"), who, ct).ConfigureAwait(false),
             "set_article" => await ProductActions.UpdateFieldsAsync(id, new Dictionary<string, object?> { ["article"] = s.Text }, T("артикул", "артикул", "article", "ürün kodu", "artikul"), who, ct).ConfigureAwait(false),
+            // 2026-11-20 («в один товар и доп. штрихкоды»): вкусы/варианты накладной добавляются товару склада доп. штрихкодами с названием варианта (после закупки — шаг карточки).
+            "add_variants" => await InvoiceVariantWriter.AddAsync(s, who, ct).ConfigureAwait(false),
             // 2026-10-19: приход по накладной — только закупкой у поставщика (IsPurchaseStep), не ревизией прямо на склад.
             "receive" => new ProductActions.Result(false, "«" + s.Product.Title + "»: " + PurchaseOnlyText()),
             "create" => await CreateAsync(s, who, ct).ConfigureAwait(false),
@@ -736,6 +742,9 @@ public static class ProductActionPlan
                 PurchasePrice = s.Purchase,
                 Price = s.Price,
                 MarkupPercent = s.Purchase is > 0 && s.Price is { } pr ? Math.Round((pr / s.Purchase.Value - 1) * 100, 2) : null,
+                // 2026-11-20: объединённый новый товар (вкусы накладной) создаётся сразу с доп. штрихкодами и названием варианта.
+                AlternateBarcodes = InvoiceVariantPlan.ExtraCodes(s, s.Barcode) is { Count: > 0 } extras ? string.Join("\n", extras.Select(v => v.Barcode)) : null,
+                KnownAlternateBarcodeVariants = InvoiceVariantPlan.ExtraCodes(s, s.Barcode) is { Count: > 0 } extras2 ? extras2 : null,
             };
             await PosApp.CatalogApi.CreateProductAsync(request, ct).ConfigureAwait(false);
             ProductActions.RequestCatalogRefresh?.Invoke();

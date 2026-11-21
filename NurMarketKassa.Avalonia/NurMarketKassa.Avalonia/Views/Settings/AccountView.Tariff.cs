@@ -121,7 +121,7 @@ public partial class AccountView
             var owner = TopLevel.GetTopLevel(this) as Window;
             try
             {
-                await PosDialogHost.ShowAsync(new TariffCustomWindow(App.GetRequiredService<TariffApi>()), owner).ConfigureAwait(true);
+                await PosDialogHost.ShowAsync(new TariffCustomWindow(App.GetRequiredService<TariffApi>(), TariffGate.CurrentPlanName), owner).ConfigureAwait(true);
             }
             catch (Exception ex)
             {
@@ -131,11 +131,12 @@ public partial class AccountView
 
         return Card(
             Title(Tr.T("Тариф «Своё»", "«Өзүмдүкү» тарифи", "“Custom” plan", "«Özel» tarife", "«O'zimniki» tarifi")),
-            Soft(Tr.T("Выберите нужные функции поверх «Старта»: цены считает сервер. Заявку обработает менеджер и свяжется с вами.",
-                "«Старттын» үстүнөн керектүү функцияларды тандаңыз: баасын сервер эсептейт. Өтүнүчтү менеджер иштетип, сиз менен байланышат.",
-                "Pick the features you need on top of “Start”: the server calculates the prices. A manager will process the request and contact you.",
-                "«Start» üzerine ihtiyacınız olan özellikleri seçin: fiyatları sunucu hesaplar. Talebi bir yönetici işleyip sizinle iletişime geçer.",
-                "«Start» ustiga kerakli funksiyalarni tanlang: narxni server hisoblaydi. Arizani menejer ko'rib chiqib, siz bilan bog'lanadi.")),
+            // 2026-11-20: «поверх вашего тарифа» (было «поверх Старта»): конструктор нужен и на «Стандарте».
+            Soft(Tr.T("Выберите нужные функции поверх вашего тарифа: цены считает сервер. Заявку обработает менеджер и свяжется с вами.",
+                "Тарифиңиздин үстүнөн керектүү функцияларды тандаңыз: баасын сервер эсептейт. Өтүнүчтү менеджер иштетип, сиз менен байланышат.",
+                "Pick the features you need on top of your plan: the server calculates the prices. A manager will process the request and contact you.",
+                "Tarifenizin üzerine ihtiyacınız olan özellikleri seçin: fiyatları sunucu hesaplar. Talebi bir yönetici işleyip sizinle iletişime geçer.",
+                "Tarifingiz ustiga kerakli funksiyalarni tanlang: narxni server hisoblaydi. Arizani menejer ko'rib chiqib, siz bilan bog'lanadi.")),
             button);
     }
 }

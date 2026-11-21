@@ -160,7 +160,7 @@ public sealed class ImportSourceProfilesTests
     [Fact]
     public void EveryProfile_HowTo_And_Names_AreFilled()
     {
-        Assert.Equal(7, ImportSourceProfiles.All.Count); // 2026-11-19: Л-10 добавил седьмой профиль источника
+        Assert.Equal(8, ImportSourceProfiles.All.Count); // 2026-11-19: Л-10 добавил седьмой профиль источника; 2026-11-20: восьмой — CT MAX
         foreach (var p in ImportSourceProfiles.All)
         {
             Assert.False(string.IsNullOrWhiteSpace(p.HowToExport));

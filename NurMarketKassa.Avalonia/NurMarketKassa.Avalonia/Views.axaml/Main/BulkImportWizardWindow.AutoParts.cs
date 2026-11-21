@@ -19,8 +19,8 @@ public partial class BulkImportWizardWindow
     private readonly TextBlock _apInfo = new() { FontSize = 12.5, TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _apSummary = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap, FontWeight = FontWeight.SemiBold };
     private readonly WrapPanel _apNameWrap = new() { Orientation = Orientation.Horizontal };
-    private readonly CheckBox _apStockCheck = new() { MinHeight = 44, IsChecked = true };
     private readonly StackPanel _apPreviewRows = new() { Spacing = 2 };
+    private readonly StackPanel _apSkippedRows = new() { Spacing = 4 };
     private readonly Border _apPreviewBox = new() { IsVisible = false, MaxHeight = 220, CornerRadius = new CornerRadius(8), BorderThickness = new Thickness(1), Padding = new Thickness(8, 4) };
     private Button _apPreviewBtn = null!;
     private AutoPartsPrepared? _ap;
@@ -30,13 +30,6 @@ public partial class BulkImportWizardWindow
     /// <summary>Панель профиля — в «Столбцы и параметры» (собирается один раз).</summary>
     private Control BuildAutoPartsBox()
     {
-        _apStockCheck.Content = new TextBlock
-        {
-            Text = T("Обновлять остаток у существующих товаров", "Бар товарлардын калдыгын жаңыртуу", "Update the stock of existing products",
-                "Mevcut ürünlerin stokunu güncelle", "Mavjud mahsulotlar qoldig'ini yangilash"),
-            TextWrapping = TextWrapping.Wrap,
-        };
-        _apStockCheck.IsCheckedChanged += (_, _) => ScheduleRecheck();
         _apPreviewBtn = SectionCards.Secondary(T("Предпросмотр: первые 200 строк", "Алдын ала көрүү: алгачкы 200 сап", "Preview: first 200 rows",
             "Önizleme: ilk 200 satır", "Oldindan ko'rish: dastlabki 200 qator"));
         _apPreviewBtn.MinHeight = 44;
@@ -66,7 +59,7 @@ public partial class BulkImportWizardWindow
             Spacing = 4,
             Children =
             {
-                Caption(AutoPartsPriceImport.ProfileName), _apInfo, nameCaption, _apNameWrap, _apStockCheck, _apSummary, _apPreviewBtn, _apPreviewBox,
+                Caption(AutoPartsPriceImport.ProfileName), _apInfo, nameCaption, _apNameWrap, _apPreviewBtn, _apPreviewBox,
             },
         };
         return _apBox;
@@ -85,10 +78,7 @@ public partial class BulkImportWizardWindow
         BuildApNameChoices();
         _mapWrap.IsVisible = false;
         _apBox.IsVisible = true;
-        _loadingFile = true;
-        _cardsCheck.IsChecked = true; // прайс — «карточки и цены»; остаток пишет сам профиль (создание и, по галочке, существующие)
-        _cardsCheck.IsEnabled = false;
-        _loadingFile = false;
+        SetCardsMode(false); // 2026-11-20: прайс — «карточки и цены» (ReadSettings: _apOn); по умолчанию остаток обновляется (переключатель шага «Проверьте»)
     }
 
     private void DisableAutoParts()
@@ -97,7 +87,6 @@ public partial class BulkImportWizardWindow
         _ap = null;
         _mapWrap.IsVisible = true;
         _apBox.IsVisible = false;
-        _cardsCheck.IsEnabled = true;
     }
 
     /// <summary>После чтения файла: в сфере «Автозапчасти» прайс с номером детали и ценой подхватывается сам; иначе профиль выключен.</summary>
@@ -133,7 +122,7 @@ public partial class BulkImportWizardWindow
         }
     }
 
-    private AutoPartsPriceOptions ReadApOptions() => new() { NameColumns = _apNameCols, UpdateStock = _apStockCheck.IsChecked == true };
+    private AutoPartsPriceOptions ReadApOptions() => new() { NameColumns = _apNameCols, UpdateStock = _modePrice.IsChecked != true };
 
     /// <summary>Подготовить прайс и показать итог и предпросмотр; возвращает таблицу и сопоставление для обычного плана.</summary>
     private async Task<(ProductFileTable Table, ProductImportMapping Mapping)> PrepareAutoPartsAsync(System.Threading.CancellationToken token)
@@ -156,17 +145,25 @@ public partial class BulkImportWizardWindow
             $"Detal raqami: {Col(PartColumn.PartNo)} · brend: {Col(PartColumn.Brand)} · narx: {Col(PartColumn.Sale)} · xarid: {Col(PartColumn.Purchase)} · qoldiq: {Col(PartColumn.Stock)}. Sarlavha qatori: {(_table?.HeaderIndex ?? 0) + 1}.");
         _apSummary.Text = p.SummaryText;
         _apPreviewRows.Children.Clear();
+        _apSkippedRows.Children.Clear();
         foreach (var r in p.Rows.Take(AutoPartsPriceImport.PreviewRows))
         {
             var skipped = r.Status == AutoPartsRowStatus.Skipped;
             var text = $"{r.FileRow}: {(r.Name.Length > 0 ? r.Name : "—")}"
                        + (r.PartNo.Length > 0 ? " · №" + r.PartNo : "") + (r.Brand.Length > 0 ? " · " + r.Brand : "")
                        + (skipped ? " — " + T("пропущено", "өткөрүлдү", "skipped", "atlandı", "o'tkazildi") + ": " + r.SkipReason
-                           : (r.Stock is { } s ? " · " + T("ост.", "калд.", "stock", "stok", "qoldiq") + " " + s.ToString("0.###") : "") + " · " + r.Sale.ToString("0.###")
+                           : (r.Stock is { } s ? " · " + T("ост.", "калд.", "stock", "stok", "qoldiq") + " " + MoneyText.Weight(s) : "") + " · " + MoneyText.Weight(r.Sale)
                              + (r.StockNote.Length > 0 ? " · " + r.StockNote : ""));
             var tb = new TextBlock { Text = text, FontSize = 12, TextWrapping = TextWrapping.Wrap };
             tb.Bind(TextBlock.ForegroundProperty, tb.GetResourceObservable(skipped ? "BrushTextSoft" : "BrushText"));
             _apPreviewRows.Children.Add(tb);
+            if (skipped)
+            {
+                // 2026-11-20: тот же текст — в список «Показать только пропущенные» шага «Проверьте» (группы и строки без цены в таблицу плана не попадают)
+                var tb2 = new TextBlock { Text = text, FontSize = 12.5, TextWrapping = TextWrapping.Wrap };
+                tb2.Bind(TextBlock.ForegroundProperty, tb2.GetResourceObservable("BrushTextSoft"));
+                _apSkippedRows.Children.Add(tb2);
+            }
         }
     }
 }

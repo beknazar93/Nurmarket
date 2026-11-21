@@ -223,6 +223,7 @@ public sealed class PurchaseReceivingService
         var sendKey = st.BeginSend();
         body["idempotency_key"] = sendKey;
         await AddDocumentFieldsAsync(body, sendKey, st, ct).ConfigureAwait(false);
+        AppendVariantNotes(body, ready); // 2026-11-20
         // 2026-11-14 (ответ Умара 13.11, П0-2): приход, принятый заметно раньше отправки (без связи), уходит с "offline": true и "received_at" — сервер ставит эту дату в приход,
         // историю закупок, расход из кассы и срок долга поставщику. Время приёма у задачи фиксировано (CreatedAt + поправка часов), поэтому повтор уходит с тем же телом.
         var offlineStamp = ReceivedAtStamp(st);
@@ -304,6 +305,21 @@ public sealed class PurchaseReceivingService
         {
             PosLogger.Log($"PRICE_SYNC: ответ прихода не разобран ({ex.Message}).", "WARNING");
         }
+    }
+
+    /// <summary>2026-11-20 («в один товар и доп. штрихкоды»): сервер остаток по доп. штрихкодам не делит (поле alternate_barcodes — только код, название и «штук в упаковке»), поэтому у объединённого
+    /// товара накладной (вкусы) приход идёт одной строкой на сумму вариантов, а разбивка — «Асу: Клубничный 10, Лимонный 5» — дописывается в комментарий документа прихода. Тело то же при повторе (строки те же).</summary>
+    private static void AppendVariantNotes(Dictionary<string, object?> body, IEnumerable<ReceivingLineVm> lines)
+    {
+        var notes = lines.Select(l => l.VariantNote).Where(n => !string.IsNullOrWhiteSpace(n)).Select(n => n.Trim()).ToList();
+        if (notes.Count == 0)
+            return;
+        var text = Tr.T("по вкусам: ", "даамдар боюнча: ", "by flavor: ", "tatlara göre: ", "ta'mlar bo'yicha: ") + string.Join("; ", notes);
+        // 2026-11-21 (ответ Умара): comment прихода сохраняется на сервере, до 2000 знаков — разбивка вкусов режется на 1500 (было 600), весь комментарий — на 2000.
+        if (text.Length > 1500)
+            text = text[..1500] + "…";
+        var comment = body.TryGetValue("comment", out var old) && old is string s && s.Length > 0 ? s + "; " + text : text;
+        body["comment"] = comment.Length > 2000 ? comment[..1999] + "…" : comment;
     }
 
     /// <summary>2026-10-30 (нумерация закупок): номер документа и номер накладной поставщика уходят с приходом в служебном комментарии
@@ -1124,6 +1140,9 @@ public sealed class PurchaseReceivingService
                     {
                         Name = line.ProductName.Trim(),
                         Barcode = line.Barcode,
+                        // 2026-11-20 («при создании накладных штрихкоды тоже добавь»): доп. штрихкоды строки (название варианта и «штук в упаковке») создаются вместе с товаром.
+                        AlternateBarcodes = line.ExtraBarcodes.Count > 0 ? string.Join("\n", line.ExtraBarcodes.Select(v => v.Barcode.Trim())) : null,
+                        KnownAlternateBarcodeVariants = line.ExtraBarcodes.Count > 0 ? line.ExtraBarcodes.ToList() : null,
                         Unit = line.Unit,
                         // 2026-10-19: накладная — категория и весовой товар (у «Приёмки» пусто/false, как раньше).
                         CategoryName = line.CategoryName,
@@ -1156,6 +1175,18 @@ public sealed class PurchaseReceivingService
                 }
 
                 line.ProductId = id;
+                // 2026-11-20: товар из общей базы создаётся по штрихкоду без тела — доп. штрихкоды строки дописываем отдельным PATCH (не получилось — только журнал, приход не страдает).
+                if (line.Source == ReceivingSource.GlobalBase && line.ExtraBarcodes.Count > 0)
+                {
+                    try
+                    {
+                        await Api.PatchProductFieldsAsync(id, new Dictionary<string, object?> { ["alternate_barcodes"] = InvoiceBarcodeRules.ToServerList(line.ExtraBarcodes) }, ct).ConfigureAwait(false);
+                    }
+                    catch (Exception ex) when (Soft(ex))
+                    {
+                        PosLogger.Log($"Приёмка: доп. штрихкоды товара из общей базы не записаны ({ex.Message}).", "WARNING");
+                    }
+                }
                 if (line.Source != ReceivingSource.GlobalBase)
                     lock (createdNow)
                         createdNow.Add(line);
@@ -1274,6 +1305,7 @@ public sealed class PurchaseReceivingService
                 body["idempotency_key"] = _pendingReceiptKey.Get(signature);
                 receiptKey = body["idempotency_key"] as string;
                 await AddDocumentFieldsAsync(body, receiptKey!, null, ct).ConfigureAwait(false);
+                AppendVariantNotes(body, ready); // 2026-11-20
             }
 
             // 2026-10-22 (закупки как в вебе): приход пишет в товар цену закупки, а сервер у товара с наценкой (markup_percent) может

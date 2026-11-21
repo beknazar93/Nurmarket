@@ -459,6 +459,8 @@ public sealed partial class PurchasesWindow
         };
         // 2026-10-24, ТЗ «Склад» (Б2): скан во время правки ячейки — как в Склад → Приёмка: правка остаётся как была, штрихкод идёт в приём.
         page.AddHandler(InputElement.KeyDownEvent, (_, e) => ReceiveFieldScanKey(s, e), RoutingStrategies.Tunnel);
+        // 2026-11-20: поле «штрихкод» строки (InvoiceBarcodeCell) принимает только цифры (ввод, скан, вставка), 4–14 знаков.
+        NurMarketKassa.AvaloniaHost.Views.Controls.BarcodeInput.Attach(page, tb => Equals(tb.Tag, InvoiceBarcodeCell.BoxTag));
         ReceiveKeysAttach(s, page, footer, toolsBox); // 2026-11-11 (аудит «Закупки», БП-5/6/8): клавиши, «Итого приход», «Вернуть», Tab по кнопкам
         ShowSub(page);
 
@@ -570,10 +572,13 @@ public sealed partial class PurchasesWindow
             await ReceiveAskRepeatAsync(s, code, again).ConfigureAwait(true);
             return;
         }
-        var local = ProductCodeLookup.FindLocal(code, allowWeightLabel: false)?.Product;
+        // 2026-11-21 (ответ Умара): штрихкод упаковки сервера (sale_units[].barcode) — товар находится по нему же, количество строки — factor базовых единиц (InvoiceBarcodeRules.PackFor).
+        var local = ProductCodeLookup.FindLocal(code, allowWeightLabel: false)?.Product
+                    ?? (ProductSaleUnits.FindByBarcode(code) is { } saleUnitHit ? ProductActions.Find(saleUnitHit.ProductId) : null);
         if (local is not null)
         {
             PurchaseReceivingService.LogScan(code, "база кассы", $"товар {local.Id}"); // 2026-11-11
+            _receiveScannedCode = code; // 2026-11-20: код упаковки — N штук (читает ReceiveAddTile)
             ReceiveAddTile(local, 1, byScan: true);
             s.RepeatGuard.Counted(code);
             s.Scan.Text = "";
@@ -662,6 +667,7 @@ public sealed partial class PurchasesWindow
             if (server.Hit?.Product is { } found)
             {
                 PurchaseReceivingService.LogScan(code, "сервер (поиск кассы)", $"товар {found.Id}"); // 2026-11-11
+                _receiveScannedCode = code; // 2026-11-20
                 ReceiveAddTile(found, 1, byScan: true);
                 s.RepeatGuard.Counted(code);
                 s.Scan.Text = "";
@@ -800,18 +806,30 @@ public sealed partial class PurchasesWindow
         s.SuggestBox.IsVisible = matches.Count > 0;
     }
 
+    /// <summary>2026-11-20: код, которым только что нашли товар сканом (для «пачки»); читается и сбрасывается в ReceiveAddTile (сигнатура метода прежняя).</summary>
+    private string? _receiveScannedCode;
+
     private void ReceiveAddTile(CatalogProductTileVm tile, double qty, bool fromPanel = false, bool byScan = false)
     {
+        var scannedCode = _receiveScannedCode;
+        _receiveScannedCode = null;
         if (_receive is not { } s)
             return;
         s.RepeatGuard.Reset(); // 2026-11-09: товар добавлен не сканом кода (название, подсказка, панель поставщика) — отсчёт «тот же код подряд» заново; скан кода после этого вызывает Counted
         var line = s.Lines.FirstOrDefault(x => string.Equals(x.ProductId, tile.Id, StringComparison.OrdinalIgnoreCase));
+        // 2026-11-20 («приход пачкой»): скан кода УПАКОВКИ (доп. штрихкод с «штук в упаковке» N) — количество строки +N штук с подписью «пачка = N шт.». В режиме «упаковками» (колонка — упаковки) скан
+        // остаётся +1 упаковка. Продажа по скану упаковки (PackScanRules) не затрагивается.
+        var pack = byScan && scannedCode is not null && (line is null || !line.PackMode) ? InvoiceBarcodeRules.PackFor(tile, scannedCode) : null;
+        if (pack is not null)
+            qty = pack.Quantity;
         if (line is not null && byScan)
             ReceivingRepeatScan.AddTo(line, qty); // 2026-11-11 (Б-4, как «Склад → Приёмка»): скан кода к строке в режиме упаковок — +1 упаковка (в единицах колонки «Принимаем»), а не +1 штука
         else if (line is not null)
             line.Quantity += qty;
         else
             line = PurchaseReceivingService.FromTile(tile, qty);
+        if (pack is not null && !line.PackMode)
+            line.ScanPackNote = pack.Note;
         ReceiveShowTop(s, line, fromPanel);
     }
 

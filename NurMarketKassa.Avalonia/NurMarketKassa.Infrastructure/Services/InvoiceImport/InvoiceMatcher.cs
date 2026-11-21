@@ -208,6 +208,12 @@ public sealed class InvoiceCatalogIndex
     {
         if (item.Barcode.Length > 0 && FindByBarcode(item.Barcode) is { } byBarcode)
             return new InvoiceMatch { Kind = InvoiceMatchKind.Barcode, Tile = byBarcode, Score = 1 };
+        // 2026-11-20: основного кода строки в каталоге нет, но у строки есть другой код (упаковка, второй тег штрихкода) — товар найден по нему.
+        foreach (var extra in item.ExtraBarcodes)
+        {
+            if (FindByBarcode(extra) is { } byExtra)
+                return new InvoiceMatch { Kind = InvoiceMatchKind.Barcode, Tile = byExtra, Score = 1 };
+        }
 
         var tokens = Tokens(item.Name);
         if (ArticleKey(item.Article) is { Length: >= 3 } ak && _articles.TryGetValue(ak, out var byArticle))

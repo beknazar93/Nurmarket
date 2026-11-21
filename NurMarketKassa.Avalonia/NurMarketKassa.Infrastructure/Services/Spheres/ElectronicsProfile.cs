@@ -32,11 +32,11 @@ public static class ElectronicsProfile
         Id = Id,
         BaseBehavior = MarketSpheres.Grocery,
         Title = new L5(
-            "Электроника и техника",
-            "Электроника жана техника",
-            "Electronics and appliances",
-            "Elektronik ve teknoloji",
-            "Elektronika va texnika"),
+            "Магазин электроники", // 2026-11-20: название плитки по решению владельца (техника — в описании)
+            "Электроника дүкөнү",
+            "Electronics store",
+            "Elektronik mağazası",
+            "Elektronika do'koni"),
         ShortTitle = new L5("Электроника", "Электроника", "Electronics", "Elektronik", "Elektronika"),
         Description = new L5(
             "Телефоны, ноутбуки, бытовая техника, аксессуары. Серийные номера и IMEI, гарантия, рассрочка",

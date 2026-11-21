@@ -292,6 +292,8 @@ public partial class MainWindow : Window
         // 2026-11-13 (Н-1): «Мастер первого запуска» и «Учебная продажа» в меню «Помощь» (MainWindow.Training.cs).
         _viewModel.SideMenu.NavigateFirstRunWizardAction ??= NavigateFirstRunWizard;
         _viewModel.SideMenu.NavigateTrainingSaleAction ??= NavigateTrainingSale;
+        // 2026-11-20 (владелец: «где импорт из других программ?»): «Перенос данных из другой программы» в меню ☰ → «Помощь» (тот же мастер, что «Склад → Массовая загрузка»).
+        _viewModel.SideMenu.NavigateTransferDataAction ??= () => BulkImportWizardWindow.OpenTransfer(this);
         // 2026-10-17, редизайн (этап 4): журнал «Удалено из чека» — владельцу и администратору (как «Настройки»).
         _viewModel.SideMenu.NavigateCartRemovalsAction ??= () =>
         {

@@ -139,7 +139,23 @@ namespace NurMarketKassa.AvaloniaHost.Views
             foreach (var (radio, language) in LanguageRadios())
                 radio.IsVisible = LanguagePackGate.IsAvailable(language);
             _screenView.LanguagePackHint.IsVisible = !LanguagePackGate.IsUnlocked;
+            RefreshOwnerScalesTab();
         });
+
+        /// <summary>2026-11-20, владелец: «весы в настройки засунь» — в программе владельца «Весы» — страница Настроек (пункт меню ☰ убран); видна, как был виден пункт:
+        /// тариф (TariffGate.CanUseScales) и «Разделы меню» (ключ scales); право «Настройки» нужно для самого окна. В кассе вкладка всегда.</summary>
+        private void RefreshOwnerScalesTab()
+        {
+            if (!NurMarketKassa.Services.AppMode.IsOwner)
+                return;
+            var show = TariffGate.CanUseScales && !SectionVisibility.IsHidden("scales");
+            if (NavScales.IsVisible == show)
+                return;
+            NavScales.IsVisible = show;
+            if (!show && NavScales.Classes.Contains("nav-active"))
+                NavigateTo(2);
+            Dispatcher.UIThread.Post(UpdateNavColumns, DispatcherPriority.Loaded);
+        }
 
         /// <summary>Радиокнопка ↔ язык, в обе стороны — единственное место, которое надо
         /// расширить, если появится ещё один язык интерфейса.</summary>
@@ -213,6 +229,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 this, App.GetRequiredService<AvaloniaCustomerDisplayService>()));
             WireChildEvents();
             _operationsView.LoadBankQrSettings();
+            // 2026-11-20: вкладка «ИИ» создаётся сразу — карточки ИИ снимаются с «Операций» до первого показа (раньше висели там, пока не откроешь «ИИ»).
+            _aiView = new AiSettingsView(_operationsView);
+            _operationsView.OpenAiTab = () => NavigateTo(10);
 
             _navButtons = new[] { NavScales, NavPrint, NavScreen, NavMonitor, NavUpdates, NavOperations, NavCustomization, NavAccount, NavEmployees, NavKeys, NavAi };
             // 2026-11-01 («дизайн верхних кнопок»): стрелки прокрутки ряда вкладок — подсказка и имя для диктора на 5 языках.
@@ -233,7 +252,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
             // В кассе всё как было.
             if (NurMarketKassa.Services.AppMode.IsOwner)
             {
-                NavScales.IsVisible = false;
+                // 2026-11-20, владелец: «весы в настройки засунь» — «Весы» здесь страница Настроек (вкладки «Весы с этикетками» и «Штрих-код»), пункт меню ☰ убран.
+                // OwnerSectionMode — до первого показа (RefreshPluCardVisibility по Loaded); «Весы на кассе» (COM) и «Табло цены» остаются на ПК кассы.
+                _scaleView.OwnerSectionMode = true;
+                NavScales.IsVisible = TariffGate.CanUseScales && !SectionVisibility.IsHidden("scales");
                 // 2026-11-11, запрос владельца «настройки печати тоже в владельца добавь»: вкладка «Печать» видна и в программе владельца
                 // (принтер этикеток/ценников/накладных ЭТОЙ программы; настройки принтера чеков кассы задаются на ПК кассы — подпись сверху).
                 NavMonitor.IsVisible = false;
@@ -556,6 +578,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 "Rental late penalty per day, som — filled into \"New rental\" and printed on the receipt",
                 "Kiralama gecikme cezası (günlük, som) — \"Yeni kiralama\"ya girilir ve fişe yazılır",
                 "Prokatni kechiktirgan har sutka uchun jarima, so'm — «Yangi prokat»ga qo'yiladi va chekda chiqadi");
+            // 2026-11-20: поле штрафа за прокат — только там, где прокат включён (строймаркет, модуль из Маркетплейса, уже есть данные).
+            _operationsView.RentalPenaltyLabel.IsVisible = _operationsView.RentalPenaltyBox.IsVisible = MarketSpheres.HasRentals;
             // 2026-10-29: «Макс. долг без связи» — предел долга на клиента, сом. 0 — по лимиту клиента с сервера; лимита нет нигде — касса просит подтверждение кассира.
             _operationsView.OfflineDebtMaxLabel.Text = Tr.T("Макс. долг без связи на клиента, сом — до этой суммы касса без интернета оформляет «в долг». 0 — по лимиту клиента; лимита нет — касса спросит подтверждение кассира.",
                 "Байланышсыз кардарга макс. карыз, сом — ушул сумманын чегинде касса интернетсиз «карызга» жазат. 0 — кардардын лимити боюнча; лимит жок болсо — касса кассирден ырастоо сурайт.",
@@ -662,13 +686,13 @@ namespace NurMarketKassa.AvaloniaHost.Views
             if (!NurMarketKassa.Services.AppMode.IsOwner)
                 return;
             Title = Tr.T("Настройки", "Жөндөөлөр", "Settings", "Ayarlar", "Sozlamalar");
-            // 2026-11-11: «Печать» теперь и здесь; весы с этикетками — раздел «Товары → Весы». Принтер чеков кассы и COM-весы — на ПК кассы.
+            // 2026-11-11: «Печать» теперь и здесь. 2026-11-20: и «Весы» (этикеточные весы и штрих-код) — вкладка Настроек, пунктов «Печать» и «Весы» в меню ☰ нет. Принтер чеков кассы и COM-весы — на ПК кассы.
             OwnerHardwareHint.Text = Tr.T(
-                "Вкладка «Печать» меняет настройки печати этой программы (этикетки, ценники, накладные). Принтер чеков кассы, весы по COM и экран покупателя задаются на ПК кассы.",
-                "«Басып чыгаруу» өтмөгү ушул программанын басып чыгаруу жөндөөлөрүн өзгөртөт (этикеткалар, баа жазгычтар, накладныйлар). Кассанын чек принтери, COM тараза жана сатып алуучунун экраны кассанын компьютеринде коюлат.",
-                "The “Print” tab changes this program's print settings (labels, price tags, invoices). The till's receipt printer, COM scales and customer display are set on the till PC.",
-                "«Yazdır» sekmesi bu programın yazdırma ayarlarını değiştirir (etiket, fiyat etiketi, fatura). Kasanın fiş yazıcısı, COM tartı ve müşteri ekranı kasa bilgisayarında ayarlanır.",
-                "«Chop etish» varag'i ushbu dasturning chop etish sozlamalarini o'zgartiradi (yorliq, narx teglari, nakladnoylar). Kassaning chek printeri, COM tarozi va xaridor ekrani kassa kompyuterida sozlanadi.");
+                "Вкладки «Печать» и «Весы» меняют настройки этой программы (этикетки, ценники, накладные; отправка товаров на весы с этикетками). Принтер чеков кассы, весы по COM и экран покупателя задаются на ПК кассы.",
+                "«Басып чыгаруу» жана «Тараза» өтмөктөрү ушул программанын жөндөөлөрүн өзгөртөт (этикеткалар, баа жазгычтар, накладныйлар; этикеткалуу таразага товар жөнөтүү). Кассанын чек принтери, COM тараза жана сатып алуучунун экраны кассанын компьютеринде коюлат.",
+                "The “Print” and “Scales” tabs change this program's settings (labels, price tags, invoices; sending goods to label scales). The till's receipt printer, COM scales and customer display are set on the till PC.",
+                "«Yazdır» ve «Tartılar» sekmeleri bu programın ayarlarını değiştirir (etiket, fiyat etiketi, fatura; ürünleri etiketli tartıya gönderme). Kasanın fiş yazıcısı, COM tartı ve müşteri ekranı kasa bilgisayarında ayarlanır.",
+                "«Chop etish» va «Tarozilar» varaqlari ushbu dasturning sozlamalarini o'zgartiradi (yorliq, narx teglari, nakladnoylar; tovarlarni yorliqli tarozilarga yuborish). Kassaning chek printeri, COM tarozi va xaridor ekrani kassa kompyuterida sozlanadi.");
         }
 
         /// <summary>2026-11-01 («дизайн верхних кнопок»): вкладки настроек — ВСЕГДА один ровный ряд (раньше при нехватке ширины — два неровных
@@ -876,6 +900,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
         {
             var (index, button) = tab switch
             {
+                "scales" => (0, NavScales), // 2026-11-20: «Весы» — страница Настроек и в программе владельца
                 "print" => (1, NavPrint), // 2026-11-11: «Печать» в программе владельца
                 "screen" => (2, NavScreen),
                 "updates" => (4, NavUpdates),
@@ -963,7 +988,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 7 => _accountView,
                 8 => _employeesView,
                 9 => _keysView,
-                10 => _aiView ??= new AiSettingsView(_operationsView),
+                10 => _aiView ??= new AiSettingsView(_operationsView), // 2026-11-20: уже создан в конструкторе; ?? — запасной путь
                 _ => _scaleView
             };
 

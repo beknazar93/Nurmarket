@@ -15,6 +15,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using NurMarketKassa.AvaloniaHost.Services; // 2026-10-29: PosDialogs (без этого сборка падала)
 using NurMarketKassa.AvaloniaHost.Views.Controls;
 using NurMarketKassa.AvaloniaHost.Views.Dialogs;
@@ -96,7 +97,7 @@ public sealed partial class BulkImportWizardWindow : Window
     /// <summary>Стенд проверки: не спрашивать подтверждения «цена продажи изменится».</summary>
     public static bool SkipConfirmations { get; set; }
 
-    private enum Filter { All, Receipt, New, Error, Warning, Merged }
+    private enum Filter { All, Receipt, New, Error, Warning, Merged, Skipped }
 
     private ProductFileTable? _table;
     private ProductImportMapping _mapping = new();
@@ -112,19 +113,23 @@ public sealed partial class BulkImportWizardWindow : Window
     private readonly Button _pickFile, _paste, _tplXlsx, _tplCsv, _oldImport;
     private readonly TextBlock _fileInfo = new() { FontSize = 12.5, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock _fileWarn = new() { FontSize = 12.5, TextWrapping = TextWrapping.Wrap, IsVisible = false };
-    private readonly Border _mapPanel = new() { IsVisible = false, CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 8), BorderThickness = new Thickness(1) };
+    private readonly Border _mapPanel = new() { CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 8), BorderThickness = new Thickness(1) };
     private readonly WrapPanel _mapWrap = new() { Orientation = Orientation.Horizontal };
     private readonly Dictionary<ProductImportField, ColumnChoice> _choices = new();
-    private readonly TextBox _markupBox = new() { MinHeight = 44, Width = 90, MaxLength = 6, VerticalContentAlignment = VerticalAlignment.Center };
+    private readonly TextBox _markupBox = new() { MinHeight = 44, Width = 90, MaxLength = 6, HorizontalAlignment = HorizontalAlignment.Left, VerticalContentAlignment = VerticalAlignment.Center };
     private readonly TextBlock _markupHint = new() { FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
     private readonly CheckBox _defUnitCheck = new() { MinHeight = 44 };
-    private readonly UnitPickerBox _defUnit = new() { Width = 190, SecondaryClass = "modal-secondary", PrimaryClass = "modal-primary" };
+    private readonly UnitPickerBox _defUnit = new() { Width = 190, HorizontalAlignment = HorizontalAlignment.Left, SecondaryClass = "modal-secondary", PrimaryClass = "modal-primary" };
     private readonly RadioButton _dupSum = new() { GroupName = "BulkWizardDup", IsChecked = true, MinHeight = 44 };
     private readonly RadioButton _dupFirst = new() { GroupName = "BulkWizardDup", MinHeight = 44 };
     private readonly Button _checkBtn;
     // 2026-10-30: режим «только карточки и цены», объединение одинаковых названий, быстрый поиск, группы ошибок, пример файла.
-    private readonly CheckBox _cardsCheck = new() { MinHeight = 44 };
     private readonly CheckBox _mergeNameCheck = new() { MinHeight = 44 };
+    // 2026-11-20: доп. штрихкоды товарам склада (по умолчанию да) и «плохой доп. код пропустить только его»
+    private readonly CheckBox _altExistingCheck = new() { MinHeight = 44, IsChecked = true };
+    private readonly CheckBox _altSkipBadCheck = new() { MinHeight = 44 };
+    // 2026-11-20 (CT MAX): служебным кодам («*10», без цифр) — внутренний штрихкод NurCRM; виден только у источника с такими кодами
+    private readonly CheckBox _internalCodeCheck = new() { MinHeight = 44, IsChecked = true, IsVisible = false };
     private readonly TextBox _search = new() { MinHeight = 44, Width = 220, VerticalContentAlignment = VerticalAlignment.Center };
     private readonly WrapPanel _errGroups = new() { Orientation = Orientation.Horizontal, IsVisible = false };
     private readonly Border _hintPanel = new() { CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 8), BorderThickness = new Thickness(1) };
@@ -147,7 +152,7 @@ public sealed partial class BulkImportWizardWindow : Window
     private Button _pauseBtn = null!; // 2026-10-30: «Пауза» / «Продолжить» для идущей загрузки карточек
     private readonly BulkLoadControl _loadControl = new();
     private CancellationTokenSource? _loadCts;
-    private StackPanel? _top;
+    private Grid? _top;
     // 2026-10-30 (приёмка 1.17.65): журнал загрузки этого файла (повтор без дублей, «Продолжить загрузку» после обрыва).
     private BulkImportJournal? _journal;
     private int _journalDone;
@@ -198,15 +203,6 @@ public sealed partial class BulkImportWizardWindow : Window
             panel.Bind(Border.BorderBrushProperty, panel.GetResourceObservable("BrushBorder"));
         }
 
-        // ---- шаг 1: файл
-        var step1 = new WrapPanel { Orientation = Orientation.Horizontal };
-        foreach (var c in new Control[] { _pickFile, _paste, _tplXlsx, _tplCsv, _hintToggle, _demoBtn, _clientsBtn, _oldImport })
-        {
-            c.Margin = new Thickness(0, 0, 8, 6);
-            step1.Children.Add(c);
-        }
-        _fileInfo.Margin = new Thickness(0, 0, 8, 6);
-        step1.Children.Add(_fileInfo); // сведения о файле — в той же строке, чтобы таблице осталось больше места
 
         // ---- шаг 2: столбцы и параметры
         var mapTitle = Caption(T("Какой столбец файла что означает", "Файлдын кайсы мамычасы эмнени билдирет", "Which file column means what", "Dosyanın hangi sütunu ne anlama geliyor", "Fayl ustuni nimani bildiradi"));
@@ -219,12 +215,6 @@ public sealed partial class BulkImportWizardWindow : Window
         _checkBtn.MinHeight = 44;
         // 2026-10-30: кнопка «Проверить» — проверка и сворачивание панели столбцов (после смены столбцов/параметров проверка идёт сама, без сворачивания).
         _checkBtn.Click += async (_, _) => await GuardAsync(() => CheckAsync(collapse: true), "проверка").ConfigureAwait(true);
-        _cardsCheck.Content = T("Только карточки и цены (без прихода)", "Карточкалар жана баалар гана (кирешесиз)", "Cards and prices only (no receipt)", "Yalnızca kart ve fiyatlar (giriş yok)", "Faqat kartochkalar va narxlar (kirimsiz)");
-        ToolTip.SetTip(_cardsCheck, T("Остаток не меняется: новые товары создаются с нулевым остатком, у товаров склада обновляются цены и доп. штрихкоды.",
-            "Калдык өзгөрбөйт: жаңы товарлар нөл калдык менен түзүлөт, кампадагы товарларда баалар жана кошумча штрих-коддор жаңырат.",
-            "The stock does not change: new products are created with zero stock, prices and extra barcodes of stock products are updated.",
-            "Stok değişmez: yeni ürünler sıfır stokla oluşturulur, depo ürünlerinde fiyatlar ve ek barkodlar güncellenir.",
-            "Qoldiq o'zgarmaydi: yangi mahsulotlar nol qoldiq bilan yaratiladi, ombor mahsulotlarida narxlar va qo'shimcha shtrix-kodlar yangilanadi."));
         _mergeNameCheck.Content = T("Одинаковое название, разные штрихкоды — один товар (доп. штрихкоды)", "Аталышы бирдей, штрих-коддору ар түрдүү — бир товар (кошумча штрих-коддор)",
             "Same name, different barcodes — one product (extra barcodes)", "Aynı ad, farklı barkodlar — tek ürün (ek barkodlar)", "Nomi bir xil, shtrix-kodlar boshqa — bitta mahsulot (qo'shimcha shtrix-kodlar)");
         _search.Watermark = T("Поиск по таблице", "Таблицадан издөө", "Search the table", "Tabloda ara", "Jadvaldan qidirish");
@@ -233,29 +223,46 @@ public sealed partial class BulkImportWizardWindow : Window
             _searchText = (_search.Text ?? "").Trim();
             ScheduleRefilter();
         };
-        _cardsCheck.IsCheckedChanged += (_, _) => ScheduleRecheck();
+        _altExistingCheck.Content = T("Добавлять доп. штрихкоды товарам, которые уже есть на складе", "Кампада бар товарларга кошумча штрих-коддорду кошуу", "Add extra barcodes to products already in stock",
+            "Depoda olan ürünlere ek barkod ekle", "Omborda bor mahsulotlarga qo'shimcha shtrix-kodlarni qo'shish");
+        _altSkipBadCheck.Content = T("Плохой доп. код (занят, не цифры) — пропустить только его, товар загрузить", "Жараксыз кошумча код (бош эмес, цифра эмес) — ошону гана өткөрүп, товарды жүктөө",
+            "Bad extra code (taken, not digits) — skip only that code and load the product", "Kötü ek kod (dolu, rakam değil) — yalnızca onu atla, ürünü yükle",
+            "Yaroqsiz qo'shimcha kod (band, raqam emas) — faqat uni o'tkazib, mahsulotni yuklash");
+        ToolTip.SetTip(_altSkipBadCheck, T("Выключено: строка с плохим доп. кодом целиком получает ошибку. Включено: код пропускается с предупреждением, товар загружается.",
+            "Өчүрүлгөн: жараксыз кошумча коду бар сап толугу менен ката алат. Күйгүзүлгөн: код эскертүү менен өткөрүлөт, товар жүктөлөт.",
+            "Off: a row with a bad extra code gets an error as a whole. On: the code is skipped with a warning and the product is loaded.",
+            "Kapalı: kötü ek kodlu satır tümüyle hata alır. Açık: kod uyarıyla atlanır, ürün yüklenir.",
+            "O'chiq: yaroqsiz qo'shimcha kodli qator butunlay xato oladi. Yoqiq: kod ogohlantirish bilan o'tkaziladi, mahsulot yuklanadi."));
         _mergeNameCheck.IsCheckedChanged += (_, _) => ScheduleRecheck();
+        _internalCodeCheck.Content = T("Служебным кодам (*10, без цифр) дать внутренний штрихкод NurCRM; прежний код — в артикул", "Кызматтык коддорго (*10, цифрасыз) ички NurCRM штрих-кодун берүү; мурунку код — артикулга",
+            "Give service codes (*10, no digits) an internal NurCRM barcode; the old code goes to the article", "Hizmet kodlarına (*10, rakamsız) NurCRM iç barkodu ver; eski kod ürün koduna",
+            "Xizmat kodlariga (*10, raqamsiz) NurCRM ichki shtrix-kodini berish; eski kod artikulga");
+        _internalCodeCheck.IsCheckedChanged += (_, _) => ScheduleRecheck();
+        _altExistingCheck.IsCheckedChanged += (_, _) => ScheduleRecheck();
+        _altSkipBadCheck.IsCheckedChanged += (_, _) => ScheduleRecheck();
         _markupBox.TextChanged += (_, _) => ScheduleRecheck();
         _defUnitCheck.IsCheckedChanged += (_, _) => ScheduleRecheck();
         _dupSum.IsCheckedChanged += (_, _) => ScheduleRecheck();
 
-        var settings = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 6, 0, 0) };
+        var settings = new StackPanel { Spacing = 6, Margin = new Thickness(0, 6, 0, 0) }; // 2026-11-20: боковая полоса узкая — параметры столбиком, подпись над полем
         void AddSetting(Control c)
         {
-            c.Margin = new Thickness(0, 0, 18, 6);
+            c.Margin = new Thickness(0, 0, 0, 6);
             settings.Children.Add(c);
         }
         AddSetting(new StackPanel
         {
-            Orientation = Orientation.Horizontal, Spacing = 6,
+            Orientation = Orientation.Vertical, Spacing = 4,
             Children = { Caption(T("Наценка для строк без цены продажи, %", "Сатуу баасы жок саптарга кошумча, %", "Markup for rows without a sale price, %", "Satış fiyatı olmayan satırlar için kâr, %", "Sotuv narxi yo'q qatorlar uchun ustama, %")), _markupBox, _markupHint },
         });
-        AddSetting(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Children = { _defUnitCheck, _defUnit } });
-        AddSetting(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Children = { _dupSum, _dupFirst } });
-        AddSetting(_cardsCheck);
+        AddSetting(new StackPanel { Orientation = Orientation.Vertical, Spacing = 4, Children = { _defUnitCheck, _defUnit } });
+        AddSetting(new StackPanel { Orientation = Orientation.Vertical, Spacing = 0, Children = { _dupSum, _dupFirst } });
         AddSetting(_mergeNameCheck);
+        AddSetting(_altExistingCheck);
+        AddSetting(_altSkipBadCheck);
+        AddSetting(_internalCodeCheck);
         AddSetting(_checkBtn);
-        _mapPanel.Child = new StackPanel { Spacing = 4, Children = { _sourceRow, _sourceNote, mapTitle, _mapWrap, BuildAutoPartsBox(), _modeNote, settings } };
+        _mapPanel.Child = new StackPanel { Spacing = 4, Children = { mapTitle, _mapWrap, BuildAutoPartsBox(), settings } };
 
         // ---- шаг 3: итог, действия, таблица
         foreach (var (filter, _) in new[] { (Filter.All, 0), (Filter.Receipt, 0), (Filter.New, 0), (Filter.Error, 0), (Filter.Warning, 0), (Filter.Merged, 0) })
@@ -273,53 +280,24 @@ public sealed partial class BulkImportWizardWindow : Window
             _tileButtons[filter] = tile;
             _tiles.Children.Add(tile);
         }
-        // Столбцы/параметры и действия над отмеченными сворачиваются: после проверки на экране главное — таблица строк.
+        // 2026-11-20: «Дополнительно» (столбцы и параметры) и действия над отмеченными — в боковой полосе шага «Проверьте» (BuildSteps); таблицу не выдавливают.
         _mapToggle = SectionCards.Ghost("");
-        _opsToggle = SectionCards.Ghost("");
-        foreach (var toggle in new[] { _mapToggle, _opsToggle })
-        {
-            toggle.MinHeight = 44;
-            toggle.Margin = new Thickness(0, 0, 8, 6);
-            _tiles.Children.Add(toggle);
-        }
+        _opsToggle = SectionCards.Ghost(""); // в мастере не показывается (действия над отмеченными лежат в боковой полосе), поле оставлено для UpdateToggles
+        _mapToggle.MinHeight = 44;
         _mapToggle.Click += (_, _) =>
         {
-            _mapPanel.IsVisible = !_mapPanel.IsVisible;
-            UpdateToggles();
-            Dispatcher.UIThread.Post(Refit, DispatcherPriority.Loaded);
+            SetAdvanced(!_advCol.IsVisible);
+            _mapOpenedByUser = _advCol.IsVisible;
         };
-        _opsToggle.Click += (_, _) =>
-        {
-            _opsPanel.IsVisible = !_opsPanel.IsVisible;
-            UpdateToggles();
-            Dispatcher.UIThread.Post(Refit, DispatcherPriority.Loaded);
-        };
-        _search.Margin = new Thickness(0, 0, 8, 6);
-        _tiles.Children.Add(_search);
         BuildOpsPanel();
         BuildGrid();
         UpdateToggles();
-        _grid.Height = 330;
         _grid.IsVisible = false;
 
-        var root = new StackPanel { Spacing = 2 };
-        _top = root;
-        root.Children.Add(step1);
-        root.Children.Add(_fileWarn);
-        root.Children.Add(_hintPanel);
-        root.Children.Add(_mapPanel);
-        root.Children.Add(_status);
-        root.Children.Add(_bar);
-        root.Children.Add(_nextPanel); // 2026-11-13 (Л-10): «что дальше» после загрузки
-        root.Children.Add(_tiles);
-        root.Children.Add(_errGroups);
-        root.Children.Add(_opsPanel);
-        root.Children.Add(_grid);
 
         // ---- низ окна
         var close = SectionCards.Cancel(T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"));
         close.MinHeight = 44;
-        close.Click += (_, _) => Close();
         _errorsBtn = SectionCards.Secondary(T("Скачать строки с ошибками", "Катасы бар саптарды жүктөп алуу", "Download rows with errors", "Hatalı satırları indir", "Xatoli qatorlarni yuklab olish"));
         _errorsBtn.MinHeight = 44;
         _errorsBtn.IsEnabled = false;
@@ -356,12 +334,7 @@ public sealed partial class BulkImportWizardWindow : Window
         _loadBtn.IsEnabled = false;
         _loadBtn.Click += async (_, _) => await GuardAsync(LoadAsync, "загрузка").ConfigureAwait(true);
 
-        Content = SectionCards.Shell(Title ?? "", T("Excel, CSV или таблица из буфера. Количество из файла прибавляется к остатку (приход).",
-                "Excel, CSV же буфердеги таблица. Файлдагы сан калдыкка кошулат (кирешe).",
-                "Excel, CSV or a table from the clipboard. The quantity in the file is added to the stock (a receipt).",
-                "Excel, CSV veya panodaki tablo. Dosyadaki miktar stoğa eklenir (mal kabul).",
-                "Excel, CSV yoki buferdagi jadval. Fayldagi miqdor qoldiqqa qo'shiladi (kirim)."),
-            root, SectionCards.Buttons(close, _cancelBtn, _pauseBtn, _errorsBtn, _loadBtn), _summary);
+        BuildSteps(close); // 2026-11-20: страницы «Откуда / Файл / Проверьте / Загрузка», индикатор шагов и нижняя панель кнопок
 
         Closed += (_, _) =>
         {
@@ -462,19 +435,43 @@ public sealed partial class BulkImportWizardWindow : Window
     /// <summary>Строки таблицы окна (для стенда).</summary>
     public int GridRowCount => _rows.Count;
 
-    /// <summary>Подогнать высоту таблицы под окно (карточка не выше 85 % экрана); стенд зовёт после установки высоты.</summary>
+    /// <summary>2026-11-20: подогнать высоту рабочей области мастера под окно (карточка не выше доли экрана). Страницы — Grid со строкой «*»: таблице
+    /// шага «Проверьте» достаётся всё, что не заняли итог и переключатель; боковая полоса «Дополнительно» высоту не отнимает. Стенд зовёт после смены размера.</summary>
     public void Refit()
     {
-        if (Content is not ModalShell shell)
+        if (Content is not ModalShell shell || _top is null)
             return;
-        var cap = double.IsInfinity(shell.MaxHeight) ? 800 : shell.MaxHeight;
+        var cap = double.IsInfinity(shell.MaxHeight) ? 700 : shell.MaxHeight;
+        if (SizeToContent == SizeToContent.Manual && Bounds.Height > 0)
+            cap = Math.Min(cap, Bounds.Height - shell.Margin.Top - shell.Margin.Bottom); // окно задано размером (стенд, Android) — не выше него
+        _sourceSub.IsVisible = cap >= 640; // 2026-11-20: на низком экране подсказка шага «Откуда» уступает место плиткам
         if (cap < 640 && shell.Subtitle is not null)
             shell.Subtitle = null; // 1024×600: подзаголовок уступает место таблице
         UpdateLayout();
-        var topHeight = (_top?.Bounds.Height ?? 200) - (_grid.IsVisible ? _grid.Bounds.Height : 0);
-        var chrome = 180; // шапка окна, подвал с кнопками, поля тени
-        _grid.Height = Math.Clamp(cap - topHeight - chrome, 170, 900); // 2026-10-30: таблица занимает всё свободное место (панель столбцов свёрнута)
+        double chrome = 150; // шапка окна, подвал с кнопками, поля тени
+        if (_top.FindAncestorOfType<ScrollViewer>() is { Bounds.Height: > 0 } scroll && shell.Bounds.Height > 0 && _top.Bounds.Height > 0)
+        {
+            // поля вокруг содержимого видны только пока оно выше окна (Extent больше Viewport) — запоминаем
+            if (scroll.Extent.Height > scroll.Viewport.Height + 0.5)
+                _bodyExtra = Math.Max(0, scroll.Extent.Height - _top.Bounds.Height);
+            chrome = Math.Max(100, shell.Bounds.Height - scroll.Bounds.Height + _bodyExtra);
+        }
+        var h = Math.Max(300, cap - chrome);
+        if (double.IsNaN(_top.Height) || Math.Abs(_top.Height - h) > 0.5)
+        {
+            _top.Height = h;
+            UpdateLayout();
+        }
+        // не вышли ли за окно (появилась прокрутка) — убрать излишек
+        if (_top.FindAncestorOfType<ScrollViewer>() is { } sv && sv.Extent.Height > sv.Viewport.Height + 0.5)
+        {
+            _top.Height = Math.Max(300, _top.Height - (sv.Extent.Height - sv.Viewport.Height));
+            UpdateLayout();
+        }
     }
+
+    private double _bodyExtra;
+    private bool _mapOpenedByUser;
 
     // ------------------------------------------------------------------ тексты и мелочи
 
@@ -492,8 +489,9 @@ public sealed partial class BulkImportWizardWindow : Window
 
     private void UpdateToggles()
     {
-        _mapToggle.Content = (_mapPanel.IsVisible ? "▴ " : "▾ ") + T("Столбцы и параметры", "Мамычалар жана параметрлер", "Columns and options", "Sütunlar ve seçenekler", "Ustunlar va parametrlar");
-        _opsToggle.Content = (_opsPanel.IsVisible ? "▴ " : "▾ ") + T("Действия над отмеченными", "Белгиленгендер үчүн аракеттер", "Actions on ticked rows", "İşaretlilerde işlemler", "Belgilanganlar ustida amallar");
+        // 2026-11-20: «Дополнительно: сопоставление столбцов» — сворачиваемая боковая полоса шага «Проверьте» (по умолчанию свёрнута).
+        _mapToggle.Content = (_advCol.IsVisible ? "▾ " : "▸ ") + T("Дополнительно: сопоставление столбцов", "Кошумча: мамычаларды дал келтирүү", "Advanced: column mapping", "Gelişmiş: sütun eşleme", "Qo'shimcha: ustunlarni moslash");
+        _opsToggle.Content = T("Действия над отмеченными", "Белгиленгендер үчүн аракеттер", "Actions on ticked rows", "İşaretlilerde işlemler", "Belgilanganlar ustida amallar");
     }
 
     private void RefreshTexts()
@@ -503,11 +501,7 @@ public sealed partial class BulkImportWizardWindow : Window
             ? T($"пусто — по настройке приёмки ({auto.DefaultPercent:0.##} %)", $"бош — кабыл алуу жөндөөсү боюнча ({auto.DefaultPercent:0.##} %)",
                 $"empty — by the receiving setting ({auto.DefaultPercent:0.##}%)", $"boşsa — mal kabul ayarına göre (%{auto.DefaultPercent:0.##})", $"bo'sh — qabul sozlamasi bo'yicha ({auto.DefaultPercent:0.##} %)")
             : T("пусто — без цены (строка с ошибкой)", "бош — баасыз (катасы бар сап)", "empty — no price (row with an error)", "boşsa — fiyatsız (hatalı satır)", "bo'sh — narxsiz (xatoli qator)");
-        _status.Text = T("Выберите файл Excel или CSV — или вставьте таблицу из буфера. Обязателен только «Штрихкод»; для новых товаров ещё «Название» и «Цена продажи». Нет «Количества» — загрузятся только карточки и цены, остаток не изменится.",
-            "Excel же CSV файлын тандаңыз — же буфердеги таблицаны коюңуз. Милдеттүү — «Штрих-код» гана; жаңы товарларга дагы «Аталышы» жана «Сатуу баасы». «Саны» жок болсо — карточкалар жана баалар гана жүктөлөт, калдык өзгөрбөйт.",
-            "Choose an Excel or CSV file — or paste a table from the clipboard. Only “Barcode” is required; new products also need “Name” and “Sale price”. With no “Quantity” only cards and prices are loaded, the stock does not change.",
-            "Bir Excel veya CSV dosyası seçin — ya da panodan bir tablo yapıştırın. Yalnızca «Barkod» zorunlu; yeni ürünler için ayrıca «Ürün adı» ve «Satış fiyatı». «Miktar» yoksa yalnızca kart ve fiyatlar yüklenir, stok değişmez.",
-            "Excel yoki CSV faylni tanlang — yoki buferdan jadval qo'ying. Faqat «Shtrix-kod» majburiy; yangi mahsulotlar uchun yana «Nomi» va «Sotuv narxi». «Miqdor» bo'lmasa — faqat kartochkalar va narxlar yuklanadi, qoldiq o'zgarmaydi.");
+        _status.Text = ""; // 2026-11-20: длинная подсказка уехала на шаги «Откуда» и «Файл»
         UpdateTiles();
     }
 

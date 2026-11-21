@@ -587,6 +587,8 @@ public sealed class InvoicePlan
         return new ReceivingLineVm
         {
             Barcode = item.Barcode,
+            // 2026-11-20: остальные коды строки накладной (XML: несколько тегов штрихкода) — доп. штрихкоды нового товара.
+            ExtraBarcodes = item.ExtraBarcodes.Select(c => new NurMarketKassa.Models.Pos.AlternateBarcodeVariant { Barcode = c }).ToList(),
             ProductName = name,
             Unit = BulkImportPlan.NormalizeUnit(item.Unit, out _),
             // Как в «Массовом добавлении»: новый товар создаётся обычной карточкой; Unknown — штрихкод проверяется при проведении.

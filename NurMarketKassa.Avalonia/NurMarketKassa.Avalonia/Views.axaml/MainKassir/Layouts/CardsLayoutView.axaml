@@ -3,6 +3,7 @@
                          xmlns:ctl="using:NurMarketKassa.AvaloniaHost.Views.Main.Controls"
                          xmlns:layouts="using:NurMarketKassa.AvaloniaHost.Views.MainKassir.Layouts"
                          xmlns:conv="using:NurMarketKassa.AvaloniaHost.Converters"
+                         xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
                          xmlns:vm="using:NurMarketKassa.ViewModels.Main"
                          xmlns:pos="using:NurMarketKassa.Models.Pos"
                          xmlns:mainViews="using:NurMarketKassa.AvaloniaHost.Views"
@@ -159,7 +160,7 @@
                                             <!-- Фото, а без фото — буквы названия на светлой подложке -->
                                             <Border Grid.Row="0" CornerRadius="{DynamicResource SettingsButtonRadius}" ClipToBounds="True"
                                                     Background="{DynamicResource BrushSurfaceSubtle}">
-                                                <Panel>
+                                                <Panel dlg:ProductPhotoZoom.LongPress="True">
                                                     <!-- Без фото — кружок цвета товара с первыми буквами названия. -->
                                                     <Border Width="56" Height="56" CornerRadius="28" HorizontalAlignment="Center" VerticalAlignment="Center"
                                                             Background="{Binding Title, Converter={x:Static conv:TileColorConverter.Instance}}">
@@ -170,6 +171,8 @@
                                                     <Image Stretch="UniformToFill"
                                                            IsVisible="{Binding ProductImagePath, Converter={x:Static conv:ShowProductPhotoConverter.Instance}}"
                                                            Source="{Binding ProductImagePath, Converter={x:Static conv:AssetPathToBitmapConverter.Instance}, ConverterParameter=thumb}"/>
+                                                    <!-- 2026-11-20: кнопка-лупа — увеличить фото (нажатие по плитке по-прежнему кладёт товар в чек; кнопка забирает нажатие себе) -->
+                                                    <dlg:PhotoZoomButton HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,4,4"/>
                                                 </Panel>
                                             </Border>
                                             <TextBlock Grid.Row="1" Text="{Binding Title}" Margin="0,10,0,0" FontSize="13" FontWeight="SemiBold"
@@ -239,7 +242,8 @@
                                     <Button Classes="receipt-pill" Classes.active="{Binding IsActive}"
                                             Command="{Binding SelectCommand}" CommandParameter="{Binding}">
                                         <!-- 2026-10-19, К1: 230 — «Негизги чек · 5 товар · 1 332,96» целиком. -->
-                                        <TextBlock Text="{Binding Title}" MaxWidth="230" TextTrimming="CharacterEllipsis"/>
+                                        <!-- 2026-11-20 (обход кассы, п. 22): сумма не обрезается, активная вкладка видна целиком. -->
+                                        <ctl:ReceiptTabLabel Text="{Binding Title}" IsActive="{Binding IsActive}"/>
                                     </Button>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>

@@ -28,6 +28,12 @@ public sealed class EstimateEditorWindow : Window
     private readonly TextBox _title, _client, _phone, _until, _address, _reserve, _discount, _note, _add;
     private readonly ComboBox _level = new() { Name = "EstimateLevel", Height = 40 };
     private readonly StackPanel _rows = new();
+    // 2026-11-20: таблица — закреплённый заголовок + прокручиваемые строки в одной сетке; поля «Кол-во» запоминаем, чтобы после выбора товара фокус встал на количество.
+    private readonly Grid _table = new() { Name = "EstimateTable", HorizontalAlignment = HorizontalAlignment.Left };
+    private readonly Dictionary<string, TextBox> _qtyBoxes = new();
+    private Control? _header;
+    private ScrollViewer? _rowsScroll, _tableScroll;
+    private double _gutter, _tableMin = 800;
     private readonly ListBox _suggest = new() { Name = "EstimateSuggest", MaxHeight = 150, IsVisible = false };
     private readonly ListBox _clientSuggest = new() { Name = "EstimateClientSuggest", MaxHeight = 150, IsVisible = false };
     private readonly TextBlock _totals = ServiceDeskUi.Text("", 15, true);
@@ -70,7 +76,7 @@ public sealed class EstimateEditorWindow : Window
         SystemDecorations = SystemDecorations.None;
         this[!BackgroundProperty] = this.GetResourceObservable("DialogWindowBackground").ToBinding();
         this[!TransparencyLevelHintProperty] = this.GetResourceObservable("DialogTransparencyHint").ToBinding();
-        Opened += (_, _) => this.FitToKassaScreen();
+        Opened += (_, _) => { GrowToWorkingArea(); this.FitToKassaScreen(); };
         Closing += (_, _) => PersistNow();
 
         _title = EstimateUi.Box("EstimateTitle", doc.Title, 260, EstimateUi.T("Название / объект", "Аталышы / объект", "Name / site", "Ad / şantiye", "Nomi / obyekt"));
@@ -86,6 +92,20 @@ public sealed class EstimateEditorWindow : Window
         BuildUi();
         RebuildRows();
         UpdateTotals();
+    }
+
+    /// <summary>2026-11-20: окно открывается большим — около 90 % рабочей области (не меньше 1040×600, не больше 1500×900); если размер задали снаружи (тест, стенд), он не трогается.
+    /// По размеру экрана дальше подгоняет FitToKassaScreen.</summary>
+    private void GrowToWorkingArea()
+    {
+        if (Width != 1040 || Height != 600)
+            return;
+        var screen = DialogScreenFit.KassaScreen(this);
+        if (screen is null)
+            return;
+        var k = screen.Scaling > 0 ? screen.Scaling : 1.0;
+        Width = Math.Clamp(screen.WorkingArea.Width / k * 0.9, 1040, 1500);
+        Height = Math.Clamp(screen.WorkingArea.Height / k * 0.9, 600, 900);
     }
 
     // ───────────────────────────── построение ─────────────────────────────
@@ -159,82 +179,130 @@ public sealed class EstimateEditorWindow : Window
         _add.KeyDown += AddKeyDown;
         _add.TextChanged += (_, _) => FillSuggestions();
 
+        // 2026-11-20 (замечание владельца «очень неудобная!»): окно переделано в рабочий инструмент. Сверху — свёрнутая строка-сводка «Данные сметы» (у новой сметы развёрнута, после первой позиции
+        // сворачивается сама), под ней одна панель «поиск + кнопки», таблица позиций занимает всё свободное место (закреплённый заголовок, общая сетка колонок), снизу закреплённая панель итогов.
+        // Поля шапки — ячейки фиксированной ширины в WrapPanel (поле растягивается по ячейке, подпись отдельной строкой): на узком окне переносятся целыми ячейками и друг на друга не налезают.
         var head = new WrapPanel { Orientation = Orientation.Horizontal };
-        head.Children.Add(EstimateUi.Labeled(EstimateUi.T("Название / объект", "Аталышы / объект", "Name / site", "Ad / şantiye", "Nomi / obyekt"), _title, 240));
-        head.Children.Add(EstimateUi.Labeled(EstimateUi.T("Клиент", "Кардар", "Customer", "Müşteri", "Mijoz"), _client, 190));
-        head.Children.Add(EstimateUi.Labeled(EstimateUi.T("Телефон", "Телефон", "Phone", "Telefon", "Telefon"), _phone, 140));
-        head.Children.Add(EstimateUi.Labeled(EstimateUi.T("Действует до", "Чейин жарактуу", "Valid until", "Geçerlilik", "Amal qiladi"), _until, 110));
-        _level.HorizontalAlignment = HorizontalAlignment.Stretch;
-        head.Children.Add(EstimateUi.Labeled(EstimateUi.T("Цена", "Баа", "Price", "Fiyat", "Narx"), _level, 190));
-        head.Children.Add(EstimateUi.Labeled(EstimateUi.T("Адрес объекта", "Объекттин дареги", "Site address", "Şantiye adresi", "Obyekt manzili"), _address, 280));
+        head.Children.Add(EstimateUi.Labeled(EstimateUi.T("Название / объект", "Аталышы / объект", "Name / site", "Ad / şantiye", "Nomi / obyekt"), _title, 220));
+        head.Children.Add(EstimateUi.Labeled(EstimateUi.T("Клиент", "Кардар", "Customer", "Müşteri", "Mijoz"), _client, 170));
+        head.Children.Add(EstimateUi.Labeled(EstimateUi.T("Телефон", "Телефон", "Phone", "Telefon", "Telefon"), _phone, 150));
+        head.Children.Add(EstimateUi.Labeled(EstimateUi.T("Действует до", "Чейин жарактуу", "Valid until", "Geçerlilik", "Amal qiladi"), _until, 130));
+        head.Children.Add(EstimateUi.Labeled(EstimateUi.T("Цена", "Баа", "Price", "Fiyat", "Narx"), _level, 160));
+        head.Children.Add(EstimateUi.Labeled(EstimateUi.T("Адрес объекта", "Объекттин дареги", "Site address", "Şantiye adresi", "Obyekt manzili"), _address, 260));
         head.Children.Add(EstimateUi.Labeled(EstimateUi.T("Запас, %", "Запас, %", "Allowance, %", "Fire, %", "Zaxira, %"), _reserve, 100));
-        head.Children.Add(EstimateUi.Labeled(EstimateUi.T("Скидка, %", "Арзандатуу, %", "Discount, %", "İndirim, %", "Chegirma, %"), _discount, 110));
-        head.Children.Add(EstimateUi.Labeled(EstimateUi.T("Примечание", "Эскертүү", "Note", "Not", "Izoh"), _note, 280));
+        head.Children.Add(EstimateUi.Labeled(EstimateUi.T("Скидка, %", "Арзандатуу, %", "Discount, %", "İndirim, %", "Chegirma, %"), _discount, 120));
+        head.Children.Add(EstimateUi.Labeled(EstimateUi.T("Примечание", "Эскертүү", "Note", "Not", "Izoh"), _note, 260));
 
-        // 2026-11-19: на 1024×600 шапка занимала полэкрана — у сметы с позициями она свёрнута в одну строку («Объект · клиент · телефон · до …»), у новой — раскрыта.
-        ServiceDeskUi.Use(_headSummary, TextBlock.ForegroundProperty, "BrushText");
-        _headExpander.Header = _headSummary;
+        // Сворачиваемая шапка: заголовок «Данные сметы» + сводка «Объект · Клиент · тел · до дд.мм · Розница · запас 10 % · скидка 0 %».
+        ServiceDeskUi.Use(_headSummary, TextBlock.ForegroundProperty, "BrushTextSoft");
+        _headSummary.MaxWidth = double.PositiveInfinity;
+        _headSummary.Margin = new Thickness(10, 0, 8, 0);
+        _headSummary.TextWrapping = TextWrapping.NoWrap;
+        // Заголовок — Grid «Auto + *»: сводка обрезается многоточием и не заходит на стрелку Expander (в ky она длиннее).
+        var headTitle = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
+        headTitle.Children.Add(ServiceDeskUi.Text(EstimateUi.T("Данные сметы", "Сметанын маалыматы", "Estimate details", "Keşif bilgileri", "Smeta ma'lumotlari"), 13, true, wrap: false));
+        Grid.SetColumn(_headSummary, 1);
+        headTitle.Children.Add(_headSummary);
+        _headExpander.Header = headTitle;
         _headExpander.Content = head;
         _headExpander.IsExpanded = _doc.Lines.Count == 0;
         Avalonia.Automation.AutomationProperties.SetName(_headExpander, EstimateUi.T("Шапка сметы", "Сметанын башы", "Estimate header", "Keşif başlığı", "Smeta sarlavhasi"));
 
-        var addRow = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 4) };
-        _add.Margin = new Thickness(0, 0, 8, 6);
-        addRow.Children.Add(_add);
-        addRow.Children.Add(ServiceDeskUi.Action("EstimateAddCustom", EstimateUi.T("＋ Своя позиция", "＋ Өз позициясы", "＋ Custom line", "＋ Özel kalem", "＋ O'z pozitsiyasi"), () => AddCustomLine()));
-        addRow.Children.Add(ServiceDeskUi.Action("EstimateCalc", EstimateUi.T("Рассчитать материал", "Материалды эсептөө", "Calculate material", "Malzeme hesapla", "Materialni hisoblash"), () => _ = OpenCalcAsync(), primary: true));
-        addRow.Children.Add(ServiceDeskUi.Action("EstimateAddSection", EstimateUi.T("＋ Раздел", "＋ Бөлүм", "＋ Section", "＋ Bölüm", "＋ Bo'lim"), () => AddSection()));
+        // Одна панель над таблицей: поиск растягивается, справа кнопки; на узком окне кнопки переносятся на вторую строку.
+        _add.Width = double.NaN;
+        _add.HorizontalAlignment = HorizontalAlignment.Stretch;
+        _add.MinWidth = 240;
+        _add.Margin = new Thickness(0, 0, 8, 8);
+        var addButtons = new WrapPanel { Orientation = Orientation.Horizontal };
+        addButtons.Children.Add(ServiceDeskUi.Action("EstimateAddCustom", EstimateUi.T("＋ Своя позиция", "＋ Өз позициясы", "＋ Custom line", "＋ Özel kalem", "＋ O'z pozitsiyasi"), () => AddCustomLine()));
+        addButtons.Children.Add(ServiceDeskUi.Action("EstimateCalc", EstimateUi.T("Рассчитать материал", "Материалды эсептөө", "Calculate material", "Malzeme hesapla", "Materialni hisoblash"), () => _ = OpenCalcAsync(), primary: true));
+        addButtons.Children.Add(ServiceDeskUi.Action("EstimateAddSection", EstimateUi.T("＋ Раздел", "＋ Бөлүм", "＋ Section", "＋ Bölüm", "＋ Bo'lim"), () => AddSection()));
+        var toolbar = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), RowDefinitions = new RowDefinitions("Auto,Auto"), Margin = new Thickness(0, 4, 0, 0) };
+        Grid.SetColumn(addButtons, 1);
+        toolbar.Children.Add(_add);
+        toolbar.Children.Add(addButtons);
+        toolbar.SizeChanged += (_, e) =>
+        {
+            var narrow = e.NewSize.Width < 780;
+            Grid.SetRow(addButtons, narrow ? 1 : 0);
+            Grid.SetColumn(addButtons, narrow ? 0 : 1);
+            Grid.SetColumnSpan(addButtons, narrow ? 2 : 1);
+        };
 
-        var table = new StackPanel();
-        table.Children.Add(BuildHeaderRow());
-        table.Children.Add(_rows);
-        var scroll = new ScrollViewer { Content = table, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
+        // Таблица: закреплённый заголовок (строка 0) и прокручиваемые позиции (строка *) в одной сетке; снаружи — горизонтальная прокрутка на очень узком окне.
+        _table.RowDefinitions = new RowDefinitions("Auto,*");
+        _header = BuildHeaderRow();
+        Grid.SetRow(_header, 0);
+        _table.Children.Add(_header);
+        _rowsScroll = new ScrollViewer { Content = _rows, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
+        Grid.SetRow(_rowsScroll, 1);
+        _table.Children.Add(_rowsScroll);
+        _table.LayoutUpdated += (_, _) => SyncHeaderGutter(); // после каждой раскладки: ширина заголовка = ширине строк
+        _tableScroll = new ScrollViewer { Content = _table, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto };
+        _tableScroll.SizeChanged += (_, _) => ApplyTableWidth();
 
         _expired.Name = "EstimateExpired";
         _expired.IsVisible = false;
         _totals.Name = "EstimateTotals";
+        _totals.FontSize = 20;
         _internal.Name = "EstimateInternal";
         _status.Name = "EstimateStatusText";
+        _status.IsVisible = false;
         _hint.Name = "EstimateHint";
         _hint.IsVisible = false;
 
-        var actions = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 0) };
+        var actions = new WrapPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
         actions.Children.Add(ServiceDeskUi.Action("EstimatePrint", EstimateUi.T("Печать…", "Басуу…", "Print…", "Yazdır…", "Chop etish…"), () => _ = OpenPrintAsync(), primary: true));
         actions.Children.Add(ServiceDeskUi.Action("EstimateCopy", EstimateUi.T("Скопировать текстом", "Текст катары көчүрүү", "Copy as text", "Metin olarak kopyala", "Matn sifatida nusxalash"), () => _ = CopyTextAsync()));
         actions.Children.Add(ServiceDeskUi.Action("EstimateWhatsApp", EstimateUi.T("Открыть в WhatsApp", "WhatsApp'та ачуу", "Open in WhatsApp", "WhatsApp'ta aç", "WhatsApp'da ochish"), () => _ = OpenWhatsAppAsync()));
         actions.Children.Add(ServiceDeskUi.Action("EstimateRefresh", EstimateUi.T("Пересчитать цены", "Баалар кайра эсептөө", "Recalculate prices", "Fiyatları yeniden hesapla", "Narxlarni qayta hisoblash"), () => RefreshPrices()));
         if (_deps.Till is not null)
-            actions.Children.Add(ServiceDeskUi.Action("EstimateToCart", EstimateUi.T("Добавить всё в чек", "Баарын чекке кошуу", "Add all to the receipt", "Hepsini fişe ekle", "Hammasini chekka qo'shish"), () => _ = AddToCartAsync(), primary: true));
+            actions.Children.Add(ServiceDeskUi.Action("EstimateToCart", EstimateUi.T("Добавить всё в чек", "Баарын чекке кошуу", "Add all to the receipt", "Hepsini fişe ekle", "Hammasini chekka qo'shu"), () => _ = AddToCartAsync(), primary: true));
 
-        // 2026-11-19: кнопки действий чуть компактнее (13 px, поля 10×4) — на 1024×600 они должны помещаться в одну строку, иначе таблице не хватает высоты.
+        // 2026-11-19: кнопки действий компактнее (13 px, поля 10×4); 2026-11-20: без нижнего отступа — таблице нужна каждая строка.
         foreach (var b in actions.Children.OfType<Button>())
         {
             b.Padding = new Thickness(10, 4);
-            b.MinHeight = 38;
+            b.MinHeight = 40;
             b.FontSize = 13;
-            b.Margin = new Thickness(0, 0, 6, 4);
+            b.Margin = new Thickness(6, 0, 0, 0);
         }
 
-        var bottom = new StackPanel { Margin = new Thickness(0, 4, 0, 0) };
-        bottom.Children.Add(_expired);
-        bottom.Children.Add(_totals);
-        bottom.Children.Add(_internal);
+        // Закреплённая нижняя панель: слева «Итого» крупно (+ себестоимость и маржа владельцу), справа кнопки (на ширине < 1040 — второй строкой), статус — отдельной строкой.
+        var totalsBox = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        totalsBox.Children.Add(_expired);
+        totalsBox.Children.Add(_totals);
+        totalsBox.Children.Add(_internal);
+        var bottom = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), RowDefinitions = new RowDefinitions("Auto,Auto,Auto"), Margin = new Thickness(0, 8, 0, 0) };
+        bottom.Children.Add(totalsBox);
+        Grid.SetColumn(actions, 1);
         bottom.Children.Add(actions);
+        Grid.SetRow(_status, 2);
+        Grid.SetColumnSpan(_status, 2);
         bottom.Children.Add(_status);
+        bottom.SizeChanged += (_, e) =>
+        {
+            var narrow = e.NewSize.Width < 1040;
+            Grid.SetRow(actions, narrow ? 1 : 0);
+            Grid.SetColumn(actions, narrow ? 0 : 1);
+            Grid.SetColumnSpan(actions, narrow ? 2 : 1);
+            actions.HorizontalAlignment = narrow ? HorizontalAlignment.Left : HorizontalAlignment.Right;
+            actions.Margin = new Thickness(narrow ? -6 : 0, narrow ? 6 : 0, 0, 0);
+        };
 
         var top = new StackPanel();
         top.Children.Add(_headExpander);
         top.Children.Add(_clientSuggest);
-        top.Children.Add(addRow);
+        top.Children.Add(toolbar);
         top.Children.Add(_suggest);
         top.Children.Add(_hint);
-        var dock = new DockPanel();
-        DockPanel.SetDock(top, Dock.Top);
-        DockPanel.SetDock(bottom, Dock.Bottom);
-        dock.Children.Add(top);
-        dock.Children.Add(bottom);
-        dock.Children.Add(scroll);
-        _shell.Content = dock;
+        var root = new Grid { RowDefinitions = new RowDefinitions("Auto,*,Auto") };
+        Grid.SetRow(_tableScroll, 1);
+        Grid.SetRow(bottom, 2);
+        root.Children.Add(top);
+        root.Children.Add(_tableScroll);
+        root.Children.Add(bottom);
+        _shell.Content = root;
 
         // 2026-11-19: на экране 1024×600 таблице нужна высота — нижней полосы с «Закрыть» нет (закрывает ✕ в шапке и Esc), «Нормы расхода» — в калькуляторе материала.
         _shell.Footer = null;
@@ -255,16 +323,25 @@ public sealed class EstimateEditorWindow : Window
         Content = _shell;
     }
 
+    // 2026-11-20: одна сетка колонок и для закреплённого заголовка, и для строк: № 40, Товар/позиция * (от 160), Ед. 64, Кол-во 88, Цена 100, Скидка % 72, Запас % 72, [Раздел 136], Сумма 110, ✕ 44.
     private string[] ColumnWidths(bool sections) => sections
-        ? new[] { "34", "*", "60", "88", "100", "66", "66", "118", "118", "40" }
-        : new[] { "34", "*", "60", "88", "100", "66", "66", "118", "40" };
+        ? new[] { "40", "*", "64", "88", "100", "72", "72", "136", "110", "44" }
+        : new[] { "40", "*", "64", "88", "100", "72", "72", "110", "44" };
 
-    private Grid NewRowGrid() => new() { ColumnDefinitions = new ColumnDefinitions(string.Join(",", ColumnWidths(_doc.Sections.Count > 0))) };
+    private Grid NewRowGrid()
+    {
+        var g = new Grid { ColumnDefinitions = new ColumnDefinitions(string.Join(",", ColumnWidths(_doc.Sections.Count > 0))) };
+        g.ColumnDefinitions[1].MinWidth = NameColumnMin;
+        return g;
+    }
+
+    private const double NameColumnMin = 160;
 
     private Control BuildHeaderRow()
     {
         var g = NewRowGrid();
-        g.Margin = new Thickness(0, 4, 0, 2);
+        g.Name = "EstimateHeaderRow";
+        g.Margin = new Thickness(0, 4, _gutter, 4);
         var titles = new List<string>
         {
             "№", EstimateUi.T("Товар / позиция", "Товар / позиция", "Product / line", "Ürün / kalem", "Tovar / pozitsiya"), EstimateUi.T("Ед.", "Бирд.", "Unit", "Birim", "Birl."),
@@ -277,24 +354,98 @@ public sealed class EstimateEditorWindow : Window
         titles.Add("");
         for (var i = 0; i < titles.Count; i++)
         {
-            var t = ServiceDeskUi.Text(titles[i], 11.5, true, "BrushTextSoft");
+            var t = ServiceDeskUi.Text(titles[i], 12.5, true, "BrushTextSoft", wrap: false);
+            t.Name = "EstimateHead_" + i;
             Grid.SetColumn(t, i);
             t.Margin = new Thickness(2, 0, 2, 0);
+            t.VerticalAlignment = VerticalAlignment.Center;
             if (i == titles.Count - 2)
+            {
                 t.TextAlignment = TextAlignment.Right;
+                t.HorizontalAlignment = HorizontalAlignment.Right;
+                t.Margin = new Thickness(2, 0, 8, 0);
+            }
             g.Children.Add(t);
         }
         return g;
     }
+
+    /// <summary>2026-11-20: полоса прокрутки позиций может занимать место справа — заголовок отступает на столько же, чтобы колонки заголовка и строк совпадали по X.</summary>
+    private void SyncHeaderGutter()
+    {
+        if (_rowsScroll is null || _header is null || _rows.Bounds.Width <= 0 || _rowsScroll.Bounds.Width <= 0)
+            return;
+        var gutter = Math.Max(0, Math.Truncate(_rowsScroll.Bounds.Width - _rows.Bounds.Width + 0.5)); // 2026-11-21: Truncate(x+0.5) вместо Math.Round (проверка «нет округления в окнах», это пиксели, не деньги). Свободная ширина рядом со строками = полоса прокрутки и внутренние отступы ScrollViewer
+        if (Math.Abs(gutter - _gutter) < 0.5)
+            return;
+        _gutter = gutter;
+        _header.Margin = new Thickness(0, 4, gutter, 4);
+    }
+
+    /// <summary>Ширина таблицы — по окну, но не уже суммы колонок: на очень узком окне прокручивается по горизонтали, а не обрезается.</summary>
+    private void ApplyTableWidth()
+    {
+        if (_tableScroll is null)
+            return;
+        _table.Width = Math.Max(_tableMin, _tableScroll.Bounds.Width);
+    }
+
+    private void CollapseHeaderAfterFirstLine()
+    {
+        if (_doc.Lines.Count == 1)
+            _headExpander.IsExpanded = false;
+    }
+
+    /// <summary>Enter в ячейке — к следующему полю строки; в последней колонке («Запас %») — снова в строку поиска товара.</summary>
+    private void EnterMovesOn(TextBox box, bool last)
+    {
+        box.KeyDown += (_, e) =>
+        {
+            if (e.Key != Key.Enter)
+                return;
+            e.Handled = true;
+            if (last)
+            {
+                _add.Focus();
+                return;
+            }
+            if (KeyboardNavigationHandler.GetNext(box, NavigationDirection.Next) is InputElement next)
+                next.Focus(NavigationMethod.Tab);
+        };
+        // Ввод числа заменяет выделенное: при входе с клавиатуры содержимое поля выделяется целиком.
+        box.GotFocus += (_, e) =>
+        {
+            if (e.NavigationMethod != NavigationMethod.Pointer)
+                Dispatcher.UIThread.Post(box.SelectAll, DispatcherPriority.Input);
+        };
+    }
+
+    private void FocusQty(EstimateLine line) =>
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_qtyBoxes.TryGetValue(line.Id, out var q))
+            {
+                q.Focus(NavigationMethod.Tab);
+                q.SelectAll();
+            }
+        }, DispatcherPriority.Background);
 
     /// <summary>Перестроить таблицу: сначала позиции без раздела, затем разделы (в том числе пустые).</summary>
     public void RebuildRows()
     {
         _rows.Children.Clear();
         _sums.Clear();
+        _qtyBoxes.Clear();
         // Шапка таблицы зависит от наличия разделов — заменяем её тоже.
-        if (_rows.Parent is StackPanel table && table.Children.Count > 0 && table.Children[0] is Grid)
-            table.Children[0] = BuildHeaderRow();
+        if (_header is not null)
+        {
+            _table.Children.Remove(_header);
+            _header = BuildHeaderRow();
+            Grid.SetRow(_header, 0);
+            _table.Children.Add(_header);
+        }
+        _tableMin = ColumnWidths(_doc.Sections.Count > 0).Where(w => w != "*").Sum(w => double.Parse(w, System.Globalization.CultureInfo.InvariantCulture)) + NameColumnMin + 8;
+        ApplyTableWidth();
         var n = 0;
         var loose = _doc.Lines.Where(l => string.IsNullOrWhiteSpace(l.SectionId) || _doc.Sections.All(s => s.Id != l.SectionId)).ToList();
         foreach (var l in loose)
@@ -306,32 +457,57 @@ public sealed class EstimateEditorWindow : Window
                 _rows.Children.Add(BuildLineRow(l, ++n));
         }
         if (_doc.Lines.Count == 0 && _doc.Sections.Count == 0)
-            _rows.Children.Add(ServiceDeskUi.Text(EstimateUi.T("Позиций пока нет. Найдите товар сверху, нажмите «Рассчитать материал» или «＋ Своя позиция».", "Азырынча позиция жок. Жогортон товарды табыңыз, «Материалды эсептөө» же «＋ Өз позициясы» басыңыз.", "No lines yet. Find a product above, press “Calculate material” or “＋ Custom line”.", "Henüz kalem yok. Yukarıdan ürün bulun, «Malzeme hesapla» veya «＋ Özel kalem»e basın.", "Hozircha pozitsiya yo'q. Yuqoridan tovar toping, «Materialni hisoblash» yoki «＋ O'z pozitsiyasi» ni bosing."), 13, brush: "BrushTextSoft"));
+        {
+            var empty = ServiceDeskUi.Text(EstimateUi.T("Позиций пока нет. Найдите товар сверху, нажмите «Рассчитать материал» или «＋ Своя позиция».", "Азырынча позиция жок. Жогортон товарды табыңыз, «Материалды эсептөө» же «＋ Өз позициясы» басыңыз.", "No lines yet. Find a product above, press “Calculate material” or “＋ Custom line”.", "Henüz kalem yok. Yukarıdan ürün bulun, «Malzeme hesapla» veya «＋ Özel kalem»e basın.", "Hozircha pozitsiya yo'q. Yuqoridan tovar toping, «Materialni hisoblash» yoki «＋ O'z pozitsiyasi» ni bosing."), 13.5, brush: "BrushTextSoft");
+            empty.Name = "EstimateEmpty";
+            empty.TextAlignment = TextAlignment.Center;
+            empty.HorizontalAlignment = HorizontalAlignment.Center;
+            empty.MaxWidth = 560;
+            empty.Margin = new Thickness(24, 40, 24, 0);
+            _rows.Children.Add(empty);
+        }
         UpdateTotals();
     }
 
+    /// <summary>Строка раздела — полоса на всю ширину таблицы: название (правится на месте) слева, сумма раздела в колонке «Сумма», ✕ в последней колонке.</summary>
     private Control BuildSectionRow(EstimateSection s)
     {
-        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 8, 0, 2), Name = "EstimateSection_" + s.Id };
+        var g = NewRowGrid();
+        var cols = g.ColumnDefinitions.Count;
         var name = EstimateUi.Box("SectionName_" + s.Id, s.Name, 260, EstimateUi.T("Название раздела", "Бөлүмдүн аталышы", "Section name", "Bölüm adı", "Bo'lim nomi"), maxLength: 60);
+        name.Width = double.NaN;
+        name.HorizontalAlignment = HorizontalAlignment.Stretch;
+        name.Margin = new Thickness(2, 0, 2, 0);
         name.FontWeight = FontWeight.SemiBold;
+        Grid.SetColumnSpan(name, cols - 2);
         name.TextChanged += (_, _) => { if (!_filling) { s.Name = (name.Text ?? "").Trim(); MarkDirty(); } };
-        var sum = ServiceDeskUi.Text("", 13, true, "BrushTextSoft");
+        var sum = ServiceDeskUi.Text("", 13.5, true, "BrushTextSoft", wrap: false);
         sum.VerticalAlignment = VerticalAlignment.Center;
+        sum.HorizontalAlignment = HorizontalAlignment.Right;
+        sum.TextAlignment = TextAlignment.Right;
+        sum.Margin = new Thickness(0, 0, 8, 0);
+        Grid.SetColumn(sum, cols - 2);
         _sums["section:" + s.Id] = sum;
         var del = ServiceDeskUi.Action("SectionDelete_" + s.Id, "✕", () => RemoveSection(s.Id), danger: true);
         del.MinWidth = 40;
-        del.Margin = new Thickness(0);
+        del.Padding = new Thickness(6, 6);
+        del.Margin = new Thickness(2, 0, 2, 0);
+        Grid.SetColumn(del, cols - 1);
         ToolTip.SetTip(del, EstimateUi.T("Убрать раздел (позиции останутся)", "Бөлүмдү алып салуу (позициялар калат)", "Remove the section (lines stay)", "Bölümü kaldır (kalemler kalır)", "Bo'limni olib tashlash (pozitsiyalar qoladi)"));
-        row.Children.Add(name);
-        row.Children.Add(sum);
-        row.Children.Add(del);
-        return row;
+        g.Children.Add(name);
+        g.Children.Add(sum);
+        g.Children.Add(del);
+        var strip = new Border { Name = "EstimateSection_" + s.Id, Child = g, Padding = new Thickness(0, 4), Margin = new Thickness(0, 8, 0, 4), CornerRadius = new CornerRadius(8) };
+        ServiceDeskUi.Use(strip, Border.BackgroundProperty, "BrushPanelSoft");
+        return strip;
     }
 
-    private TextBox NumBox(string name, decimal? value, double width, string label, Action<decimal?> apply, decimal max, bool emptyIsNull = false, string? watermark = null)
+    private TextBox NumBox(string name, decimal? value, string label, Action<decimal?> apply, decimal max, bool emptyIsNull = false, string? watermark = null)
     {
-        var box = EstimateUi.Box(name, value is null ? "" : EstimateUi.Num(value.Value), width, label, watermark, 12, right: true);
+        var box = EstimateUi.Box(name, value is null ? "" : EstimateUi.Num(value.Value), 80, label, watermark, 12, right: true);
+        box.Width = double.NaN;
+        box.MinWidth = 0;
+        box.HorizontalAlignment = HorizontalAlignment.Stretch;
         box.Margin = new Thickness(2, 0, 2, 0);
         box.TextChanged += (_, _) =>
         {
@@ -368,28 +544,46 @@ public sealed class EstimateEditorWindow : Window
         var col = 0;
         void Put(Control c)
         {
+            c.VerticalAlignment = VerticalAlignment.Center;
             Grid.SetColumn(c, col++);
             g.Children.Add(c);
         }
         var num = ServiceDeskUi.Text(number.ToString(System.Globalization.CultureInfo.InvariantCulture), 13, brush: "BrushTextSoft", wrap: false);
-        num.VerticalAlignment = VerticalAlignment.Center;
+        num.Margin = new Thickness(2, 0, 2, 0);
         Put(num);
         var name = EstimateUi.Box("LineName_" + number, l.Name, 100, EstimateUi.T("Название позиции", "Позициянын аталышы", "Line name", "Kalem adı", "Pozitsiya nomi"), maxLength: 200);
         name.Width = double.NaN;
+        name.Height = double.NaN;
+        name.MinHeight = 40;
+        name.TextWrapping = TextWrapping.Wrap; // длинное название переносится, строка вырастает
         name.HorizontalAlignment = HorizontalAlignment.Stretch;
         name.Margin = new Thickness(2, 0, 2, 0);
         name.TextChanged += (_, _) => { if (!_filling) { l.Name = (name.Text ?? "").Trim(); MarkDirty(); } };
         if (!string.IsNullOrWhiteSpace(l.CalcNote))
             ToolTip.SetTip(name, l.CalcNote);
+        EnterMovesOn(name, false);
         Put(name);
         var unit = EstimateUi.Box("LineUnit_" + number, l.Unit, 56, EstimateUi.T("Единица", "Бирдик", "Unit", "Birim", "Birlik"), maxLength: 12);
+        unit.Width = double.NaN;
+        unit.MinWidth = 0; // 2026-11-20: у TextBox тема ставит MinWidth 64 — колонка «Ед.» (64) не должна раздуваться
+        unit.HorizontalAlignment = HorizontalAlignment.Stretch;
         unit.Margin = new Thickness(2, 0, 2, 0);
         unit.TextChanged += (_, _) => { if (!_filling) { l.Unit = (unit.Text ?? "").Trim(); MarkDirty(); RefreshSums(); } };
+        EnterMovesOn(unit, false);
         Put(unit);
-        Put(NumBox("LineQty_" + number, l.Qty, 84, EstimateUi.T("Количество", "Саны", "Quantity", "Miktar", "Miktar"), v => l.Qty = v ?? 0m, EstimateRules.MaxQty));
-        Put(NumBox("LinePrice_" + number, l.Price, 96, EstimateUi.T("Цена", "Баасы", "Price", "Fiyat", "Narx"), v => l.Price = v ?? 0m, 100_000_000m));
-        Put(NumBox("LineDisc_" + number, l.DiscountPercent == 0m ? null : l.DiscountPercent, 62, EstimateUi.T("Скидка строки, %", "Саптын арзандатуусу, %", "Line discount, %", "Satır indirimi, %", "Qator chegirmasi, %"), v => l.DiscountPercent = v ?? 0m, 100m, watermark: "0"));
-        Put(NumBox("LineReserve_" + number, l.ReservePercent, 62, EstimateUi.T("Запас строки, %", "Саптын запасы, %", "Line allowance, %", "Satır fire payı, %", "Qator zaxirasi, %"), v => l.ReservePercent = v, 100m, emptyIsNull: true, watermark: EstimateUi.Num(_doc.ReservePercent)));
+        var qty = NumBox("LineQty_" + number, l.Qty, EstimateUi.T("Количество", "Саны", "Quantity", "Miktar", "Miktar"), v => l.Qty = v ?? 0m, EstimateRules.MaxQty);
+        _qtyBoxes[l.Id] = qty;
+        EnterMovesOn(qty, false);
+        Put(qty);
+        var price = NumBox("LinePrice_" + number, l.Price, EstimateUi.T("Цена", "Баасы", "Price", "Fiyat", "Narx"), v => l.Price = v ?? 0m, 100_000_000m);
+        EnterMovesOn(price, false);
+        Put(price);
+        var disc = NumBox("LineDisc_" + number, l.DiscountPercent == 0m ? null : l.DiscountPercent, EstimateUi.T("Скидка строки, %", "Саптын арзандатуусу, %", "Line discount, %", "Satır indirimi, %", "Qator chegirmasi, %"), v => l.DiscountPercent = v ?? 0m, 100m, watermark: "0");
+        EnterMovesOn(disc, false);
+        Put(disc);
+        var reserve = NumBox("LineReserve_" + number, l.ReservePercent, EstimateUi.T("Запас строки, %", "Саптын запасы, %", "Line allowance, %", "Satır fire payı, %", "Qator zaxirasi, %"), v => l.ReservePercent = v, 100m, emptyIsNull: true, watermark: EstimateUi.Num(_doc.ReservePercent));
+        EnterMovesOn(reserve, true);
+        Put(reserve);
         if (_doc.Sections.Count > 0)
         {
             var combo = new ComboBox { Name = "LineSection_" + number, Height = 40, HorizontalAlignment = HorizontalAlignment.Stretch, Margin = new Thickness(2, 0, 2, 0) };
@@ -410,15 +604,16 @@ public sealed class EstimateEditorWindow : Window
             Put(combo);
         }
         var sum = ServiceDeskUi.Text("", 13.5, true, wrap: false);
+        sum.Name = "LineSum_" + number;
         sum.TextAlignment = TextAlignment.Right;
-        sum.VerticalAlignment = VerticalAlignment.Center;
-        sum.Margin = new Thickness(0, 0, 6, 0);
+        sum.HorizontalAlignment = HorizontalAlignment.Right;
+        sum.Margin = new Thickness(0, 0, 8, 0);
         _sums[l.Id] = sum;
         Put(sum);
         var del = ServiceDeskUi.Action("LineRemove_" + number, "✕", () => RemoveLine(l.Id), danger: true);
-        del.MinWidth = 36;
+        del.MinWidth = 40;
         del.Padding = new Thickness(6, 6);
-        del.Margin = new Thickness(0);
+        del.Margin = new Thickness(2, 0, 2, 0);
         Avalonia.Automation.AutomationProperties.SetName(del, EstimateUi.T("Убрать позицию", "Позицияны алып салуу", "Remove the line", "Kalemi kaldır", "Pozitsiyani olib tashlash") + ": " + l.Name);
         Put(del);
         return g;
@@ -458,10 +653,20 @@ public sealed class EstimateEditorWindow : Window
         if (expired)
             _expired.Text = EstimateUi.T("Срок сметы прошёл — цены могли измениться. Нажмите «Пересчитать цены».", "Сметанын мөөнөтү өттү — баалар өзгөрүшү мүмкүн. «Баалар кайра эсептөө» басыңыз.", "The estimate has expired — prices may have changed. Press “Recalculate prices”.", "Keşfin süresi doldu — fiyatlar değişmiş olabilir. «Fiyatları yeniden hesapla»ya basın.", "Smeta muddati o'tdi — narxlar o'zgargan bo'lishi mumkin. «Narxlarni qayta hisoblash» ni bosing.");
         _shell.Title = $"{EstimateUi.Title} {EstimateRules.Code(_doc.Number)} · {EstimateUi.StatusName(_doc.Status)}";
-        _headSummary.Text = string.Join(" · ", new[] { _doc.Title, _doc.ClientName, _doc.Phone, EstimateUi.T("до ", "чейин ", "until ", "şu tarihe kadar ", "gacha ") + EstimateUi.Day(_doc.ValidUntil) }.Where(x => !string.IsNullOrWhiteSpace(x)));
+        // 2026-11-20: сводка свёрнутой шапки: Объект · Клиент · тел · до дд.мм · уровень цены · запас · скидка.
+        _headSummary.Text = string.Join(" · ", new[]
+        {
+            _doc.Title, _doc.ClientName, _doc.Phone, EstimateUi.T("до ", "чейин ", "until ", "şu tarihe kadar ", "gacha ") + EstimateUi.Day(_doc.ValidUntil),
+            _level.SelectedItem as string ?? "", EstimateUi.T("запас ", "запас ", "allowance ", "fire ", "zaxira ") + EstimateUi.Qty(_doc.ReservePercent) + " %",
+            EstimateUi.T("скидка ", "арзандатуу ", "discount ", "indirim ", "chegirma ") + EstimateUi.Qty(_doc.DiscountPercent) + " %",
+        }.Where(x => !string.IsNullOrWhiteSpace(x)));
     }
 
-    private void Say(string text) => _status.Text = text;
+    private void Say(string text)
+    {
+        _status.Text = text;
+        _status.IsVisible = text.Length > 0; // 2026-11-20: пустая строка статуса высоту нижней панели не занимает
+    }
 
     // ───────────────────────────── сохранение ─────────────────────────────
 
@@ -565,7 +770,8 @@ public sealed class EstimateEditorWindow : Window
         _hint.IsVisible = false;
         MarkDirty();
         RebuildRows();
-        _add.Focus();
+        CollapseHeaderAfterFirstLine();
+        FocusQty(line); // 2026-11-20: после выбора товара фокус — на «Кол-во» (число заменяет выделенное), Enter в последней колонке возвращает в поиск
         return line;
     }
 
@@ -576,6 +782,7 @@ public sealed class EstimateEditorWindow : Window
         _doc.Lines.Add(line);
         MarkDirty();
         RebuildRows();
+        CollapseHeaderAfterFirstLine();
         Dispatcher.UIThread.Post(() => this.GetVisualDescendants().OfType<TextBox>().LastOrDefault(t => t.Name?.StartsWith("LineName_", StringComparison.Ordinal) == true)?.Focus(), DispatcherPriority.Background);
         return line;
     }
@@ -586,6 +793,7 @@ public sealed class EstimateEditorWindow : Window
         _doc.Lines.Add(line);
         MarkDirty();
         RebuildRows();
+        CollapseHeaderAfterFirstLine();
     }
 
     public EstimateSection AddSection()

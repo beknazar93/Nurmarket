@@ -78,6 +78,7 @@
   <x:String x:Key="csh.catalog.favoriteTooltip">Sevimlilar</x:String>
   <x:String x:Key="csh.catalog.details">Batafsil</x:String>
   <x:String x:Key="csh.catalog.detailsTooltip">Sotuvchining mahsulot tavsifi</x:String>
+  <x:String x:Key="csh.catalog.photoZoomTooltip">Rasmni kattalashtirish</x:String>
   <x:String x:Key="csh.catalog.tabAll">Barchasi</x:String>
   <x:String x:Key="csh.catalog.tabWeighted">Vaznli</x:String>
   <x:String x:Key="csh.catalog.tabPiece">Donali</x:String>
@@ -129,6 +130,7 @@
   <x:String x:Key="csh.cart.keysLink">Tugmalar: ?</x:String>
   <x:String x:Key="csh.menu.firstRunWizard">O'rgatish: kassa bo'ylab sayr</x:String>
   <x:String x:Key="csh.menu.trainingSale">O'quv sotuvi</x:String>
+  <x:String x:Key="csh.menu.transferData">Boshqa dasturdan ma'lumot ko'chirish</x:String>
   <x:String x:Key="hotkeyGroup.title">Tezkor tugma</x:String>
   <x:String x:Key="header.labelCustomerDisplay">Ekran</x:String>
   <x:String x:Key="header.labelTheme">Mavzu</x:String>

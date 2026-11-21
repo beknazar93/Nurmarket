@@ -90,6 +90,9 @@ public sealed class JobLine
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? PackConvertKey { get; set; }
     public Dictionary<string, double>? VariantQuantities { get; set; }
     public Dictionary<string, string>? VariantLabels { get; set; }
+    /// <summary>2026-11-20: доп. штрихкоды строки (уходят в создание НОВОГО товара). Нет — в файл не пишется.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public List<NurMarketKassa.Models.Pos.AlternateBarcodeVariant>? ExtraBarcodes { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? VariantNote { get; set; } // 2026-11-20: разбивка по вкусам объединённого товара
     public string Outcome { get; set; } = ReceivingLineOutcome.Pending;
     public bool StockApplied { get; set; }
     public string? Error { get; set; }
@@ -126,6 +129,8 @@ public sealed class JobLine
         PackConvertKey = l.PackConvertKey,
         VariantQuantities = l.VariantQuantities is { Count: > 0 } vq ? new Dictionary<string, double>(vq) : null,
         VariantLabels = l.VariantLabels is { Count: > 0 } vl ? new Dictionary<string, string>(vl) : null,
+        ExtraBarcodes = l.ExtraBarcodes.Count > 0 ? l.ExtraBarcodes.ToList() : null, // 2026-11-20
+        VariantNote = l.VariantNote.Length > 0 ? l.VariantNote : null, // 2026-11-20
     };
 
     public ReceivingLineVm ToVm()
@@ -158,6 +163,9 @@ public sealed class JobLine
         vm.PackConvertExpected = PackConvertExpected; // 2026-11-11: повтор задачи — тот же остаток из подтверждения и тот же ключ перевода
         vm.PackConvertAllowRounding = PackConvertAllowRounding;
         vm.PackConvertKey = PackConvertKey;
+        if (ExtraBarcodes is { Count: > 0 })
+            vm.ExtraBarcodes = ExtraBarcodes.Where(v => !string.IsNullOrWhiteSpace(v.Barcode)).ToList(); // 2026-11-20
+        vm.VariantNote = VariantNote ?? ""; // 2026-11-20
         return vm;
     }
 }

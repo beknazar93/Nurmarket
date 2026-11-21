@@ -18,6 +18,7 @@ public sealed class ScreenSnapshotTests
         await TestHost.WarmAsync();
         var screen = ScreenCatalog.Get(screenName);
         var uiSize = ScreenCatalog.ParseSize(size);
+        UiShot.ResetPersistedStateForSnapshots(); // 2026-11-20: не зависеть от состояния, оставленного прежними тестами общего прогона
         UiShot.Setup(theme, lang);
         var window = screen.Create();
         try

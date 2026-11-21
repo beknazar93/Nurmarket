@@ -24,6 +24,9 @@ public sealed class MarketSphereChoiceWindow : Window
     /// <summary>2026-11-12 (ХМ14): размер магазина, выбранный на втором шаге при сфере «Хозтовары»; иначе null.</summary>
     public HardwareSize? ChosenHardwareSize { get; private set; }
 
+    /// <summary>2026-11-20: режим «Базара» (розница / опт), выбранный на втором шаге; иначе null.</summary>
+    public BazaarMode? ChosenBazaarMode { get; private set; }
+
     public static async Task MaybeAskAsync(Window owner)
     {
         var prefs = UserPreferences.Instance;
@@ -74,8 +77,11 @@ public sealed class MarketSphereChoiceWindow : Window
 
         MarketSpheres.Set(sphere);
         // 2026-11-12 (ХМ14): «Хозтовары» — размер магазина и «скан коробки» (новому магазину включён, В-Х4); на сервер уходит только базовая сфера (grocery).
-        if (sphere == MarketSpheres.Hardware)
-            SphereSettings.SetHardwareChoice(dialog.ChosenHardwareSize ?? HardwareSize.Shop, packScan: true);
+        // 2026-11-20: Хозмаг и Строймаг — отдельные плитки: размер (Хозмаг = у дома, Строймаг = маркет) пишется сразу, второго шага нет.
+        if (sphere == HardwareProfile.HozmagId || sphere == HardwareProfile.StroymagId)
+            SphereSettings.SetHardwareChoice(sphere == HardwareProfile.StroymagId ? HardwareSize.Market : HardwareSize.Shop, packScan: true);
+        else if (sphere == BazaarProfile.Id)
+            SphereSettings.SetBazaarMode(dialog.ChosenBazaarMode ?? BazaarMode.Retail); // 2026-11-20: «Базар» — режим розница / опт
         prefs.MarketSphereChoicePending = false;
         prefs.SaveToDisk();
         PosLogger.Log($"Первый запуск: выбран вид магазина {sphere}.", "SETTINGS");
@@ -110,11 +116,20 @@ public sealed class MarketSphereChoiceWindow : Window
 
         var root = new StackPanel { Spacing = 12 };
         // 2026-11-12 (ХМ14): плитки строятся из каталога сфер (три базовые + профили с ChoiceVisible — «Хозтовары»); тексты базовых те же, что были.
+        // 2026-11-20: порядок — главные шесть, затем подпись «Другие» и остальные (SphereCatalog.MainIds / OtherIds); при малой высоте экрана плитки прокручиваются (ModalShell.ContentScroll).
+        var otherShown = false;
         foreach (var profile in SphereCatalog.ChoiceList())
         {
             var id = profile.Id;
+            if (!otherShown && !SphereCatalog.MainIds.Contains(id))
+            {
+                otherShown = true;
+                var other = new TextBlock { Text = Tr.T("Другие", "Башкалар", "Other", "Diğer", "Boshqalar"), FontSize = 13, FontWeight = FontWeight.SemiBold, Margin = new Thickness(2, 6, 0, 0) };
+                Use(other, TextBlock.ForegroundProperty, "BrushTextSoft");
+                root.Children.Add(other);
+            }
             root.Children.Add(Tile(IconKeyFor(profile), profile.Title.Get(), profile.Description.Get(),
-                () => { if (id == MarketSpheres.Hardware) ShowHardwareStep(); else { Chosen = id; Close(); } }));
+                () => { if (id == BazaarProfile.Id) ShowBazaarStep(); else { Chosen = id; Close(); } }));
         }
         _chooseStep = root;
 
@@ -149,22 +164,22 @@ public sealed class MarketSphereChoiceWindow : Window
         MarketSpheres.Grocery => "IconCart",
         MarketSpheres.Clothing => "IconTag",
         MarketSpheres.Services => "IconSettings",
+        BazaarProfile.Id => "IconStore", // 2026-11-20: «Базар»
+        HardwareProfile.StroymagId => "IconWarehouse", // 2026-11-20: у Хозмага и Строймага был один и тот же значок «коробка» — Строймагу даём «склад»
         _ => profile.IconKey == "pencil" ? "IconPencil" : profile.IconKey == "phone" ? "IconPhone" : profile.IconKey == "car" ? "IconCar" : "IconPackage", // 2026-11-12 (ЭЛ1): значок «Электроники»; 2026-11-20 (АЗ1): «Автозапчасти»
     };
 
-    /// <summary>2026-11-12 (ХМ14): второй шаг «Хозтоваров» — размер магазина (хозмаг у дома / строительный маркет) и «что изменится».</summary>
-    private void ShowHardwareStep()
+    /// <summary>2026-11-20: второй шаг «Базара» — розница или опт (режим внутри сферы; потом меняется в Настройках → Операции). Бывший шаг «размер магазина» у Хозмага / Строймага
+    /// не нужен: это две отдельные плитки.</summary>
+    private void ShowBazaarStep()
     {
         var panel = new StackPanel { Spacing = 12 };
-        foreach (var size in new[] { HardwareSize.Shop, HardwareSize.Market })
+        foreach (var mode in new[] { BazaarMode.Retail, BazaarMode.Wholesale })
         {
-            var s = size;
-            panel.Children.Add(Tile("IconPackage", HardwareChoiceTexts.SizeName(s), HardwareChoiceTexts.SizeDescription(s),
-                () => { Chosen = MarketSpheres.Hardware; ChosenHardwareSize = s; Close(); }));
+            var m = mode;
+            panel.Children.Add(Tile("IconStore", BazaarProfile.ModeName(m), BazaarProfile.ModeHint(m),
+                () => { Chosen = BazaarProfile.Id; ChosenBazaarMode = m; Close(); }));
         }
-        var changes = new TextBlock { Text = HardwareChoiceTexts.WhatChangesText(), FontSize = 12.5, TextWrapping = TextWrapping.Wrap };
-        Use(changes, TextBlock.ForegroundProperty, "BrushTextSoft");
-        panel.Children.Add(changes);
         var back = new Button { Content = HardwareChoiceTexts.BackText, MinWidth = 120, HorizontalAlignment = HorizontalAlignment.Left };
         back.Classes.Add("modal-cancel");
         back.Click += (_, _) =>
@@ -173,7 +188,8 @@ public sealed class MarketSphereChoiceWindow : Window
             _shell.Subtitle = _firstSubtitle;
         };
         panel.Children.Add(back);
-        _shell.Subtitle = HardwareChoiceTexts.SizeStepSubtitle;
+        _shell.Subtitle = Tr.T("Режим можно изменить потом в Настройках → Операции.", "Режимди кийин Жөндөөлөр → Операциялар бөлүмүндө өзгөртсө болот.",
+            "You can change the mode later in Settings → Operations.", "Modu daha sonra Ayarlar → İşlemler bölümünden değiştirebilirsiniz.", "Rejimni keyin Sozlamalar → Operatsiyalar bo'limida o'zgartirish mumkin.");
         _shell.Content = panel;
     }
 

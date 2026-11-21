@@ -34,7 +34,7 @@
   <Border Classes="SettingsContentHost">
     <ScrollViewer Classes="SettingsPageScroll">
 
-      <StackPanel x:Name="OpsCardList" Classes="SettingsCardList" MaxWidth="{DynamicResource SettingsPageMaxWidth}" HorizontalAlignment="Stretch" Margin="0,16">
+      <StackPanel x:Name="OpsCardList" Classes="SettingsCardList" MaxWidth="{DynamicResource SettingsPageMaxWidth}" HorizontalAlignment="Stretch" Margin="0,0,0,16"> <!-- 2026-11-20: обход кассы — верхний отступ 16 сверх поля страницы сдвигал шапку на 16 px ниже, чем у «Печати», «Экрана», «Аккаунта»: шапка «прыгала» при смене вкладки -->
 
         <!-- Шапка -->
         <Border Classes="SettingsHeaderCard" HorizontalAlignment="Stretch">
@@ -83,7 +83,7 @@
                  «что изменится». Видно только при сфере hardware. Размер — не смена сферы: замок вида магазина его не блокирует. Тексты — в коде. -->
             <StackPanel x:Name="HardwarePanel" Spacing="8" IsVisible="False">
               <TextBlock x:Name="HardwareSizeTitle" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
-              <WrapPanel Orientation="Horizontal">
+              <WrapPanel x:Name="HardwareSizeRow" Orientation="Horizontal">
                 <RadioButton x:Name="HardwareShopRadio" GroupName="HardwareSize" Classes="DatePill" Margin="0,0,8,8" Click="HardwareSize_Click"/>
                 <RadioButton x:Name="HardwareMarketRadio" GroupName="HardwareSize" Classes="DatePill" Margin="0,0,8,8" Click="HardwareSize_Click"/>
               </WrapPanel>
@@ -94,6 +94,15 @@
               </Grid>
               <Button x:Name="HardwareNormsButton" Classes="btn-secondary" HorizontalAlignment="Left" Click="HardwareNorms_Click"/>
               <TextBlock x:Name="HardwareChangesText" FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+            </StackPanel>
+            <!-- 2026-11-20: сфера «Базар» — режим «Розница / Опт» (SphereSettings, раздел bazaar). Только каркас: функции режимов делаются отдельной работой. Режим — не смена сферы: замок вида магазина его не блокирует. -->
+            <StackPanel x:Name="BazaarPanel" Spacing="8" IsVisible="False">
+              <TextBlock x:Name="BazaarModeTitle" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
+              <WrapPanel Orientation="Horizontal">
+                <RadioButton x:Name="BazaarRetailRadio" GroupName="BazaarMode" Classes="DatePill" Margin="0,0,8,8" Click="BazaarMode_Click"/>
+                <RadioButton x:Name="BazaarWholesaleRadio" GroupName="BazaarMode" Classes="DatePill" Margin="0,0,8,8" Click="BazaarMode_Click"/>
+              </WrapPanel>
+              <TextBlock x:Name="BazaarModeHint" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
             </StackPanel>
             <!-- 2026-09-28: итог сохранения вида магазина на сервере (market_sphere, BE-18). Текст — в коде. -->
             <TextBlock x:Name="SphereServerStatus" FontSize="12" TextWrapping="Wrap" IsVisible="False"

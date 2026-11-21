@@ -2,6 +2,9 @@ using System.Text.Json;
 
 namespace NurMarketKassa.Services;
 
+/// <summary>Одно фото товара для просмотрщика: полноразмерная ссылка и (если сервер дал) ссылка на миниатюру.</summary>
+public sealed record ProductPhotoRef(string Url, string? ThumbUrl);
+
 /// <summary>URL превью товара (логика product_media.product_image_url).</summary>
 public static class ProductImageUrl
 {
@@ -86,6 +89,60 @@ public static class ProductImageUrl
         }
 
         return ChooseBestCandidate(candidates);
+    }
+
+    /// <summary>2026-11-20 (просмотр фото товара на весь экран): все фото карточки товара для просмотрщика — по порядку сервера, без повторов.
+    /// Сервер отдаёт <c>images[].image_url</c> и <c>images[].image_thumb_url</c> (миниатюра для мгновенного показа); понимаем и старые формы
+    /// (строка-ссылка, url/src/file…). Если массива нет, берём главное фото карточки (image_url / primary_image_url…). Не больше 12 фото.</summary>
+    public static IReadOnlyList<ProductPhotoRef> ExtractGallery(JsonElement p, string apiBaseUrl)
+    {
+        var result = new List<ProductPhotoRef>();
+        if (p.ValueKind != JsonValueKind.Object)
+            return result;
+        var baseTrim = (apiBaseUrl ?? "").Trim().TrimEnd('/');
+
+        void Add(string? url, string? thumb)
+        {
+            var full = ToAbsolute(url, baseTrim);
+            var small = ToAbsolute(thumb, baseTrim);
+            if (full.Length == 0 && small.Length == 0)
+                return;
+            if (full.Length == 0)
+                full = small; // есть только миниатюра — показываем её как основное
+            if (result.Count >= 12 || result.Any(r => string.Equals(r.Url, full, StringComparison.OrdinalIgnoreCase)))
+                return;
+            result.Add(new ProductPhotoRef(full, small.Length == 0 || string.Equals(small, full, StringComparison.OrdinalIgnoreCase) ? null : small));
+        }
+
+        static string? Str(JsonElement o, params string[] names)
+        {
+            foreach (var n in names)
+                if (o.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(v.GetString()))
+                    return v.GetString();
+            return null;
+        }
+
+        foreach (var key in new[] { "images", "photos", "gallery", "media" })
+        {
+            if (!p.TryGetProperty(key, out var arr) || arr.ValueKind != JsonValueKind.Array)
+                continue;
+            foreach (var it in arr.EnumerateArray())
+            {
+                if (it.ValueKind == JsonValueKind.String)
+                    Add(it.GetString(), null);
+                else if (it.ValueKind == JsonValueKind.Object)
+                    Add(Str(it, "image_url", "url", "src", "image", "file", "path", "full", "download_url"),
+                        Str(it, "image_thumb_url", "thumb_url", "thumbnail_url", "thumbnail", "thumb"));
+            }
+        }
+
+        if (result.Count == 0)
+        {
+            var main = TryGet(p, apiBaseUrl ?? "");
+            if (main is not null)
+                Add(main, Str(p, "image_thumb_url", "thumbnail_url"));
+        }
+        return result;
     }
 
     private static string ToAbsolute(string? u, string baseNoSlash)

@@ -49,6 +49,18 @@ public sealed class PartsOrder
     public string Comment { get; set; } = "";
     public string Status { get; set; } = PartsOrderStatus.New;
     public string? CancelledNote { get; set; }
+    // 2026-11-20 (ответ Умара 20.11, В.4, этап 1 переноса на сервер): заказ, заведённый на сервере (customer-orders/), хранится здесь копией. ServerId задан — выдача (deliver) и отмена (cancel)
+    // идут через сервер, предоплата и резерв — на сервере; статус копии берётся с сервера. У местных заказов (ServerId = null) всё как раньше. Поля в JSON файла — у старых записей null.
+    public string? ServerId { get; set; }
+    public string? ServerVersion { get; set; }
+    /// <summary>Статус заказа на сервере как есть (confirmed, reserved, waiting_supply, ready, delivered, closed, canceled).</summary>
+    public string? ServerStatus { get; set; }
+    /// <summary>«К доплате» по серверу (left_to_pay): сервер считает с учётом зачтённой предоплаты.</summary>
+    public decimal? ServerLeftToPay { get; set; }
+    public string? ServerSaleId { get; set; }
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsServerOrder => !string.IsNullOrWhiteSpace(ServerId);
 }
 
 public sealed class PartsOrdersData
@@ -67,7 +79,19 @@ public static class PartsOrderRules
 
     /// <summary>Доплата после предоплаты (не меньше нуля): итог минус предоплата, если она не возвращена.</summary>
     public static decimal Remainder(PartsOrder o) =>
-        Math.Max(0m, Total(o) - (o.PrepaymentRefunded ? 0m : Math.Max(0m, o.Prepayment)));
+        o.IsServerOrder && o.ServerLeftToPay is { } left
+            ? Math.Max(0m, left) // серверный заказ: «к доплате» считает сервер
+            : Math.Max(0m, Total(o) - (o.PrepaymentRefunded ? 0m : Math.Max(0m, o.Prepayment)));
+
+    /// <summary>Статус заказа на сервере → статус «Заказов под клиента»: confirmed/draft — Новый, reserved/waiting_supply — Заказан (ждём товар), ready — Пришёл, delivered/closed — Выдан, canceled — Отменён.</summary>
+    public static string FromServerStatus(string? serverStatus) => (serverStatus ?? "").Trim().ToLowerInvariant() switch
+    {
+        "reserved" or "waiting_supply" => PartsOrderStatus.Ordered,
+        "ready" => PartsOrderStatus.Arrived,
+        "delivered" or "closed" => PartsOrderStatus.Issued,
+        "canceled" or "cancelled" => PartsOrderStatus.Cancelled,
+        _ => PartsOrderStatus.New,
+    };
 
     /// <summary>Предложение мастера: 50 % от итога, целыми сомами.</summary>
     public static decimal SuggestPrepayment(decimal total) => Math.Round(Math.Max(0m, total) / 2m, 0, MidpointRounding.AwayFromZero);
@@ -88,7 +112,7 @@ public static class PartsOrderRules
 
     /// <summary>Предоплата на руках (взята и не возвращена) у открытых заказов — для строки «Предоплаты по заказам».</summary>
     public static decimal PrepaymentsOnHand(IEnumerable<PartsOrder> orders) =>
-        orders.Where(o => IsOpen(o.Status) && !o.PrepaymentRefunded).Sum(o => Math.Max(0m, o.Prepayment));
+        orders.Where(o => !o.IsServerOrder && IsOpen(o.Status) && !o.PrepaymentRefunded).Sum(o => Math.Max(0m, o.Prepayment));
 
     /// <summary>Подсказка тарифа «Старт»: открытых заказов уже много. null — всё в порядке.</summary>
     public static string? SoftLimitHint(int openCount, bool startTariff) =>
@@ -277,6 +301,55 @@ public sealed class PartsOrderStore
             return done = true;
         });
         return done;
+    }
+
+    /// <summary>2026-11-20 (этап 1 переноса на сервер): положить в файл копии серверных заказов (по ServerId): новые добавляются, известные обновляются (статус, строки, предоплата, «к доплате», версия).
+    /// Местные заказы не трогаются. Возвращает, сколько записей добавлено или изменено. Номер — номер заказа на сервере (число), нет цифр — следующий местный.</summary>
+    public int UpsertFromServer(IEnumerable<CustomerOrderDto> orders)
+    {
+        var list = orders.Where(o => !string.IsNullOrWhiteSpace(o.Id)).ToList();
+        if (list.Count == 0)
+            return 0;
+        var changed = 0;
+        Mutate(d =>
+        {
+            foreach (var s in list)
+            {
+                var existing = d.Orders.FirstOrDefault(x => x.ServerId == s.Id);
+                var o = existing ?? new PartsOrder { ServerId = s.Id, CreatedAt = _now() };
+                var before = existing is null ? "" : JsonSerializer.Serialize(existing, Json);
+                if (CustomerOrdersApi.NumberOf(s.Number) is > 0 and var n)
+                    o.Number = n;
+                else if (o.Number == 0)
+                    o.Number = Math.Max(d.LastNumber, d.Orders.Count == 0 ? 0 : d.Orders.Max(x => x.Number)) + 1;
+                o.ClientId = s.ClientId ?? "";
+                o.ClientName = s.CustomerName ?? "";
+                o.Phone = s.CustomerPhone ?? "";
+                o.Comment = s.Note ?? "";
+                o.DueDate = s.DueDate;
+                o.Lines = s.Items.Select(i => new PartsOrderLine
+                {
+                    ProductId = i.ProductId, Title = i.Name, Qty = i.Qty, Price = i.Price,
+                    OnOrder = string.Equals(i.Status, "waiting_supply", StringComparison.OrdinalIgnoreCase),
+                }).ToList();
+                o.Prepayment = s.PrepaymentAmount;
+                o.PrepaymentRefunded = s.PrepaymentRefunded;
+                o.ServerStatus = s.Status;
+                o.Status = PartsOrderRules.FromServerStatus(s.Status);
+                o.ServerLeftToPay = s.LeftToPay;
+                o.ServerSaleId = s.SaleId ?? o.ServerSaleId;
+                o.ServerVersion = s.Version;
+                if (existing is not null && JsonSerializer.Serialize(existing, Json) == before)
+                    continue; // ничего не изменилось
+                o.UpdatedAt = _now();
+                if (existing is null)
+                    d.Orders.Add(o);
+                d.LastNumber = Math.Max(d.LastNumber, o.Number);
+                changed++;
+            }
+            return changed > 0;
+        });
+        return changed;
     }
 
     /// <summary>Заказ выдан (чек пробит): статус «Выдан». Предоплата считается зачтённой.</summary>

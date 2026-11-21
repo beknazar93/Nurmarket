@@ -100,6 +100,17 @@ public sealed class CheckoutViewModelTests
         seen.Should().Contain(30d).And.Contain(10d);
     }
 
+    // 2026-11-20: «Сумма позиций» без скидок/округления повторяла «Итог к оплате» — строка видна только при составе итога.
+    [Fact]
+    public void SubtotalRow_HiddenWithoutBreakdown_ShownWithDiscount()
+    {
+        var viewModel = CreateViewModel(100);
+        viewModel.ShowSubtotalRow.Should().BeFalse("итог = сумма позиций — дубль не нужен");
+        viewModel.IsDiscountSum = true;
+        viewModel.DiscountInput = "10";
+        viewModel.ShowSubtotalRow.Should().BeTrue("со скидкой строка начинает состав итога");
+    }
+
     private static CheckoutViewModel CreateViewModel(double total) =>
         new(
             new CartTotalsCalculator.CartTotals

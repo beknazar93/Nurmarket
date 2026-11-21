@@ -91,6 +91,9 @@ public sealed class AutoPartsRowData
     {
         if (string.IsNullOrWhiteSpace(productId))
             return;
+        // 2026-11-20: журнал импорта (дефект А) — созданный товар запоминается по «номер + бренд» до того, как каталог получит его артикул и бренд.
+        if (IsNew)
+            AutoPartsImportLog.Record(productId, PartNumbers.Norm(Article), ProductImportMapping.Key(Brand), Brand);
         if (IsNew || NeedsAttrs || NeedsLocation)
             PartMetaStore.Set(productId, Info);
         if ((IsNew || NeedsWarranty) && WarrantyDays is > 0)
@@ -444,6 +447,7 @@ public static class AutoPartsPriceImport
                 catalogCodes.Add(t.Barcode.Trim());
                 byBarcode.TryAdd(t.Barcode.Trim(), t);
             }
+        Dictionary<string, CatalogProductTileVm>? byId = null;
         var usedCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var seen = new Dictionary<string, int>(StringComparer.Ordinal);
         var rows = new List<AutoPartsPreparedRow>();
@@ -520,6 +524,23 @@ public static class AutoPartsPriceImport
             // (план находит товар по штрихкоду), а артикул, бренд, OEM и ячейка не записывались.
             if (match is null && Cell(src, PartColumn.Barcode) is { Length: > 0 } fileBarcode && byBarcode.TryGetValue(fileBarcode, out var byCode))
                 match = byCode;
+            // 2026-11-20: журнал импорта (дефект А) — товар, созданный прошлой загрузкой, ещё без артикула и бренда в каталоге: по ключу «номер + бренд» берём
+            // его по id (обновление, не создание). Его ещё нет в каталоге, но создан только что — строку пропускаем, чтобы не плодить дубль.
+            // Нет в каталоге и давно — удалён на сервере: запись игнорируется.
+            if (match is null && AutoPartsImportLog.Find(partNorm, brandKey) is { } logged)
+            {
+                byId ??= catalogList.Where(t => !string.IsNullOrWhiteSpace(t.Id)).GroupBy(t => t.Id.Trim(), StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+                if (byId.TryGetValue(logged.Id, out var byLog))
+                    match = byLog;
+                else if (DateTime.UtcNow - logged.At <= AutoPartsImportLog.PendingWindow)
+                {
+                    rows.Add(Skip(Tr.T("уже создан прошлой загрузкой, каталог ещё обновляется", "мурунку жүктөөдө түзүлгөн, каталог дагы жаңыланып жатат",
+                        "already created by the previous load, the catalog is still updating", "önceki yüklemede oluşturuldu, katalog hâlâ güncelleniyor",
+                        "oldingi yuklashda yaratilgan, katalog hali yangilanmoqda")));
+                    continue;
+                }
+            }
             var isNew = match is null || string.IsNullOrWhiteSpace(match.Barcode);
 
             // Штрихкод: у существующего — его; иначе из файла (цифры 4–14); иначе внутренний (как «Сгенерировать штрихкоды»).

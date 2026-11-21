@@ -56,7 +56,7 @@
                       Tag="{Binding}"
                       Click="Product_Click">
                 <Grid RowDefinitions="Auto,*,Auto">
-                  <Border Grid.Row="0"
+                  <Border Grid.Row="0" dlg:ProductPhotoZoom.LongPress="True"
                           Height="{DynamicResource CatalogTilePhotoHeight}"
                           MaxWidth="140"
                           Margin="0,0,0,8"

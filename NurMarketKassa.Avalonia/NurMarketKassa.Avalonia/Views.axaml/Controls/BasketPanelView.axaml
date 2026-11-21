@@ -582,12 +582,11 @@
                                                 CommandParameter="{Binding}">
                                             <!-- 2026-10-19, К1 (аудит 19.10, проблема 8): 230 вместо 190 — «Основной чек · 6 тов. ·
                                                  1 517,96» целиком; вкладки по-прежнему прокручиваются вбок. -->
-                                            <TextBlock Text="{Binding Title}"
-                                                       MaxWidth="230"
-                                                       TextTrimming="CharacterEllipsis"
-                                                       TextWrapping="NoWrap"
-                                                       FontSize="12"
-                                                       FontWeight="SemiBold"/>
+                                            <!-- 2026-11-20 (обход кассы, п. 22): сокращается только название, сумма — целиком; активная вкладка сама показывается в прокрутке (ReceiptTabLabel). -->
+                                            <ctl:ReceiptTabLabel Text="{Binding Title}"
+                                                                 IsActive="{Binding IsActive}"
+                                                                 TextElement.FontSize="12"
+                                                                 TextElement.FontWeight="SemiBold"/>
                                         </Button>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>

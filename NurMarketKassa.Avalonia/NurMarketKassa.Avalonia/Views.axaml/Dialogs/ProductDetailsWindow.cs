@@ -70,7 +70,7 @@ public sealed class ProductDetailsWindow : Window
         if (!product.IsService)
             main.Children.Add(StockPill(product));
         var chips = new WrapPanel { Orientation = Orientation.Horizontal };
-        foreach (var chip in new[] { product.Category, product.Brand })
+        foreach (var chip in new[] { product.Category, string.IsNullOrWhiteSpace(product.Brand) && AutoPartHub.Active ? AutoPartHub.BrandOf?.Invoke(product.Id) : product.Brand }) // 2026-11-20: бренд нового товара прайса до докачки карточки
         {
             if (string.IsNullOrWhiteSpace(chip))
                 continue;
@@ -187,13 +187,23 @@ public sealed class ProductDetailsWindow : Window
         if (!string.IsNullOrWhiteSpace(product.ProductImagePath)
             && AssetPathToBitmapConverter.Instance.Convert(product.ProductImagePath, typeof(Bitmap), null, CultureInfo.CurrentCulture) is Bitmap bitmap)
         {
-            frame.Child = new Image { Source = bitmap, Stretch = Stretch.UniformToFill };
+            // 2026-11-20 (общий просмотрщик фото): клик — ProductPhotoViewer (затемнение, масштаб, несколько фото); в углу — значок лупы, чтобы было видно, что фото открывается.
+            var zoomHint = new Border
+            {
+                Width = 30, Height = 30, CornerRadius = new CornerRadius(15), Margin = new Thickness(0, 0, 8, 8),
+                HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Bottom, IsHitTestVisible = false,
+                Background = new SolidColorBrush(Color.FromArgb(0xB3, 0x14, 0x14, 0x14)),
+                Child = PhotoOverlayButton.Icon(PhotoOverlayButton.ZoomInPath, 18),
+            };
+            zoomHint.Child!.HorizontalAlignment = HorizontalAlignment.Center;
+            zoomHint.Child.VerticalAlignment = VerticalAlignment.Center;
+            frame.Child = new Grid { Children = { new Image { Source = bitmap, Stretch = Stretch.UniformToFill }, zoomHint } };
             frame.Cursor = new Cursor(StandardCursorType.Hand);
             ToolTip.SetTip(frame, Tr.T("Открыть фото на весь экран", "Сүрөттү толук экранда ачуу", "Open the photo full screen", "Fotoğrafı tam ekran aç", "Rasmni to'liq ekranda ochish"));
             frame.PointerPressed += (_, e) =>
             {
                 e.Handled = true;
-                ShowFullPhoto(bitmap);
+                ProductPhotoViewer.Open(this, product);
             };
         }
         else
@@ -211,54 +221,6 @@ public sealed class ProductDetailsWindow : Window
             frame.Child = icon;
         }
         return frame;
-    }
-
-    /// <summary>2026-10-23: фото на весь экран; закрывается кликом, касанием или любой клавишей.</summary>
-    private void ShowFullPhoto(Bitmap bitmap)
-    {
-        var fullImage = new Image { Source = bitmap, Stretch = Stretch.Uniform, Margin = new Thickness(12) };
-        var viewer = new Window
-        {
-            WindowState = WindowState.FullScreen,
-            SystemDecorations = SystemDecorations.None,
-            Background = Brushes.Black,
-            ShowInTaskbar = false,
-            Content = fullImage,
-        };
-        viewer.PointerPressed += (_, _) => viewer.Close();
-        viewer.KeyDown += (_, _) => viewer.Close();
-        _ = viewer.ShowDialog(this);
-        _ = UpgradeFullPhotoAsync(viewer, fullImage);
-    }
-
-    /// <summary>2026-11-05 (аудит скорости, п. 15 а): миниатюра в кэше теперь 320 px — на весь экран её мало. Пока открыт просмотр, фоном берём
-    /// фото побольше (до 1600 px, WebP, кэш product_thumbs/full) и подменяем картинку; не вышло (нет сети) — остаётся миниатюра.</summary>
-    private async Task UpgradeFullPhotoAsync(Window viewer, Image target)
-    {
-        try
-        {
-            var url = _product.ImageUrl;
-            var services = App.AppHost?.Services;
-            if (string.IsNullOrWhiteSpace(url) || services is null)
-                return;
-            var thumbs = services.GetRequiredService<ProductThumbService>();
-            var authApi = services.GetRequiredService<NurMarketKassa.Services.Api.IAuthApiService>();
-            var apiBase = services.GetRequiredService<NurMarketKassa.Configuration.AppSettings>().ApiBaseUrl;
-            var bigBitmap = await Task.Run(async () =>
-            {
-                var path = await thumbs.GetFullPathAsync(authApi, apiBase, url, CancellationToken.None).ConfigureAwait(false);
-                if (string.IsNullOrEmpty(path))
-                    return null;
-                using var stream = System.IO.File.OpenRead(path);
-                return new Bitmap(stream);
-            }).ConfigureAwait(true);
-            if (bigBitmap is not null && viewer.IsVisible)
-                target.Source = bigBitmap;
-        }
-        catch (Exception ex)
-        {
-            PosLogger.Log($"Карточка товара: большое фото не загружено ({ex.GetType().Name}).", "WARNING");
-        }
     }
 
     /// <summary>2026-10-23: плашка наличия — «В наличии 12 шт» (зелёная), «Заканчивается · 5 шт» (оранжевая), «Нет в наличии» (серая).</summary>

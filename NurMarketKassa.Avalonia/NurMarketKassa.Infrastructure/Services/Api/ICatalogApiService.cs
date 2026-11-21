@@ -104,6 +104,14 @@ public interface ICatalogApiService
     /// отправляет карточку целиком и перетёр бы на сервере всё, чего касса не знает.</summary>
     Task<JsonElement> PatchProductFieldsAsync(string productId, IReadOnlyDictionary<string, object?> fields, CancellationToken ct = default);
 
+    /// <summary>2026-11-21 (ответ Умара, в бою): POST products/&lt;id&gt;/barcodes/ {barcode, name?, quantity?} — добавить ОДИН доп. штрихкод, остальные не трогаются (PATCH alternate_barcodes заменяет список целиком).
+    /// <paramref name="version"/> — версия карточки из GET products/&lt;id&gt;/ → заголовок If-Match (несовпадение — 409 version_conflict); повтор того же кода — 200 без изменений.
+    /// «Штук в упаковке» — целое &gt; 1 или null. Старый сервер — 404/405.</summary>
+    Task<JsonElement> AddProductBarcodeAsync(string productId, string barcode, string? name, long? quantity, string? version, CancellationToken ct = default);
+
+    /// <summary>2026-11-21: DELETE products/&lt;id&gt;/barcodes/&lt;barcode&gt;/ — убрать ОДИН доп. штрихкод (If-Match как у <see cref="AddProductBarcodeAsync"/>).</summary>
+    Task<JsonElement> DeleteProductBarcodeAsync(string productId, string barcode, string? version, CancellationToken ct = default);
+
     /// <summary>2026-11-11 (Умар включил на боевом): атомарный перевод остатка товара в упаковки — POST products/&lt;id&gt;/convert-to-packages/
     /// {quantity_in_package, unit?, package_name?, expected_quantity?, allow_rounding?, idempotency_key} + заголовок Idempotency-Key.
     /// Отказы — ApiException (409 stock_changed / already_has_packages / …, 400 not_divisible / price_overflow); разбор — ReceivingPackConvert.

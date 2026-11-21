@@ -61,7 +61,7 @@ public sealed class WarehouseMemoryUiTests(ITestOutputHelper output)
     [AvaloniaFact]
     public async Task Warehouse_AllTabs_And_Revision_On15000Catalog_MemoryBounded_ListVirtualized()
     {
-        await TestHost.WarmAsync();
+        await TestHost.WarmAsync(); UiRobot.Reset(); // 2026-11-21: UiRobot.Opened (статический) держал окна прежних сценариев и ложно «утекал» в этом тесте в общем прогоне
         UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
         var oldProducts = CatalogCacheService.Products.ToList();
         var report = new List<string>();

@@ -126,7 +126,7 @@ public static class InvestorTemplates
                     new Template("term24", Tr.T("Доля на 24 месяца", "24 айга үлүш", "Share for 24 months", "24 ay pay", "24 oyga ulush"), new() { S(60, "months", 24) }, null),
                     cap,
                 };
-            case MarketSpheres.Hardware:
+            case MarketSpheres.Hardware or HardwareProfile.HozmagId or HardwareProfile.StroymagId: // 2026-11-20: Хозмаг и Строймаг — те же шаблоны, что были у hardware
                 return new[]
                 {
                     new Template("retplus", Tr.T("Возврат + 20% с маржи", "Кайтаруу + маржадан 20%", "Return + 20% of margin", "İade + marjdan %20", "Qaytarish + marjadan 20%"), new() { S(50, "return", 120) }, null),

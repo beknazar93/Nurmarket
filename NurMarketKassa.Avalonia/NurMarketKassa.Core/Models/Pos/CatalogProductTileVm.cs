@@ -181,6 +181,22 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
 
     public bool HasPartLine => PartLine.Length > 0;
 
+    /// <summary>2026-11-20: мелкая строка плитки с брендом — «Bosch · 0451103092 · яч. A-3-2». У новых товаров бренд в названии не пишется, а карточка в каталог
+    /// приходит не сразу, поэтому бренд берётся и из журнала импорта. Бренд, уже стоящий в названии, не повторяется. Только сфера «Автозапчасти».</summary>
+    public string PartTileLine
+    {
+        get
+        {
+            var line = PartLine;
+            if (line.Length == 0)
+                return "";
+            var brand = (Brand ?? "").Trim();
+            if (brand.Length == 0 && AutoPartHub.Active)
+                brand = AutoPartHub.BrandOf?.Invoke(Id)?.Trim() ?? "";
+            return brand.Length == 0 || Title.Contains(brand, StringComparison.OrdinalIgnoreCase) ? line : brand + " · " + line;
+        }
+    }
+
     /// <summary>«яч. A-3-2» — ячейка склада для таблицы владельца (пусто, если ячейки нет или сфера другая).</summary>
     public string PartCellText => Part is { Location.Length: > 0 } p ? ((AutoPartHub.CellLabel?.Invoke() ?? "") + " " + p.Location).Trim() : "";
 
@@ -415,6 +431,11 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
     /// <summary>2026-11-01 (владелец «10 из 10», is_weight): признак товара is_weight с сервера. Он, а не единица «кг» (MustWeigh), определяет, что сервер округляет сумму строки вниз.
     /// null — неизвестно (старая запись базы), тогда прежняя эвристика (см. CartDisplayHelper.LineIsWeightProduct).</summary>
     public bool? ServerIsWeight { get; set; }
+    /// <summary>2026-11-21 (ответ Умара 21.11, п. B): has_variants из products/list/ и products/changes (только активные варианты); null — сервер поля не дал. Только в памяти (колонки в базе кассы нет).
+    /// Фоновый обход вариантов («Одежда») спрашивает products/&lt;id&gt;/variants/ только у товаров, где это не false (см. ProductVariantCache.NoteServerFlag).</summary>
+    public bool? ServerHasVariants { get; set; }
+    /// <summary>2026-11-21: variants_count (число активных вариантов) с сервера; null — не дал.</summary>
+    public int? ServerVariantsCount { get; set; }
     public double DiscountPercent { get; set; }
     /// <summary>Есть ли скидка на товар — для колонки "Скидка" в Складе: плашка "-N%" вместо "0%".</summary>
     public bool HasDiscount => DiscountPercent > 0.0001;

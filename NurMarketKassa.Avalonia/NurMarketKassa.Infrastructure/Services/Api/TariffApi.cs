@@ -225,11 +225,17 @@ public sealed class TariffApi : ITariffApi
                 return Tr.T("Тариф «Своё» оформляет только владелец компании.", "«Өзүмдүкү» тарифин компаниянын ээси гана жөнөтө алат.",
                     "Only the company owner can arrange the “Custom” plan.", "«Özel» tarifeyi yalnızca şirket sahibi oluşturabilir.", "«O'zimniki» tarifini faqat kompaniya egasi rasmiylashtiradi.");
             if (api.StatusCode == 409 || raw.Contains("plan_not_allowed", StringComparison.OrdinalIgnoreCase))
-                return Tr.T("Для вашего текущего тарифа «Своё» недоступно (оно строится поверх «Старта»). Обратитесь к менеджеру.",
-                    "Учурдагы тарифиңиз үчүн «Өзүмдүкү» жеткиликсиз («Старттын» үстүнөн курулат). Менеджерге кайрылыңыз.",
-                    "The “Custom” plan is not available on your current plan (it is built on top of “Start”). Please contact the manager.",
-                    "Mevcut tarifenizde «Özel» kullanılamaz («Start» üzerine kurulur). Lütfen yöneticiyle iletişime geçin.",
-                    "Joriy tarifingizda «O'zimniki» mavjud emas («Start» ustiga quriladi). Menejerga murojaat qiling.");
+            {
+                // 2026-11-20: ограничение ставит СЕРВЕР (409 plan_not_allowed), касса по имени плана ничего не запрещает; жёсткое «поверх Старта» убрано,
+                // если сервер прислал свой текст — показываем его.
+                var basic = Tr.T("Конструктор «Своё» для вашего тарифа пока недоступен.",
+                    "«Өзүмдүкү» конструктору учурдагы тарифиңиз үчүн азырынча жеткиликсиз.",
+                    "The “Custom” builder is not available for your current plan yet.",
+                    "«Özel» oluşturucu mevcut tarifeniz için henüz kullanılamıyor.",
+                    "«O'zimniki» konstruktori joriy tarifingiz uchun hozircha mavjud emas.");
+                var server = TariffCustomRules.ServerText(api);
+                return server is null ? basic : basic + "\n" + server;
+            }
             if (api.StatusCode == 400 && raw.Contains("pack_unknown", StringComparison.OrdinalIgnoreCase))
                 return Tr.T("Сервер не знает один из выбранных пакетов — обновите окно и выберите заново.",
                     "Сервер тандалган пакеттердин бирин билбейт — терезени жаңыртып, кайра тандаңыз.",
@@ -246,5 +252,43 @@ public sealed class TariffApi : ITariffApi
         }
 
         return ServerOutageMonitor.FriendlyError(ex);
+    }
+}
+
+/// <summary>2026-11-20 (замечание владельца: «в Стандарте тоже можешь»): правила окна «Своё», не зависящие от окна — чтобы их проверять тестами.
+/// Недоступность тарифа определяет СЕРВЕР (409 plan_not_allowed), касса по имени плана ничего не запрещает.</summary>
+public static class TariffCustomRules
+{
+    /// <summary>Код текущего тарифа компании: по коду или по названию из каталога (касса пока знает только имя плана — TariffGate). Не нашли — null.</summary>
+    public static string? ResolvePlanCode(TariffCatalog? catalog, string? planNameOrCode)
+    {
+        if (catalog is null || string.IsNullOrWhiteSpace(planNameOrCode))
+            return null;
+        var key = planNameOrCode.Trim();
+        return catalog.Plans.FirstOrDefault(p => string.Equals(p.Code, key, StringComparison.OrdinalIgnoreCase)
+                                                 || string.Equals(p.Name, key, StringComparison.OrdinalIgnoreCase))?.Code;
+    }
+
+    /// <summary>Пакет уже входит в текущий тариф (included_in каталога) — «Входит в ваш тариф», в цену не считается.</summary>
+    public static bool IsIncludedInPlan(TariffPack pack, string? planCode) =>
+        !string.IsNullOrWhiteSpace(planCode) && pack.IncludedIn.Any(c => string.Equals(c, planCode, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Текст причины от сервера (detail / message / error / reason) — только настоящая фраза, а не код вида plan_not_allowed.</summary>
+    public static string? ServerText(ApiException api)
+    {
+        if (api.Payload is not { ValueKind: JsonValueKind.Object } p)
+            return null;
+        foreach (var name in new[] { "detail", "message", "error", "reason" })
+        {
+            if (!p.TryGetProperty(name, out var v) || v.ValueKind != JsonValueKind.String)
+                continue;
+            var text = v.GetString()?.Trim();
+            if (string.IsNullOrEmpty(text) || text.Length > 300 || text.Contains("plan_not_allowed", StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (text.Any(char.IsWhiteSpace) || text.Any(ch => ch > 127))
+                return text;
+        }
+
+        return null;
     }
 }

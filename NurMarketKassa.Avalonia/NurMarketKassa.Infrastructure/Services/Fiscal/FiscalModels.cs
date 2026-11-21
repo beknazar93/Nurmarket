@@ -159,8 +159,123 @@ public sealed record FiscalRequisites(
     }
 }
 
+/// <summary>2026-11-20 (режим server: ККМ зарегистрирована на сервере, в кассе её нет): сведения о ККМ, если сервер их отдаёт. Адрес запроса и имена полей Умар ещё не подтвердил
+/// (вопрос отправлен 20.11), поэтому разбор ТОЛЬКО терпимый: берём ненулевые поля с известными именами (kkm_*, serial, reg_number, fm_*, ofd_inn…) из блока fiscal
+/// и из вложенного объекта kkm / ekassa / kassa; ничего не выдумываем — нет полей, нет и карточки.</summary>
+public sealed record FiscalKkmInfo(
+    string? Serial = null,
+    string? RegNumber = null,
+    string? FmNumber = null,
+    string? FmValidUntil = null,
+    string? OfdInn = null,
+    string? Version = null,
+    bool? ShiftOpen = null,
+    string? LastReceipt = null)
+{
+    /// <summary>Есть хотя бы одно сведение.</summary>
+    [JsonIgnore]
+    public bool HasData => Serial is not null || RegNumber is not null || FmNumber is not null || FmValidUntil is not null || OfdInn is not null
+        || Version is not null || ShiftOpen is not null || LastReceipt is not null;
+
+    private static readonly string[] Nested = { "kkm", "ekassa", "kassa", "cash_register", "kkm_info" };
+
+    /// <summary>Разбор блока fiscal (или ответа settings/fiscal/): null — сведений о ККМ нет.</summary>
+    public static FiscalKkmInfo? Parse(JsonElement block)
+    {
+        if (block.ValueKind != JsonValueKind.Object)
+            return null;
+        var sources = new List<JsonElement> { block };
+        foreach (var name in Nested)
+            if (block.TryGetProperty(name, out var inner) && inner.ValueKind == JsonValueKind.Object)
+                sources.Add(inner);
+        string? Pick(params string[] keys)
+        {
+            foreach (var src in sources)
+                foreach (var key in keys)
+                    if (Text(src, key) is { } v)
+                        return v;
+            return null;
+        }
+        var shift = (bool?)null;
+        foreach (var src in sources)
+        {
+            foreach (var key in new[] { "shift_open", "shift_opened", "kkm_shift_open", "is_shift_open" })
+                if (src.TryGetProperty(key, out var b) && b.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                    shift ??= b.ValueKind == JsonValueKind.True;
+            if (shift is null && src.TryGetProperty("shift", out var sh) && sh.ValueKind == JsonValueKind.Object && Text(sh, "status") is { } st)
+                shift = st.Equals("open", StringComparison.OrdinalIgnoreCase) ? true : st.Equals("closed", StringComparison.OrdinalIgnoreCase) ? false : null;
+        }
+        var info = new FiscalKkmInfo(
+            Pick("kkm_serial", "kkm_serial_number", "serial_number", "serial", "kkm_zn"),
+            Pick("kkm_reg_number", "reg_number", "registration_number", "kkm_rn"),
+            Pick("fm_number", "fiscal_memory_number", "kkm_fm_number", "fm_serial", "fm"),
+            Pick("fm_valid_until", "fm_expires_at", "fm_expiry", "fm_end_date", "kkm_fm_valid_until"),
+            Pick("ofd_inn", "kkm_ofd_inn"),
+            Pick("kkm_version", "version"),
+            shift,
+            Pick("last_receipt_number", "last_fiscal_receipt", "last_receipt"));
+        return info.HasData ? info : null;
+    }
+
+    /// <summary>Строки для карточки: ключ (имя элемента), подпись, значение. Только заполненные.</summary>
+    public IEnumerable<(string Key, string Label, string Value)> Rows()
+    {
+        if (Serial is not null)
+            yield return ("Serial", Tr.T("ЗН ККМ", "ККМ зав. №", "Serial no.", "Seri no", "KKM zav. №"), Serial);
+        if (RegNumber is not null)
+            yield return ("Reg", Tr.T("РН ККМ", "ККМ рег. №", "Reg. no.", "Kayıt no", "KKM ro'yx. №"), RegNumber);
+        if (FmNumber is not null)
+            yield return ("Fm", Tr.T("ФМ", "ФМ", "Fiscal memory", "Mali bellek", "FM"), FmNumber);
+        if (FmValidUntil is not null)
+            yield return ("FmUntil", Tr.T("Срок ФМ", "ФМ мөөнөтү", "Memory valid until", "Bellek süresi", "FM muddati"), FormatDate(FmValidUntil));
+        if (OfdInn is not null)
+            yield return ("Ofd", Tr.T("ОФД (ИНН)", "ОФД (ИНН)", "OFD (TIN)", "OFD (VKN)", "OFD (STIR)"), OfdInn);
+        if (Version is not null)
+            yield return ("Version", Tr.T("Версия", "Версия", "Version", "Sürüm", "Versiya"), Version);
+        if (ShiftOpen is { } open)
+            yield return ("Shift", Tr.T("Смена", "Смена", "Shift", "Vardiya", "Smena"), open
+                ? Tr.T("открыта", "ачык", "open", "açık", "ochiq")
+                : Tr.T("закрыта", "жабык", "closed", "kapalı", "yopiq"));
+        if (LastReceipt is not null)
+            yield return ("LastReceipt", Tr.T("Последний чек", "Акыркы чек", "Last receipt", "Son fiş", "Oxirgi chek"), LastReceipt);
+    }
+
+    /// <summary>Дата «2029-11-18» или ISO → «18.11.2029»; не дата — как пришло.</summary>
+    internal static string FormatDate(string value) =>
+        DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var d) ? d.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture) : value;
+
+    private static string? Text(JsonElement obj, string name)
+    {
+        if (!obj.TryGetProperty(name, out var v))
+            return null;
+        var text = v.ValueKind switch
+        {
+            JsonValueKind.String => v.GetString(),
+            JsonValueKind.Number => v.GetRawText(),
+            _ => null,
+        };
+        return string.IsNullOrWhiteSpace(text) ? null : text!.Trim();
+    }
+
+    /// <summary>Для записи на диск (последний известный блок, как остальные поля fiscal-settings.json): имена те же, что разбирает <see cref="Parse"/>.</summary>
+    internal Dictionary<string, object?> ToBlock()
+    {
+        var d = new Dictionary<string, object?>();
+        if (Serial is not null) d["kkm_serial"] = Serial;
+        if (RegNumber is not null) d["kkm_reg_number"] = RegNumber;
+        if (FmNumber is not null) d["fm_number"] = FmNumber;
+        if (FmValidUntil is not null) d["fm_valid_until"] = FmValidUntil;
+        if (OfdInn is not null) d["ofd_inn"] = OfdInn;
+        if (Version is not null) d["kkm_version"] = Version;
+        if (ShiftOpen is { } s) d["shift_open"] = s;
+        if (LastReceipt is not null) d["last_receipt_number"] = LastReceipt;
+        return d;
+    }
+}
+
 /// <summary>2026-11-14: блок <c>capabilities.fiscal</c> — {mode: kassa|off|server, fiscal_enabled, tax_regime, vat_payer, vat_rates:["0.00","12.00"], nsp_rate:"2.00"}.
-/// <see cref="FeatureAvailable"/> — в <c>features</c> есть <c>fiscal_kassa</c> (адреса fiscal/ работают). Нет блока или признака — режим Off.</summary>
+/// <see cref="FeatureAvailable"/> — в <c>features</c> есть <c>fiscal_kassa</c> (адреса fiscal/ работают). Нет блока или признака — режим Off.
+/// <see cref="Kkm"/> (2026-11-20) — сведения о ККМ, если сервер их отдал (null — не отдаёт).</summary>
 public sealed record FiscalCapabilities(
     bool FeatureAvailable = false,
     FiscalMode Mode = FiscalMode.Off,
@@ -168,7 +283,8 @@ public sealed record FiscalCapabilities(
     string TaxRegime = "",
     bool VatPayer = false,
     IReadOnlyList<decimal>? VatRates = null,
-    decimal? NspRate = null)
+    decimal? NspRate = null,
+    FiscalKkmInfo? Kkm = null)
 {
     public static FiscalCapabilities Off { get; } = new();
 
@@ -225,7 +341,8 @@ public sealed record FiscalCapabilities(
             block.TryGetProperty("tax_regime", out var tr) && tr.ValueKind == JsonValueKind.String ? (tr.GetString() ?? "").Trim() : "",
             block.TryGetProperty("vat_payer", out var vp) && vp.ValueKind == JsonValueKind.True,
             rates,
-            block.TryGetProperty("nsp_rate", out var nsp) ? ReadDecimal(nsp) : null);
+            block.TryGetProperty("nsp_rate", out var nsp) ? ReadDecimal(nsp) : null,
+            FiscalKkmInfo.Parse(block));
     }
 
     public const string FeatureName = "fiscal_kassa";

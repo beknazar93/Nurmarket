@@ -85,9 +85,24 @@ public sealed class FirstHourUiTests : IDisposable
 
     private static BasketPanelViewModel Basket(Window main) => ((MainWindowViewModel)main.DataContext!).Basket;
 
-    private static Control Tile(Window main, string title) =>
-        main.GetVisualDescendants().OfType<TextBlock>().First(t => t.IsEffectivelyVisible && t.Text == title
+    private static TextBlock? WaitTile(Window main, string title)
+    {
+        UiRobot.WaitFor(() => FindTile(main, title) is not null, 8000);
+        return FindTile(main, title);
+    }
+
+    private static TextBlock? FindTile(Window main, string title) =>
+        main.GetVisualDescendants().OfType<TextBlock>().FirstOrDefault(t => t.IsEffectivelyVisible && t.Text == title
             && t.FindAncestorOfType<NurMarketKassa.AvaloniaHost.Views.Main.Controls.CatalogPanelView>() is not null);
+
+    // 2026-11-20: плитки каталога строятся после асинхронной загрузки списка — на нагруженной машине в полном прогоне окно кассы ещё пустое; ждём, а не падаем.
+    private static Control Tile(Window main, string title) =>
+        WaitTile(main, title)
+        ?? throw new InvalidOperationException($"2026-11-20: плитки «{title}» нет; язык=" + NurMarketKassa.Services.Tr.T("ru", "ky", "en", "tr", "uz")
+            + "; видимые тексты каталога: " + string.Join(" | ", main.GetVisualDescendants().OfType<TextBlock>()
+                .Where(t => t.IsEffectivelyVisible && t.FindAncestorOfType<NurMarketKassa.AvaloniaHost.Views.Main.Controls.CatalogPanelView>() is not null)
+                .Select(t => t.Text).Where(t => !string.IsNullOrEmpty(t)).Take(30))
+            + "; сфера=" + NurMarketKassa.Services.UserPreferences.Instance.MarketSphere + "/" + NurMarketKassa.Services.UserPreferences.Instance.MarketSphereDetail);
 
     private static Button PayButton(Window main) =>
         main.GetVisualDescendants().OfType<Button>().First(b => b.Classes.Contains("cart-accent") && b.IsEffectivelyVisible);
@@ -331,6 +346,10 @@ public sealed class FirstHourUiTests : IDisposable
         using var guard = UiRobot.Guard();
         try
         {
+            // 2026-11-21 (прогон 1.17.91): в полном прогоне в чеке уже лежал товар (3 шт от соседнего сценария «3*код»), скан «4 *» давал 7 вместо 4 — тест начинается с пустого чека.
+            var leftover = Basket(main).Lines.Count;
+            Basket(main).ClearTrainingReceipt();
+            UiShot.Settle(3, 20);
             main.Focus();
             // Человек набирает «3», потом «*» (паузы длиннее сканерных), курсор не в поле.
             TypeKeys(main, "3");
@@ -356,7 +375,7 @@ public sealed class FirstHourUiTests : IDisposable
             main.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
             main.KeyReleaseQwerty(PhysicalKey.Enter, RawInputModifiers.None);
             UiRobot.WaitFor(() => Basket(main).Lines.Count == 1 && Basket(main).Lines[0].Quantity == 4, 5000)
-                .Should().BeTrue($"скан после «4 *» — четыре штуки; строк {Basket(main).Lines.Count}, открыто: {UiRobot.OpenNames()}");
+                .Should().BeTrue($"скан после «4 *» — четыре штуки; в чеке до теста было строк {leftover}; строк {Basket(main).Lines.Count}, количество {string.Join('/', Basket(main).Lines.Select(l => l.Quantity))}, ожидание «N*» {Basket(main).HasPendingQuantity}/{Basket(main).ManualQuantity}, открыто: {UiRobot.OpenNames()}"); // 2026-11-21: диагностика (в полном прогоне падает, отдельно проходит)
             Basket(main).HasPendingQuantity.Should().BeFalse();
         }
         finally
