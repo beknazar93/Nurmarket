@@ -282,6 +282,8 @@ class SyncService {
             await stock.replayReceiving(row);
           case 'audit':
             await stock.replayAudit(row, fromQueue: true); // 2026-10-29: из очереди ревизия не проводится (см. replayAudit)
+          case 'barcode':
+            await stock.replayBarcodeBind(row); // 2026-11-20: штрихкод, привязанный к товару накладной умной камеры
         }
         lastError = null;
         await _clearTally(row.id);

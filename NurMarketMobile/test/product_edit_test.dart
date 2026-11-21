@@ -145,7 +145,7 @@ void main() {
       final body = productPatchBody(b, b.copyWith(unit: 'кг', alt: ['111', '222|12|коробка']), canPrices: true);
       expect(body['is_weight'], isTrue);
       expect(body['alternate_barcodes'], [
-        {'barcode': '111', 'name': '', 'quantity': 0},
+        {'barcode': '111', 'name': ''},
         {'barcode': '222', 'name': 'коробка', 'quantity': 12},
       ]);
     });

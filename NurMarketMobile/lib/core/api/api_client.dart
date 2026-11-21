@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../mode/plan_limit_event.dart';
 import 'session_store.dart';
 
 /// 2026-10-26 (живой аудит, П4): тексты ошибок сети — на языке приложения. У ApiClient нет контекста, поэтому язык берётся
@@ -334,6 +335,8 @@ class ApiClient {
           await Future.delayed(Duration(milliseconds: retryAfter != null ? retryAfter * 1000 : 600 * attempt + Random().nextInt(300)));
           continue;
         }
+        // 2026-11-20 (тариф «Мини»): 403/409 plan_limit, plan_client_not_allowed — приложение покажет «Доступно на тарифе «Старт»»
+        PlanLimitEvents.report(code, e.response?.data);
         throw ApiException(_describe(e), status: code, payload: e.response?.data);
       }
     }

@@ -284,17 +284,40 @@ NormalizedText normalizeText(String raw) {
 // Сравнение слов
 // ---------------------------------------------------------------------------------------------------------------------
 
-int _lev(String a, String b) {
-  var prev = List<int>.generate(b.length + 1, (j) => j);
-  for (var i = 1; i <= a.length; i++) {
-    final cur = List<int>.filled(b.length + 1, 0);
-    cur[0] = i;
-    for (var j = 1; j <= b.length; j++) {
-      cur[j] = math.min(math.min(prev[j] + 1, cur[j - 1] + 1), prev[j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1));
-    }
-    prev = cur;
+// 2026-11-20 (накладная по фото: «очень долго думает»): матчер сравнивает слово запроса со ВСЕМИ словами каталога (десятки тысяч
+// сравнений на строку накладной). Раньше каждое сравнение создавало регулярное выражение и считало расстояние Левенштейна таблицей с
+// выделением памяти — на 15 000 товаров сопоставление 30 строк занимало секунды. Теперь: проверка «одна буква» за один проход без памяти
+// (результат тот же, что у `расстояние ≤ 1`), «только цифры» — циклом с выходом на первой же букве.
+bool _within1(String a, String b) {
+  final d = a.length - b.length;
+  if (d > 1 || d < -1) return false;
+  final (s, l) = d <= 0 ? (a, b) : (b, a); // s — не длиннее l
+  var i = 0;
+  while (i < s.length && s.codeUnitAt(i) == l.codeUnitAt(i)) {
+    i++;
   }
-  return prev[b.length];
+  if (i == s.length) return l.length - s.length <= 1; // s — начало l: равны или l длиннее на одну букву
+  if (s.length == l.length) {
+    // одна замена: остальное совпадает
+    for (var k = i + 1; k < s.length; k++) {
+      if (s.codeUnitAt(k) != l.codeUnitAt(k)) return false;
+    }
+    return true;
+  }
+  // l длиннее на одну букву: пропускаем её в l, остальное совпадает
+  for (var k = i; k < s.length; k++) {
+    if (s.codeUnitAt(k) != l.codeUnitAt(k + 1)) return false;
+  }
+  return true;
+}
+
+bool _onlyDigits(String t) {
+  if (t.isEmpty) return false;
+  for (var i = 0; i < t.length; i++) {
+    final c = t.codeUnitAt(i);
+    if (c < 48 || c > 57) return false;
+  }
+  return true;
 }
 
 /// Слова равны: точно; короткое — начало длинного («клуб» ⊂ «клубника»; не короче 3 букв, не короче половины длинного);
@@ -302,15 +325,15 @@ int _lev(String a, String b) {
 bool tokenEq(String a, String b) {
   if (a == b) return true;
   final (s, l) = a.length <= b.length ? (a, b) : (b, a);
-  if (RegExp(r'^\d+$').hasMatch(s) || RegExp(r'^\d+$').hasMatch(l)) return false;
+  if (_onlyDigits(s) || _onlyDigits(l)) return false;
   if (s.length >= 3 && l.startsWith(s) && (s.length >= 4 ? s.length * 2 >= l.length : s.length * 2 > l.length)) return true;
-  if (s.length >= 7 && (l.length - s.length) <= 1 && _lev(s, l) <= 1) return true;
-  if (s.length >= 7 && l.length > s.length && _lev(s, l.substring(0, s.length)) <= 1 && s.length * 2 >= l.length) return true;
+  if (s.length >= 7 && (l.length - s.length) <= 1 && _within1(s, l)) return true;
+  if (s.length >= 7 && l.length > s.length && _within1(s, l.substring(0, s.length)) && s.length * 2 >= l.length) return true;
   return false;
 }
 
 /// Склейка двух соседних слов равна слову другой стороны: только точно или в одной букве (без «начала слова»).
-bool _pairEq(String pair, String t) => t.length >= 5 && (pair == t || (t.length >= 7 && (pair.length - t.length).abs() <= 1 && _lev(pair, t) <= 1));
+bool _pairEq(String pair, String t) => t.length >= 5 && (pair == t || (t.length >= 7 && (pair.length - t.length).abs() <= 1 && _within1(pair, t)));
 
 /// Две цифры штрихкода равны с учётом UPC-A ↔ EAN-13 и т. п.
 bool _sameCode(String a, String b) {

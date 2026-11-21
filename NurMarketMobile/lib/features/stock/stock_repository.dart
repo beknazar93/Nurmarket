@@ -1,11 +1,14 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:drift/drift.dart' show Value;
 import 'package:uuid/uuid.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/catalog/search_match.dart';
 import '../../core/db/database.dart';
 import '../../core/sync/outbox_meta.dart';
+import '../scan/invoice_bind.dart';
 
 class StockLine {
   final String productId;
@@ -24,6 +27,50 @@ class StockLine {
 /// с тех пор изменился. Повторно не прибавляем (как PendingStockPatch кассы), запись — «Не принято» с подсказкой.
 class StockUnclearException extends ApiException {
   StockUnclearException(super.message) : super(status: 409);
+  @override
+  bool get isTransient => false;
+}
+
+/// 2026-11-21 (ответ сервера): 409 `barcode_duplicate` — код уже у другого товара; data: product_id, name, code, source (product | alternate), barcode.
+class BarcodeDuplicate {
+  final String productId;
+  final String name;
+  final String code;
+
+  /// `product` — основной код того товара, `alternate` — его дополнительный.
+  final String source;
+  const BarcodeDuplicate({required this.productId, required this.name, required this.code, required this.source});
+
+  static Map<String, dynamic>? _map(Object? v) => v is Map ? v.cast<String, dynamic>() : null;
+
+  /// Тело ошибки: `{code: barcode_duplicate, data: {…}}` (допускается вложение в `error`). null — это другая ошибка.
+  static BarcodeDuplicate? from(Object e) {
+    if (e is! ApiException || e.status != 409) return null;
+    final p = _map(e.payload);
+    final root = _map(p?['error']) ?? p;
+    if (root == null || '${root['code']}' != 'barcode_duplicate') return null;
+    final d = _map(root['data']) ?? root;
+    return BarcodeDuplicate(
+      productId: '${d['product_id'] ?? ''}',
+      name: '${d['name'] ?? ''}',
+      code: '${d['barcode'] ?? d['code'] ?? ''}',
+      source: '${d['source'] ?? 'product'}',
+    );
+  }
+
+  /// 409 `version_conflict` (If-Match не совпал): карточку перечитать и повторить.
+  static bool isVersionConflict(Object e) {
+    if (e is! ApiException || e.status != 409) return false;
+    final p = _map(e.payload);
+    final root = _map(p?['error']) ?? p;
+    return '${root?['code']}' == 'version_conflict';
+  }
+}
+
+/// Код занят другим товаром: отказ по существу (409 сам по себе «временный», тут повтор не поможет).
+class BarcodeDuplicateException extends ApiException {
+  final BarcodeDuplicate info;
+  BarcodeDuplicateException(super.message, this.info) : super(status: 409);
   @override
   bool get isTransient => false;
 }
@@ -69,6 +116,167 @@ class StockRepository {
       (db.update(db.outbox)..where((o) => o.id.equals(row.id))).write(OutboxCompanion(body: Value(jsonEncode(body))));
 
   Map<String, dynamic> _meta() => {'owner': OutboxMeta.ownerOf(api.session), 'cashbox': api.session?.cashboxId, 'at': DateTime.now().toIso8601String()};
+
+  /// 2026-11-20 (владелец: «у товара в накладной нет штрихкода — сканировать и привязать»): штрихкод существующему товару — запись в
+  /// очереди (kind 'barcode'), как приход и ревизия: на телефоне товар получает код сразу (его находит сканер и без связи), на сервер
+  /// код уходит при первой возможности (фоновая очередь SyncService). Основной код, если у товара его нет, иначе дополнительный
+  /// ([planBarcodeBind]). Повтор того же кода тому же товару — та же запись, второй не создаётся. false — писать нечего (код уже у товара).
+  /// 2026-11-20: [name] — название варианта («клубника»), если код дополнительный (вариант одного товара): уходит в `alternate_barcodes`.
+  Future<bool> queueBarcodeBind(Product p, String code, {String name = ''}) async {
+    final c = code.trim();
+    if (c.isEmpty || planBarcodeBind(p, c) == BindPlan.already) return false;
+    final id = 'bc-${p.id}-${sameCodeKey(c)}';
+    final old = await _row(id);
+    if (old != null && old.status != 'failed') {
+      await _writeLocalBind(p.id, c, name: name.trim());
+      return true;
+    }
+    if (old != null) await (db.delete(db.outbox)..where((o) => o.id.equals(id))).go(); // «Не принято» — записываем заново
+    await db.enqueue(
+      OutboxCompanion.insert(
+        id: id,
+        kind: 'barcode',
+        body: jsonEncode({'product_id': p.id, 'code': c, if (name.trim().isNotEmpty) 'name': name.trim(), OutboxMeta.key: _meta()}),
+        createdAt: DateTime.now(),
+        summary: Value('${p.name} · $c'),
+      ),
+    );
+    await _writeLocalBind(p.id, c, name: name.trim());
+    final row = await _row(id);
+    if (row != null) {
+      // сразу, если есть связь; нет связи — запись остаётся в очереди, дошлёт SyncService
+      unawaited(() async {
+        try {
+          await replayBarcodeBind(row);
+        } on ApiException catch (e) {
+          await db.markAttempt(id, e.message, failed: !e.isTransient);
+        } catch (_) {
+          // повторит очередь
+        }
+      }());
+    }
+    return true;
+  }
+
+  /// Код в базе телефона: основным или дополнительным (по состоянию товара сейчас), и в ключе поиска.
+  Future<void> _writeLocalBind(String productId, String code, {String name = ''}) async {
+    final local = await db.productById(productId);
+    if (local == null) return;
+    switch (planBarcodeBind(local, code)) {
+      case BindPlan.already:
+        return;
+      case BindPlan.main:
+        await (db.update(db.products)..where((p) => p.id.equals(productId))).write(
+          ProductsCompanion(barcode: Value(code), searchKey: Value(SearchMatch.key([local.searchKey, code]))),
+        );
+      case BindPlan.alt:
+        final alt = [...local.altBarcodes.split('\n').where((l) => l.trim().isNotEmpty), name.isEmpty ? code : '$code|0|$name'];
+        await (db.update(db.products)..where((p) => p.id.equals(productId))).write(ProductsCompanion(altBarcodes: Value(alt.join('\n'))));
+    }
+  }
+
+  /// Версия карточки для If-Match (в GET products/{id}/: version или ETag).
+  static String? _versionOf(Map<String, dynamic> card) {
+    for (final k in const ['version', 'etag', 'ETag', 'row_version']) {
+      final v = card[k];
+      if (v != null && '$v'.trim().isNotEmpty) return '$v'.trim();
+    }
+    return null;
+  }
+
+  /// 2026-11-21 (Умар): POST products/{id}/barcodes/ добавляет ОДИН код, не трогая остальные; If-Match: версия карточки; 409
+  /// `version_conflict` — карточку перечитать и повторить один раз; 404/405 (сервер без этого пути) — прежний PATCH `alternate_barcodes`
+  /// списком целиком; повтор того же кода сервер принимает (200).
+  Future<void> _addAltCode(String id, String code, String name, Map<String, dynamic> card, List<Map<String, Object?>> alt) async {
+    var cur = card;
+    for (var attempt = 0;; attempt++) {
+      final v = _versionOf(cur);
+      try {
+        await api.post('api/main/products/$id/barcodes/', body: altBarcodeBody(code, name: name), headers: {'If-Match': ?v});
+        return;
+      } on ApiException catch (e) {
+        if (e.status == 404 || e.status == 405) {
+          await api.patch('api/main/products/$id/', body: {
+            'alternate_barcodes': [...alt, altBarcodeBody(code, name: name)],
+          });
+          return;
+        }
+        if (attempt == 0 && BarcodeDuplicate.isVersionConflict(e)) {
+          cur = ((await api.get('api/main/products/$id/')) as Map).cast<String, dynamic>();
+          if (_hasCode(cur, code)) return; // за это время код добавили (с кассы, другим телефоном)
+          continue;
+        }
+        rethrow;
+      }
+    }
+  }
+
+  static bool _hasCode(Map<String, dynamic> card, String code) {
+    final key = sameCodeKey(code);
+    if (sameCodeKey('${card['barcode'] ?? ''}') == key) return true;
+    final raw = card['alternate_barcodes'];
+    return raw is List && raw.any((a) => sameCodeKey('${a is Map ? (a['barcode'] ?? a['code'] ?? '') : a}') == key);
+  }
+
+  /// Сервер не принял код: убираем его у товара на телефоне (иначе сканер находил бы товар по коду, которого у него нет).
+  Future<void> _revertLocalBind(String productId, String code) async {
+    final local = await db.productById(productId);
+    if (local == null) return;
+    final key = sameCodeKey(code);
+    if (sameCodeKey(local.barcode ?? '') == key) {
+      await (db.update(db.products)..where((p) => p.id.equals(productId))).write(const ProductsCompanion(barcode: Value(null)));
+    }
+    final alt = local.altBarcodes.split('\n').where((l) => l.trim().isNotEmpty && sameCodeKey(l.split('|').first) != key).toList();
+    if (alt.length != local.altBarcodes.split('\n').where((l) => l.trim().isNotEmpty).length) {
+      await (db.update(db.products)..where((p) => p.id.equals(productId))).write(ProductsCompanion(altBarcodes: Value(alt.join('\n'))));
+    }
+  }
+
+  /// Отправка записи 'barcode': свежая карточка с сервера → код уже там? (тогда готово) → основной код, если пуст, иначе дополнительный
+  /// (список дополнительных передаётся целиком, как в карточке товара). Код занят другим товаром — сервер откажет (400): «Не принято» с причиной.
+  Future<void> replayBarcodeBind(OutboxData row) => _once(row.id, () async {
+    final fresh = await _row(row.id);
+    if (fresh == null || fresh.status == 'sent') return;
+    final body = (jsonDecode(fresh.body) as Map).cast<String, dynamic>();
+    final id = body['product_id'] as String;
+    final code = body['code'] as String;
+    final variantName = '${body['name'] ?? ''}';
+    final server = ((await api.get('api/main/products/$id/')) as Map).cast<String, dynamic>();
+    final serverMain = (str(server, 'barcode') ?? '').trim();
+    final alt = <Map<String, Object?>>[];
+    final raw = server['alternate_barcodes'];
+    if (raw is List) {
+      for (final a in raw) {
+        final m = a is Map ? a.cast<String, dynamic>() : <String, dynamic>{'barcode': a};
+        final b = '${m['barcode'] ?? m['code'] ?? ''}'.trim();
+        if (b.isEmpty) continue;
+        alt.add(altBarcodeBody(b, name: '${m['name'] ?? ''}', qty: num.tryParse('${m['quantity'] ?? ''}')));
+      }
+    }
+    final key = sameCodeKey(code);
+    final has = (serverMain.isNotEmpty && sameCodeKey(serverMain) == key) || alt.any((a) => sameCodeKey('${a['barcode']}') == key);
+    if (!has) {
+      try {
+        if (serverMain.isEmpty) {
+          await api.patch('api/main/products/$id/', body: {'barcode': code}); // основного кода нет — он и становится основным
+        } else {
+          await _addAltCode(id, code, variantName, server, alt);
+        }
+      } on ApiException catch (e) {
+        // 2026-11-21: код уже у другого товара — понятная причина с названием из ответа сервера (не искать в каталоге)
+        final dup = BarcodeDuplicate.from(e);
+        if (dup != null) {
+          await _revertLocalBind(id, code);
+          final text = ApiText.l?.bindTakenServer(code, dup.name) ?? 'Штрихкод $code уже у товара «${dup.name}»';
+          throw BarcodeDuplicateException(text, dup);
+        }
+        if (!e.isTransient) await _revertLocalBind(id, code); // сервер отказал по существу — на телефоне кода у товара быть не должно
+        rethrow;
+      }
+    }
+    await _writeLocalBind(id, code);
+    await db.markSent(row.id, serverId: id);
+  });
 
   /// Приёмка без поставщика — как у кассы и сайта: остаток пишется в сам товар, свежий с сервера + принятое.
   /// Строки отмечаются по одной, поэтому повтор после обрыва не прибавит принятое дважды.

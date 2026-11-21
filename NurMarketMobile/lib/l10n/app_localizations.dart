@@ -12465,6 +12465,252 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Чек сохранён без связи — уйдёт на сервер автоматически'**
   String get receiptOfflineNote;
+
+  /// No description provided for @recStageCompress.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сжимаю фото…'**
+  String get recStageCompress;
+
+  /// No description provided for @recStageReadInvoice.
+  ///
+  /// In ru, this message translates to:
+  /// **'Читаю накладную…'**
+  String get recStageReadInvoice;
+
+  /// No description provided for @recStageMatch.
+  ///
+  /// In ru, this message translates to:
+  /// **'Ищу товары в каталоге…'**
+  String get recStageMatch;
+
+  /// No description provided for @recStepOf.
+  ///
+  /// In ru, this message translates to:
+  /// **'Шаг {n} из {total}'**
+  String recStepOf(int n, int total);
+
+  /// No description provided for @recSlowAsk.
+  ///
+  /// In ru, this message translates to:
+  /// **'Читается долго. Подождите или выберите действие:'**
+  String get recSlowAsk;
+
+  /// No description provided for @recManual.
+  ///
+  /// In ru, this message translates to:
+  /// **'Ввести вручную'**
+  String get recManual;
+
+  /// No description provided for @recRetakeCloser.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сфотографировать ближе'**
+  String get recRetakeCloser;
+
+  /// No description provided for @bindRowTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Отсканируйте штрихкод товара'**
+  String get bindRowTitle;
+
+  /// No description provided for @bindRowOf.
+  ///
+  /// In ru, this message translates to:
+  /// **'Товар {n} из {total}'**
+  String bindRowOf(int n, int total);
+
+  /// No description provided for @bindTakenDraft.
+  ///
+  /// In ru, this message translates to:
+  /// **'Штрихкод {code} уже у строки «{name}» этой накладной.'**
+  String bindTakenDraft(String code, String name);
+
+  /// No description provided for @bindTakenAskRow.
+  ///
+  /// In ru, this message translates to:
+  /// **'Штрихкод {code} уже у товара «{name}» в каталоге.\n«Выбрать» — эта строка станет товаром «{name}».\n«Оставить» — код останется у «{name}», эта строка будет без штрихкода.'**
+  String bindTakenAskRow(String code, String name);
+
+  /// No description provided for @bindUseOwner.
+  ///
+  /// In ru, this message translates to:
+  /// **'Выбрать «{name}»'**
+  String bindUseOwner(String name);
+
+  /// No description provided for @camNoCode.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нет штрихкода'**
+  String get camNoCode;
+
+  /// No description provided for @camBindBtn.
+  ///
+  /// In ru, this message translates to:
+  /// **'Отсканировать штрихкод'**
+  String get camBindBtn;
+
+  /// No description provided for @camCodeBound.
+  ///
+  /// In ru, this message translates to:
+  /// **'Штрихкод {code}'**
+  String camCodeBound(String code);
+
+  /// No description provided for @camBindQueueBanner.
+  ///
+  /// In ru, this message translates to:
+  /// **'Без штрихкода: {n}'**
+  String camBindQueueBanner(int n);
+
+  /// No description provided for @camBindQueueBtn.
+  ///
+  /// In ru, this message translates to:
+  /// **'Привязать по очереди'**
+  String get camBindQueueBtn;
+
+  /// No description provided for @camBindAsk.
+  ///
+  /// In ru, this message translates to:
+  /// **'Позиции без штрихкода: {n}. Отсканировать их по очереди?'**
+  String camBindAsk(int n);
+
+  /// No description provided for @camBindLater.
+  ///
+  /// In ru, this message translates to:
+  /// **'Позже'**
+  String get camBindLater;
+
+  /// No description provided for @camBindStart.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сканировать'**
+  String get camBindStart;
+
+  /// No description provided for @camBindDone.
+  ///
+  /// In ru, this message translates to:
+  /// **'Штрихкоды привязаны: {n}'**
+  String camBindDone(int n);
+
+  /// No description provided for @camBindQueuedNote.
+  ///
+  /// In ru, this message translates to:
+  /// **'Штрихкод записан на телефоне — уйдёт на сервер при связи'**
+  String get camBindQueuedNote;
+
+  /// No description provided for @kindBarcode.
+  ///
+  /// In ru, this message translates to:
+  /// **'Штрихкод товара'**
+  String get kindBarcode;
+
+  /// No description provided for @camGroupToggle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Объединять вкусы и варианты в один товар'**
+  String get camGroupToggle;
+
+  /// No description provided for @camAiCommand.
+  ///
+  /// In ru, this message translates to:
+  /// **'Своя команда ИИ'**
+  String get camAiCommand;
+
+  /// No description provided for @camAiCommandHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Например: объединяй вкусы; не объединяй; бренд — Асу'**
+  String get camAiCommandHint;
+
+  /// No description provided for @camAiSheetTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Команда ИИ для накладной'**
+  String get camAiSheetTitle;
+
+  /// No description provided for @camAiReset.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сбросить'**
+  String get camAiReset;
+
+  /// No description provided for @camAiNote.
+  ///
+  /// In ru, this message translates to:
+  /// **'Команда запоминается на этом телефоне для вашей учётной записи.'**
+  String get camAiNote;
+
+  /// No description provided for @camVariantPlain.
+  ///
+  /// In ru, this message translates to:
+  /// **'Обычный'**
+  String get camVariantPlain;
+
+  /// No description provided for @camSplit.
+  ///
+  /// In ru, this message translates to:
+  /// **'Разъединить'**
+  String get camSplit;
+
+  /// No description provided for @camMergeWith.
+  ///
+  /// In ru, this message translates to:
+  /// **'Объединить с…'**
+  String get camMergeWith;
+
+  /// No description provided for @camMergePick.
+  ///
+  /// In ru, this message translates to:
+  /// **'С каким товаром объединить?'**
+  String get camMergePick;
+
+  /// No description provided for @camMergeAsk.
+  ///
+  /// In ru, this message translates to:
+  /// **'«{name}»: варианты с разными ценами ({prices} сом). Объединить в один товар?'**
+  String camMergeAsk(String name, String prices);
+
+  /// No description provided for @camMergeYes.
+  ///
+  /// In ru, this message translates to:
+  /// **'Объединить'**
+  String get camMergeYes;
+
+  /// No description provided for @camMergeNo.
+  ///
+  /// In ru, this message translates to:
+  /// **'Не объединять'**
+  String get camMergeNo;
+
+  /// No description provided for @camGroupSummary.
+  ///
+  /// In ru, this message translates to:
+  /// **'Товаров: {n}, вариантов (доп. кодов): {m}'**
+  String camGroupSummary(int n, int m);
+
+  /// No description provided for @camMerged.
+  ///
+  /// In ru, this message translates to:
+  /// **'Объединено в один товар'**
+  String get camMerged;
+
+  /// No description provided for @camSplitDone.
+  ///
+  /// In ru, this message translates to:
+  /// **'Разъединено'**
+  String get camSplitDone;
+
+  /// No description provided for @camVariantsTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Варианты: {n}'**
+  String camVariantsTitle(int n);
+
+  /// No description provided for @bindTakenServer.
+  ///
+  /// In ru, this message translates to:
+  /// **'Штрихкод {code} уже у товара «{name}»'**
+  String bindTakenServer(String code, String name);
 }
 
 class _AppLocalizationsDelegate

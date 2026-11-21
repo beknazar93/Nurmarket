@@ -1,4 +1,4 @@
-import 'dart:async' show unawaited;
+import 'dart:async' show StreamSubscription, unawaited;
 
 import 'features/stock/sizes_screen.dart';
 import 'package:flutter/material.dart';
@@ -31,9 +31,14 @@ import 'features/auth/login_screen.dart';
 import 'features/checks/checks_screen.dart';
 import 'features/home/home_screen.dart';
 import 'features/home/search_screen.dart';
-import 'features/home/shell.dart';
+import 'core/api/server_capabilities.dart';
+import 'core/mode/mode_provider.dart';
+import 'core/mode/plan_limit.dart';
+import 'features/simple/simple_routes.dart';
+import 'features/simple/simple_shell.dart';
 import 'features/ops/ops_screens.dart';
 import 'features/payment/payment_screen.dart';
+import 'features/payment/quick_pay_preset.dart';
 import 'features/profile/profile_screen.dart';
 import 'features/rentals/rentals.dart';
 import 'features/sale/sale_screen.dart';
@@ -70,6 +75,12 @@ GoRouter buildRouter(Reader read, {required bool signedIn, Listenable? refresh})
     if (s != null && s.cashboxId == null && loc != '/cashbox' && loc != '/login') return '/cashbox';
     // 13.10, владелец: «доступы в мобилке работают?» — раздел, закрытый сотруднику на сайте, не открывается и по ссылке.
     if (s != null && !s.canRoute(loc)) return '/denied';
+    // 2026-11-20 (тариф «Мини», E1): в Простом режиме раздел «обычного» вида закрыт (и наоборот — вкладки Простого режима в обычном виде);
+    // продажу это не касается. Корзина и очередь остаются.
+    if (s != null) {
+      final mode = read(modeProfileProvider);
+      if (mode.hidesRoute(loc)) return mode.homeRoute;
+    }
     return null;
   },
   routes: [
@@ -77,13 +88,15 @@ GoRouter buildRouter(Reader read, {required bool signedIn, Listenable? refresh})
     GoRoute(path: '/cashbox', builder: (_, _) => const CashboxScreen()),
     GoRoute(path: '/denied', builder: (_, _) => const AccessDeniedScreen()),
     ShellRoute(
-      builder: (c, state, child) => CashierShell(location: state.matchedLocation, child: child),
+      builder: (c, state, child) => AdaptiveShell(location: state.matchedLocation, child: child),
       routes: [
         GoRoute(path: '/home', builder: (_, _) => const HomeScreen()),
         GoRoute(
           path: '/sale',
-          builder: (_, _) => const SafeArea(bottom: false, child: SaleScreen()),
+          builder: (_, _) => const SaleEntry(classic: SafeArea(bottom: false, child: SaleScreen())),
         ),
+        // 2026-11-20 (тариф «Мини»): вкладки Простого режима
+        ...simpleShellRoutes(),
         GoRoute(path: '/checks', builder: (_, _) => const ChecksScreen()),
         GoRoute(
           path: '/stock',
@@ -96,7 +109,7 @@ GoRouter buildRouter(Reader read, {required bool signedIn, Listenable? refresh})
       builder: (_, s) => ScanScreen(initial: s.uri.queryParameters['mode'] == 'price' ? ScanMode.price : null),
     ),
     GoRoute(path: '/sizes', builder: (_, _) => const SizesScreen()), // 2026-10-31: режим «Одежда» — остатки по размерам
-    GoRoute(path: '/pay', builder: (_, _) => const PaymentScreen()),
+    GoRoute(path: '/pay', builder: (_, s) => PaymentScreen(preset: s.extra is QuickPayPreset ? s.extra as QuickPayPreset : null)),
     GoRoute(
       path: '/paid',
       // 2026-10-22 (мобилка, админ, П9): без extra (восстановление после выгрузки) — экран «данные не сохранились».
@@ -191,6 +204,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   ref.listen<Session?>(sessionProvider, (prev, next) {
     if (routeKey(prev) != routeKey(next)) refresh.value++;
   });
+  // 2026-11-20 (тариф «Мини»): тариф или переключатель «Простой режим» поменялись — маршруты проверяются заново без перелогина
+  ref.listen<bool>(modeProfileProvider.select((m) => m.simple), (prev, next) {
+    if (prev != next) refresh.value++;
+  });
   // вход сохранён (его читает main до runApp) — сразу на главную, иначе на вход
   final router = buildRouter(ref.read, signedIn: ref.read(sessionProvider) != null, refresh: refresh);
   ref.onDispose(() {
@@ -229,6 +246,9 @@ class _NurMarketAppState extends ConsumerState<NurMarketApp> {
     await ref.read(apiProvider).reloadTokens();
     ref.read(syncProvider).resume();
     unawaited(ref.read(syncProvider).runOnce());
+    // 2026-11-20 (тариф «Мини»): план и признаки обновляются при возврате в приложение (не чаще раза в 6 часов)
+    final s = ref.read(sessionProvider);
+    if (s != null) unawaited(ServerCapabilities.refreshIfStale(ref.read(apiProvider), ref.read(databaseProvider), OutboxMeta.ownerOf(s)));
   }
 
   /// Связь появилась (первый ответ сервера после обрыва) — очередь уходит сразу, не дожидаясь таймера.
@@ -238,8 +258,11 @@ class _NurMarketAppState extends ConsumerState<NurMarketApp> {
     _wasOffline = off;
   }
 
+  StreamSubscription<PlanLimitEvent>? _planLimitSub;
+
   @override
   void dispose() {
+    _planLimitSub?.cancel();
     _lifecycle.dispose();
     _api.link.removeListener(_onLink);
     super.dispose();
@@ -251,6 +274,13 @@ class _NurMarketAppState extends ConsumerState<NurMarketApp> {
     _api.link.addListener(_onLink);
     // 2026-10-26 (голос-управление, В4): звонок ИИ ходит по разделам через этот же роутер.
     ref.read(callControllerProvider).attachRouter(_router);
+    // 2026-11-20 (тариф «Мини»): сервер ответил plan_limit / plan_client_not_allowed — окно «Доступно на тарифе «Старт»»; план обновляется
+    _planLimitSub = PlanLimitEvents.stream.listen((e) {
+      final ctx = _router.routerDelegate.navigatorKey.currentContext;
+      if (ctx != null && ctx.mounted) unawaited(showPlanLimitDialog(ctx, e));
+      final s = ref.read(sessionProvider);
+      if (s != null) unawaited(ServerCapabilities.refresh(ref.read(apiProvider), ref.read(databaseProvider), OutboxMeta.ownerOf(s)));
+    });
     // Сессия истекла и не обновилась — на вход. 2026-10-22 (мобилка, деньги, К-5): без logout — набранный чек и очередь
     // остаются до входа тем же логином (раньше чек стирался, а очередь уходила в «не принято»).
     ref.read(apiProvider).onExpired.listen((_) async {

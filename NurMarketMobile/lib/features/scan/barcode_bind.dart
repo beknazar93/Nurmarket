@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,13 +12,22 @@ import '../../core/util/ui.dart';
 import 'barcode_lookup.dart';
 import 'cam_label.dart';
 import 'code_lookup.dart';
+import 'invoice_bind.dart';
 import 'live_shot.dart';
 import '../../core/util/beep.dart';
 import 'scan_animations.dart';
 
 /// Чем закончился шаг «Штрихкод»: [code] null — пропустили (или «Оставить» у другого товара); [takenFrom] — «Заменить»:
-/// штрихкод сначала снять с этого товара.
-typedef BindResult = ({String? code, Product? takenFrom});
+/// штрихкод сначала снять с этого товара. 2026-11-20: [useOwner] — код уже у товара каталога, и кассир выбрал «Выбрать «…»»:
+/// строка накладной становится этим товаром, код не пишется.
+typedef BindResult = ({String? code, Product? takenFrom, Product? useOwner});
+
+/// 2026-11-20: строка накладной в режиме «Привязать по очереди»: название для подписи и товар (null — новый, ещё не создан).
+class BindRow {
+  final String name;
+  final String? productId;
+  const BindRow(this.name, [this.productId]);
+}
 
 /// Кому принадлежит код: товар (или null) и «сервер не ответил» (тогда привязываем без проверки).
 typedef BindLookup = Future<({Product? product, bool unavailable})> Function(String code);
@@ -41,10 +52,47 @@ class BarcodeBindPage extends ConsumerStatefulWidget {
   final BindLookup? lookup;
   final Widget? preview;
 
-  const BarcodeBindPage({super.key, this.productName = '', this.productId, this.lookup, this.preview});
+  /// 2026-11-20 (накладная умной камеры): непустой список — режим «Привязать по очереди»: одна камера на все строки без штрихкода,
+  /// после каждой привязки или «Пропустить» — следующая. [onRowDone] вызывается, когда по строке есть итог (код привязан или выбран
+  /// товар каталога); [draftOwner] — название ДРУГОЙ строки накладной, у которой уже этот код (код уникален в накладной).
+  final List<BindRow> rows;
+  final Future<void> Function(int index, BindResult result)? onRowDone;
+  final String? Function(String code, int index)? draftOwner;
+
+  /// «Заменить» (забрать код у другого товара) — в накладной не нужно: там есть «Выбрать «…»».
+  final bool allowReplace;
+  final bool offerUseOwner;
+
+  const BarcodeBindPage({
+    super.key,
+    this.productName = '',
+    this.productId,
+    this.lookup,
+    this.preview,
+    this.rows = const [],
+    this.onRowDone,
+    this.draftOwner,
+    this.allowReplace = true,
+    this.offerUseOwner = false,
+  });
+
+  @visibleForTesting
+  static BindLookup? testLookup;
+  @visibleForTesting
+  static Widget? testPreview;
 
   static Future<BindResult?> open(BuildContext context, {String productName = '', String? productId}) =>
       Navigator.of(context).push<BindResult>(MaterialPageRoute(builder: (_) => BarcodeBindPage(productName: productName, productId: productId)));
+
+  /// 2026-11-20: «Привязать по очереди» — строки накладной без штрихкода; закрывается после последней строки или крестиком.
+  static Future<void> openRows(
+    BuildContext context, {
+    required List<BindRow> rows,
+    required Future<void> Function(int index, BindResult result) onRowDone,
+    required String? Function(String code, int index) draftOwner,
+  }) => Navigator.of(context).push<BindResult>(
+    MaterialPageRoute(builder: (_) => BarcodeBindPage(rows: rows, onRowDone: onRowDone, draftOwner: draftOwner, allowReplace: false, offerUseOwner: true)),
+  );
 
   @override
   ConsumerState<BarcodeBindPage> createState() => BarcodeBindPageState();
@@ -62,12 +110,27 @@ class BarcodeBindPageState extends ConsumerState<BarcodeBindPage> {
   String? _ignore;
   DateTime _ignoreUntil = DateTime(2000);
 
+  /// 2026-11-20: дрожание камеры — тот же код в кадре в течение 1,5 с не считается второй раз (как в КП и счёте).
+  final _debounce = CodeDebounce();
+
+  /// Номер строки в режиме «по очереди» и число строк, по которым что-то записано.
+  int _row = 0;
+  int _doneRows = 0;
+
+  bool get _queue => widget.rows.isNotEmpty;
+  String get _name => _queue ? widget.rows[_row].name : widget.productName;
+  String? get _productId => _queue ? widget.rows[_row].productId : widget.productId;
+
   BindPhase get phase => _phase;
+
+  /// Для проверок: номер текущей строки и сколько строк получили итог.
+  int get row => _row;
+  int get rowsDone => _doneRows;
 
   @override
   void initState() {
     super.initState();
-    if (widget.preview == null) {
+    if (widget.preview == null && BarcodeBindPage.testPreview == null) {
       _camera = MobileScannerController(
         // товарные штрихкоды (QR — не штрихкод товара)
         formats: const [BarcodeFormat.ean13, BarcodeFormat.ean8, BarcodeFormat.code128, BarcodeFormat.upcA, BarcodeFormat.upcE, BarcodeFormat.itf14],
@@ -84,7 +147,7 @@ class BarcodeBindPageState extends ConsumerState<BarcodeBindPage> {
   }
 
   Future<({Product? product, bool unavailable})> _lookup(String code) async {
-    final custom = widget.lookup;
+    final custom = widget.lookup ?? BarcodeBindPage.testLookup;
     if (custom != null) return custom(code);
     final r = await CodeLookup.find(ref.read(databaseProvider), ref.read(apiProvider), code, allowWeightLabel: false);
     return (product: r.product, unavailable: r.unavailable);
@@ -94,7 +157,8 @@ class BarcodeBindPageState extends ConsumerState<BarcodeBindPage> {
     for (final b in capture.barcodes) {
       final code = normalizeCode(b.rawValue);
       if (code.isNotEmpty) {
-        onCode(code);
+        // 2026-11-20: повтор того же кода в течение 1,5 с (дрожание, код всё ещё в кадре после привязки строки) — мимо
+        if (_debounce.accept(code)) onCode(code);
         return;
       }
     }
@@ -114,11 +178,29 @@ class BarcodeBindPageState extends ConsumerState<BarcodeBindPage> {
       _code = code;
       _takenFrom = null;
     });
+    // 2026-11-20: этот код уже у другой строки накладной — на сервере и в базе телефона его ещё нет, поэтому проверяем до каталога
+    final draft = widget.draftOwner?.call(code, _row);
+    if (draft != null) {
+      HapticFeedback.heavyImpact();
+      Beep.error();
+      _frame.currentState?.fail();
+      await showDialog<void>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: Text(c.l.bindTakenTitle),
+          content: Text(c.l.bindTakenDraft(code, draft)),
+          actions: [TextButton(style: TextButton.styleFrom(minimumSize: const Size(48, 48)), onPressed: () => Navigator.pop(c), child: Text(MaterialLocalizations.of(c).okButtonLabel))],
+        ),
+      );
+      if (mounted) _rescan();
+      return;
+    }
     final hit = await _lookup(code);
     if (!mounted) return;
     final other = hit.product;
-    final name = widget.productName.trim();
-    if (other == null || (widget.productId != null && other.id == widget.productId)) {
+    final name = _name.trim();
+    final rowProductId = _productId;
+    if (other == null || (rowProductId != null && other.id == rowProductId)) {
       setState(() {
         _phase = BindPhase.confirm;
         _message = other != null
@@ -135,15 +217,19 @@ class BarcodeBindPageState extends ConsumerState<BarcodeBindPage> {
     _frame.currentState?.fail();
     // «Заменить» — только у существующего товара и только если это основной штрихкод другого товара (доп. штрихкод
     // упаковки так не снять)
-    final canReplace = widget.productId != null && barcodeVariants(code).contains(normalizeCode(other.barcode));
+    final canReplace = widget.allowReplace && rowProductId != null && barcodeVariants(code).contains(normalizeCode(other.barcode));
     final choice = await showDialog<String>(
       context: context,
       builder: (c) => AlertDialog(
         title: Text(c.l.bindTakenTitle),
-        content: Text(canReplace ? c.l.bindTakenAsk(code, other.name) : c.l.bindTakenAskNew(code, other.name)),
+        // 2026-11-20: в накладной — «Выбрать «…»» (строка становится этим товаром), «Оставить» (код остаётся у него) и «Отмена» (сканировать заново)
+        content: Text(widget.offerUseOwner ? c.l.bindTakenAskRow(code, other.name) : (canReplace ? c.l.bindTakenAsk(code, other.name) : c.l.bindTakenAskNew(code, other.name))),
+        scrollable: true,
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c), child: Text(c.l.cancel)),
-          TextButton(onPressed: () => Navigator.pop(c, 'keep'), child: Text(c.l.bindKeep)),
+          TextButton(style: TextButton.styleFrom(minimumSize: const Size(48, 48)), onPressed: () => Navigator.pop(c), child: Text(c.l.cancel)),
+          TextButton(style: TextButton.styleFrom(minimumSize: const Size(48, 48)), onPressed: () => Navigator.pop(c, 'keep'), child: Text(c.l.bindKeep)),
+          if (widget.offerUseOwner)
+            FilledButton(style: FilledButton.styleFrom(minimumSize: const Size(48, 48)), onPressed: () => Navigator.pop(c, 'use'), child: Text(c.l.bindUseOwner(other.name), maxLines: 2, overflow: TextOverflow.ellipsis)),
           if (canReplace) FilledButton(onPressed: () => Navigator.pop(c, 'replace'), child: Text(c.l.bindReplace)),
         ],
       ),
@@ -151,7 +237,18 @@ class BarcodeBindPageState extends ConsumerState<BarcodeBindPage> {
     if (!mounted) return;
     switch (choice) {
       case 'keep':
-        Navigator.of(context).pop<BindResult>((code: null, takenFrom: null));
+        if (_queue) {
+          await _advance(null);
+        } else {
+          Navigator.of(context).pop<BindResult>((code: null, takenFrom: null, useOwner: null));
+        }
+      case 'use':
+        final r = (code: null as String?, takenFrom: null as Product?, useOwner: other as Product?);
+        if (_queue) {
+          await _advance(r);
+        } else {
+          Navigator.of(context).pop<BindResult>(r);
+        }
       case 'replace':
         setState(() {
           _takenFrom = other;
@@ -174,9 +271,50 @@ class BarcodeBindPageState extends ConsumerState<BarcodeBindPage> {
     });
   }
 
-  void _skip() => Navigator.of(context).pop<BindResult>((code: null, takenFrom: null));
+  /// «Пропустить»: в режиме «по очереди» — следующая строка, иначе выход без кода.
+  void _skip() {
+    if (_queue) {
+      unawaited(_advance(null));
+    } else {
+      Navigator.of(context).pop<BindResult>((code: null, takenFrom: null, useOwner: null));
+    }
+  }
 
-  void _done() => Navigator.of(context).pop<BindResult>((code: _code, takenFrom: _takenFrom));
+  /// Крестик и «Назад»: в режиме «по очереди» закрывает весь список (уже привязанное остаётся).
+  void _close() => _queue ? Navigator.of(context).pop<BindResult>(null) : _skip();
+
+  void _done() {
+    final r = (code: _code, takenFrom: _takenFrom, useOwner: null as Product?);
+    if (_queue) {
+      unawaited(_advance(r));
+    } else {
+      Navigator.of(context).pop<BindResult>(r);
+    }
+  }
+
+  /// Режим «по очереди»: итог по строке — наружу ([BarcodeBindPage.onRowDone]), камера переходит к следующей строке; после последней — выход.
+  /// Код только что привязанной строки ещё какое-то время в кадре — следующей строке он не нужен (отсекает [_debounce] и [_ignore]).
+  Future<void> _advance(BindResult? r) async {
+    final i = _row;
+    if (r != null) {
+      _doneRows++;
+      await widget.onRowDone?.call(i, r);
+    }
+    if (!mounted) return;
+    if (i + 1 >= widget.rows.length) {
+      Navigator.of(context).pop<BindResult>((code: null, takenFrom: null, useOwner: null));
+      return;
+    }
+    _ignore = _code;
+    _ignoreUntil = DateTime.now().add(const Duration(milliseconds: 1500));
+    setState(() {
+      _row = i + 1;
+      _phase = BindPhase.scan;
+      _code = null;
+      _takenFrom = null;
+      _message = '';
+    });
+  }
 
   Future<void> _manual() async {
     final l = context.l;
@@ -211,7 +349,7 @@ class BarcodeBindPageState extends ConsumerState<BarcodeBindPage> {
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _skip();
+        if (!didPop) _close();
       },
       child: Scaffold(
         backgroundColor: const Color(0xFF071824),
@@ -219,6 +357,7 @@ class BarcodeBindPageState extends ConsumerState<BarcodeBindPage> {
           children: [
             Positioned.fill(
               child: widget.preview ??
+                  BarcodeBindPage.testPreview ??
                   MobileScanner(
                     controller: camera!,
                     onDetect: _onDetect,
@@ -258,10 +397,17 @@ class BarcodeBindPageState extends ConsumerState<BarcodeBindPage> {
                     children: [
                       Row(
                         children: [
-                          IconButton.filledTonal(onPressed: _skip, icon: const Icon(Icons.close_rounded)),
+                          IconButton.filledTonal(key: const Key('bind_close'), style: IconButton.styleFrom(minimumSize: const Size(48, 48)), onPressed: _close, icon: const Icon(Icons.close_rounded)),
                           const SizedBox(width: 8),
                           Expanded(
-                            child: ScanSteps(labels: [l.stepPhoto, l.stepBarcode, l.done], current: _phase == BindPhase.confirm ? 2 : 1),
+                            child: _queue
+                                ? Text(
+                                    l.bindRowOf(_row + 1, widget.rows.length),
+                                    key: const Key('bind_row_of'),
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800),
+                                  )
+                                : ScanSteps(labels: [l.stepPhoto, l.stepBarcode, l.done], current: _phase == BindPhase.confirm ? 2 : 1),
                           ),
                           const SizedBox(width: 48),
                         ],
@@ -275,10 +421,22 @@ class BarcodeBindPageState extends ConsumerState<BarcodeBindPage> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                l.bindTitle,
+                                _queue ? l.bindRowTitle : l.bindTitle,
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.w800, height: 1.25),
                               ),
+                              // 2026-11-20: для какого товара сканируем (в накладной таких строк несколько)
+                              if (_queue && _name.trim().isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Text(
+                                  _name,
+                                  key: const Key('bind_row_name'),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700),
+                                ),
+                              ],
                               const SizedBox(height: 6),
                               Text(l.bindSub, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 15)),
                             ],

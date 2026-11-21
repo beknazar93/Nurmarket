@@ -5265,5 +5265,158 @@
   "apiFieldRequired": "Заполните обязательное поле.",
   "apiNumberInvalid": "Введите число.",
   "apiAlreadyExists": "Такая запись уже есть.",
-  "receiptOfflineNote": "Чек сохранён без связи — уйдёт на сервер автоматически"
+  "receiptOfflineNote": "Чек сохранён без связи — уйдёт на сервер автоматически",
+  "recStageCompress": "Сжимаю фото…",
+  "recStageReadInvoice": "Читаю накладную…",
+  "recStageMatch": "Ищу товары в каталоге…",
+  "recStepOf": "Шаг {n} из {total}",
+  "@recStepOf": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "recSlowAsk": "Читается долго. Подождите или выберите действие:",
+  "recManual": "Ввести вручную",
+  "recRetakeCloser": "Сфотографировать ближе",
+  "bindRowTitle": "Отсканируйте штрихкод товара",
+  "bindRowOf": "Товар {n} из {total}",
+  "@bindRowOf": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "bindTakenDraft": "Штрихкод {code} уже у строки «{name}» этой накладной.",
+  "@bindTakenDraft": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "bindTakenAskRow": "Штрихкод {code} уже у товара «{name}» в каталоге.\n«Выбрать» — эта строка станет товаром «{name}».\n«Оставить» — код останется у «{name}», эта строка будет без штрихкода.",
+  "@bindTakenAskRow": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "bindUseOwner": "Выбрать «{name}»",
+  "@bindUseOwner": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "camNoCode": "Нет штрихкода",
+  "camBindBtn": "Отсканировать штрихкод",
+  "camCodeBound": "Штрихкод {code}",
+  "@camCodeBound": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "camBindQueueBanner": "Без штрихкода: {n}",
+  "@camBindQueueBanner": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "camBindQueueBtn": "Привязать по очереди",
+  "camBindAsk": "Позиции без штрихкода: {n}. Отсканировать их по очереди?",
+  "@camBindAsk": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "camBindLater": "Позже",
+  "camBindStart": "Сканировать",
+  "camBindDone": "Штрихкоды привязаны: {n}",
+  "@camBindDone": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "camBindQueuedNote": "Штрихкод записан на телефоне — уйдёт на сервер при связи",
+  "kindBarcode": "Штрихкод товара",
+  "camGroupToggle": "Объединять вкусы и варианты в один товар",
+  "camAiCommand": "Своя команда ИИ",
+  "camAiCommandHint": "Например: объединяй вкусы; не объединяй; бренд — Асу",
+  "camAiSheetTitle": "Команда ИИ для накладной",
+  "camAiReset": "Сбросить",
+  "camAiNote": "Команда запоминается на этом телефоне для вашей учётной записи.",
+  "camVariantPlain": "Обычный",
+  "camSplit": "Разъединить",
+  "camMergeWith": "Объединить с…",
+  "camMergePick": "С каким товаром объединить?",
+  "camMergeAsk": "«{name}»: варианты с разными ценами ({prices} сом). Объединить в один товар?",
+  "@camMergeAsk": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "prices": {
+        "type": "String"
+      }
+    }
+  },
+  "camMergeYes": "Объединить",
+  "camMergeNo": "Не объединять",
+  "camGroupSummary": "Товаров: {n}, вариантов (доп. кодов): {m}",
+  "@camGroupSummary": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "m": {
+        "type": "int"
+      }
+    }
+  },
+  "camMerged": "Объединено в один товар",
+  "camSplitDone": "Разъединено",
+  "camVariantsTitle": "Варианты: {n}",
+  "@camVariantsTitle": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "bindTakenServer": "Штрихкод {code} уже у товара «{name}»",
+  "@bindTakenServer": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  }
 }

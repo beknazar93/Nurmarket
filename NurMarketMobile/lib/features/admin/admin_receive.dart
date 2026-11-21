@@ -53,6 +53,12 @@ class ReceiveLine {
   /// и обычная приёмка работают как раньше.
   final bool weight;
 
+  /// 2026-11-20 (накладная умной камеры: «Асу» и «Асу клубника» — один товар): дополнительные штрихкоды нового товара — варианты
+  /// (вкус, цвет): {barcode, name = вариант, quantity = 0}, как у карточки «Новый товар»; [note] — разбивка прихода по вариантам
+  /// («клубника 5, лимон 3») для журнала: на сервере остаток один на товар.
+  final List<Map<String, Object>> altBarcodes;
+  final String note;
+
   // 2026-10-22 (мобилка, админ, П8/П12): исход прошлой попытки — как PendingStockPatch и проверка «товар уже создан»
   // кассы (PurchaseReceivingService, BulkImportWindow). Строка живёт до успеха, повтор не задваивает.
   /// Создание товара осталось без ответа (обрыв, 5xx) — перед повтором ищем товар на сервере.
@@ -79,6 +85,8 @@ class ReceiveLine {
     this.category = '',
     this.brand = '',
     this.weight = false,
+    this.altBarcodes = const [],
+    this.note = '',
   });
   double get markup => cost > 0 ? (price - cost) / cost * 100 : 0;
 
@@ -99,6 +107,12 @@ class ReceiveHandoff {
   final List<String> invoiceKeys;
   final VoidCallback? onPosted;
   const ReceiveHandoff(this.lines, {this.supplierId, this.supplierName = '', this.invoiceKeys = const [], this.onPosted});
+}
+
+/// 2026-11-21: примечание к приходу — «Асу: клубника 5, лимон 3; …» по строкам с вариантами, не длиннее 1500 знаков (сервер берёт 2000).
+String receiptComment(Iterable<ReceiveLine> lines) {
+  final t = [for (final l in lines) if (l.note.isNotEmpty) '${l.name}: ${l.note}'].join('; ');
+  return t.length > 1500 ? t.substring(0, 1500) : t;
 }
 
 /// Количество — до 3 знаков (граммы).
@@ -399,7 +413,7 @@ class AdminReceiveRepository {
       }
       try {
         // 2026-10-29: весовой товар массовой загрузки/приёмки — с is_weight и PLU (раньше «кг» создавалось штучным)
-        l.productId = await createProduct(l, category: l.category, brand: l.brand, isWeight: l.weight, plu: l.weight ? await nextPlu() : null);
+        l.productId = await createProduct(l, category: l.category, brand: l.brand, isWeight: l.weight, plu: l.weight ? await nextPlu() : null, altBarcodes: l.altBarcodes);
         l.createUnknown = false;
       } on ApiException catch (e) {
         if (outcomeUnknown(e)) l.createUnknown = true;
@@ -423,6 +437,8 @@ class AdminReceiveRepository {
             'payment_type': paidNow ? 'cash' : 'debt',
             if (paidNow) 'cashbox_role': 'expense_variable',
             'idempotency_key': key,
+            // 2026-11-21 (Умар): comment сохраняется (до 2000 знаков) — сюда разбивка прихода по вкусам/вариантам
+            if (receiptComment(ready).isNotEmpty) 'comment': receiptComment(ready),
           },
         );
       } on ApiException catch (e) {

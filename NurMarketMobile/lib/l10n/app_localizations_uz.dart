@@ -7294,4 +7294,157 @@ class AppLocalizationsUz extends AppLocalizations {
   @override
   String get receiptOfflineNote =>
       'Chek aloqasiz saqlandi — serverga o‘zi yuboriladi';
+
+  @override
+  String get recStageCompress => 'Rasmni siqyapman…';
+
+  @override
+  String get recStageReadInvoice => 'Nakladnoyni o\'qiyapman…';
+
+  @override
+  String get recStageMatch => 'Katalogdan mahsulotlarni qidiryapman…';
+
+  @override
+  String recStepOf(int n, int total) {
+    return '$n-qadam / $total';
+  }
+
+  @override
+  String get recSlowAsk => 'Uzoq davom etmoqda. Kuting yoki amalni tanlang:';
+
+  @override
+  String get recManual => 'Qo\'lda kiritish';
+
+  @override
+  String get recRetakeCloser => 'Yaqinroq suratga olish';
+
+  @override
+  String get bindRowTitle => 'Mahsulot shtrix-kodini skanerlang';
+
+  @override
+  String bindRowOf(int n, int total) {
+    return 'Mahsulot $n / $total';
+  }
+
+  @override
+  String bindTakenDraft(String code, String name) {
+    return '$code shtrix-kodi bu nakladnoydagi «$name» qatorida allaqachon bor.';
+  }
+
+  @override
+  String bindTakenAskRow(String code, String name) {
+    return '$code shtrix-kodi katalogdagi «$name» mahsulotiga tegishli.\n«Tanlash» — bu qator «$name» mahsuloti bo\'ladi.\n«Qoldirish» — kod «$name» da qoladi, bu qator shtrix-kodsiz bo\'ladi.';
+  }
+
+  @override
+  String bindUseOwner(String name) {
+    return '«$name» ni tanlash';
+  }
+
+  @override
+  String get camNoCode => 'Shtrix-kod yo\'q';
+
+  @override
+  String get camBindBtn => 'Shtrix-kodni skanerlash';
+
+  @override
+  String camCodeBound(String code) {
+    return 'Shtrix-kod $code';
+  }
+
+  @override
+  String camBindQueueBanner(int n) {
+    return 'Shtrix-kodsiz: $n';
+  }
+
+  @override
+  String get camBindQueueBtn => 'Navbat bilan bog\'lash';
+
+  @override
+  String camBindAsk(int n) {
+    return 'Shtrix-kodsiz pozitsiyalar: $n. Navbat bilan skanerlaymizmi?';
+  }
+
+  @override
+  String get camBindLater => 'Keyinroq';
+
+  @override
+  String get camBindStart => 'Skanerlash';
+
+  @override
+  String camBindDone(int n) {
+    return 'Shtrix-kodlar bog\'landi: $n';
+  }
+
+  @override
+  String get camBindQueuedNote =>
+      'Shtrix-kod telefonga yozildi — aloqa bo\'lganda serverga yuboriladi';
+
+  @override
+  String get kindBarcode => 'Mahsulot shtrix-kodi';
+
+  @override
+  String get camGroupToggle =>
+      'Ta\'m va variantlarni bitta mahsulotga birlashtirish';
+
+  @override
+  String get camAiCommand => 'AI uchun o\'z buyrug\'im';
+
+  @override
+  String get camAiCommandHint =>
+      'Masalan: ta\'mlarni birlashtir; birlashtirma; brend — Asu';
+
+  @override
+  String get camAiSheetTitle => 'Nakladnoy uchun AI buyrug\'i';
+
+  @override
+  String get camAiReset => 'Tozalash';
+
+  @override
+  String get camAiNote =>
+      'Buyruq shu telefonda hisobingiz uchun eslab qolinadi.';
+
+  @override
+  String get camVariantPlain => 'Oddiy';
+
+  @override
+  String get camSplit => 'Ajratish';
+
+  @override
+  String get camMergeWith => 'Birlashtirish…';
+
+  @override
+  String get camMergePick => 'Qaysi mahsulot bilan birlashtiramiz?';
+
+  @override
+  String camMergeAsk(String name, String prices) {
+    return '«$name»: variantlar narxi turlicha ($prices so\'m). Bitta mahsulotga birlashtiramizmi?';
+  }
+
+  @override
+  String get camMergeYes => 'Birlashtirish';
+
+  @override
+  String get camMergeNo => 'Birlashtirmaslik';
+
+  @override
+  String camGroupSummary(int n, int m) {
+    return 'Mahsulotlar: $n, variantlar (qo\'shimcha kodlar): $m';
+  }
+
+  @override
+  String get camMerged => 'Bitta mahsulotga birlashtirildi';
+
+  @override
+  String get camSplitDone => 'Ajratildi';
+
+  @override
+  String camVariantsTitle(int n) {
+    return 'Variantlar: $n';
+  }
+
+  @override
+  String bindTakenServer(String code, String name) {
+    return '$code shtrix-kodi allaqachon «$name» mahsulotida';
+  }
 }

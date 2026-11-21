@@ -7265,4 +7265,157 @@ class AppLocalizationsKy extends AppLocalizations {
   @override
   String get receiptOfflineNote =>
       'Чек байланышсыз сакталды — серверге өзү кетет';
+
+  @override
+  String get recStageCompress => 'Сүрөттү кысып жатам…';
+
+  @override
+  String get recStageReadInvoice => 'Жүк кагазды окуп жатам…';
+
+  @override
+  String get recStageMatch => 'Каталогдон товарларды издеп жатам…';
+
+  @override
+  String recStepOf(int n, int total) {
+    return '$n-кадам / $total';
+  }
+
+  @override
+  String get recSlowAsk => 'Көп убакыт кетүүдө. Күтүңүз же аракетти тандаңыз:';
+
+  @override
+  String get recManual => 'Кол менен киргизүү';
+
+  @override
+  String get recRetakeCloser => 'Жакыныраак тартуу';
+
+  @override
+  String get bindRowTitle => 'Товардын штрихкодун сканерлеңиз';
+
+  @override
+  String bindRowOf(int n, int total) {
+    return 'Товар $n / $total';
+  }
+
+  @override
+  String bindTakenDraft(String code, String name) {
+    return '$code штрихкоду бул жүк кагаздагы «$name» сабында мурунтан бар.';
+  }
+
+  @override
+  String bindTakenAskRow(String code, String name) {
+    return '$code штрихкоду каталогдогу «$name» товарында мурунтан бар.\n«Тандоо» — бул сап «$name» товары болот.\n«Калтыруу» — код «$name» товарында калат, бул сап штрихкодсуз болот.';
+  }
+
+  @override
+  String bindUseOwner(String name) {
+    return '«$name» тандоо';
+  }
+
+  @override
+  String get camNoCode => 'Штрихкод жок';
+
+  @override
+  String get camBindBtn => 'Штрихкодду сканерлөө';
+
+  @override
+  String camCodeBound(String code) {
+    return 'Штрихкод $code';
+  }
+
+  @override
+  String camBindQueueBanner(int n) {
+    return 'Штрихкоду жок: $n';
+  }
+
+  @override
+  String get camBindQueueBtn => 'Кезеги менен байлоо';
+
+  @override
+  String camBindAsk(int n) {
+    return 'Штрихкодсуз позициялар: $n. Кезеги менен сканерлейлиби?';
+  }
+
+  @override
+  String get camBindLater => 'Кийинчерээк';
+
+  @override
+  String get camBindStart => 'Сканерлөө';
+
+  @override
+  String camBindDone(int n) {
+    return 'Штрихкоддор байланды: $n';
+  }
+
+  @override
+  String get camBindQueuedNote =>
+      'Штрихкод телефонго жазылды — байланыш болгондо серверге кетет';
+
+  @override
+  String get kindBarcode => 'Товардын штрихкоду';
+
+  @override
+  String get camGroupToggle =>
+      'Даамдарды жана варианттарды бир товарга бириктирүү';
+
+  @override
+  String get camAiCommand => 'ИИге өз буйругум';
+
+  @override
+  String get camAiCommandHint =>
+      'Мисалы: даамдарды бириктир; бириктирбе; бренд — Асу';
+
+  @override
+  String get camAiSheetTitle => 'Жүк кагаз үчүн ИИ буйругу';
+
+  @override
+  String get camAiReset => 'Тазалоо';
+
+  @override
+  String get camAiNote =>
+      'Буйрук ушул телефондо сиздин аккаунтуңуз үчүн эсте калат.';
+
+  @override
+  String get camVariantPlain => 'Кадимки';
+
+  @override
+  String get camSplit => 'Ажыратуу';
+
+  @override
+  String get camMergeWith => 'Бириктирүү…';
+
+  @override
+  String get camMergePick => 'Кайсы товар менен бириктирейин?';
+
+  @override
+  String camMergeAsk(String name, String prices) {
+    return '«$name»: варианттардын баасы ар башка ($prices сом). Бир товарга бириктиребизби?';
+  }
+
+  @override
+  String get camMergeYes => 'Бириктирүү';
+
+  @override
+  String get camMergeNo => 'Бириктирбе';
+
+  @override
+  String camGroupSummary(int n, int m) {
+    return 'Товарлар: $n, варианттар (кошумча коддор): $m';
+  }
+
+  @override
+  String get camMerged => 'Бир товарга бириктирилди';
+
+  @override
+  String get camSplitDone => 'Ажыратылды';
+
+  @override
+  String camVariantsTitle(int n) {
+    return 'Варианттар: $n';
+  }
+
+  @override
+  String bindTakenServer(String code, String name) {
+    return '$code штрихкоду «$name» товарында мурунтан бар';
+  }
 }

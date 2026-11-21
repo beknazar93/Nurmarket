@@ -20,6 +20,16 @@ import 'cam_aliases.dart';
 import 'gemini_keys.dart';
 import 'scale_reading.dart';
 
+/// 2026-11-20 (владелец: «Асу» и «Асу со вкусом клубники» — один товар, отличается только вкус): вариант товара в накладной —
+/// вкус/цвет/размер, его штрихкод и сколько принято. Пустой [label] — «обычный» (без вкуса). Из них собирается одна карточка товара:
+/// код первого варианта — основной, остальные — дополнительные штрихкоды с названием варианта.
+class SeenVariant {
+  final String label;
+  final String barcode;
+  final double qty;
+  const SeenVariant({this.label = '', this.barcode = '', this.qty = 1});
+}
+
 /// Что увидела камера на снимке.
 class SeenItem {
   final String name;
@@ -38,11 +48,32 @@ class SeenItem {
 
   /// 2026-10-27: название по-русски, как назвал бы продавец (ИИ отвечает name_ru); пусто — ИИ его не дал.
   final String nameRu;
-  const SeenItem({required this.name, this.brand = '', this.size = '', this.barcode = '', this.count = 1, this.labelPrice = 0, this.nameRu = '', this.qty, this.unit = ''});
+
+  /// 2026-11-20: накладная с группировкой вариантов: базовое название БЕЗ вкуса/цвета/размера и сам вариант (пусто — не указаны).
+  final String base;
+  final String variant;
+
+  /// Несколько вариантов одного товара, собранных в одну позицию ([variants] ≥ 2); пусто — обычная строка.
+  final List<SeenVariant> variants;
+  const SeenItem({
+    required this.name,
+    this.brand = '',
+    this.size = '',
+    this.barcode = '',
+    this.count = 1,
+    this.labelPrice = 0,
+    this.nameRu = '',
+    this.qty,
+    this.unit = '',
+    this.base = '',
+    this.variant = '',
+    this.variants = const [],
+  });
 
   /// Сколько принять: дробное из накладной или целое [count].
   double get amount => qty ?? count.toDouble();
-  String get title => [brand, name, size].where((x) => x.trim().isNotEmpty).join(' ');
+  // 2026-11-20: бренд не повторяется, если название и так с него начинается («Асу» + «Асу» → «Асу»)
+  String get title => [if (!name.toLowerCase().startsWith(brand.trim().toLowerCase()) || brand.trim().isEmpty) brand, name, size].where((x) => x.trim().isNotEmpty).join(' ');
 
   /// 2026-10-27: то же по-русски («Спрайт 1 л» вместо «Sprite 1 L») — второй вариант для сверки с каталогом.
   String get titleRu => nameRu.trim().isEmpty ? '' : [brand, nameRu, size].where((x) => x.trim().isNotEmpty).join(' ');
@@ -66,6 +97,9 @@ class SeenMatch {
 
 /// 2026-10-27: чем закончилась попытка ИИ — для понятного текста вместо общего «не ответил».
 enum VisionIssue { quota, keyRejected, timeout }
+
+/// 2026-11-20 (владелец: «очень долго думает при скане накладной»): этапы разбора снимка для окна ожидания — вместо вечной крутилки.
+enum RecognizeStage { compress, read, match }
 
 class VisionException implements Exception {
   final String message;
@@ -121,6 +155,32 @@ class VisionService {
   static const _keyName = 'ai.gemini';
   static String? _workingModel;
   final Dio _http;
+
+  /// 2026-11-20: системный запрос для накладной. [group] — просить g (базовое название), v (вариант), m (бренд) у вариантов одного товара;
+  /// [command] — «Своя команда ИИ» владельца (до 300 знаков), добавляется в конец. Без группировки запрос короче — ответ не длиннее прежнего.
+  static String invoiceSystemText({required bool group, String command = ''}) {
+    final cmd = command.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return 'Ты читаешь накладные поставщиков в Кыргызстане по фото. Отвечай ТОЛЬКО JSON-массивом объектов {"n","q","u","p","b"}: n — название товара как в накладной, без пересказа; q — количество числом (может быть дробным); u — единица (шт, кг, л, м) или пустая строка; p — цена за единицу числом или 0; b — штрихкод или артикул, если для него есть колонка, иначе пустая строка. Одна строка накладной — один объект, в порядке накладной. Итоги, шапку и пояснения не добавляй. Не выдумывай: строку не разобрать — пропусти её.'
+        '${group ? ' Если строка — вариант одного и того же товара (вкус, цвет, размер, аромат), добавь g — базовое название товара БЕЗ вкуса, цвета и размера (одинаковое у всех вариантов, например «Асу») и v — вариант (например «клубника»; у обычного варианта v пустая строка); отдельный бренд, если он виден, — m. Для обычных товаров g, v и m не указывай.' : ''}'
+        '${cmd.isEmpty ? '' : ' Указание владельца магазина (формат ответа не менять): «${cmd.length > 300 ? cmd.substring(0, 300) : cmd}».'}';
+  }
+
+  /// 2026-11-20: сроки чтения накладной: всего и первой попытки (для проверок меняются).
+  @visibleForTesting
+  static Duration invoiceTotal = const Duration(seconds: 30);
+  @visibleForTesting
+  static Duration invoiceFirstTry = const Duration(seconds: 20);
+
+  /// 2026-11-20: окно «Узнаю товар…» слушает этапы разбора (сжатие → чтение ИИ → сопоставление) и может отменить запрос.
+  /// Полями, а не параметрами [recognize]: у неё есть подменяющие фейки в тестах (как [fastChat]). Ставит и снимает [recognizeBytes].
+  void Function(RecognizeStage stage)? onStage;
+  CancelToken? cancelToken;
+
+  /// 2026-11-20 (владелец: «объединять вкусы в один товар», «Своя команда ИИ»): накладная — просить у ИИ базовое название и вариант
+  /// (вкус, цвет, размер) каждой строки; [aiCommand] — текст владельца, добавляется к запросу. Ставит [recognizeBytes], читается в
+  /// начале [recognize] (как [cancelToken]).
+  bool invoiceGroup = false;
+  String aiCommand = '';
 
   /// 2026-10-29 (полная изоляция аккаунтов): секреты ИИ в защищённом хранилище телефона — вход другим аккаунтом их стирает.
   static const accountSecretKeys = [_keyName, _sharedKeyName, _badKeysName, _extraName, 'ai.groq', 'ai.openrouter'];
@@ -831,7 +891,17 @@ class VisionService {
   /// «размышлений» по модели (без неё Gemini 3 тратил лимит ответа на размышления и отвечал пусто — это был переход к
   /// следующей модели, ещё одно ожидание), общий срок [total] на все модели (раньше: до 60 с на каждую из 5 моделей),
   /// понятные ошибки. Нет ответа — VisionException.
-  Future<String> _visionAsk(String k, Map<String, dynamic> Function(Map<String, dynamic>? thinking) body, {Duration total = const Duration(seconds: 12)}) async {
+  /// 2026-11-20 (накладная 62 с): сроки Dio (connect/send/receive) считаются по фазам, а не на весь запрос, поэтому «25 с» не были
+  /// пределом; теперь каждая попытка ограничена `.timeout` на всё сразу. [firstCap] — потолок первой попытки: зависшая модель не съедает
+  /// весь срок, остаётся время на запасную. [cancelToken] — «Отмена» в окне ожидания обрывает запрос (раньше он дожидался ответа и
+  /// тратил лимит Google).
+  Future<String> _visionAsk(
+    String k,
+    Map<String, dynamic> Function(Map<String, dynamic>? thinking) body, {
+    Duration total = const Duration(seconds: 12),
+    Duration? firstCap,
+    CancelToken? cancel,
+  }) async {
     final models = [?_workingModel, ..._models.where((m) => m != _workingModel)];
     final started = Stopwatch()..start();
     String? lastError;
@@ -848,16 +918,20 @@ class VisionService {
         lastError ??= _noKeyText(model); // 2026-10-27: все ключи исчерпаны для этой модели — следующая модель
         continue;
       }
+      final cap = mi == 0 && firstCap != null && firstCap < left ? firstCap : left;
       try {
-        final r = await _http.post<dynamic>(
-          'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent',
-          data: body(switch (step) {
-            0 => {'thinkingBudget': 0},
-            1 => {'thinkingLevel': 'low'},
-            _ => null,
-          }),
-          options: Options(headers: {'x-goog-api-key': used}, validateStatus: (_) => true, sendTimeout: left, receiveTimeout: left),
-        );
+        final r = await _http
+            .post<dynamic>(
+              'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent',
+              data: body(switch (step) {
+                0 => {'thinkingBudget': 0},
+                1 => {'thinkingLevel': 'low'},
+                _ => null,
+              }),
+              options: Options(headers: {'x-goog-api-key': used}, validateStatus: (_) => true, sendTimeout: cap, receiveTimeout: cap),
+              cancelToken: cancel,
+            )
+            .timeout(cap + const Duration(seconds: 1));
         final status = r.statusCode ?? 0;
         final data = r.data is Map ? (r.data as Map).cast<String, dynamic>() : const <String, dynamic>{};
         if (status >= 400) {
@@ -891,7 +965,11 @@ class VisionService {
           return text;
         }
         lastError = 'нейросеть вернула пустой ответ';
+      } on TimeoutException {
+        if (_workingModel == model) _workingModel = null;
+        lastError = 'Google не ответил вовремя';
       } on DioException catch (e) {
+        if (CancelToken.isCancel(e)) throw const VisionException('отменено'); // 2026-11-20: «Отмена» в окне ожидания
         if (_workingModel == model) _workingModel = null;
         lastError = switch (e.type) {
           DioExceptionType.connectionTimeout || DioExceptionType.sendTimeout || DioExceptionType.receiveTimeout => 'Google не ответил вовремя',
@@ -949,13 +1027,27 @@ class VisionService {
   }
 
   Future<List<SeenItem>> recognize(Uint8List jpeg, {String mode = 'sale', String mime = 'image/jpeg'}) async {
+    // 2026-11-20: поля читаем сразу, до первого await — повтор в окне ожидания ставит новые, а этот запрос должен отменяться своим
+    final token = cancelToken;
+    final stageCb = onStage;
+    final group = invoiceGroup;
+    final command = aiCommand;
     final k = await key();
     if (k == null) throw const VisionException('no key', noKey: true);
-    // 2026-10-30 (оптимизация, п. 5): снимок для ИИ ≤ 1280 px (накладная — 2048 px, мелкий текст); PDF и чужой тип не трогаем
-    if (mime == 'image/jpeg') jpeg = await shrinkForAi(jpeg, maxSide: mode == 'invoice' ? 2048 : 1280);
+    final invoice = mode == 'invoice';
+    // 2026-10-30 (оптимизация, п. 5): снимок для ИИ ≤ 1280 px (накладная — мелкий текст); PDF и чужой тип не трогаем
+    // 2026-11-20 (накладная 62 с): накладная — 1600 px, качество 75, тяжёлый снимок пересжимается (было 2048 px без пересжатия)
+    stageCb?.call(RecognizeStage.compress);
+    if (mime == 'image/jpeg') {
+      jpeg = invoice
+          ? await shrinkForAi(jpeg, maxSide: invoiceMaxSide, quality: invoiceQuality, recompressAbove: invoiceRecompressAbove)
+          : await shrinkForAi(jpeg, maxSide: 1280);
+    }
+    stageCb?.call(RecognizeStage.read);
+    if (token?.isCancelled ?? false) throw const VisionException('отменено');
     final task = switch (mode) {
       'invoice' =>
-        'На фото (или в файле) — накладная поставщика. Перечисли строки товаров: название как в накладной, количество (count; может быть дробным — 2.5 кг, 10 л, пиши как в накладной) и единица измерения (unit: шт, кг, л, м… как в накладной, если указана), цена за единицу (label_price), штрихкод или артикул — если для него есть колонка.',
+        'На фото (или в файле) — накладная поставщика. Перечисли строки товаров по порядку: название как в накладной, количество (q; может быть дробным — 2.5 кг, 10 л, пиши как в накладной), единица измерения (u: шт, кг, л, м… как в накладной, если указана), цена за единицу (p), штрихкод или артикул — если для него есть колонка (b).',
       'labels' => 'На фото — этикетки или ценники. Перечисли товары: название, штрихкод с этикетки, если читается, цена (label_price).',
       'shelf' =>
         'На фото — полка магазина. Перечисли все разные товары: бренд, название, объём/вес, сколько штук видно (count), штрихкод — только если он читается.',
@@ -967,8 +1059,12 @@ class VisionService {
         'systemInstruction': {
           'parts': [
             {
-              // 2026-10-27: короткое name, name_ru — по-русски (каталог магазина в основном русский/смешанный), без описаний
-              'text': 'Ты распознаёшь товары магазина в Кыргызстане по фото. Отвечай ТОЛЬКО JSON-массивом объектов {"name","name_ru","brand","size","barcode","count","label_price","unit"}. unit — единица измерения из накладной (шт, кг, л, м), если указана, иначе пусто. name — как написано на упаковке, коротко (вид, вкус), без описаний и рекламных слов; brand — марка как на упаковке; size — объём или вес; name_ru — то же название по-русски, как назвал бы продавец. Не выдумывай: неуверен — пиши, что видно, barcode пустой.',
+              // 2026-11-20: накладная — короткие ключи и только нужные поля (n, q, u, p, b): ответ ~вдвое короче по токенам, а время ответа
+              // ИИ почти целиком зависит от длины ответа (30 строк со всеми полями — 2–3 тыс. токенов)
+              'text': invoice
+                  ? invoiceSystemText(group: group, command: command)
+                  : // 2026-10-27: короткое name, name_ru — по-русски (каталог магазина в основном русский/смешанный), без описаний
+                    'Ты распознаёшь товары магазина в Кыргызстане по фото. Отвечай ТОЛЬКО JSON-массивом объектов {"name","name_ru","brand","size","barcode","count","label_price","unit"}. unit — единица измерения из накладной (шт, кг, л, м), если указана, иначе пусто. name — как написано на упаковке, коротко (вид, вкус), без описаний и рекламных слов; brand — марка как на упаковке; size — объём или вес; name_ru — то же название по-русски, как назвал бы продавец. Не выдумывай: неуверен — пиши, что видно, barcode пустой.',
             },
           ],
         },
@@ -984,9 +1080,12 @@ class VisionService {
           },
         ],
         // 2026-10-22: в продаже на снимке 1–3 товара — короткий ответ быстрее; накладная и полка — длиннее
-        'generationConfig': {'temperature': 0.1, 'responseMimeType': 'application/json', 'maxOutputTokens': mode == 'sale' ? 1024 : 4096, 'thinkingConfig': ?thinking},
+        'generationConfig': {'temperature': 0.1, 'responseMimeType': 'application/json', 'maxOutputTokens': mode == 'sale' ? 1024 : (invoice ? 6144 : 4096), 'thinkingConfig': ?thinking},
       },
-      total: Duration(seconds: mime == 'application/pdf' ? 40 : (mode == 'sale' ? 12 : 25)),
+      // 2026-11-20: накладная — 30 с на всё, первая попытка не дольше 20 с (остаётся время на запасную модель); раньше 25 с по фазам
+      total: mime == 'application/pdf' ? const Duration(seconds: 40) : (mode == 'sale' ? const Duration(seconds: 12) : (invoice ? invoiceTotal : const Duration(seconds: 25))),
+      firstCap: invoice && mime != 'application/pdf' ? invoiceFirstTry : null,
+      cancel: token,
     );
     return parseSeen(text);
   }
@@ -1309,24 +1408,48 @@ class VisionService {
     final start = t.indexOf('[');
     final end = t.lastIndexOf(']');
     if (start >= 0 && end > start) t = t.substring(start, end + 1);
-    final decoded = jsonDecode(t);
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(t);
+    } on FormatException {
+      // 2026-11-20: ответ оборвался на лимите длины (длинная накладная) — берём все целиком пришедшие строки, а не «ошибка разбора»
+      decoded = _salvage(t);
+    }
     if (decoded is! List) return [];
+    // 2026-11-20: накладная отвечает короткими ключами (n, q, u, p, b — см. [recognize]); длинные имена тоже понимаем
+    Object? pick(Map e, String long, String short) => e[long] ?? e[short];
     return [
       for (final e in decoded)
-        if (e is Map && (e['name']?.toString().trim().isNotEmpty ?? false))
+        if (e is Map && (pick(e, 'name', 'n')?.toString().trim().isNotEmpty ?? false))
           SeenItem(
-            name: e['name'].toString().trim(),
+            name: pick(e, 'name', 'n').toString().trim(),
             nameRu: e['name_ru']?.toString().trim() ?? '',
-            brand: e['brand']?.toString().trim() ?? '',
+            base: pick(e, 'base', 'g')?.toString().trim() ?? '',
+            variant: pick(e, 'variant', 'v')?.toString().trim() ?? '',
+            brand: pick(e, 'brand', 'm')?.toString().trim() ?? '',
             size: e['size']?.toString().trim() ?? '',
-            barcode: (e['barcode']?.toString() ?? '').replaceAll(RegExp(r'\D'), ''),
-            count: (e['count'] is num ? (e['count'] as num).round() : int.tryParse('${e['count']}') ?? 1).clamp(1, 999),
+            barcode: (pick(e, 'barcode', 'b')?.toString() ?? '').replaceAll(RegExp(r'\D'), ''),
+            count: (pick(e, 'count', 'q') is num ? (pick(e, 'count', 'q') as num).round() : int.tryParse('${pick(e, 'count', 'q')}') ?? 1).clamp(1, 999),
             // 2026-11-08: «2,5» кг / «10,5» л из накладной — дробное количество не округляется до целого (раньше 0,5 л → 1, 2,5 кг → 3)
-            qty: _fractionalQty(e['count']),
-            unit: e['unit']?.toString().trim() ?? '',
-            labelPrice: e['label_price'] is num ? (e['label_price'] as num).toDouble() : double.tryParse('${e['label_price']}'.replaceAll(',', '.')) ?? 0,
+            qty: _fractionalQty(pick(e, 'count', 'q')),
+            unit: pick(e, 'unit', 'u')?.toString().trim() ?? '',
+            labelPrice: pick(e, 'label_price', 'p') is num
+                ? (pick(e, 'label_price', 'p') as num).toDouble()
+                : double.tryParse('${pick(e, 'label_price', 'p')}'.replaceAll(',', '.')) ?? 0,
           ),
     ];
+  }
+
+  /// 2026-11-20: оборванный JSON-массив объектов → список из целиком пришедших объектов (обрезаем по последней «}» и закрываем «]»).
+  static List<dynamic>? _salvage(String t) {
+    final end = t.lastIndexOf('}');
+    if (!t.startsWith('[') || end < 0) return null;
+    try {
+      final v = jsonDecode('${t.substring(0, end + 1)}]');
+      return v is List ? v : null;
+    } on FormatException {
+      return null;
+    }
   }
 
   // 2026-10-22 (умная камера, аудит У-5): «Coca-Cola» на упаковке и «Кока-Кола» в каталоге не имели общих слов, «Кока-Кола 1л»
@@ -1410,25 +1533,26 @@ class VisionService {
       // общие алиасы компании подтягиваются в фоне — первый кадр не ждёт сервер
       if (api.session != null) CamAliases.ensure(db, api).then((_) {}, onError: (_) {});
     } catch (_) {}
-    final out = <SeenMatch>[];
-    for (final s in items) {
-      final found = <String, (Product, double)>{};
-      // 2026-10-22 (аудит У-6): штрихкод от ИИ — подсказка, не «точно»: проверяется цифра, ищется как скан
-      if (validEan(s.barcode)) {
-        final hit = await db.productByScan(s.barcode);
-        if (hit != null) found[hit.product.id] = (hit.product, 0.97);
-      }
-      for (final q in {s.title, s.titleRu}) {
-        if (q.trim().isEmpty) continue;
-        // 2026-10-27 (ревью М-2): по фото без объёма в ответе ИИ товар с объёмом в названии — только вариант, не автовыбор
-        for (final h in await CatalogMatcher.find(db, q, requireVolume: true)) {
-          if (h.score > (found[h.product.id]?.$2 ?? 0)) found[h.product.id] = (h.product, h.score);
-        }
-      }
-      final list = found.values.toList()..sort((a, b) => b.$2.compareTo(a.$2));
-      out.add(SeenMatch(s, list.take(5).toList()));
+    // 2026-11-20: строки накладной сопоставляются одновременно (было по одной подряд: 30 строк × 2 запроса × запрос к базе); порядок сохранён
+    return Future.wait([for (final s in items) _matchOne(s)]);
+  }
+
+  Future<SeenMatch> _matchOne(SeenItem s) async {
+    final found = <String, (Product, double)>{};
+    // 2026-10-22 (аудит У-6): штрихкод от ИИ — подсказка, не «точно»: проверяется цифра, ищется как скан
+    if (validEan(s.barcode)) {
+      final hit = await db.productByScan(s.barcode);
+      if (hit != null) found[hit.product.id] = (hit.product, 0.97);
     }
-    return out;
+    for (final q in {s.title, s.titleRu}) {
+      if (q.trim().isEmpty) continue;
+      // 2026-10-27 (ревью М-2): по фото без объёма в ответе ИИ товар с объёмом в названии — только вариант, не автовыбор
+      for (final h in await CatalogMatcher.find(db, q, requireVolume: true)) {
+        if (h.score > (found[h.product.id]?.$2 ?? 0)) found[h.product.id] = (h.product, h.score);
+      }
+    }
+    final list = found.values.toList()..sort((a, b) => b.$2.compareTo(a.$2));
+    return SeenMatch(s, list.take(5).toList());
   }
 }
 

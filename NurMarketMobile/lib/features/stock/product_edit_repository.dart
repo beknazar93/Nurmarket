@@ -3,6 +3,7 @@ import 'package:drift/drift.dart' show Value;
 import '../../core/api/api_client.dart';
 import '../../core/db/database.dart';
 import '../sale/catalog_repository.dart';
+import '../scan/invoice_bind.dart';
 import 'product_packages.dart';
 import 'stock_repository.dart';
 
@@ -122,11 +123,11 @@ Map<String, dynamic> productPatchBody(ProductDraft before, ProductDraft after, {
     body['alternate_barcodes'] = [
       for (final line in after.alt)
         if (ProductDraft.altCode(line).isNotEmpty)
-          {
-            'barcode': ProductDraft.altCode(line),
-            'name': line.split('|').length > 2 ? line.split('|').sublist(2).join('|') : '',
-            'quantity': line.split('|').length > 1 ? (num.tryParse(line.split('|')[1]) ?? 0) : 0,
-          },
+          altBarcodeBody(
+            ProductDraft.altCode(line),
+            name: line.split('|').length > 2 ? line.split('|').sublist(2).join('|') : '',
+            qty: line.split('|').length > 1 ? num.tryParse(line.split('|')[1]) : null, // 2026-11-21: 0 сервер не принимает — поле не шлём
+          ),
     ];
   }
   if (canPrices) {

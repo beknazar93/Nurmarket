@@ -5036,6 +5036,194 @@
           "Qorong'i va yorug' mavzuda to'lqin ko'rinadi."
         ]
       }
+    },
+    {
+      "id": "1.18.21/simple-mode",
+      "version": "1.18.21",
+      "area": "profile",
+      "severity": "normal",
+      "title": {
+        "ru": "Тариф «Мини» и «Простой режим»",
+        "ky": "«Мини» тариф жана «Жөнөкөй режим»",
+        "en": "The “Mini” plan and “Simple mode”",
+        "tr": "«Mini» tarife ve «Basit mod»",
+        "uz": "«Mini» tarif va «Oddiy rejim»"
+      },
+      "changed": {
+        "ru": "Для базара — крупные экраны «Продажа», «Приход», «Итоги», «Ещё»; тариф и лимиты приходят с сервера, при лимите — понятное окно «Доступно на тарифе…», а не ошибка.",
+        "ky": "Базар үчүн ири экрандар: «Сатуу», «Киреше», «Жыйынтык», «Дагы»; тариф жана лимиттер серверден келет, лимитте ката эмес, түшүнүктүү терезе чыгат.",
+        "en": "Large “Sale”, “Receive”, “Totals” and “More” screens for the market; the plan and limits come from the server, and at a limit a clear “Available on plan…” window appears instead of an error.",
+        "tr": "Pazar için büyük «Satış», «Giriş», «Özet», «Daha fazla» ekranları; tarife ve limitler sunucudan gelir, limitte hata yerine anlaşılır pencere çıkar.",
+        "uz": "Bozor uchun katta «Sotuv», «Kirim», «Natijalar», «Yana» ekranlari; tarif va limitlar serverdan keladi, limitda xato o'rniga tushunarli oyna chiqadi."
+      },
+      "steps": {
+        "ru": [
+          "Профиль → включите «Простой режим»: открываются крупные экраны «Продажа», «Приход», «Итоги», «Ещё».",
+          "Проведите продажу наличными: сумма и сдача крупно, кнопка «Оплатить» не прячется.",
+          "Если лимит тарифа исчерпан — появляется окно «Доступно на тарифе…», введённое и продажа не пропадают."
+        ],
+        "ky": [
+          "Профиль → «Жөнөкөй режимди» күйгүзүңүз: ири экрандар «Сатуу», «Киреше», «Жыйынтык», «Дагы» ачылат.",
+          "Накталай сатууну өткөрүңүз: сумма жана кайтарым ири, «Төлөө» баскычы жашынбайт.",
+          "Тариф лимити бүтсө — «Тарифте жеткиликтүү…» терезеси чыгат, киргизилгени жана сатуу жоголбойт."
+        ],
+        "en": [
+          "Profile → turn on “Simple mode”: the large Sale, Receive, Totals and More screens open.",
+          "Make a cash sale: the amount and change are large, the Pay button does not hide.",
+          "If the plan limit is reached, an “Available on plan…” window appears; what you typed and the sale are not lost."
+        ],
+        "tr": [
+          "Profil → «Basit mod»u açın: büyük Satış, Giriş, Özet ve Daha fazla ekranları açılır.",
+          "Nakit satış yapın: tutar ve para üstü büyük, Öde düğmesi gizlenmez.",
+          "Tarife limiti dolarsa «Tarifede mevcut…» penceresi çıkar; yazılanlar ve satış kaybolmaz."
+        ],
+        "uz": [
+          "Profil → «Oddiy rejim»ni yoqing: katta Sotuv, Kirim, Natijalar va Yana ekranlari ochiladi.",
+          "Naqd sotuv o'tkazing: summa va qaytim katta, To'lash tugmasi yashirinmaydi.",
+          "Tarif limiti tugasa — «Tarifda mavjud…» oynasi chiqadi, kiritilgan narsa va sotuv yo'qolmaydi."
+        ]
+      }
+    },
+    {
+      "id": "1.18.21/invoice-camera-speed",
+      "version": "1.18.21",
+      "area": "smartcam",
+      "severity": "normal",
+      "title": {
+        "ru": "Умная камера накладной быстрее",
+        "ky": "Накладнойдун акылдуу камерасы тезирээк",
+        "en": "The smart invoice camera is faster",
+        "tr": "Akıllı fatura kamerası daha hızlı",
+        "uz": "Hisob-faktura aqlli kamerasi tezroq"
+      },
+      "changed": {
+        "ru": "Камера узнаёт товар и штрихкод по накладной, группирует одинаковые позиции и привязывает код к строке.",
+        "ky": "Камера товарды жана штрих-кодду накладной боюнча таанып, бирдей позицияларды топтойт жана кодду сапка байлайт.",
+        "en": "The camera recognizes the product and barcode from the invoice, groups identical lines and attaches the code to a line.",
+        "tr": "Kamera ürünü ve barkodu faturadan tanır, aynı kalemleri gruplar ve kodu satıra bağlar.",
+        "uz": "Kamera tovar va shtrix-kodni hisob-faktura bo'yicha taniydi, bir xil pozitsiyalarni guruhlaydi va kodni qatorga bog'laydi."
+      },
+      "steps": {
+        "ru": [
+          "Откройте приёмку → умная камера → наведите на бумажную накладную.",
+          "Одинаковые позиции собраны в одну строку, количество суммировано.",
+          "У строки с найденным штрихкодом код привязан к товару."
+        ],
+        "ky": [
+          "Кабыл алууну ачыңыз → акылдуу камера → кагаз накладнойго багыттаңыз.",
+          "Бирдей позициялар бир сапка чогулган, саны кошулган.",
+          "Штрих-коду табылган сапта код товарга байланган."
+        ],
+        "en": [
+          "Open receiving → smart camera → point it at a paper invoice.",
+          "Identical lines are collected into one line, the quantity is summed.",
+          "For a line with a found barcode, the code is attached to the product."
+        ],
+        "tr": [
+          "Mal kabulü açın → akıllı kamera → kâğıt faturaya doğrultun.",
+          "Aynı kalemler tek satırda toplanır, miktar toplanır.",
+          "Barkodu bulunan satırda kod ürüne bağlanır."
+        ],
+        "uz": [
+          "Qabul qilishni oching → aqlli kamera → qog'oz hisob-fakturaga qarating.",
+          "Bir xil pozitsiyalar bitta qatorga yig'ilgan, miqdor qo'shilgan.",
+          "Shtrix-kodi topilgan qatorda kod tovarga bog'langan."
+        ]
+      }
+    },
+    {
+      "id": "1.18.21/barcode-bind-queue",
+      "version": "1.18.21",
+      "area": "invoices",
+      "severity": "normal",
+      "title": {
+        "ru": "Привязка штрихкода по очереди",
+        "ky": "Штрих-кодду кезеги менен байлоо",
+        "en": "Barcode binding one by one",
+        "tr": "Barkodun sırayla bağlanması",
+        "uz": "Shtrix-kodni navbat bilan bog'lash"
+      },
+      "changed": {
+        "ru": "Коды привязываются к строкам накладной по одному (barcodes API); если код уже у другого товара — понятное сообщение; «штук в упаковке» передаётся количеством.",
+        "ky": "Коддор накладнойдун саптарына бирден байланат (barcodes API); код башка товарда болсо — түшүнүктүү билдирүү; «пакетте канча даана» саны катары жөнөтүлөт.",
+        "en": "Codes are attached to invoice lines one at a time (barcodes API); if a code already belongs to another product you get a clear message; “pieces per pack” is sent as a quantity.",
+        "tr": "Kodlar fatura satırlarına tek tek bağlanır (barcodes API); kod başka üründeyse açık bir mesaj çıkar; «paketteki adet» miktar olarak gönderilir.",
+        "uz": "Kodlar hisob-faktura qatorlariga bittadan bog'lanadi (barcodes API); kod boshqa tovarda bo'lsa — tushunarli xabar; «qadoqdagi dona» miqdor sifatida yuboriladi."
+      },
+      "steps": {
+        "ru": [
+          "В накладной у строки нажмите «привязать штрихкод» и отсканируйте код.",
+          "Отсканируйте код, который уже есть у другого товара: появляется сообщение «Этот штрихкод уже у товара…».",
+          "Укажите «штук в упаковке» — при приходе остаток растёт на это число."
+        ],
+        "ky": [
+          "Накладнойдо саптагы «штрих-кодду байлоо» баскычын басып, кодду сканерлеңиз.",
+          "Башка товарда болгон кодду сканерлеңиз: «Бул штрих-код буга чейин … товарында» билдирүүсү чыгат.",
+          "«Пакетте канча даана» көрсөтүңүз — киреше кылганда калдык ушунча өсөт."
+        ],
+        "en": [
+          "In an invoice, tap “bind barcode” on a line and scan a code.",
+          "Scan a code that already belongs to another product: the message “This barcode is already on the product…” appears.",
+          "Enter “pieces per pack” — on posting, the stock grows by that number."
+        ],
+        "tr": [
+          "Faturada satırdaki «barkod bağla»ya basıp kodu okutun.",
+          "Başka üründe olan bir kodu okutun: «Bu barkod zaten ürününde…» mesajı çıkar.",
+          "«Paketteki adet»i girin — kayıtta stok bu sayı kadar artar."
+        ],
+        "uz": [
+          "Hisob-fakturada qatordagi «shtrix-kodni bog'lash»ni bosib, kodni skanerlang.",
+          "Boshqa tovarda bor kodni skanerlang: «Bu shtrix-kod allaqachon … tovarida» xabari chiqadi.",
+          "«Qadoqdagi dona»ni kiriting — kirim qilinganda qoldiq shuncha o'sadi."
+        ]
+      }
+    },
+    {
+      "id": "1.18.21/flavors-one-product",
+      "version": "1.18.21",
+      "area": "invoices",
+      "severity": "normal",
+      "title": {
+        "ru": "Вкусы и варианты — одним товаром",
+        "ky": "Даамдар жана варианттар — бир товар",
+        "en": "Flavors and variants as one product",
+        "tr": "Tatlar ve varyantlar tek ürün olarak",
+        "uz": "Ta'mlar va variantlar — bitta tovar"
+      },
+      "changed": {
+        "ru": "Вкусы одного товара из накладной (в том числе по команде ИИ) сводятся в один товар с дополнительными штрихкодами.",
+        "ky": "Накладнойдогу бир товардын даамдары (ИИ буйругу боюнча да) кошумча штрих-коддору бар бир товарга бириктирилет.",
+        "en": "Flavors of one product from an invoice (including by an AI command) are merged into a single product with extra barcodes.",
+        "tr": "Faturadaki bir ürünün tatları (yapay zekâ komutuyla da) ek barkodlu tek ürüne birleştirilir.",
+        "uz": "Hisob-fakturadagi bir tovarning ta'mlari (AI buyrug'i bilan ham) qo'shimcha shtrix-kodli bitta tovarga birlashtiriladi."
+      },
+      "steps": {
+        "ru": [
+          "Распознайте накладную, где один товар в нескольких вкусах (например, «Асу» и «Асу со вкусом клубники»).",
+          "Вкусы сведены в один товар, у каждого вкуса свой дополнительный штрихкод.",
+          "Если цены вкусов разные — приложение спрашивает, а не решает само."
+        ],
+        "ky": [
+          "Бир товар бир нече даамда болгон накладнойду таанытыңыз (мисалы, «Асу» жана «Асу кулпунай даамы менен»).",
+          "Даамдар бир товарга бириктирилген, ар бир даамдын өз кошумча штрих-коду бар.",
+          "Даамдардын баасы ар башка болсо — колдонмо өзү чечпей, сурайт."
+        ],
+        "en": [
+          "Recognize an invoice where one product comes in several flavors (for example, “Asu” and “Asu strawberry”).",
+          "The flavors are merged into one product, each flavor has its own extra barcode.",
+          "If the flavor prices differ, the app asks instead of deciding itself."
+        ],
+        "tr": [
+          "Bir ürünün birkaç tatta olduğu faturayı tanıtın (örneğin «Asu» ve «Asu çilekli»).",
+          "Tatlar tek ürüne birleştirilir, her tadın kendi ek barkodu olur.",
+          "Tat fiyatları farklıysa uygulama kendisi karar vermez, sorar."
+        ],
+        "uz": [
+          "Bitta tovar bir necha ta'mda bo'lgan hisob-fakturani taniting (masalan, «Asu» va «Asu qulupnayli»).",
+          "Ta'mlar bitta tovarga birlashtirilgan, har bir ta'mning o'z qo'shimcha shtrix-kodi bor.",
+          "Ta'mlar narxi har xil bo'lsa — ilova o'zi hal qilmay, so'raydi."
+        ]
+      }
     }
   ]
 }

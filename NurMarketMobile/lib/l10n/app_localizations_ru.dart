@@ -7395,4 +7395,156 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get receiptOfflineNote =>
       'Чек сохранён без связи — уйдёт на сервер автоматически';
+
+  @override
+  String get recStageCompress => 'Сжимаю фото…';
+
+  @override
+  String get recStageReadInvoice => 'Читаю накладную…';
+
+  @override
+  String get recStageMatch => 'Ищу товары в каталоге…';
+
+  @override
+  String recStepOf(int n, int total) {
+    return 'Шаг $n из $total';
+  }
+
+  @override
+  String get recSlowAsk => 'Читается долго. Подождите или выберите действие:';
+
+  @override
+  String get recManual => 'Ввести вручную';
+
+  @override
+  String get recRetakeCloser => 'Сфотографировать ближе';
+
+  @override
+  String get bindRowTitle => 'Отсканируйте штрихкод товара';
+
+  @override
+  String bindRowOf(int n, int total) {
+    return 'Товар $n из $total';
+  }
+
+  @override
+  String bindTakenDraft(String code, String name) {
+    return 'Штрихкод $code уже у строки «$name» этой накладной.';
+  }
+
+  @override
+  String bindTakenAskRow(String code, String name) {
+    return 'Штрихкод $code уже у товара «$name» в каталоге.\n«Выбрать» — эта строка станет товаром «$name».\n«Оставить» — код останется у «$name», эта строка будет без штрихкода.';
+  }
+
+  @override
+  String bindUseOwner(String name) {
+    return 'Выбрать «$name»';
+  }
+
+  @override
+  String get camNoCode => 'Нет штрихкода';
+
+  @override
+  String get camBindBtn => 'Отсканировать штрихкод';
+
+  @override
+  String camCodeBound(String code) {
+    return 'Штрихкод $code';
+  }
+
+  @override
+  String camBindQueueBanner(int n) {
+    return 'Без штрихкода: $n';
+  }
+
+  @override
+  String get camBindQueueBtn => 'Привязать по очереди';
+
+  @override
+  String camBindAsk(int n) {
+    return 'Позиции без штрихкода: $n. Отсканировать их по очереди?';
+  }
+
+  @override
+  String get camBindLater => 'Позже';
+
+  @override
+  String get camBindStart => 'Сканировать';
+
+  @override
+  String camBindDone(int n) {
+    return 'Штрихкоды привязаны: $n';
+  }
+
+  @override
+  String get camBindQueuedNote =>
+      'Штрихкод записан на телефоне — уйдёт на сервер при связи';
+
+  @override
+  String get kindBarcode => 'Штрихкод товара';
+
+  @override
+  String get camGroupToggle => 'Объединять вкусы и варианты в один товар';
+
+  @override
+  String get camAiCommand => 'Своя команда ИИ';
+
+  @override
+  String get camAiCommandHint =>
+      'Например: объединяй вкусы; не объединяй; бренд — Асу';
+
+  @override
+  String get camAiSheetTitle => 'Команда ИИ для накладной';
+
+  @override
+  String get camAiReset => 'Сбросить';
+
+  @override
+  String get camAiNote =>
+      'Команда запоминается на этом телефоне для вашей учётной записи.';
+
+  @override
+  String get camVariantPlain => 'Обычный';
+
+  @override
+  String get camSplit => 'Разъединить';
+
+  @override
+  String get camMergeWith => 'Объединить с…';
+
+  @override
+  String get camMergePick => 'С каким товаром объединить?';
+
+  @override
+  String camMergeAsk(String name, String prices) {
+    return '«$name»: варианты с разными ценами ($prices сом). Объединить в один товар?';
+  }
+
+  @override
+  String get camMergeYes => 'Объединить';
+
+  @override
+  String get camMergeNo => 'Не объединять';
+
+  @override
+  String camGroupSummary(int n, int m) {
+    return 'Товаров: $n, вариантов (доп. кодов): $m';
+  }
+
+  @override
+  String get camMerged => 'Объединено в один товар';
+
+  @override
+  String get camSplitDone => 'Разъединено';
+
+  @override
+  String camVariantsTitle(int n) {
+    return 'Варианты: $n';
+  }
+
+  @override
+  String bindTakenServer(String code, String name) {
+    return 'Штрихкод $code уже у товара «$name»';
+  }
 }

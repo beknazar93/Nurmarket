@@ -7242,4 +7242,155 @@ class AppLocalizationsTr extends AppLocalizations {
   @override
   String get receiptOfflineNote =>
       'Fiş çevrimdışı kaydedildi — sunucuya otomatik gönderilecek';
+
+  @override
+  String get recStageCompress => 'Fotoğraf sıkıştırılıyor…';
+
+  @override
+  String get recStageReadInvoice => 'İrsaliye okunuyor…';
+
+  @override
+  String get recStageMatch => 'Ürünler katalogda aranıyor…';
+
+  @override
+  String recStepOf(int n, int total) {
+    return 'Adım $n / $total';
+  }
+
+  @override
+  String get recSlowAsk => 'Uzun sürüyor. Bekleyin veya bir işlem seçin:';
+
+  @override
+  String get recManual => 'Elle gir';
+
+  @override
+  String get recRetakeCloser => 'Daha yakından çek';
+
+  @override
+  String get bindRowTitle => 'Ürünün barkodunu tarayın';
+
+  @override
+  String bindRowOf(int n, int total) {
+    return 'Ürün $n / $total';
+  }
+
+  @override
+  String bindTakenDraft(String code, String name) {
+    return '$code barkodu bu irsaliyedeki «$name» satırında zaten var.';
+  }
+
+  @override
+  String bindTakenAskRow(String code, String name) {
+    return '$code barkodu katalogda zaten «$name» ürününe ait.\n«Seç» — bu satır «$name» ürünü olur.\n«Bırak» — kod «$name» üründe kalır, bu satır barkodsuz kalır.';
+  }
+
+  @override
+  String bindUseOwner(String name) {
+    return '«$name» seç';
+  }
+
+  @override
+  String get camNoCode => 'Barkod yok';
+
+  @override
+  String get camBindBtn => 'Barkodu tara';
+
+  @override
+  String camCodeBound(String code) {
+    return 'Barkod $code';
+  }
+
+  @override
+  String camBindQueueBanner(int n) {
+    return 'Barkodsuz: $n';
+  }
+
+  @override
+  String get camBindQueueBtn => 'Sırayla bağla';
+
+  @override
+  String camBindAsk(int n) {
+    return 'Barkodsuz kalemler: $n. Sırayla taransın mı?';
+  }
+
+  @override
+  String get camBindLater => 'Sonra';
+
+  @override
+  String get camBindStart => 'Tara';
+
+  @override
+  String camBindDone(int n) {
+    return 'Barkodlar bağlandı: $n';
+  }
+
+  @override
+  String get camBindQueuedNote =>
+      'Barkod telefona kaydedildi — bağlantı olunca sunucuya gider';
+
+  @override
+  String get kindBarcode => 'Ürün barkodu';
+
+  @override
+  String get camGroupToggle => 'Tat ve varyantları tek ürüne birleştir';
+
+  @override
+  String get camAiCommand => 'Kendi yapay zeka komutunuz';
+
+  @override
+  String get camAiCommandHint =>
+      'Örneğin: tatları birleştir; birleştirme; marka — Asu';
+
+  @override
+  String get camAiSheetTitle => 'İrsaliye için yapay zeka komutu';
+
+  @override
+  String get camAiReset => 'Sıfırla';
+
+  @override
+  String get camAiNote => 'Komut bu telefonda hesabınız için hatırlanır.';
+
+  @override
+  String get camVariantPlain => 'Sade';
+
+  @override
+  String get camSplit => 'Ayır';
+
+  @override
+  String get camMergeWith => 'Şununla birleştir…';
+
+  @override
+  String get camMergePick => 'Hangi ürünle birleştirilsin?';
+
+  @override
+  String camMergeAsk(String name, String prices) {
+    return '«$name»: varyantların fiyatı farklı ($prices som). Tek ürüne birleştirilsin mi?';
+  }
+
+  @override
+  String get camMergeYes => 'Birleştir';
+
+  @override
+  String get camMergeNo => 'Birleştirme';
+
+  @override
+  String camGroupSummary(int n, int m) {
+    return 'Ürün: $n, varyant (ek kod): $m';
+  }
+
+  @override
+  String get camMerged => 'Tek ürüne birleştirildi';
+
+  @override
+  String get camSplitDone => 'Ayrıldı';
+
+  @override
+  String camVariantsTitle(int n) {
+    return 'Varyantlar: $n';
+  }
+
+  @override
+  String bindTakenServer(String code, String name) {
+    return '$code barkodu zaten «$name» ürününde';
+  }
 }

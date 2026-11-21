@@ -19,6 +19,7 @@ import '../../core/util/barcode_generator.dart';
 import '../../core/util/photo_finder.dart';
 import '../../core/util/price_limits.dart';
 import '../../core/util/ui.dart';
+import '../scan/invoice_bind.dart';
 import '../scan/code_lookup.dart';
 import '../scan/scan_screen.dart';
 import '../scan/smart_camera.dart';
@@ -203,7 +204,7 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
 
   List<Map<String, Object>> get _altBarcodes => [
     for (final a in _altCodes)
-      if (a.code.text.trim().isNotEmpty) {'barcode': a.code.text.trim(), 'name': a.name.text.trim(), 'quantity': (parseNum(a.qty.text) ?? 0).round()},
+      if (a.code.text.trim().isNotEmpty) altBarcodeBody(a.code.text, name: a.name.text, qty: parseNum(a.qty.text)),
   ];
 
   Future<void> _scanAltCode(TextEditingController target) async {

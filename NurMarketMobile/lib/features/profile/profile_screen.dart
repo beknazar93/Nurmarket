@@ -18,6 +18,8 @@ import '../../core/update/app_update_service.dart';
 import '../../core/update/update_ui.dart';
 import '../../core/util/ui.dart';
 import '../sale/piece_sale_mode.dart';
+import '../../core/mode/mode_profile.dart' show ModeSource;
+import '../../core/mode/mode_provider.dart';
 import '../admin/advisor.dart';
 import '../admin/ai_access_ui.dart';
 import 'kassa_link_screen.dart';
@@ -164,6 +166,21 @@ class ProfileScreen extends ConsumerWidget {
                   sub: prefs.shopChosen ? prefs.shop.title(l) : l.shopModeNotChosen,
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => chooseShopMode(context, ref),
+                ),
+                // 2026-11-20 (тариф «Мини», Простой режим): переключатель вручную — до появления тарифа «Мини» на сервере; по умолчанию выключен.
+                // На тарифе «Мини» режим включён всегда (выключить нельзя).
+                item(
+                  Icons.view_agenda_outlined,
+                  context.t5('Простой режим (для базара)', 'Жөнөкөй режим (базар үчүн)', "Oddiy rejim (bozor uchun)", 'Simple mode (for the market)', 'Basit mod (pazar için)'),
+                  sub: context.t5('3 вкладки, крупные кнопки, продажа за 3 нажатия', '3 өтмөк, чоң баскычтар, 3 басуу менен сатуу', "3 ta tab, katta tugmalar, 3 bosishda sotuv", '3 tabs, big buttons, a sale in 3 taps', '3 sekme, büyük düğmeler, 3 dokunuşta satış'),
+                  trailing: Semantics(
+                    label: 'simple mode',
+                    child: Switch(
+                      key: const Key('simpleModeSwitch'),
+                      value: ref.watch(modeProfileProvider).simple,
+                      onChanged: ref.watch(modeProfileProvider).source == ModeSource.plan ? null : (v) => ref.read(simpleModeProvider.notifier).set(v),
+                    ),
+                  ),
                 ),
                 // 2026-10-27 (ревью М-6): быстро выключить продажу штуки из упаковки, если сервер её не понимает
                 item(
@@ -373,6 +390,7 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
     'receive' => context.l.receiving,
     'audit' => context.l.audit,
     'bonus' => context.l.kindBonus, // 2026-11-01 (М-05)
+    'barcode' => context.l.kindBarcode, // 2026-11-20: штрихкод товара из накладной умной камеры
     _ => k,
   };
 

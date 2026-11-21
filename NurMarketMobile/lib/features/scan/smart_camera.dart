@@ -4,8 +4,11 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:camera/camera.dart' show ResolutionPreset;
+import 'package:dio/dio.dart' show CancelToken;
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show LengthLimitingTextInputFormatter;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -31,6 +34,8 @@ import 'live_shot.dart';
 import '../../core/ai/product_refs.dart';
 import '../../core/util/audit.dart';
 import 'barcode_bind.dart';
+import 'invoice_bind.dart';
+import 'invoice_group.dart';
 import '../../core/units.dart';
 import '../stock/receive_units.dart';
 import '../stock/unit_picker.dart';
@@ -104,11 +109,12 @@ Future<bool> ensureAiKey(BuildContext context, WidgetRef ref) async {
 }
 
 /// Снимок → распознавание → совпадения в каталоге; ожидание — окно «Узнаю товар…».
-Future<List<SeenMatch>?> photoAndRecognize(BuildContext context, WidgetRef ref, String mode) async {
+/// [onEscape] — см. [recognizeBytes] (2026-11-20: «Ввести вручную» / «Сфотографировать ближе» в окне ожидания накладной).
+Future<List<SeenMatch>?> photoAndRecognize(BuildContext context, WidgetRef ref, String mode, {void Function(RecognizeEscape escape)? onEscape, InvoiceAiOptions? ai}) async {
   if (!await ensureAiKey(context, ref) || !context.mounted) return null;
   final jpeg = await takeProductPhoto(context, mode);
   if (jpeg == null || !context.mounted) return null;
-  return recognizeBytes(context, ref, jpeg, mode);
+  return recognizeBytes(context, ref, jpeg, mode, onEscape: onEscape, ai: ai);
 }
 
 /// 2026-10-27: штрихкод со снимка (сканер читает файл, камеру не занимает) — до ИИ. Для проверок подменяется.
@@ -134,10 +140,23 @@ Future<String?> _readShotBarcode(Uint8List jpeg) async {
   }
 }
 
+/// 2026-11-20 (владелец: «очень долго думает при скане накладной», 62 с): что выбрал кассир в окне ожидания, когда разбор затянулся.
+enum RecognizeEscape { manual, retake }
+
+/// Как закончилось окно ожидания: ответ, «Отмена», «Повторить» или выход в другой путь ([RecognizeEscape]).
+class _WaitEnd {
+  final List<SeenMatch>? matches;
+  final String? action; // cancel | retry | manual | retake
+  const _WaitEnd(this.matches, this.action);
+}
+
 /// Распознать готовые байты (снимок с камеры, фото из галереи, PDF из файла): окно «Узнаю…», ИИ, сопоставление.
 /// 2026-10-27 (владелец: «на фото существующий товар не находит»): полка — штрихкод со снимка читается ДО ИИ (код есть в базе —
 /// товар готов без запроса к Gemini); эталоны обучения сверяются на полке и в продаже (были только в продаже); накладная и
 /// ценники — документ, а не вид упаковки, эталоны там не нужны. [mime] — 'application/pdf' для PDF; [page]/[pages] — «Фото 2 из 3».
+/// 2026-11-20: окно показывает этапы («Сжимаю фото» → «Читаю накладную» → «Ищу товары в каталоге»); «Отмена» обрывает запрос к ИИ;
+/// через 20 с — «Повторить» (и для накладной «Ввести вручную» / «Сфотографировать ближе» через [onEscape]: кто вызвал, тот и
+/// открывает ручной ввод или камеру; null — этих кнопок нет).
 Future<List<SeenMatch>?> recognizeBytes(
   BuildContext context,
   WidgetRef ref,
@@ -146,55 +165,93 @@ Future<List<SeenMatch>?> recognizeBytes(
   String mime = 'image/jpeg',
   int? page,
   int? pages,
+  void Function(RecognizeEscape escape)? onEscape,
+  InvoiceAiOptions? ai,
 }) async {
   final l = context.l;
-  // 2026-11-05 (М5-23): окно ожидания не «глухое» — идут секунды, через 6 с «ИИ думает дольше обычного…», есть «Отмена»
-  // (раньше до 25–40 с без выхода). Отмена бросает ожидание: ответ ИИ, когда придёт, игнорируется.
-  final cancel = Completer<void>();
-  var dialogOpen = true;
-  showDialog<void>(
-    context: context,
-    barrierDismissible: false,
-    builder: (c) => RecognizeWait(
-      text: pages != null && pages > 1 && page != null ? '${l.recognizing}\n${l.camPageOf(page, pages)}' : l.recognizing,
-      onCancel: () {
-        if (cancel.isCompleted) return;
-        cancel.complete();
-        dialogOpen = false;
-        Navigator.of(c, rootNavigator: true).pop();
-      },
-    ),
-  );
-  void closeWait() {
-    if (!dialogOpen) return;
-    dialogOpen = false;
-    if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
-  }
-
-  try {
-    final r = await Future.any<List<SeenMatch>?>([
-      _recognizeWork(ref, bytes, mode, mime),
-      cancel.future.then<List<SeenMatch>?>((_) => null),
-    ]);
-    closeWait();
-    return r;
-  } on VisionException catch (e) {
-    closeWait();
-    if (context.mounted) {
-      if (e.noKey) {
-        // 2026-10-27: ключ Google отклонил — он уже помечен на 30 минут (ротация ключей); НЕ стираем и не помечаем «навсегда»
-        // (раньше saveKey('') навсегда выключал общий облачный ключ на этом телефоне и ломал чат Советника)
-        toast(context, l.aiKeyNeeded, error: true);
-      } else {
-        toast(context, e.message, error: true);
-      }
+  final vision = ref.read(visionProvider);
+  final invoice = mode == 'invoice';
+  final canManual = invoice && onEscape != null && (ref.read(apiProvider).session?.canRoute('/admin/receive') ?? false);
+  // 2026-11-05 (М5-23): окно ожидания не «глухое» — идут секунды, через 6 с «ИИ думает дольше обычного…», есть «Отмена».
+  while (true) {
+    if (!context.mounted) return null;
+    final stage = ValueNotifier(RecognizeStage.compress);
+    final token = CancelToken();
+    final ended = Completer<_WaitEnd>();
+    var dialogOpen = true;
+    void closeWait() {
+      if (!dialogOpen) return;
+      dialogOpen = false;
+      if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
     }
-    return null;
+
+    void finish(String action) {
+      if (ended.isCompleted) return;
+      ended.complete(_WaitEnd(null, action));
+      token.cancel(); // запрос к ИИ обрывается, а не дожидается ответа и не тратит лимит
+      closeWait();
+    }
+
+    unawaited(
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (c) => RecognizeWait(
+          pageNote: pages != null && pages > 1 && page != null ? l.camPageOf(page, pages) : null,
+          invoice: invoice,
+          stage: stage,
+          onCancel: () => finish('cancel'),
+          onRetry: () => finish('retry'),
+          onManual: canManual ? () => finish('manual') : null,
+          onCloser: invoice && onEscape != null ? () => finish('retake') : null,
+        ),
+      ),
+    );
+    try {
+      final end = await Future.any<_WaitEnd>([
+        _recognizeWork(ref, bytes, mode, mime, stage, token, ai).then((m) => _WaitEnd(m, null)),
+        ended.future,
+      ]);
+      closeWait();
+      switch (end.action) {
+        case 'retry':
+          continue;
+        case 'manual':
+          onEscape?.call(RecognizeEscape.manual);
+          return null;
+        case 'retake':
+          onEscape?.call(RecognizeEscape.retake);
+          return null;
+        case 'cancel':
+          return null;
+      }
+      return end.matches;
+    } on VisionException catch (e) {
+      closeWait();
+      if (context.mounted) {
+        if (e.noKey) {
+          // 2026-10-27: ключ Google отклонил — он уже помечен на 30 минут (ротация ключей); НЕ стираем и не помечаем «навсегда»
+          // (раньше saveKey('') навсегда выключал общий облачный ключ на этом телефоне и ломал чат Советника)
+          toast(context, l.aiKeyNeeded, error: true);
+        } else {
+          toast(context, aiErrorText(context, e), error: true);
+        }
+      }
+      return null;
+    } finally {
+      if (identical(vision.cancelToken, token)) {
+        vision.cancelToken = null;
+        vision.onStage = null;
+        vision.invoiceGroup = false;
+        vision.aiCommand = '';
+      }
+      stage.dispose();
+    }
   }
 }
 
 /// Сам разбор снимка (без окна ожидания): штрихкод со снимка → ИИ → сопоставление с каталогом.
-Future<List<SeenMatch>?> _recognizeWork(WidgetRef ref, Uint8List bytes, String mode, String mime) async {
+Future<List<SeenMatch>?> _recognizeWork(WidgetRef ref, Uint8List bytes, String mode, String mime, ValueNotifier<RecognizeStage> stage, CancelToken token, InvoiceAiOptions? ai) async {
   final vision = ref.read(visionProvider);
   final isImage = mime.startsWith('image/');
   String? code;
@@ -213,7 +270,20 @@ Future<List<SeenMatch>?> _recognizeWork(WidgetRef ref, Uint8List bytes, String m
       }
     }
   }
+  // 2026-11-20: этапы и «Отмена» — через поля сервиса (см. [VisionService.onStage]); ставятся непосредственно перед вызовом
+  if (token.isCancelled) return null;
+  vision.onStage = (s) {
+    if (!token.isCancelled) stage.value = s;
+  };
+  vision.cancelToken = token;
+  // 2026-11-20 (владелец: «объединять вкусы в один товар»): накладная — группировка вариантов и «Своя команда ИИ»
+  final group = mode == 'invoice' && ai != null && ai.merge;
+  vision.invoiceGroup = group;
+  vision.aiCommand = mode == 'invoice' ? (ai?.command ?? '') : '';
   var seen = await vision.recognize(bytes, mode: mode, mime: mime);
+  if (token.isCancelled) return null;
+  if (group) seen = groupInvoiceItems(seen);
+  stage.value = RecognizeStage.match;
   // штрихкод снимка не нашёл товара, но на снимке один товар — код достаётся его карточке
   if (code != null && seen.length == 1 && seen.first.barcode.isEmpty) {
     final s0 = seen.first;
@@ -225,25 +295,42 @@ Future<List<SeenMatch>?> _recognizeWork(WidgetRef ref, Uint8List bytes, String m
   return matches;
 }
 
+/// Секунд, после которых окно ожидания предлагает действия («Повторить» и др.), а не только «Отмена».
+const recognizeSlowAfter = 20;
+
 /// 2026-11-05 (М5-23): окно «Узнаю товар…» с секундами и кнопкой «Отмена»; системная «Назад» тоже отменяет.
+/// 2026-11-20: этапы разбора (три отрезка и подпись) и, когда прошло [recognizeSlowAfter] с, кнопки «Повторить» / «Ввести вручную» /
+/// «Сфотографировать ближе» (последние две — если переданы).
 class RecognizeWait extends StatefulWidget {
-  final String text;
+  /// Номер страницы («Фото 2 из 3»), если их несколько.
+  final String? pageNote;
+  final bool invoice;
+  final ValueListenable<RecognizeStage> stage;
   final VoidCallback onCancel;
-  const RecognizeWait({super.key, required this.text, required this.onCancel});
+  final VoidCallback? onRetry;
+  final VoidCallback? onManual;
+  final VoidCallback? onCloser;
+
+  /// Только для проверок: часы (секунды на экране считаются от них).
+  @visibleForTesting
+  final DateTime Function()? now;
+  const RecognizeWait({super.key, this.pageNote, this.invoice = false, required this.stage, required this.onCancel, this.onRetry, this.onManual, this.onCloser, this.now});
   @override
   State<RecognizeWait> createState() => _RecognizeWaitState();
 }
 
 class _RecognizeWaitState extends State<RecognizeWait> {
-  final _started = DateTime.now();
+  DateTime _now() => (widget.now ?? DateTime.now)();
+  late final DateTime _started;
   Timer? _tick;
   int _sec = 0;
 
   @override
   void initState() {
     super.initState();
+    _started = _now();
     _tick = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() => _sec = DateTime.now().difference(_started).inSeconds);
+      if (mounted) setState(() => _sec = _now().difference(_started).inSeconds);
     });
   }
 
@@ -253,33 +340,89 @@ class _RecognizeWaitState extends State<RecognizeWait> {
     super.dispose();
   }
 
+  String _stageText(AppLocalizations l, RecognizeStage s) => switch (s) {
+    RecognizeStage.compress => l.recStageCompress,
+    RecognizeStage.read => widget.invoice ? l.recStageReadInvoice : l.recognizing,
+    RecognizeStage.match => l.recStageMatch,
+  };
+
+  Widget _bigButton(String label, VoidCallback onTap, {bool filled = false}) {
+    final style = (filled ? FilledButton.styleFrom : OutlinedButton.styleFrom)(minimumSize: const Size.fromHeight(48));
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: filled
+          ? FilledButton(style: style, onPressed: onTap, child: Text(label, textAlign: TextAlign.center))
+          : OutlinedButton(style: style, onPressed: onTap, child: Text(label, textAlign: TextAlign.center)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = context.l;
+    final pal = context.pal;
+    final slow = _sec >= recognizeSlowAfter && widget.onRetry != null;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) widget.onCancel();
       },
       child: AlertDialog(
-        content: Row(
-          children: [
-            const CircularProgressIndicator(),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+        scrollable: true,
+        content: ValueListenableBuilder<RecognizeStage>(
+          valueListenable: widget.stage,
+          builder: (context, stage, _) => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
                 children: [
-                  Text(widget.text),
-                  const SizedBox(height: 4),
-                  Text(_sec >= 6 ? '${l.aiSlow} · ${l.aiElapsed(_sec)}' : l.aiElapsed(_sec), style: TextStyle(color: context.pal.textSoft, fontSize: 12)),
+                  const SizedBox(width: 28, height: 28, child: CircularProgressIndicator(strokeWidth: 3)),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(_stageText(l, stage), key: const Key('rec_stage'), style: const TextStyle(fontWeight: FontWeight.w700)),
+                        if (widget.pageNote != null) Text(widget.pageNote!, style: TextStyle(color: pal.textSoft, fontSize: 12)),
+                        const SizedBox(height: 4),
+                        Text(l.recStepOf(stage.index + 1, RecognizeStage.values.length), style: TextStyle(color: pal.textSoft, fontSize: 12)),
+                        Text(_sec >= 6 ? '${l.aiSlow} · ${l.aiElapsed(_sec)}' : l.aiElapsed(_sec), style: TextStyle(color: pal.textSoft, fontSize: 12)),
+                      ],
+                    ),
+                  ),
                 ],
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              // три отрезка — три этапа; пройденные и текущий закрашены
+              Row(
+                children: [
+                  for (var i = 0; i < RecognizeStage.values.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 4),
+                    Expanded(
+                      child: Container(
+                        key: Key('rec_seg_$i'),
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: i <= stage.index ? Theme.of(context).colorScheme.primary : pal.textSoft.withValues(alpha: .25),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              if (slow) ...[
+                const SizedBox(height: 14),
+                Text(l.recSlowAsk, key: const Key('rec_slow'), style: const TextStyle(fontWeight: FontWeight.w600)),
+                _bigButton(l.retry, widget.onRetry!, filled: true),
+                if (widget.onManual != null) _bigButton(l.recManual, widget.onManual!),
+                if (widget.onCloser != null) _bigButton(l.recRetakeCloser, widget.onCloser!),
+              ],
+            ],
+          ),
         ),
-        actions: [TextButton(onPressed: widget.onCancel, child: Text(l.cancel))],
+        actions: [TextButton(style: TextButton.styleFrom(minimumSize: const Size(48, 48)), onPressed: widget.onCancel, child: Text(l.cancel))],
       ),
     );
   }
@@ -696,8 +839,12 @@ ReceiveLine camSyncLine(
   required double cost,
   required double price,
   String unit = 'шт', // 2026-11-08: единица НОВОГО товара (у товара из базы — из его карточки)
+  List<Map<String, Object>> alt = const [], // 2026-11-20: варианты нового товара — дополнительные штрихкоды с названием варианта
+  String note = '',
+  String brand = '',
 }) {
-  final fits = old != null && (product != null ? !old.isNew && old.productId == product.id : old.isNew && old.name == name && old.barcode == barcode && old.unit == unit);
+  final sameAlt = old != null && jsonEncode(old.altBarcodes) == jsonEncode(alt);
+  final fits = old != null && (product != null ? !old.isNew && old.productId == product.id : old.isNew && old.name == name && old.barcode == barcode && old.unit == unit && sameAlt);
   if (old != null && (fits || camLineLocked(old))) {
     old.qty = qty;
     old.cost = cost;
@@ -716,7 +863,7 @@ ReceiveLine camSyncLine(
           qty: qty,
           cost: cost,
         )
-      : ReceiveLine(productId: '', name: name, barcode: barcode, unit: unit, qty: qty, cost: cost, price: price, isNew: true, weight: unitOf(unit)?.weight ?? false);
+      : ReceiveLine(productId: '', name: name, barcode: barcode, unit: unit, qty: qty, cost: cost, price: price, isNew: true, weight: unitOf(unit)?.weight ?? false, altBarcodes: alt, note: note, brand: brand);
 }
 
 /// Связь с сервером есть: лёгкий запрос. Без связи ничего не проводим — список остаётся черновиком на экране.
@@ -800,8 +947,24 @@ Future<CamPicked?> _pickFile() async {
   return CamPicked(Uint8List.fromList(await f.readAsBytes()), f.name, mime: camMimeOf(f.name));
 }
 
+/// 2026-11-20 (владелец: «Асу» и «Асу клубника» — один товар): вариант товара внутри карточки-группы — вкус/цвет, штрихкод, количество.
+class _Var {
+  String label;
+  // штрихкод от ИИ (только с верной контрольной цифрой) и привязанный сканером
+  String seenCode;
+  String? boundCode;
+  double qty;
+  _Var({required this.label, this.seenCode = '', this.boundCode, required this.qty});
+  String get code => boundCode ?? seenCode;
+}
+
+typedef _Target = ({_CamItem x, _Var? v});
+
 class _CamItem {
   final SeenMatch seen;
+  // 2026-11-20: варианты одного товара (≥ 2 — карточка-группа): основной код — первого варианта, остальные — дополнительные
+  List<_Var> vars = [];
+  bool get isGroup => vars.length >= 2;
   Product? product;
   double qty;
   // 2026-10-26 (П0): стабильная строка прихода этой позиции и причина последнего отказа сервера
@@ -815,6 +978,9 @@ class _CamItem {
   String? learnedId;
   List<String> learned = [];
   final Set<String> rejected = {};
+  // 2026-11-20 (владелец: «у товара в накладной нет штрихкода — сканировать и привязать»): штрихкод, привязанный к строке сканером.
+  // Новый товар создаётся с ним (см. [_lineOf]); у существующего он уже записан в очередь ([StockRepository.queueBarcodeBind]).
+  String? boundCode;
   // 2026-11-08: единица НОВОГО товара (из накладной или выбор кассира; по умолчанию «шт»); у товара из базы — единица его карточки
   String unit;
   String get unitCode => product != null ? unitOrPcs(product!.unit) : unitOrPcs(unit);
@@ -826,7 +992,14 @@ class _CamItem {
       unit = normalizeUnit(seen.seen.unit),
       name =TextEditingController(text: seen.seen.title),
       cost = TextEditingController(text: seen.seen.labelPrice > 0 ? seen.seen.labelPrice.toStringAsFixed(0) : ''),
-      price = TextEditingController();
+      price = TextEditingController() {
+    if (seen.seen.variants.length >= 2) {
+      vars = [
+        for (final v in seen.seen.variants) _Var(label: v.label, seenCode: VisionService.validEan(v.barcode) ? v.barcode : '', qty: v.qty),
+      ];
+      qty = vars.fold<double>(0, (a, v) => a + v.qty);
+    }
+  }
 }
 
 class SmartCameraScreen extends ConsumerStatefulWidget {
@@ -855,11 +1028,119 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
   int _shots = 0;
   bool _busy = false;
 
+  // 2026-11-20 (владелец: «объединять вкусы в один товар», «Своя команда ИИ»): настройки ИИ для накладной — по аккаунту (таблица
+  // settings очищается при смене аккаунта); пары «не объединять» этого экрана
+  static const _groupSetting = 'cam.invoice.group';
+  static const _commandSetting = 'cam.invoice.command';
+  InvoiceAiOptions _ai = const InvoiceAiOptions();
+  final Set<String> _noMerge = {};
+
   @override
   void initState() {
     super.initState();
     // 2026-10-27: индекс сопоставления строится, пока кассир наводит камеру (на большом каталоге — доли секунды)
     unawaited(CatalogMatcher.warm(ref.read(databaseProvider)));
+    unawaited(_loadAi());
+  }
+
+  Future<void> _loadAi() async {
+    try {
+      final db = ref.read(databaseProvider);
+      final g = await db.getSetting(_groupSetting);
+      final c = await db.getSetting(_commandSetting);
+      if (mounted) setState(() => _ai = InvoiceAiOptions(group: g != '0', command: c ?? ''));
+    } catch (_) {
+      // настройки не прочитались — значения по умолчанию
+    }
+  }
+
+  Future<void> _saveAi(InvoiceAiOptions o) async {
+    setState(() => _ai = o);
+    try {
+      final db = ref.read(databaseProvider);
+      await db.setSetting(_groupSetting, o.group ? '1' : '0');
+      await db.setSetting(_commandSetting, o.command);
+    } catch (_) {
+      // не записалось — работает до закрытия экрана
+    }
+  }
+
+  /// Окно «Команда ИИ для накладной»: переключатель «Объединять вкусы и варианты в один товар» и «Своя команда ИИ».
+  Future<void> _aiSheet() async {
+    final l = context.l;
+    final ctrl = TextEditingController(text: _ai.command);
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (c) => StatefulBuilder(
+        builder: (c, setSheet) => Padding(
+          padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.viewInsetsOf(c).bottom),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(l.camAiSheetTitle, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 8),
+                SwitchListTile(
+                  key: const Key('cam_group_switch'),
+                  contentPadding: EdgeInsets.zero,
+                  value: _ai.group,
+                  title: Text(l.camGroupToggle),
+                  onChanged: (v) {
+                    unawaited(_saveAi(InvoiceAiOptions(group: v, command: ctrl.text)));
+                    setSheet(() {});
+                  },
+                ),
+                TextField(
+                  key: const Key('cam_ai_command'),
+                  controller: ctrl,
+                  maxLines: 2,
+                  inputFormatters: [LengthLimitingTextInputFormatter(300)], // счётчик «0/300» в узком окне не помещался рядом с подсказкой
+                  onChanged: (v) => unawaited(_saveAi(InvoiceAiOptions(group: _ai.group, command: v))),
+                  decoration: InputDecoration(labelText: l.camAiCommand, hintText: l.camAiCommandHint, helperText: l.camAiNote, helperMaxLines: 2),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  runSpacing: 8,
+                  children: [
+                    TextButton(
+                      key: const Key('cam_ai_reset'),
+                      style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+                      onPressed: () {
+                        ctrl.clear();
+                        unawaited(_saveAi(const InvoiceAiOptions()));
+                        setSheet(() {});
+                      },
+                      child: Text(l.camAiReset),
+                    ),
+                    FilledButton(style: FilledButton.styleFrom(minimumSize: const Size(48, 48)), onPressed: () => Navigator.pop(c), child: Text(l.done)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    // ctrl не освобождаем сразу: поле ещё живо, пока окно уезжает (dispose здесь ронял анимацию закрытия)
+  }
+
+  /// Кнопка «Команда ИИ» в шапке (только накладная).
+  List<Widget> _aiActions() {
+    if (_mode != 'invoice') return const [];
+    return [
+      IconButton(
+        key: const Key('cam_ai_opts'),
+        tooltip: context.l.camAiCommand,
+        style: IconButton.styleFrom(minimumSize: const Size(48, 48)),
+        onPressed: _aiSheet,
+        icon: Icon(Icons.tune_rounded, color: _ai.command.isNotEmpty || !_ai.group ? context.pal.action : null),
+      ),
+    ];
   }
 
   // 2026-10-26 (П0): защита от двойного нажатия (ставится синхронно, до первого await), всего проведено за эту загрузку
@@ -869,9 +1150,125 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
   String? _summary;
 
   Future<void> _shoot() async {
-    final found = await photoAndRecognize(context, ref, _mode);
-    if (found == null || !mounted) return;
-    _addMatches(found);
+    while (true) {
+      RecognizeEscape? esc;
+      final found = await photoAndRecognize(context, ref, _mode, onEscape: (e) => esc = e, ai: _mode == 'invoice' ? _ai : null);
+      if (!mounted) return;
+      // 2026-11-20: окно ожидания накладной через 20 с — «Сфотографировать ближе» (камера снова) и «Ввести вручную» (обычная приёмка)
+      if (esc == RecognizeEscape.retake) continue;
+      if (esc == RecognizeEscape.manual) {
+        await context.push('/admin/receive');
+        return;
+      }
+      if (found == null) return;
+      _addMatches(found);
+      return;
+    }
+  }
+
+  // ------------------------------------------------------------------ штрихкод строки накладной (2026-11-20)
+
+  /// Строке накладной нужен штрихкод: у товара каталога его нет, у нового нет ни своего (с верной контрольной цифрой), ни привязанного.
+  /// У карточки-группы коды — у вариантов ([_needsVarCode]).
+  bool _needsCode(_CamItem x) =>
+      _mode == 'invoice' && !x.isGroup && rowNeedsCode(product: x.product, seenCodeValid: VisionService.validEan(x.seen.seen.barcode), boundCode: x.boundCode);
+
+  bool _needsVarCode(_Var v) => _mode == 'invoice' && v.code.isEmpty;
+
+  /// Все строки и варианты, которым нужен штрихкод (для «Привязать по очереди»).
+  List<_Target> _needTargets() {
+    final out = <_Target>[];
+    for (final x in _items) {
+      if (x.isGroup) {
+        for (final v in x.vars) {
+          if (_needsVarCode(v)) out.add((x: x, v: v));
+        }
+      } else if (_needsCode(x)) {
+        out.add((x: x, v: null));
+      }
+    }
+    return out;
+  }
+
+  String _variantName(_CamItem x, _Var v) => '${x.name.text.trim().isEmpty ? (x.product?.name ?? '') : x.name.text.trim()} · ${v.label.isEmpty ? context.l.camVariantPlain : v.label}';
+
+  /// Название другой строки (или варианта) накладной, у которой уже этот код (привязанный сканером, прочитанный ИИ или записанный у её товара).
+  String? _draftOwner(String code, _Target t) {
+    final key = sameCodeKey(code);
+    for (final o in _items) {
+      if (o.isGroup) {
+        for (final ov in o.vars) {
+          if (identical(o, t.x) && identical(ov, t.v)) continue;
+          if (ov.code.isNotEmpty && sameCodeKey(ov.code) == key) return _variantName(o, ov);
+        }
+        continue;
+      }
+      if (identical(o, t.x)) continue;
+      final codes = [
+        ?o.boundCode,
+        if (o.product == null && VisionService.validEan(o.seen.seen.barcode)) o.seen.seen.barcode,
+      ];
+      if (codes.any((c) => sameCodeKey(c) == key)) return o.product?.name ?? o.name.text.trim();
+    }
+    return null;
+  }
+
+  /// Сканер штрихкода для [rows] по очереди (одна строка — по нажатию на неё, все без кода — по кнопке «Привязать по очереди»).
+  Future<void> _bind(List<_Target> rows) async {
+    if (rows.isEmpty || _busy) return;
+    final l = context.l;
+    var linked = 0;
+    await CameraGate.idle(); // сканер включаем, только когда умная камера отпустила камеру
+    if (!mounted) return;
+    await BarcodeBindPage.openRows(
+      context,
+      rows: [for (final t in rows) t.v == null ? BindRow(t.x.product?.name ?? t.x.name.text.trim(), t.x.product?.id) : BindRow(_variantName(t.x, t.v!))],
+      draftOwner: (code, i) => _draftOwner(code, rows[i]),
+      onRowDone: (i, r) async {
+        if (await _applyBind(rows[i], r)) linked++;
+      },
+    );
+    if (!mounted) return;
+    setState(() {});
+    if (linked > 0) toast(context, l.camBindDone(linked));
+  }
+
+  /// Итог сканера по строке: код привязан или выбран товар каталога, у которого этот код уже есть.
+  Future<bool> _applyBind(_Target t, BindResult r) async {
+    final x = t.x;
+    final owner = r.useOwner;
+    if (t.v != null) {
+      // вариант карточки-группы: код записывается при загрузке (основной или дополнительный с названием варианта); код уже у товара
+      // каталога — группа становится этим товаром, если своего товара у неё ещё нет
+      if (owner != null) {
+        if (x.product == null && !camLineLocked(x.line) && mounted) setState(() => x.product = owner);
+        return owner.id == x.product?.id;
+      }
+      final c = r.code;
+      if (c == null || c.isEmpty) return false;
+      if (mounted) setState(() => t.v!.boundCode = c);
+      return true;
+    }
+    if (owner != null) {
+      if (camLineLocked(x.line)) {
+        if (mounted) toast(context, context.l.smartRowLocked, error: true);
+        return false;
+      }
+      if (mounted) setState(() => x.product = owner);
+      _learn(x, owner); // «это он» — как выбор варианта «Это «…»?»: в следующий раз название узнаётся сразу
+      return true;
+    }
+    final code = r.code;
+    if (code == null || code.isEmpty) return false;
+    final p = x.product;
+    if (p != null) {
+      // существующий товар: код — в очередь (основным или дополнительным), товар на телефоне получает его сразу
+      await ref.read(stockRepoProvider).queueBarcodeBind(p, code);
+      final fresh = await ref.read(databaseProvider).productById(p.id);
+      if (fresh != null) x.product = fresh;
+    }
+    if (mounted) setState(() => x.boundCode = code);
+    return true;
   }
 
   /// Результат распознавания (снимок, фото из галереи, PDF) → позиции экрана; тот же товар — к количеству.
@@ -882,7 +1279,11 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
       for (final m in found) {
         final same = m.picked == null ? null : _items.where((x) => x.product?.id == m.picked!.id).firstOrNull;
         if (same != null) {
-          same.qty += m.seen.amount;
+          if (same.isGroup || m.seen.variants.isNotEmpty) {
+            _absorb(same, m.seen); // 2026-11-20: вкусы того же товара с другой страницы накладной — в ту же карточку
+          } else {
+            same.qty += m.seen.amount;
+          }
         } else {
           _items.add(_CamItem(m));
         }
@@ -913,7 +1314,7 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
         toast(context, l.camFileTooBig, error: true);
         continue;
       }
-      final found = await recognizeBytes(context, ref, f.bytes, mode, mime: f.mime, page: i + 1, pages: files.length);
+      final found = await recognizeBytes(context, ref, f.bytes, mode, mime: f.mime, page: i + 1, pages: files.length, ai: mode == 'invoice' ? _ai : null);
       if (found == null || !mounted) return;
       _addMatches(found);
     }
@@ -952,7 +1353,7 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
           return;
         }
         if (!await ensureAiKey(context, ref) || !mounted) return;
-        final found = await recognizeBytes(context, ref, f.bytes, 'invoice', mime: camMimeOf(f.name));
+        final found = await recognizeBytes(context, ref, f.bytes, 'invoice', mime: camMimeOf(f.name), ai: _ai);
         if (found == null || !mounted) return;
         _addMatches(found);
       case CamFileRoute.oldExcel:
@@ -1013,6 +1414,7 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
       x.product = null;
       x.learnedId = null;
       x.learned = [];
+      x.boundCode = null; // код остался у отвергнутого товара (запись в очереди) — новому товару его не отдаём
     });
     toast(context, context.l.camNotThisDone);
   }
@@ -1053,17 +1455,53 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
   /// при каждом нажатии. Цена нового: введённая или «+30 %, до 5 сом».
   ReceiveLine _lineOf(_CamItem x) {
     final cost = parseNum(x.cost.text) ?? 0;
+    // 2026-11-20 (владелец: «Асу» и «Асу клубника» — один товар): у группы код первого варианта с кодом — основной, остальные —
+    // дополнительные штрихкоды с названием варианта (как «Доп. штрихкоды» карточки товара); в приход идёт сумма вариантов
+    final coded = x.isGroup ? [for (final v in x.vars) if (v.code.isNotEmpty) v] : const <_Var>[];
+    final mainCode = coded.isEmpty ? '' : coded.first.code;
+    final alt = <Map<String, Object>>[];
+    for (final v in coded.skip(1)) {
+      if (sameCodeKey(v.code) != sameCodeKey(mainCode) && !alt.any((a) => sameCodeKey('${a['barcode']}') == sameCodeKey(v.code))) {
+        alt.add(altBarcodeBody(v.code, name: v.label));
+      }
+    }
+    final l = context.l;
     return x.line = camSyncLine(
       x.line,
       product: x.product,
       name: x.product?.name ?? x.name.text.trim(),
-      // штрихкод от ИИ — только с верной контрольной цифрой (ИИ мог его выдумать)
-      barcode: x.product != null ? '' : (VisionService.validEan(x.seen.seen.barcode) ? x.seen.seen.barcode : ''),
+      // штрихкод от ИИ — только с верной контрольной цифрой (ИИ мог его выдумать); привязанный сканером — как есть
+      barcode: x.product != null
+          ? ''
+          : x.isGroup
+          ? mainCode
+          : (x.boundCode ?? (VisionService.validEan(x.seen.seen.barcode) ? x.seen.seen.barcode : '')),
       qty: x.qty,
       cost: cost,
       price: parseNum(x.price.text) ?? _autoPrice(cost),
       unit: x.unit,
+      alt: x.product != null ? const [] : alt,
+      brand: x.seen.seen.brand, // 2026-11-21: create-manual сам создаёт бренд по brand_name
+      note: x.isGroup ? [for (final v in x.vars) '${v.label.isEmpty ? l.camVariantPlain : v.label} ${qtyText(v.qty)}'].join(', ') : '',
     );
+  }
+
+  /// Коды вариантов существующего товара (новый вкус «Асу» → дополнительный штрихкод с названием варианта) — в очередь товара. Вызывается
+  /// при загрузке и при переходе в приёмку; у нового товара коды едут в его создании ([_lineOf]).
+  Future<void> _commitVariantCodes() async {
+    final repo = ref.read(stockRepoProvider);
+    for (final x in _items) {
+      final p = x.product;
+      if (p == null || !x.isGroup) continue;
+      for (final v in x.vars) {
+        if (v.code.isEmpty) continue;
+        try {
+          await repo.queueBarcodeBind(p, v.code, name: v.label);
+        } catch (_) {
+          // код не записался — приход всё равно проводится, код можно привязать позже
+        }
+      }
+    }
   }
 
   /// Строки к проведению: позиции с количеством, у новых — название и цена продажи.
@@ -1103,6 +1541,7 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
         }
         return;
       }
+      await _commitVariantCodes();
       var errors = <String>[];
       String? fatal;
       try {
@@ -1118,6 +1557,10 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
       } catch (_) {}
       if (!mounted) return;
       final doneNow = pairs.where((p) => p.$2.posted).length;
+      // на сервере остаток один на товар — разбивку по вариантам сохраняем в журнале аудита телефона
+      for (final p in pairs.where((p) => p.$2.posted && p.$2.note.isNotEmpty)) {
+        unawaited(Audit.log('receive', 'Накладная, варианты: ${p.$2.name} — ${p.$2.note}'));
+      }
       final left = pairs.length - doneNow;
       _postedTotal += doneNow;
       // причина отказа — к своей позиции (текст ошибки начинается с названия: «Название: причина»)
@@ -1151,6 +1594,8 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
   /// «В приёмку с поставщиком»: те же объекты строк (приёмка с поставщиком отметит их проведёнными).
   Future<void> _toReceive() async {
     final l = context.l;
+    await _commitVariantCodes();
+    if (!mounted) return;
     final lines = [for (final x in _items.where((x) => x.qty > 0)) _lineOf(x)];
     // запись остатка без ответа (путь «на склад») могла дойти — приход поставщику прибавил бы второй раз
     if (lines.any((x) => x.pendingTarget != null)) {
@@ -1177,8 +1622,10 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
     );
   }
 
-  Future<void> _editQty(_CamItem x) async {
-    final v = await askNumber(context, title: x.product?.name ?? x.name.text, initial: x.qty, kind: NumKind.qty, suffix: x.unitCode);
+  void _syncQty(_CamItem x) => x.qty = x.vars.fold<double>(0, (a, v) => a + v.qty);
+
+  Future<void> _editQty(_CamItem x, {_Var? variant}) async {
+    final v = await askNumber(context, title: variant == null ? (x.product?.name ?? x.name.text) : _variantName(x, variant), initial: variant?.qty ?? x.qty, kind: NumKind.qty, suffix: x.unitCode);
     if (v == null || !mounted) return;
     // 2026-11-08: дробное число — только там, где единица это допускает (л, кг, м…); у «шт» — целое
     final bad = qtyErrorText(context.l, x.unitCode, v);
@@ -1186,17 +1633,33 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
       if (context.mounted) toast(context, bad, error: true);
       return;
     }
-    setState(() => x.qty = v.clamp(0, 99999).toDouble());
+    setState(() {
+      if (variant != null) {
+        variant.qty = v.clamp(0, 99999).toDouble();
+        _syncQty(x);
+      } else {
+        x.qty = v.clamp(0, 99999).toDouble();
+      }
+    });
   }
 
-  Widget _qtyRow(_CamItem x) {
+  Widget _qtyRow(_CamItem x, {_Var? variant}) {
     final pal = context.pal;
+    final cur = variant?.qty ?? x.qty;
+    void change(double n) => setState(() {
+      if (variant != null) {
+        variant.qty = n.clamp(0, 99999).toDouble();
+        _syncQty(x);
+      } else {
+        x.qty = n.clamp(0, 99999).toDouble();
+      }
+    });
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        IconButton.outlined(onPressed: () => setState(() => x.qty = (x.qty - 1).clamp(0, 99999).toDouble()), icon: const Icon(Icons.remove)),
+        IconButton.outlined(onPressed: () => change(cur - 1), icon: const Icon(Icons.remove)),
         InkWell(
-          onTap: () => _editQty(x),
+          onTap: () => _editQty(x, variant: variant),
           borderRadius: BorderRadius.circular(10),
           child: Container(
             constraints: const BoxConstraints(minWidth: 56),
@@ -1206,15 +1669,363 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
             margin: const EdgeInsets.symmetric(horizontal: 4),
             decoration: BoxDecoration(color: pal.window, borderRadius: BorderRadius.circular(10)),
             // 2026-11-08: число с единицей («10 л»), а не голое «10» — иначе литры выглядят штуками
-            child: Text(qtyWithUnit(x.qty, x.unitCode), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+            child: Text(qtyWithUnit(cur, x.unitCode), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
           ),
         ),
         IconButton.filled(
           style: IconButton.styleFrom(backgroundColor: pal.action),
-          onPressed: () => setState(() => x.qty += 1),
+          onPressed: () => change(cur + 1),
           icon: Icon(Icons.add, color: pal.onAction),
         ),
       ],
+    );
+  }
+
+  /// 2026-11-20: нет штрихкода — заметная кнопка «Отсканировать штрихкод»; привязан — «Штрихкод … ✓» (нажатие — сканировать заново).
+  Widget _codeBlock(_CamItem x) {
+    if (_mode != 'invoice') return const SizedBox.shrink();
+    final l = context.l;
+    final pal = context.pal;
+    final bound = x.boundCode;
+    if (bound != null) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: InkWell(
+          key: ValueKey('camCode_${x.hashCode}'),
+          onTap: camLineLocked(x.line) ? null : () => _bind([(x: x, v: null)]),
+          borderRadius: BorderRadius.circular(10),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: Row(
+              children: [
+                Icon(Icons.check_circle_rounded, color: pal.success, size: 20),
+                const SizedBox(width: 8),
+                Expanded(child: Text(l.camCodeBound(bound), style: TextStyle(color: pal.success, fontWeight: FontWeight.w700))),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    if (!_needsCode(x)) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: OutlinedButton.icon(
+        key: ValueKey('camBind_${x.hashCode}'),
+        style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48), alignment: Alignment.centerLeft, foregroundColor: pal.warn, side: BorderSide(color: pal.warn)),
+        onPressed: camLineLocked(x.line) ? null : () => _bind([(x: x, v: null)]),
+        icon: const Icon(Icons.qr_code_scanner_rounded, size: 20),
+        label: Text('${l.camNoCode} · ${l.camBindBtn}', maxLines: 2, overflow: TextOverflow.ellipsis),
+      ),
+    );
+  }
+
+  /// «Привязать по очереди» — кнопка в шапке (список не сдвигает): значок сканера и число строк без штрихкода.
+  List<Widget> _bindActions() {
+    final need = _needTargets();
+    if (need.isEmpty) return const [];
+    final l = context.l;
+    return [
+      Padding(
+        padding: const EdgeInsets.only(left: 4),
+        child: Badge(
+          label: Text('${need.length}', key: const Key('cam_bind_badge')),
+          child: IconButton.filledTonal(
+            key: const Key('cam_bind_queue'),
+            tooltip: '${l.camBindQueueBanner(need.length)} · ${l.camBindQueueBtn}',
+            style: IconButton.styleFrom(minimumSize: const Size(48, 48)),
+            onPressed: _busy ? null : () => _bind(need),
+            icon: const Icon(Icons.qr_code_scanner_rounded),
+          ),
+        ),
+      ),
+    ];
+  }
+
+  // ------------------------------------------------------------------ варианты одного товара (2026-11-20)
+
+  /// Вариант строки-одиночки: свой вариант (если ИИ его назвал), код и количество.
+  void _ensureVars(_CamItem x) {
+    if (x.vars.isNotEmpty) return;
+    x.vars = [
+      _Var(label: x.seen.seen.variant, seenCode: VisionService.validEan(x.seen.seen.barcode) ? x.seen.seen.barcode : '', boundCode: x.boundCode, qty: x.qty),
+    ];
+  }
+
+  String _fullName(_CamItem x) => (x.product?.name ?? x.name.text).trim();
+
+  /// Тот же товар с другой страницы накладной: варианты по названию и коду складываются, новые добавляются.
+  void _absorb(_CamItem x, SeenItem s) {
+    _ensureVars(x);
+    for (final v in variantsOf(s)) {
+      final code = VisionService.validEan(v.barcode) ? v.barcode : '';
+      final i = x.vars.indexWhere((o) => groupNorm(o.label) == groupNorm(v.label) && (o.code.isEmpty || code.isEmpty || sameCodeKey(o.code) == sameCodeKey(code)));
+      if (i >= 0) {
+        x.vars[i].qty += v.qty;
+      } else {
+        x.vars.add(_Var(label: v.label, seenCode: code, qty: v.qty));
+      }
+    }
+    _syncQty(x);
+  }
+
+  /// «Объединить с…»: [b] становится вариантом (или набором вариантов) карточки [a]. Название — более короткое из двух, если оно
+  /// входит в другое («Асу» ⊂ «Асу со вкусом клубники»); вкус пустого варианта — остаток названия.
+  bool _mergeInto(_CamItem a, _CamItem b) {
+    if (identical(a, b)) return false;
+    if (camLineLocked(a.line) || camLineLocked(b.line)) {
+      toast(context, context.l.smartRowLocked, error: true);
+      return false;
+    }
+    final an = _fullName(a), bn = _fullName(b);
+    final head = bn.isNotEmpty && bn.length < an.length && an.toLowerCase().contains(bn.toLowerCase()) ? bn : an;
+    String labelFor(_Var v, String full) {
+      if (v.label.isNotEmpty || full.toLowerCase() == head.toLowerCase()) return v.label;
+      return full.toLowerCase().contains(head.toLowerCase()) ? full.replaceFirst(RegExp(RegExp.escape(head), caseSensitive: false), '').replaceAll(RegExp(r'\s+'), ' ').trim() : full;
+    }
+
+    _ensureVars(a);
+    _ensureVars(b);
+    for (final v in a.vars) {
+      v.label = labelFor(v, an);
+    }
+    for (final v in b.vars) {
+      v.label = labelFor(v, bn);
+      final i = a.vars.indexWhere((o) => groupNorm(o.label) == groupNorm(v.label) && (o.code.isEmpty || v.code.isEmpty || sameCodeKey(o.code) == sameCodeKey(v.code)));
+      if (i >= 0) {
+        a.vars[i].qty += v.qty;
+        if (a.vars[i].code.isEmpty) {
+          a.vars[i].seenCode = v.seenCode;
+          a.vars[i].boundCode = v.boundCode;
+        }
+      } else {
+        a.vars.add(v);
+      }
+    }
+    a.product ??= b.product;
+    if (a.product == null) a.name.text = head;
+    if (a.cost.text.trim().isEmpty) a.cost.text = b.cost.text;
+    _items.remove(b);
+    _syncQty(a);
+    return true;
+  }
+
+  /// «Разъединить»: первый вариант остаётся в этой карточке, остальные становятся отдельными строками (сопоставляются с каталогом заново).
+  Future<void> _split(_CamItem x) async {
+    if (!x.isGroup) return;
+    if (camLineLocked(x.line)) {
+      toast(context, context.l.smartRowLocked, error: true);
+      return;
+    }
+    final base = _fullName(x);
+    final cost = parseNum(x.cost.text) ?? x.seen.seen.labelPrice;
+    final rest = x.vars.skip(1).toList();
+    final seen = [
+      for (final v in rest)
+        SeenItem(
+          name: [base, v.label].where((e) => e.isNotEmpty).join(' '),
+          base: base,
+          variant: v.label,
+          brand: x.seen.seen.brand,
+          barcode: v.code,
+          count: v.qty.round().clamp(1, 99999),
+          qty: v.qty == v.qty.roundToDouble() ? null : v.qty,
+          unit: x.seen.seen.unit,
+          labelPrice: cost,
+        ),
+    ];
+    final matches = await ref.read(visionProvider).match(seen);
+    if (!mounted) return;
+    setState(() {
+      final first = x.vars.first;
+      x.vars = [];
+      x.qty = first.qty;
+      x.boundCode = first.boundCode;
+      if (x.product == null) x.name.text = [base, first.label].where((e) => e.isNotEmpty).join(' ');
+      final at = _items.indexOf(x) + 1;
+      for (var i = 0; i < matches.length; i++) {
+        final it = _CamItem(matches[i])..boundCode = rest[i].boundCode;
+        it.cost.text = x.cost.text;
+        it.price.text = x.price.text;
+        _items.insert(at + i, it);
+      }
+    });
+    toast(context, context.l.camSplitDone);
+  }
+
+  Future<void> _pickMerge(_CamItem x) async {
+    final others = [for (final o in _items) if (!identical(o, x)) o];
+    if (others.isEmpty) return;
+    final picked = await showDialog<_CamItem>(
+      context: context,
+      builder: (c) => SimpleDialog(
+        title: Text(c.l.camMergePick),
+        children: [
+          for (final o in others)
+            SimpleDialogOption(
+              key: ValueKey('cam_merge_pick_${o.hashCode}'),
+              onPressed: () => Navigator.pop(c, o),
+              child: ConstrainedBox(constraints: const BoxConstraints(minHeight: 48), child: Align(alignment: Alignment.centerLeft, child: Text(_fullName(o), maxLines: 3, overflow: TextOverflow.ellipsis))),
+            ),
+        ],
+      ),
+    );
+    if (picked == null || !mounted) return;
+    if (_mergeInto(x, picked)) {
+      setState(() {});
+      toast(context, context.l.camMerged);
+    }
+  }
+
+  /// Меню карточки (⋮): «Объединить с…» и «Разъединить» — ручная правка, если ИИ ошибся.
+  Widget _cardMenu(_CamItem x) {
+    if (_mode != 'invoice' || (_items.length < 2 && !x.isGroup)) return const SizedBox.shrink();
+    final l = context.l;
+    return PopupMenuButton<String>(
+      key: ValueKey('cam_menu_${x.hashCode}'),
+      tooltip: l.camMergeWith,
+      onSelected: (v) => v == 'merge' ? _pickMerge(x) : unawaited(_split(x)),
+      itemBuilder: (c) => [
+        if (_items.length > 1) PopupMenuItem(value: 'merge', height: 48, child: Text(l.camMergeWith)),
+        if (x.isGroup) PopupMenuItem(value: 'split', height: 48, child: Text(l.camSplit)),
+      ],
+    );
+  }
+
+  /// Карточка-группа: варианты (вкус, штрихкод, количество) и кнопки «Разъединить» / «Объединить с…».
+  Widget _variantsBlock(_CamItem x) {
+    final l = context.l;
+    final pal = context.pal;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(l.camVariantsTitle(x.vars.length), key: const Key('cam_variants_title'), style: TextStyle(color: pal.textSoft, fontSize: 12.5, fontWeight: FontWeight.w700)),
+        for (final v in x.vars)
+          Container(
+            key: ValueKey('cam_var_${v.hashCode}'),
+            margin: const EdgeInsets.only(top: 6),
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), border: Border.all(color: pal.textSoft.withValues(alpha: .35))),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(v.label.isEmpty ? l.camVariantPlain : v.label, style: const TextStyle(fontWeight: FontWeight.w800)),
+                if (v.code.isNotEmpty)
+                  InkWell(
+                    onTap: v.boundCode != null && !camLineLocked(x.line) ? () => _bind([(x: x, v: v)]) : null,
+                    borderRadius: BorderRadius.circular(8),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 32),
+                      child: Align(alignment: Alignment.centerLeft, child: Text(l.camCodeBound(v.code), style: TextStyle(color: pal.success, fontWeight: FontWeight.w700))),
+                    ),
+                  )
+                else if (_mode == 'invoice')
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: OutlinedButton.icon(
+                      key: ValueKey('camBind_${v.hashCode}'),
+                      style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48), alignment: Alignment.centerLeft, foregroundColor: pal.warn, side: BorderSide(color: pal.warn)),
+                      onPressed: camLineLocked(x.line) ? null : () => _bind([(x: x, v: v)]),
+                      icon: const Icon(Icons.qr_code_scanner_rounded, size: 20),
+                      label: Text('${l.camNoCode} · ${l.camBindBtn}', maxLines: 2, overflow: TextOverflow.ellipsis),
+                    ),
+                  ),
+                const SizedBox(height: 4),
+                Align(alignment: Alignment.centerLeft, child: _qtyRow(x, variant: v)),
+              ],
+            ),
+          ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Wrap(
+            spacing: 8,
+            children: [
+              TextButton.icon(
+                key: ValueKey('cam_split_${x.hashCode}'),
+                style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+                onPressed: () => unawaited(_split(x)),
+                icon: const Icon(Icons.call_split_rounded, size: 18),
+                label: Text(l.camSplit),
+              ),
+              if (_items.length > 1)
+                TextButton.icon(
+                  key: ValueKey('cam_merge_${x.hashCode}'),
+                  style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+                  onPressed: () => _pickMerge(x),
+                  icon: const Icon(Icons.merge_rounded, size: 18),
+                  label: Text(l.camMergeWith),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Вопрос «Объединить? Цены разные»: строки с одним базовым названием, но разной ценой сами не объединяются.
+  List<Widget> _conflictBanners() {
+    if (_mode != 'invoice') return const [];
+    final l = context.l;
+    final singles = [for (final x in _items) if (!x.isGroup) x];
+    final conflicts = priceConflicts([for (final x in singles) x.seen.seen]);
+    final out = <Widget>[];
+    conflicts.forEach((key, seen) {
+      if (_noMerge.contains(key)) return;
+      final xs = [for (final x in singles) if (seen.any((s) => identical(s, x.seen.seen))) x];
+      if (xs.length < 2) return;
+      final prices = ({for (final s in seen) if (s.labelPrice > 0) s.labelPrice.toStringAsFixed(0)}).join(' / ');
+      out.add(
+        Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: Container(
+            key: ValueKey('cam_conflict_$key'),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: T.warn.withValues(alpha: .14), borderRadius: BorderRadius.circular(12), border: Border.all(color: T.warn)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(l.camMergeAsk(seen.first.base.isNotEmpty ? seen.first.base : seen.first.name, prices), style: const TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    FilledButton.tonal(
+                      key: ValueKey('cam_conflict_yes_$key'),
+                      style: FilledButton.styleFrom(minimumSize: const Size(48, 48)),
+                      onPressed: () {
+                        setState(() {
+                          for (final o in xs.skip(1)) {
+                            _mergeInto(xs.first, o);
+                          }
+                        });
+                      },
+                      child: Text(l.camMergeYes),
+                    ),
+                    TextButton(
+                      key: ValueKey('cam_conflict_no_$key'),
+                      style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+                      onPressed: () => setState(() => _noMerge.add(key)),
+                      child: Text(l.camMergeNo),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    });
+    return out;
+  }
+
+  /// «Товаров: N, вариантов (доп. кодов): M» — только когда есть объединённые варианты.
+  Widget _groupSummary() {
+    if (_mode != 'invoice') return const SizedBox.shrink();
+    final extra = _items.where((x) => x.isGroup).fold<int>(0, (a, x) => a + x.vars.length - 1);
+    if (extra == 0) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Text(context.l.camGroupSummary(_items.length, extra), key: const Key('cam_group_summary'), style: TextStyle(color: context.pal.textSoft, fontWeight: FontWeight.w700)),
     );
   }
 
@@ -1225,40 +2036,50 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              ProductThumb(name: p.name, url: p.imageUrl, size: 44),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      p.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    Text(
-                      '${context.l.onStockLabel}: ${qtyText(p.quantity)} ${p.unit} · ${money(p.price)}',
-                      style: TextStyle(color: pal.textSoft, fontSize: 12),
-                    ),
-                  ],
+          // 2026-11-20: нажатие на товар без штрихкода сразу открывает сканер
+          InkWell(
+            onTap: _needsCode(x) && !camLineLocked(x.line) ? () => _bind([(x: x, v: null)]) : null,
+            borderRadius: BorderRadius.circular(10),
+            child: Row(
+              children: [
+                ProductThumb(name: p.name, url: p.imageUrl, size: 44),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        p.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      Text(
+                        '${context.l.onStockLabel}: ${qtyText(p.quantity)} ${p.unit} · ${money(p.price)}',
+                        style: TextStyle(color: pal.textSoft, fontSize: 12),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => setState(() => _items.remove(x))),
-            ],
+                _cardMenu(x),
+                IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => setState(() => _items.remove(x))),
+              ],
+            ),
           ),
+          _codeBlock(x),
           const SizedBox(height: 6),
-          Row(
-            children: [
-              Text(
-                '+ ',
-                style: TextStyle(color: pal.textSoft, fontWeight: FontWeight.w800),
-              ),
-              _qtyRow(x),
-            ],
-          ),
+          if (x.isGroup)
+            _variantsBlock(x)
+          else
+            Row(
+              children: [
+                Text(
+                  '+ ',
+                  style: TextStyle(color: pal.textSoft, fontWeight: FontWeight.w800),
+                ),
+                _qtyRow(x),
+              ],
+            ),
           // 2026-11-08: сколько станет на складе — количество прибавляется к остатку в единице карточки: «3 + 10 = 13 л»
           if (x.qty > 0)
             Padding(
@@ -1302,12 +2123,15 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
                   style: const TextStyle(color: T.navy, fontWeight: FontWeight.w800, fontSize: 11.5),
                 ),
               ),
-              if (x.seen.seen.barcode.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(left: 8),
-                  child: Text(x.seen.seen.barcode, style: TextStyle(color: pal.textSoft, fontSize: 12)),
+              if (x.seen.seen.barcode.isNotEmpty && !x.isGroup)
+                Flexible(
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: Text(x.seen.seen.barcode, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: pal.textSoft, fontSize: 12)),
+                  ),
                 ),
               const Spacer(),
+              _cardMenu(x),
               IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => setState(() => _items.remove(x))),
             ],
           ),
@@ -1332,6 +2156,9 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
                     }
                     setState(() => x.product = p);
                     _learn(x, p);
+                    // штрихкод уже привязан к этой строке сканером — теперь он нужен выбранному товару
+                    final bound = x.boundCode;
+                    if (bound != null) unawaited(ref.read(stockRepoProvider).queueBarcodeBind(p, bound));
                   },
                   child: Row(
                     children: [
@@ -1351,6 +2178,7 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
             decoration: InputDecoration(labelText: l.clientName, isDense: true),
           ),
           const SizedBox(height: 6),
+          _codeBlock(x),
           Row(
             children: [
               Expanded(
@@ -1380,7 +2208,7 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
             })),
             const SizedBox(height: 6),
           ],
-          _qtyRow(x),
+          if (x.isGroup) _variantsBlock(x) else _qtyRow(x),
           _rowStatus(x),
         ],
       ),
@@ -1454,7 +2282,7 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
     final fresh = _items.where((x) => x.product == null).toList();
     final count = _items.where((x) => x.qty > 0).length;
     return Scaffold(
-      appBar: ScreenTitle(l.smartCam, subtitle: _shots > 0 ? l.smartShots(_shots) : null),
+      appBar: ScreenTitle(l.smartCam, subtitle: _shots > 0 ? l.smartShots(_shots) : null, actions: [..._aiActions(), ..._bindActions()]),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 140),
         children: [
@@ -1557,6 +2385,8 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
                 child: Text(_summary!, style: const TextStyle(fontWeight: FontWeight.w700)),
               ),
             ),
+          ..._conflictBanners(),
+          _groupSummary(),
           if (known.isNotEmpty) ...[
             FieldLabel(l.seenInBase(known.length)),
             for (final x in known) Padding(padding: const EdgeInsets.only(bottom: 6), child: _knownCard(x)),

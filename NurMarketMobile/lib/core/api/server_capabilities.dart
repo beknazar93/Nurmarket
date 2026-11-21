@@ -1,5 +1,8 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show ValueNotifier;
+
+import '../mode/plan_info.dart';
 import '../../features/sale/cart.dart' show ServerRounding;
 import '../db/database.dart';
 import 'api_client.dart';
@@ -25,6 +28,24 @@ class ServerCapabilities {
 
   static Set<String>? _features;
   static String? _owner;
+
+  /// 2026-11-20 (тариф «Мини», E1): план компании из того же ответа `capabilities` (объект `plan`). Нет плана / не получен — [PlanInfo.none]
+  /// («как сегодня»). Кэш живёт отдельно (PlanStore, без срока годности): офлайн действует последний известный план.
+  static final ValueNotifier<PlanInfo> planNotifier = ValueNotifier(PlanInfo.none);
+  static PlanInfo get plan => planNotifier.value;
+
+  /// Копия списка признаков (для ModeProfile).
+  static Set<String> get featureSet => {...?_features};
+
+  /// Когда последний раз спрашивали сервер (для «обновить при открытии не чаще раза в N часов»).
+  static DateTime? _lastRefresh;
+
+  /// Обновить признаки и план, если прошло больше [maxAge] с прошлого успешного запроса (возврат в приложение, открытие «Ещё»).
+  static Future<bool> refreshIfStale(ApiClient api, AppDatabase db, String owner, {Duration maxAge = const Duration(hours: 6)}) async {
+    final at = _lastRefresh;
+    if (at != null && DateTime.now().difference(at) < maxAge && _owner == owner) return true;
+    return refresh(api, db, owner);
+  }
 
   /// 2026-11-06 (аудит №5, М7-08): шаг весов компании получен. false — признак округления есть, а `users/company/` не ответил: шаг «копейка»
   /// взят по умолчанию и НЕ закрепляется на 14 дней (кэш помечается, запрос повторяется на следующем проходе очереди).
@@ -78,14 +99,18 @@ class ServerCapabilities {
     _features = null;
     _owner = null;
     _stepKnown = true;
+    _lastRefresh = null;
+    planNotifier.value = PlanInfo.none;
     ServerRounding.reset();
     try {
+      await db?.setSetting(PlanStore.key, '');
       await db?.setSetting(_cacheKey, '');
     } catch (_) {}
   }
 
   /// Прочитать последний известный список для аккаунта [owner] (вызывать до первого расчёта чека).
   static Future<void> loadCached(AppDatabase db, String owner) async {
+    planNotifier.value = await PlanStore.load(db, owner); // 2026-11-20: план — без срока годности, отдельно от списка признаков
     try {
       final raw = await db.getSetting(_cacheKey);
       if (raw == null || raw.isEmpty) return _forgetIfOther(owner);
@@ -117,6 +142,11 @@ class ServerCapabilities {
       if (_owner != owner) ServerRounding.reset(); // список другого аккаунта не должен влиять
       _features = set;
       _owner = owner;
+      _lastRefresh = DateTime.now();
+      // 2026-11-20 (тариф «Мини»): план из того же ответа; нет объекта plan (старый сервер, plan: null) — «как сегодня»
+      final plan = PlanInfo.parse(data);
+      planNotifier.value = plan;
+      await PlanStore.save(db, owner, plan);
       var step = ServerRounding.weightStepCents;
       var stepKnown = true;
       if (set.contains(weightLineTotalFloor)) {
@@ -146,7 +176,9 @@ class ServerCapabilities {
   }
 
   /// Только для тестов.
-  static void debugSet(Iterable<String>? features, {String owner = 'test', int stepCents = 1}) {
+  static void debugSet(Iterable<String>? features, {String owner = 'test', int stepCents = 1, PlanInfo? plan}) {
+    planNotifier.value = plan ?? PlanInfo.none;
+    _lastRefresh = null;
     _features = features?.toSet();
     _owner = features == null ? null : owner;
     ServerRounding.reset();

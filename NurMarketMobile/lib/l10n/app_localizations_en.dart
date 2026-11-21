@@ -7377,4 +7377,156 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get receiptOfflineNote =>
       'Receipt saved offline — it will be sent to the server automatically';
+
+  @override
+  String get recStageCompress => 'Compressing the photo…';
+
+  @override
+  String get recStageReadInvoice => 'Reading the invoice…';
+
+  @override
+  String get recStageMatch => 'Looking up products in the catalog…';
+
+  @override
+  String recStepOf(int n, int total) {
+    return 'Step $n of $total';
+  }
+
+  @override
+  String get recSlowAsk => 'This is taking long. Wait or choose an action:';
+
+  @override
+  String get recManual => 'Enter manually';
+
+  @override
+  String get recRetakeCloser => 'Retake closer';
+
+  @override
+  String get bindRowTitle => 'Scan the product barcode';
+
+  @override
+  String bindRowOf(int n, int total) {
+    return 'Product $n of $total';
+  }
+
+  @override
+  String bindTakenDraft(String code, String name) {
+    return 'Barcode $code is already on the line “$name” of this invoice.';
+  }
+
+  @override
+  String bindTakenAskRow(String code, String name) {
+    return 'Barcode $code already belongs to “$name” in the catalog.\n“Use” — this line becomes “$name”.\n“Keep” — the code stays with “$name”, this line stays without a barcode.';
+  }
+
+  @override
+  String bindUseOwner(String name) {
+    return 'Use “$name”';
+  }
+
+  @override
+  String get camNoCode => 'No barcode';
+
+  @override
+  String get camBindBtn => 'Scan barcode';
+
+  @override
+  String camCodeBound(String code) {
+    return 'Barcode $code';
+  }
+
+  @override
+  String camBindQueueBanner(int n) {
+    return 'No barcode: $n';
+  }
+
+  @override
+  String get camBindQueueBtn => 'Link one by one';
+
+  @override
+  String camBindAsk(int n) {
+    return 'Items without a barcode: $n. Scan them one by one?';
+  }
+
+  @override
+  String get camBindLater => 'Later';
+
+  @override
+  String get camBindStart => 'Scan';
+
+  @override
+  String camBindDone(int n) {
+    return 'Barcodes linked: $n';
+  }
+
+  @override
+  String get camBindQueuedNote =>
+      'Barcode saved on the phone — it will be sent when online';
+
+  @override
+  String get kindBarcode => 'Product barcode';
+
+  @override
+  String get camGroupToggle => 'Merge flavors and variants into one product';
+
+  @override
+  String get camAiCommand => 'Your own AI instruction';
+
+  @override
+  String get camAiCommandHint =>
+      'For example: merge flavors; do not merge; brand — Asu';
+
+  @override
+  String get camAiSheetTitle => 'AI instruction for the invoice';
+
+  @override
+  String get camAiReset => 'Reset';
+
+  @override
+  String get camAiNote =>
+      'The instruction is remembered on this phone for your account.';
+
+  @override
+  String get camVariantPlain => 'Plain';
+
+  @override
+  String get camSplit => 'Split';
+
+  @override
+  String get camMergeWith => 'Merge with…';
+
+  @override
+  String get camMergePick => 'Merge with which product?';
+
+  @override
+  String camMergeAsk(String name, String prices) {
+    return '“$name”: variants with different prices ($prices som). Merge into one product?';
+  }
+
+  @override
+  String get camMergeYes => 'Merge';
+
+  @override
+  String get camMergeNo => 'Keep separate';
+
+  @override
+  String camGroupSummary(int n, int m) {
+    return 'Products: $n, variants (extra codes): $m';
+  }
+
+  @override
+  String get camMerged => 'Merged into one product';
+
+  @override
+  String get camSplitDone => 'Split';
+
+  @override
+  String camVariantsTitle(int n) {
+    return 'Variants: $n';
+  }
+
+  @override
+  String bindTakenServer(String code, String name) {
+    return 'Barcode $code already belongs to “$name”';
+  }
 }

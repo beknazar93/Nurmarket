@@ -10,6 +10,7 @@ import '../../features/sale/piece_sale_mode.dart';
 import '../../features/staff/staff_providers.dart';
 import '../ai/ai_access.dart';
 import '../ai/vision.dart';
+import '../mode/mode_provider.dart';
 import '../providers.dart';
 import '../tester/tester_store.dart';
 
@@ -34,6 +35,7 @@ void resetAccountProviders(Ref ref) {
   ref.invalidate(aiPolicyProvider);
   ref.invalidate(visionProvider);
   ref.invalidate(pieceSaleProvider);
+  ref.invalidate(simpleModeProvider); // 2026-11-20: переключатель «Простой режим» прошлого аккаунта не переходит к новому
   ref.invalidate(loyaltyRepoProvider); // 2026-11-01 (М-06): правила бонусов прошлого магазина не переходят к новому аккаунту
   ref.read(callControllerProvider).resetForAccountSwitch();
 }

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'quick_pay_preset.dart';
 import 'receipt_pdf.dart';
 
 import 'package:flutter/material.dart';
@@ -30,7 +31,9 @@ enum ReceiptTo { whatsapp, qr, none }
 
 /// Оплата (Т4): наличные, карта, в долг; получено, сдача; чек покупателю.
 class PaymentScreen extends ConsumerStatefulWidget {
-  const PaymentScreen({super.key});
+  /// 2026-11-20 (Простой режим): способ, сумма, клиент и срок долга уже выбраны; [QuickPayPreset.auto] — провести сразу.
+  final QuickPayPreset? preset;
+  const PaymentScreen({super.key, this.preset});
   @override
   ConsumerState<PaymentScreen> createState() => _PaymentScreenState();
 }
@@ -41,6 +44,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   ReceiptTo _receipt = ReceiptTo.none;
   Client? _client;
   bool _busy = false;
+
+  /// 2026-11-20 (Простой режим): оплата проводится сама при открытии — до её конца вместо формы крутится «Проводим оплату…».
+  bool _autoRun = false;
 
   /// 2026-11-01 (приёмка, Н-2): подписи неоконченных попыток оплаты (могли пройти) — для плашки «Прошлый чек мог пройти».
   List<String> _sentSigs = const [];
@@ -143,6 +149,24 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   void initState() {
     super.initState();
     _aiHandles.register('pay', _aiHandle);
+    final preset = widget.preset;
+    if (preset != null) {
+      // 2026-11-20 (Простой режим): способ и сумма заданы заранее
+      _method = preset.method;
+      _client = preset.client;
+      if (preset.debtDue != null) _debtDue = DateUtils.dateOnly(preset.debtDue!);
+      final r = preset.received;
+      if (r != null && preset.method != PayMethod.card) _received.text = r.toStringAsFixed(r.truncateToDouble() == r ? 0 : 2);
+      if (preset.auto) {
+        _autoRun = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          if (!mounted) return;
+          await _pay();
+          // оплата не прошла (цена изменилась, нет смены, ошибка) — экран остаётся с обычной формой и сообщением
+          if (mounted) setState(() => _autoRun = false);
+        });
+      }
+    }
     ref.read(salesRepoProvider).liveSentSignatures().then((v) {
       if (mounted) setState(() => _sentSigs = v);
     });
@@ -234,6 +258,27 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             )
           : Text(l.doPay),
     );
+    if (_autoRun) {
+      return PopScope(
+        canPop: false,
+        child: Scaffold(
+          body: SafeArea(
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 16),
+                  Text(l.payWaiting, key: const Key('quickPayWaiting'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 6),
+                  Text('${money(total)} ${l.som}', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: pal.price)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     final scaffold = Scaffold(
       appBar: ScreenTitle(l.payment),
       // 2026-11-05 (аудит №4, М6-17): на планшете форма оплаты не растягивается на 1200 dp — не шире 560 dp по центру
@@ -804,6 +849,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         showQr: _receipt == ReceiptTo.qr,
         // 2026-11-05 (аудит №4, М6-08): сервер насчитал больше, чем получено наличными, — сколько доплатить
         shortfall: method == PayMethod.cash && received != null && received + 0.004 < paidTotal ? roundMoney(paidTotal - received) : 0,
+        simple: widget.preset != null,
       ),
     );
     // 13.10, владелец: чек клиенту — PDF-файлом (WhatsApp, Telegram…), а не текстом.
@@ -821,7 +867,10 @@ class PaidInfo {
 
   /// 2026-11-05 (М6-08): наличных получено меньше итога сервера — столько надо добрать (0 — всё сходится).
   final double shortfall;
-  const PaidInfo(this.result, this.change, this.receipt, {this.showQr = false, this.shortfall = 0});
+
+  /// 2026-11-20 (Простой режим): оплата из Простого режима — сдача показывается очень крупно.
+  final bool simple;
+  const PaidInfo(this.result, this.change, this.receipt, {this.showQr = false, this.shortfall = 0, this.simple = false});
 }
 
 /// Чек проведён (или сохранён без связи — уйдёт на сервер сам).
@@ -944,8 +993,10 @@ class _PaidScreenState extends State<PaidScreen> {
                       const SizedBox(height: 18),
                       Text(
                         '${l.change}: ${money(info.change)} ${l.som}',
+                        key: const Key('paidChange'),
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: pal.success),
+                        // 2026-11-20 (Простой режим, М8): сдача 44 px — видно на солнце и одной рукой
+                        style: TextStyle(fontSize: info.simple ? 44 : 26, fontWeight: FontWeight.w800, color: pal.success),
                       ),
                     ],
                     if (info.shortfall > 0) ...[

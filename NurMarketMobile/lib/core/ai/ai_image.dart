@@ -8,18 +8,28 @@ import 'package:image/image.dart' as img;
 /// распознавание и лишняя задержка; для чтения упаковки хватает 1280 px (накладные — 2048 px, чтобы мелкий текст не пропал).
 /// Размер читается из заголовка JPEG без разбора картинки: снимок камеры в пределах нормы (пресет high = 1280×720) возвращается
 /// сразу. Любая неудача (не картинка, повреждён) — возвращается исходный файл без изменений.
-Future<Uint8List> shrinkForAi(Uint8List bytes, {int maxSide = 1280, int quality = 80}) async {
+Future<Uint8List> shrinkForAi(Uint8List bytes, {int maxSide = 1280, int quality = 80, int? recompressAbove}) async {
   final size = jpegSize(bytes);
-  if (size != null && size.$1 <= maxSide && size.$2 <= maxSide) return bytes; // уже в пределах нормы
+  // 2026-11-20 (владелец: «очень долго думает при скане накладной», 62 с): снимок камеры в пределах размера, но тяжёлый (1,5–3 МБ при
+  // качестве ~95) уходил как есть — это 2–4 МБ base64 на мобильной сети. [recompressAbove] — порог в байтах: тяжелее — пересжимаем
+  // (размер не меняем, только качество).
+  final heavy = recompressAbove != null && bytes.length > recompressAbove;
+  if (size != null && size.$1 <= maxSide && size.$2 <= maxSide && !heavy) return bytes; // уже в пределах нормы
   // Не JPEG (PNG, WebP…) и маленький файл (до ~200 КБ) — не тратим время на разбор.
   if (size == null && bytes.length < 200 * 1024) return bytes;
   try {
-    final out = await Isolate.run(() => shrinkSync(bytes, maxSide: maxSide, quality: quality));
+    final out = await Isolate.run(() => shrinkSync(bytes, maxSide: maxSide, quality: quality, recompress: heavy));
     return out ?? bytes;
   } catch (_) {
     return bytes;
   }
 }
+
+/// 2026-11-20: параметры подготовки снимка накладной к ИИ: 1600 px по длинной стороне (раньше 2048), качество 75, всё тяжелее
+/// 350 КБ пересжимается. Мелкий текст накладной на 1600 px читается; размер на выходе — 250–500 КБ вместо 1–3 МБ.
+const invoiceMaxSide = 1600;
+const invoiceQuality = 75;
+const invoiceRecompressAbove = 350 * 1024;
 
 /// Ширина и высота JPEG по заголовку (маркер SOFn) — без разбора самой картинки; null — не JPEG или заголовок не найден.
 (int, int)? jpegSize(Uint8List b) {
@@ -50,13 +60,15 @@ Future<Uint8List> shrinkForAi(Uint8List bytes, {int maxSide = 1280, int quality 
 }
 
 /// Синхронная часть (для проверки в тестах без изолята). null — менять нечего (картинка и так в пределах или не разобралась).
-Uint8List? shrinkSync(Uint8List bytes, {required int maxSide, int quality = 80}) {
+Uint8List? shrinkSync(Uint8List bytes, {required int maxSide, int quality = 80, bool recompress = false}) {
   final decoded = img.decodeImage(bytes);
   if (decoded == null) return null;
-  if (decoded.width <= maxSide && decoded.height <= maxSide) return null;
+  final fits = decoded.width <= maxSide && decoded.height <= maxSide;
+  if (fits && !recompress) return null;
+  // 2026-11-20: картинка в пределах размера, но тяжёлая ([recompress]) — только пересжатие (без уменьшения)
   final oriented = img.bakeOrientation(decoded);
   final landscape = oriented.width >= oriented.height;
-  final small = img.copyResize(oriented, width: landscape ? maxSide : null, height: landscape ? null : maxSide, interpolation: img.Interpolation.average);
+  final small = fits ? oriented : img.copyResize(oriented, width: landscape ? maxSide : null, height: landscape ? null : maxSide, interpolation: img.Interpolation.average);
   final out = Uint8List.fromList(img.encodeJpg(small, quality: quality));
   return out.length < bytes.length ? out : null;
 }
