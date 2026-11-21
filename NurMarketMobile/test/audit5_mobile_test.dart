@@ -20,6 +20,7 @@ import 'package:nurmarket/core/print/printer_service.dart';
 import 'package:nurmarket/core/print/sunmi_builtin.dart';
 import 'package:nurmarket/core/providers.dart';
 import 'package:nurmarket/core/sync/sync_service.dart';
+import 'package:nurmarket/core/tester/tester_mode.dart' show AppBuild;
 import 'package:nurmarket/core/theme/theme.dart';
 import 'package:nurmarket/core/util/audit.dart';
 import 'package:nurmarket/core/util/ui.dart';
@@ -703,9 +704,12 @@ void main() {
   });
 
   // ---------------------------------------------------------------- Версия
-  test('версия 1.18.20+21 в pubspec и AppBuild; тестовая сборка выключена', () {
+  // 2026-11-21: тест устарел с 1.18.21 (требовал 1.18.20+21 и файл заметок) — теперь сверяет pubspec с AppBuild; стабильный выпуск без тестового режима.
+  test('версия в pubspec совпадает с AppBuild; стабильная сборка: тестовый режим выключен', () {
     final pubspec = File('pubspec.yaml').readAsStringSync();
-    expect(RegExp(r'^version:\s*1\.18\.20\+21\s*$', multiLine: true).hasMatch(pubspec), isTrue);
-    expect(File('release-notes-mobile-1.18.20.md').existsSync(), isTrue);
+    final m = RegExp(r'^version:\s*(\d+\.\d+\.\d+)\+(\d+)\s*$', multiLine: true).firstMatch(pubspec)!;
+    expect(m.group(1), AppBuild.version);
+    expect(int.parse(m.group(2)!), AppBuild.build);
+    expect(AppBuild.isTestBuild, isFalse);
   });
 }
