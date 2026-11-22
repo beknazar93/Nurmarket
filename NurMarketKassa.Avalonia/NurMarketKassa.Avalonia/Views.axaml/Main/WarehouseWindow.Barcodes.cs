@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using NurMarketKassa.AvaloniaHost.Services;
@@ -21,6 +22,7 @@ public partial class WarehouseWindow
     private TabItem? _barcodesTab;
     private LabelsHubView? _barcodesHub;
     private Border? _barcodesBody;
+    private readonly HashSet<string> _printPicked = new(StringComparer.Ordinal); // 2026-11-22: отмеченные галочками товары вкладки «Товары» (возвращено из 1.17.91)
 
     private void InitBarcodesTab()
     {
@@ -60,6 +62,7 @@ public partial class WarehouseWindow
         ApplyBarcodesPadding();
         Closed += (_, _) => _barcodesHub?.Shutdown();
         InitLabelsRequests(); // входы из Маркетплейса и прихода (WarehouseWindow.LabelsEntry.cs)
+        InitBulkBar(); // 2026-11-22: выбор галочками и панель массовых действий (WarehouseWindow.BulkBar.cs)
     }
 
     /// <summary>Название единственной вкладки печати и редакторов.</summary>
@@ -107,4 +110,36 @@ public partial class WarehouseWindow
         WarehouseTabs.SelectedItem = _barcodesTab;
         return ReferenceEquals(WarehouseTabs.SelectedItem, _barcodesTab);
     }
+
+    /// <summary>Товары, отмеченные галочкой «В печать» на вкладке «Товары».</summary>
+    public IReadOnlyCollection<string> PrintPickedIds => _printPicked;
+
+    // ------------------------------------------------------------------ 2026-11-22: галочка «В печать» в строке и плитке товара (возвращена из 1.17.91)
+
+    private void PrintPick_DataContextChanged(object? sender, EventArgs e)
+    {
+        if (sender is not CheckBox box)
+            return;
+        var product = box.DataContext as CatalogProductTileVm;
+        box.IsVisible = product is not null;
+        box.IsChecked = product is not null && _printPicked.Contains(product.Id);
+        var text = Tr.T("В печать ценников и штрихкодов", "Баа белгилерин жана штрих-коддорду басууга", "Add to price tag and barcode printing", "Fiyat etiketi ve barkod yazdırmaya ekle", "Narx yorliqlari va shtrix-kodlarni chop etishga qo'shish");
+        AutomationProperties.SetName(box, text);
+        ToolTip.SetTip(box, text);
+    }
+
+    private void PrintPick_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not CheckBox { DataContext: CatalogProductTileVm product } box)
+            return;
+        if (box.IsChecked == true)
+            _printPicked.Add(product.Id);
+        else
+            _printPicked.Remove(product.Id);
+        e.Handled = true;
+        UpdatePrintPickButton();
+    }
+
+    /// <summary>Выбор изменился — перерисовать панель массовых действий и галочку «выбрать все» (кнопки «Печать ценников (N)» в верхней панели склада больше нет).</summary>
+    private void UpdatePrintPickButton() => UpdateBulkBar();
 }

@@ -118,9 +118,10 @@ public partial class PackageChoiceDialog : Window
 
     private void SetStockText(bool isPieceMode)
     {
-        Shell.Subtitle = isPieceMode
-            ? $"{Tr.T("Остаток", "Калдык", "Stock", "Stok", "Qoldiq")}: {FormatQty(_stockQuantity * _pieceOption!.QuantityInPackage)} {Tr.T("шт", "даана", "pcs", "adet", "dona")}"
-            : $"{Tr.T("Остаток", "Калдык", "Stock", "Stok", "Qoldiq")}: {FormatQty(_stockQuantity)} {Tr.T("шт", "даана", "pcs", "adet", "dona")}";
+        // 2026-11-22: товар в минусе — «Остаток: Минус −3 шт» (StockLabel), а не «-3 шт».
+        var qty = isPieceMode ? _stockQuantity * _pieceOption!.QuantityInPackage : _stockQuantity;
+        var unit = Tr.T("шт", "даана", "pcs", "adet", "dona");
+        Shell.Subtitle = $"{Tr.T("Остаток", "Калдык", "Stock", "Stok", "Qoldiq")}: {StockLabel.Wrap(qty, $"{FormatQty(StockLabel.Shown(qty))} {unit}")}";
     }
 
     private void Next_Click(object? sender, RoutedEventArgs e)

@@ -108,20 +108,26 @@ internal static class MarketplaceModules
             };
             if (where.Length > 0)
                 features.Add(T($"Входит в сферы: {where}", $"Чөйрөлөргө кирет: {where}", $"Included in spheres: {where}", $"Dahil olduğu alanlar: {where}", $"Kiradigan sohalar: {where}"));
+            // 2026-11-22: у каждого известного модуля — свой значок, цвет и описание (MarketplaceModuleContent); шаблон ниже — только запасной для модулей без записи.
+            var text = MarketplaceModuleContent.TextOf(info.Id);
             items.Add(new MarketplaceItem
             {
                 Id = "module:" + info.Id,
                 IsModule = true,
                 Kind = MarketplaceKind.Feature,
                 Title = info.Name,
-                ShortDescription = T("Модуль магазина: включается и выключается здесь", "Дүкөн модулу: ушул жерден күйгүзүлөт жана өчүрүлөт", "A shop module: turn it on and off here", "Mağaza modülü: burada açılıp kapatılır", "Do'kon moduli: shu yerda yoqiladi va o'chiriladi"),
-                LongDescription = T($"Функция «{info.Name}» из набора модулей. Сфера магазина включает часть модулей сама; любой другой модуль можно добавить, а ненужный — убрать. Включают и выключают владелец и администратор.",
+                IconKey = MarketplaceModuleContent.IconKeyOf(info.Id),
+                Tagline = text?.Short ?? "",
+                HowTo = text?.Steps ?? [],
+                Audience = text?.Audience ?? [],
+                ShortDescription = text?.Short ?? T("Модуль магазина: включается и выключается здесь", "Дүкөн модулу: ушул жерден күйгүзүлөт жана өчүрүлөт", "A shop module: turn it on and off here", "Mağaza modülü: burada açılıp kapatılır", "Do'kon moduli: shu yerda yoqiladi va o'chiriladi"),
+                LongDescription = text?.What ?? T($"Функция «{info.Name}» из набора модулей. Сфера магазина включает часть модулей сама; любой другой модуль можно добавить, а ненужный — убрать. Включают и выключают владелец и администратор.",
                     $"«{info.Name}» функциясы модулдар топтомунан. Дүкөндүн чөйрөсү модулдардын бир бөлүгүн өзү күйгүзөт; башка модулду кошсо, кереги жокту алып салса болот. Күйгүзүүнү жана өчүрүүнү ээси жана администратор жасайт.",
                     $"The “{info.Name}” feature from the module set. The shop's sphere turns some modules on by itself; any other module can be added, and one you do not need can be removed. The owner and administrators turn modules on and off.",
                     $"Modül setinden «{info.Name}» özelliği. Mağaza alanı bazı modülleri kendisi açar; başka bir modül eklenebilir, gereksiz olan çıkarılabilir. Modülleri sahip ve yöneticiler açıp kapatır.",
                     $"Modullar to'plamidan «{info.Name}» funksiyasi. Do'kon sohasi ba'zi modullarni o'zi yoqadi; boshqa modulni qo'shish, keraksizini olib tashlash mumkin. Modullarni egasi va administrator yoqadi va o'chiradi."),
-                IconGlyph = "🧩",
-                IconColor = "#0EA5E9",
+                IconGlyph = "➕", // 2026-11-22: запасной глиф вместо «пазла» (виден только если значок MarketplaceIcons не найдётся)
+                IconColor = MarketplaceModuleContent.ColorOf(info.Id),
                 Price = c.Price,
                 Status = on ? MarketplaceStatus.Installed : MarketplaceStatus.Available,
                 StatusText = StatusText(c),

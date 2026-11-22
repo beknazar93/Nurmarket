@@ -324,6 +324,8 @@ public sealed partial class UserPreferences
                 p.ShowCatalogPhotos = fromFile.ShowCatalogPhotos.Value;
             if (fromFile.CatalogNoBarcodeFirst is not null)
                 p.CatalogNoBarcodeFirst = fromFile.CatalogNoBarcodeFirst.Value; // 2026-11-21
+            if (fromFile.BarcodePrintListView is not null)
+                p.BarcodePrintListView = fromFile.BarcodePrintListView.Value; // 2026-11-22
             if (!string.IsNullOrWhiteSpace(fromFile.MarketplaceWebUrl))
                 p.MarketplaceWebUrl = MarketplaceWebLink.MigrateSaved(fromFile.MarketplaceWebUrl); // 2026-11-06: адрес Маркетплейса на сайте; 2026-11-19: старый /crm/marketplace → /marketplace
             if (fromFile.AutoInstallPurchasedThemes is not null)

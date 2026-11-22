@@ -365,6 +365,8 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
             _quantity = value;
             OnPropertyChanged(nameof(Quantity));
             OnPropertyChanged(nameof(StockForeground));
+            OnPropertyChanged(nameof(IsNegativeStock));
+            OnPropertyChanged(nameof(StockWithUnitText));
             var low = IsLow(value, _minQuantity);
             if (_isLowStock != low)
             {
@@ -373,6 +375,10 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
             }
         }
     }
+
+    /// <summary>2026-11-22 (владелец: «в кассе минус товары — показывать по-особенному»): остаток ниже нуля (продажа без остатка, SellWithoutStock). Только для подписи и цвета —
+    /// расчёты доступного количества, резервы и фильтр «в наличии» читают Quantity как раньше.</summary>
+    public bool IsNegativeStock => _quantity < -0.0005;
 
     public bool IsLowStock
     {
@@ -414,7 +420,8 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
     /// «Ед. изм.» из таблицы склада убрана — она повторяла одно и то же слово во всех строках и
     /// занимала место, из-за которого заголовки соседних колонок обрезались.</summary>
     public string StockWithUnitText =>
-        Quantity.ToString("0.###") + (string.IsNullOrWhiteSpace(Unit) ? "" : " " + Unit);
+        // 2026-11-22: товар в минусе — «−3 шт» с настоящим знаком минус (U+2212); колонка «Остаток» склада красится классом minus (WarehouseWindow.axaml).
+        (IsNegativeStock ? "−" + (-Quantity).ToString("0.###") : Quantity.ToString("0.###")) + (string.IsNullOrWhiteSpace(Unit) ? "" : " " + Unit);
 
     /// <summary>Сколько денег лежит на полке этим товаром: закупочная цена × остаток. Показывается
     /// в таблице склада под ценой закупки — по образцу «Остатков товаров», где рядом стоят

@@ -11,6 +11,7 @@
 /// кыргызским, а сами пункты русскими.</summary>
 public static class AppChangelog
 {
+    // 2026-11-22: 1.17.94 (обычный выпуск для клиентов) — сверху всех Latest* 6 пунктов (печать этикетки, галочки в «Товарах», вид «Список/Плитки» в «Штрихкодах», приёмка «Убрать»/Ctrl+Z, остаток в минусе, «Смета»/«Прокат» и иконки Маркетплейса), сверху AndroidLatest* — первые пять.
     // 2026-11-22: 1.17.93 (обычный выпуск для клиентов) — сверху всех Latest* 6 пунктов (приёмка: категория и единица, штрихкод, срок годности и партия, загрузка накладной, штрихкоды и ценники, весы и настройки), сверху AndroidLatest* — первые пять.
     // 2026-11-21: 1.17.92 (обычный выпуск для клиентов) — сверху всех Latest* 8 пунктов (продажа без остатка, товар без цены, весовые этикетки и «Весы», приёмка и ценники, сенсорный экран, касса без «Сотрудников»/«ИИ», Rongta и надёжность, тарифы и Базар), сверху AndroidLatest* — первые пять.
     // 2026-11-21: 1.17.91 (тестовый канал) — сверху всех Latest* 8 пунктов (смета, массовая загрузка, дубли и варианты, фото товара, накладные, сферы/налоги/заказы, вид и экраны, тариф и вход), сверху AndroidLatest* — первые пять.
@@ -19,6 +20,12 @@ public static class AppChangelog
     // 2026-11-20: 1.17.88 (тестовый канал) — сверху всех Latest* 8 пунктов (табель, подписка, чеки старше 7 суток, склад, Автозапчасти, малые экраны, разделы владельца, исправления), сверху AndroidLatest* — 4 общих.
     public static readonly string[] Latest =
     [
+        "Печать этикетки: Пункт «Печать этикетки» в меню «⋯» у товара теперь открывает окно «Штрихкоды» с выбранным товаром, а не печатает молча.",
+        "Товары — выбор галочками: В «Товарах» вернулись галочки выбора: в строках, «выбрать все», счётчик и панель «Ценники и штрихкоды»; в плитках галочка в углу.",
+        "Штрихкоды — Список и Плитки: В «Штрихкодах» два вида — «Список» и «Плитки»: список быстро работает даже на 15 000 товаров, выбор и число копий общие для обоих видов.",
+        "Приёмка: Кнопка «Убрать» убирает последнюю строку; Ctrl+Z возвращает убранное сразу пачкой.",
+        "Остаток в минусе: Остаток ниже нуля показывается красным: «Минус −N шт.» (плитка, список, упаковка, карточка, «Склад → Товары»); исправлено «0 шт.» вместо минуса. После продажи остаток уходит ниже нуля только при включённой настройке «Продавать без остатка».",
+        "Смета, Прокат и Маркетплейс: «Смета» и «Прокат» больше не показываются по старому признаку, если сервер сказал «выключено». В Маркетплейсе у каждой из 20 функций своя иконка и описание: что делает, как включить, для кого.",
         "Категория и единица: У нового товара — выпадающий список существующих категорий; единица измерения выбирается списком поверх карточки, ничего не сдвигается.",
         "Штрихкод в приёмке: Кнопка «Сгенерировать штрихкод» больше не вызывает ошибку — ни в «Приёмке», ни в «Закупки → Приём товара».",
         "Срок годности и партия: С выбранным поставщиком срок годности и партия вводятся прямо в карточке; без поставщика показывается понятная подсказка; при потере введённых данных касса предупреждает.",
@@ -322,6 +329,12 @@ public static class AppChangelog
 
     public static readonly string[] LatestKy =
     [
+        "Этикетка басуу: Товардын «⋯» менюсундагы «Этикетка басуу» пункту эми үнсүз баспастан, тандалган товар менен «Штрихкоддор» терезесин ачат.",
+        "Товарлар — белги менен тандоо: «Товарларда» тандоо белгилери кайтты: сабактарда, «баарын тандоо», эсептегич жана «Баа этикеткалары жана штрихкоддор» панели; плиткаларда белги бурчта.",
+        "Штрихкоддор — Тизме жана Плиткалар: «Штрихкоддордо» эки көрүнүш бар — «Тизме» жана «Плиткалар»: тизме 15 000 товарда да тез иштейт, тандоо жана нускалардын саны эки көрүнүштө бирдей.",
+        "Кабыл алуу: «Алып салуу» баскычы акыркы сапты алып салат; Ctrl+Z алынганды бир жолу кайтарат.",
+        "Минустагы калдык: Нөлдөн төмөн калдык кызыл түстө көрсөтүлөт: «Минус −N даана» (плитка, тизме, таңгак, карточка, «Кампа → Товарлар»); минустун ордуна «0 даана» көрүнгөнү оңдолду. Сатуудан кийин калдык нөлдөн төмөн «Калдыксыз сатуу» жөндөөсү күйгүзүлгөндө гана түшөт.",
+        "Смета, Ижара жана Маркетплейс: «Смета» менен «Ижара» сервер «өчүрүлгөн» деп айтса, эски белги боюнча көрүнбөйт. Маркетплейсте 20 функциянын ар биринин өз иконкасы жана сүрөттөмөсү бар: эмне кылат, кантип күйгүзүлөт, кимге.",
         "Категория жана бирдик: Жаңы товарда бар категориялардын ачылуучу тизмеси; өлчөө бирдиги карточканын үстүндө тизме менен тандалат, эч нерсе жылбайт.",
         "Кабыл алуудагы штрихкод: «Штрихкод түзүү» баскычы мындан ары ката бербейт — «Кабыл алууда» да, «Сатып алуулар → Товар кабыл алуу» бөлүмүндө да.",
         "Жарактуулук мөөнөтү жана партия: Жеткирүүчү тандалганда жарактуулук мөөнөтү менен партия түздөн-түз карточкага киргизилет; жеткирүүчүсүз түшүнүктүү кеңеш көрсөтүлөт; киргизилген маалымат жоголсо, касса эскертет.",
@@ -623,6 +636,12 @@ public static class AppChangelog
 
     public static readonly string[] LatestEn =
     [
+        "Print label: The “Print label” item in a product’s “⋯” menu now opens “Barcodes” with that product selected instead of printing silently.",
+        "Products — tick-box selection: Tick boxes are back in “Products”: in rows, “select all”, a counter and the “Price tags and barcodes” panel; in tiles the tick box is in the corner.",
+        "Barcodes — List and Tiles: “Barcodes” has two views, “List” and “Tiles”: the list stays fast even with 15,000 products, and the selection and copy counts are shared by both views.",
+        "Receiving: The “Remove” button removes the last line; Ctrl+Z brings the removed lines back in one batch.",
+        "Negative stock: Stock below zero is shown in red as “Minus −N pcs” (tile, list, pack, card, “Warehouse → Products”); fixed “0 pcs” being shown instead of the minus. After a sale the stock goes below zero only when “Sell without stock” is on.",
+        "Estimate, Rental and Marketplace: “Estimate” and “Rental” are no longer shown by the old flag when the server says “off”. In the Marketplace each of the 20 features has its own icon and a description: what it does, how to turn it on, who it is for.",
         "Category and unit: A new product gets a drop-down list of existing categories; the unit is chosen from a list that opens over the card and moves nothing.",
         "Barcode in receiving: The “Generate barcode” button no longer raises an error — neither in “Receiving” nor in “Purchases → Receive goods”.",
         "Expiry date and batch: With a supplier selected, the expiry date and batch are entered right in the card; without a supplier a clear hint is shown; the app warns before entered data is lost.",
@@ -924,6 +943,12 @@ public static class AppChangelog
 
     public static readonly string[] LatestTr =
     [
+        "Etiket yazdır: Ürünün “⋯” menüsündeki “Etiket yazdır” öğesi artık sessizce yazdırmak yerine seçili ürünle “Barkodlar” penceresini açar.",
+        "Ürünler — onay kutusuyla seçim: “Ürünler”de seçim onay kutuları geri geldi: satırlarda, “tümünü seç”, sayaç ve “Fiyat etiketleri ve barkodlar” paneli; kutucuklarda onay kutusu köşede.",
+        "Barkodlar — Liste ve Kutucuklar: “Barkodlar”da iki görünüm var: “Liste” ve “Kutucuklar”; liste 15.000 üründe bile hızlı çalışır, seçim ve kopya sayısı iki görünümde ortaktır.",
+        "Mal kabul: “Kaldır” düğmesi son satırı kaldırır; Ctrl+Z kaldırılanları tek seferde geri getirir.",
+        "Eksi stok: Sıfırın altındaki stok kırmızı renkle “Eksi −N adet” olarak gösterilir (kutucuk, liste, paket, kart, “Depo → Ürünler”); eksi yerine “0 adet” görünmesi düzeltildi. Satıştan sonra stok yalnızca “Stoksuz sat” açıkken sıfırın altına düşer.",
+        "Teklif, Kiralama ve Pazar yeri: Sunucu “kapalı” dediğinde “Teklif” ve “Kiralama” artık eski işarete göre gösterilmez. Pazar yerinde 20 işlevin her birinin kendi simgesi ve açıklaması var: ne yapar, nasıl açılır, kimler için.",
         "Kategori ve birim: Yeni üründe mevcut kategorilerin açılır listesi var; birim, kartın üzerinde açılan bir listeden seçilir ve hiçbir şey kaymaz.",
         "Mal kabulde barkod: “Barkod oluştur” düğmesi artık hata vermiyor — ne “Mal kabul”de ne de “Satın almalar → Mal kabul”de.",
         "Son kullanma tarihi ve parti: Tedarikçi seçiliyse son kullanma tarihi ve parti doğrudan kartta girilir; tedarikçi yoksa anlaşılır bir ipucu gösterilir; girilen veriler kaybolacaksa kasa uyarır.",
@@ -1225,6 +1250,12 @@ public static class AppChangelog
 
     public static readonly string[] LatestUz =
     [
+        "Yorliq chop etish: Tovarning «⋯» menyusidagi «Yorliq chop etish» bandi endi indamay chop etmasdan, tanlangan tovar bilan «Shtrix-kodlar» oynasini ochadi.",
+        "Tovarlar — belgi bilan tanlash: «Tovarlar»da tanlash belgilari qaytdi: qatorlarda, «hammasini tanlash», hisoblagich va «Narx yorliqlari va shtrix-kodlar» paneli; plitkalarda belgi burchakda.",
+        "Shtrix-kodlar — Ro'yxat va Plitkalar: «Shtrix-kodlar»da ikki ko'rinish bor — «Ro'yxat» va «Plitkalar»: ro'yxat 15 000 tovarda ham tez ishlaydi, tanlash va nusxalar soni ikkala ko'rinishda umumiy.",
+        "Qabul qilish: «Olib tashlash» tugmasi oxirgi qatorni olib tashlaydi; Ctrl+Z olib tashlanganini birdaniga qaytaradi.",
+        "Minusdagi qoldiq: Noldan past qoldiq qizil rangda ko'rsatiladi: «Minus −N dona» (plitka, ro'yxat, qadoq, karta, «Ombor → Tovarlar»); minus o'rniga «0 dona» ko'rinishi tuzatildi. Sotuvdan keyin qoldiq faqat «Qoldiqsiz sotish» yoqilgan bo'lsa noldan pastga tushadi.",
+        "Smeta, Ijara va Marketplace: Server «o'chirilgan» desa, «Smeta» va «Ijara» eski belgi bo'yicha ko'rinmaydi. Marketplace'da 20 funksiyaning har birining o'z ikonkasi va tavsifi bor: nima qiladi, qanday yoqiladi, kim uchun.",
         "Toifa va birlik: Yangi tovarda mavjud toifalarning ochiladigan ro'yxati bor; birlik karta ustida ochiladigan ro'yxatdan tanlanadi va hech narsa siljimaydi.",
         "Qabul qilishda shtrix-kod: «Shtrix-kod yaratish» tugmasi endi xato bermaydi — «Qabul qilish»da ham, «Xaridlar → Tovar qabul qilish»da ham.",
         "Yaroqlilik muddati va partiya: Yetkazib beruvchi tanlansa, yaroqlilik muddati va partiya to'g'ridan-to'g'ri kartada kiritiladi; yetkazib beruvchisiz tushunarli maslahat ko'rsatiladi; kiritilgan ma'lumot yo'qolsa, kassa ogohlantiradi.",
@@ -1587,6 +1618,11 @@ public static class AppChangelog
     // 2026-10-05: Android 1.17.52. Без эмодзи — на Android их шрифт не рисует (снимок владельца: «Кнопка  в поиске»).
     public static readonly string[] AndroidLatest =
     [
+        "Печать этикетки: Пункт «Печать этикетки» в меню «⋯» у товара теперь открывает окно «Штрихкоды» с выбранным товаром, а не печатает молча.",
+        "Товары — выбор галочками: В «Товарах» вернулись галочки выбора: в строках, «выбрать все», счётчик и панель «Ценники и штрихкоды»; в плитках галочка в углу.",
+        "Штрихкоды — Список и Плитки: В «Штрихкодах» два вида — «Список» и «Плитки»: список быстро работает даже на 15 000 товаров, выбор и число копий общие для обоих видов.",
+        "Приёмка: Кнопка «Убрать» убирает последнюю строку; Ctrl+Z возвращает убранное сразу пачкой.",
+        "Остаток в минусе: Остаток ниже нуля показывается красным: «Минус −N шт.» (плитка, список, упаковка, карточка, «Склад → Товары»); исправлено «0 шт.» вместо минуса. После продажи остаток уходит ниже нуля только при включённой настройке «Продавать без остатка».",
         "Категория и единица: У нового товара — выпадающий список существующих категорий; единица измерения выбирается списком поверх карточки, ничего не сдвигается.",
         "Штрихкод в приёмке: Кнопка «Сгенерировать штрихкод» больше не вызывает ошибку — ни в «Приёмке», ни в «Закупки → Приём товара».",
         "Срок годности и партия: С выбранным поставщиком срок годности и партия вводятся прямо в карточке; без поставщика показывается понятная подсказка; при потере введённых данных касса предупреждает.",
@@ -1779,6 +1815,11 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestKy =
     [
+        "Этикетка басуу: Товардын «⋯» менюсундагы «Этикетка басуу» пункту эми үнсүз баспастан, тандалган товар менен «Штрихкоддор» терезесин ачат.",
+        "Товарлар — белги менен тандоо: «Товарларда» тандоо белгилери кайтты: сабактарда, «баарын тандоо», эсептегич жана «Баа этикеткалары жана штрихкоддор» панели; плиткаларда белги бурчта.",
+        "Штрихкоддор — Тизме жана Плиткалар: «Штрихкоддордо» эки көрүнүш бар — «Тизме» жана «Плиткалар»: тизме 15 000 товарда да тез иштейт, тандоо жана нускалардын саны эки көрүнүштө бирдей.",
+        "Кабыл алуу: «Алып салуу» баскычы акыркы сапты алып салат; Ctrl+Z алынганды бир жолу кайтарат.",
+        "Минустагы калдык: Нөлдөн төмөн калдык кызыл түстө көрсөтүлөт: «Минус −N даана» (плитка, тизме, таңгак, карточка, «Кампа → Товарлар»); минустун ордуна «0 даана» көрүнгөнү оңдолду. Сатуудан кийин калдык нөлдөн төмөн «Калдыксыз сатуу» жөндөөсү күйгүзүлгөндө гана түшөт.",
         "Категория жана бирдик: Жаңы товарда бар категориялардын ачылуучу тизмеси; өлчөө бирдиги карточканын үстүндө тизме менен тандалат, эч нерсе жылбайт.",
         "Кабыл алуудагы штрихкод: «Штрихкод түзүү» баскычы мындан ары ката бербейт — «Кабыл алууда» да, «Сатып алуулар → Товар кабыл алуу» бөлүмүндө да.",
         "Жарактуулук мөөнөтү жана партия: Жеткирүүчү тандалганда жарактуулук мөөнөтү менен партия түздөн-түз карточкага киргизилет; жеткирүүчүсүз түшүнүктүү кеңеш көрсөтүлөт; киргизилген маалымат жоголсо, касса эскертет.",
@@ -1969,6 +2010,11 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestEn =
     [
+        "Print label: The “Print label” item in a product’s “⋯” menu now opens “Barcodes” with that product selected instead of printing silently.",
+        "Products — tick-box selection: Tick boxes are back in “Products”: in rows, “select all”, a counter and the “Price tags and barcodes” panel; in tiles the tick box is in the corner.",
+        "Barcodes — List and Tiles: “Barcodes” has two views, “List” and “Tiles”: the list stays fast even with 15,000 products, and the selection and copy counts are shared by both views.",
+        "Receiving: The “Remove” button removes the last line; Ctrl+Z brings the removed lines back in one batch.",
+        "Negative stock: Stock below zero is shown in red as “Minus −N pcs” (tile, list, pack, card, “Warehouse → Products”); fixed “0 pcs” being shown instead of the minus. After a sale the stock goes below zero only when “Sell without stock” is on.",
         "Category and unit: A new product gets a drop-down list of existing categories; the unit is chosen from a list that opens over the card and moves nothing.",
         "Barcode in receiving: The “Generate barcode” button no longer raises an error — neither in “Receiving” nor in “Purchases → Receive goods”.",
         "Expiry date and batch: With a supplier selected, the expiry date and batch are entered right in the card; without a supplier a clear hint is shown; the app warns before entered data is lost.",
@@ -2159,6 +2205,11 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestTr =
     [
+        "Etiket yazdır: Ürünün “⋯” menüsündeki “Etiket yazdır” öğesi artık sessizce yazdırmak yerine seçili ürünle “Barkodlar” penceresini açar.",
+        "Ürünler — onay kutusuyla seçim: “Ürünler”de seçim onay kutuları geri geldi: satırlarda, “tümünü seç”, sayaç ve “Fiyat etiketleri ve barkodlar” paneli; kutucuklarda onay kutusu köşede.",
+        "Barkodlar — Liste ve Kutucuklar: “Barkodlar”da iki görünüm var: “Liste” ve “Kutucuklar”; liste 15.000 üründe bile hızlı çalışır, seçim ve kopya sayısı iki görünümde ortaktır.",
+        "Mal kabul: “Kaldır” düğmesi son satırı kaldırır; Ctrl+Z kaldırılanları tek seferde geri getirir.",
+        "Eksi stok: Sıfırın altındaki stok kırmızı renkle “Eksi −N adet” olarak gösterilir (kutucuk, liste, paket, kart, “Depo → Ürünler”); eksi yerine “0 adet” görünmesi düzeltildi. Satıştan sonra stok yalnızca “Stoksuz sat” açıkken sıfırın altına düşer.",
         "Kategori ve birim: Yeni üründe mevcut kategorilerin açılır listesi var; birim, kartın üzerinde açılan bir listeden seçilir ve hiçbir şey kaymaz.",
         "Mal kabulde barkod: “Barkod oluştur” düğmesi artık hata vermiyor — ne “Mal kabul”de ne de “Satın almalar → Mal kabul”de.",
         "Son kullanma tarihi ve parti: Tedarikçi seçiliyse son kullanma tarihi ve parti doğrudan kartta girilir; tedarikçi yoksa anlaşılır bir ipucu gösterilir; girilen veriler kaybolacaksa kasa uyarır.",
@@ -2349,6 +2400,11 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestUz =
     [
+        "Yorliq chop etish: Tovarning «⋯» menyusidagi «Yorliq chop etish» bandi endi indamay chop etmasdan, tanlangan tovar bilan «Shtrix-kodlar» oynasini ochadi.",
+        "Tovarlar — belgi bilan tanlash: «Tovarlar»da tanlash belgilari qaytdi: qatorlarda, «hammasini tanlash», hisoblagich va «Narx yorliqlari va shtrix-kodlar» paneli; plitkalarda belgi burchakda.",
+        "Shtrix-kodlar — Ro'yxat va Plitkalar: «Shtrix-kodlar»da ikki ko'rinish bor — «Ro'yxat» va «Plitkalar»: ro'yxat 15 000 tovarda ham tez ishlaydi, tanlash va nusxalar soni ikkala ko'rinishda umumiy.",
+        "Qabul qilish: «Olib tashlash» tugmasi oxirgi qatorni olib tashlaydi; Ctrl+Z olib tashlanganini birdaniga qaytaradi.",
+        "Minusdagi qoldiq: Noldan past qoldiq qizil rangda ko'rsatiladi: «Minus −N dona» (plitka, ro'yxat, qadoq, karta, «Ombor → Tovarlar»); minus o'rniga «0 dona» ko'rinishi tuzatildi. Sotuvdan keyin qoldiq faqat «Qoldiqsiz sotish» yoqilgan bo'lsa noldan pastga tushadi.",
         "Toifa va birlik: Yangi tovarda mavjud toifalarning ochiladigan ro'yxati bor; birlik karta ustida ochiladigan ro'yxatdan tanlanadi va hech narsa siljimaydi.",
         "Qabul qilishda shtrix-kod: «Shtrix-kod yaratish» tugmasi endi xato bermaydi — «Qabul qilish»da ham, «Xaridlar → Tovar qabul qilish»da ham.",
         "Yaroqlilik muddati va partiya: Yetkazib beruvchi tanlansa, yaroqlilik muddati va partiya to'g'ridan-to'g'ri kartada kiritiladi; yetkazib beruvchisiz tushunarli maslahat ko'rsatiladi; kiritilgan ma'lumot yo'qolsa, kassa ogohlantiradi.",

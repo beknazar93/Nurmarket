@@ -192,14 +192,15 @@ public sealed class BarcodesTabUiTests : IDisposable
                 || t.Contains("Label", StringComparison.OrdinalIgnoreCase) || t.Contains("редактор", StringComparison.OrdinalIgnoreCase)).Should().Be(0, "других вкладок редакторов нет");
             window.LabelsTab.Should().NotBeNull();
             window.FindControl<Control>("LabelEditorTabItem").Should().BeNull("заглушка «Редактор этикетки» удалена");
-            // верхняя панель, панель массовых действий, приёмка: кнопок печати нет
-            foreach (var name in new[] { "BulkPriceTagButton", "BulkBar", "BulkBarClearButton", "ReceivingLabelsButton", "LabelEditorOpenButton" })
+            // верхняя панель, приёмка: кнопок печати нет; 2026-11-22 (владелец: «чек бокс выделение верни»): панель массовых действий и галочки в строках — есть
+            foreach (var name in new[] { "BulkPriceTagButton", "ReceivingLabelsButton", "LabelEditorOpenButton" })
                 window.FindControl<Control>(name).Should().BeNull($"«{name}» убрана — печать только на вкладке «Ценники и штрихкоды»");
-            // в строке товара нет галочки «В печать»
+            window.FindControl<Control>("BulkBar").Should().NotBeNull("панель массовых действий возвращена");
+            window.FindControl<Control>("BulkBar")!.IsVisible.Should().BeFalse("пока ничего не отмечено, панели не видно");
             var grid = UiDrive.Find<DataGrid>(window, "ProductsGrid");
             var rows = grid.GetVisualDescendants().OfType<DataGridRow>().Where(r => r.DataContext is CatalogProductTileVm && r.Bounds.Height > 0).ToList();
             rows.Count.Should().BeGreaterThanOrEqualTo(1);
-            rows.SelectMany(r => r.GetVisualDescendants().OfType<CheckBox>()).Should().BeEmpty("галочек выбора для печати в таблице товаров нет");
+            rows.SelectMany(r => r.GetVisualDescendants().OfType<CheckBox>()).Should().NotBeEmpty("галочка «В печать» в строке товара вернулась");
             // меню «⋯»: 2026-11-22 (владелец: «верни штрихкод сюда обратно») — «Печать этикетки» есть, и стоит перед «Без заводского штрихкода»; «Этикетка…» и «Ценник» по-прежнему нет
             var product = (CatalogProductTileVm)rows[0].DataContext!;
             var items = window.BuildRowMenu(product).Items.OfType<MenuItem>().Select(i => Avalonia.Automation.AutomationProperties.GetName(i) ?? "").ToList();
@@ -213,7 +214,7 @@ public sealed class BarcodesTabUiTests : IDisposable
             var noFactoryAt = items.FindIndex(x => x.Contains(Tr.T("заводского", "Заводдук", "factory", "Fabrika", "Zavod"), StringComparison.OrdinalIgnoreCase));
             noFactoryAt.Should().BeGreaterThan(labelAt, "порядок: … Резервы, Печать этикетки, Без заводского штрихкода, Загрузить фото, Удалить");
             // в строке остались только «Изменить» и «⋯» (значка этикетки нет)
-            rows[0].GetVisualDescendants().OfType<Button>().Count(b => b.IsEffectivelyVisible && b.Bounds.Width > 0).Should().BeLessThanOrEqualTo(3, "кнопки строки: остаток, «Изменить», «⋯»");
+            rows[0].GetVisualDescendants().OfType<Button>().Count(b => b is not CheckBox && b.IsEffectivelyVisible && b.Bounds.Width > 0).Should().BeLessThanOrEqualTo(3, "кнопки строки: остаток, «Изменить», «⋯» (галочка «В печать» — не кнопка)");
         }
         finally
         {

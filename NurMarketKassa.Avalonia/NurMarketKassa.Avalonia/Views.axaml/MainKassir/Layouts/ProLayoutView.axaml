@@ -322,7 +322,8 @@
                                                                HorizontalAlignment="Right" VerticalAlignment="Center"
                                                                Foreground="{DynamicResource BrushCatalogStock}"
                                                                Classes.stock-low="{Binding IsLowStock}"
-                                                               Classes.stock-out="{Binding Quantity, Converter={x:Static mainViews:WarehouseWindow.IsOutOfStock}}"/>
+                                                               Classes.stock-out="{Binding Quantity, Converter={x:Static mainViews:WarehouseWindow.IsOutOfStock}}"
+                                                               Classes.stock-minus="{Binding IsNegativeStock}"/>
                                                     <TextBlock Grid.Column="3" Classes="lx-money" FontSize="15" FontWeight="Bold"
                                                                Text="{Binding PriceLine, Converter={StaticResource PriceAmountConverter}}"/>
                                                     <Border Grid.Column="4" Width="30" Height="30" CornerRadius="15" HorizontalAlignment="Right"

@@ -136,6 +136,7 @@ public sealed partial class UserPreferences
                 CatalogViewMode = CatalogViewMode,
                 ShowCatalogPhotos = ShowCatalogPhotos,
                 CatalogNoBarcodeFirst = CatalogNoBarcodeFirst, // 2026-11-21
+                BarcodePrintListView = BarcodePrintListView, // 2026-11-22
                 MarketplaceWebUrl = MarketplaceWebUrl, // 2026-11-06
                 AutoInstallPurchasedThemes = AutoInstallPurchasedThemes,
                 Language = Language,
@@ -518,6 +519,7 @@ public sealed partial class UserPreferences
         public CatalogViewMode? CatalogViewMode { get; set; }
         public bool? ShowCatalogPhotos { get; set; }
         public bool? CatalogNoBarcodeFirst { get; set; } // 2026-11-21
+        public bool? BarcodePrintListView { get; set; } // 2026-11-22
         public string? MarketplaceWebUrl { get; set; } // 2026-11-06
         public bool? AutoInstallPurchasedThemes { get; set; }
         public AppLanguage? Language { get; set; }

@@ -193,6 +193,8 @@ public sealed partial class BarcodePrintView : UserControl
     /// подписи фильтров, «Сканер…» и ширина списка категорий короче — поиск шире 250 px. В окне «Печать штрихкодов и ценников» (1232 px) вид прежний.</summary>
     private Grid _toolbar = null!;
     private Control _filterSegmentCtl = null!;
+    private Control _viewToggle = null!;
+    private Grid? _bottomBar;
     private bool _tightToolbar;
 
     /// <summary>2026-11-19: вкладка уже ~900 px (планшет/старый монитор 800×800, 1024×768) — поиск и «Сканер» в первой строке, фильтры и категория — во второй (в одну строку поиск сжимался до 64 px или ряд выходил за край).</summary>
@@ -203,27 +205,56 @@ public sealed partial class BarcodePrintView : UserControl
         _tightToolbar = tight;
         if (tight)
         {
-            _toolbar.ColumnDefinitions = new ColumnDefinitions("*,Auto");
+            _toolbar.ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto");
             _toolbar.RowDefinitions = new RowDefinitions("Auto,Auto");
             Grid.SetColumn(_scanCheck, 1);
+            if (_viewToggle.Parent == _toolbar)
+                Grid.SetColumn(_viewToggle, 2); // 2026-11-22: «Список / Плитки» — рядом со «Сканером» в первой строке
             Grid.SetRow(_filterSegmentCtl, 1);
             Grid.SetColumn(_filterSegmentCtl, 0);
             _filterSegmentCtl.Margin = new Thickness(0, 8, 0, 0);
             Grid.SetRow(_categoryCombo, 1);
             Grid.SetColumn(_categoryCombo, 1);
+            Grid.SetColumnSpan(_categoryCombo, 2);
+            _categoryCombo.HorizontalAlignment = HorizontalAlignment.Left;
             _categoryCombo.Margin = new Thickness(10, 8, 0, 0);
         }
         else
         {
             _toolbar.RowDefinitions = new RowDefinitions("Auto");
-            _toolbar.ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto");
+            _toolbar.ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto,Auto");
             Grid.SetColumn(_scanCheck, 3);
+            if (_viewToggle.Parent == _toolbar)
+                Grid.SetColumn(_viewToggle, 4);
             Grid.SetRow(_filterSegmentCtl, 0);
             Grid.SetColumn(_filterSegmentCtl, 1);
             _filterSegmentCtl.Margin = new Thickness(10, 0, 0, 0);
             Grid.SetRow(_categoryCombo, 0);
             Grid.SetColumn(_categoryCombo, 2);
+            Grid.SetColumnSpan(_categoryCombo, 1);
+            _categoryCombo.HorizontalAlignment = HorizontalAlignment.Stretch;
             _categoryCombo.Margin = new Thickness(10, 0, 0, 0);
+        }
+    }
+
+    /// <summary>2026-11-22: переключатель «Список / Плитки» — в панели инструментов (bottom=false) или в нижней строке вкладки (bottom=true, низкое окно).</summary>
+    private void PlaceViewToggle(bool bottom)
+    {
+        if (_bottomBar is null || _toolbar is null || (_viewToggle.Parent == _bottomBar) == bottom)
+            return;
+        (_viewToggle.Parent as Panel)?.Children.Remove(_viewToggle);
+        Grid.SetRow(_viewToggle, 0);
+        if (bottom)
+        {
+            _viewToggle.Margin = new Thickness(12, 0, 0, 0);
+            Grid.SetColumn(_viewToggle, 1);
+            _bottomBar.Children.Add(_viewToggle);
+        }
+        else
+        {
+            _viewToggle.Margin = new Thickness(10, 0, 0, 0);
+            Grid.SetColumn(_viewToggle, _tightToolbar ? 2 : 4);
+            _toolbar.Children.Add(_viewToggle);
         }
     }
 
@@ -253,10 +284,12 @@ public sealed partial class BarcodePrintView : UserControl
 
     private static string ShortFilterText(BarcodeFilter f) => f switch
     {
-        BarcodeFilter.WithBarcode => T("С кодом", "Коду менен", "Barcode", "Barkodlu", "Kodli"),
-        BarcodeFilter.WithoutBarcode => T("Без кода", "Коду жок", "No code", "Barkodsuz", "Kodsiz"),
+        BarcodeFilter.WithBarcode => T("С кодом", "Кодлуу", "Barcode", "Barkodlu", "Kodli"),
+        BarcodeFilter.WithoutBarcode => T("Без кода", "Кодсуз", "No code", "Barkodsuz", "Kodsiz"),
         BarcodeFilter.WithProblems => T("С замеч.", "Эскертүү", "Warnings", "Uyarılı", "Eslatma"),
         BarcodeFilter.Scanned => T("Сканы", "Сканы", "Scanned", "Taranan", "Skanlar"), // 2026-11-19
+        // 2026-11-23: короткие кыргызские подписи («Кодлуу», «Кодсуз», «Баары») — в панели 1024×600 поиск не сжимается до 120 px (был «Коду менен» / «Бардыгы»)
+        BarcodeFilter.All => T("Все", "Баары", "All", "Tümü", "Hammasi"),
         _ => FullFilterText(f),
     };
 
@@ -370,9 +403,15 @@ public sealed partial class BarcodePrintView : UserControl
             _settings.ScanToQueue = _scanCheck.IsChecked == true;
             BarcodePrintSettingsStore.Save(_settings);
         };
-        var toolbar = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto"), Margin = new Thickness(0, 0, 0, 8) };
+        var toolbar = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto,Auto"), Margin = new Thickness(0, 0, 0, 8) };
         Grid.SetColumn(_scanCheck, 3);
         toolbar.Children.Add(_scanCheck);
+        // 2026-11-22: переключатель «Список / Плитки» — справа в первой строке панели (BarcodePrintWindow.List.cs)
+        _viewToggle = BuildViewToggle();
+        _viewToggle.Margin = new Thickness(10, 0, 0, 0);
+        _viewToggle.VerticalAlignment = VerticalAlignment.Center;
+        Grid.SetColumn(_viewToggle, 4);
+        toolbar.Children.Add(_viewToggle);
         toolbar.Children.Add(_search);
         filterSegment.Margin = new Thickness(10, 0, 0, 0);
         Grid.SetColumn(filterSegment, 1);
@@ -657,10 +696,11 @@ public sealed partial class BarcodePrintView : UserControl
         if (embedded)
         {
             // 2026-11-11: вкладка/раздел — без ModalShell: внизу строка «страницы и состояние слева, „Виды ценников…“ справа».
-            var bottom = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 8, 0, 0) };
+            var bottom = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto"), Margin = new Thickness(0, 8, 0, 0) }; // 2026-11-22: колонка 1 — «Список / Плитки» на низком окне (ApplyListModes)
+            _bottomBar = bottom;
             bottom.Children.Add(hint);
             legacy.Margin = new Thickness(12, 0, 0, 0);
-            Grid.SetColumn(legacy, 1);
+            Grid.SetColumn(legacy, 2);
             bottom.Children.Add(legacy);
             Grid.SetRow(bottom, 4);
             root.RowDefinitions = new RowDefinitions("Auto,Auto,Auto,*,Auto");
@@ -790,8 +830,15 @@ public sealed partial class BarcodePrintView : UserControl
     /// <summary>Порог узкой панели инструментов и компактных подписей по ширине списка товаров (без боковой панели настроек ценника).</summary>
     private void ApplyListModes(double width)
     {
-        ApplyTightToolbar(_tightToolbar ? width < 960 : width < 900);
         var listWidth = Math.Max(0, width - (_sideMode ? SidePanelWidth + 12 : 0));
+        // 2026-11-22: в панели появился переключатель «Список / Плитки» (+190 px) — в одну строку всё помещается только от 1500 px ширины списка (полные подписи фильтров), ниже — две строки (поиск · сканер · вид / фильтры · категория).
+        // На низком окне (1024×600) вторая строка отняла бы у списка высоту — там прежний порог 900 px, а переключатель сжимается до значков «☰ ▦».
+        // На низком окне порог без гистерезиса 900/960: первый вызов приходит при ещё высоком размере окна (768) и включал «две строки», а 960 потом не давал их выключить при ширине 944 — список терял 38 px.
+        var lowWindow = (TopLevel.GetTopLevel(this)?.ClientSize.Height ?? 0) is > 0 and < 700;
+        ApplyTightToolbar(lowWindow ? width < 900 : (_tightToolbar ? listWidth < 1560 : listWidth < 1500));
+        // 2026-11-22: на низком окне вкладки переключатель — в нижней строке (рядом с «Виды ценников…», её высота уже занята): в панели инструментов на 1024 px он сжимал поиск до 64–104 px.
+        PlaceViewToggle(lowWindow && _bottomBar != null);
+        SetViewToggleCompact(lowWindow);
         // 2026-11-20: порог без гистерезиса 1100/1180 — на ширине внутри окна режим зависел от пути (после «масштаб 90→100→90 %» подписи были другими, чем при открытии); режим — функция только ширины
         // 2026-11-20: во вкладке без боковой панели короткие подписи и ниже SideOnWidth — иначе при расширении режим мигал бы Т→Ф (1100) → Т (панель включилась, список 888) → Ф (список 1100): 3 раза за проход, а на 1100–1240 поиск ужимался до ~90 px
         ApplyToolbarWidth(listWidth < (_embedded && !_sideMode ? SideOnNow : 1100)); // узкая вкладка «Штрихкоды» (1024) — короткие подписи, поиску остаётся место

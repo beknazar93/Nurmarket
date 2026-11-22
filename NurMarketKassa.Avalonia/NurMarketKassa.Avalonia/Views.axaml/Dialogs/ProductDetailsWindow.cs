@@ -227,7 +227,14 @@ public sealed class ProductDetailsWindow : Window
     private Control StockPill(CatalogProductTileVm product)
     {
         string text, bg, fg;
-        if (product.Quantity <= 0)
+        if (product.IsNegativeStock)
+        {
+            // 2026-11-22: товар в минусе (продажа без остатка) — «Минус −3 шт», красная плашка.
+            text = StockLabel.MinusWord + " " + product.StockWithUnitText;
+            bg = "BrushDangerSoft";
+            fg = "BrushDanger";
+        }
+        else if (product.Quantity <= 0)
         {
             text = Tr.T("Нет в наличии", "Кампада жок", "Out of stock", "Stokta yok", "Mavjud emas");
             bg = "BrushPanelSoft";

@@ -86,8 +86,8 @@ public partial class BarcodePrintView
 
     public void SelectPage()
     {
-        var start = _page * PageSize;
-        var end = Math.Min(start + PageSize, _found.Count);
+        var start = _listMode ? 0 : _page * PageSize; // 2026-11-22: в списке «страница» — весь показанный список
+        var end = _listMode ? _found.Count : Math.Min(start + PageSize, _found.Count);
         for (var i = start; i < end; i++)
             if (IsPrintable(_found[i]))
                 SetSelected(GetSel(_found[i].Id), true);

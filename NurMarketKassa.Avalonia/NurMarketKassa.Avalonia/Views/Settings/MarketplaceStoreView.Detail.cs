@@ -600,7 +600,10 @@ public sealed partial class MarketplaceStoreView
         }
 
         if (!string.IsNullOrWhiteSpace(item.LongDescription))
-            left.Children.Add(DetailSection(Tr.T("Описание", "Сүрөттөмө", "Description", "Açıklama", "Tavsif"), BodyText(item.LongDescription)));
+            // 2026-11-22: у общих карточек модулей этот раздел — «Что делает» (MarketplaceModuleContent), у остальных прежнее «Описание».
+            left.Children.Add(DetailSection(item.Id.StartsWith("module:", StringComparison.Ordinal)
+                ? Tr.T("Что делает", "Эмне кылат", "What it does", "Ne yapar", "Nima qiladi")
+                : Tr.T("Описание", "Сүрөттөмө", "Description", "Açıklama", "Tavsif"), BodyText(item.LongDescription)));
 
         // Экран покупателя со слайдами: живой предпросмотр отдельным блоком под лентой.
         if (item.Id == "customerdisplay" && item.HeroVisual != null && item.Slides.Any(s => MarketplaceMedia.ResolveSlide(item, s) != null))

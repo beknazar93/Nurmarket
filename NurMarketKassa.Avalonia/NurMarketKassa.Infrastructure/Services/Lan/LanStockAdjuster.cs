@@ -34,7 +34,7 @@ public static class LanStockAdjuster
                 if (pending.Count > 0)
                     foreach (var tile in snapshot)
                         if (tile.Id != null && pending.TryGetValue(tile.Id, out var qty) && qty > 0)
-                            StockSyncService.ApplyQuantityToTile(tile, Math.Max(0, tile.Quantity - qty), tile.MustWeigh);
+                            StockSyncService.ApplyQuantityToTile(tile, StockSyncService.AfterSale(tile.Quantity, qty, tile.IsService), tile.MustWeigh); // 2026-11-22: продажа соседней кассы в минус — остаток ниже нуля
 
                 LanJournal.WriteStockAdjust(pending);
                 LanJournal.WriteMeta(SnapshotMetaKey, startedUtc.ToString("o", CultureInfo.InvariantCulture));
@@ -72,7 +72,7 @@ public static class LanStockAdjuster
                     var tile = LanSalePublisher.FindTile(id);
                     if (tile != null)
                     {
-                        var next = Math.Max(0, tile.Quantity - delta);
+                        var next = StockSyncService.AfterSale(tile.Quantity, delta, tile.IsService); // 2026-11-22
                         LocalProductRepository.Instance.UpdateStock(id, next, tile.MustWeigh);
                         StockSyncService.ApplyQuantityToTileOnUi(tile, next, tile.MustWeigh);
                     }

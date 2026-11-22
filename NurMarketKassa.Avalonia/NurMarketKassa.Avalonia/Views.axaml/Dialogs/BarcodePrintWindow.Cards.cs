@@ -295,14 +295,15 @@ public partial class BarcodePrintView
 
     private void RenderPage()
     {
+        var listView = PrepareView(); // 2026-11-22: вид «Список» (BarcodePrintWindow.List.cs) — весь найденный список строками, без страниц и карточек
         _cardsPanel.Children.Clear();
         _cards.Clear();
         _pageSync.Clear();
         _copiesSync.Clear();
         _warnSync.Clear();
         _codeSync.Clear();
-        var start = _page * PageSize;
-        var end = Math.Min(start + PageSize, _found.Count);
+        var start = listView ? 0 : _page * PageSize;
+        var end = listView ? 0 : Math.Min(start + PageSize, _found.Count);
         // 2026-10-31 (стресс-тест 1.17.68): 48 карточек разом — окно открывалось 0,6–0,8 с. Первые 12 строим сразу, остальные — пакетами по 12 между кадрами.
         var gen = ++_renderGen;
         var firstEnd = Math.Min(start + CardBatch, end);
@@ -316,6 +317,8 @@ public partial class BarcodePrintView
             Dispatcher.UIThread.Post(() => AddCardBatch(gen, firstEnd, end), DispatcherPriority.Background);
         LayoutCards(_scroll.Bounds.Width > 0 ? _scroll.Bounds.Width : FallbackWidth);
         _scroll.Offset = default;
+        if (listView)
+            RenderListRows();
 
         var total = CatalogCacheService.Products.Count;
         _emptyText.IsVisible = _found.Count == 0;
@@ -331,6 +334,8 @@ public partial class BarcodePrintView
             $"Page {_page + 1} of {PageCount} · {from}–{end} of {_found.Count:N0}", $"Sayfa {_page + 1}/{PageCount} · {from}–{end} / {_found.Count:N0}".Replace(',', ' '), $"{_page + 1}/{PageCount}-sahifa · {from}–{end} / {_found.Count:N0}".Replace(',', ' '));
         _prevButton.IsEnabled = _page > 0;
         _nextButton.IsEnabled = _page < PageCount - 1;
+        if (listView)
+            ShowListPager();
         ApplyTexts();
     }
 

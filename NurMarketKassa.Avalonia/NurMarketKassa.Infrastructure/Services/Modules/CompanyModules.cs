@@ -224,7 +224,7 @@ public static class CompanyModules
     /// <summary>Модуль включён в компании. Единственное место решения для кассы и программы владельца.
     /// <paramref name="profileDefault"/> — включён ли он профилем сферы кассы (прежнее поведение); <paramref name="explicitLocal"/> — признак, включённый в Маркетплейсе раньше (EstimateEnabled…).
     /// Ответа сервера нет или он такого модуля не знает — <c>profileDefault || explicitLocal</c>. Ответ есть: «убрал владелец» (removed) — выключен всегда; профиль сервера совпадает с профилем кассы —
-    /// решает сервер (<c>enabled || explicitLocal</c>); не совпадает (например, сервер вывел профиль сам) — прежний профиль кассы, а от сервера берётся только то, что владелец добавил (added).</summary>
+    /// решает один сервер (<c>enabled</c>; 2026-11-22: местный признак <paramref name="explicitLocal"/> при ответе сервера по модулю не учитывается); не совпадает (например, сервер вывел профиль сам) — прежний профиль кассы, а от сервера берётся только то, что владелец добавил (added / trial).</summary>
     public static bool IsOn(string id, bool profileDefault, bool explicitLocal = false)
     {
         var entry = Current();
@@ -241,9 +241,11 @@ public static class CompanyModules
             return snap.IsEnabled(id) || profileDefault || explicitLocal; // сервер модуль в items не прислал — только modules[] или прежнее
         if (item.Source == "removed")
             return false;
+        // 2026-11-22: сервер ответил про модуль (есть запись в items) — он единственный источник; старый местный признак (EstimateEnabled / RentalEnabled в user-settings.json)
+        // больше не удерживает функцию включённой, когда сервер говорит «выкл» (у не-Строймага оставались «Смета» и «Прокат»). Местный признак — только когда ответа по модулю нет (выше и в IsOn).
         if (profileInSync)
-            return item.Enabled || snap.IsEnabled(id) || explicitLocal;
-        return item.Source is "added" or "trial" || profileDefault || explicitLocal; // 2026-11-21: проба (trial) — как добавленный владельцем
+            return item.Enabled || snap.IsEnabled(id);
+        return item.Source is "added" or "trial" || profileDefault; // 2026-11-21: проба (trial) — как добавленный владельцем
     }
 
     /// <summary>Владелец убрал модуль (source = removed): функция выключена, даже если у кассы остался старый признак или есть данные.</summary>

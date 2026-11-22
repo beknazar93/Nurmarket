@@ -23,6 +23,11 @@
             <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
+        <!-- 2026-11-22: товар в минусе («Минус −3 шт.», продажа без остатка) — жирнее обычного «0 шт.» (stock-out), стоит после него и перебивает. -->
+        <Style Selector="TextBlock.stock-minus">
+            <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
+            <Setter Property="FontWeight" Value="ExtraBold"/>
+        </Style>
         <Style Selector="Border.badge-weighted">
             <Setter Property="Background" Value="{DynamicResource BrushBadgeWeightedBg}"/>
         </Style>
@@ -261,9 +266,10 @@
             <Setter Property="IsVisible" Value="False"/>
         </Style>
         <!-- Колонка и ширина остатка — в стиле, а не на элементе: локальное значение перебило бы стиль «узкого» вида. -->
+        <!-- 2026-11-22: 96 → 112 px — в колонку должно влезать «Минус −12 шт.» (товар в минусе), не обрезаясь. -->
         <Style Selector="TextBlock.tbl-stock">
             <Setter Property="Grid.Column" Value="3"/>
-            <Setter Property="Width" Value="96"/>
+            <Setter Property="Width" Value="112"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="Margin" Value="4,0,12,0"/>
         </Style>
@@ -834,6 +840,8 @@
                                                                    FontSize="{DynamicResource CatalogTileStockSize}"
                                                                    Classes.stock-low="{Binding IsLowStock}"
                                                                    Classes.stock-out="{Binding Quantity, Converter={x:Static mainViews:WarehouseWindow.IsOutOfStock}}"
+                                                                   Classes.stock-minus="{Binding IsNegativeStock}"
+                                                                   TextTrimming="CharacterEllipsis"
                                                                    Foreground="{DynamicResource BrushCatalogStock}"/>
                                                     </StackPanel>
                                                 </Grid>
@@ -917,7 +925,7 @@
                                     <TextBlock Grid.Column="2" Classes="tbl-barcode-head" Width="130" Margin="4,0,12,0"
                                                Text="{DynamicResource csh.catalog.colBarcode}" FontSize="12" FontWeight="Bold"
                                                Foreground="{DynamicResource BrushTextSoft}" TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Grid.Column="3" Classes="tbl-stock-head" Width="96" Margin="4,0,12,0"
+                                    <TextBlock Grid.Column="3" Classes="tbl-stock-head" Width="112" Margin="4,0,12,0"
                                                Text="{DynamicResource csh.catalog.colStock}" FontSize="12" FontWeight="Bold"
                                                Foreground="{DynamicResource BrushTextSoft}" TextTrimming="CharacterEllipsis"/>
                                     <!-- ширина колонки цены — как у строк (сумма + «сом»), чтобы «Штрихкод» и «Остаток» стояли над своими значениями -->
@@ -1012,6 +1020,7 @@
                                                                    IsVisible="{Binding !IsService}"
                                                                    Classes.stock-low="{Binding IsLowStock}"
                                                                    Classes.stock-out="{Binding Quantity, Converter={x:Static mainViews:WarehouseWindow.IsOutOfStock}}"
+                                                                   Classes.stock-minus="{Binding IsNegativeStock}"
                                                                    Foreground="{DynamicResource BrushCatalogStock}"/>
                                                         <StackPanel Grid.Column="4" Classes="tbl-price" Orientation="Horizontal"
                                                                     HorizontalAlignment="Right"

@@ -466,15 +466,18 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
 
     private void ReceivingRemove_Click(object? sender, RoutedEventArgs e)
     {
-        if (_rcvSelectedLine is { } line && _viewModel.ReceivingLines.Contains(line)) // 2026-11-21: «выбранная» — строка, в карточке которой был курсор
-        {
+        // 2026-11-22 (владелец: «в приёмке последний товар не убирается!»): раньше убиралась только «выбранная» строка (_rcvSelectedLine — где был курсор), галочки игнорировались, а после
+        // «✕»/Del она указывала на уже убранную строку — оставшаяся (последняя) не убиралась. Теперь: отмеченные галочкой → строка с курсором → единственная строка списка.
+        var ticked = _viewModel.ReceivingLines.Where(l => RcvRow(l).IsSelected).ToList();
+        if (ticked.Count > 0)
+            ReceivingRemoveManyWithUndo(ticked);
+        else if (_rcvSelectedLine is { } line && _viewModel.ReceivingLines.Contains(line)) // 2026-11-21: «выбранная» — строка, в карточке которой был курсор
             // 2026-10-03, владелец: «в приёмке нажал „Убрать“, перешёл на другие вкладки — убранные товары
             // вернулись». Воспроизведено: строка была в режиме правки ячейки (нажали «Принято»/цену); при уходе
-            // с вкладки таблица дописывала незаконченную правку и возвращала строку. Сначала отменяем правку.
-            CancelReceivingEdit();
-            _viewModel.ReceivingLines.Remove(line);
-            RefreshReceivingSummary();
-        }
+            // с вкладки таблица дописывала незаконченную правку и возвращала строку. ReceivingRemoveManyWithUndo сначала отменяет правку.
+            ReceivingRemoveWithUndo(line);
+        else if (_viewModel.ReceivingLines.Count == 1)
+            ReceivingRemoveWithUndo(_viewModel.ReceivingLines[0]);
     }
 
     /// <summary>Итог под накладной: позиции, единицы, сумма закупки и сколько товаров будет

@@ -916,6 +916,10 @@ public sealed partial class UserPreferences
     /// Только обычный просмотр — результат поиска идёт по совпадению. По умолчанию включено; переключатель применяется сразу, без «Сохранить».</summary>
     public bool CatalogNoBarcodeFirst { get; set; } = true;
 
+    /// <summary>2026-11-22 (просьба владельца: «в штрих-кодах добавь отображение товаров списком»): «Склад → Ценники и штрихкоды → Печать» показывает товары списком строк (true)
+    /// или плитками-карточками (false, по умолчанию — как раньше). Выбор запоминается; применяется сразу, без «Сохранить».</summary>
+    public bool BarcodePrintListView { get; set; }
+
     public static event Action? CatalogNoBarcodeFirstChanged;
 
     public static void SetCatalogNoBarcodeFirst(bool on)

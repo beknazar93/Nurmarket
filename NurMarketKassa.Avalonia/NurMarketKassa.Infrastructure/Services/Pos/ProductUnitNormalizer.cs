@@ -145,12 +145,13 @@ public static class ProductUnitNormalizer
     private static void ApplyStockWithRawUnit(CatalogProductTileVm vm, string unitDisplay, bool isWeightTab)
     {
         var qtyCulture = CultureInfo.GetCultureInfo("ru-RU");
+        var shown = StockLabel.Shown(vm.Quantity); // 2026-11-22: товар в минусе — «Минус −3 шт» (модуль + слово), см. StockLabel
         var qtyStr = isWeightTab
-            ? vm.Quantity.ToString("0.###", qtyCulture) // 2026-10-31: весовой остаток без потери до 3 знаков (было F2 → 12,345 показывалось «12,35»)
+            ? shown.ToString("0.###", qtyCulture) // 2026-10-31: весовой остаток без потери до 3 знаков (было F2 → 12,345 показывалось «12,35»)
             : QuantityRules.ForUnit(unitDisplay) != null
-                ? vm.Quantity.ToString("0.###", qtyCulture) // 2026-10-26 (ХМ2): остаток м/м²/л «Хозтоваров» не до целого
-                : vm.Quantity.ToString("F0", qtyCulture);
-        vm.StockInfo = $"{qtyStr} {UnitCatalog.Display(unitDisplay)}"; // 2026-11-01 (Д-5): единица на языке интерфейса (шт/кг/л/м/уп), «своя» — как есть
+                ? shown.ToString("0.###", qtyCulture) // 2026-10-26 (ХМ2): остаток м/м²/л «Хозтоваров» не до целого
+                : shown.ToString("F0", qtyCulture);
+        vm.StockInfo = StockLabel.Wrap(vm.Quantity, $"{qtyStr} {UnitCatalog.Display(unitDisplay)}"); // 2026-11-01 (Д-5): единица на языке интерфейса (шт/кг/л/м/уп), «своя» — как есть
         vm.IsLowStock = CatalogProductTileVm.IsLow(vm.Quantity, vm.MinQuantity); // 2026-11-06 (В12, Б-8)
     }
 }

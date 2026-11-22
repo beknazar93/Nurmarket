@@ -90,16 +90,35 @@ public static class StockSyncService
     private static void ApplyQuantityCore(CatalogProductTileVm vm, double quantity, bool mustWeigh)
     {
         vm.Quantity = quantity;
-        var qtyCulture = CultureInfo.GetCultureInfo("ru-RU");
-        vm.StockInfo = mustWeigh
-            // 2026-10-31: «Не округляй» — остаток весового до 3 знаков без потери (12,345 кг, не «12,35»; сервер хранит до 3 знаков).
-            ? $"{quantity.ToString("0.###", qtyCulture)} {Tr.T("кг", "кг", "kg", "kg", "kg")}"
-            : QuantityRules.ForUnit(vm.Unit) != null
-                // 2026-10-26 (ХМ2): остаток дробной единицы «Хозтоваров» (37.4 м) — не до целого и в своей единице.
-                ? $"{quantity.ToString("0.###", qtyCulture)} {UnitCatalog.Display(vm.Unit)}" // 2026-11-01 (Д-5): единица по языку интерфейса
-                // 2026-11-01 (расследование, П-5): штучный товар с дробным остатком (поштучная продажа из упаковки: 49,875) — без округления до «50».
-                : $"{(Math.Abs(quantity - Math.Round(quantity)) < 0.0005 ? quantity.ToString("F0", qtyCulture) : quantity.ToString("0.###", qtyCulture))} {Tr.T("шт.", "даана", "pcs", "adet", "dona")}";
+        vm.StockInfo = FormatStockInfo(quantity, mustWeigh, vm.Unit);
         vm.IsLowStock = CatalogProductTileVm.IsLow(quantity, vm.MinQuantity); // 2026-11-06 (В12, Б-8): «Минимальный остаток» карточки, иначе общий порог 10
+    }
+
+    /// <summary>Подпись остатка плитки: «5 шт.», «12,345 кг», в минусе — «Минус −3 шт.» (2026-11-22, <see cref="StockLabel"/>). Строка та же, что считалась в ApplyQuantityCore.</summary>
+    public static string FormatStockInfo(double quantity, bool mustWeigh, string? unit)
+    {
+        var qtyCulture = CultureInfo.GetCultureInfo("ru-RU");
+        var shown = StockLabel.Shown(quantity); // 2026-11-22: в минусе считаем по модулю, знак и слово «Минус» добавляет StockLabel.Wrap
+        var text = mustWeigh
+            // 2026-10-31: «Не округляй» — остаток весового до 3 знаков без потери (12,345 кг, не «12,35»; сервер хранит до 3 знаков).
+            ? $"{shown.ToString("0.###", qtyCulture)} {Tr.T("кг", "кг", "kg", "kg", "kg")}"
+            : QuantityRules.ForUnit(unit) != null
+                // 2026-10-26 (ХМ2): остаток дробной единицы «Хозтоваров» (37.4 м) — не до целого и в своей единице.
+                ? $"{shown.ToString("0.###", qtyCulture)} {UnitCatalog.Display(unit)}" // 2026-11-01 (Д-5): единица по языку интерфейса
+                // 2026-11-01 (расследование, П-5): штучный товар с дробным остатком (поштучная продажа из упаковки: 49,875) — без округления до «50».
+                : $"{(Math.Abs(shown - Math.Round(shown)) < 0.0005 ? shown.ToString("F0", qtyCulture) : shown.ToString("0.###", qtyCulture))} {Tr.T("шт.", "даана", "pcs", "adet", "dona")}";
+        return StockLabel.Wrap(quantity, text);
+    }
+
+    /// <summary>2026-11-22: остаток после продажи. Продажа в минус разрешена настройкой (<see cref="NegativeStockPolicy"/>) — остаток уходит ниже нуля, как на сервере
+    /// (раньше обрезался до 0, и плитка показывала «0 шт.», хотя долг по остатку был). Услуге остаток не нужен — 0. Настройка выключена — как раньше, не ниже нуля.</summary>
+    public static double AfterSale(double current, double soldQty, bool isService = false)
+    {
+        var next = current - soldQty;
+        if (next >= 0 || isService || !NegativeStockPolicy.Enabled)
+            return Math.Max(0, next);
+        next = Math.Round(next, 3);
+        return next > -StockLabel.Epsilon ? 0 : next;
     }
 
     public static async Task OverlayAgentStockAsync(
@@ -291,7 +310,7 @@ public static class StockSyncService
                 continue;
 
             // Авторитетное значение считаем и персистим синхронно; UI-плитка обновится отложенно.
-            var next = Math.Max(0, vm.Quantity - soldQty);
+            var next = AfterSale(vm.Quantity, soldQty, vm.IsService); // 2026-11-22: при продаже в минус остаток уходит ниже нуля (было Math.Max(0, …) → «0 шт.»)
             ApplyQuantityToTileOnUi(vm, next, vm.MustWeigh);
             CatalogCacheService.PersistProductStock(id, next, vm.MustWeigh);
             break;
@@ -650,7 +669,7 @@ public static class StockSyncService
         foreach (var vm in CatalogCacheService.Products)
         {
             if (string.Equals(vm.Id, productId, StringComparison.OrdinalIgnoreCase))
-                return Math.Max(0, vm.Quantity - soldQty);
+                return AfterSale(vm.Quantity, soldQty, vm.IsService); // 2026-11-22: как в DecrementLocalStock
         }
 
         return null;

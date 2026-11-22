@@ -409,14 +409,20 @@ public partial class WarehouseWindow
         });
     }
 
-    /// <summary>2026-11-22: пункт «Печать этикетки» в меню «⋯» товара (вернули по просьбе владельца) — этикетка сразу на принтер этикеток, без окна (QuickLabelPrint).</summary>
-    private async void QuickLabel_Click(object? sender, RoutedEventArgs e)
+    /// <summary>2026-11-22 (владелец: «при нажатии на печать этикетки выводил настройки и печать, либо открывал штрихкоды с выбранным товаром»): пункт «Печать этикетки»
+    /// в меню «⋯» товара больше не печатает молча — открывает вкладку «Штрихкоды» с этим товаром (там копии, размер, принтер, предпросмотр и «Печать»).
+    /// Если товар отмечен галочкой вместе с другими — открываются все отмеченные. Права и покупку проверяет сама вкладка.</summary>
+    private void QuickLabel_Click(object? sender, RoutedEventArgs e)
     {
         if (sender is not Button { Tag: CatalogProductTileVm product })
             return;
 
-        await QuickLabelPrint.RunAsync(this, product).ConfigureAwait(true);
+        OpenBarcodesTab(LabelMenuTargets(product));
     }
+
+    /// <summary>Какие товары передать во вкладку «Штрихкоды» из пункта «Печать этикетки»: отмеченные галочкой (если среди них этот товар и их больше одного) или только этот.</summary>
+    public IReadOnlyList<string> LabelMenuTargets(CatalogProductTileVm product)
+        => _printPicked.Count > 1 && _printPicked.Contains(product.Id) ? _printPicked.ToList() : new List<string> { product.Id };
 
     // 2026-11-21 (владелец: «редакторы — в одну вкладку»): обработчиков «Этикетка…», «Ценник», «Печать ценников (N)», «Редактор этикетки»
     // здесь больше нет — печать, редактор и шаблоны только на вкладке «Ценники и штрихкоды» (WarehouseWindow.Barcodes.cs).

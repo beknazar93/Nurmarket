@@ -2415,7 +2415,7 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
                 // штрихкодам, пачка и поштучно). Плитка обновляется в UI-потоке позже, и вторая строка
                 // считала остаток от старого значения плитки, затирая списание первой, — поэтому
                 // остаток уменьшаем от уже уменьшенного в этом чеке.
-                var next = Math.Max(0, (stockLeft.TryGetValue(productId, out var left) ? left : tile.Quantity) - soldQty);
+                var next = StockSyncService.AfterSale(stockLeft.TryGetValue(productId, out var left) ? left : tile.Quantity, soldQty, tile.IsService); // 2026-11-22: офлайн-продажа в минус — остаток ниже нуля (было Math.Max(0, …))
                 stockLeft[productId] = next;
                 LocalProductRepository.Instance.UpdateStock(productId, next, tile.MustWeigh);
                 // 2026-09-23: OnUi, а не прямой вызов. Этот код выполняется в продолжении
@@ -2445,7 +2445,7 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
                         if (componentTile == null)
                             continue;
 
-                        var componentNext = Math.Max(0, componentTile.Quantity - component.Quantity * soldQty);
+                        var componentNext = StockSyncService.AfterSale(componentTile.Quantity, component.Quantity * soldQty, componentTile.IsService); // 2026-11-22
                         LocalProductRepository.Instance.UpdateStock(component.ProductId, componentNext, componentTile.MustWeigh);
                         StockSyncService.ApplyQuantityToTileOnUi(componentTile, componentNext, componentTile.MustWeigh);
                     }

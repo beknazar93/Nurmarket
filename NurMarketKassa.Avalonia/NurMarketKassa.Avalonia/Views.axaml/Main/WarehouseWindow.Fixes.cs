@@ -91,6 +91,7 @@ public partial class WarehouseWindow
         }
         CancelReceivingEdit();
         _viewModel.ReceivingLines.Clear();
+        _rcvSelectedLine = null; // 2026-11-22: «выбранной» строки больше нет
         CloseReceivingPopups();
         RefreshReceivingSummary();
         PosLogger.Log("Приёмка: список очищен кнопкой.", "STOCK");

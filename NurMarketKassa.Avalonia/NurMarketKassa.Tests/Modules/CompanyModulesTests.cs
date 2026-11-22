@@ -147,8 +147,66 @@ public sealed class CompanyModulesTests : IDisposable
         CompanyModules.IsOn("serials", false).Should().BeTrue("добавил владелец");
         CompanyModules.IsOn("price_levels", true, explicitLocal: true).Should().BeFalse("владелец убрал — выключено, даже с местным признаком");
         CompanyModules.IsOn("repair", true).Should().BeFalse("профили совпали — решает сервер, а не запас кассы");
-        CompanyModules.IsOn("repair", false, explicitLocal: true).Should().BeTrue("прежний местный признак остаётся");
+        // 2026-11-22: раньше здесь было BeTrue («прежний местный признак остаётся»). Теперь, когда сервер ответил про модуль (repair есть в items, enabled=false), он единственный источник:
+        // старый местный флаг (EstimateEnabled / RentalEnabled в user-settings.json) не удерживает функцию — иначе у не-Строймага оставались «Смета» и «Прокат».
+        CompanyModules.IsOn("repair", false, explicitLocal: true).Should().BeFalse("сервер ответил «выкл» — местный признак не учитывается");
         CompanyModules.IsOn("module_from_future", true).Should().BeTrue("сервер такого модуля не знает — прежнее поведение");
+        CompanyModules.IsOn("module_from_future", false, explicitLocal: true).Should().BeTrue("по модулю ответа сервера нет — местный признак работает (как оффлайн)");
+    }
+
+    [Fact]
+    public void Decide_ServerOff_LocalFlagTrue_IsOff_ServerOn_IsOn_NoAnswer_LocalFlagWorks()
+    {
+        // 2026-11-22: у не-Строймага в user-settings.json остались EstimateEnabled / RentalEnabled = true, а сервер говорит «модуль выключен» — функция должна быть выключена.
+        var off = Snap("""{"profile":"grocery","version":"1","modules":[],"items":[{"id":"estimate","enabled":false,"source":"off"},{"id":"rental","enabled":false,"source":"off"}]}""");
+        CompanyModules.Decide(off, "estimate", profileDefault: false, explicitLocal: true, profileInSync: true).Should().BeFalse("сервер «выкл» + старый местный флаг → выкл");
+        CompanyModules.Decide(off, "rental", profileDefault: false, explicitLocal: true, profileInSync: false).Should().BeFalse("профили разные: тоже без местного флага");
+        CompanyModules.Decide(off, "estimate", profileDefault: false, explicitLocal: false, profileInSync: true).Should().BeFalse();
+
+        // сервер «вкл» (включили в Маркетплейсе: PUT enable → ответ с enabled=true) — функция включена и без местного флага
+        var on = Snap("""{"profile":"grocery","version":"2","modules":["estimate"],"items":[{"id":"estimate","enabled":true,"source":"added"}]}""");
+        CompanyModules.Decide(on, "estimate", profileDefault: false, explicitLocal: false, profileInSync: true).Should().BeTrue();
+        CompanyModules.Decide(on, "estimate", profileDefault: false, explicitLocal: false, profileInSync: false).Should().BeTrue("added — берётся с сервера и при разных профилях");
+
+        // removed — выключено всегда
+        var removed = Snap("""{"profile":"stroymag","version":"3","modules":[],"items":[{"id":"estimate","enabled":false,"source":"removed"}]}""");
+        CompanyModules.Decide(removed, "estimate", profileDefault: true, explicitLocal: true, profileInSync: true).Should().BeFalse();
+        CompanyModules.Decide(removed, "estimate", profileDefault: true, explicitLocal: true, profileInSync: false).Should().BeFalse();
+
+        // trial — как добавленный владельцем
+        var trial = Snap("""{"profile":"grocery","version":"4","modules":["estimate"],"items":[{"id":"estimate","enabled":true,"source":"trial","trial_until":"2026-11-28T12:00:00+00:00"}]}""");
+        CompanyModules.Decide(trial, "estimate", profileDefault: false, explicitLocal: false, profileInSync: false).Should().BeTrue();
+        CompanyModules.Decide(trial, "estimate", profileDefault: false, explicitLocal: false, profileInSync: true).Should().BeTrue();
+
+        // по модулю ответа сервера нет (нет в items) — местный флаг работает, как оффлайн
+        var none = Snap("""{"profile":"grocery","version":"5","modules":[],"items":[{"id":"serials","enabled":false,"source":"off"}]}""");
+        CompanyModules.Decide(none, "estimate", profileDefault: false, explicitLocal: true, profileInSync: true).Should().BeTrue("в ответе про Смету ничего нет — местный признак");
+        CompanyModules.Decide(none, "estimate", profileDefault: false, explicitLocal: false, profileInSync: true).Should().BeFalse();
+    }
+
+    [Fact]
+    public void ServerOff_OldLocalFlags_DoNotKeepEstimateAndRental_NoServer_LocalFlagsStillWork()
+    {
+        // 2026-11-22: именно случай владельца — аккаунт не Строймаг, в настройках старые EstimateEnabled / RentalEnabled = true.
+        Sphere("grocery", null);
+        UserPreferences.Instance.EstimateEnabled = true;
+        UserPreferences.Instance.RentalEnabled = true;
+
+        EstimateFeature.IsAvailable.Should().BeTrue("ответа сервера нет (оффлайн) — местный признак, как раньше");
+        RentalFeature.IsAvailable.Should().BeTrue();
+
+        CompanyModules.SetForTests(Snap("""{"profile":"grocery","version":"1","modules":[],"items":[{"id":"estimate","enabled":false,"source":"off"},{"id":"rental","enabled":false,"source":"off"}]}"""));
+        EstimateFeature.IsAvailable.Should().BeFalse("сервер ответил «выкл» — Смета пропала, несмотря на старый флаг");
+        RentalFeature.IsAvailable.Should().BeFalse();
+
+        // включили в Маркетплейсе: PUT enable → ответ сервера с enabled=true — пункт появляется сразу, флаг и сервер согласованы
+        CompanyModules.SetForTests(Snap("""{"profile":"grocery","version":"2","modules":["estimate"],"items":[{"id":"estimate","enabled":true,"source":"added"},{"id":"rental","enabled":false,"source":"off"}]}"""));
+        EstimateFeature.IsAvailable.Should().BeTrue();
+        RentalFeature.IsAvailable.Should().BeFalse("Прокат на сервере всё ещё выключен");
+
+        // выключили: DELETE → ответ «removed» — пункт исчезает
+        CompanyModules.SetForTests(Snap("""{"profile":"grocery","version":"3","modules":[],"items":[{"id":"estimate","enabled":false,"source":"removed"}]}"""));
+        EstimateFeature.IsAvailable.Should().BeFalse();
     }
 
     [Fact]

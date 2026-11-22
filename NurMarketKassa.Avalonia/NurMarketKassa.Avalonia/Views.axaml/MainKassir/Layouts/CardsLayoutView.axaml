@@ -182,7 +182,9 @@
                                             <TextBlock Grid.Row="2" Text="{Binding StockInfo}" FontSize="12" Margin="0,4,0,0"
                                                        IsVisible="{Binding !IsService}" Foreground="{DynamicResource BrushCatalogStock}"
                                                        Classes.stock-low="{Binding IsLowStock}"
-                                                       Classes.stock-out="{Binding Quantity, Converter={x:Static mainViews:WarehouseWindow.IsOutOfStock}}"/>
+                                                       Classes.stock-out="{Binding Quantity, Converter={x:Static mainViews:WarehouseWindow.IsOutOfStock}}"
+                                                       Classes.stock-minus="{Binding IsNegativeStock}"
+                                                       TextTrimming="CharacterEllipsis"/>
                                             <Grid Grid.Row="3" ColumnDefinitions="*,Auto">
                                                 <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                                                     <TextBlock Classes="lx-price" FontSize="18"

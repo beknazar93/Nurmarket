@@ -645,6 +645,13 @@
         <Style Selector="Border.stock.out TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
         </Style>
+        <!-- 2026-11-22: товар в минусе («−3 шт») — сплошная красная плашка с белым текстом, не путается с мягкой «нет в наличии» (out). Стоит после out и перебивает. -->
+        <Style Selector="Border.stock.minus">
+            <Setter Property="Background" Value="{DynamicResource BrushDangerFill}"/>
+        </Style>
+        <Style Selector="Border.stock.minus TextBlock">
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
 
         <!-- Вид операции в журнале перемещений: продажа — акцентом, списание — красным, чтобы
              потери отличались от обычного расхода при беглом просмотре. -->
@@ -891,6 +898,17 @@
                             </StackPanel>
                         </Border>
                         </Grid>
+                        <!-- 2026-11-22 (возвращено по просьбе владельца): панель массовых действий — видна, пока отмечены товары (галочки в строках, плитках и «выбрать все» в шапке);
+                             стоит на месте строки фильтров (та на это время прозрачна — высота не прыгает). Логика — WarehouseWindow.BulkBar.cs. -->
+                        <Border x:Name="BulkBar" Grid.Row="2" Classes="bulk-bar" IsVisible="False" Margin="0,0,0,12" VerticalAlignment="Stretch">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <TextBlock x:Name="BulkBarCount" Grid.Column="0" VerticalAlignment="Center" FontWeight="Bold"
+                                           FontSize="{DynamicResource NurFontBody}" Foreground="{DynamicResource BrushText}" Margin="0,0,14,0"/>
+                                <WrapPanel x:Name="BulkBarActions" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"/>
+                                <Button x:Name="BulkBarClearButton" Grid.Column="2" Classes="SecondaryButton" VerticalAlignment="Center" Margin="8,0,0,0" Click="BulkBarClear_Click"/>
+                            </Grid>
+                        </Border>
+
                         <!-- Таблица товаров (2026-09-07, перестроена по образцу Shopify Polaris IndexTable:
                              миниатюра 36px + название крупнее и с усечением, ОДНА колонка "Код" (это Article —
                              в маппере уже article ?? code, и только он хранится в локальном кэше SQLite,
@@ -923,8 +941,11 @@
                                 <DataGridTemplateColumn Header="{DynamicResource common.name}" Width="*" MinWidth="200" SortMemberPath="Title">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <Grid ColumnDefinitions="Auto,*" VerticalAlignment="Center">
-                                                <Grid Grid.Column="0" Width="36" Height="36" Margin="0,0,10,0">
+                                            <Grid ColumnDefinitions="Auto,Auto,*" VerticalAlignment="Center">
+                                                <!-- 2026-11-22: галочка «В печать» (возвращена); зона касания 44 px; код — WarehouseWindow.Barcodes.cs. -->
+                                                <CheckBox Grid.Column="0" Width="44" MinWidth="0" MinHeight="44" Padding="0" Margin="0,0,2,0" VerticalAlignment="Center" Focusable="False"
+                                                          DataContextChanged="PrintPick_DataContextChanged" Click="PrintPick_Click"/>
+                                                <Grid Grid.Column="1" Width="36" Height="36" Margin="0,0,10,0">
                                                     <Border Background="{DynamicResource BrushPanelSoft}" CornerRadius="6">
                                                         <PathIcon Width="16" Height="16" Foreground="{DynamicResource BrushTextMuted}"
                                                                   Data="M12,2L2,7V17L12,22L22,17V7L12,2M12,4.15L19.16,7.75L12,11.35L4.84,7.75L12,4.15M4,9.28L11,12.78V19.7L4,16.2V9.28M13,19.7V12.78L20,9.28V16.2L13,19.7Z"/>
@@ -936,7 +957,7 @@
                                                     </Border>
                                                 </Grid>
                                                 <!-- 2026-10-06, редизайн склада: под названием — «категория · бренд» и метка срока годности. -->
-                                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                                <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="2">
                                                     <TextBlock Text="{ReflectionBinding Title}" FontSize="14" FontWeight="SemiBold"
                                                                TextTrimming="CharacterEllipsis"
                                                                ToolTip.Tip="{ReflectionBinding Title}"/>
@@ -1062,7 +1083,8 @@
                                                     <Border Classes="stock" CornerRadius="6" Padding="10,3"
                                                             HorizontalAlignment="Center" VerticalAlignment="Center"
                                                             Classes.low="{ReflectionBinding IsLowStock}"
-                                                            Classes.out="{ReflectionBinding Quantity, Converter={x:Static views:WarehouseWindow.IsOutOfStock}}">
+                                                            Classes.out="{ReflectionBinding Quantity, Converter={x:Static views:WarehouseWindow.IsOutOfStock}}"
+                                                            Classes.minus="{ReflectionBinding IsNegativeStock}">
                                                         <TextBlock Text="{ReflectionBinding StockWithUnitText}"
                                                                    FontSize="13" FontWeight="Bold"/>
                                                     </Border>
@@ -1136,6 +1158,10 @@
                                                         <Image Source="{ReflectionBinding ProductImagePath, Converter={x:Static conv:AssetPathToBitmapConverter.Instance}, ConverterParameter=thumb}"
                                                                Stretch="UniformToFill"/>
                                                     </Border>
+                                                    <!-- 2026-11-22: галочка «В печать» и в плитке (возвращена по просьбе владельца); зона касания 44 px. -->
+                                                    <CheckBox Width="44" Height="44" MinWidth="0" MinHeight="44" Padding="0" Margin="2" HorizontalAlignment="Left" VerticalAlignment="Top" Focusable="False"
+                                                              Background="{DynamicResource BrushPanel}" Opacity="0.92" CornerRadius="8"
+                                                              DataContextChanged="PrintPick_DataContextChanged" Click="PrintPick_Click"/>
                                                 </Grid>
 
                                                 <TextBlock Text="{ReflectionBinding Title}"
@@ -1155,7 +1181,8 @@
                                                     <Border Grid.Column="1" Classes="stock" CornerRadius="6" Padding="8,2"
                                                             VerticalAlignment="Center"
                                                             Classes.low="{ReflectionBinding IsLowStock}"
-                                                            Classes.out="{ReflectionBinding Quantity, Converter={x:Static views:WarehouseWindow.IsOutOfStock}}">
+                                                            Classes.out="{ReflectionBinding Quantity, Converter={x:Static views:WarehouseWindow.IsOutOfStock}}"
+                                                            Classes.minus="{ReflectionBinding IsNegativeStock}">
                                                         <TextBlock Text="{ReflectionBinding StockWithUnitText}"
                                                                    FontSize="12" FontWeight="Bold"/>
                                                     </Border>

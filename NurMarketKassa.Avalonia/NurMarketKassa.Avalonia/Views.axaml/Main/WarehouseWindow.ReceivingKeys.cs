@@ -27,7 +27,7 @@ public partial class WarehouseWindow
     private Border? _rcvUndoBar;
     private TextBlock? _rcvUndoText;
     private Button? _rcvDetailsButton;
-    private (ReceivingLineVm Line, int Index)? _rcvRemoved;
+    private List<(ReceivingLineVm Line, int Index)>? _rcvRemoved; // 2026-11-22: может быть несколько строк («Убрать» у отмеченных)
     private DispatcherTimer? _rcvUndoTimer;
     private double _rcvLastWidth;
 
@@ -137,19 +137,34 @@ public partial class WarehouseWindow
     }
 
     /// <summary>Убрать строку (✕ или Del) с плашкой «Вернуть» на 5 с.</summary>
-    private void ReceivingRemoveWithUndo(ReceivingLineVm line)
+    private void ReceivingRemoveWithUndo(ReceivingLineVm line) => ReceivingRemoveManyWithUndo([line]);
+
+    /// <summary>2026-11-22: убрать одну или несколько строк (кнопка «Убрать» — все отмеченные галочкой) одним действием; «Вернуть» / Ctrl+Z возвращает их все на прежние места.</summary>
+    private void ReceivingRemoveManyWithUndo(IReadOnlyList<ReceivingLineVm> targets)
     {
         CancelReceivingEdit(); // как «Убрать»: сначала отменить начатую правку (иначе строка вернётся при уходе с вкладки)
-        var index = _viewModel.ReceivingLines.IndexOf(line);
-        if (index < 0)
+        var removed = new List<(ReceivingLineVm Line, int Index)>();
+        foreach (var line in targets.Distinct())
+        {
+            var index = _viewModel.ReceivingLines.IndexOf(line);
+            if (index < 0)
+                continue;
+            _viewModel.ReceivingLines.Remove(line);
+            removed.Add((line, index));
+            if (ReferenceEquals(_rcvSelectedLine, line))
+                _rcvSelectedLine = null; // 2026-11-22: «выбранная» строка ушла — на неё «Убрать» больше не указывает
+        }
+        if (removed.Count == 0)
             return;
-        _viewModel.ReceivingLines.Remove(line);
         RefreshReceivingSummary();
-        _rcvRemoved = (line, index);
+        _rcvRemoved = removed;
         if (_rcvUndoBar is null || _rcvUndoText is null)
             return;
-        var name = string.IsNullOrWhiteSpace(line.ProductName) ? line.Barcode : line.ProductName;
-        _rcvUndoText.Text = Tr.T($"Строка «{name}» убрана.", $"«{name}» сабы алынды.", $"The line “{name}” was removed.", $"«{name}» satırı kaldırıldı.", $"«{name}» qatori olib tashlandi.");
+        var first = removed[0].Line;
+        var name = string.IsNullOrWhiteSpace(first.ProductName) ? first.Barcode : first.ProductName;
+        _rcvUndoText.Text = removed.Count > 1
+            ? Tr.T($"Убрано строк: {removed.Count}.", $"Алынган саптар: {removed.Count}.", $"Lines removed: {removed.Count}.", $"Kaldırılan satır: {removed.Count}.", $"Olib tashlangan qatorlar: {removed.Count}.")
+            : Tr.T($"Строка «{name}» убрана.", $"«{name}» сабы алынды.", $"The line “{name}” was removed.", $"«{name}» satırı kaldırıldı.", $"«{name}» qatori olib tashlandi.");
         _rcvUndoBar.IsVisible = true;
         _rcvUndoTimer?.Stop();
         _rcvUndoTimer = new DispatcherTimer { Interval = PurchasesWindow.ReceiveUndoTime };
@@ -162,8 +177,9 @@ public partial class WarehouseWindow
         if (_rcvRemoved is not { } removed)
             return;
         ReceivingForgetRemoved();
-        if (!_viewModel.ReceivingLines.Contains(removed.Line))
-            _viewModel.ReceivingLines.Insert(Math.Clamp(removed.Index, 0, _viewModel.ReceivingLines.Count), removed.Line);
+        foreach (var (line, index) in removed.OrderBy(r => r.Index)) // по возрастанию индекса — каждая встаёт на своё прежнее место
+            if (!_viewModel.ReceivingLines.Contains(line))
+                _viewModel.ReceivingLines.Insert(Math.Clamp(index, 0, _viewModel.ReceivingLines.Count), line);
         RefreshReceivingSummary();
     }
 
