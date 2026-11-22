@@ -2099,5 +2099,15 @@
   "camMerged": "Tek ürüne birleştirildi",
   "camSplitDone": "Ayrıldı",
   "camVariantsTitle": "Varyantlar: {n}",
-  "bindTakenServer": "{code} barkodu zaten «{name}» ürününde"
+  "bindTakenServer": "{code} barkodu zaten «{name}» ürününde",
+  "shopModeBazaar": "Pazar",
+  "shopModeBazaarSub": "Pazar, konteyner, pavyon: perakende ve toptan",
+  "shopSearchBazaar": "Ad, barkod",
+  "shopEmptyBazaar": "Bulunamadı. Ad veya barkodla arayın.",
+  "shopModeAutoparts": "Oto yedek parça ve aksesuar",
+  "shopModeAutopartsSub": "Yedek parça, yağ, oto kimya; katalog numarasıyla arama",
+  "shopSearchAutoparts": "Ad, katalog numarası, OEM",
+  "shopEmptyAutoparts": "Bulunamadı. Ad, katalog numarası (OEM, çapraz numara) veya barkodla arayın.",
+  "recvModeBazaar": "Pazar: ad ve barkodla giriş; miktar adet veya ağırlık.",
+  "recvModeAutoparts": "Oto yedek parça: ürünü katalog numarasıyla bulun; miktar adet, takım ve çift."
 }

@@ -158,14 +158,13 @@ class ProfileScreen extends ConsumerWidget {
                   },
                 ),
                 // 2026-10-31 (владелец: «режим магазина тоже добавь в мобилку»): сфера магазина, как «Сфера магазина» кассы.
-                // Заменила переключатель «Размеры и цвета при продаже» (13.10, С5): теперь это режим «Одежда».
+                // 2026-11-22 (владелец: «у клиента нет возможности выбора сферы в мобилке»): только показ — сферу выбирает владелец в кассе/CRM,
+                // телефон берёт её с сервера (ShopModeSync.syncFromServer); нажатия и окна выбора нет.
                 item(
                   prefs.shopChosen ? prefs.shop.icon : Icons.storefront_outlined,
                   l.shopModeTitle,
                   tint: prefs.shopChosen ? prefs.shop.accent : null,
                   sub: prefs.shopChosen ? prefs.shop.title(l) : l.shopModeNotChosen,
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => chooseShopMode(context, ref),
                 ),
                 // 2026-11-20 (тариф «Мини», Простой режим): переключатель вручную — до появления тарифа «Мини» на сервере; по умолчанию выключен.
                 // На тарифе «Мини» режим включён всегда (выключить нельзя).
@@ -530,58 +529,4 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
       ),
     );
   }
-}
-
-
-/// 2026-10-31: окно «Режим магазина» — четыре режима как сферы кассы (Продукты, Одежда, Услуги, Хозтовары). Выбор сохраняется на
-/// телефоне и, если можно (владелец), на сервере для всей компании; остальным сервер откажет — режим остаётся только здесь.
-Future<void> chooseShopMode(BuildContext context, WidgetRef ref) async {
-  final l = context.l;
-  final cur = ref.read(prefsProvider).shop;
-  final picked = await showModalBottomSheet<ShopMode>(
-    context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
-    builder: (c) => SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(l.shopModeTitle, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
-                  const SizedBox(height: 2),
-                  Text(l.shopModeSub, style: TextStyle(fontSize: 12.5, color: c.pal.textSoft)),
-                ],
-              ),
-            ),
-            for (final m in ShopMode.values)
-              Semantics(
-                button: true,
-                selected: m == cur,
-                label: '${m.title(l)}. ${m.subtitle(l)}',
-                excludeSemantics: true,
-                child: ListTile(
-                  key: Key('shopMode_${m.code}'),
-                  minVerticalPadding: 10,
-                  leading: Icon(m.icon),
-                  title: Text(m.title(l), style: const TextStyle(fontWeight: FontWeight.w700)),
-                  subtitle: Text(m.subtitle(l), style: TextStyle(fontSize: 12, color: c.pal.textSoft)),
-                  trailing: m == cur ? Icon(Icons.check_circle_rounded, color: context.pal.success) : null,
-                  onTap: () => Navigator.pop(c, m),
-                ),
-              ),
-          ],
-        ),
-      ),
-    ),
-  );
-  if (picked == null || picked == cur || !context.mounted) return;
-  final ok = await ref.read(prefsProvider.notifier).setShop(picked, toServer: true);
-  if (context.mounted) toast(context, '${l.shopModeOn(picked.title(l))}. ${ok ? l.shopModeSavedAll : l.shopModePhoneOnly}');
 }

@@ -844,8 +844,7 @@ class PrefsController extends Notifier<Prefs> {
     final db = ref.read(databaseProvider);
     await ShopModeSync.write(db, m);
     state = state.copyWith(shop: m, shopChosen: true);
-    if (!toServer) return true;
-    return ShopModeSync.saveToServer(db, ref.read(apiProvider), m);
+    return true; // 2026-11-22: на сервер сферу мобилка не пишет (её выбирает владелец в кассе/CRM); [toServer] оставлен для совместимости
   }
 
   /// Прочитать сферу компании с сервера и применить (правила — ShopModeSync.applyServer). true — режим сменился.

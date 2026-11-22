@@ -107,6 +107,8 @@ class _ModeProductInfoState extends ConsumerState<ModeProductInfo> {
         title = l.cardUnitTitle;
         body = Text(l.cardUnitInfo(p.unit), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700));
       case ShopMode.services:
+      case ShopMode.bazaar: // 2026-11-22: у «Базара» и «Автозапчастей» отдельной карточки пока нет (данных запчасти в базе телефона нет)
+      case ShopMode.autoparts:
         return const SizedBox.shrink();
     }
     return Container(

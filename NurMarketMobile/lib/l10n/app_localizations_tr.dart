@@ -7393,4 +7393,39 @@ class AppLocalizationsTr extends AppLocalizations {
   String bindTakenServer(String code, String name) {
     return '$code barkodu zaten «$name» ürününde';
   }
+
+  @override
+  String get shopModeBazaar => 'Pazar';
+
+  @override
+  String get shopModeBazaarSub =>
+      'Pazar, konteyner, pavyon: perakende ve toptan';
+
+  @override
+  String get shopSearchBazaar => 'Ad, barkod';
+
+  @override
+  String get shopEmptyBazaar => 'Bulunamadı. Ad veya barkodla arayın.';
+
+  @override
+  String get shopModeAutoparts => 'Oto yedek parça ve aksesuar';
+
+  @override
+  String get shopModeAutopartsSub =>
+      'Yedek parça, yağ, oto kimya; katalog numarasıyla arama';
+
+  @override
+  String get shopSearchAutoparts => 'Ad, katalog numarası, OEM';
+
+  @override
+  String get shopEmptyAutoparts =>
+      'Bulunamadı. Ad, katalog numarası (OEM, çapraz numara) veya barkodla arayın.';
+
+  @override
+  String get recvModeBazaar =>
+      'Pazar: ad ve barkodla giriş; miktar adet veya ağırlık.';
+
+  @override
+  String get recvModeAutoparts =>
+      'Oto yedek parça: ürünü katalog numarasıyla bulun; miktar adet, takım ve çift.';
 }

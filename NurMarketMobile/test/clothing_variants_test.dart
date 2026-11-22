@@ -24,7 +24,6 @@ import 'package:nurmarket/features/sale/catalog_repository.dart';
 import 'package:nurmarket/features/sale/sale_screen.dart';
 import 'package:nurmarket/features/sale/variant_picker.dart';
 import 'package:nurmarket/features/sale/variant_service.dart';
-import 'package:nurmarket/features/profile/profile_screen.dart' show chooseShopMode;
 import 'package:nurmarket/features/scan/code_lookup.dart';
 import 'package:nurmarket/features/shift/shift_repository.dart';
 import 'package:nurmarket/l10n/app_localizations.dart';
@@ -649,42 +648,25 @@ void main() {
       expect(of(t).read(cartProvider).isEmpty, isTrue);
     });
 
-    testWidgets('есть размеры, режим не «Одежда» — подсказка «Включить режим «Одежда»?»; «Включить» меняет режим и пишет его на сервер', (t) async {
+    testWidgets('2026-11-22: есть размеры, режим не «Одежда» — подсказки «Включить режим «Одежда»?» нет (сферу выбирает владелец в кассе, не клиент в мобилке)', (t) async {
       phone(t);
       await VariantService(api, db).forProduct('tee'); // размеры в базе
       await t.pumpWidget(app());
       await of(t).read(prefsProvider.notifier).load();
       await t.pump(const Duration(milliseconds: 600));
-      expect(find.byKey(const Key('clothingHint')), findsOneWidget);
-      await t.tap(find.byKey(const Key('clothingHintYes')));
-      await t.pump(const Duration(milliseconds: 300));
-      await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
-      await t.pump(const Duration(milliseconds: 600));
-      expect(of(t).read(prefsProvider).clothing, isTrue);
-      expect(await ShopModeSync.read(db), ShopMode.clothing);
-      expect(api.patches.any((p) => p.path == ShopModeSync.companyPath && (p.body as Map)['market_sphere'] == 'clothing'), isTrue);
       expect(find.byKey(const Key('clothingHint')), findsNothing);
-    });
-
-    testWidgets('«Не нужно» убирает подсказку насовсем', (t) async {
-      phone(t);
-      await VariantService(api, db).forProduct('tee');
-      await t.pumpWidget(app());
-      await of(t).read(prefsProvider.notifier).load();
-      await t.pump(const Duration(milliseconds: 600));
-      await t.tap(find.byKey(const Key('clothingHintNo')));
-      await t.pump(const Duration(milliseconds: 300));
-      await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
-      expect(find.byKey(const Key('clothingHint')), findsNothing);
-      expect(await db.getSetting(ShopModeSync.hintOffKey), '1');
+      expect(of(t).read(prefsProvider).clothing, isFalse);
+      expect(api.patches, isEmpty, reason: 'мобилка сферу на сервер не пишет');
     });
   });
 
   // ------------------------------------------------------------------ режим магазина
   group('режим магазина (сфера кассы)', () {
     test('коды и базовые сферы как в кассе; hardware уходит на сервер как grocery', () {
-      expect(ShopMode.values.map((m) => m.code), ['grocery', 'clothing', 'services', 'hardware']);
+      expect(ShopMode.values.map((m) => m.code), ['grocery', 'clothing', 'services', 'hardware', 'bazaar', 'autoparts']);
       expect(ShopMode.hardware.baseSphere, 'grocery');
+      expect(ShopMode.bazaar.baseSphere, 'grocery');
+      expect(ShopMode.autoparts.baseSphere, 'grocery');
       expect(ShopMode.clothing.baseSphere, 'clothing');
       expect(ShopModeX.fromServer('grocery', 'hardware'), ShopMode.hardware);
       expect(ShopModeX.fromServer('clothing', 'hardware'), ShopMode.clothing, reason: 'hardware совместима только с базовой grocery');
@@ -741,58 +723,50 @@ void main() {
       expect(await ShopModeSync.read(db), ShopMode.hardware);
     });
 
-    test('запись на сервер: базовая сфера в company, точная (hardware) в общих настройках; нет прав/связи — только телефон', () async {
+    test('2026-11-22: «Базар» и «Автозапчасти» — сферы с сервера (MarketSphereDetail), выбора в телефоне нет', () async {
+      // коды точной сферы — как в кассе (BazaarProfile / AutoPartsProfile / CanonicalId)
+      expect(ShopModeX.fromServer('grocery', 'bazaar'), ShopMode.bazaar);
+      expect(ShopModeX.fromServer('grocery', 'bazaar_retail'), ShopMode.bazaar);
+      expect(ShopModeX.fromServer('grocery', 'bazaar_wholesale'), ShopMode.bazaar);
+      expect(ShopModeX.fromServer('grocery', 'autoparts'), ShopMode.autoparts);
+      expect(ShopModeX.fromServer('grocery', 'hozmag'), ShopMode.hardware);
+      expect(ShopModeX.fromServer('grocery', 'stroymag'), ShopMode.hardware);
+      expect(ShopModeX.fromServer('clothing', 'autoparts'), ShopMode.clothing, reason: 'точная сфера совместима только с базовой grocery');
+      expect(ShopModeX.fromServer('bazaar', null), isNull, reason: 'market_sphere сервера бывает только grocery / clothing / services');
+      // телефон берёт сферу и следит за её сменой на сервере (база везде grocery)
+      api.routes[ShopModeSync.companyPath] = (_) => {'market_sphere': 'grocery'};
+      api.routes[ShopModeSync.settingsPath] = (_) => {
+        'settings': {'MarketSphereDetail': 'bazaar_wholesale'},
+      };
+      expect(await ShopModeSync.syncFromServer(db, api), ShopMode.bazaar);
+      expect(await ShopModeSync.syncFromServer(db, api), isNull);
+      api.routes[ShopModeSync.settingsPath] = (_) => {
+        'settings': {'MarketSphereDetail': 'autoparts'},
+      };
+      expect(await ShopModeSync.syncFromServer(db, api), ShopMode.autoparts);
+      expect(await ShopModeSync.read(db), ShopMode.autoparts);
+      // общих настроек не прочитать — режим не слетает в «Продукты»
+      api.routes.remove(ShopModeSync.settingsPath);
+      expect(await ShopModeSync.syncFromServer(db, api), isNull);
+      expect(await ShopModeSync.read(db), ShopMode.autoparts);
+      // владелец убрал точную сферу — телефон возвращается к «Продуктам»
       api.routes[ShopModeSync.settingsPath] = (_) => {'settings': <String, dynamic>{}};
-      expect(await ShopModeSync.saveToServer(db, api, ShopMode.hardware), isTrue);
-      expect(api.patches.first.path, ShopModeSync.companyPath);
-      expect((api.patches.first.body as Map)['market_sphere'], 'grocery');
-      expect(api.patches.last.path, ShopModeSync.settingsPath);
-      expect((api.patches.last.body as Map)[ShopModeSync.detailKey], 'hardware');
-      api.patches.clear();
-      expect(await ShopModeSync.saveToServer(db, api, ShopMode.clothing), isTrue);
-      expect(api.patches.single.path, ShopModeSync.companyPath, reason: 'точной сферы в общих настройках не было — не создаём');
-      api.offline = true;
-      expect(await ShopModeSync.saveToServer(db, api, ShopMode.services), isFalse);
+      expect(await ShopModeSync.syncFromServer(db, api), ShopMode.grocery);
+      expect(api.patches, isEmpty);
     });
 
-    testWidgets('профиль: «Режим магазина» → выбор из четырёх режимов, галочка у текущего', (t) async {
-      t.view.physicalSize = const Size(720, 1280);
-      t.view.devicePixelRatio = 2.0;
-      addTearDown(() {
-        t.view.resetPhysicalSize();
-        t.view.resetDevicePixelRatio();
-      });
-      final c = ProviderContainer(overrides: [databaseProvider.overrideWithValue(db), apiProvider.overrideWithValue(api), sessionProvider.overrideWith(() => _Fixed(_owner))]);
-      addTearDown(c.dispose);
-      await t.pumpWidget(
-        UncontrolledProviderScope(
-          container: c,
-          child: MaterialApp(
-            theme: buildTheme(dark: false),
-            locale: const Locale('ru'),
-            supportedLocales: AppLocalizations.supportedLocales,
-            localizationsDelegates: const [AppLocalizations.delegate, GlobalMaterialLocalizations.delegate, GlobalWidgetsLocalizations.delegate, GlobalCupertinoLocalizations.delegate],
-            home: Scaffold(
-              body: Consumer(
-                builder: (ctx, ref, _) => ElevatedButton(onPressed: () => chooseShopMode(ctx, ref), child: const Text('open')),
-              ),
-            ),
-          ),
-        ),
-      );
-      await t.tap(find.text('open'));
-      await t.pumpAndSettle();
-      for (final m in ShopMode.values) {
-        expect(find.byKey(Key('shopMode_${m.code}')), findsOneWidget);
+    test('2026-11-22: тексты «Базара» и «Автозапчастей» есть на 5 языках; поиск «Автозапчастей» — по каталожному номеру', () {
+      for (final code in ['ru', 'ky', 'en', 'tr', 'uz']) {
+        final l = lookupAppLocalizations(Locale(code));
+        for (final m in [ShopMode.bazaar, ShopMode.autoparts]) {
+          expect(m.title(l).trim(), isNotEmpty, reason: '$code ${m.code} title');
+          expect(m.subtitle(l).trim(), isNotEmpty);
+          expect(m.searchHint(l).trim(), isNotEmpty);
+          expect(m.emptyText(l).trim(), isNotEmpty);
+        }
       }
-      await t.tap(find.byKey(const Key('shopMode_clothing')));
-      await t.pump(const Duration(milliseconds: 400));
-      await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
-      await t.pump(const Duration(milliseconds: 400));
-      expect(c.read(prefsProvider).shop, ShopMode.clothing);
-      expect(await ShopModeSync.read(db), ShopMode.clothing);
-      await t.pumpWidget(const SizedBox());
-      c.dispose(); // таймер смены темы по времени (PrefsController) не должен пережить тест
+      expect(ShopMode.autoparts.searchHint(lookupAppLocalizations(const Locale('ru'))), contains('номер'));
+      expect(ShopMode.bazaar.title(lookupAppLocalizations(const Locale('ru'))), 'Базар');
     });
   });
 }

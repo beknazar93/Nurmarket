@@ -6,7 +6,6 @@ import '../../core/api/api_client.dart';
 import '../../core/db/database.dart';
 import '../../core/providers.dart';
 import '../../core/shop_mode.dart';
-import '../profile/profile_screen.dart' show chooseShopMode;
 import '../../core/theme/tokens.dart';
 import '../../core/ui/link_banner.dart';
 import '../../core/update/update_ui.dart';
@@ -398,6 +397,22 @@ List<Widget> homeTiles(BuildContext context, ShopMode mode, bool chosen) {
         receive,
         _Tile(icon: Icons.inventory_2_outlined, title: l.tabStock, sub: l.tileStockSub, onTap: () => context.go('/stock')),
       ];
+    case ShopMode.bazaar:
+      // 2026-11-22 («Базар»): быстрые продажи; приход, долги, чеки — готовые разделы (отдельных серверных функций у сферы пока нет)
+      return [
+        sale,
+        receive,
+        _Tile(icon: Icons.receipt_long_outlined, title: l.tabChecks, sub: l.checksTileSub, onTap: () => context.go('/checks')),
+        _Tile(icon: Icons.account_balance_wallet_outlined, title: l.debts, sub: l.tileDebtsSub, onTap: () => context.push('/debts')),
+      ];
+    case ShopMode.autoparts:
+      // 2026-11-22 («Автозапчасти»): склад (поиск по каталожному номеру — в строке поиска «Продажи» и «Склада»), приход, чеки
+      return [
+        sale,
+        _Tile(icon: Icons.inventory_2_outlined, title: l.tabStock, sub: l.tileStockSub, onTap: () => context.go('/stock')),
+        receive,
+        _Tile(icon: Icons.receipt_long_outlined, title: l.tabChecks, sub: l.checksTileSub, onTap: () => context.go('/checks')),
+      ];
     case ShopMode.services:
       return [
         sale,
@@ -408,7 +423,7 @@ List<Widget> homeTiles(BuildContext context, ShopMode mode, bool chosen) {
   }
 }
 
-/// Плашка режима магазина на главной: цветной значок режима, название, «изменить». Касание — окно выбора режима.
+/// Плашка режима магазина на главной: цветной значок режима и название. 2026-11-22: только показ — сфера приходит с сервера, выбора в мобилке нет.
 class _ShopModeChip extends StatelessWidget {
   final ShopMode mode;
   final bool chosen;
@@ -418,16 +433,11 @@ class _ShopModeChip extends StatelessWidget {
     final l = context.l;
     final pal = context.pal;
     final color = chosen ? mode.accent : pal.textSoft;
-    return Consumer(
-      builder: (c, ref, _) => Semantics(
-        button: true,
+    return Semantics(
         label: '${l.shopModeTitle}: ${chosen ? mode.title(l) : l.shopModeNotChosen}',
         excludeSemantics: true,
-        child: InkWell(
+        child: Container(
           key: const Key('shopModeChip'),
-          borderRadius: BorderRadius.circular(14),
-          onTap: () => chooseShopMode(c, ref),
-          child: Container(
             constraints: const BoxConstraints(minHeight: 48),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
@@ -453,12 +463,9 @@ class _ShopModeChip extends StatelessWidget {
                     ],
                   ),
                 ),
-                Icon(Icons.chevron_right_rounded, color: pal.textSoft),
               ],
             ),
           ),
-        ),
-      ),
     );
   }
 }

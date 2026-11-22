@@ -316,9 +316,9 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
 
   /// 2026-10-31 (режим магазина): размеры есть, режим «Одежда» выключен и на подсказку не отвечали «Не нужно».
   Future<bool> _needClothingHint(AppDatabase db) async {
-    if (ref.read(prefsProvider).clothing) return false;
-    if ((await db.getSetting(ShopModeSync.hintOffKey)) == '1') return false;
-    return db.hasAnyVariants();
+    // 2026-11-22 (владелец: «у клиента нет возможности выбора сферы в мобилке»): подсказка-переключатель отключена — сферу задаёт
+    // владелец в кассе/CRM, телефон берёт её с сервера. Код карточки оставлен, чтобы вернуть, если решение изменится.
+    return false;
   }
 
   /// 2026-10-31 (одежда): в режиме «Одежда» размеры показанных товаров подтягиваются в фоне (сервер не говорит, у каких товаров они

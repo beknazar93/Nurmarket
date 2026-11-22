@@ -171,6 +171,8 @@ void main() {
       ShopMode.clothing: ['tileSizes', 'tileReceive'],
       ShopMode.hardware: ['tileUnits', 'tileReceive'],
       ShopMode.services: ['tileRentals'],
+      ShopMode.bazaar: ['tileReceive'], // 2026-11-22: сферы с сервера «Базар» и «Автозапчасти»
+      ShopMode.autoparts: ['tileReceive'],
     };
     const all = ['tileWeighed', 'tileExpiry', 'tileReceive', 'tileSizes', 'tileUnits', 'tileRentals'];
 
@@ -188,6 +190,10 @@ void main() {
         final l = ru();
         expect(find.descendant(of: find.byKey(const Key('shopModeChip')), matching: find.text(e.key == null ? l.shopModeNotChosen : e.key!.title(l))), findsOneWidget);
         expect(find.text(l.tabSale), findsWidgets);
+        // 2026-11-22: выбора сферы в телефоне нет — касание плашки ничего не открывает
+        await t.tap(find.byKey(const Key('shopModeChip')));
+        await t.pump(const Duration(milliseconds: 400));
+        expect(find.byKey(const Key('shopMode_clothing')), findsNothing);
       });
     }
 

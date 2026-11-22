@@ -7447,4 +7447,40 @@ class AppLocalizationsUz extends AppLocalizations {
   String bindTakenServer(String code, String name) {
     return '$code shtrix-kodi allaqachon «$name» mahsulotida';
   }
+
+  @override
+  String get shopModeBazaar => 'Bozor';
+
+  @override
+  String get shopModeBazaarSub =>
+      'Bozor, konteyner, pavilon: chakana va ulgurji';
+
+  @override
+  String get shopSearchBazaar => 'Nomi, shtrix-kod';
+
+  @override
+  String get shopEmptyBazaar =>
+      'Hech narsa topilmadi. Nomi yoki shtrix-kod bo\'yicha qidiring.';
+
+  @override
+  String get shopModeAutoparts => 'Avtoehtiyot qismlar va avtotovarlar';
+
+  @override
+  String get shopModeAutopartsSub =>
+      'Ehtiyot qismlar, moylar, avtokimyo; katalog raqami bo\'yicha qidirish';
+
+  @override
+  String get shopSearchAutoparts => 'Nomi, katalog raqami, OEM';
+
+  @override
+  String get shopEmptyAutoparts =>
+      'Hech narsa topilmadi. Nomi, katalog raqami (OEM, kross-raqam) yoki shtrix-kod bo\'yicha qidiring.';
+
+  @override
+  String get recvModeBazaar =>
+      'Bozor: nomi va shtrix-kod bo\'yicha kirim; miqdor — dona yoki vazn.';
+
+  @override
+  String get recvModeAutoparts =>
+      'Avtoehtiyot: tovarni katalog raqami bo\'yicha toping; miqdor — dona, to\'plam va juft.';
 }

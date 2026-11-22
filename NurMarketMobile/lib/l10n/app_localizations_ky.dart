@@ -7418,4 +7418,39 @@ class AppLocalizationsKy extends AppLocalizations {
   String bindTakenServer(String code, String name) {
     return '$code штрихкоду «$name» товарында мурунтан бар';
   }
+
+  @override
+  String get shopModeBazaar => 'Базар';
+
+  @override
+  String get shopModeBazaarSub => 'Базар, контейнер, павильон: чекене жана дүң';
+
+  @override
+  String get shopSearchBazaar => 'Аталышы, штрихкод';
+
+  @override
+  String get shopEmptyBazaar =>
+      'Эч нерсе табылган жок. Аталышы же штрихкод боюнча издеңиз.';
+
+  @override
+  String get shopModeAutoparts => 'Автозапчасттар жана автотоварлар';
+
+  @override
+  String get shopModeAutopartsSub =>
+      'Запчасттар, майлар, автохимия; каталог номери боюнча издөө';
+
+  @override
+  String get shopSearchAutoparts => 'Аталышы, каталог номери, OEM';
+
+  @override
+  String get shopEmptyAutoparts =>
+      'Эч нерсе табылган жок. Аталышы, каталог номери (OEM, кросс-номер) же штрихкод боюнча издеңиз.';
+
+  @override
+  String get recvModeBazaar =>
+      'Базар: аталышы жана штрихкод боюнча киреше; саны — даана же салмак.';
+
+  @override
+  String get recvModeAutoparts =>
+      'Автозапчасттар: товарды каталог номери боюнча табыңыз; саны — даана, топтом жана жуп.';
 }

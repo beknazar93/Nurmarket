@@ -4,6 +4,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter/foundation.dart' show ValueNotifier;
 
 import '../../core/api/api_client.dart';
+import '../../core/catalog/part_numbers.dart';
 import '../../core/catalog/search_match.dart';
 import '../../core/db/database.dart';
 import '../../core/sync/account_switch.dart';
@@ -152,8 +153,10 @@ class CatalogRepository {
   Future<void> _markChecked() => db.setSetting(checkedAtKey, DateTime.now().toIso8601String());
 
   /// Ключ поиска товара — нормализованный (ё=е, кыргызские буквы), как SearchMatch кассы; считается один раз при записи.
-  static String _searchKey(String name, String? sku, String? barcode, String? category, String? brand) =>
-      SearchMatch.key([name, sku ?? '', barcode ?? '', category ?? '', brand ?? '']);
+  /// 2026-11-22 («Автозапчасти»): [partNumbers] — каталожные номера из attributes (part_no_norm / oem / cross_N), хвостом после разделителя;
+  /// у товаров без таких атрибутов ключ прежний.
+  static String _searchKey(String name, String? sku, String? barcode, String? category, String? brand, {Iterable<String> partNumbers = const []}) =>
+      PartNumbers.withNumbers(SearchMatch.key([name, sku ?? '', barcode ?? '', category ?? '', brand ?? '']), partNumbers);
 
   // ------------------------------------------------------------------ лента изменений
 
@@ -431,7 +434,8 @@ class CatalogRepository {
       quantity: has(const ['quantity']) ? row.quantity : const Value.absent(),
       category: has(const ['category', 'category_name']) ? row.category : const Value.absent(),
       imageUrl: Value(row.imageUrl.value ?? prev.imageUrl),
-      searchKey: Value(_searchKey(row.name.value, sku, barcode, category, str(m, 'brand_name'))),
+      // 2026-11-22: карточка ленты без attributes (частичное обновление) — номера запчасти остаются прежние (хвост прежнего ключа)
+      searchKey: Value(_searchKey(row.name.value, sku, barcode, category, str(m, 'brand_name'), partNumbers: m.containsKey('attributes') ? PartNumbers.fromProduct(m) : PartNumbers.tailOf(prev.searchKey))),
       promoRules: has(const ['promotion_rules']) ? row.promoRules : const Value.absent(),
       minQuantity: has(const ['minimum_quantity', 'min_quantity']) ? row.minQuantity : const Value.absent(),
       purchasePrice: row.purchasePrice, // 2026-10-30: absent, если в карточке закупки нет (_map)
@@ -795,7 +799,7 @@ class CatalogRepository {
       category: Value(category),
       imageUrl: Value(image),
       // 2026-10-29 (аудит, п. 10): ключ нормализован (ё=е, ү→у …) — SearchMatch.key
-      searchKey: Value(_searchKey(name, str(p, 'sku') ?? str(p, 'article'), str(p, 'barcode'), category, str(p, 'brand_name'))),
+      searchKey: Value(_searchKey(name, str(p, 'sku') ?? str(p, 'article'), str(p, 'barcode'), category, str(p, 'brand_name'), partNumbers: PartNumbers.fromProduct(p))),
       promoRules: Value(PromoRule.encodeFromApi(p['promotion_rules'])),
       minQuantity: Value(num0(p, 'minimum_quantity') > 0 ? num0(p, 'minimum_quantity') : num0(p, 'min_quantity')),
       // 2026-10-30 (ревизия в деньгах): закупка товара; нет в ответе — absent (null у нового, прежняя у известного)

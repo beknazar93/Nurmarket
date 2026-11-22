@@ -7547,4 +7547,39 @@ class AppLocalizationsRu extends AppLocalizations {
   String bindTakenServer(String code, String name) {
     return 'Штрихкод $code уже у товара «$name»';
   }
+
+  @override
+  String get shopModeBazaar => 'Базар';
+
+  @override
+  String get shopModeBazaarSub => 'Рынок, контейнер, павильон: розница и опт';
+
+  @override
+  String get shopSearchBazaar => 'Название, штрихкод';
+
+  @override
+  String get shopEmptyBazaar =>
+      'Ничего не найдено. Ищите по названию или штрихкоду.';
+
+  @override
+  String get shopModeAutoparts => 'Автозапчасти и автотовары';
+
+  @override
+  String get shopModeAutopartsSub =>
+      'Запчасти, масла, автохимия; поиск по каталожному номеру';
+
+  @override
+  String get shopSearchAutoparts => 'Название, каталожный номер, OEM';
+
+  @override
+  String get shopEmptyAutoparts =>
+      'Ничего не найдено. Ищите по названию, каталожному номеру (OEM, кросс-номер) или штрихкоду.';
+
+  @override
+  String get recvModeBazaar =>
+      'Базар: приход по названию и штрихкоду; количество — штуки или вес.';
+
+  @override
+  String get recvModeAutoparts =>
+      'Автозапчасти: находите товар по каталожному номеру; количество — в штуках, комплектах и парах.';
 }

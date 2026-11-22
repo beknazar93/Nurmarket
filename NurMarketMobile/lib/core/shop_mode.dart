@@ -8,19 +8,25 @@ import 'db/database.dart';
 /// (MarketSpheres / SphereCatalog). Три базовые сферы живут на сервере (`market_sphere` в api/users/company/: grocery / clothing /
 /// services), точная сфера «Хозтовары» (hardware) — в общих настройках компании (документ nurmarket-kassa, ключ MarketSphereDetail)
 /// и на сервер как market_sphere не уходит: туда пишется базовая grocery — ровно как делает касса.
-enum ShopMode { grocery, clothing, services, hardware }
+/// 2026-11-22 (владелец: «в мобилке нет сферы Базар и Автозапчасти»): добавлены «Базар» (bazaar) и «Автозапчасти» (autoparts) — тоже точные сферы
+/// на базовой grocery (MarketSphereDetail = bazaar / bazaar_retail / bazaar_wholesale / autoparts, как BazaarProfile / AutoPartsProfile кассы).
+/// Выбора сферы в мобилке НЕТ: её задаёт владелец в кассе/CRM, телефон только читает с сервера (ShopModeSync.syncFromServer).
+enum ShopMode { grocery, clothing, services, hardware, bazaar, autoparts }
 
 extension ShopModeX on ShopMode {
   String get code => name;
 
   /// Что уходит на сервер в market_sphere.
-  String get baseSphere => this == ShopMode.hardware ? 'grocery' : name;
+  String get baseSphere => isBase ? name : 'grocery';
+
+  /// Базовая сфера сервера (market_sphere): grocery / clothing / services. Остальные — точные сферы поверх grocery.
+  bool get isBase => this == ShopMode.grocery || this == ShopMode.clothing || this == ShopMode.services;
 
   /// Размеры и цвета (варианты товара): выбор при продаже, надпись на плитке, скан штрихкода размера.
   bool get variants => this == ShopMode.clothing;
 
   /// «Продукты»: весы и весовые товары (кнопка весов в продаже). В одежде и услугах её нет.
-  bool get weighing => this == ShopMode.grocery || this == ShopMode.hardware;
+  bool get weighing => this == ShopMode.grocery || this == ShopMode.hardware || this == ShopMode.bazaar;
 
   /// Цвет режима: значок и рамка в шапке главной, в профиле и на плитке товара. Брендовый жёлтый остаётся за главными кнопками.
   Color get accent => switch (this) {
@@ -28,6 +34,8 @@ extension ShopModeX on ShopMode {
     ShopMode.clothing => const Color(0xFF8E5BE8),
     ShopMode.services => const Color(0xFF1AA6B7),
     ShopMode.hardware => const Color(0xFFF59E0B),
+    ShopMode.bazaar => const Color(0xFFEA580C), // как AccentHex «Базара» в кассе
+    ShopMode.autoparts => const Color(0xFF0EA5E9), // как AccentHex «Автозапчастей» в кассе
   };
 
   /// Подсказка в строке поиска продажи под режим.
@@ -36,6 +44,8 @@ extension ShopModeX on ShopMode {
     ShopMode.clothing => l.shopSearchClothing,
     ShopMode.services => l.shopSearchServices,
     ShopMode.hardware => l.shopSearchHardware,
+    ShopMode.bazaar => l.shopSearchBazaar,
+    ShopMode.autoparts => l.shopSearchAutoparts,
   };
 
   /// Пустое состояние списка товаров под режим.
@@ -44,6 +54,8 @@ extension ShopModeX on ShopMode {
     ShopMode.clothing => l.shopEmptyClothing,
     ShopMode.services => l.shopEmptyServices,
     ShopMode.hardware => l.shopEmptyHardware,
+    ShopMode.bazaar => l.shopEmptyBazaar,
+    ShopMode.autoparts => l.shopEmptyAutoparts,
   };
 
   IconData get icon => switch (this) {
@@ -51,6 +63,8 @@ extension ShopModeX on ShopMode {
     ShopMode.clothing => Icons.checkroom_rounded,
     ShopMode.services => Icons.content_cut_rounded,
     ShopMode.hardware => Icons.hardware_rounded,
+    ShopMode.bazaar => Icons.storefront_rounded,
+    ShopMode.autoparts => Icons.directions_car_rounded,
   };
 
   String title(AppLocalizations l) => switch (this) {
@@ -58,6 +72,8 @@ extension ShopModeX on ShopMode {
     ShopMode.clothing => l.shopModeClothing,
     ShopMode.services => l.shopModeServices,
     ShopMode.hardware => l.shopModeHardware,
+    ShopMode.bazaar => l.shopModeBazaar,
+    ShopMode.autoparts => l.shopModeAutoparts,
   };
 
   String subtitle(AppLocalizations l) => switch (this) {
@@ -65,6 +81,8 @@ extension ShopModeX on ShopMode {
     ShopMode.clothing => l.shopModeClothingSub,
     ShopMode.services => l.shopModeServicesSub,
     ShopMode.hardware => l.shopModeHardwareSub,
+    ShopMode.bazaar => l.shopModeBazaarSub,
+    ShopMode.autoparts => l.shopModeAutopartsSub,
   };
 
   static ShopMode? parse(String? v) {
@@ -74,11 +92,20 @@ extension ShopModeX on ShopMode {
     return null;
   }
 
-  /// Режим по ответу сервера: базовая сфера + точная (hardware совместима только с базовой grocery, как SphereCatalog.Resolve кассы).
+  /// Точная сфера из MarketSphereDetail (как SphereCatalog.CanonicalId кассы): hardware / hozmag / stroymag — «Хозтовары»,
+  /// bazaar / bazaar_retail / bazaar_wholesale — «Базар», autoparts — «Автозапчасти». Незнакомое значение — null (останется базовая).
+  static ShopMode? fromDetail(String? detail) => switch ((detail ?? '').trim().toLowerCase()) {
+    'hardware' || 'hozmag' || 'stroymag' => ShopMode.hardware,
+    'bazaar' || 'bazaar_retail' || 'bazaar_wholesale' => ShopMode.bazaar,
+    'autoparts' => ShopMode.autoparts,
+    _ => null,
+  };
+
+  /// Режим по ответу сервера: базовая сфера + точная (точная совместима только с базовой grocery, как SphereCatalog.Resolve кассы).
   static ShopMode? fromServer(String? base, String? detail) {
     final b = parse(base);
-    if (b == null || b == ShopMode.hardware) return null;
-    if (b == ShopMode.grocery && (detail ?? '').trim().toLowerCase() == 'hardware') return ShopMode.hardware;
+    if (b == null || !b.isBase) return null;
+    if (b == ShopMode.grocery) return fromDetail(detail) ?? ShopMode.grocery;
     return b;
   }
 }
@@ -111,12 +138,13 @@ class ShopModeSync {
   /// затирается; «не задан» (null) локальный выбор не трогает. Возвращает новый режим, если он сменился, иначе null.
   /// [detail] — точная сфера из общих настроек компании (hardware).
   static Future<ShopMode?> applyServer(AppDatabase db, {required String? base, String? detail}) async {
-    final b = ShopModeX.parse(base);
-    if (b == null || b == ShopMode.hardware) return null;
+    final target = ShopModeX.fromServer(base, detail);
+    if (target == null) return null;
     final seen = await db.getSetting(serverSeenKey);
     final current = await read(db);
-    final target = ShopModeX.fromServer(base, detail)!;
-    if (seen == b.code) {
+    // 2026-11-22: «виденное» — полный серверный режим (с точной сферой), а не базовая сфера: иначе смена hardware → bazaar → autoparts
+    // на сервере (база везде grocery) телефон не замечал. Старое значение (базовая сфера) читается как есть.
+    if (seen == target.code) {
       // сфера на сервере та же; режим на телефоне не выбирали, а сервер говорит не «Продукты» — берём серверный
       if (current == null && target != ShopMode.grocery) {
         await write(db, target);
@@ -124,7 +152,7 @@ class ShopModeSync {
       }
       return null;
     }
-    await db.setSetting(serverSeenKey, b.code);
+    await db.setSetting(serverSeenKey, target.code);
     final firstSightOnConfigured = seen == null && current != null;
     if (firstSightOnConfigured || current == target) return null;
     // «Продукты» на сервере — значение по умолчанию любой компании: на телефоне оно не считается выбором (иначе магазин одежды,
@@ -143,40 +171,20 @@ class ShopModeSync {
       final base = company['market_sphere'] is String ? company['market_sphere'] as String : null;
       String? detail;
       if ((base ?? '').trim().toLowerCase() == 'grocery') {
+        // точная сфера (hardware / bazaar / autoparts) лежит в общих настройках компании, её выбирает владелец в кассе
         try {
           final doc = await api.get(settingsPath, timeout: timeout);
           final st = doc is Map && doc['settings'] is Map ? doc['settings'] as Map : null;
           final d = st?[detailKey];
           if (d is String) detail = d;
         } catch (_) {
-          // общих настроек не прочитать — остаётся базовая сфера
+          // 2026-11-22: общих настроек не прочитать — НЕ применяем «голую» grocery (иначе Базар/Автозапчасти/Хозтовары на миг слетали бы в «Продукты»)
+          return null;
         }
       }
       return await applyServer(db, base: base, detail: detail);
     } catch (_) {
       return null;
-    }
-  }
-
-  /// Записать выбор на сервер, как делает касса (владелец; у остальных 403 — режим остаётся только на этом телефоне):
-  /// market_sphere — базовая сфера; точная (hardware) — в общих настройках компании, только если она есть или нужна.
-  /// Возвращает true, если сервер принял; false — режим сохранён только на телефоне.
-  static Future<bool> saveToServer(AppDatabase db, ApiClient api, ShopMode mode) async {
-    try {
-      await api.patch(companyPath, body: {'market_sphere': mode.baseSphere});
-      await db.setSetting(serverSeenKey, mode.baseSphere);
-      try {
-        final doc = await api.get(settingsPath, timeout: const Duration(seconds: 6));
-        final st = doc is Map && doc['settings'] is Map ? doc['settings'] as Map : const {};
-        final had = st[detailKey] is String && (st[detailKey] as String).trim().isNotEmpty;
-        // как MarketSpheres.Set кассы: точную сферу пишем, если выбрали hardware или она уже была (иначе другие кассы вернули бы старую)
-        if (mode == ShopMode.hardware || had) await api.patch(settingsPath, body: {detailKey: mode == ShopMode.hardware ? 'hardware' : mode.code});
-      } catch (_) {
-        // точная сфера не записалась — базовая на сервере уже стоит
-      }
-      return true;
-    } catch (_) {
-      return false;
     }
   }
 }

@@ -7529,4 +7529,39 @@ class AppLocalizationsEn extends AppLocalizations {
   String bindTakenServer(String code, String name) {
     return 'Barcode $code already belongs to “$name”';
   }
+
+  @override
+  String get shopModeBazaar => 'Bazaar';
+
+  @override
+  String get shopModeBazaarSub =>
+      'Market stall, container, pavilion: retail and wholesale';
+
+  @override
+  String get shopSearchBazaar => 'Name, barcode';
+
+  @override
+  String get shopEmptyBazaar => 'Nothing found. Search by name or barcode.';
+
+  @override
+  String get shopModeAutoparts => 'Auto parts and accessories';
+
+  @override
+  String get shopModeAutopartsSub =>
+      'Parts, oils, car chemicals; search by part number';
+
+  @override
+  String get shopSearchAutoparts => 'Name, part number, OEM';
+
+  @override
+  String get shopEmptyAutoparts =>
+      'Nothing found. Search by name, part number (OEM, cross number) or barcode.';
+
+  @override
+  String get recvModeBazaar =>
+      'Bazaar: receive by name and barcode; quantity in pieces or weight.';
+
+  @override
+  String get recvModeAutoparts =>
+      'Auto parts: find items by part number; quantity in pieces, sets and pairs.';
 }

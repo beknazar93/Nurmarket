@@ -2099,5 +2099,15 @@
   "camMerged": "Merged into one product",
   "camSplitDone": "Split",
   "camVariantsTitle": "Variants: {n}",
-  "bindTakenServer": "Barcode {code} already belongs to “{name}”"
+  "bindTakenServer": "Barcode {code} already belongs to “{name}”",
+  "shopModeBazaar": "Bazaar",
+  "shopModeBazaarSub": "Market stall, container, pavilion: retail and wholesale",
+  "shopSearchBazaar": "Name, barcode",
+  "shopEmptyBazaar": "Nothing found. Search by name or barcode.",
+  "shopModeAutoparts": "Auto parts and accessories",
+  "shopModeAutopartsSub": "Parts, oils, car chemicals; search by part number",
+  "shopSearchAutoparts": "Name, part number, OEM",
+  "shopEmptyAutoparts": "Nothing found. Search by name, part number (OEM, cross number) or barcode.",
+  "recvModeBazaar": "Bazaar: receive by name and barcode; quantity in pieces or weight.",
+  "recvModeAutoparts": "Auto parts: find items by part number; quantity in pieces, sets and pairs."
 }

@@ -6,6 +6,8 @@
 //  • если по запросу как набран ничего нет — вторая попытка: «не та раскладка» (ASU ↔ ФЫГ) и транслит (Asu ↔ Асу).
 // Ключ поиска товара (products.search_key) хранится уже нормализованным и считается один раз при записи в базу.
 
+import 'part_numbers.dart';
+
 class SearchMatch {
   static const _enKeys = "qwertyuiop[]asdfghjkl;'zxcvbnm,.`";
   static const _ruKeys = 'йцукенгшщзхъфывапролджэячсмитьбюё';
@@ -129,6 +131,8 @@ class SearchQuery {
         list.add(SearchMatch.translitCyrToLat(t)); // асу -> asu
         if (t.contains('в')) list.add(SearchMatch.translitCyrToLat(t, vAsW: true)); // воллингер -> wollinger
       }
+      final pn = PartNumbers.queryVariant(t); // 2026-11-22: каталожный номер с дефисами/слэшами → слитно, как хранится в ключе
+      if (pn != null) list.add(pn);
       variants.add({for (final v in list) if (v.isNotEmpty && v != t) v}.toList());
     }
     return SearchQuery._(n, tokens, variants);

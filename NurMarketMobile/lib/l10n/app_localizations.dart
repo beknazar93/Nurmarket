@@ -12711,6 +12711,66 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Штрихкод {code} уже у товара «{name}»'**
   String bindTakenServer(String code, String name);
+
+  /// No description provided for @shopModeBazaar.
+  ///
+  /// In ru, this message translates to:
+  /// **'Базар'**
+  String get shopModeBazaar;
+
+  /// No description provided for @shopModeBazaarSub.
+  ///
+  /// In ru, this message translates to:
+  /// **'Рынок, контейнер, павильон: розница и опт'**
+  String get shopModeBazaarSub;
+
+  /// No description provided for @shopSearchBazaar.
+  ///
+  /// In ru, this message translates to:
+  /// **'Название, штрихкод'**
+  String get shopSearchBazaar;
+
+  /// No description provided for @shopEmptyBazaar.
+  ///
+  /// In ru, this message translates to:
+  /// **'Ничего не найдено. Ищите по названию или штрихкоду.'**
+  String get shopEmptyBazaar;
+
+  /// No description provided for @shopModeAutoparts.
+  ///
+  /// In ru, this message translates to:
+  /// **'Автозапчасти и автотовары'**
+  String get shopModeAutoparts;
+
+  /// No description provided for @shopModeAutopartsSub.
+  ///
+  /// In ru, this message translates to:
+  /// **'Запчасти, масла, автохимия; поиск по каталожному номеру'**
+  String get shopModeAutopartsSub;
+
+  /// No description provided for @shopSearchAutoparts.
+  ///
+  /// In ru, this message translates to:
+  /// **'Название, каталожный номер, OEM'**
+  String get shopSearchAutoparts;
+
+  /// No description provided for @shopEmptyAutoparts.
+  ///
+  /// In ru, this message translates to:
+  /// **'Ничего не найдено. Ищите по названию, каталожному номеру (OEM, кросс-номер) или штрихкоду.'**
+  String get shopEmptyAutoparts;
+
+  /// No description provided for @recvModeBazaar.
+  ///
+  /// In ru, this message translates to:
+  /// **'Базар: приход по названию и штрихкоду; количество — штуки или вес.'**
+  String get recvModeBazaar;
+
+  /// No description provided for @recvModeAutoparts.
+  ///
+  /// In ru, this message translates to:
+  /// **'Автозапчасти: находите товар по каталожному номеру; количество — в штуках, комплектах и парах.'**
+  String get recvModeAutoparts;
 }
 
 class _AppLocalizationsDelegate

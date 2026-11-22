@@ -1504,6 +1504,8 @@ class _ModeReceiveBanner extends StatelessWidget {
     final text = switch (mode) {
       ShopMode.clothing => l.recvModeClothing,
       ShopMode.grocery => l.recvModeGrocery,
+      ShopMode.bazaar => l.recvModeBazaar,
+      ShopMode.autoparts => l.recvModeAutoparts,
       _ => l.recvModeHardware,
     };
     return Container(

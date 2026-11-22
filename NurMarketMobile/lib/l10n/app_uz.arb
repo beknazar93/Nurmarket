@@ -2099,5 +2099,15 @@
   "camMerged": "Bitta mahsulotga birlashtirildi",
   "camSplitDone": "Ajratildi",
   "camVariantsTitle": "Variantlar: {n}",
-  "bindTakenServer": "{code} shtrix-kodi allaqachon «{name}» mahsulotida"
+  "bindTakenServer": "{code} shtrix-kodi allaqachon «{name}» mahsulotida",
+  "shopModeBazaar": "Bozor",
+  "shopModeBazaarSub": "Bozor, konteyner, pavilon: chakana va ulgurji",
+  "shopSearchBazaar": "Nomi, shtrix-kod",
+  "shopEmptyBazaar": "Hech narsa topilmadi. Nomi yoki shtrix-kod bo'yicha qidiring.",
+  "shopModeAutoparts": "Avtoehtiyot qismlar va avtotovarlar",
+  "shopModeAutopartsSub": "Ehtiyot qismlar, moylar, avtokimyo; katalog raqami bo'yicha qidirish",
+  "shopSearchAutoparts": "Nomi, katalog raqami, OEM",
+  "shopEmptyAutoparts": "Hech narsa topilmadi. Nomi, katalog raqami (OEM, kross-raqam) yoki shtrix-kod bo'yicha qidiring.",
+  "recvModeBazaar": "Bozor: nomi va shtrix-kod bo'yicha kirim; miqdor — dona yoki vazn.",
+  "recvModeAutoparts": "Avtoehtiyot: tovarni katalog raqami bo'yicha toping; miqdor — dona, to'plam va juft."
 }
