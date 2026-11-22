@@ -1337,6 +1337,14 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         var lines = ReceivingListOrder.InAddedOrder(ReceivingLines); // 2026-11-07: в приход — в порядке добавления («№» 1, 2, 3…), а не «новая сверху»
         var problems = PurchaseReceivingService.Validate(lines, requireSalePrice: ConfirmMissingSalePrices is null); // 2026-11-06: цену продажи спросит окно ниже
         problems.AddRange(PurchaseReceivingService.FractionalProblems(lines)); // 2026-10-31: «2,5 шт» у нового товара — выберите «кг» или целое
+        // 2026-11-22: срок годности и № партии сервер принимает только в приходе от поставщика (прямая правка остатка их не берёт) — без поставщика они молча пропали бы.
+        if (!HasReceivingSupplier && NurMarketKassa.Services.ServerStock.ExpiryFieldsOn)
+            foreach (var l in lines.Where(l => l.ExpiresAt is not null || l.ProducedAt is not null || l.LotNo.Length > 0))
+                problems.Add(Tr.T($"«{l.ProductName}»: срок годности и партию сервер принимает только в приходе от поставщика — выберите поставщика или уберите срок и партию.",
+                    $"«{l.ProductName}»: жарактуулук мөөнөтүн жана партияны сервер жеткирүүчүдөн кабыл алууда гана алат — жеткирүүчүнү тандаңыз же мөөнөт менен партияны алып салыңыз.",
+                    $"“{l.ProductName}”: the server accepts expiry date and batch only when receiving from a supplier — choose a supplier or clear them.",
+                    $"«{l.ProductName}»: sunucu son kullanma tarihini ve partiyi yalnızca tedarikçiden kabulde alır — tedarikçi seçin veya bunları kaldırın.",
+                    $"«{l.ProductName}»: server yaroqlilik muddati va partiyani faqat yetkazib beruvchidan qabul qilishda oladi — yetkazib beruvchini tanlang yoki ularni olib tashlang."));
         if (problems.Count > 0)
         {
             var shown = problems.Take(8).ToList();

@@ -409,7 +409,16 @@ public partial class WarehouseWindow
         });
     }
 
-    // 2026-11-21 (владелец: «редакторы — в одну вкладку»): обработчиков «Этикетка…», «Печать этикетки», «Ценник», «Печать ценников (N)», «Редактор этикетки»
+    /// <summary>2026-11-22: пункт «Печать этикетки» в меню «⋯» товара (вернули по просьбе владельца) — этикетка сразу на принтер этикеток, без окна (QuickLabelPrint).</summary>
+    private async void QuickLabel_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: CatalogProductTileVm product })
+            return;
+
+        await QuickLabelPrint.RunAsync(this, product).ConfigureAwait(true);
+    }
+
+    // 2026-11-21 (владелец: «редакторы — в одну вкладку»): обработчиков «Этикетка…», «Ценник», «Печать ценников (N)», «Редактор этикетки»
     // здесь больше нет — печать, редактор и шаблоны только на вкладке «Ценники и штрихкоды» (WarehouseWindow.Barcodes.cs).
 
     private void BulkImport_Click(object? sender, RoutedEventArgs e)

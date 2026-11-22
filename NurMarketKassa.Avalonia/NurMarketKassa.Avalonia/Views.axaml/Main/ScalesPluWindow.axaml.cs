@@ -89,6 +89,27 @@ public partial class ScalesPluWindow : Window
     public ScalesPluWindow()
     {
         InitializeComponent();
+        // 2026-11-22: высота страницы = max(окно, шапка + подсказки + кнопки + таблица не меньше PluGridMinHeight); меньше — страница прокручивается.
+        PageScroll.SizeChanged += (_, _) => UpdatePageHeight();
+        PageRoot.LayoutUpdated += (_, _) => UpdatePageHeight();
+    }
+
+    /// <summary>2026-11-22 (фото владельца 64): минимальная высота таблицы товаров, ниже которой страница не сжимается, а прокручивается.</summary>
+    public const double PluGridMinHeight = 240;
+
+    private void UpdatePageHeight()
+    {
+        var viewport = PageScroll.Bounds.Height;
+        if (viewport <= 0)
+            return;
+        double chrome = 0;
+        foreach (var child in PageRoot.Children)
+            if (child.IsVisible && Grid.GetRow(child) != 3)
+                chrome += child.DesiredSize.Height;
+        var margins = PageRoot.Margin.Top + PageRoot.Margin.Bottom;
+        var target = Math.Max(viewport - margins, chrome + PluGridMinHeight);
+        if (double.IsNaN(PageRoot.Height) || Math.Abs(PageRoot.Height - target) > 0.5)
+            PageRoot.Height = target;
     }
 
     private void Window_Loaded(object? sender, RoutedEventArgs e)
@@ -474,6 +495,17 @@ public partial class ScalesPluWindow : Window
         {
             return new ShtrikhPrintLanScaleService(
                 prefs.ScaleNetworkIp ?? "", prefs.ScaleLanPort, prefs.ScaleLanPassword);
+        }
+        catch (System.ArgumentException ex) when (ex is not System.ArgumentOutOfRangeException)
+        {
+            // 2026-11-22 (фото владельца 64): показывалось «Не задан IP-адрес весов. (Parameter 'host')» — .NET-хвост и один язык (то же, что в окне настроек Штрих-ПРИНТ).
+            PosLogger.Log($"Весы Штрих-ПРИНТ: {ex.Message}", "SCALES");
+            StatusText.Text = string.IsNullOrWhiteSpace(prefs.ScaleNetworkIp)
+                ? Tr.T("Адрес весов ещё не задан — «Изменить…» → вкладка «Быстрая настройка», шаг 1.", "Таразанын дареги али коюлган эмес — «Өзгөртүү…» → «Тез жөндөө», 1-кадам.",
+                    "The scale address is not set yet — “Change…” → “Quick setup”, step 1.", "Tartı adresi henüz girilmemiş — «Değiştir…» → «Hızlı kurulum», 1. adım.", "Tarozi manzili hali kiritilmagan — «O‘zgartirish…» → «Tez sozlash», 1-qadam.")
+                : Tr.T("Это не похоже на IP-адрес весов. Проверьте его в «Изменить…».", "Бул таразанын IP-дарегине окшобойт. «Өзгөртүү…» бөлүмүнөн текшериңиз.",
+                    "This does not look like a scale IP address. Check it in “Change…”.", "Bu bir tartı IP adresine benzemiyor. «Değiştir…» bölümünden kontrol edin.", "Bu tarozi IP-manziliga o'xshamaydi. «O‘zgartirish…» bo‘limida tekshiring.");
+            return null;
         }
         catch (System.Exception ex)
         {

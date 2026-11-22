@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using NurMarketKassa.AvaloniaHost.Views;
 using NurMarketKassa.AvaloniaHost.Views.Settings;
 using NurMarketKassa.Services;
+using NurMarketKassa.Services.Api;
 using NurMarketKassa.UiTests.Harness;
 using Xunit;
 
@@ -108,6 +109,41 @@ public sealed class SettingsUnsavedUiTests
         {
             typeof(PosSettingsWindow).GetField("_closeConfirmed", Flags)!.SetValue(second, true); // закрыть без вопроса в тесте
             second.Close();
+            UiShot.Pump();
+        }
+    }
+
+    /// <summary>2026-11-22 (фото владельца 58/59): при закрытии «Настройки → Обновления» без единой правки выскакивал вопрос «Есть несохранённые изменения».
+    /// Первое нажатие в окне (кнопка «Обновления») запоминает исходное состояние полей Весов/Печати/Экрана; если страницы потом дозаполняются сами
+    /// (загрузка с сервера, списки портов/принтеров), снимок расходился. Проверяем: вкладка «Обновления» + ожидание загрузки — правок нет.</summary>
+    [AvaloniaFact]
+    public async Task Opening_updates_page_without_edits_is_not_unsaved()
+    {
+        UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
+        var api = TestHost.Services.GetRequiredService<NurMarketApiClient>();
+        await api.LoginAsync("cashier@test.kg", "12345678");
+        var window = TestHost.Services.GetRequiredService<PosSettingsWindow>();
+        try
+        {
+            window.Show();
+            // как первое нажатие владельца сразу после открытия окна: исходное состояние запоминается, пока списки (принтеры этикеток и т.п.) ещё грузятся в фоне
+            TakeBaseline(window);
+            UiShot.Settle(2, 30);
+            // «Обновления» (с фото владельца) и остальные страницы настроек кассы: просто открыли и закрыли — спрашивать не о чем
+            foreach (var tab in new[] { "updates", "scales", "print", "screen", "operations", "customization", "account", "keys", "updates" })
+            {
+                window.SelectNavTab(tab);
+                UiShot.Settle(10, 80);
+                var before = (((string?)typeof(PosSettingsWindow).GetField("_dirtyBaseline", Flags)!.GetValue(window)) ?? "").Split((char)1);
+                var after = ((string)typeof(PosSettingsWindow).GetMethod("SnapshotEditable", Flags)!.Invoke(window, null)!).Split((char)1);
+                var diff = string.Join("; ", Enumerable.Range(0, Math.Min(before.Length, after.Length)).Where(i => before[i] != after[i]).Select(i => i + ":'" + before[i] + "'->'" + after[i] + "'"));
+                Pending(window).Should().BeFalse("после перехода на «" + tab + "» без правок спрашивать о несохранённом нечего; расхождения: " + diff + " (длины " + before.Length + "/" + after.Length + ")");
+            }
+        }
+        finally
+        {
+            typeof(PosSettingsWindow).GetField("_closeConfirmed", Flags)!.SetValue(window, true);
+            window.Close();
             UiShot.Pump();
         }
     }

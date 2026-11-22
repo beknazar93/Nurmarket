@@ -336,6 +336,34 @@ public sealed class BarcodesAuditUiTests : IDisposable
         }
     }
 
+    /// <summary>2026-11-22 (замечание владельца: «поиск товара для штрихкода не очищается после поиска»): отметили найденный товар «В печать» — поле поиска пустое, фокус в нём (следующий скан/набор без щелчка).</summary>
+    [AvaloniaFact]
+    public async Task Search_IsClearedAndRefocused_AfterTickingFoundProduct()
+    {
+        await TestHost.WarmAsync();
+        UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
+        Seed(withCode: 6, withoutCode: 0);
+        var (window, view) = OpenView(1366, 768);
+        try
+        {
+            view.SearchText = "С кодом 3";
+            UiShot.Settle(3, 20);
+            view.FoundCount.Should().BeGreaterThan(0);
+            var check = view.GetVisualDescendants().OfType<CheckBox>().First(c => c.IsEffectivelyVisible && (c.Content as string) == "В печать");
+            UiDrive.Click(window, check);
+            UiShot.Settle(2, 20);
+            check.IsChecked.Should().BeTrue();
+            view.SelectedCount.Should().Be(1, "товар отмечен");
+            view.SearchText.Should().BeEmpty("поле поиска очищено после выбора найденного товара");
+            ((TextBox)view.SearchBox).IsFocused.Should().BeTrue("фокус вернулся в поле поиска");
+        }
+        finally
+        {
+            window.Close();
+            UiShot.Pump();
+        }
+    }
+
     [AvaloniaFact]
     public async Task Layout_InIdle_DoesNotSpin()
     {

@@ -16,21 +16,31 @@ public partial class WarehouseWindow
 
     public static string BatchButtonText => Tr.T("Срок годности и партия", "Жарактуулук мөөнөтү жана партия", "Expiry date and batch", "Son kullanma tarihi ve parti", "Yaroqlilik muddati va partiya");
 
+    /// <summary>Подпись кнопки «Срок годности и партия» в карточке: что уже задано, иначе обычное название.</summary>
+    public static string BatchButtonLabel(NurMarketKassa.Models.ReceivingLineVm line) =>
+        ReceivingBatchDialog.Summary(line) is { Length: > 0 } summary ? summary : BatchButtonText;
+
     private async void ReceivingBatch_Click(object? sender, RoutedEventArgs e)
     {
         e.Handled = true;
         if ((sender as Control)?.DataContext is not NurMarketKassa.Models.ReceivingLineVm line)
             return;
         // 2026-11-19 (ответ Умара 19.11, п. 5): без поставщика приёмка — прямая правка остатка (PATCH), сервер срок и № партии не принимает. С поставщиком (приход) — всё работает.
+        // 2026-11-22 (владелец: «сделай возможным указать срок годности»): вместо тупика — понятно, что сделать (выбрать поставщика), срок вводится окном как в «Закупки → Приём товара».
         if (_viewModel is { HasReceivingSupplier: false })
         {
             App.AppHost?.Services.GetService<IUserPrompts>()?.ShowToast(
-                Tr.T("Срок и партию можно указать при приёмке от поставщика (Закупки → Приём товара).", "Мөөнөттү жана партияны жеткирүүчүдөн кабыл алууда көрсөтсө болот (Сатып алуу → Товар кабыл алуу).",
-                    "Expiry and batch can be set when receiving from a supplier (Purchases → Receive goods).", "Son kullanma tarihi ve parti, tedarikçiden kabulde belirtilebilir (Alımlar → Mal kabul).",
-                    "Muddat va partiyani yetkazib beruvchidan qabul qilishda ko'rsatish mumkin (Xaridlar → Tovar qabul qilish)."), isWarning: true);
+                Tr.T("Срок годности и партию сервер принимает только в приходе от поставщика. Выберите поставщика в строке «Поставщик» выше — и кнопка откроет ввод срока и партии.",
+                    "Жарактуулук мөөнөтүн жана партияны сервер жеткирүүчүдөн кабыл алууда гана алат. Жогорудагы «Жеткирүүчү» саптан жеткирүүчүнү тандаңыз — баскыч мөөнөт менен партияны киргизүүнү ачат.",
+                    "The server accepts expiry date and batch only when receiving from a supplier. Choose a supplier in the “Supplier” row above — then this button opens the expiry and batch entry.",
+                    "Sunucu son kullanma tarihini ve partiyi yalnızca tedarikçiden kabulde alır. Yukarıdaki «Tedarikçi» satırından tedarikçi seçin — düğme tarih ve parti girişini açar.",
+                    "Server yaroqlilik muddati va partiyani faqat yetkazib beruvchidan qabul qilishda oladi. Yuqoridagi «Yetkazib beruvchi» qatoridan tanlang — tugma muddat va partiyani kiritishni ochadi."), isWarning: true);
             return;
         }
-        await new ReceivingBatchDialog(line).ShowDialog<bool>(this).ConfigureAwait(true);
+        var saved = await new ReceivingBatchDialog(line).ShowDialog<bool>(this).ConfigureAwait(true);
+        // 2026-11-22: на кнопке — что задано («Срок до 01.12.2026 · партия A-12»), как в «Закупки → Приём товара»; пусто — прежняя подпись.
+        if (saved && sender is Button button)
+            button.Content = BatchButtonLabel(line);
     }
 
     private async void ProductBatches_Click(object? sender, RoutedEventArgs e)

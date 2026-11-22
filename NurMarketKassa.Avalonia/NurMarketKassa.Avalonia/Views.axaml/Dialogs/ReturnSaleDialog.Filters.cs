@@ -417,7 +417,10 @@ public partial class ReturnSaleDialog
             }
             finally
             {
-                gate.Release();
+                // 2026-11-22: поиск мог уже закончиться (закрыли окно/сменили запрос) — `using var gate` освобождён, а запрос ещё дошёл до finally: ObjectDisposedException
+                // уходил в «необработанные отчёты» (crash_20261120_102057). Освобождённый замок отпускать не нужно.
+                try { gate.Release(); }
+                catch (ObjectDisposedException) { }
             }
         }).ToList();
         try

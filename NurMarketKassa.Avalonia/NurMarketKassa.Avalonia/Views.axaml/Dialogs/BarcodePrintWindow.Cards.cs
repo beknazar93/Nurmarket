@@ -473,6 +473,19 @@ public partial class BarcodePrintView
             ? await ConfirmOverride(question).ConfigureAwait(true)
             : await PosConfirmDialog.ShowModalAsync(Host, title, question, ok, cancel).ConfigureAwait(true);
 
+    /// <summary>2026-11-22: очистить поиск после выбора найденного товара. Список не пересобираем (как в режиме сканера): отмеченный товар остаётся на виду,
+    /// а следующий ввод в поле начинает новый поиск.</summary>
+    private void ClearSearchAfterPick()
+    {
+        if (string.IsNullOrEmpty(_search.Text))
+            return;
+        _searchTimer.Stop();
+        _scanClearing = true;
+        try { _search.Text = ""; }
+        finally { _scanClearing = false; }
+        _search.Focus();
+    }
+
     private void SetSelected(Sel st, bool value)
     {
         if (st.Selected == value)
@@ -624,6 +637,13 @@ public partial class BarcodePrintView
         if (st.Selected)
             Realize();
 
+        // 2026-11-22 (замечание владельца: «после поиска инпут не очищается»): отметили найденный товар «В печать» — поле поиска очищается и фокус возвращается в него
+        // (следующий скан/набор без щелчка по полю). Click приходит только от человека, а не от программной синхронизации страницы.
+        check.Click += (_, _) =>
+        {
+            if (check.IsChecked == true && printable)
+                ClearSearchAfterPick();
+        };
         check.IsCheckedChanged += (_, _) =>
         {
             SetSelected(st, check.IsChecked == true);

@@ -11,6 +11,7 @@
 /// кыргызским, а сами пункты русскими.</summary>
 public static class AppChangelog
 {
+    // 2026-11-22: 1.17.93 (обычный выпуск для клиентов) — сверху всех Latest* 6 пунктов (приёмка: категория и единица, штрихкод, срок годности и партия, загрузка накладной, штрихкоды и ценники, весы и настройки), сверху AndroidLatest* — первые пять.
     // 2026-11-21: 1.17.92 (обычный выпуск для клиентов) — сверху всех Latest* 8 пунктов (продажа без остатка, товар без цены, весовые этикетки и «Весы», приёмка и ценники, сенсорный экран, касса без «Сотрудников»/«ИИ», Rongta и надёжность, тарифы и Базар), сверху AndroidLatest* — первые пять.
     // 2026-11-21: 1.17.91 (тестовый канал) — сверху всех Latest* 8 пунктов (смета, массовая загрузка, дубли и варианты, фото товара, накладные, сферы/налоги/заказы, вид и экраны, тариф и вход), сверху AndroidLatest* — первые пять.
     // 2026-11-20: 1.17.90 (тестовый канал) — сверху всех Latest* 5 пунктов (импорт прайсов автозапчастей, чек, один аккаунт, закрытие установщиком, ценники), сверху AndroidLatest* — первые два.
@@ -18,6 +19,12 @@ public static class AppChangelog
     // 2026-11-20: 1.17.88 (тестовый канал) — сверху всех Latest* 8 пунктов (табель, подписка, чеки старше 7 суток, склад, Автозапчасти, малые экраны, разделы владельца, исправления), сверху AndroidLatest* — 4 общих.
     public static readonly string[] Latest =
     [
+        "Категория и единица: У нового товара — выпадающий список существующих категорий; единица измерения выбирается списком поверх карточки, ничего не сдвигается.",
+        "Штрихкод в приёмке: Кнопка «Сгенерировать штрихкод» больше не вызывает ошибку — ни в «Приёмке», ни в «Закупки → Приём товара».",
+        "Срок годности и партия: С выбранным поставщиком срок годности и партия вводятся прямо в карточке; без поставщика показывается понятная подсказка; при потере введённых данных касса предупреждает.",
+        "Загрузка накладной: Новый диалог «Столбцы накладной»: столбцы определяются сами, списки с примерами, живой предпросмотр, «Количество = 1 для всех» и подсказки, чего не хватает.",
+        "Штрихкоды и ценники: После выбора товара поле поиска очищается и фокус возвращается; список на «Штрихкоды» заполняет окно на экранах 1024×600; «Печать этикетки» снова в меню «⋯» у товара (Склад → Товары).",
+        "Весы и настройки: Отправка на весы: список виден целиком, есть прокрутка, понятное сообщение про IP весов. В «Настройках» нет ложного «Есть несохранённые изменения». Исправлено падение в окне возврата продажи.",
         "Продажа без остатка: Новая настройка «Продавать без остатка» (по умолчанию включена): товар продаётся, даже если на складе ноль; касса сообщает об этом серверу.",
         "Товар без цены: Если у товара нет цены, касса запрашивает её и ищет на сервере по названию; при загрузке каталога видно «Загружено N из M».",
         "Весовые этикетки и страница «Весы»: Исправлено чтение весовых этикеток: теперь «вес», а не «сумма». На странице «Весы» есть кнопка «Сохранить» и результат сохранения, без ложного «несохранённые правки».",
@@ -315,6 +322,12 @@ public static class AppChangelog
 
     public static readonly string[] LatestKy =
     [
+        "Категория жана бирдик: Жаңы товарда бар категориялардын ачылуучу тизмеси; өлчөө бирдиги карточканын үстүндө тизме менен тандалат, эч нерсе жылбайт.",
+        "Кабыл алуудагы штрихкод: «Штрихкод түзүү» баскычы мындан ары ката бербейт — «Кабыл алууда» да, «Сатып алуулар → Товар кабыл алуу» бөлүмүндө да.",
+        "Жарактуулук мөөнөтү жана партия: Жеткирүүчү тандалганда жарактуулук мөөнөтү менен партия түздөн-түз карточкага киргизилет; жеткирүүчүсүз түшүнүктүү кеңеш көрсөтүлөт; киргизилген маалымат жоголсо, касса эскертет.",
+        "Накладнойду жүктөө: Жаңы «Накладнойдун мамычалары» диалогу: мамычалар өзү аныкталат, мисалдуу тизмелер, түз алдын ала көрүү, «Бардыгына саны = 1» жана эмне жетишпегени тууралуу кеңештер.",
+        "Штрихкоддор жана баа этикеткалары: Товар тандалгандан кийин издөө талаасы тазаланып, фокус кайтат; «Штрихкоддор» тизмеси 1024×600 экрандарда терезени толтурат; «Этикетка басуу» кайра товардын «⋯» менюсунда (Кампа → Товарлар).",
+        "Таразалар жана жөндөөлөр: Таразага жөнөтүү: тизме толук көрүнөт, сыдыруу бар, таразанын IP-дареги тууралуу түшүнүктүү билдирүү. «Жөндөөлөрдө» жалган «Сакталбаган өзгөртүүлөр бар» жок. Сатууну кайтаруу терезесиндеги кыйроо оңдолду.",
         "Калдыксыз сатуу: Жаңы жөндөө «Калдыксыз сатуу» (демейде күйгүзүлгөн): кампада нөл болсо да товар сатылат; касса муну серверге билдирет.",
         "Баасы жок товар: Товардын баасы жок болсо, касса аны сурайт жана серверден атынан издейт; каталог жүктөлгөндө «N ичинен M жүктөлдү» көрүнөт.",
         "Салмактык этикеткалар жана «Таразалар» барагы: Салмактык этикеткаларды окуу оңдолду: эми «салмак», «сумма» эмес. «Таразалар» барагында «Сактоо» баскычы жана сактоонун жыйынтыгы бар, жалган «сакталбаган өзгөртүүлөр» жок.",
@@ -610,6 +623,12 @@ public static class AppChangelog
 
     public static readonly string[] LatestEn =
     [
+        "Category and unit: A new product gets a drop-down list of existing categories; the unit is chosen from a list that opens over the card and moves nothing.",
+        "Barcode in receiving: The “Generate barcode” button no longer raises an error — neither in “Receiving” nor in “Purchases → Receive goods”.",
+        "Expiry date and batch: With a supplier selected, the expiry date and batch are entered right in the card; without a supplier a clear hint is shown; the app warns before entered data is lost.",
+        "Invoice upload: New “Invoice columns” dialog: columns are detected automatically, lists with examples, live preview, “Quantity = 1 for all” and hints on what is missing.",
+        "Barcodes and labels: After a product is chosen the search field clears and focus returns; the list on “Barcodes” fills the window on 1024×600 screens; “Print label” is back in the product’s “⋯” menu (Warehouse → Products).",
+        "Scales and settings: Sending to scales: the list is fully visible and scrolls, with a clear message about the scales’ IP. “Settings” no longer shows a false “There are unsaved changes”. Fixed a crash in the sale return window.",
         "Selling without stock: New setting “Sell without stock” (on by default): a product can be sold even when the warehouse shows zero; the till tells the server about it.",
         "Product without a price: If a product has no price, the till asks for it and looks it up on the server by name; catalog loading shows “Loaded N of M”.",
         "Scale labels and the Scales page: Reading of weight labels is fixed: it is now “weight”, not “amount”. The Scales page has a Save button and a save result, with no false “unsaved changes”.",
@@ -905,6 +924,12 @@ public static class AppChangelog
 
     public static readonly string[] LatestTr =
     [
+        "Kategori ve birim: Yeni üründe mevcut kategorilerin açılır listesi var; birim, kartın üzerinde açılan bir listeden seçilir ve hiçbir şey kaymaz.",
+        "Mal kabulde barkod: “Barkod oluştur” düğmesi artık hata vermiyor — ne “Mal kabul”de ne de “Satın almalar → Mal kabul”de.",
+        "Son kullanma tarihi ve parti: Tedarikçi seçiliyse son kullanma tarihi ve parti doğrudan kartta girilir; tedarikçi yoksa anlaşılır bir ipucu gösterilir; girilen veriler kaybolacaksa kasa uyarır.",
+        "Fatura yükleme: Yeni “Fatura sütunları” penceresi: sütunlar kendiliğinden belirlenir, örnekli listeler, canlı önizleme, “Herkes için miktar = 1” ve nelerin eksik olduğuna dair ipuçları.",
+        "Barkodlar ve etiketler: Ürün seçildikten sonra arama alanı temizlenir ve odak geri döner; “Barkodlar” listesi 1024×600 ekranlarda pencereyi doldurur; “Etiket yazdır” yeniden ürünün “⋯” menüsünde (Depo → Ürünler).",
+        "Teraziler ve ayarlar: Teraziye gönderme: liste tamamen görünür ve kaydırılır, terazinin IP adresi hakkında anlaşılır bir mesaj var. “Ayarlar”da artık yanlış “Kaydedilmemiş değişiklikler var” gösterilmiyor. Satış iadesi penceresindeki çökme düzeltildi.",
         "Stoksuz satış: Yeni «Stoksuz sat» ayarı (varsayılan olarak açık): depoda sıfır olsa da ürün satılır; kasa bunu sunucuya bildirir.",
         "Fiyatsız ürün: Ürünün fiyatı yoksa kasa fiyatı ister ve sunucuda ada göre arar; katalog yüklenirken «M içinden N yüklendi» görünür.",
         "Terazi etiketleri ve «Teraziler» sayfası: Terazi etiketlerinin okunması düzeltildi: artık «ağırlık», «tutar» değil. «Teraziler» sayfasında «Kaydet» düğmesi ve kayıt sonucu var, yanlış «kaydedilmemiş değişiklik» uyarısı yok.",
@@ -1200,6 +1225,12 @@ public static class AppChangelog
 
     public static readonly string[] LatestUz =
     [
+        "Toifa va birlik: Yangi tovarda mavjud toifalarning ochiladigan ro'yxati bor; birlik karta ustida ochiladigan ro'yxatdan tanlanadi va hech narsa siljimaydi.",
+        "Qabul qilishda shtrix-kod: «Shtrix-kod yaratish» tugmasi endi xato bermaydi — «Qabul qilish»da ham, «Xaridlar → Tovar qabul qilish»da ham.",
+        "Yaroqlilik muddati va partiya: Yetkazib beruvchi tanlansa, yaroqlilik muddati va partiya to'g'ridan-to'g'ri kartada kiritiladi; yetkazib beruvchisiz tushunarli maslahat ko'rsatiladi; kiritilgan ma'lumot yo'qolsa, kassa ogohlantiradi.",
+        "Nakladnoyni yuklash: Yangi «Nakladnoy ustunlari» oynasi: ustunlar o'zi aniqlanadi, misolli ro'yxatlar, jonli ko'rib chiqish, «Hammasi uchun miqdor = 1» va nima yetishmayotgani haqida maslahatlar.",
+        "Shtrix-kodlar va narx yorliqlari: Tovar tanlangach qidiruv maydoni tozalanadi va fokus qaytadi; «Shtrix-kodlar» ro'yxati 1024×600 ekranlarda oynani to'ldiradi; «Yorliq chop etish» yana tovarning «⋯» menyusida (Ombor → Tovarlar).",
+        "Tarozilar va sozlamalar: Tarozilarga yuborish: ro'yxat to'liq ko'rinadi, aylantirish bor, tarozi IP manzili haqida tushunarli xabar. «Sozlamalar»da yolg'on «Saqlanmagan o'zgarishlar bor» yo'q. Sotuvni qaytarish oynasidagi nosozlik tuzatildi.",
         "Qoldiqsiz sotuv: Yangi «Qoldiqsiz sotish» sozlamasi (standart bo'yicha yoqilgan): omborda nol bo'lsa ham tovar sotiladi; kassa buni serverga bildiradi.",
         "Narxsiz tovar: Tovarning narxi bo'lmasa, kassa uni so'raydi va serverdan nomi bo'yicha qidiradi; katalog yuklanganda «M dan N yuklandi» ko'rinadi.",
         "Tarozi etiketkalari va «Tarozilar» sahifasi: Tarozi etiketkalarini o'qish tuzatildi: endi «vazn», «summa» emas. «Tarozilar» sahifasida «Saqlash» tugmasi va saqlash natijasi bor, yolg'on «saqlanmagan o'zgarishlar» yo'q.",
@@ -1556,6 +1587,11 @@ public static class AppChangelog
     // 2026-10-05: Android 1.17.52. Без эмодзи — на Android их шрифт не рисует (снимок владельца: «Кнопка  в поиске»).
     public static readonly string[] AndroidLatest =
     [
+        "Категория и единица: У нового товара — выпадающий список существующих категорий; единица измерения выбирается списком поверх карточки, ничего не сдвигается.",
+        "Штрихкод в приёмке: Кнопка «Сгенерировать штрихкод» больше не вызывает ошибку — ни в «Приёмке», ни в «Закупки → Приём товара».",
+        "Срок годности и партия: С выбранным поставщиком срок годности и партия вводятся прямо в карточке; без поставщика показывается понятная подсказка; при потере введённых данных касса предупреждает.",
+        "Загрузка накладной: Новый диалог «Столбцы накладной»: столбцы определяются сами, списки с примерами, живой предпросмотр, «Количество = 1 для всех» и подсказки, чего не хватает.",
+        "Штрихкоды и ценники: После выбора товара поле поиска очищается и фокус возвращается; список на «Штрихкоды» заполняет окно на экранах 1024×600; «Печать этикетки» снова в меню «⋯» у товара (Склад → Товары).",
         "Продажа без остатка: Новая настройка «Продавать без остатка» (по умолчанию включена): товар продаётся, даже если на складе ноль; касса сообщает об этом серверу.",
         "Товар без цены: Если у товара нет цены, касса запрашивает её и ищет на сервере по названию; при загрузке каталога видно «Загружено N из M».",
         "Весовые этикетки и страница «Весы»: Исправлено чтение весовых этикеток: теперь «вес», а не «сумма». На странице «Весы» есть кнопка «Сохранить» и результат сохранения, без ложного «несохранённые правки».",
@@ -1743,6 +1779,11 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestKy =
     [
+        "Категория жана бирдик: Жаңы товарда бар категориялардын ачылуучу тизмеси; өлчөө бирдиги карточканын үстүндө тизме менен тандалат, эч нерсе жылбайт.",
+        "Кабыл алуудагы штрихкод: «Штрихкод түзүү» баскычы мындан ары ката бербейт — «Кабыл алууда» да, «Сатып алуулар → Товар кабыл алуу» бөлүмүндө да.",
+        "Жарактуулук мөөнөтү жана партия: Жеткирүүчү тандалганда жарактуулук мөөнөтү менен партия түздөн-түз карточкага киргизилет; жеткирүүчүсүз түшүнүктүү кеңеш көрсөтүлөт; киргизилген маалымат жоголсо, касса эскертет.",
+        "Накладнойду жүктөө: Жаңы «Накладнойдун мамычалары» диалогу: мамычалар өзү аныкталат, мисалдуу тизмелер, түз алдын ала көрүү, «Бардыгына саны = 1» жана эмне жетишпегени тууралуу кеңештер.",
+        "Штрихкоддор жана баа этикеткалары: Товар тандалгандан кийин издөө талаасы тазаланып, фокус кайтат; «Штрихкоддор» тизмеси 1024×600 экрандарда терезени толтурат; «Этикетка басуу» кайра товардын «⋯» менюсунда (Кампа → Товарлар).",
         "Калдыксыз сатуу: Жаңы жөндөө «Калдыксыз сатуу» (демейде күйгүзүлгөн): кампада нөл болсо да товар сатылат; касса муну серверге билдирет.",
         "Баасы жок товар: Товардын баасы жок болсо, касса аны сурайт жана серверден атынан издейт; каталог жүктөлгөндө «N ичинен M жүктөлдү» көрүнөт.",
         "Салмактык этикеткалар жана «Таразалар» барагы: Салмактык этикеткаларды окуу оңдолду: эми «салмак», «сумма» эмес. «Таразалар» барагында «Сактоо» баскычы жана сактоонун жыйынтыгы бар, жалган «сакталбаган өзгөртүүлөр» жок.",
@@ -1928,6 +1969,11 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestEn =
     [
+        "Category and unit: A new product gets a drop-down list of existing categories; the unit is chosen from a list that opens over the card and moves nothing.",
+        "Barcode in receiving: The “Generate barcode” button no longer raises an error — neither in “Receiving” nor in “Purchases → Receive goods”.",
+        "Expiry date and batch: With a supplier selected, the expiry date and batch are entered right in the card; without a supplier a clear hint is shown; the app warns before entered data is lost.",
+        "Invoice upload: New “Invoice columns” dialog: columns are detected automatically, lists with examples, live preview, “Quantity = 1 for all” and hints on what is missing.",
+        "Barcodes and labels: After a product is chosen the search field clears and focus returns; the list on “Barcodes” fills the window on 1024×600 screens; “Print label” is back in the product’s “⋯” menu (Warehouse → Products).",
         "Selling without stock: New setting “Sell without stock” (on by default): a product can be sold even when the warehouse shows zero; the till tells the server about it.",
         "Product without a price: If a product has no price, the till asks for it and looks it up on the server by name; catalog loading shows “Loaded N of M”.",
         "Scale labels and the Scales page: Reading of weight labels is fixed: it is now “weight”, not “amount”. The Scales page has a Save button and a save result, with no false “unsaved changes”.",
@@ -2113,6 +2159,11 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestTr =
     [
+        "Kategori ve birim: Yeni üründe mevcut kategorilerin açılır listesi var; birim, kartın üzerinde açılan bir listeden seçilir ve hiçbir şey kaymaz.",
+        "Mal kabulde barkod: “Barkod oluştur” düğmesi artık hata vermiyor — ne “Mal kabul”de ne de “Satın almalar → Mal kabul”de.",
+        "Son kullanma tarihi ve parti: Tedarikçi seçiliyse son kullanma tarihi ve parti doğrudan kartta girilir; tedarikçi yoksa anlaşılır bir ipucu gösterilir; girilen veriler kaybolacaksa kasa uyarır.",
+        "Fatura yükleme: Yeni “Fatura sütunları” penceresi: sütunlar kendiliğinden belirlenir, örnekli listeler, canlı önizleme, “Herkes için miktar = 1” ve nelerin eksik olduğuna dair ipuçları.",
+        "Barkodlar ve etiketler: Ürün seçildikten sonra arama alanı temizlenir ve odak geri döner; “Barkodlar” listesi 1024×600 ekranlarda pencereyi doldurur; “Etiket yazdır” yeniden ürünün “⋯” menüsünde (Depo → Ürünler).",
         "Stoksuz satış: Yeni «Stoksuz sat» ayarı (varsayılan olarak açık): depoda sıfır olsa da ürün satılır; kasa bunu sunucuya bildirir.",
         "Fiyatsız ürün: Ürünün fiyatı yoksa kasa fiyatı ister ve sunucuda ada göre arar; katalog yüklenirken «M içinden N yüklendi» görünür.",
         "Terazi etiketleri ve «Teraziler» sayfası: Terazi etiketlerinin okunması düzeltildi: artık «ağırlık», «tutar» değil. «Teraziler» sayfasında «Kaydet» düğmesi ve kayıt sonucu var, yanlış «kaydedilmemiş değişiklik» uyarısı yok.",
@@ -2298,6 +2349,11 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestUz =
     [
+        "Toifa va birlik: Yangi tovarda mavjud toifalarning ochiladigan ro'yxati bor; birlik karta ustida ochiladigan ro'yxatdan tanlanadi va hech narsa siljimaydi.",
+        "Qabul qilishda shtrix-kod: «Shtrix-kod yaratish» tugmasi endi xato bermaydi — «Qabul qilish»da ham, «Xaridlar → Tovar qabul qilish»da ham.",
+        "Yaroqlilik muddati va partiya: Yetkazib beruvchi tanlansa, yaroqlilik muddati va partiya to'g'ridan-to'g'ri kartada kiritiladi; yetkazib beruvchisiz tushunarli maslahat ko'rsatiladi; kiritilgan ma'lumot yo'qolsa, kassa ogohlantiradi.",
+        "Nakladnoyni yuklash: Yangi «Nakladnoy ustunlari» oynasi: ustunlar o'zi aniqlanadi, misolli ro'yxatlar, jonli ko'rib chiqish, «Hammasi uchun miqdor = 1» va nima yetishmayotgani haqida maslahatlar.",
+        "Shtrix-kodlar va narx yorliqlari: Tovar tanlangach qidiruv maydoni tozalanadi va fokus qaytadi; «Shtrix-kodlar» ro'yxati 1024×600 ekranlarda oynani to'ldiradi; «Yorliq chop etish» yana tovarning «⋯» menyusida (Ombor → Tovarlar).",
         "Qoldiqsiz sotuv: Yangi «Qoldiqsiz sotish» sozlamasi (standart bo'yicha yoqilgan): omborda nol bo'lsa ham tovar sotiladi; kassa buni serverga bildiradi.",
         "Narxsiz tovar: Tovarning narxi bo'lmasa, kassa uni so'raydi va serverdan nomi bo'yicha qidiradi; katalog yuklanganda «M dan N yuklandi» ko'rinadi.",
         "Tarozi etiketkalari va «Tarozilar» sahifasi: Tarozi etiketkalarini o'qish tuzatildi: endi «vazn», «summa» emas. «Tarozilar» sahifasida «Saqlash» tugmasi va saqlash natijasi bor, yolg'on «saqlanmagan o'zgarishlar» yo'q.",

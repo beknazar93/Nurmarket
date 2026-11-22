@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -28,6 +29,10 @@ public sealed class UnitPickerBox : UserControl
     private readonly TextBlock _customHint;
     private TopLevel? _top;
     private bool _syncing;
+    private Grid _row = null!;
+    private StackPanel _root = null!;
+    private Popup? _popup;
+    private bool _flyout;
 
     /// <summary>Класс кнопок-единиц: в окнах со своими стилями (карточка товара, склад) — «SecondaryButton»/«PrimaryButton»; в окнах на ModalShell —
     /// «modal-secondary»/«modal-primary» (ставится до первого раскрытия списка).</summary>
@@ -90,6 +95,8 @@ public sealed class UnitPickerBox : UserControl
         var root = new StackPanel();
         root.Children.Add(row);
         root.Children.Add(_panel);
+        _row = row;
+        _root = root;
         Content = root;
 
         _box.GotFocus += (_, _) =>
@@ -113,6 +120,50 @@ public sealed class UnitPickerBox : UserControl
             Commit(_box.Text);
         };
         ShowCurrent();
+    }
+
+    /// <summary>2026-11-22 (владелец: «единица — выбор открывается и закрывает всё внизу»): список единиц всплывает ПОВЕРХ окна (Popup под полем), а не раздвигает строки ниже.
+    /// Закрывается по выбору, Esc и нажатию вне списка; плитки крупнее (сенсор). Включается до первого показа; по умолчанию (карточка товара, мастера) — прежний список под полем.</summary>
+    public bool UseFlyout
+    {
+        get => _flyout;
+        set
+        {
+            if (_flyout == value || !value)
+                return;
+            _flyout = true;
+            _root.Children.Remove(_panel);
+            _panel.Margin = new Thickness(0);
+            _panel.MinWidth = 280;
+            _panel.MaxWidth = 380;
+            _panel.Bind(Border.BackgroundProperty, _panel.GetResourceObservable("BrushPanel")); // всплывающий список — непрозрачный
+            var inner = _panel.Child;
+            _panel.Child = null; // сначала снять с рамки, иначе у вложенной панели пропадает логический родитель
+            _panel.Child = new ScrollViewer
+            {
+                Content = inner,
+                MaxHeight = 340,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            };
+            _popup = new Popup
+            {
+                PlacementTarget = _row,
+                Placement = PlacementMode.Bottom,
+                VerticalOffset = 2,
+                IsLightDismissEnabled = true,
+                OverlayInputPassThroughElement = this, // нажатие на поле или ▾ не «закрывает мимо» — ими управляет сам выбор единицы
+                Child = _panel,
+            };
+            _popup.Closed += (_, _) =>
+            {
+                if (!_panel.IsVisible)
+                    return;
+                _panel.IsVisible = false; // закрыли нажатием вне списка — введённое в поле фиксируется, как раньше
+                Commit(_box.Text);
+            };
+            _root.Children.Add(_popup);
+        }
     }
 
     /// <summary>Единица для хранения: «шт», «кг», «л»… Своя единица — как введена.</summary>
@@ -166,7 +217,7 @@ public sealed class UnitPickerBox : UserControl
         // Нажатие внутри этого поля (строка, стрелка, список) — не «мимо».
         for (var v = e.Source as Visual; v is not null; v = v.GetVisualParent())
         {
-            if (ReferenceEquals(v, this))
+            if (ReferenceEquals(v, this) || ReferenceEquals(v, _panel))
                 return;
         }
         Commit(_box.Text);
@@ -199,6 +250,8 @@ public sealed class UnitPickerBox : UserControl
         if (open)
             Rebuild();
         _panel.IsVisible = open;
+        if (_popup is not null && _popup.IsOpen != open)
+            _popup.IsOpen = open;
     }
 
     private void Rebuild()
@@ -213,8 +266,8 @@ public sealed class UnitPickerBox : UserControl
             var chip = new Button
             {
                 Content = unit.Display,
-                MinHeight = 40,
-                MinWidth = 52,
+                MinHeight = _flyout ? 52 : 40, // 2026-11-22: во всплывающем списке плитки крупнее — для сенсора
+                MinWidth = _flyout ? 68 : 52,
                 Margin = new Thickness(0, 0, 6, 6),
                 Focusable = false,
                 Tag = unit.Storage,
@@ -233,7 +286,7 @@ public sealed class UnitPickerBox : UserControl
             var chip = new Button
             {
                 Content = Tr.T($"Своя: «{text}»", $"Өз бирдигим: «{text}»", $"Custom: “{text}”", $"Özel: «{text}»", $"O'z birligim: «{text}»"),
-                MinHeight = 40,
+                MinHeight = _flyout ? 52 : 40,
                 Margin = new Thickness(0, 0, 6, 6),
                 Focusable = false,
             };

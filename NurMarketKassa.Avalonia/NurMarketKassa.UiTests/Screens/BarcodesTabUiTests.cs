@@ -200,14 +200,18 @@ public sealed class BarcodesTabUiTests : IDisposable
             var rows = grid.GetVisualDescendants().OfType<DataGridRow>().Where(r => r.DataContext is CatalogProductTileVm && r.Bounds.Height > 0).ToList();
             rows.Count.Should().BeGreaterThanOrEqualTo(1);
             rows.SelectMany(r => r.GetVisualDescendants().OfType<CheckBox>()).Should().BeEmpty("галочек выбора для печати в таблице товаров нет");
-            // меню «⋯»: без печати этикетки, этикетки и ценника
+            // меню «⋯»: 2026-11-22 (владелец: «верни штрихкод сюда обратно») — «Печать этикетки» есть, и стоит перед «Без заводского штрихкода»; «Этикетка…» и «Ценник» по-прежнему нет
             var product = (CatalogProductTileVm)rows[0].DataContext!;
             var items = window.BuildRowMenu(product).Items.OfType<MenuItem>().Select(i => Avalonia.Automation.AutomationProperties.GetName(i) ?? "").ToList();
             items.Should().NotBeEmpty();
-            items.Should().NotContain(x => x.Contains("этикет", StringComparison.OrdinalIgnoreCase) || x.Contains("ценник", StringComparison.OrdinalIgnoreCase)
-                || x.Contains("Label", StringComparison.OrdinalIgnoreCase) || x.Contains("Price tag", StringComparison.OrdinalIgnoreCase)
-                || x.Contains("Этикетка", StringComparison.OrdinalIgnoreCase) || x.Contains("Баа белгиси", StringComparison.OrdinalIgnoreCase)
-                || x.Contains("Yorliq", StringComparison.OrdinalIgnoreCase) || x.Contains("Narx yorlig", StringComparison.OrdinalIgnoreCase), $"в «⋯» нет печати: {string.Join(" | ", items)}");
+            items.Count(x => x == WarehouseWindow.RowLabelText).Should().Be(1, $"в «⋯» товара есть «Печать этикетки»: {string.Join(" | ", items)}");
+            items.Should().NotContain(x => x.Contains("…", StringComparison.Ordinal) && (x.Contains("Этикетка", StringComparison.OrdinalIgnoreCase) || x.Contains("Label", StringComparison.OrdinalIgnoreCase)),
+                "«Этикетка…» убрана");
+            items.Should().NotContain(x => x.Contains("ценник", StringComparison.OrdinalIgnoreCase) || x.Contains("Price tag", StringComparison.OrdinalIgnoreCase)
+                || x.Contains("Баа белгиси", StringComparison.OrdinalIgnoreCase) || x.Contains("Narx yorlig", StringComparison.OrdinalIgnoreCase), "«Ценник» в «⋯» нет");
+            var labelAt = items.IndexOf(WarehouseWindow.RowLabelText);
+            var noFactoryAt = items.FindIndex(x => x.Contains(Tr.T("заводского", "Заводдук", "factory", "Fabrika", "Zavod"), StringComparison.OrdinalIgnoreCase));
+            noFactoryAt.Should().BeGreaterThan(labelAt, "порядок: … Резервы, Печать этикетки, Без заводского штрихкода, Загрузить фото, Удалить");
             // в строке остались только «Изменить» и «⋯» (значка этикетки нет)
             rows[0].GetVisualDescendants().OfType<Button>().Count(b => b.IsEffectivelyVisible && b.Bounds.Width > 0).Should().BeLessThanOrEqualTo(3, "кнопки строки: остаток, «Изменить», «⋯»");
         }

@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
+using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Input;
@@ -353,7 +354,7 @@ public partial class WarehouseWindow
         };
         title.Bind(TextBlock.ForegroundProperty, title.GetResourceObservable("BrushText"));
 
-        var unit = new UnitPickerBox { Width = 190 };
+        var unit = new UnitPickerBox { Width = 190, UseFlyout = true }; // 2026-11-22: список единиц всплывает поверх, не раздвигает панель
         var unitApply = BulkButton(TrB("Установить единицу", "Бирдикти коюу", "Set unit", "Birimi ayarla", "Birlikni qo'yish"), primary: false);
         unitApply.Click += (_, _) => BulkApplyToSelected("unit", unit.Value);
 
@@ -736,7 +737,7 @@ public partial class WarehouseWindow
         // 2026-10-29 (жалоба владельца): у КАЖДОЙ строки есть единица, количество, закупка, наценка и цена продажи (единица и категория правятся у нового товара,
         // цены — у нового и у товара без цен; у товара склада с ценами — по кнопке «Цены»). Единицы — справочник UnitCatalog (шт, кг, г, л, мл, м, уп, пара…).
         // Наценка и «авто»: цена продажи считается от закупки по настройке автонаценки приёмки (ReceivingLineVm.EnableAutoSale / ReceivingPricing.AutoSalePrice).
-        var unitPicker = new UnitPickerBox { Width = 190, Value = row.Line.Unit };
+        var unitPicker = new UnitPickerBox { Width = 190, Value = row.Line.Unit, UseFlyout = true }; // 2026-11-22 (владелец: выбор единицы закрывал всё ниже): список всплывает поверх карточки
         unitPicker.PropertyChanged += (_, e) =>
         {
             if (e.Property == UnitPickerBox.ValueProperty && !string.Equals(unitPicker.Value, row.Line.Unit, StringComparison.Ordinal))
@@ -772,13 +773,43 @@ public partial class WarehouseWindow
         autoHost.Bind(Visual.IsVisibleProperty, new Binding("Line.HasSaleMode"));
         var category = BulkInput(TrB("Категория", "Категория", "Category", "Kategori", "Kategoriya"), 190);
         category.Bind(TextBox.TextProperty, new Binding(nameof(BulkScanRow.Category)) { Mode = BindingMode.TwoWay });
-        var chips = new WrapPanel { Orientation = Orientation.Horizontal, IsVisible = false };
+        // 2026-11-22 (владелец: «в приёмке уже существующие категории не выходит»): поле «Категория» + кнопка ▾ и выпадающий список существующих категорий поверх карточки (Popup, без сдвига строк);
+        // набор текста сужает список (поиск по вхождению). Раньше подсказки были плитками под карточкой, а сам список категорий после объединения вкладок нигде не загружался.
+        var categoryArrow = new Button { Content = "▾", MinHeight = 44, MinWidth = 44, Margin = new Thickness(4, 0, 0, 0), Focusable = false, HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center };
+        categoryArrow.Classes.Add("SecondaryButton");
+        var categoryRow = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,Auto") };
+        Grid.SetColumn(category, 0);
+        Grid.SetColumn(categoryArrow, 1);
+        categoryRow.Children.Add(category);
+        categoryRow.Children.Add(categoryArrow);
+        var categoryList = new StackPanel();
+        var categoryPanel = new Border
+        {
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(6),
+            BorderThickness = new Thickness(1),
+            MinWidth = 260,
+            MaxWidth = 420,
+            Child = new ScrollViewer { Content = categoryList, MaxHeight = 320, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, VerticalScrollBarVisibility = ScrollBarVisibility.Auto },
+        };
+        categoryPanel.Bind(Border.BackgroundProperty, categoryPanel.GetResourceObservable("BrushPanel"));
+        categoryPanel.Bind(Border.BorderBrushProperty, categoryPanel.GetResourceObservable("BrushBorder"));
+        var categoryPopup = new Popup
+        {
+            PlacementTarget = categoryRow,
+            Placement = PlacementMode.Bottom,
+            VerticalOffset = 2,
+            IsLightDismissEnabled = true,
+            OverlayInputPassThroughElement = categoryRow, // нажатие на поле или ▾ не «закрывает мимо»
+            Child = categoryPanel,
+        };
+        categoryRow.Children.Add(categoryPopup);
 
         var unitHost = Labeled(TrB("Единица *", "Бирдик *", "Unit *", "Birim *", "Birlik *"), unitPicker);
         var purchaseHost = Labeled(TrB("Закупка *", "Сатып алуу *", "Cost *", "Alış *", "Xarid *"), purchase);
         var markupHost = Labeled(TrB("Наценка, %", "Үстөк, %", "Markup, %", "Kâr, %", "Ustama, %"), markup);
         var saleHost = Labeled(TrB("Цена продажи *", "Сатуу баасы *", "Sale price *", "Satış fiyatı *", "Sotuv narxi *"), sale);
-        var categoryHost = Labeled(TrB("Категория", "Категория", "Category", "Kategori", "Kategoriya"), category);
+        var categoryHost = Labeled(TrB("Категория", "Категория", "Category", "Kategori", "Kategoriya"), categoryRow);
         // 2026-11-21 (объединение «Массового добавления» и «Приёмки»): возможности прежней таблицы приёмки — «штук в упаковке» и ссылка выбора способа приёмки у строки, «Сгенерировать штрихкод» и «Найти в интернете» у нового товара.
         var piecesBox = BulkInput(TrB("шт/упак.", "даана/таңгак", "pcs/pack", "adet/koli", "dona/qadoq"), 110);
         piecesBox.Tag = "pieces";
@@ -812,7 +843,7 @@ public partial class WarehouseWindow
         var sizesBtn = BulkButton(TrB("Размеры", "Өлчөмдөр", "Sizes", "Bedenler", "O'lchamlar"), false);
         sizesBtn.IsVisible = MarketSpheres.IsClothing;
         sizesBtn.Click += (_, _) => _ = OpenVariantGridAsync(row.Line, automatic: false);
-        var batchBtn = BulkButton(BatchButtonText, false);
+        var batchBtn = BulkButton(BatchButtonLabel(row.Line), false); // 2026-11-22: после ввода на кнопке — «Срок до … · партия …»
         batchBtn.DataContext = row.Line;
         batchBtn.Tag = "rcv-batch";
         batchBtn.IsVisible = BatchFieldsOn;
@@ -881,36 +912,83 @@ public partial class WarehouseWindow
             c.Margin = new Thickness(0, 0, 8, 6);
             line2.Children.Add(c);
         }
-        chips.Margin = new Thickness(44, 0, 52, 0);
-
-        void RebuildChips()
+        // Список категорий: все существующие (до 60 строк, дальше — набором текста), по набору — сужается; пусто — подсказка. Выбор — строка списка (крупная, для сенсора).
+        var picking = false; // выбор из списка меняет текст поля — список после этого заново не открываем
+        void RebuildCategories(bool force)
         {
-            chips.Children.Clear();
-            if (!category.IsFocused)
+            if (picking)
+                return;
+            categoryList.Children.Clear();
+            if (!force && !category.IsFocused)
             {
-                chips.IsVisible = false;
+                categoryPopup.IsOpen = false;
                 return;
             }
+            EnsureBulkCategories();
             var typed = category.Text?.Trim() ?? "";
             var matches = _bulkCategories
                 .Where(c => typed.Length == 0 || (c.Contains(typed, StringComparison.CurrentCultureIgnoreCase) && !string.Equals(c, typed, StringComparison.CurrentCultureIgnoreCase)))
-                .Take(8).ToList();
+                .Take(60).ToList();
             foreach (var c in matches)
             {
-                var chip = BulkButton(c, false);
-                chip.Margin = new Thickness(0, 0, 6, 6);
-                chip.Click += (_, _) =>
+                var item = BulkButton(c, false);
+                item.HorizontalAlignment = HorizontalAlignment.Stretch;
+                item.HorizontalContentAlignment = HorizontalAlignment.Left;
+                item.Margin = new Thickness(0, 0, 0, 4);
+                item.Click += (_, _) =>
                 {
+                    picking = true;
                     row.Category = c;
-                    chips.IsVisible = false;
+                    picking = false;
+                    categoryPopup.IsOpen = false;
                 };
-                chips.Children.Add(chip);
+                categoryList.Children.Add(item);
             }
-            chips.IsVisible = matches.Count > 0;
+            if (matches.Count == 0 && force)
+            {
+                var none = new TextBlock
+                {
+                    Text = _bulkCategories.Count == 0
+                        ? TrB("Категорий пока нет — впишите название, оно создастся вместе с товаром.", "Азырынча категория жок — атын жазыңыз, товар менен кошо түзүлөт.", "No categories yet — type a name, it will be created with the product.", "Henüz kategori yok — adı yazın, ürünle birlikte oluşturulur.", "Hozircha kategoriya yo'q — nomini yozing, mahsulot bilan birga yaratiladi.")
+                        : TrB("Такой категории нет — останется как введена.", "Мындай категория жок — киргизилгендей калат.", "No such category — it stays as typed.", "Böyle bir kategori yok — yazıldığı gibi kalır.", "Bunday kategoriya yo'q — kiritilganicha qoladi."),
+                    FontSize = 12.5,
+                    TextWrapping = TextWrapping.Wrap,
+                    Margin = new Thickness(4),
+                };
+                none.Bind(TextBlock.ForegroundProperty, none.GetResourceObservable("BrushTextSoft"));
+                categoryList.Children.Add(none);
+            }
+            categoryPopup.IsOpen = matches.Count > 0 || force;
         }
-        category.GotFocus += (_, _) => RebuildChips();
-        category.LostFocus += (_, _) => chips.IsVisible = false;
-        category.TextChanged += (_, _) => RebuildChips();
+        category.GotFocus += (_, _) => RebuildCategories(false);
+        category.LostFocus += (_, _) =>
+        {
+            if (!categoryPanel.IsPointerOver)
+                categoryPopup.IsOpen = false;
+        };
+        category.TextChanged += (_, _) => RebuildCategories(false);
+        categoryArrow.Click += (_, _) =>
+        {
+            if (categoryPopup.IsOpen)
+                categoryPopup.IsOpen = false;
+            else
+                RebuildCategories(true);
+        };
+        category.KeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Escape && categoryPopup.IsOpen)
+            {
+                e.Handled = true; // Esc закрывает список, а не откатывает правку строки
+                categoryPopup.IsOpen = false;
+            }
+            else if (e.Key == Key.Down && !categoryPopup.IsOpen)
+            {
+                e.Handled = true;
+                RebuildCategories(true);
+            }
+            else if (e.Key == Key.Enter)
+                categoryPopup.IsOpen = false;
+        };
 
         var error = new TextBlock { FontSize = 12.5, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(44, 4, 0, 0) };
         error.Bind(TextBlock.ForegroundProperty, error.GetResourceObservable("BrushDanger"));
@@ -921,7 +999,6 @@ public partial class WarehouseWindow
         stack.Children.Add(line1);
         stack.Children.Add(line2);
         stack.Children.Add(info);
-        stack.Children.Add(chips);
         stack.Children.Add(error);
 
         var border = new Border
@@ -1031,6 +1108,19 @@ public partial class WarehouseWindow
                 _bulkCategories.Add(c);
     }
 
+    private DateTime _bulkCategoriesLoadedAt = DateTime.MinValue;
+    private bool _bulkCategoriesLoading;
+
+    /// <summary>2026-11-22: список существующих категорий для поля «Категория» в карточках приёмки читается при первом обращении и обновляется не чаще раза в 2 минуты
+    /// (раньше его грузила вкладка «Массовое добавление», которой больше нет, — список оставался пустым).</summary>
+    private void EnsureBulkCategories()
+    {
+        if (_bulkCategoriesLoading || (_bulkCategories.Count > 0 && DateTime.UtcNow - _bulkCategoriesLoadedAt < TimeSpan.FromMinutes(2)))
+            return;
+        _bulkCategoriesLoading = true;
+        _ = LoadBulkCategoriesAsync();
+    }
+
     private async Task LoadBulkCategoriesAsync()
     {
         try
@@ -1044,6 +1134,15 @@ public partial class WarehouseWindow
             {
                 PosLogger.Log($"Массовое добавление: категории с этого компьютера не прочитаны: {ex.Message}", "WARNING");
             }
+            try
+            {
+                // 2026-11-22: категории товаров, уже загруженных в каталог кассы (локальная база может быть пустой, пока каталог не синхронизирован)
+                names.AddRange(CatalogCacheService.Products.ToList().Select(p => p.Category).Where(c => !string.IsNullOrWhiteSpace(c))!);
+            }
+            catch (InvalidOperationException)
+            {
+                // каталог обновлялся в этот момент — возьмём при следующем открытии
+            }
             if (names.Count == 0 && PosApp.CatalogApi is { } api)
             {
                 using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(4));
@@ -1056,6 +1155,11 @@ public partial class WarehouseWindow
         catch (Exception ex)
         {
             PosLogger.Log($"Массовое добавление: категории не загружены: {ex.Message}", "WARNING");
+        }
+        finally
+        {
+            _bulkCategoriesLoadedAt = DateTime.UtcNow;
+            _bulkCategoriesLoading = false;
         }
     }
 

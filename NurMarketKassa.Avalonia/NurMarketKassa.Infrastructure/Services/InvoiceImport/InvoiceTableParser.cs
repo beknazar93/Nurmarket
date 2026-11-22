@@ -69,6 +69,19 @@ public static class InvoiceTableParser
             }
             if (widest < 3)
                 fallback = Math.Clamp(table.HeaderIndex, 0, Math.Max(0, table.Rows.Count - 1));
+            // 2026-11-22: файл без столбца количества (список товаров, прайс): строка заголовков — та, где узнаны название/штрихкод и цена (больше всего полей), а не просто самая широкая.
+            var looseBest = 0;
+            for (var i = 0; i < limit; i++)
+            {
+                var m = InvoiceColumnMapping.AutoDetect(table.Rows[i].Cells);
+                var c = m.Columns;
+                var priceLike = c.ContainsKey(InvoiceField.Price) || c.ContainsKey(InvoiceField.PriceWithVat) || c.ContainsKey(InvoiceField.Sum) || c.ContainsKey(InvoiceField.SumWithVat);
+                if ((c.ContainsKey(InvoiceField.Name) || c.ContainsKey(InvoiceField.Barcode)) && priceLike && c.Count > looseBest)
+                {
+                    looseBest = c.Count;
+                    fallback = i;
+                }
+            }
             var cells = table.Rows.Count > 0 ? table.Rows[fallback].Cells : [];
             // Те же заголовки уже сопоставляли вручную — берём запомненное.
             if (cells.Length > 0 && InvoiceImportRegistry.TryLoadMapping(cells) is { IsComplete: true } saved)
@@ -183,6 +196,12 @@ public static class InvoiceTableParser
             {
                 skippedNoise++;
                 continue;
+            }
+            // 2026-11-22: нет столбца количества и кассир отметил «Количество = 1 для всех» — подставляем 1 (после проверки «есть ли в строке числа»: заголовки групп товаром не становятся).
+            if (mapping.QuantityOne && cQty < 0)
+            {
+                hasQty = true;
+                qty = 1;
             }
             // 2026-10-27 (Ск-1): после строки итога (подвал страницы/накладной) товаром считается только строка с названием, количеством > 0 и ценой или суммой —
             // «в том числе НДС 50 250», «Масса груза» и подобные подписи с числом в столбце суммы товаром не становятся.

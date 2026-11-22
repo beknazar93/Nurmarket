@@ -110,7 +110,11 @@
         </Style>
     </Window.Styles>
 
-    <Grid Margin="16" Background="{DynamicResource BrushWindowBackdrop}" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
+    <!-- 2026-11-22 (фото владельца 64: «товары снизу не видны»): на низком окне шапка, подсказка про этикетки и строка ошибки съедали всё место, таблице оставалась
+         полторы строки. Теперь вся страница — в прокрутке, а таблице всегда не меньше ~240 точек (высоту корня считает UpdatePageHeight): на большом окне таблица
+         занимает всё свободное место, на малом (и при масштабе 150 %) страница прокручивается и нижние кнопки достижимы. -->
+    <ScrollViewer x:Name="PageScroll" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+    <Grid x:Name="PageRoot" Margin="16" Background="{DynamicResource BrushWindowBackdrop}" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
 
         <!-- Заголовок -->
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,10">
@@ -327,4 +331,5 @@
             </Grid>
         </Border>
     </Grid>
+    </ScrollViewer>
 </Window>

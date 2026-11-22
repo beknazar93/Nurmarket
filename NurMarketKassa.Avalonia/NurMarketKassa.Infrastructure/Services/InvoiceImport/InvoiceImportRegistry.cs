@@ -66,6 +66,9 @@ public static class InvoiceImportRegistry
     {
         public DateTime SavedAt { get; set; }
         public Dictionary<string, int> Columns { get; set; } = new();
+
+        /// <summary>2026-11-22: «Количество = 1 для всех» (в файле нет столбца количества). У старых записей поля нет — false.</summary>
+        public bool QuantityOne { get; set; }
     }
 
     public sealed class Store
@@ -343,7 +346,7 @@ public static class InvoiceImportRegistry
         {
             if (!Read().Mappings.TryGetValue(Signature(headers), out var entry) || entry.Columns.Count == 0)
                 return null;
-            var mapping = new InvoiceColumnMapping { FromMemory = true };
+            var mapping = new InvoiceColumnMapping { FromMemory = true, QuantityOne = entry.QuantityOne };
             foreach (var (name, column) in entry.Columns)
             {
                 if (Enum.TryParse<InvoiceField>(name, out var field) && column >= 0 && column < headers.Count)
@@ -358,7 +361,7 @@ public static class InvoiceImportRegistry
         lock (Sync)
         {
             var store = Read();
-            store.Mappings[Signature(headers)] = new MappingEntry { SavedAt = DateTime.Now, Columns = mapping.Columns.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value) };
+            store.Mappings[Signature(headers)] = new MappingEntry { SavedAt = DateTime.Now, Columns = mapping.Columns.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value), QuantityOne = mapping.QuantityOne && !mapping.Columns.ContainsKey(InvoiceField.Quantity) };
             foreach (var old in store.Mappings.OrderByDescending(kv => kv.Value.SavedAt).Skip(MaxMappings).Select(kv => kv.Key).ToList())
                 store.Mappings.Remove(old);
             Write(store);

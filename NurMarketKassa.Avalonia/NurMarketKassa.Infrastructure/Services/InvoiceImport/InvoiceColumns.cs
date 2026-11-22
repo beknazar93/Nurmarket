@@ -29,6 +29,9 @@ public sealed class InvoiceColumnMapping
 
     public bool FromMemory { get; internal set; }
 
+    /// <summary>2026-11-22: в файле нет столбца количества (список товаров, прайс) — явная отметка кассира «Количество = 1 для всех». Парсер подставляет 1.</summary>
+    public bool QuantityOne { get; set; }
+
     public IReadOnlyDictionary<InvoiceField, int> Columns => _columns;
 
     public int ColumnOf(InvoiceField field) => _columns.TryGetValue(field, out var c) ? c : -1;
@@ -50,7 +53,7 @@ public sealed class InvoiceColumnMapping
     /// <summary>Хватает для разбора: название (или штрихкод), количество и хоть какая-то цена/сумма.</summary>
     public bool IsComplete =>
         (_columns.ContainsKey(InvoiceField.Name) || _columns.ContainsKey(InvoiceField.Barcode))
-        && _columns.ContainsKey(InvoiceField.Quantity)
+        && (_columns.ContainsKey(InvoiceField.Quantity) || QuantityOne) // 2026-11-22: «Количество = 1 для всех» заменяет столбец количества
         && (_columns.ContainsKey(InvoiceField.Price) || _columns.ContainsKey(InvoiceField.PriceWithVat) || _columns.ContainsKey(InvoiceField.Sum) || _columns.ContainsKey(InvoiceField.SumWithVat));
 
     public static string FieldLabel(InvoiceField field) => field switch
@@ -85,6 +88,10 @@ public sealed class InvoiceColumnMapping
 
     private static readonly string[] VatWords = ["ндс", "vat", "qqs", "kdv", "налог", "tax", "салык"];
     private static readonly string[] SumWords = ["сумм", "sum", "amount", "стоимост", "tutar", "жыйынтык", "итого", "jami", "total", "всего", "баасынынжыйынтыгы"];
+
+    /// <summary>2026-11-22: заголовок именно закупочной цены («Закупочная», «Закупка», «Входящая», «Себестоимость», «Purchase», «Cost»). Обычное «Цена» рядом с ним — цена продажи.</summary>
+    internal static bool IsPurchaseHeader(string k) =>
+        Has(k, "закуп", "входящ", "себестоим", "sebestoim", "purchase", "costprice", "xarid", "сатыпалуу") || Is(k, "cost");
 
     /// <summary>Какому полю соответствует заголовок. null — столбец не нужен («№ п/п», «Код по ОКЕИ», «Количество мест»…).</summary>
     public static InvoiceField? Classify(string? header)
@@ -140,11 +147,14 @@ public sealed class InvoiceColumnMapping
             return InvoiceField.Price;
         if (Is(k, "закупка", "закупочная", "входящаяцена", "cost", "costprice", "себестоимость", "sebestoimost"))
             return InvoiceField.Price;
+        // 2026-11-22: «Закупочная стоимость/цена/сумма за ед.», «Purchase», «Входящая» — закупочная цена (слово «сумма» тут уже разобрано выше как Sum только без этих корней).
+        if (!sumWord && IsPurchaseHeader(k))
+            return InvoiceField.Price;
 
         if (sumWord)
             return InvoiceField.Sum;
 
-        if (Has(k, "штрихкод", "barcode", "barkod", "shtrixkod", "баркод", "gtin") || Is(k, "шк", "ean", "ean13", "ean8", "upc", "штрих", "штрихкоды"))
+        if (Has(k, "штрихкод", "barcode", "barkod", "shtrixkod", "баркод", "gtin", "штрихов", "ean13", "ean8") || Is(k, "шк", "ean", "ean13", "ean8", "upc", "штрих", "штрихкоды"))
             return InvoiceField.Barcode;
 
         if (Is(k, "артикул", "art", "арт", "article", "sku", "код", "кодтовара", "кодтов", "kod", "артикултовара", "номенклатурныйкод", "кодномер", "кодномерклатуры", "коднач", "vendorcode", "артикулпоставщика", "productcode", "itemcode", "кодпоставщика")
@@ -157,7 +167,7 @@ public sealed class InvoiceColumnMapping
         if (Has(k, "едизм", "единиц", "unit", "uom", "өлчөм", "бирдик", "birlik", "birim", "олчо") || Is(k, "ед", "едизмерения", "м", "meas", "measure"))
             return InvoiceField.Unit;
 
-        if (Has(k, "наименован", "название", "номенклатура", "описание", "name", "product", "description", "аталышы", "nomi", "mahsulot", "ürün", "urun", "товар", "услуг", "ассортимент") || Is(k, "аты", "title", "ad"))
+        if (Has(k, "наименован", "название", "номенклатура", "описание", "name", "product", "description", "аталышы", "nomi", "mahsulot", "ürün", "urun", "товар", "услуг", "ассортимент", "продукт", "tovar", "номенклатур") || Is(k, "аты", "title", "ad"))
             return InvoiceField.Name;
 
         return null;
@@ -190,6 +200,21 @@ public sealed class InvoiceColumnMapping
                     result._columns[field] = i;
                     qtyRank = rank;
                 }
+                continue;
+            }
+            // 2026-11-22: две цены («Цена» и «Закупочная») — для накладной ценой закупки служит «Закупочная», а обычное «Цена» становится ценой продажи (было: брали первую по порядку, т. е. розничную).
+            if (field == InvoiceField.Price && result._columns.TryGetValue(field, out var priceAt))
+            {
+                var newIsPurchase = IsPurchaseHeader(ProductImportMapping.Key(headers[i]));
+                var oldIsPurchase = IsPurchaseHeader(ProductImportMapping.Key(headers[priceAt]));
+                if (newIsPurchase && !oldIsPurchase)
+                {
+                    result._columns[field] = i;
+                    if (!result._columns.ContainsKey(InvoiceField.Retail))
+                        result._columns[InvoiceField.Retail] = priceAt;
+                }
+                else if (oldIsPurchase && !newIsPurchase && !result._columns.ContainsKey(InvoiceField.Retail))
+                    result._columns[InvoiceField.Retail] = i;
                 continue;
             }
             if (!result._columns.ContainsKey(field))

@@ -1174,6 +1174,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 PosLogger.Log($"Label printer list failed: {ex.GetType().Name}", "WARNING");
                 list = Array.Empty<DiscoveredPrinter>();
             }
+            // 2026-11-22 (фото владельца 58/59: «Есть несохранённые изменения» при закрытии вкладки «Обновления» без единой правки): список принтеров этикеток доезжает
+            // в фоне уже ПОСЛЕ первого нажатия (тогда запомнено «до»), выбор в списке менялся с «ничего» на «— не выбран —» и окно считало это правкой. Было чисто —
+            // после загрузки снова запоминаем «до»; настоящую правку, внесённую раньше, не трогаем.
+            var cleanBefore = _dirtyBaseline is null || SnapshotEditable() == _dirtyBaseline;
             var keep = _labelPrinterChoice ?? UserPreferences.Instance.LabelPrinterDevicePath;
             var withNone = new List<DiscoveredPrinter> { NoLabelPrinter };
             withNone.AddRange(list);
@@ -1186,6 +1190,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
             _labelPrinterInit = false;
             if (LabelPrinterCombo.SelectedItem is DiscoveredPrinter netSel && NetworkPrinterAddress.IsNetworkPort(netSel.DevicePath))
                 _printView.LabelNetPanel.SetAddress(netSel.DevicePath);
+            if (cleanBefore && _dirtyBaseline is not null)
+                _dirtyBaseline = SnapshotEditable();
             _labelLiveText = "";
             UpdateLabelPrinterInfo();
             RefreshLabelLiveStatus();

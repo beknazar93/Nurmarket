@@ -24,7 +24,10 @@ public sealed partial class LabelsHubView
     private LabelTemplatesView? _templates;
     private Border? _editorGate;
     private bool _printNeedsReload;
-    private const double MinBodyHeight = 520;
+    // 2026-11-22: было 520 — на окне 1024×600 область под полосой режимов ≈ 412 px, а тело раздувалось до 520: список карточек и нижняя строка страниц уходили за нижний
+    // край окна (тест BarcodesPerfLayout 1024×600: низ списка 632 при окне 600). 400: печать на 1024×600 заполняет область (список ≈ 176 px) без прокрутки,
+    // прокрутка тела включается только на ещё более низком окне (минимум «Склада» — 550).
+    private const double MinBodyHeight = 400;
 
     /// <summary>Редактор (создаётся при первом показе) — для проверок.</summary>
     public LabelDesignerView? Designer => _designer;

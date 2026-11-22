@@ -140,7 +140,9 @@ public static class BarcodeGenerator
     {
         if (!line.CanGenerateBarcode)
             return false;
-        line.Barcode = await GenerateForCatalogAsync(allLines.Select(l => l.Barcode).ToList(), ct).ConfigureAwait(false);
+        // 2026-11-22 (владелец: «при нажатии на сгенерировать штрих код выходит ошибка» в «Склад → Приёмка»): было ConfigureAwait(false) — после ответа сервера код записывался в строку в потоке пула,
+        // а поле «Штрихкод» привязано к окну: «Call from invalid thread» → окно «Ошибка». Теперь возвращаемся в поток вызова (поток окна); ожидание запроса к серверу на пул это не переносит.
+        line.Barcode = await GenerateForCatalogAsync(allLines.Select(l => l.Barcode).ToList(), ct).ConfigureAwait(true);
         return true;
     }
 

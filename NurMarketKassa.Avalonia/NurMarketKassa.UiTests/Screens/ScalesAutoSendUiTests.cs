@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.VisualTree;
@@ -170,6 +171,67 @@ public sealed class ScalesAutoSendUiTests : IDisposable
         finally
         {
             ModalShell.WorkingAreaForTests = null;
+            window.Close();
+            UiShot.Pump();
+        }
+    }
+
+    /// <summary>2026-11-22 (фото владельца 64: «товары снизу не видны»): на низком окне шапка, подсказка про этикетки и строка ошибки съедали место, таблице оставалась полторы строки.
+    /// Теперь таблица всегда не меньше ~240 точек, страница прокручивается, а нижние кнопки («Проверка перед отправкой», «Отправить на весы») достижимы прокруткой; на высоком окне
+    /// прокрутки нет и таблица занимает всё свободное место. Поля ввода шапки (поиск, категория, «Показать», начальный PLU) друг на друга не налезают.</summary>
+    [AvaloniaTheory]
+    [InlineData(1024, 600, AppLanguage.Russian)]
+    [InlineData(1024, 480, AppLanguage.Kyrgyz)]
+    [InlineData(1366, 768, AppLanguage.Russian)]
+    [InlineData(1366, 768, AppLanguage.Uzbek)]
+    [InlineData(1366, 1000, AppLanguage.Russian)]
+    public async Task ScalesWindow_ListKeepsHeight_AndBottomButtonsReachable(int width, int height, AppLanguage lang)
+    {
+        await TestHost.WarmAsync();
+        UiShot.Setup(UiTheme.Light, lang);
+        for (var i = 0; i < 60; i++)
+            CatalogCacheService.Products.Add(Tile("x" + i, "Конфеты №" + i, "100", 10 + i));
+        var window = new ScalesPluWindow();
+        try
+        {
+            using var _ = UiShot.Render(window, new UiSize(width, height));
+            UiShot.Settle(10);
+            window.FindControl<TextBlock>("StatusText")!.Text = "Не задан IP-адрес весов. Адрес весов ещё не задан — «Изменить…» → вкладка «Быстрая настройка», шаг 1. Адрес весов ещё не задан.";
+            UiShot.Settle(6);
+            Save(window, $"list-{lang}-{width}x{height}");
+
+            var grid = window.FindControl<DataGrid>("ProductsGrid")!;
+            var scroll = window.FindControl<ScrollViewer>("PageScroll")!;
+            var gridHeight = grid.Bounds.Height;
+            gridHeight.Should().BeGreaterThanOrEqualTo(ScalesPluWindow.PluGridMinHeight - 12, "таблица товаров не сжимается до полутора строк");
+            if (height >= 900)
+                (scroll.Extent.Height - scroll.Viewport.Height).Should().BeLessThan(2, "на высоком окне прокрутки нет: таблица занимает всё место");
+
+            // нижние кнопки достижимы: прокрутили вниз — кнопка внутри видимой области страницы
+            scroll.Offset = new Vector(0, Math.Max(0, scroll.Extent.Height - scroll.Viewport.Height));
+            UiShot.Settle(3);
+            foreach (var name in new[] { "PreflightButton", "SendButton" })
+            {
+                var button = window.FindControl<Button>(name)!;
+                button.IsEffectivelyVisible.Should().BeTrue(name);
+                var top = button.TranslatePoint(new Point(0, 0), scroll)!.Value.Y;
+                (top >= -1 && top + button.Bounds.Height <= scroll.Bounds.Height + 1).Should().BeTrue(
+                    $"{name} внутри видимой области после прокрутки вниз: y={top:0.#}, высота {button.Bounds.Height:0.#}, область {scroll.Bounds.Height:0.#}");
+            }
+
+            // поля шапки не налезают друг на друга
+            var fields = new[] { "SearchBox", "CategoryCombo", "ShowCombo" }.Select(n => window.FindControl<Control>(n)!).Where(c => c.IsEffectivelyVisible).ToList();
+            for (var a = 0; a < fields.Count; a++)
+                for (var b = a + 1; b < fields.Count; b++)
+                {
+                    var ra = new Rect(fields[a].TranslatePoint(default, window)!.Value, fields[a].Bounds.Size);
+                    var rb = new Rect(fields[b].TranslatePoint(default, window)!.Value, fields[b].Bounds.Size);
+                    var inter = ra.Intersect(rb);
+                    (inter.Width > 2 && inter.Height > 2).Should().BeFalse($"{fields[a].Name} и {fields[b].Name} не перекрываются");
+                }
+        }
+        finally
+        {
             window.Close();
             UiShot.Pump();
         }
