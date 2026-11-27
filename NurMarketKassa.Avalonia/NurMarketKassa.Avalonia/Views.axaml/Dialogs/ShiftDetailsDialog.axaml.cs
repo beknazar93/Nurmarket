@@ -214,6 +214,31 @@ public partial class ShiftDetailsDialog : Window
 
     private Task<RentalShiftSummary?>? _rentalsTask;
 
+    /// <summary>2026-11-27: изъятия смены по статьям расхода из движений денег сервера (null — не загружались или сервер не ответил).</summary>
+    private double? _serverExpenseArticles;
+
+    /// <summary>2026-11-27 (живой проход 27.11, «Расход» у владельца «—»): статьи расхода изъятий смены — с сервера; пришло — плитки перерисовываются.</summary>
+    private async Task LoadServerExpenseArticlesAsync(string shiftId)
+    {
+        if (!IsServerShift(shiftId))
+            return;
+        try
+        {
+            var sum = await ServerAnswerWait.ForegroundAsync("cashflows/shift", t => CashArticles.ShiftWithdrawalExpensesAsync(shiftId, t), _cts.Token).ConfigureAwait(true);
+            if (sum is null || _cts.IsCancellationRequested || _shift is not { } shown || shown.Id != shiftId)
+                return;
+            _serverExpenseArticles = sum;
+            BindExtraTotals(shown.Id, shown.ExpenseTotal);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Отчёт смены: статьи изъятий с сервера не прочитаны: {ex.Message}", "SHIFTS");
+        }
+    }
+
     /// <summary>2026-10-04, клиент: «на Z-отчёт — информацию об аренде». Прокат за время смены (сервер NurCRM).</summary>
     private async Task<RentalShiftSummary?> LoadRentalsAsync(ShiftModel shift)
     {
@@ -267,6 +292,11 @@ public partial class ShiftDetailsDialog : Window
                 if (!_cts.IsCancellationRequested && _shift is { } shown)
                     BindExtraTotals(shown.Id, shown.ExpenseTotal);
             }
+
+            // 2026-11-27: изъятия есть, а статей в журнале этой кассы нет (программа владельца, другая касса) — статьи расхода из движений смены сервера.
+            if (report.Withdrawals > 0m && _serverExpenseArticles is null
+                && ShiftCashOperationsStore.ArticleSumsForShift(shiftId, withdrawal: true).Count == 0)
+                await LoadServerExpenseArticlesAsync(shiftId).ConfigureAwait(true);
 
             return report;
         }
@@ -701,6 +731,10 @@ public partial class ShiftDetailsDialog : Window
                 .Sum(a => (double)a.Amount);
             if (byArticle > 0.005)
                 expenses = byArticle;
+            // 2026-11-27 (живой проход 27.11): журнал статей есть только у кассы, где сделали изъятие — у владельца и на другой кассе плитка была «—» при изъятии
+            // «Хоз. нужды 30». Тогда — те же изъятия по статьям расхода из движений смены на сервере (LoadServerExpenseArticlesAsync); сервер не ответил — как раньше.
+            else if (_serverExpenseArticles is > 0.005 and var fromFlows)
+                expenses = fromFlows;
         }
         var debtPaid = Get(ShiftEventsStore.KindDebtPayment);
         // 2026-10-04, стресс-тест: оплата долгов смены есть и в отчёте сервера (debt_payments_cash) —

@@ -48,6 +48,10 @@ public static class OfflineQueueCash
                 // 2026-10-29: «в долг» без связи с наличной предоплатой — предоплата лежит в ящике (безналичную предоплату без связи не принимаем).
                 else if (entry.OfflineDebt && decimal.TryParse(entry.CashReceived, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var prepaid) && prepaid > 0m)
                     cash = prepaid;
+                // 2026-11-27: смешанная оплата без связи — в ящике только наличная часть (не больше итога чека).
+                else if (string.Equals(entry.PaymentMethod, "mixed", StringComparison.OrdinalIgnoreCase)
+                         && decimal.TryParse(entry.CashReceived, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var mixedCash) && mixedCash > 0m)
+                    cash = Math.Min(mixedCash, CashOf(entry));
                 else
                     continue;
                 if (cash != 0m)

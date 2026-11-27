@@ -207,7 +207,8 @@ public partial class RemoteSupportWindow
         var write = new Button
         {
             Content = T("Написать в поддержку", "Колдоого жазуу", "Contact support", "Destek ile iletişim", "Yordamga yozish"),
-            Classes = { "nur-primary" }, HorizontalAlignment = HorizontalAlignment.Stretch,
+            // 2026-11-27 (живой проход 27.11, I): в окне было две жёлтые главные кнопки («Получить код для поддержки» и эта) — главная одна, «Написать» — второстепенная.
+            Classes = { "nur-secondary" }, HorizontalAlignment = HorizontalAlignment.Stretch,
         };
         write.Click += async (_, _) => await SupportRequestWindow.ShowAsync(Owner as Window ?? GetTopLevel(this) as Window, "меню").ConfigureAwait(true);
         card.Child = new StackPanel

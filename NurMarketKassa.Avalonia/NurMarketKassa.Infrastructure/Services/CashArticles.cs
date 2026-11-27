@@ -399,6 +399,59 @@ public static class CashArticles
         }
     }
 
+    /// <summary>2026-11-27 (живой проход 27.11, «Просмотр смены»: «Расход» у кассы 30,00, у владельца «—»): изъятия ЭТОЙ смены по статьям расхода — по данным сервера
+    /// (GET api/construction/cashflows/?shift=…&amp;source_kind=shift_drawer_outflow). Статья — как в отчётах владельца (<see cref="FromFlow"/>: category_title или название
+    /// «Изъятие: Аренда — …»); инкассация и изъятия без статьи расходом не считаются — то же правило, что у кассы по её журналу. null — сервер не ответил.</summary>
+    public static async Task<double?> ShiftWithdrawalExpensesAsync(string? shiftId, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(shiftId) || NurCrmReportsApi.ClientResolver?.Invoke() is not { AccessToken.Length: > 0 } api)
+            return null;
+        var sum = 0d;
+        for (var page = 1; page <= 10; page++)
+        {
+            var data = await api.RequestAsync(HttpMethod.Get, "api/construction/cashflows/", null,
+                new Dictionary<string, string>
+                {
+                    ["shift"] = shiftId.Trim(),
+                    ["source_kind"] = "shift_drawer_outflow",
+                    ["page_size"] = "500",
+                    ["page"] = page.ToString(CultureInfo.InvariantCulture),
+                }, ct, TimeSpan.FromSeconds(10)).ConfigureAwait(false);
+            sum += SumShiftWithdrawalExpenses(NurMarketApiClient.UnwrapList(data), shiftId);
+            if (!(data.ValueKind == JsonValueKind.Object && data.TryGetProperty("next", out var next) && next.ValueKind == JsonValueKind.String))
+                break;
+        }
+        return Math.Round(sum, 2);
+    }
+
+    /// <summary>2026-11-27: чистая часть <see cref="ShiftWithdrawalExpensesAsync"/> — сумма изъятий смены со статьёй расхода (без инкассации, без «без статьи»,
+    /// без отклонённых/отменённых). Вид, смена и статус проверяются ещё раз (сервер может проигнорировать фильтр).</summary>
+    public static double SumShiftWithdrawalExpenses(IEnumerable<JsonElement> rows, string shiftId)
+    {
+        var sum = 0d;
+        foreach (var row in rows)
+        {
+            if (row.ValueKind != JsonValueKind.Object
+                || !string.Equals(Str(row, "source_kind"), "shift_drawer_outflow", StringComparison.OrdinalIgnoreCase)
+                || Str(row, "status") is "rejected" or "cancelled")
+                continue;
+            if (Str(row, "shift") is { Length: > 0 } rowShift && !string.Equals(rowShift, shiftId.Trim(), StringComparison.OrdinalIgnoreCase))
+                continue;
+            var amountText = row.TryGetProperty("amount", out var a)
+                ? a.ValueKind == JsonValueKind.Number ? a.GetRawText() : a.ValueKind == JsonValueKind.String ? a.GetString() : null
+                : null;
+            if (!double.TryParse(amountText, NumberStyles.Number, CultureInfo.InvariantCulture, out var amount) || amount <= 0)
+                continue;
+            var categoryTitle = Str(row, "category_title");
+            if (categoryTitle is { } ct0 && ct0.Trim().StartsWith("Без категор", StringComparison.OrdinalIgnoreCase))
+                categoryTitle = null; // «Без категории» веба — не статья расхода
+            if (FromFlow(Str(row, "name"), categoryTitle) is not { IsCollection: false })
+                continue;
+            sum += amount;
+        }
+        return sum;
+    }
+
     private static async Task<IReadOnlyList<ArticleTotal>?> DrawerOperationsByArticleAsync(
         NurMarketApiClient api, DateTime from, DateTime to, bool withdrawal, CancellationToken ct)
     {

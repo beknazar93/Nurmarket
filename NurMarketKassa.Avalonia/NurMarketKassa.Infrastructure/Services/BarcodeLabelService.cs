@@ -527,6 +527,23 @@ public static partial class BarcodeLabelService
         return plan.Warning;
     }
 
+    /// <summary>2026-11-27 («Ошибка в редактировании штрих кода ценников»): «Толщина штриха» 1 сжимает штрихкод до штриха в 1 точку (0,125 мм), хотя
+    /// в блок поместился бы толще: блок в редакторе растягивают — штрихкод не растёт. Подсказка редактора (печать не блокирует, как и раньше). null — не тот случай.</summary>
+    public static string? DescribeThinBarsLimit(string? rawCode, LabelTemplate template)
+    {
+        if (!template.Barcode.Enabled || template.BarcodeModuleDots != 1 || template.BarcodeFormat == LabelBarcodeFormat.QrCode || string.IsNullOrWhiteSpace(rawCode))
+            return null;
+        var matrix = EncodeModules(PlanBarcode(rawCode, template.BarcodeFormat));
+        if (matrix is null || FitLinearModule(matrix.Width, template.BarcodeMargin, MmToPx(template.Barcode.WidthMm), MmToPx(template.WidthMm)) < 2)
+            return null;
+        return Tr.T(
+            "«Толщина штриха» 1 (тонкий): штрих 0,125 мм — штрихкод узкий и не растёт вместе с блоком, сканер может его не прочитать. Выберите «Авто» или 2.",
+            "«Сызык калыңдыгы» 1 (ичке): сызык 0,125 мм — штрих-код кууш жана блок менен чоңойбойт, сканер окубай калышы мүмкүн. «Авто» же 2 тандаңыз.",
+            "“Bar thickness” 1 (thin): 0.125 mm bars — the barcode stays narrow and does not grow with its box; a scanner may fail to read it. Choose “Auto” or 2.",
+            "«Çizgi kalınlığı» 1 (ince): 0,125 mm çizgi — barkod dar kalır ve alanıyla büyümez, tarayıcı okuyamayabilir. «Otomatik» veya 2'yi seçin.",
+            "«Chiziq qalinligi» 1 (ingichka): chiziq 0,125 mm — shtrix-kod tor va blok bilan kattalashmaydi, skaner o'qiy olmasligi mumkin. «Avto» yoki 2 ni tanlang.");
+    }
+
     private static string? Join(string? a, string? b) =>
         a is null ? b : b is null ? a : a + " " + b;
 

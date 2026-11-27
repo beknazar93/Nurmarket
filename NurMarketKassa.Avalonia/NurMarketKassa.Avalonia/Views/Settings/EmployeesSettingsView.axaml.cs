@@ -427,6 +427,33 @@ public partial class EmployeesSettingsView : UserControl
             AutomationProperties.SetName(dataButton, dataText + ": " + nameText.Text);
             dataButton.Click += (_, _) => _ = OpenDataEditorAsync(employee);
             var buttons = new StackPanel { Orientation = Orientation.Horizontal };
+            // 2026-11-27 (вход кассира по QR): «QR для входа» — только в программе владельца (выпуск/отзыв бейджа, картинка для печати).
+            if (AppMode.IsOwner)
+            {
+                var qrText = Tr.T("QR для входа", "Кирүү үчүн QR", "Sign-in QR", "Giriş QR'ı", "Kirish uchun QR");
+                var qrButton = new Button
+                {
+                    Content = qrText,
+                    Classes = { "SettingsCard" },
+                    FontSize = 13,
+                    FontWeight = Avalonia.Media.FontWeight.SemiBold,
+                    VerticalAlignment = VerticalAlignment.Stretch,
+                    HorizontalContentAlignment = HorizontalAlignment.Center,
+                    VerticalContentAlignment = VerticalAlignment.Center,
+                    Margin = new Avalonia.Thickness(8, 0, 0, 0),
+                    Padding = new Avalonia.Thickness(16, 0),
+                };
+                ToolTip.SetTip(qrButton, Tr.T("QR-бейдж: кассир подносит его к сканеру — касса открывается от его имени", "QR-бейдж: кассир аны сканерге жакындатат — касса анын атынан ачылат",
+                    "QR badge: the cashier scans it — the till opens in their name", "QR rozet: kasiyer okutur — kasa onun adına açılır", "QR-beydj: kassir uni skanerlaydi — kassa uning nomidan ochiladi"));
+                AutomationProperties.SetName(qrButton, qrText + ": " + nameText.Text);
+                var serverId = employee.ServerId;
+                qrButton.Click += (_, _) =>
+                {
+                    var w = new CashierBadgeWindow(serverId, employee.Name, employee.Email ?? EmployeeDirectory.TryGet(serverId)?.Email);
+                    _ = PosDialogHost.ShowAsync(w, TopLevel.GetTopLevel(this) as Window);
+                };
+                buttons.Children.Add(qrButton);
+            }
             buttons.Children.Add(dataButton);
             buttons.Children.Add(accessButton);
             Grid.SetColumn(buttons, 1);

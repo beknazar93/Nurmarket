@@ -159,4 +159,24 @@ public sealed class CashDrawerAnalyticsTests : IDisposable
         CashArticles.FromDepositFlow("Внесение: Размен — утро", "Внесение")!.Key.Should().Be("change");
         CashArticles.FromDepositFlow("Внесение", "Выручка соседа")!.Ru.Should().Be("Выручка соседа", "внесение, заведённое на сайте со своей категорией, сохраняет её");
     }
+
+    /// <summary>2026-11-27 (живой проход 27.11, «Просмотр смены»): у владельца плитка «Расход» была «—» при изъятии «Хоз. нужды 30» (статья только в журнале кассы).
+    /// Теперь статьи расхода смены берутся из движений сервера: статья есть — расход; инкассация, «без статьи», «Без категории», отклонённые, другая смена и внесения — нет.</summary>
+    [Fact]
+    public void ShiftWithdrawalExpenses_FromServerFlows_OnlyExpenseArticlesOfThisShift()
+    {
+        const string shift = "11111111-1111-1111-1111-111111111111";
+        static string InShift(string flow, string shiftId) => flow.Insert(1, "\"shift\":\"" + shiftId + "\",");
+        var rows = Rows(
+            InShift(Flow("shift_drawer_outflow", "Изъятие: Хозяйственные нужды — вода", "30.00", "Хозяйственные нужды"), shift),
+            InShift(Flow("shift_drawer_outflow", "Изъятие: Аренда", "100.00"), shift), // старая запись без category — статья из названия
+            InShift(Flow("shift_drawer_outflow", "Изъятие: Инкассация", "500.00", "Инкассация"), shift),
+            InShift(Flow("shift_drawer_outflow", "Изъятие: на сдачу соседу", "7.00"), shift), // свободная причина — не статья
+            InShift(Flow("shift_drawer_outflow", "Изъятие", "9.00", "Без категории"), shift),
+            InShift(Flow("shift_drawer_outflow", "Изъятие: Аренда", "40.00", "Аренда", status: "rejected"), shift),
+            InShift(Flow("shift_drawer_outflow", "Изъятие: Аренда", "50.00", "Аренда"), "22222222-2222-2222-2222-222222222222"),
+            InShift(Flow("shift_drawer_inflow", "Внесение: Размен", "60.00", "Внесение"), shift));
+
+        CashArticles.SumShiftWithdrawalExpenses(rows, shift).Should().Be(130d, "30 «Хоз. нужды» + 100 «Аренда»; инкассация, без статьи, отклонённое, чужая смена и внесение не входят");
+    }
 }

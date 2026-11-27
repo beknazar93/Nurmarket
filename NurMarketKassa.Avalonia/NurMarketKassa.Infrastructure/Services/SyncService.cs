@@ -806,6 +806,16 @@ public sealed partial class SyncService : IDisposable
                 "«Qarzga» sotuv yuborilmadi: chekni yuborishning tez usuli to'g'ri kelmadi. Chek saqlandi — uni saytda qo'lda o'tkazing yoki dasturchiga murojaat qiling."))
             { NeedsReview = true };
 
+        // 2026-11-27: смешанная оплата без связи старым путём тоже не отправляется — он передаёт только наличные (cash_received), безналичная часть потерялась бы.
+        if (string.Equals(entry.PaymentMethod, "mixed", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(entry.NonCashReceived))
+            throw new ReplayDeferredException(Tr.T(
+                "Смешанная оплата не отправлена: быстрый способ отправки чека не подошёл. Чек сохранён — проведите его вручную на сайте или обратитесь к разработчику.",
+                "Аралаш төлөм жөнөтүлгөн жок: чекти жөнөтүүнүн тез ыкмасы туура келген жок. Чек сакталды — аны сайтта кол менен өткөрүңүз же өнүктүрүүчүгө кайрылыңыз.",
+                "The mixed payment was not sent: the fast sending method did not fit. The receipt is saved — process it by hand on the website or contact the developer.",
+                "Karışık ödeme gönderilmedi: hızlı gönderim yöntemi uymadı. Fiş kayıtlı — siteden elle işleyin veya geliştiriciye başvurun.",
+                "Aralash to'lov yuborilmadi: chekni yuborishning tez usuli to'g'ri kelmadi. Chek saqlandi — uni saytda qo'lda o'tkazing yoki dasturchiga murojaat qiling."))
+            { NeedsReview = true };
+
         if (entry.CheckoutSubmittedAt is not null)
         {
             // Сверка по статусу КОРЗИНЫ (CartSaleSessionHelper.GetCheckoutStateAsync). Прежняя

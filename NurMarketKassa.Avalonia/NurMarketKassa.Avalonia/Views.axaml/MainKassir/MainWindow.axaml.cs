@@ -2009,6 +2009,9 @@ public partial class MainWindow : Window
         if (await PosDialogHost.ShowAsync(dlg, this).ConfigureAwait(true) != true)
             return;
 
+        // 2026-11-27 (живой проход 27.11, Диктор): продолжение после «Закрыть смену» шло прямо внутри нажатия кнопки окна (UIA Invoke ждал всё закрытие смены,
+        // досылку и сообщения). Сначала отпускаем нажатие — закрытие идёт следующим проходом цикла диспетчера.
+        await Task.Yield();
         // 2026-11-27 (живой проход, A): итоги сервера, которые окно закрытия уже получило, — для Z, если сервер не ответит на само закрытие.
         await ApplyShiftClosedAsync(dlg.ClosingCash, allowWithoutShiftsRight, dlg.ServerReport, dlg.Totals).ConfigureAwait(true);
     }

@@ -201,10 +201,10 @@ public sealed partial class LabelDesignerView
 
             // Положение и размер.
             var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*"), RowDefinitions = new RowDefinitions("Auto,Auto") };
-            AddNum(grid, 0, 0, "X, " + Mm, l.XMm, 0, 150, v => l.XMm = v);
-            AddNum(grid, 1, 0, "Y, " + Mm, l.YMm, 0, 150, v => l.YMm = v);
-            AddNum(grid, 0, 1, T("Ширина, ", "Туурасы, ", "Width, ", "Genişlik, ", "Kengligi, ") + Mm, l.WidthMm, 0.3, 150, v => l.WidthMm = v);
-            AddNum(grid, 1, 1, T("Высота, ", "Бийиктиги, ", "Height, ", "Yükseklik, ", "Balandligi, ") + Mm, l.HeightMm, 0.3, 150, v => l.HeightMm = v);
+            AddNum(grid, 0, 0, "X, " + Mm, l.XMm, 0, 150, v => l.XMm = v, () => l.XMm);
+            AddNum(grid, 1, 0, "Y, " + Mm, l.YMm, 0, 150, v => l.YMm = v, () => l.YMm);
+            AddNum(grid, 0, 1, T("Ширина, ", "Туурасы, ", "Width, ", "Genişlik, ", "Kengligi, ") + Mm, l.WidthMm, 0.3, 150, v => l.WidthMm = v, () => l.WidthMm);
+            AddNum(grid, 1, 1, T("Высота, ", "Бийиктиги, ", "Height, ", "Yükseklik, ", "Balandligi, ") + Mm, l.HeightMm, 0.3, 150, v => l.HeightMm = v, () => l.HeightMm);
             _props.Children.Add(grid);
 
             // Выравнивание по краям этикетки.
@@ -281,7 +281,7 @@ public sealed partial class LabelDesignerView
         return b;
     }
 
-    private void AddNum(Grid grid, int col, int row, string caption, double value, double min, double max, Action<double> set)
+    private void AddNum(Grid grid, int col, int row, string caption, double value, double min, double max, Action<double> set, Func<double> get)
     {
         var box = Num(min, max, _grid > 0 ? _grid : 0.5);
         box.MinWidth = 0;
@@ -295,6 +295,16 @@ public sealed partial class LabelDesignerView
             set((double)box.Value.Value);
             if (Selected() is { } s)
                 LabelDesignerMath.ClampInside(s.Layout, _t);
+            // 2026-11-27: элемент не выходит за этикетку (ClampInside), а в поле оставалось введённое число: X = 10 у штрихкода шириной 37,6 мм
+            // на этикетке 40 мм — блок у правого края (X 2,4), а в поле «10». Поле показывает то, что реально на этикетке.
+            var actual = (decimal)Math.Round(get(), 2);
+            if (actual != box.Value)
+                Dispatcher.UIThread.Post(() =>
+                {
+                    _building = true;
+                    try { box.Value = actual; }
+                    finally { _building = false; }
+                }, DispatcherPriority.Background);
             Changed();
         };
         var cell = Cap(caption, box);
@@ -383,12 +393,44 @@ public sealed partial class LabelDesignerView
         foreach (var s in new[] { T("Авто (по длине кода)", "Авто (коддун узундугу боюнча)", "Auto (by code length)", "Otomatik (kod uzunluğuna göre)", "Avto (kod uzunligi bo'yicha)"), "EAN-13", "Code 128", "QR" })
             format.Items.Add(s);
         format.SelectedIndex = Math.Clamp((int)_t.BarcodeFormat, 0, 3);
-        format.SelectionChanged += (_, _) => { if (_building || format.SelectedIndex < 0) return; Push(); _t.BarcodeFormat = (LabelBarcodeFormat)format.SelectedIndex; Changed(); };
+        // 2026-11-27: у QR цифр под кодом нет — галочка «Цифры» для QR неактивна (раньше она была, но ничего не делала).
+        var digits = new CheckBox { Content = T("Цифры под штрихкодом", "Штрихкоддун астындагы сандар", "Digits under the barcode", "Barkodun altında rakamlar", "Shtrix-kod ostidagi raqamlar"), IsChecked = _t.BarcodeShowDigits, MinHeight = 32, IsEnabled = _t.BarcodeFormat != LabelBarcodeFormat.QrCode };
+        // 2026-11-27 («Ошибка в редактировании штрих кода ценников»): «Толщина штриха» задавалась только в «Печати». При «1 (тонкий)» штрихкод оставался
+        // узким (≈12 мм на этикетке 40 мм), как ни растягивай его блок в редакторе, и причины в редакторе не было видно. Теперь поле есть и здесь.
+        var thickness = new ComboBox { MinHeight = 34, HorizontalAlignment = HorizontalAlignment.Stretch, IsEnabled = _t.BarcodeFormat != LabelBarcodeFormat.QrCode };
+        foreach (var s in ThicknessItems())
+            thickness.Items.Add(s);
+        thickness.SelectedIndex = Math.Clamp(_t.BarcodeModuleDots, 0, 4);
+        format.SelectionChanged += (_, _) =>
+        {
+            if (_building || format.SelectedIndex < 0)
+                return;
+            Push();
+            _t.BarcodeFormat = (LabelBarcodeFormat)format.SelectedIndex;
+            digits.IsEnabled = thickness.IsEnabled = _t.BarcodeFormat != LabelBarcodeFormat.QrCode;
+            Changed();
+        };
+        thickness.SelectionChanged += (_, _) =>
+        {
+            if (_building || thickness.SelectedIndex < 0)
+                return;
+            Push();
+            _t.BarcodeModuleDots = thickness.SelectedIndex; // 0 — авто, 1…4 — точек на модуль (как «Толщина штриха» в «Печати»)
+            Changed();
+        };
         _props.Children.Add(Cap(T("Тип штрихкода", "Штрихкод түрү", "Barcode type", "Barkod türü", "Shtrix-kod turi"), format));
-        var digits = new CheckBox { Content = T("Цифры под штрихкодом", "Штрихкоддун астындагы сандар", "Digits under the barcode", "Barkodun altında rakamlar", "Shtrix-kod ostidagi raqamlar"), IsChecked = _t.BarcodeShowDigits, MinHeight = 32 };
+        _props.Children.Add(Cap(T("Толщина штриха", "Сызык калыңдыгы", "Bar thickness", "Çizgi kalınlığı", "Chiziq qalinligi"), thickness));
         digits.Click += (_, _) => { Push(); _t.BarcodeShowDigits = digits.IsChecked == true; Changed(); };
         _props.Children.Add(digits);
     }
+
+    /// <summary>Те же пункты, что «Толщина штриха» в «Печати» (BarcodePrintView): Авто, 1–4 точки на штрих.</summary>
+    private static string[] ThicknessItems() => new[]
+    {
+        T("Авто", "Авто", "Auto", "Otomatik", "Avto"), "1 " + T("(тонкий)", "(ичке)", "(thin)", "(ince)", "(ingichka)"),
+        "2 " + T("(стандарт)", "(стандарт)", "(standard)", "(standart)", "(standart)"), "3 " + T("(толстый)", "(жоон)", "(thick)", "(kalın)", "(qalin)"),
+        "4 " + T("(очень толстый)", "(өтө жоон)", "(extra thick)", "(çok kalın)", "(juda qalin)"),
+    };
 
     private void BuildPriceProps()
     {

@@ -162,14 +162,21 @@ public partial class NewOperationDialog : Window
     /// <summary>2026-10-22 (модалки, пакет 2): «Кассир 1» на языке программы — только в списке; в данные пишется по-прежнему «Кассир 1».</summary>
     private static string FallbackCashierTitle => Tr.T("Кассир 1", "Кассир 1", "Cashier 1", "Kasiyer 1", "Kassir 1");
 
-    private void Save_Click(object? sender, RoutedEventArgs e)
+    // 2026-11-27 (живой проход 27.11, Диктор): «Сохранить» нажатием через UI Automation (IInvokeProvider.Invoke) висел до тайм-аута — вопрос «Внести/Изъять N сом?»
+    // открывался синхронно (PosDialogs.ConfirmYesNo — вложенный цикл диспетчера внутри обработчика Click), и Invoke не возвращался, пока вопрос открыт.
+    // Теперь вопрос — ConfirmYesNoModalAsync (обработчик возвращает управление сразу, окно открывается следующим проходом цикла), как в MainWindow.Dialogs.
+    private async void Save_Click(object? sender, RoutedEventArgs e)
     {
         // 2026-10-22 (модалки, пакет 2): повторное нажатие/Enter, пока открыт вопрос «Внести/Изъять», — ничего не делает.
         if (!Shell.TryBeginBusy())
             return;
         try
         {
-            SaveCore();
+            await SaveCoreAsync().ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Окно внесения/изъятия: сохранение не удалось: {ex}", "ERROR");
         }
         finally
         {
@@ -177,7 +184,7 @@ public partial class NewOperationDialog : Window
         }
     }
 
-    private void SaveCore()
+    private async Task SaveCoreAsync()
     {
         var raw = (AmountBox.Text ?? "").Replace(',', '.').Trim();
         if (!decimal.TryParse(raw, NumberStyles.Number, CultureInfo.InvariantCulture, out var amount) || amount <= 0)
@@ -245,10 +252,10 @@ public partial class NewOperationDialog : Window
                     $"Kasaya {MoneyText.Amount(amount)} som girilsin mi?",
                     $"Kassaga {MoneyText.Amount(amount)} so'm kiritilsinmi?");
             // 2026-10-22 (модалки, пакет 2): кнопка-глагол с суммой вместо «Да/Нет».
-            if (!PosDialogs.ConfirmYesNo(this, confirm + "\n" + articleLine,
+            if (!await PosDialogs.ConfirmYesNoModalAsync(this, confirm + "\n" + articleLine,
                     Tr.T("Внесение", "Акча салуу", "Cash in", "Para girişi", "Kirim"),
                     confirmText: Tr.T($"Внести {MoneyText.Amount(amount)} сом", $"{MoneyText.Amount(amount)} сом салуу", $"Put in {MoneyText.Amount(amount)} som",
-                        $"{MoneyText.Amount(amount)} som gir", $"{MoneyText.Amount(amount)} so'm kiritish")))
+                        $"{MoneyText.Amount(amount)} som gir", $"{MoneyText.Amount(amount)} so'm kiritish")).ConfigureAwait(true))
                 return;
         }
 
@@ -261,9 +268,9 @@ public partial class NewOperationDialog : Window
                 SectionCards.ShowError(AmountError, refusal, AmountBox);
                 return;
             }
-            if (!PosDialogs.ConfirmYesNo(this, CashWithdrawalGuard.ConfirmText(amount) + "\n" + articleLine, CashWithdrawalGuard.Title,
+            if (!await PosDialogs.ConfirmYesNoModalAsync(this, CashWithdrawalGuard.ConfirmText(amount) + "\n" + articleLine, CashWithdrawalGuard.Title,
                     confirmText: Tr.T($"Изъять {MoneyText.Amount(amount)} сом", $"{MoneyText.Amount(amount)} сом алуу", $"Take out {MoneyText.Amount(amount)} som",
-                        $"{MoneyText.Amount(amount)} som çek", $"{MoneyText.Amount(amount)} so'm olish")))
+                        $"{MoneyText.Amount(amount)} som çek", $"{MoneyText.Amount(amount)} so'm olish")).ConfigureAwait(true))
                 return;
         }
 

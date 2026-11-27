@@ -423,6 +423,9 @@ public sealed partial class UserPreferences
                 p.SellWithoutStock = fromFile.SellWithoutStock.Value;
             if (!string.IsNullOrWhiteSpace(fromFile.AdvisorCapabilitiesJson))
                 p.AdvisorCapabilitiesJson = fromFile.AdvisorCapabilitiesJson;
+            // 2026-11-27: реестр QR-бейджей кассиров (слишком большой — не берём).
+            if (!string.IsNullOrWhiteSpace(fromFile.CashierBadgesJson) && System.Text.Encoding.UTF8.GetByteCount(fromFile.CashierBadgesJson) <= CashierBadgeRegistry.MaxJsonBytes)
+                p.CashierBadgesJson = fromFile.CashierBadgesJson;
             // 2026-11-12 (ХМ15): общие настройки сфер и отметки «прораб» (пустое / слишком большое — не берём, остаются умолчания).
             if (!string.IsNullOrWhiteSpace(fromFile.SphereSettingsJson) && System.Text.Encoding.UTF8.GetByteCount(fromFile.SphereSettingsJson) <= SphereSettings.MaxJsonBytes)
                 p.SphereSettingsJson = fromFile.SphereSettingsJson;

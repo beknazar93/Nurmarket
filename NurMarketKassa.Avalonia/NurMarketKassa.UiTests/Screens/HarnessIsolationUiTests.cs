@@ -64,4 +64,31 @@ public sealed class HarnessIsolationUiTests : IDisposable
             "каталог теста не должен переписываться фоновой загрузкой окна из прошлого теста; товаров сейчас " + CatalogCacheService.Products.Count);
         CatalogCacheService.Products.Should().HaveCount(12);
     }
+
+    /// <summary>2026-11-27 (полный прогон 27.11: TransferAndAiTab ×6, WarehouseKpiTiles ×5, CoachTour ×2 красные только в общем прогоне): «виновник» входит кассиром
+    /// и оставляет товар в общей корзине; «жертва» — следующий тест — после TestHost.WarmAsync обязана видеть вход владельца (карточка «Перенос данных», плитка
+    /// «Склад по закупке») и пустой чек (учебный режим обучения). Пара воспроизводится здесь явно.</summary>
+    [AvaloniaFact]
+    public async Task CashierLoginAndLeftoverCart_FromPreviousTest_AreResetByWarm()
+    {
+        await TestHost.WarmAsync();
+        var api = TestHost.Services.GetRequiredService<NurMarketApiClient>();
+        var auth = TestHost.Services.GetRequiredService<NurMarketKassa.Services.Api.IAuthApiService>();
+        var cart = TestHost.Services.GetRequiredService<NurMarketKassa.Interfaces.ICartService>();
+        // «виновник»: вход кассиром (как ScalesSaveAndUnsavedUiTests.LoginAsync("cashier")) и товар в чеке
+        UiFake.Server.Json("POST", "/api/users/auth/login/", 200,
+            "{\"access\":\"test-access\",\"refresh\":\"test-refresh\",\"user\":{\"id\":\"u1\",\"email\":\"cashier@test.kg\",\"full_name\":\"Тест Кассир\",\"role\":\"cashier\"}}");
+        UiFake.Server.Json("GET", "/api/users/profile/", 200,
+            "{\"id\":\"u1\",\"email\":\"cashier@test.kg\",\"full_name\":\"Тест Кассир\",\"role\":\"cashier\",\"company\":{\"id\":\"fake-company-1\",\"name\":\"Тест\"}}");
+        await api.LoginAsync("cashier@test.kg", "12345678");
+        PermissionService.IsOwnerOrAdmin(auth.UserPayload).Should().BeFalse("виновник вошёл кассиром");
+        cart.ResetForNewReceipt();
+        cart.AddItem(CatalogCacheService.Products.First(), 1);
+        cart.LineCount.Should().BeGreaterThan(0, "виновник оставил товар в чеке");
+
+        // «жертва»: начало следующего теста
+        await TestHost.WarmAsync();
+        PermissionService.IsOwnerOrAdmin(auth.UserPayload).Should().BeTrue("следующий тест начинается со входа по умолчанию (роль owner)");
+        cart.LineCount.Should().Be(0, "следующий тест начинается с пустого чека");
+    }
 }

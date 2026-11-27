@@ -147,7 +147,9 @@
                   <!-- 2026-10-19, К1: сумма шире (126) — «1 382,50 сом» целиком; № и кнопка уже, дата получает остальное (на 1024 — «20.10.26 01:41»). -->
                   <DataGridTextColumn Header="{DynamicResource returnSale.colReceiptNo}" Binding="{ReflectionBinding DisplayNumber}" Width="128"/>
                   <!-- 2026-10-21 (пакет 6, п. 35): под датой — пометка «↩ возвращён» / «↩ частично» (в одну строку на 1024 не помещалась). -->
-                  <DataGridTemplateColumn Header="{DynamicResource common.date}" Width="*">
+                  <!-- 2026-11-27 (живой проход 27.11, I): дата занимала всё свободное место (565 px), а товара и клиента в списке не было — дата теперь узкая (150),
+                       остальное — новой колонке «Товар» (первый товар чека и клиент). -->
+                  <DataGridTemplateColumn Header="{DynamicResource common.date}" Width="150">
                     <DataGridTemplateColumn.CellTemplate>
                       <DataTemplate>
                         <StackPanel VerticalAlignment="Center" Margin="12,2">
@@ -160,6 +162,17 @@
                           <TextBlock Text="{ReflectionBinding HitDisplay}" IsVisible="{ReflectionBinding HasHit}"
                                      FontSize="12" Foreground="{DynamicResource BrushAccent}"
                                      TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
+                  <DataGridTemplateColumn Header="{DynamicResource common.product}" Width="*">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate>
+                        <StackPanel VerticalAlignment="Center" Margin="12,2">
+                          <TextBlock Text="{ReflectionBinding ProductDisplay}" TextTrimming="CharacterEllipsis"/>
+                          <TextBlock Text="{ReflectionBinding ClientDisplay}" IsVisible="{ReflectionBinding HasClient}"
+                                     FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextTrimming="CharacterEllipsis"/>
                         </StackPanel>
                       </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>

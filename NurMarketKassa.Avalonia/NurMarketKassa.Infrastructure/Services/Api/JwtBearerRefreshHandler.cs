@@ -68,6 +68,12 @@ public sealed class JwtBearerRefreshHandler : DelegatingHandler
                 ServerOutageMonitor.ReportSuccess(DescribeRequest(request));
             else if (status == 429)
                 ApiThrottle.ReportThrottled(response, null);
+            // 2026-11-27 (жалоба владельца «смешанная оплата: сервер не отвечает»; журнал этого ПК 27.11 06:19): фоновые GET company/addons и company/modules
+            // ответили 500 за 0,1 с, вместе с одним таймаутом профиля — «3 сбоя подряд», касса объявила аварию при живом сервере. Быстрый 500 на чтение —
+            // ошибка одного адреса, а не «сервер лёг» (сервер жив и ответил): аварию он не приближает и не снимает. Шлюзовые 502–504/52x и таймауты считаются
+            // как раньше; оплата при 500 объявляет аварию сама (PosCheckoutService), проверка связи — по профилю.
+            else if (status == 500 && request.Method == HttpMethod.Get && elapsed < SlowResponse)
+                PosLogger.Log($"Сервер NurCRM ответил 500 на {DescribeRequest(request)} за {elapsed.TotalMilliseconds:0} мс — ошибка адреса, аварией не считается.", "OUTAGE");
             else if (ServerOutageMonitor.IsServerFailureStatus(status))
                 ServerOutageMonitor.ReportFailure(DescribeRequest(request), $"HTTP {status}");
             else if (status >= 400)

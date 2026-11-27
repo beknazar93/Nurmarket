@@ -113,6 +113,114 @@ public sealed class ClosedSectionLeakTests
         CloseShell();
     }
 
+    /// <summary>2026-11-27 (живой проход 27.11, журнал владельца: «закрытые разделы всё ещё в памяти: «debts» 247 мин, «salesfinance» 230 мин»): в программе раздел не закрывают
+    /// сразу — его прячут переходом на «Сводку»/другой раздел, а закрывает простой (CloseHiddenSection). Проверяем именно этот путь: показан → спрятан → закрыт по простою.</summary>
+    [AvaloniaTheory]
+    [InlineData("debts")]
+    [InlineData("salesfinance")]
+    public async Task HiddenThenIdleClosedSection_IsCollected(string key)
+    {
+        await TestHost.WarmAsync(); UiRobot.Reset();
+        UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
+        var create = key == "debts" ? Sections["debts"] : Sections["sales+finance"];
+        var weak = OpenHideAndIdleClose(key, create);
+        AssertCollected(weak, $"Раздел «{key}», закрытый по простою после того, как его спрятали, остался в памяти.");
+        CloseShell();
+    }
+
+    /// <summary>2026-11-27: в журнале владельца разделы открывались подряд каждые 9 с — шестой по счёту закрывался «давно не открывали», пока ещё грузил данные.
+    /// Здесь сервер отвечает на все чтения через 2 с: раздел закрывают посреди загрузки; после ответов он обязан уйти из памяти.</summary>
+    [AvaloniaTheory]
+    [InlineData("debts")]
+    [InlineData("salesfinance")]
+    public async Task ClosedWhileLoading_IsCollected(string key)
+    {
+        await TestHost.WarmAsync(); UiRobot.Reset();
+        UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
+        UiFake.Server.Server.Given(WireMock.RequestBuilders.Request.Create().WithPath("/api/*").UsingGet())
+            .AtPriority(100)
+            .RespondWith(WireMock.ResponseBuilders.Response.Create().WithStatusCode(200).WithHeader("Content-Type", "application/json")
+                .WithBody("{\"count\":0,\"next\":null,\"previous\":null,\"results\":[]}").WithDelay(TimeSpan.FromSeconds(2)));
+        try
+        {
+            var create = key == "debts" ? Sections["debts"] : Sections["sales+finance"];
+            var weak = OpenAndClose(key, create, null);
+            AssertCollected(weak, $"Раздел «{key}», закрытый посреди загрузки данных, остался в памяти.");
+        }
+        finally
+        {
+            CloseShell();
+            UiFake.Reset();
+        }
+    }
+
+    /// <summary>2026-11-27: обход разделов подряд, как в журнале владельца 27.11 (07:37–07:42): «Продажи и финансы», «Долги клиентов», затем ещё семь разделов —
+    /// оболочка сама закрывает спрятанные сверх пяти (TrimHiddenSections). Оба раздела после этого должны уйти из памяти.</summary>
+    [AvaloniaFact]
+    public async Task SectionsCrawl_TrimmedSalesFinanceAndDebts_AreCollected()
+    {
+        await TestHost.WarmAsync(); UiRobot.Reset();
+        UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
+        var (salesFinance, debts) = Crawl();
+        try
+        {
+            AssertCollected(salesFinance, "«Продажи и финансы», закрытые оболочкой при обходе разделов, остались в памяти.");
+            AssertCollected(debts, "«Долги клиентов», закрытые оболочкой при обходе разделов, остались в памяти.");
+        }
+        finally
+        {
+            CloseShell();
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static (WeakReference SalesFinance, WeakReference Debts) Crawl()
+    {
+        var shell = _shell = new OwnerShellWindow { Width = 1366, Height = 800 };
+        shell.Show();
+        UiShot.Settle(3, 30);
+        var open = typeof(OwnerShellWindow).GetMethod("OpenSection", BindingFlags.NonPublic | BindingFlags.Instance, null, [typeof(string), typeof(Func<Window>)], null)!;
+        WeakReference? sf = null, db = null;
+        foreach (var key in new[] { "salesfinance", "debts", "abc", "investments", "losssales", "bonusanalytics", "funnel", "mailing", "calculator" })
+        {
+            var create = key switch { "salesfinance" => Sections["sales+finance"], _ => Sections[key] };
+            Window? w = null;
+            open.Invoke(shell, [key, (Func<Window>)(() => w = create())]);
+            UiShot.Settle(6, 30);
+            if (key == "salesfinance") sf = new WeakReference(w);
+            if (key == "debts") db = new WeakReference(w);
+            w = null;
+        }
+        UiShot.Settle(3, 20);
+        return (sf!, db!);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference OpenHideAndIdleClose(string key, Func<Window> create)
+    {
+        var shell = _shell = new OwnerShellWindow { Width = 1366, Height = 800 };
+        shell.Show();
+        UiShot.Settle(3, 30);
+        Window? opened = null;
+        var t = typeof(OwnerShellWindow);
+        var open = t.GetMethod("OpenSection", BindingFlags.NonPublic | BindingFlags.Instance, null, [typeof(string), typeof(Func<Window>)], null)!;
+        open.Invoke(shell, [key, (Func<Window>)(() => opened = create())]);
+        UiShot.Settle(10, 40);
+        // «Сводка» — раздел спрятан (как переход владельца в другое место)
+        var show = t.GetMethods(BindingFlags.NonPublic | BindingFlags.Instance).Single(m => m.Name == "ShowSection" && m.GetParameters().Length == 1);
+        show.Invoke(shell, [null]);
+        UiShot.Settle(6, 30);
+        var weak = new WeakReference(opened);
+        // закрытие по простою — как TrimIdleHiddenSections → CloseHiddenSection
+        var sections = (System.Collections.IList)t.GetField("_sections", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(shell)!;
+        var section = sections.Cast<object>().Single(s => (string)s.GetType().GetProperty("Key")!.GetValue(s)! == key);
+        t.GetMethod("CloseHiddenSection", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(shell, [section, "простой (тест)"]);
+        opened = null;
+        section = null;
+        UiShot.Settle(3, 20);
+        return weak;
+    }
+
     private static OwnerShellWindow? _shell;
 
     private static void CloseShell()

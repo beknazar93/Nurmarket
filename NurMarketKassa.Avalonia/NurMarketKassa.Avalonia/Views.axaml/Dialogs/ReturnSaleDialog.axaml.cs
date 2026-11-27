@@ -392,6 +392,12 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
 
         public bool HasReturnMark => ReturnMark.Length > 0;
 
+        /// <summary>2026-11-27 (живой проход 27.11, I): колонка «Товар» — первый товар чека из строки списка (first_item_name); сервер не прислал — «—».</summary>
+        public string ProductDisplay => string.IsNullOrWhiteSpace(Item.FirstItemName) ? "—" : Item.FirstItemName!;
+        /// <summary>2026-11-27: клиент чека — второй строкой под товаром (если есть).</summary>
+        public string ClientDisplay => Item.ClientName ?? "";
+        public bool HasClient => !string.IsNullOrWhiteSpace(Item.ClientName);
+
         /// <summary>2026-11-10 (поиск по товару): найденный в чеке товар — подписью под датой.</summary>
         public string? HitText { get; init; }
         public bool HasHit => !string.IsNullOrWhiteSpace(HitText);

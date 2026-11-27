@@ -748,6 +748,10 @@ public sealed partial class UserPreferences
     /// или администратор, на все кассы идёт через SettingsCloudSync (CompanyKeys). См. AdvisorCapabilities.</summary>
     public string? AdvisorCapabilitiesJson { get; set; }
 
+    /// <summary>2026-11-27: реестр QR-бейджей кассиров (вход по QR) — JSON с хэшами кодов, без секретов (см. CashierBadgeRegistry).
+    /// Выпускает и отзывает владелец («Сотрудники» → «QR для входа»), на все кассы идёт через SettingsCloudSync (CompanyKeys). null — бейджей не выпускали.</summary>
+    public string? CashierBadgesJson { get; set; }
+
     /// <summary>2026-11-12 (ХМ15, ТЗ хозмаг): общие настройки сфер магазина — JSON-объект «раздел → значение» (hardware: размер, скан коробки…), ≤ 16 КБ.
     /// Общее для магазина, идёт через SettingsCloudSync (CompanyKeys); null — ничего не менялось. Разбор и запись — <see cref="SphereSettings"/>.</summary>
     public string? SphereSettingsJson { get; set; }

@@ -610,14 +610,8 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
                     return PosCheckoutResult.Failed(outageMessage);
 
                 // 2026-10-29: «в долг» без связи разрешена (владелец): клиент и лимит проверяются по кэшу кассы в CompleteOfflineCheckoutAsync.
-
-                if (string.Equals(request.PaymentMethod, "mixed", StringComparison.OrdinalIgnoreCase))
-                    return PosCheckoutResult.Failed(Tr.T(
-                        "Смешанная оплата недоступна офлайн — нужна связь с сервером.",
-                        "Аралаш төлөм офлайн режимде жеткиликсиз — сервер менен байланыш керек.",
-                        "Mixed payment is unavailable offline — a server connection is required.",
-                        "Karışık ödeme çevrimdışı modda kullanılamaz — sunucu bağlantısı gerekir.",
-                        "Aralash to'lov oflayn rejimda mavjud emas — server bilan aloqa kerak."));
+                // 2026-11-27 (жалоба владельца «смешанная оплата не работает, сервер не отвечает»): смешанная без связи тоже встаёт в очередь
+                // (разбивка нал/безнал хранится в записи, досылка — только быстрым путём с ключом), проверка — в CompleteOfflineCheckoutAsync.
 
                 // 2026-10-29: «в долг» после неясной быстрой оплаты (ответ не пришёл, ключ записан на диск) встаёт в очередь С ТЕМ ЖЕ КЛЮЧОМ: если сервер
                 // продажу уже записал, досылка получит «replayed», а не второй долг клиента.
@@ -780,10 +774,14 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
     private CancellationTokenSource? _serverWait;
     private ServerOutageMonitor.ResponseWatch? _responseWatch;
 
-    /// <summary>Наличные и безнал можно поставить в офлайн-очередь; «в долг» и смешанную — нет.</summary>
+    /// <summary>Наличные, безнал и (2026-11-27) смешанную можно поставить в офлайн-очередь; «в долг» — нет (у неё свой путь без связи).
+    /// 2026-11-27 (жалоба владельца «смешанная оплата не работает, сервер не отвечает»): смешанная ждёт сервер тем же сроком, что наличные, и при молчании
+    /// сервера встаёт в очередь с ТЕМ ЖЕ ключом идемпотентности (разбивка нал/безнал — в записи очереди, NonCashReceived). Раньше — отказ «недоступна, пока сервер не отвечает».</summary>
     private static bool IsQueueablePayment(string? paymentMethod) =>
-        !string.Equals(paymentMethod, "debt", StringComparison.OrdinalIgnoreCase)
-        && !string.Equals(paymentMethod, "mixed", StringComparison.OrdinalIgnoreCase);
+        !string.Equals(paymentMethod, "debt", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsMixedPayment(string? paymentMethod) =>
+        string.Equals(paymentMethod, "mixed", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Сервер провёл продажу — окно ожидания больше не нужно: дальнейшая работа (номер
     /// чека, печать) не должна увести уже проведённую продажу в очередь.</summary>
@@ -874,6 +872,10 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
         // 2026-10-29: «в долг» после сбоя сервера — в очередь только если оплата ещё не уходила на сервер старым путём (без ключа); иначе исход неизвестен.
         if (unavailable == null && string.Equals(request.PaymentMethod, "debt", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(_legacyCheckoutPostedCartId))
             unavailable = DebtOutcomeUnknownText;
+        // 2026-11-27: смешанная, уже отправленная старым путём (без ключа), в очередь не идёт: досылка такой записи шла бы старым путём, а он безналичную часть
+        // не передаёт. Чек остаётся в кассе, повтор сначала сверит прошлую попытку (ResolveUnknownCheckoutAsync) — второй продажи нет.
+        if (unavailable == null && IsMixedPayment(request.PaymentMethod) && !string.IsNullOrWhiteSpace(_legacyCheckoutPostedCartId))
+            unavailable = MixedOutcomeUnknownText;
         if (unavailable != null)
         {
             // 2026-10-27 (аудит кассы, В-4): checkout этой корзины на старом пути МОГ дойти до сервера (ответ потерян). Чек возвращается
@@ -928,16 +930,39 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
     {
         // 2026-10-29: «в долг» в аварии сервера больше не запрещена — оформляется без связи (проверка по кэшу клиентов, см. CompleteOfflineCheckoutAsync).
         // Если оплата уже ушла на сервер старым путём и исход неизвестен — см. DebtOutcomeUnknownText (SaveOfflineAfterServerFailureAsync).
-
-        if (string.Equals(paymentMethod, "mixed", StringComparison.OrdinalIgnoreCase))
-            return Tr.T(
-                "Смешанная оплата недоступна, пока сервер NurCRM не отвечает. Чек сохранён в кассе — примите оплату только наличными или только картой либо повторите позже.",
-                "NurCRM сервери жооп бербей турганда аралаш төлөм жеткиликсиз. Чек кассада сакталды — төлөмдү накталай гана же карта менен гана алыңыз же кийинчерээк кайталаңыз.",
-                "Mixed payment is unavailable while the NurCRM server is not responding. The receipt is kept in the till — take cash only or card only, or try again later.",
-                "NurCRM sunucusu yanıt vermediği sürece karışık ödeme yapılamaz. Fiş kasada tutuluyor — yalnızca nakit veya yalnızca kartla ödeme alın ya da daha sonra tekrar deneyin.",
-                "NurCRM serveri javob bermayotgan paytda aralash to'lov mavjud emas. Chek kassada saqlandi — faqat naqd yoki faqat karta orqali to'lov oling yoki keyinroq qayta urinib ko'ring.");
-
+        // 2026-11-27 (жалоба владельца, фото кассы 11:22: «Смешанная оплата недоступна, пока сервер NurCRM не отвечает» при живом сервере — касса была в «аварии»
+        // после ложного срабатывания): смешанная в аварии больше не запрещена — встаёт в очередь с разбивкой (CompleteOfflineCheckoutAsync, MixedOfflineProblem).
+        _ = paymentMethod;
         return null;
+    }
+
+    /// <summary>2026-11-27: смешанная оплата ушла на сервер старым путём (без ключа) и ответа нет — чек возвращён в кассу, повтор сперва сверит прошлую попытку.</summary>
+    private static string MixedOutcomeUnknownText => Tr.T(
+        "Связь пропала в момент смешанной оплаты. Чек сохранён в кассе, деньги пока не выдавайте сдачей и не берите повторно. Нажмите «Оплатить» ещё раз: касса сверит прошлую попытку и не создаст вторую продажу.",
+        "Аралаш төлөө учурунда байланыш үзүлдү. Чек кассада сакталды, акчаны кайра албаңыз. «Төлөө» баскычын дагы бир жолу басыңыз: касса мурунку аракетти салыштырып, экинчи сатууну түзбөйт.",
+        "The connection dropped during the mixed payment. The receipt is kept in the till; do not take the money again. Press “Pay” again: the till will check the previous attempt and will not create a second sale.",
+        "Karışık ödeme sırasında bağlantı koptu. Fiş kasada tutuluyor; parayı tekrar almayın. «Öde»ye tekrar basın: kasa önceki denemeyi kontrol eder ve ikinci satış oluşturmaz.",
+        "Aralash to'lov paytida aloqa uzildi. Chek kassada saqlandi, pulni qayta olmang. «To'lash»ni yana bosing: kassa oldingi urinishni tekshiradi va ikkinchi sotuv yaratmaydi.");
+
+    /// <summary>2026-11-27: можно ли поставить смешанную оплату в офлайн-очередь. null — можно; иначе текст для кассира (чек остаётся в кассе).
+    /// Досылка смешанной идёт ТОЛЬКО быстрым путём (pos/checkout с ключом = id записи, cash_amount/card_amount) — старый путь безналичную часть не передаёт.
+    /// Поэтому: чек должен собираться в тело быстрого пути, а наличная и безналичная части — сходиться с итогом до копейки.</summary>
+    internal static string? MixedOfflineProblem(PosCheckoutRequest request, string cartJson, double total)
+    {
+        var cash = decimal.TryParse(request.CashReceived, NumberStyles.Any, CultureInfo.InvariantCulture, out var c) ? c : -1m;
+        var card = decimal.TryParse(request.NonCashReceived, NumberStyles.Any, CultureInfo.InvariantCulture, out var n) ? n : -1m;
+        var totalDec = Math.Round((decimal)total, 2, MidpointRounding.AwayFromZero);
+        var bodyOk = QuickCheckoutBody.TryBuild(cartJson, "mixed", request.CashReceived, request.NonCashReceived, request.ClientId, null,
+            request.ConsultantId, request.ConsultantCommissionEnabled, request.ConsultantCommissionPercent, false, out var unsupported) != null;
+        if (cash >= 0m && card > 0m && Math.Abs(cash + card - totalDec) <= 0.01m && bodyOk)
+            return null;
+        PosLogger.Log($"OFFLINE mixed: в очередь не ставится (нал {request.CashReceived}, безнал {request.NonCashReceived}, итог {totalDec:0.00}, тело быстрого пути: {(bodyOk ? "да" : unsupported)}).", "PAYMENT");
+        return Tr.T(
+            "Смешанную оплату этого чека нельзя сохранить без связи с сервером. Чек сохранён в кассе — примите оплату только наличными или только картой либо повторите, когда связь вернётся.",
+            "Бул чектин аралаш төлөмүн сервер менен байланышсыз сактоого болбойт. Чек кассада сакталды — төлөмдү накталай гана же карта менен гана алыңыз же байланыш калыбына келгенде кайталаңыз.",
+            "This receipt's mixed payment cannot be saved without a server connection. The receipt is kept in the till — take cash only or card only, or retry when the connection is back.",
+            "Bu fişin karışık ödemesi sunucu bağlantısı olmadan kaydedilemez. Fiş kasada tutuluyor — yalnızca nakit veya yalnızca kartla ödeme alın ya da bağlantı gelince tekrar deneyin.",
+            "Bu chekning aralash to'lovini server bilan aloqasiz saqlab bo'lmaydi. Chek kassada saqlandi — faqat naqd yoki faqat karta orqali oling yoki aloqa tiklanganda qayta urinib ko'ring.");
     }
 
     public async Task<string?> RestartSaleSessionAsync(CancellationToken cancellationToken = default)
@@ -1432,13 +1457,15 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
             }
         }
 
-        if (string.Equals(request.PaymentMethod, "mixed", StringComparison.OrdinalIgnoreCase))
-            return PosCheckoutResult.Failed(Tr.T(
-                "Смешанная оплата недоступна без связи с сервером. Повторите оплату, когда появится интернет.",
-                "Аралаш төлөм сервер менен байланышсыз жеткиликсиз. Интернет пайда болгондо төлөмдү кайталаңыз.",
-                "Mixed payment is unavailable without a server connection. Retry the payment when the internet is back.",
-                "Karışık ödeme sunucu bağlantısı olmadan kullanılamaz. İnternet bağlantısı sağlandığında ödemeyi tekrarlayın.",
-                "Aralash to'lov server bilan aloqasiz mavjud emas. Internet paydo bo'lganda to'lovni takrorlang."));
+        // 2026-11-27 (жалоба владельца «смешанная оплата не работает, сервер не отвечает»): смешанная без связи встаёт в очередь — безналичная часть
+        // хранится в записи (NonCashReceived), досылка только быстрым путём (QuickCheckoutAttempted) с cash_amount/card_amount. Раньше здесь был отказ:
+        // очередь не хранила безналичную часть, и смешанный чек 3000 нал + 7000 карта выгрузился бы как 3000.
+        var isMixed = IsMixedPayment(request.PaymentMethod);
+        if (isMixed && MixedOfflineProblem(request, cartJsonSnapshot, total) is { } mixedProblem)
+        {
+            RestoreCartAfterFailedCheckout(cartJsonSnapshot);
+            return PosCheckoutResult.Failed(mixedProblem);
+        }
 
         // 2026-11-06: В2 А5-07 — часы устройства раньше даты сборки программы и поправки по серверу нет: время продажи было бы неверным (сервер: «старше 7 суток»).
         if (ServerClock.OfflineSaleBlockedByDeviceDate(out var wrongDateText))
@@ -1480,6 +1507,12 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
             entry.DebtConfirmedByCashier = request.OfflineDebtConfirmed;
             if (request.DebtSchedule is { } plan)
                 entry.DebtScheduleJson = JsonSerializer.Serialize(plan);
+        }
+        if (isMixed)
+        {
+            // 2026-11-27: безналичная часть смешанной — в записи; досылка только быстрым путём (ключ = id записи), старым путём не уходит (SyncService).
+            entry.NonCashReceived = request.NonCashReceived;
+            entry.QuickCheckoutAttempted = true;
         }
         // 2026-09-28, BE-11: после неудачной быстрой оплаты id записи = её Idempotency-Key, и
         // досылка идёт тем же ключом: если первый запрос всё-таки дошёл, сервер вернёт ту же продажу.

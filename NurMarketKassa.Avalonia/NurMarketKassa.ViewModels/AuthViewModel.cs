@@ -313,6 +313,49 @@ public class AuthViewModel : ViewModelBase
         }
     }
 
+    /// <summary>2026-11-27: сессия последнего успешного входа (только в памяти, для сохранения входа под QR-бейдж).</summary>
+    public UserSession? LastSession { get; private set; }
+
+    /// <summary>2026-11-27: вход другим способом (QR-бейдж кассира, CashierBadgeLogin) — тот же индикатор загрузки и та же обработка
+    /// результата, что у входа паролем. Возвращает результат (окно входа решает, нужен ли пароль).</summary>
+    public async Task<AuthenticationResult?> LoginWithAsync(Func<Task<AuthenticationResult>> attempt, string status)
+    {
+        if (IsLoading)
+            return null;
+        ErrorMessage = "";
+        IsLoading = true;
+        LoadingStatus = status;
+        try
+        {
+            var result = await attempt().ConfigureAwait(true);
+            await HandleResultAsync(result).ConfigureAwait(true);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            NurMarketKassa.Services.PosLogger.Log($"AuthViewModel: сбой входа по бейджу: {ex.GetType().Name}: {ex.Message}", "WARNING");
+            ErrorMessage = Tr.T($"Не удалось выполнить вход: {NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)}", $"Кирүү мүмкүн болгон жок: {NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)}",
+                $"Could not sign in: {NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)}", $"Giriş yapılamadı: {NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)}", $"Tizimga kirib bo'lmadi: {NurMarketKassa.Services.ServerOutageMonitor.UserText(ex)}");
+            return null;
+        }
+        finally
+        {
+            if (IsLoading)
+            {
+                IsLoading = false;
+                LoadingStatus = "";
+            }
+        }
+    }
+
+    /// <summary>2026-11-27: подставить логин в поле (бейдж принят, на этой кассе нужен пароль один раз).</summary>
+    public void PrefillLogin(string? login, string message)
+    {
+        if (!string.IsNullOrWhiteSpace(login))
+            Username = login.Trim();
+        ErrorMessage = message;
+    }
+
     private async Task AutoLoginAsync()
     {
         ErrorMessage = "";
@@ -502,6 +545,7 @@ public class AuthViewModel : ViewModelBase
         }
 
         var session = result.Session;
+        LastSession = session; // 2026-11-27: окно входа сохраняет вход для QR-бейджа (CashierBadgeLogin.RememberAfterPasswordLogin)
         _autonomous.EndAutonomousSession();
         IsOfflineMode = result.Mode == AuthenticationMode.Offline;
         _appSession.CurrentUserId = session.UserId;

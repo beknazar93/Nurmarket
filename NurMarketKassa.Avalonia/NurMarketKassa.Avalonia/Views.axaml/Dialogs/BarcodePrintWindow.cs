@@ -737,6 +737,8 @@ public sealed partial class BarcodePrintView : UserControl
                 return;
             _template.BarcodeModuleDots = _thicknessCombo.SelectedIndex; // 0 — авто, 1…4 — точек на модуль
             TemplateChanged();
+            if (BarcodeLabelService.DescribeThinBarsLimit("4870145004807", _template) is { } thin) // 2026-11-27: «1 (тонкий)» — штрихкод узкий, предупредить сразу
+                SetStatus(thin);
         };
 
         _codeModeCombo.SelectionChanged += (_, _) =>

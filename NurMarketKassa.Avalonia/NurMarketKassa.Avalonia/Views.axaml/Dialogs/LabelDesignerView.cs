@@ -468,6 +468,8 @@ public sealed partial class LabelDesignerView : UserControl
             _previewBitmap?.Dispose();
             _previewBitmap = next;
             var warn = BarcodeLabelService.DescribeBarcodeProblem(_sampleCode, _t);
+            if (BarcodeLabelService.DescribeThinBarsLimit(_sampleCode, _t) is { } thin) // 2026-11-27: «Толщина штриха» 1 держит штрихкод узким
+                warn = string.IsNullOrEmpty(warn) ? thin : warn + "\n" + thin;
             var overlaps = FindOverlaps();
             if (overlaps.Count > 0)
                 warn = (string.IsNullOrEmpty(warn) ? "" : warn + "\n") + T("Элементы наезжают друг на друга: ", "Элементтер бири-бирине тийип турат: ", "Elements overlap: ", "Öğeler üst üste biniyor: ", "Elementlar bir-birining ustiga chiqqan: ") + string.Join("; ", overlaps);
@@ -533,16 +535,9 @@ public sealed partial class LabelDesignerView : UserControl
         if (Math.Abs(w - _t.WidthMm) < 0.001 && Math.Abs(h - _t.HeightMm) < 0.001)
             return;
         Push();
-        // Раскладка растягивается пропорционально новому размеру (как в прежнем редакторе); свои элементы — тоже.
-        var kx = w / Math.Max(_t.WidthMm, 1);
-        var ky = h / Math.Max(_t.HeightMm, 1);
+        // Раскладка растягивается пропорционально новому размеру (как в прежнем редакторе); свои элементы — тоже
+        // (2026-11-27: их растягивает сам ScaleToSize — одно правило для редактора, «Печати» и мастера принтера).
         LabelAutoLayout.ScaleToSize(_t, w, h);
-        foreach (var e in _t.Extras)
-        {
-            e.XMm *= kx; e.WidthMm *= kx; e.YMm *= ky; e.HeightMm *= ky;
-            if (e.FontSizePx is > 0)
-                e.FontSizePx = Math.Max(1, e.FontSizePx.Value * Math.Sqrt(kx * ky));
-        }
         _building = true;
         try
         {
@@ -608,6 +603,14 @@ public sealed partial class LabelDesignerView : UserControl
                 var cur = AllElements().FirstOrDefault(x => x.Key == key);
                 if (cur is null)
                     return;
+                // 2026-11-27 («Ошибка в редактировании штрих кода ценников»): нажатие по «Штрих-код», чтобы его править, выключало штрихкод — он пропадал
+                // с этикетки. Элемент на этикетке, но не выбран — нажатие только выбирает его; выключает — повторное нажатие по уже выбранному.
+                if (cur.Layout.Enabled && _selectedKey != key)
+                {
+                    chip.IsChecked = true;
+                    SelectKey(key);
+                    return;
+                }
                 Push();
                 cur.Layout.Enabled = chip.IsChecked == true;
                 if (cur.Layout.Enabled)

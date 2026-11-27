@@ -184,6 +184,7 @@ public sealed partial class UserPreferences
                 DebtPrepaymentChooseMethod = DebtPrepaymentChooseMethod,
                 SellWithoutStock = SellWithoutStock, // 2026-11-21
                 AdvisorCapabilitiesJson = AdvisorCapabilitiesJson,
+                CashierBadgesJson = CashierBadgesJson, // 2026-11-27: QR-бейджи кассиров
                 SphereSettingsJson = SphereSettingsJson, // 2026-11-12: ХМ15
                 ClientPriceGroupsJson = ClientPriceGroupsJson, // 2026-11-12: ХМ15
                 LabelDesignsJson = LabelDesignsJson, // 2026-11-21: «Мои шаблоны» ценников
@@ -571,6 +572,7 @@ public sealed partial class UserPreferences
         public bool? DebtPrepaymentChooseMethod { get; set; }
         public bool? SellWithoutStock { get; set; } // 2026-11-21
         public string? AdvisorCapabilitiesJson { get; set; }
+        public string? CashierBadgesJson { get; set; } // 2026-11-27
         public string? SphereSettingsJson { get; set; }
         public string? ClientPriceGroupsJson { get; set; }
         public string? LabelDesignsJson { get; set; }

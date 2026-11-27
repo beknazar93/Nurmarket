@@ -117,6 +117,18 @@ public static class LabelAutoLayout
             if (e.FontSizePx is > 0)
                 e.FontSizePx = Math.Max(1, e.FontSizePx.Value * kf);
         }
+        // 2026-11-27 («Ошибка в редактировании штрих кода ценников»): свои элементы «Редактора ценников» (бренд, ячейка, дата, QR магазина…) растягиваются
+        // так же. Раньше их растягивал только сам редактор: смена размера в «Печати», в мастере принтера и в старом окне оставляла их на прежних миллиметрах —
+        // при уменьшении этикетки они уходили за край, при увеличении ютились в углу.
+        foreach (var e in t.Extras ?? new())
+        {
+            e.XMm *= kx;
+            e.WidthMm *= kx;
+            e.YMm *= ky;
+            e.HeightMm *= ky;
+            if (e.FontSizePx is > 0)
+                e.FontSizePx = Math.Max(1, e.FontSizePx.Value * kf);
+        }
         if (t.FontSizePx > 0)
             t.FontSizePx = Math.Max(1, t.FontSizePx * kf);
     }

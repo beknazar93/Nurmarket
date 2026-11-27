@@ -77,6 +77,24 @@ public sealed class ButtonConsistencyUiTests
         finally { window.Close(); UiShot.Pump(); }
     }
 
+    // 2026-11-27 (живой проход 27.11, I): в «Тех поддержке» были две жёлтые главные кнопки («Получить код для поддержки» и «Написать в поддержку») — главная одна.
+    [AvaloniaFact]
+    public async Task RemoteSupport_HasOnePrimaryButton()
+    {
+        await TestHost.WarmAsync();
+        UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
+        var window = new RemoteSupportWindow();
+        try
+        {
+            using var _ = UiShot.Render(window, UiSize.Small);
+            var primaries = window.GetVisualDescendants().OfType<Button>()
+                .Where(b => b.IsEffectivelyVisible && b.Classes.Any(c => Primary.Contains(c)))
+                .Select(b => (b.Content as string) ?? b.Name ?? "?").ToList();
+            Assert.True(primaries.Count <= 1, "главных кнопок больше одной: " + string.Join(", ", primaries));
+        }
+        finally { window.Close(); UiShot.Pump(); }
+    }
+
     [AvaloniaTheory]
     [MemberData(nameof(Matrix))]
     public async Task Buttons_OneRadius_OneHeight_OneBorder(string name, UiTheme theme, AppLanguage lang)

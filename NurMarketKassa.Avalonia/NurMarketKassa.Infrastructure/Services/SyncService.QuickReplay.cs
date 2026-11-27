@@ -221,7 +221,7 @@ public sealed partial class SyncService
             entry.CartJson,
             entry.PaymentMethod,
             entry.CashReceived,
-            nonCashReceived: null,
+            nonCashReceived: entry.NonCashReceived, // 2026-11-27: безналичная часть смешанной оплаты без связи → payment.card_amount (у остальных чеков null — как раньше)
             clientId: entry.ClientId, // 2026-10-27 (Н-6): клиент офлайн-чека не теряется при досылке
             shiftId,
             entry.ConsultantId,

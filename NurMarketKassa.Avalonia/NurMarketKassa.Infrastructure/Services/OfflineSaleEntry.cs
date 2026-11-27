@@ -19,6 +19,10 @@ public sealed class OfflineSaleEntry
 
     public string? CashReceived { get; set; }
 
+    /// <summary>2026-11-27 (смешанная оплата без связи): безналичная часть смешанной оплаты (PaymentMethod == "mixed"); CashReceived — наличная часть.
+    /// Досылка передаёт её в payment.card_amount (быстрый путь). Поле лежит в JSON записи (схема таблицы не меняется); у старых записей null.</summary>
+    public string? NonCashReceived { get; set; }
+
     public string? CartId { get; set; }
 
     public string? ShiftId { get; set; }

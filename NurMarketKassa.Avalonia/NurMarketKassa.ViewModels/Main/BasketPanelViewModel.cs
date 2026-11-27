@@ -1750,6 +1750,17 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         if (string.IsNullOrWhiteSpace(barcode))
             return;
 
+        // 2026-11-27: QR-бейдж кассира на открытой кассе — не товар: в чек и в поиск не идёт, в журнал не пишется (код бейджа — ключ входа).
+        if (CashierBadgeCode.LooksLikeBadge(barcode))
+        {
+            CartMessage = Tr.T("Это QR-бейдж кассира — по нему входят на экране входа. Чтобы сменить кассира: ☰ → «Сменить кассира».",
+                "Бул кассирдин QR-бейджи — аны менен кирүү экранында киришет. Кассирди алмаштыруу үчүн: ☰ → «Кассирди алмаштыруу».",
+                "This is a cashier QR badge — it is used on the sign-in screen. To switch cashier: ☰ → “Switch cashier”.",
+                "Bu bir kasiyer QR rozeti — giriş ekranında kullanılır. Kasiyeri değiştirmek için: ☰ → «Kasiyer değiştir».",
+                "Bu kassirning QR-beydji — u bilan kirish ekranida kiriladi. Kassirni almashtirish uchun: ☰ → «Kassirni almashtirish».");
+            return;
+        }
+
         if (_scanGate.Enqueue(barcode.Trim()))
             _ = ProcessScanQueueAsync();
         else if (_shiftClosing)

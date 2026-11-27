@@ -417,6 +417,10 @@ public sealed partial class PosCheckoutService
                 "To'lov vaqti tugadi yoki tarmoq uzildi.");
             var offline = await CompleteOfflineCheckoutAsync(request, cartJson, total, reason, entryId: key, quickAttempted: true)
                 .ConfigureAwait(false);
+            // 2026-11-27: смешанная теперь встаёт в очередь с этим ключом; если записать её не вышло (дата ПК, база), а продажа с ключом МОГЛА пройти —
+            // как раньше: ключ и тело на диск, повтор тем же ключом (второй продажи нет).
+            if (!offline.SavedOffline && maybeProcessed && IsMixedPayment(request.PaymentMethod))
+                return SaveUnknownQuickCheckout(request, key, fingerprint);
             // Долг и смешанную очередь не принимает — ключ остаётся за чеком: повтор оплаты тем же
             // составом вернёт уже проведённую продажу, а не создаст вторую.
             if (offline.SavedOffline || notSentDebt)

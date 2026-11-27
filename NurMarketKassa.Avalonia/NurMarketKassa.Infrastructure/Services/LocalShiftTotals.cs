@@ -65,6 +65,14 @@ public static class LocalShiftTotals
             }
             else if (string.Equals(entry.PaymentMethod, "cash", StringComparison.OrdinalIgnoreCase))
                 cash += sum;
+            else if (string.Equals(entry.PaymentMethod, "mixed", StringComparison.OrdinalIgnoreCase))
+            {
+                // 2026-11-27: смешанная оплата без связи — наличная часть в «Наличные», остальное в «Безнал».
+                decimal.TryParse(entry.CashReceived, NumberStyles.Any, CultureInfo.InvariantCulture, out var mixedCash);
+                mixedCash = Math.Min(Math.Max(0m, mixedCash), sum);
+                cash += mixedCash;
+                nonCash += sum - mixedCash;
+            }
             else
                 nonCash += sum;
             total += sum;

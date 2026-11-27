@@ -295,6 +295,19 @@ public partial class BarcodePrintView
         (w, h) = LabelPrintMath.ClampSize(w, h); // 2026-11-19: границы «Своего размера» — в одном месте (LabelPrintMath), их же проверяют тесты
         if (Math.Abs(_template.WidthMm - w) < 0.01 && Math.Abs(_template.HeightMm - h) < 0.01)
             return;
+        if (HasDesignerLayout)
+        {
+            // 2026-11-27: шаблон из «Редактора» (есть свои элементы) — растягиваем всю раскладку вместе со своими элементами, как редактор,
+            // а не расставляем встроенные заново поверх бренда/ячейки/даты.
+            LabelAutoLayout.ScaleToSize(_template, w, h);
+            _barPx = LabelAutoLayout.BarcodeHeightPx(_template);
+            _init = true;
+            try { _barHeightBox.Value = BarMmFromPx(_barPx); }
+            finally { _init = false; }
+            UpdateBarDots();
+            TemplateChanged();
+            return;
+        }
         // Ручной размер шрифта (если задан в редакторе) растёт и убывает вместе с этикеткой — иначе на малой этикетке он не помещается.
         // 2026-11-08: среднее геометрическое вместо меньшего коэффициента — при наборе «Своего размера» по цифрам (40 → 15 → 58) шрифт
         // уменьшался на первом шаге и больше не возвращался (меньший коэффициент второго шага = 1).
@@ -396,8 +409,29 @@ public partial class BarcodePrintView
         }
     }
 
+    /// <summary>2026-11-27 («Ошибка в редактировании штрих кода ценников»): шаблон собран в «Редакторе» — на нём есть свои элементы (бренд, ячейка, дата,
+    /// QR магазина…). Автораскладка о них не знает: галочка «Артикул» или «Высота штрих-кода» в «Печати» растягивала штрихкод и название на всю ширину
+    /// поверх них (видно в предпросмотре и в PDF). Такой шаблон автоматически не переставляется: места элементов задаются в «Редакторе».</summary>
+    private bool HasDesignerLayout => _template.Extras is { Count: > 0 };
+
     private void Relayout()
     {
+        if (HasDesignerLayout)
+        {
+            // Раскладка редактора остаётся; высота штрихкода меняется у самого блока (вниз, в пределах этикетки).
+            var b = _template.Barcode;
+            if (LabelAutoLayout.MmToPx(b.HeightMm) != _barPx) // высоту не трогали (галочка, тип кода) — блок не меняется ни на сотую
+                b.HeightMm = Math.Round(Math.Clamp(LabelAutoLayout.PxToMm(_barPx), LabelDesignerMath.MinElementMm, Math.Max(LabelDesignerMath.MinElementMm, _template.HeightMm - b.YMm)), 2);
+            _barHeightHint.IsVisible = true;
+            _barHeightHint.Text = T("Шаблон из «Редактора»: элементы не переставляются сами — место нового элемента задайте в «Редакторе».",
+                "«Редактордогу» шаблон: элементтер өзү жылбайт — жаңы элементтин ордун «Редактордо» коюңуз.",
+                "A template from the “Editor”: elements are not re-arranged automatically — place a new element in the “Editor”.",
+                "«Düzenleyici» şablonu: öğeler kendiliğinden yeniden dizilmez — yeni öğenin yerini «Düzenleyici»de belirleyin.",
+                "«Muharrir» shabloni: elementlar o'zi qayta joylashmaydi — yangi element joyini «Muharrir»da belgilang.");
+            UpdateBarDots();
+            TemplateChanged();
+            return;
+        }
         var eff = LabelAutoLayout.Apply(_template, _barPx);
         _barHeightHint.IsVisible = _template.Barcode.Enabled && eff < _barPx - 1;
         var effMm = LabelAutoLayout.PxToMm(eff).ToString("0.#", System.Globalization.CultureInfo.CurrentCulture);

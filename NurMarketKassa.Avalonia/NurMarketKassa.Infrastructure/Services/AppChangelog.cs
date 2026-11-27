@@ -11,6 +11,7 @@
 /// кыргызским, а сами пункты русскими.</summary>
 public static class AppChangelog
 {
+    // 2026-11-27: 1.17.96 (обычный выпуск для клиентов) — сверху всех Latest* 4 пункта (смешанная оплата без связи и ложные аварии, вход по QR-бейджу, редактор ценников и штрихкодов, исправления: расход в «Просмотре смены», экран покупателя, «Тех поддержка», «Возврат», Диктор), сверху AndroidLatest* — 4 кассовых (смешанная оплата, QR-бейдж, редактор ценников, исправления без «Тех поддержки» и Диктора).
     // 2026-11-27: 1.17.95 (обычный выпуск для клиентов) — сверху всех Latest* 12 пунктов (акции, бот-продавец и торг, ремонт, чек по ссылке и QR, 1С и «под ключ», рассылка и ЭСФ, Нур-советник, Маркетплейс, точность возвратов, закрытие смены, удобство и вид, исправления и скорость), сверху AndroidLatest* — 5 кассовых (акции, чек и QR, точность, закрытие смены, удобство).
     // 2026-11-22: 1.17.94 (обычный выпуск для клиентов) — сверху всех Latest* 6 пунктов (печать этикетки, галочки в «Товарах», вид «Список/Плитки» в «Штрихкодах», приёмка «Убрать»/Ctrl+Z, остаток в минусе, «Смета»/«Прокат» и иконки Маркетплейса), сверху AndroidLatest* — первые пять.
     // 2026-11-22: 1.17.93 (обычный выпуск для клиентов) — сверху всех Latest* 6 пунктов (приёмка: категория и единица, штрихкод, срок годности и партия, загрузка накладной, штрихкоды и ценники, весы и настройки), сверху AndroidLatest* — первые пять.
@@ -21,6 +22,10 @@ public static class AppChangelog
     // 2026-11-20: 1.17.88 (тестовый канал) — сверху всех Latest* 8 пунктов (табель, подписка, чеки старше 7 суток, склад, Автозапчасти, малые экраны, разделы владельца, исправления), сверху AndroidLatest* — 4 общих.
     public static readonly string[] Latest =
     [
+        "Смешанная оплата без связи: Если сервер не отвечает, смешанная оплата больше не отказывает — чек встаёт в очередь и потом уходит на сервер с разбивкой на наличные и безнал, без дублей. Один быстрый сбой фонового запроса больше не переводит кассу в «Автономно».",
+        "Вход по QR-бейджу: Владелец выпускает кассиру QR-бейдж в «Настройки → Сотрудники → QR для входа» (срок действия и PIN по желанию, отзыв одной кнопкой). Кассир подносит бейдж к сканеру на экране входа — касса открывается от его имени. Есть защита от перебора; в первый раз на каждой кассе пароль нужен один раз.",
+        "Редактор ценников и штрихкодов: Правки редактора сразу доходят до «Печати»; кнопка «Штрих-код» выбирает штрихкод, а не убирает его; новое поле «Толщина штриха» и подсказка, если штрихкод слишком тонкий; галочки в «Печати» не ломают свой шаблон; при смене размера элементы растягиваются; поля X/Y/ширина/высота показывают настоящее значение; у QR лишние настройки отключены.",
+        "Исправления: «Просмотр смены» в программе владельца показывает расход по данным сервера; экран покупателя «Классика» без пустой заглушки; в «Тех поддержке» одна главная кнопка; в окне «Возврат» колонка «Товар» и шире дата; подтверждения внесения и изъятия не зависают при работе с Диктором.",
         "Акции: В программе владельца новый раздел «Акции» — мастер создания и предпросмотр. Касса сама считает скидки по правилам сервера и перед оплатой сверяет итог с сервером; без связи считает по сохранённым правилам.",
         "Бот-продавец и торг: В программе владельца — настройки бота-продавца, его диалоги, проверка ответов, статистика продаж бота, товары и правила торга, предложения покупателей. В заказах с сайта видна цена, о которой договорились в торге.",
         "Ремонт: Номер квитанции выдаёт сервер; квитанции синхронизируются между устройствами; чужие изменения не затираются — при одновременной правке открывается окно выбора.",
@@ -342,6 +347,10 @@ public static class AppChangelog
 
     public static readonly string[] LatestKy =
     [
+        "Байланышсыз аралаш төлөм: Сервер жооп бербесе, аралаш төлөм мындан ары баш тартпайт — чек кезекке турат да, кийин серверге накталай жана накталай эмес бөлүктөрү менен, кайталанбай жөнөтүлөт. Фондук сурамдын бир тез катасы кассаны «Автономдуу» режимге которбойт.",
+        "QR-бейдж менен кирүү: Ээси кассирге «Жөндөөлөр → Кызматкерлер → Кирүү үчүн QR» бөлүмүндө QR-бейдж чыгарат (мөөнөтү жана PIN каалоо боюнча, бир баскыч менен жокко чыгаруу). Кассир бейджди кирүү экранында сканерге тийгизет — касса анын атынан ачылат. Тандап табуудан коргоо бар; ар бир кассада биринчи жолу сырсөз бир жолу керек.",
+        "Баа белгилеринин жана штрихкоддордун редактору: Редактордогу өзгөртүүлөр дароо «Басып чыгарууга» жетет; «Штрих-код» баскычы штрихкодду тандайт, алып салбайт; жаңы «Сызык калыңдыгы» талаасы жана штрихкод өтө ичке болсо кеңеш; «Басып чыгаруудагы» белгилер өз шаблонуңузду бузбайт; өлчөм өзгөргөндө элементтер чоюлат; X/Y/туурасы/бийиктиги талаалары чыныгы маанини көрсөтөт; QR үчүн ашыкча жөндөөлөр өчүрүлгөн.",
+        "Оңдоолор: Ээсинин программасындагы «Сменаны көрүү» чыгымды сервердин маалыматы боюнча көрсөтөт; «Классика» сатып алуучу экраны бош тосмосуз; «Техколдоодо» бир гана негизги баскыч; «Кайтаруу» терезесинде «Товар» мамычасы жана кененирээк дата; акча салууну жана алууну ырастоо Диктор менен иштегенде катып калбайт.",
         "Акциялар: Ээсинин программасында жаңы «Акциялар» бөлүмү — түзүү чебери жана алдын ала көрүү. Касса арзандатууларды сервердин эрежелери боюнча өзү эсептейт жана төлөөдөн мурун жыйынтыкты сервер менен салыштырат; байланыш жок болсо, сакталган эрежелер боюнча эсептейт.",
         "Бот-сатуучу жана соодалашуу: Ээсинин программасында — бот-сатуучунун жөндөөлөрү, анын диалогдору, жоопторду текшерүү, боттун сатуу статистикасы, соодалашуу товарлары жана эрежелери, сатып алуучулардын сунуштары. Сайттан келген заказдарда соодалашууда макулдашылган баа көрүнөт.",
         "Оңдоо: Квитанциянын номерин сервер берет; квитанциялар түзмөктөр ортосунда шайкештелет; башкалардын өзгөртүүлөрү өчүп калбайт — бир убакта оңдогондо тандоо терезеси ачылат.",
@@ -661,6 +670,10 @@ public static class AppChangelog
 
     public static readonly string[] LatestEn =
     [
+        "Mixed payment offline: When the server does not respond, mixed payment no longer fails — the receipt is queued and later sent to the server split into cash and non-cash, without duplicates. A single quick error on a background request no longer switches the till to “Offline”.",
+        "Sign-in with a QR badge: The owner issues a cashier a QR badge in “Settings → Employees → Sign-in QR” (optional expiry and PIN, revoke with one button). The cashier holds the badge to the scanner on the login screen and the till opens under their name. There is brute-force protection; the first time on each till the password is needed once.",
+        "Price tag and barcode editor: Editor changes reach “Print” right away; the “Barcode” button selects the barcode instead of removing it; a new “Bar thickness” field and a hint when the barcode is too thin; checkboxes in “Print” no longer break your own template; elements stretch when the size changes; the X/Y/width/height fields show the real value; extra settings are disabled for QR.",
+        "Fixes: “Shift details” in the owner's program shows expenses from the server's data; the “Classic” customer screen has no empty placeholder; “Tech support” has a single main button; the “Return” window has a “Product” column and a wider date; cash-in and cash-out confirmations no longer hang with Narrator.",
         "Promotions: The owner's program has a new “Promotions” section with a creation wizard and preview. The till calculates discounts by the server's rules itself and checks the total with the server before payment; offline it uses the saved rules.",
         "Seller bot and bargaining: The owner's program has seller bot settings, its dialogs, an answer check, bot sales statistics, bargaining products and rules, and customer offers. Website orders show the price agreed in bargaining.",
         "Repair: The server issues the ticket number; tickets sync between devices; other people's changes are not overwritten — a choice window opens when a ticket is edited at the same time.",
@@ -980,6 +993,10 @@ public static class AppChangelog
 
     public static readonly string[] LatestTr =
     [
+        "Bağlantısız karışık ödeme: Sunucu yanıt vermediğinde karışık ödeme artık reddedilmez — fiş kuyruğa alınır ve sonra nakit ve nakit dışı olarak ayrılmış şekilde, tekrarsız sunucuya gönderilir. Arka plan isteğindeki tek bir hızlı hata kasayı artık «Çevrimdışı» moda geçirmez.",
+        "QR rozetle giriş: Sahip, kasiyere «Ayarlar → Çalışanlar → Giriş QR'ı» bölümünden QR rozet verir (isteğe bağlı süre ve PIN, tek düğmeyle iptal). Kasiyer rozeti giriş ekranında tarayıcıya okutur ve kasa onun adına açılır. Deneme-yanılmaya karşı koruma var; her kasada ilk seferde şifre bir kez gerekir.",
+        "Etiket ve barkod düzenleyicisi: Düzenleyicideki değişiklikler hemen «Yazdır»a ulaşır; «Barkod» düğmesi barkodu kaldırmaz, seçer; yeni «Çizgi kalınlığı» alanı ve barkod çok inceyse ipucu; «Yazdır»daki onay kutuları kendi şablonunuzu bozmaz; boyut değişince öğeler uzar; X/Y/genişlik/yükseklik alanları gerçek değeri gösterir; QR için gereksiz ayarlar kapalı.",
+        "Düzeltmeler: Sahibin programındaki «Vardiya ayrıntıları» gideri sunucu verilerine göre gösterir; «Klasik» müşteri ekranında boş yer tutucu yok; «Teknik destek»te tek ana düğme var; «İade» penceresinde «Ürün» sütunu ve daha geniş tarih var; para girişi ve çıkışı onayları Ekran Okuyucu ile donmaz.",
         "Kampanyalar: Sahibin programında oluşturma sihirbazı ve ön izlemeli yeni «Kampanyalar» bölümü var. Kasa indirimleri sunucu kurallarına göre kendisi hesaplar ve ödemeden önce toplamı sunucuyla karşılaştırır; bağlantı yoksa kayıtlı kurallarla hesaplar.",
         "Satıcı bot ve pazarlık: Sahibin programında satıcı bot ayarları, diyalogları, yanıt kontrolü, bot satış istatistikleri, pazarlık ürünleri ve kuralları, müşteri teklifleri var. Siteden gelen siparişlerde pazarlıkta anlaşılan fiyat görünür.",
         "Tamir: Fiş numarasını sunucu verir; fişler cihazlar arasında eşitlenir; başkalarının değişiklikleri silinmez — aynı anda düzenlemede seçim penceresi açılır.",
@@ -1299,6 +1316,10 @@ public static class AppChangelog
 
     public static readonly string[] LatestUz =
     [
+        "Aloqasiz aralash to'lov: Server javob bermasa, aralash to'lov endi rad etilmaydi — chek navbatga turadi va keyin serverga naqd va naqdsiz qismlarga ajratilgan holda, takrorlanmasdan yuboriladi. Fon so'rovidagi bitta tez xato kassani endi «Avtonom» rejimga o'tkazmaydi.",
+        "QR-beyj bilan kirish: Ega kassirga «Sozlamalar → Xodimlar → Kirish uchun QR» bo'limida QR-beyj chiqaradi (muddat va PIN ixtiyoriy, bitta tugma bilan bekor qilish). Kassir beyjni kirish ekranida skanerga tutadi — kassa uning nomidan ochiladi. Tanlab topishdan himoya bor; har bir kassada birinchi marta parol bir marta kerak.",
+        "Narx yorliqlari va shtrix-kodlar muharriri: Muharrirdagi o'zgarishlar darhol «Chop etish»ga yetadi; «Shtrix-kod» tugmasi shtrix-kodni olib tashlamaydi, tanlaydi; yangi «Chiziq qalinligi» maydoni va shtrix-kod juda ingichka bo'lsa maslahat; «Chop etish»dagi belgilar o'z shabloningizni buzmaydi; o'lcham o'zgarganda elementlar cho'ziladi; X/Y/kenglik/balandlik maydonlari haqiqiy qiymatni ko'rsatadi; QR uchun ortiqcha sozlamalar o'chirilgan.",
+        "Tuzatishlar: Egasining dasturidagi «Smenani ko'rish» xarajatni server ma'lumotlari bo'yicha ko'rsatadi; «Klassika» xaridor ekranida bo'sh joy egallovchi yo'q; «Texnik yordam»da bitta asosiy tugma; «Qaytarish» oynasida «Tovar» ustuni va kengroq sana; pul kiritish va olishni tasdiqlash Diktor bilan ishlaganda qotib qolmaydi.",
         "Aksiyalar: Egasining dasturida yaratish ustasi va oldindan ko'rish bilan yangi «Aksiyalar» bo'limi. Kassa chegirmalarni server qoidalari bo'yicha o'zi hisoblaydi va to'lovdan oldin jamini server bilan solishtiradi; aloqa bo'lmasa, saqlangan qoidalar bo'yicha hisoblaydi.",
         "Bot-sotuvchi va savdolashuv: Egasining dasturida — bot-sotuvchi sozlamalari, uning dialoglari, javoblarni tekshirish, bot sotuvlari statistikasi, savdolashuv tovarlari va qoidalari, xaridorlar takliflari. Saytdan kelgan buyurtmalarda savdolashuvda kelishilgan narx ko'rinadi.",
         "Ta'mir: Kvitansiya raqamini server beradi; kvitansiyalar qurilmalar o'rtasida sinxronlanadi; boshqalarning o'zgarishlari o'chib ketmaydi — bir vaqtda tahrirlashda tanlash oynasi ochiladi.",
@@ -1679,6 +1700,10 @@ public static class AppChangelog
     // 2026-10-05: Android 1.17.52. Без эмодзи — на Android их шрифт не рисует (снимок владельца: «Кнопка  в поиске»).
     public static readonly string[] AndroidLatest =
     [
+        "Смешанная оплата без связи: Если сервер не отвечает, смешанная оплата больше не отказывает — чек встаёт в очередь и потом уходит на сервер с разбивкой на наличные и безнал, без дублей. Один быстрый сбой фонового запроса больше не переводит кассу в «Автономно».",
+        "Вход по QR-бейджу: Владелец выпускает кассиру QR-бейдж в «Настройки → Сотрудники → QR для входа» (срок действия и PIN по желанию, отзыв одной кнопкой). Кассир подносит бейдж к сканеру на экране входа — касса открывается от его имени. Есть защита от перебора; в первый раз на каждой кассе пароль нужен один раз.",
+        "Редактор ценников и штрихкодов: Правки редактора сразу доходят до «Печати»; кнопка «Штрих-код» выбирает штрихкод, а не убирает его; новое поле «Толщина штриха» и подсказка, если штрихкод слишком тонкий; галочки в «Печати» не ломают свой шаблон; при смене размера элементы растягиваются; поля X/Y/ширина/высота показывают настоящее значение; у QR лишние настройки отключены.",
+        "Исправления: «Просмотр смены» показывает расход по данным сервера; экран покупателя «Классика» без пустой заглушки; в окне «Возврат» колонка «Товар» и шире дата.",
         "Акции: В программе владельца новый раздел «Акции» — мастер создания и предпросмотр. Касса сама считает скидки по правилам сервера и перед оплатой сверяет итог с сервером; без связи считает по сохранённым правилам.",
         "Чек по ссылке и QR: Покупатель открывает красивый чек по ссылке или по QR с чека. На чеке и этикетке можно печатать QR магазина, а для оплаты — QR на сумму чека.",
         "Точность денег: Возвраты считаются по правилам сервера: каждый шаг округляется до тыйына (половина — вверх), последний частичный возврат по чеку — ровно остаток, бесплатная позиция учитывается верно; при обмене деньги в ящике поправляются правильно.",
@@ -1881,6 +1906,10 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestKy =
     [
+        "Байланышсыз аралаш төлөм: Сервер жооп бербесе, аралаш төлөм мындан ары баш тартпайт — чек кезекке турат да, кийин серверге накталай жана накталай эмес бөлүктөрү менен, кайталанбай жөнөтүлөт. Фондук сурамдын бир тез катасы кассаны «Автономдуу» режимге которбойт.",
+        "QR-бейдж менен кирүү: Ээси кассирге «Жөндөөлөр → Кызматкерлер → Кирүү үчүн QR» бөлүмүндө QR-бейдж чыгарат (мөөнөтү жана PIN каалоо боюнча, бир баскыч менен жокко чыгаруу). Кассир бейджди кирүү экранында сканерге тийгизет — касса анын атынан ачылат. Тандап табуудан коргоо бар; ар бир кассада биринчи жолу сырсөз бир жолу керек.",
+        "Баа белгилеринин жана штрихкоддордун редактору: Редактордогу өзгөртүүлөр дароо «Басып чыгарууга» жетет; «Штрих-код» баскычы штрихкодду тандайт, алып салбайт; жаңы «Сызык калыңдыгы» талаасы жана штрихкод өтө ичке болсо кеңеш; «Басып чыгаруудагы» белгилер өз шаблонуңузду бузбайт; өлчөм өзгөргөндө элементтер чоюлат; X/Y/туурасы/бийиктиги талаалары чыныгы маанини көрсөтөт; QR үчүн ашыкча жөндөөлөр өчүрүлгөн.",
+        "Оңдоолор: «Сменаны көрүү» чыгымды сервердин маалыматы боюнча көрсөтөт; «Классика» сатып алуучу экраны бош тосмосуз; «Кайтаруу» терезесинде «Товар» мамычасы жана кененирээк дата.",
         "Акциялар: Ээсинин программасында жаңы «Акциялар» бөлүмү — түзүү чебери жана алдын ала көрүү. Касса арзандатууларды сервердин эрежелери боюнча өзү эсептейт жана төлөөдөн мурун жыйынтыкты сервер менен салыштырат; байланыш жок болсо, сакталган эрежелер боюнча эсептейт.",
         "Шилтеме жана QR боюнча чек: Сатып алуучу кооз чекти шилтеме же чектеги QR аркылуу ачат. Чекке жана этикеткага дүкөндүн QR кодун, ал эми төлөм үчүн — чектин суммасына QR кодун басса болот.",
         "Акчанын тактыгы: Кайтаруулар сервердин эрежелери боюнча эсептелет: ар бир кадам тыйынга чейин тегеректелет (жарымы — жогору), чек боюнча акыркы жарым-жартылай кайтаруу — так калдык, акысыз позиция туура эсепке алынат; алмаштырууда кутудагы акча туура оңдолот.",
@@ -2081,6 +2110,10 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestEn =
     [
+        "Mixed payment offline: When the server does not respond, mixed payment no longer fails — the receipt is queued and later sent to the server split into cash and non-cash, without duplicates. A single quick error on a background request no longer switches the till to “Offline”.",
+        "Sign-in with a QR badge: The owner issues a cashier a QR badge in “Settings → Employees → Sign-in QR” (optional expiry and PIN, revoke with one button). The cashier holds the badge to the scanner on the login screen and the till opens under their name. There is brute-force protection; the first time on each till the password is needed once.",
+        "Price tag and barcode editor: Editor changes reach “Print” right away; the “Barcode” button selects the barcode instead of removing it; a new “Bar thickness” field and a hint when the barcode is too thin; checkboxes in “Print” no longer break your own template; elements stretch when the size changes; the X/Y/width/height fields show the real value; extra settings are disabled for QR.",
+        "Fixes: “Shift details” shows expenses from the server's data; the “Classic” customer screen has no empty placeholder; the “Return” window has a “Product” column and a wider date.",
         "Promotions: The owner's program has a new “Promotions” section with a creation wizard and preview. The till calculates discounts by the server's rules itself and checks the total with the server before payment; offline it uses the saved rules.",
         "Receipt by link and QR: The customer opens a nice-looking receipt by link or by the QR on the receipt. The shop's QR can be printed on receipts and labels, and a QR for the receipt amount can be shown for payment.",
         "Money accuracy: Refunds follow the server's rules: every step is rounded to the tyiyn (half goes up), the last partial refund on a receipt is exactly the remainder, free items are handled correctly; on exchanges the cash drawer is adjusted correctly.",
@@ -2281,6 +2314,10 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestTr =
     [
+        "Bağlantısız karışık ödeme: Sunucu yanıt vermediğinde karışık ödeme artık reddedilmez — fiş kuyruğa alınır ve sonra nakit ve nakit dışı olarak ayrılmış şekilde, tekrarsız sunucuya gönderilir. Arka plan isteğindeki tek bir hızlı hata kasayı artık «Çevrimdışı» moda geçirmez.",
+        "QR rozetle giriş: Sahip, kasiyere «Ayarlar → Çalışanlar → Giriş QR'ı» bölümünden QR rozet verir (isteğe bağlı süre ve PIN, tek düğmeyle iptal). Kasiyer rozeti giriş ekranında tarayıcıya okutur ve kasa onun adına açılır. Deneme-yanılmaya karşı koruma var; her kasada ilk seferde şifre bir kez gerekir.",
+        "Etiket ve barkod düzenleyicisi: Düzenleyicideki değişiklikler hemen «Yazdır»a ulaşır; «Barkod» düğmesi barkodu kaldırmaz, seçer; yeni «Çizgi kalınlığı» alanı ve barkod çok inceyse ipucu; «Yazdır»daki onay kutuları kendi şablonunuzu bozmaz; boyut değişince öğeler uzar; X/Y/genişlik/yükseklik alanları gerçek değeri gösterir; QR için gereksiz ayarlar kapalı.",
+        "Düzeltmeler: «Vardiya ayrıntıları» gideri sunucu verilerine göre gösterir; «Klasik» müşteri ekranında boş yer tutucu yok; «İade» penceresinde «Ürün» sütunu ve daha geniş tarih var.",
         "Kampanyalar: Sahibin programında oluşturma sihirbazı ve ön izlemeli yeni «Kampanyalar» bölümü var. Kasa indirimleri sunucu kurallarına göre kendisi hesaplar ve ödemeden önce toplamı sunucuyla karşılaştırır; bağlantı yoksa kayıtlı kurallarla hesaplar.",
         "Bağlantı ve QR ile fiş: Müşteri şık fişi bağlantıdan veya fişteki QR'dan açar. Fişe ve etikete mağazanın QR'ı basılabilir, ödeme için fiş tutarına QR gösterilebilir.",
         "Para doğruluğu: İadeler sunucu kurallarına göre hesaplanır: her adım tıyına yuvarlanır (yarım yukarı), fişteki son kısmi iade tam olarak kalan tutardır, ücretsiz ürün doğru hesaba katılır; değişimde kasadaki para doğru düzeltilir.",
@@ -2481,6 +2518,10 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestUz =
     [
+        "Aloqasiz aralash to'lov: Server javob bermasa, aralash to'lov endi rad etilmaydi — chek navbatga turadi va keyin serverga naqd va naqdsiz qismlarga ajratilgan holda, takrorlanmasdan yuboriladi. Fon so'rovidagi bitta tez xato kassani endi «Avtonom» rejimga o'tkazmaydi.",
+        "QR-beyj bilan kirish: Ega kassirga «Sozlamalar → Xodimlar → Kirish uchun QR» bo'limida QR-beyj chiqaradi (muddat va PIN ixtiyoriy, bitta tugma bilan bekor qilish). Kassir beyjni kirish ekranida skanerga tutadi — kassa uning nomidan ochiladi. Tanlab topishdan himoya bor; har bir kassada birinchi marta parol bir marta kerak.",
+        "Narx yorliqlari va shtrix-kodlar muharriri: Muharrirdagi o'zgarishlar darhol «Chop etish»ga yetadi; «Shtrix-kod» tugmasi shtrix-kodni olib tashlamaydi, tanlaydi; yangi «Chiziq qalinligi» maydoni va shtrix-kod juda ingichka bo'lsa maslahat; «Chop etish»dagi belgilar o'z shabloningizni buzmaydi; o'lcham o'zgarganda elementlar cho'ziladi; X/Y/kenglik/balandlik maydonlari haqiqiy qiymatni ko'rsatadi; QR uchun ortiqcha sozlamalar o'chirilgan.",
+        "Tuzatishlar: «Smenani ko'rish» xarajatni server ma'lumotlari bo'yicha ko'rsatadi; «Klassika» xaridor ekranida bo'sh joy egallovchi yo'q; «Qaytarish» oynasida «Tovar» ustuni va kengroq sana.",
         "Aksiyalar: Egasining dasturida yaratish ustasi va oldindan ko'rish bilan yangi «Aksiyalar» bo'limi. Kassa chegirmalarni server qoidalari bo'yicha o'zi hisoblaydi va to'lovdan oldin jamini server bilan solishtiradi; aloqa bo'lmasa, saqlangan qoidalar bo'yicha hisoblaydi.",
         "Havola va QR bo'yicha chek: Xaridor chiroyli chekni havola yoki chekdagi QR orqali ochadi. Chek va yorliqqa do'kon QR kodini, to'lov uchun esa chek summasiga QR kodni chiqarish mumkin.",
         "Pul aniqligi: Qaytarishlar server qoidalari bo'yicha hisoblanadi: har bir qadam tiyingacha yaxlitlanadi (yarmi — yuqoriga), chek bo'yicha oxirgi qisman qaytarish — aynan qoldiq, bepul pozitsiya to'g'ri hisobga olinadi; almashtirishda qutidagi pul to'g'ri tuzatiladi.",

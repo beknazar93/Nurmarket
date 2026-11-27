@@ -95,6 +95,15 @@ public static class TestHost
         }
         if (_seedProducts is { Count: > 0 } seed && CatalogCacheService.Products.Count == 0)
             CatalogCacheService.Products.AddRange(seed);
+        // 2026-11-27 (полный прогон 27.11: TransferAndAiTab ×6, WarehouseKpiTiles ×5 красные только в общем прогоне): сценарии с ролью «cashier»/«salesperson»
+        // (ScalesSaveAndUnsaved, Barcodes… — LoginAsync(role)) оставляли в общем клиенте профиль кассира. Без роли owner/admin пропадали карточка «Перенос данных»
+        // (право «Склад: редактирование») и плитка «Склад по закупке» (RevisionShowPurchase) — тесты владельца видели кассу кассира. Каждый тест начинает
+        // со входа по умолчанию (роль owner, как в UiFake.Reset); тест, которому нужна другая роль, входит под ней сам — после WarmAsync.
+        await RestoreDefaultLoginAsync(services);
+        // 2026-11-27: корзина (ICartService) — одна на весь прогон; товары, оставленные прошлым сценарием, делали CanEnterTraining = false
+        // (CoachTour: «Сначала закончите или уберите открытые чеки» → «Нет активного окна для диалога»). Каждый тест начинает с пустого чека.
+        if (services.GetService<NurMarketKassa.Interfaces.ICartService>() is { LineCount: > 0 } cart)
+            cart.ResetForNewReceipt();
         // 2026-11-21 (флаки полного прогона 1.17.91): тест, которому нужен свой каталог, кладёт товары в общий CatalogCacheService.Products уже после WarmAsync — а закрытое окно кассы
         // из прошлого теста ещё грузит каталог в фоне и переписывает этот список. Перед тестом дожидаемся, пока фоновые загрузки прежних окон закончатся.
         await QuiesceAsync();
@@ -110,6 +119,17 @@ public static class TestHost
         while ((NurMarketKassa.AvaloniaHost.Views.MainKassir.MainWindow.StartupsInProgress > 0 || NurMarketKassa.ViewModels.Main.CatalogPanelViewModel.ActiveLoads > 0)
                && Environment.TickCount64 < until)
             await Task.Delay(25);
+    }
+
+    /// <summary>2026-11-27: профиль после чужого сценария не owner/admin (вход под «cashier», выход) — вернуть заглушки входа/профиля по умолчанию и войти заново.</summary>
+    private static async Task RestoreDefaultLoginAsync(IServiceProvider services)
+    {
+        var auth = services.GetRequiredService<IAuthApiService>();
+        if (services.GetService<IAutonomousAuthService>() is { IsCurrentSessionAutonomous: true } || PermissionService.IsOwnerOrAdmin(auth.UserPayload))
+            return;
+        UiFake.Server.StubLogin();
+        UiFake.Server.StubProfile();
+        await Task.Run(() => services.GetRequiredService<NurMarketApiClient>().LoginAsync("cashier@test.kg", "12345678"));
     }
 
     private static List<NurMarketKassa.Models.Pos.CatalogProductTileVm>? _seedProducts;

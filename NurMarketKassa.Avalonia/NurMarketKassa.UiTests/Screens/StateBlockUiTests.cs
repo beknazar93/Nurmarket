@@ -174,6 +174,9 @@ public sealed class StateBlockUiTests
     public async Task Window_WhenServerFails_ShowsExactlyOneStateBlock_WithoutRawText(string typeName, StateKind expected, string title)
     {
         await TestHost.WarmAsync();
+        // 2026-11-27 (прогон 27.11, куски S–W + сценарии): «сбой сервера» здесь — отсутствие заглушки списка; сценарий, оставивший свою заглушку клиентов/поставщиков
+        // (успешный пустой список), давал «Пусто» вместо «Ошибка». Тест начинает со стандартных заглушек поддельного сервера.
+        UiFake.Reset();
         UiShot.Setup(UiTheme.Dark, AppLanguage.Russian);
         var type = typeof(NurMarketKassa.AvaloniaHost.App).Assembly.GetTypes().Single(t => t.Name == typeName && typeof(Window).IsAssignableFrom(t));
         var window = TestHost.Services.GetService(type) as Window;

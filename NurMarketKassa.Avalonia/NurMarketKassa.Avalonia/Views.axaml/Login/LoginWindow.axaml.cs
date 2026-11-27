@@ -102,6 +102,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 WorkOfflineLink.IsVisible = false;
             }
 
+            // 2026-11-27: вход кассира по QR-бейджу со сканера (LoginWindow.Badge.cs).
+            AttachBadgeScanner();
+
             Loaded += OnLoaded;
             Closed += OnClosed;
         }
@@ -154,6 +157,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 var isAutonomous = App.GetRequiredService<IAutonomousAuthService>().IsCurrentSessionAutonomous;
                 if (!isAutonomous)
                 {
+                    RememberLoginForBadge(); // 2026-11-27: вход кассира с бейджем — сохранить для входа по QR
                     _viewModel.SetLoadingStatus(Tr.T("Загрузка компании…", "Компания жүктөлүүдө…", "Loading company…", "Şirket yükleniyor…", "Kompaniya yuklanmoqda…"));
                     await CompanyInfoService.RefreshAsync(App.AuthApi, _closedCts.Token).ConfigureAwait(true);
                     App.AuditDb.LogEvent("auth", "login", new { userId }, userId);

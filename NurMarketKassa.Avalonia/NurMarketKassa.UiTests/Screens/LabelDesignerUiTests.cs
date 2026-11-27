@@ -304,6 +304,188 @@ public sealed class LabelDesignerUiTests : IDisposable
         }
     }
 
+    // ------------------------------------------------------------------ 2026-11-27: «Ошибка в редактировании штрих кода ценников»
+
+    private static T PrintField<T>(LabelsHubView hub, string name) =>
+        (T)typeof(BarcodePrintView).GetField(name, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(hub.PrintHost.View!)!;
+
+    private static ToggleButton ModeButton(LabelsHubView hub, LabelsHubMode mode) =>
+        hub.GetVisualDescendants().OfType<ToggleButton>().First(b => UiDrive.TextOf(b) == LabelsHubView.ModeText(mode));
+
+    /// <summary>Правки редактора (тип штрихкода) без «Сохранить*» → кнопка режима «Печать»: печать получает их, а не прежний шаблон.</summary>
+    [AvaloniaFact]
+    public async Task Editor_UnsavedBarcodeEdit_ReachesPrint_WhenSwitchingToPrintMode()
+    {
+        await TestHost.WarmAsync();
+        var start = LabelTemplate.CreateDefault();
+        LabelTemplateStore.Save(start);
+        var (window, hub) = OpenHub(1366, 768, AppLanguage.Russian, LabelsHubMode.Editor);
+        try
+        {
+            var d = hub.Designer!;
+            d.Reload();
+            d.SelectElement("barcode");
+            UiShot.Settle(4);
+            var format = d.GetVisualDescendants().OfType<ComboBox>().First(c => c.Items.OfType<string>().Contains("Code 128"));
+            format.SelectedIndex = (int)LabelBarcodeFormat.Code128;
+            UiShot.Settle(3);
+            d.IsDirty.Should().BeTrue();
+
+            UiDrive.Click(window, ModeButton(hub, LabelsHubMode.Print));
+            UiShot.Settle(8);
+            hub.Mode.Should().Be(LabelsHubMode.Print);
+            LabelTemplateStore.Load().BarcodeFormat.Should().Be(LabelBarcodeFormat.Code128, "правка редактора сохранена при уходе в «Печать»");
+            PrintField<LabelTemplate>(hub, "_template").BarcodeFormat.Should().Be(LabelBarcodeFormat.Code128, "«Печать» печатает по правке, а не по старому шаблону");
+            d.IsDirty.Should().BeFalse();
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>Нажатие по «Штрих-код» над холстом выбирает штрихкод для правки и не убирает его с этикетки; выключает — повторное нажатие.</summary>
+    [AvaloniaTheory]
+    [InlineData(AppLanguage.Russian)]
+    [InlineData(AppLanguage.Kyrgyz)]
+    [InlineData(AppLanguage.Uzbek)]
+    public async Task Editor_BarcodeChip_SelectsTheBarcode_WithoutHidingIt(AppLanguage lang)
+    {
+        await TestHost.WarmAsync();
+        LabelTemplateStore.Save(LabelTemplate.CreateDefault());
+        var (window, hub) = OpenHub(1024, 600, lang, LabelsHubMode.Editor);
+        try
+        {
+            var d = hub.Designer!;
+            d.Reload();
+            UiShot.Settle(4);
+            d.SelectedKey.Should().NotBe("barcode");
+            ToggleButton Chip() => d.GetVisualDescendants().OfType<ToggleButton>().First(b => (b.Tag as string) == "barcode");
+            UiDrive.Click(window, Chip());
+            UiShot.Settle(4);
+            d.WorkingTemplate.Barcode.Enabled.Should().BeTrue($"{Lang(lang)}: штрихкод остался на этикетке");
+            d.SelectedKey.Should().Be("barcode", "нажатие выбрало штрихкод — справа его свойства");
+            Chip().IsChecked.Should().BeTrue();
+            UiDrive.AllText(window).Should().Contain(Tr.T("Тип штрихкода", "Штрихкод түрү", "Barcode type", "Barkod türü", "Shtrix-kod turi"));
+
+            UiDrive.Click(window, Chip());
+            UiShot.Settle(4);
+            d.WorkingTemplate.Barcode.Enabled.Should().BeFalse("повторное нажатие по выбранному — убрать с этикетки, как раньше");
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>Поле X показывает то, что реально на этикетке: блок не выходит за край, и в поле не остаётся введённое «30».</summary>
+    [AvaloniaFact]
+    public async Task Editor_PositionField_ShowsTheClampedValue()
+    {
+        await TestHost.WarmAsync();
+        LabelTemplateStore.Save(LabelTemplate.CreateDefault());
+        var (window, hub) = OpenHub(1366, 768, AppLanguage.Russian, LabelsHubMode.Editor);
+        try
+        {
+            var d = hub.Designer!;
+            d.Reload();
+            d.SelectElement("barcode");
+            UiShot.Settle(4);
+            var xBox = d.GetVisualDescendants().OfType<NumericUpDown>().First(n => n.Value == (decimal)Math.Round(d.WorkingTemplate.Barcode.XMm, 2) && n.Maximum == 150 && n.Minimum == 0);
+            xBox.Value = 30;
+            UiShot.Settle(6);
+            var b = d.WorkingTemplate.Barcode;
+            (b.XMm + b.WidthMm).Should().BeLessThanOrEqualTo(d.WorkingTemplate.WidthMm + 0.01);
+            xBox.Value.Should().Be((decimal)Math.Round(b.XMm, 2), "поле показывает настоящее X, а не введённое 30");
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>«Толщина штриха» есть в свойствах штрихкода редактора; «1 (тонкий)» — подсказка, почему штрихкод узкий; у QR поле и «Цифры» неактивны.</summary>
+    [AvaloniaTheory]
+    [InlineData(AppLanguage.Russian)]
+    [InlineData(AppLanguage.Kyrgyz)]
+    [InlineData(AppLanguage.Uzbek)]
+    public async Task Editor_BarcodeThickness_IsEditable_AndThinHintShown(AppLanguage lang)
+    {
+        await TestHost.WarmAsync();
+        LabelTemplateStore.Save(LabelTemplate.CreateDefault());
+        var (window, hub) = OpenHub(1024, 600, lang, LabelsHubMode.Editor);
+        try
+        {
+            var d = hub.Designer!;
+            d.Reload();
+            d.SelectElement("barcode");
+            UiShot.Settle(4);
+            var thin = "1 " + Tr.T("(тонкий)", "(ичке)", "(thin)", "(ince)", "(ingichka)");
+            var thickness = d.GetVisualDescendants().OfType<ComboBox>().First(c => c.Items.OfType<string>().Contains(thin));
+            thickness.SelectedIndex = 1;
+            UiShot.Settle(6);
+            d.WorkingTemplate.BarcodeModuleDots.Should().Be(1);
+            UiDrive.AllText(window).Should().Contain("0,125", $"{Lang(lang)}: подсказка о тонком штрихе");
+            var windowRect = new Rect(0, 0, window.Bounds.Width, window.Bounds.Height);
+            Bounds(thickness, window).Right.Should().BeLessThanOrEqualTo(windowRect.Right + 1, $"{Lang(lang)}: поле не выходит за окно 1024×600");
+
+            var format = d.GetVisualDescendants().OfType<ComboBox>().First(c => c.Items.OfType<string>().Contains("Code 128"));
+            format.SelectedIndex = (int)LabelBarcodeFormat.QrCode;
+            UiShot.Settle(4);
+            thickness.IsEnabled.Should().BeFalse("у QR толщины штриха нет");
+            d.GetVisualDescendants().OfType<CheckBox>().First(c => UiDrive.TextOf(c) == Tr.T("Цифры под штрихкодом", "Штрихкоддун астындагы сандар", "Digits under the barcode", "Barkodun altında rakamlar", "Shtrix-kod ostidagi raqamlar"))
+                .IsEnabled.Should().BeFalse("у QR цифр под кодом нет");
+            SaveShot(window, $"labeldesigner-thickness-{Lang(lang)}-1024x600", new UiSize(1024, 600));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>Шаблон из редактора (бренд, ячейка, дата) в «Печати»: галочка «Артикул» не растягивает штрихкод поверх них, смена размера растягивает и их.</summary>
+    [AvaloniaFact]
+    public async Task Print_DesignerTemplate_IsNotRearranged_ByCheckboxes_AndScalesWithSize()
+    {
+        await TestHost.WarmAsync();
+        LabelTemplateStore.Save(LabelDesignPresets.ById("shelf")!.Build());
+        var (window, hub) = OpenHub(1366, 768, AppLanguage.Russian, LabelsHubMode.Print);
+        try
+        {
+            typeof(BarcodePrintView).GetMethod("ReloadTemplate", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.Invoke(hub.PrintHost.View!, null);
+            UiShot.Settle(6);
+            var t = PrintField<LabelTemplate>(hub, "_template");
+            t.Extras.Should().NotBeEmpty();
+            var bar = (t.Barcode.XMm, t.Barcode.YMm, t.Barcode.WidthMm, t.Barcode.HeightMm);
+            var name = (t.ProductName.XMm, t.ProductName.YMm, t.ProductName.WidthMm);
+
+            PrintField<CheckBox>(hub, "_showSku").IsChecked = true;
+            UiShot.Settle(4);
+            t = PrintField<LabelTemplate>(hub, "_template");
+            t.Sku.Enabled.Should().BeTrue();
+            (t.Barcode.XMm, t.Barcode.YMm, t.Barcode.WidthMm, t.Barcode.HeightMm).Should().Be(bar, "штрихкод не растянут поверх бренда и ячейки");
+            (t.ProductName.XMm, t.ProductName.YMm, t.ProductName.WidthMm).Should().Be(name);
+
+            var size = PrintField<ComboBox>(hub, "_sizeCombo");
+            var idx = size.Items.OfType<string>().ToList().FindIndex(s => s.StartsWith("40×30", StringComparison.Ordinal));
+            idx.Should().BeGreaterThanOrEqualTo(0);
+            size.SelectedIndex = idx;
+            UiShot.Settle(4);
+            t = PrintField<LabelTemplate>(hub, "_template");
+            t.WidthMm.Should().Be(40);
+            foreach (var e in t.Extras)
+            {
+                (e.XMm + e.WidthMm).Should().BeLessThanOrEqualTo(40 + 0.01, $"«{e.Kind}» не ушёл за край после 58×40 → 40×30");
+                (e.YMm + e.HeightMm).Should().BeLessThanOrEqualTo(30 + 0.01);
+            }
+            SaveShot(window, "labeldesigner-print-designer-template-ru-1366x768", new UiSize(1366, 768));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     // ------------------------------------------------------------------ калибровка принтера (после ухода старого окна «Редактор этикетки»)
 
     [AvaloniaTheory]

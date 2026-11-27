@@ -42,6 +42,7 @@ public sealed partial class LabelsHubView : UserControl
     {
         if (Mode == LabelsHubMode.Print && mode != LabelsHubMode.Print)
             _printHost.View?.SaveState(); // правки размера/полей в «Печать» — на диск, чтобы редактор открыл тот же шаблон
+        SaveDesignerIfLeaving(mode);
         Mode = mode;
         ApplyMode();
     }
@@ -63,7 +64,20 @@ public sealed partial class LabelsHubView : UserControl
     }
 
     /// <summary>Закрытие окна/раздела: остановить таймеры печати.</summary>
-    public void Shutdown() => _printHost.Shutdown();
+    public void Shutdown()
+    {
+        SaveDesignerIfLeaving(LabelsHubMode.Print); // 2026-11-27: закрытие раздела с несохранёнными правками редактора — как уход из режима
+        _printHost.Shutdown();
+    }
+
+    /// <summary>2026-11-27 («Ошибка в редактировании штрих кода ценников»): правки «Редактора» (тип и размер штрихкода, шаблон, элементы) не доходили
+    /// до печати — кнопка режима «Печать» показывала и печатала прежний шаблон без предупреждения, пока не нажата «Сохранить*». «Печать» свои правки
+    /// сохраняет при уходе сама (SaveState), теперь и «Редактор» — так же.</summary>
+    private void SaveDesignerIfLeaving(LabelsHubMode next)
+    {
+        if (Mode == LabelsHubMode.Editor && next != LabelsHubMode.Editor && Designer is { IsDirty: true } designer)
+            designer.Save();
+    }
 
     partial void InitModes();
 

@@ -354,8 +354,14 @@ public static class OfflineRefundPlanner
                     decimal.TryParse(entry.CashReceived, NumberStyles.Any, CultureInfo.InvariantCulture, out var prepaid);
                     snap.PaidCash = Math.Min(Math.Max(0m, prepaid), snap.Total);
                     break;
+                case "mixed" when !string.IsNullOrWhiteSpace(entry.NonCashReceived):
+                    // 2026-11-27: смешанная оплата без связи теперь встаёт в очередь — доли из записи (наличная часть, остальное безнал).
+                    decimal.TryParse(entry.CashReceived, NumberStyles.Any, CultureInfo.InvariantCulture, out var mixedCash);
+                    snap.PaidCash = Math.Min(Math.Max(0m, mixedCash), snap.Total);
+                    snap.PaidNonCash = snap.Total - snap.PaidCash;
+                    break;
                 case "mixed" or "split":
-                    return null; // в очередь не ставится
+                    return null; // доли неизвестны (старая запись)
                 default:
                     snap.PaidNonCash = snap.Total;
                     break;

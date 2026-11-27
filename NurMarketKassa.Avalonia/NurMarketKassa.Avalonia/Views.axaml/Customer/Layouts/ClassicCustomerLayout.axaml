@@ -108,7 +108,9 @@
 
       <!-- QR / реклама и состояние сканера -->
       <StackPanel Grid.Column="1" Margin="16,0,0,0" Spacing="14">
-        <parts:CustomerInfoCard/>
+        <!-- 2026-11-27 (живой проход 27.11, I): без QR и без рекламы блок был пустой заглушкой «Специальное предложение» со значком и названием магазина («Market»);
+             теперь, как в остальных видах, показывается только когда есть что показать. -->
+        <parts:CustomerInfoCard IsVisible="{Binding HasInformationContent}"/>
 
         <Border Classes="cd-card" Padding="16">
           <Grid ColumnDefinitions="Auto,*">
@@ -135,7 +137,9 @@
         </StackPanel>
         <StackPanel Grid.Column="1" IsVisible="{Binding ShowSubtotals}">
           <TextBlock Classes="cd-soft" Text="{DynamicResource csh.customer.discount}" FontSize="12" FontWeight="Bold"/>
-          <Border Background="{Binding DiscountSoftBrush}" CornerRadius="9" Padding="10,4">
+          <!-- 2026-11-27 (живой проход 27.11, I): сумма скидки стояла на 10 px правее подписи «Скидка» (отступ подложки) — подложка сдвинута влево на свой отступ,
+               цифра — ровно под подписью, как «Подытог» слева. -->
+          <Border Background="{Binding DiscountSoftBrush}" CornerRadius="9" Padding="10,4" Margin="-10,0,0,0" HorizontalAlignment="Left">
             <TextBlock Text="{Binding DiscountAmountText}" FontSize="20" FontWeight="Bold"
                        Foreground="{Binding DiscountBrush}"/>
           </Border>

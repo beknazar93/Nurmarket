@@ -716,6 +716,9 @@ public partial class App : Application
                 "auto_login",
                 new { mode = result.Mode.ToString(), userId = appSession.CurrentUserId },
                 appSession.CurrentUserId);
+            // 2026-11-27: кассир с QR-бейджем вошёл автовходом — его вход сохраняется для входа по QR (и когда придёт список бейджей).
+            if (!NurMarketKassa.Services.AppMode.IsOwner)
+                CashierBadgeVault.StartAutoRemember(AppHost.Services.GetRequiredService<IAuthSessionManager>());
             AppHost.Services.GetRequiredService<SyncService>().Start();
             NurMarketKassa.Services.Lan.LanSyncService.Instance.Start();
 

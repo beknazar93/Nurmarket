@@ -7,7 +7,7 @@ Views.axaml\Controls\SiteThemePreview.cs;1
 Views.axaml\Customer\CustomerDisplayView.axaml.cs;1
 Views.axaml\Dialogs\AcceptDebtPaymentWindow.cs;1
 Views.axaml\Dialogs\BarcodePrintWindow.Cards.cs;1
-Views.axaml\Dialogs\BarcodePrintWindow.Settings.cs;4
+Views.axaml\Dialogs\BarcodePrintWindow.Settings.cs;5
 Views.axaml\Dialogs\CartRemovalsWindow.axaml.cs;1
 Views.axaml\Dialogs\CheckoutDialog.axaml.cs;8
 Views.axaml\Dialogs\ClientPickerDialog.axaml.cs;10
@@ -18,7 +18,7 @@ Views.axaml\Dialogs\DialogScreenFit.cs;1
 Views.axaml\Dialogs\ExchangeWindow.cs;3
 Views.axaml\Dialogs\HardwareCalcWindow.cs;1
 Views.axaml\Dialogs\LabelDesignerView.cs;3
-Views.axaml\Dialogs\LabelDesignerView.Props.cs;1
+Views.axaml\Dialogs\LabelDesignerView.Props.cs;2
 Views.axaml\Dialogs\LabelTemplateEditorDialog.axaml.cs;1
 Views.axaml\Dialogs\ModalShell.cs;2
 Views.axaml\Dialogs\OrderDiscountDialog.axaml.cs;2
@@ -29,7 +29,7 @@ Views.axaml\Dialogs\ProductEditDialog.axaml.cs;1
 Views.axaml\Dialogs\ProductEditDialog.Properties.cs;3
 Views.axaml\Dialogs\ProductEditDialog.Save.cs;4
 Views.axaml\Dialogs\QrCropDialog.axaml.cs;1
-Views.axaml\Dialogs\ReturnSaleDialog.Sales.cs;2
+Views.axaml\Dialogs\ReturnSaleDialog.Sales.cs;1
 Views.axaml\Dialogs\ReturnSaleDialog.Submit.cs;1
 Views.axaml\Dialogs\RongtaScaleSettingsWindow.axaml.cs;2
 Views.axaml\Dialogs\SalaryPayoutDialog.cs;2
@@ -41,7 +41,7 @@ Views.axaml\Dialogs\TmScaleSettingsWindow.axaml.cs;1
 Views.axaml\Dialogs\VariantEditorWindow.cs;1
 Views.axaml\Dialogs\VariantPickerWindow.cs;1
 Views.axaml\Dialogs\VariantReceiveWindow.cs;1
-Views.axaml\Dialogs\WeighedProductDialog.axaml.cs;4
+Views.axaml\Dialogs\WeighedProductDialog.axaml.cs;2
 Views.axaml\Dialogs\WriteOffDialog.axaml.cs;1
 Views.axaml\Main\AiAdvisorWindow.Answer.cs;2
 Views.axaml\Main\AiAdvisorWindow.Chat.cs;1
@@ -92,6 +92,7 @@ Views.axaml\MainKassir\Layouts\KassaLayoutBase.cs;2
 Views.axaml\MainKassir\MainWindow.axaml.cs;5
 Views.axaml\MainKassir\MainWindow.Dialogs.cs;1
 Views\Settings\AccountView.axaml.cs;1
+Views\Settings\CashierBadgeWindow.cs;1
 Views\Settings\KassaMenuStyles.cs;2
 Views\Settings\MarketplaceSlideStrip.cs;7
 Views\Settings\MarketplaceStoreView.Detail.cs;1

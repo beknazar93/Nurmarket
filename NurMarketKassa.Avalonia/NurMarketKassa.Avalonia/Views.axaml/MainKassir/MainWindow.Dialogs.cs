@@ -537,6 +537,9 @@ public partial class MainWindow
             || dialog.ResultOperation is not { } op)
             return;
 
+        // 2026-11-27 (живой проход 27.11, Диктор): продолжение после закрытия окна выполнялось прямо внутри нажатия его кнопки (UIA Invoke) — запись, печать
+        // и сообщения держали вызов диктора. Сначала отпускаем нажатие, запись — следующим проходом цикла.
+        await Task.Yield();
         await RecordCashOperationAsync(op).ConfigureAwait(true);
     }
 

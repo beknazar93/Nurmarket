@@ -431,8 +431,14 @@ public sealed class NewcomerRunTests : IDisposable
             _run = null;
             PosLogger.Mirror = _savedMirror;
             CloseExtra();
+            // 2026-11-27 (полный прогон 27.11: тест висел 10 мин до blame-hang): задачи 2–5 открывают смену (EnsureShift), а закрытие окна кассы при открытой смене
+            // спрашивает «Смена не закрыта» синхронным окном (ShiftNotClosedDialog.Prompt — вложенный цикл диспетчера). Робот к этому моменту уже снят (_run = null),
+            // отвечать некому — UiShot.Pump() не возвращался. Смена «закрывается» тестом до закрытия окна (как и выставлялась им), Dispose вернёт прежнюю.
+            SetShift(null);
+            Progress("== закрытие окна кассы");
             main.Close();
             UiShot.Pump();
+            Progress("== окно кассы закрыто");
         }
 
         WriteReport(runs);
