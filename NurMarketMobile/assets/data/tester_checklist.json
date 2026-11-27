@@ -5600,6 +5600,241 @@
           "Ta'mlar narxi har xil bo'lsa — ilova o'zi hal qilmay, so'raydi."
         ]
       }
+    },
+    {
+      "id": "1.18.24/marketplace",
+      "version": "1.18.24",
+      "area": "other",
+      "severity": "important",
+      "title": {
+        "ru": "Маркетплейс функций и тарифов",
+        "ky": "Функциялар жана тарифтер маркетплейси",
+        "en": "Marketplace of features and plans",
+        "tr": "Özellik ve tarife pazaryeri",
+        "uz": "Funksiyalar va tariflar marketpleysi"
+      },
+      "changed": {
+        "ru": "В телефоне появился Маркетплейс, как в кассе: карточки функций с иконкой, описанием и демо, тарифы. Открыт владельцу и администратору, кассиру закрыт.",
+        "ky": "Телефондо кассадагыдай Маркетплейс пайда болду: иконкасы, сүрөттөмөсү жана демосу бар функция карточкалары, тарифтер. Ээсине жана администраторго ачык, кассирге жабык.",
+        "en": "The phone now has the Marketplace, as in the till: feature cards with an icon, description and demo, and plans. Open to the owner and administrator, closed to cashiers.",
+        "tr": "Telefonda kasadaki gibi Pazaryeri var: simgeli, açıklamalı ve demolu özellik kartları, tarifeler. Sahibe ve yöneticiye açık, kasiyere kapalı.",
+        "uz": "Telefonda kassadagidek Marketpleys paydo bo'ldi: belgisi, tavsifi va demosi bor funksiya kartalari, tariflar. Egasi va administratorga ochiq, kassirga yopiq."
+      },
+      "steps": {
+        "ru": [
+          "Войдите владельцем → откройте Маркетплейс: у каждой функции своя иконка и описание «что делает».",
+          "Откройте карточку функции и демо — текст не обрезан, кнопки видны.",
+          "Войдите кассиром — раздела Маркетплейс нет."
+        ],
+        "ky": [
+          "Ээси болуп кириңиз → Маркетплейсти ачыңыз: ар бир функциянын өз иконкасы жана «эмне кылат» сүрөттөмөсү бар.",
+          "Функциянын карточкасын жана демосун ачыңыз — текст кесилбейт, баскычтар көрүнөт.",
+          "Кассир болуп кириңиз — Маркетплейс бөлүмү жок."
+        ],
+        "en": [
+          "Sign in as the owner → open the Marketplace: each feature has its own icon and a “what it does” description.",
+          "Open a feature card and its demo — the text is not cut off, the buttons are visible.",
+          "Sign in as a cashier — there is no Marketplace section."
+        ],
+        "tr": [
+          "Sahip olarak girin → Pazaryeri'ni açın: her özelliğin kendi simgesi ve «ne yapar» açıklaması var.",
+          "Özellik kartını ve demosunu açın — metin kesilmez, düğmeler görünür.",
+          "Kasiyer olarak girin — Pazaryeri bölümü yok."
+        ],
+        "uz": [
+          "Egasi sifatida kiring → Marketpleysni oching: har bir funksiyaning o'z belgisi va «nima qiladi» tavsifi bor.",
+          "Funksiya kartasi va demosini oching — matn kesilmaydi, tugmalar ko'rinadi.",
+          "Kassir sifatida kiring — Marketpleys bo'limi yo'q."
+        ]
+      }
+    },
+    {
+      "id": "1.18.24/stock-scan-photo-search",
+      "version": "1.18.24",
+      "area": "stock",
+      "severity": "normal",
+      "title": {
+        "ru": "Склад: поиск сканером и по фото",
+        "ky": "Склад: сканер жана сүрөт менен издөө",
+        "en": "Stock: search by scanner and by photo",
+        "tr": "Depo: tarayıcı ve fotoğrafla arama",
+        "uz": "Ombor: skaner va rasm bo'yicha qidiruv"
+      },
+      "changed": {
+        "ru": "Рядом с поиском по названию на складе — кнопки «Сканер штрихкода» и «Поиск по фото»; найденный товар подставляется в строку поиска.",
+        "ky": "Складда аталыш боюнча издөөнүн жанында «Штрих-код сканери» жана «Сүрөт менен издөө» баскычтары; табылган товар издөө сабына коюлат.",
+        "en": "Next to the name search in Stock there are “Barcode scanner” and “Search by photo” buttons; the found product is put into the search line.",
+        "tr": "Depoda ada göre aramanın yanında «Barkod tarayıcı» ve «Fotoğrafla ara» düğmeleri; bulunan ürün arama satırına yazılır.",
+        "uz": "Omborda nom bo'yicha qidiruv yonida «Shtrix-kod skaneri» va «Rasm bo'yicha qidiruv» tugmalari; topilgan tovar qidiruv qatoriga qo'yiladi."
+      },
+      "steps": {
+        "ru": [
+          "Склад → Товары → нажмите значок сканера и наведите на штрихкод товара: товар найден.",
+          "Нажмите «Поиск по фото» и снимите товар: подставляется его название.",
+          "Отсканируйте неизвестный код — понятное сообщение «не найден», приложение не падает."
+        ],
+        "ky": [
+          "Склад → Товарлар → сканер белгисин басып, товардын штрих-кодуна багыттаңыз: товар табылды.",
+          "«Сүрөт менен издөөнү» басып, товарды тартыңыз: анын аталышы коюлат.",
+          "Белгисиз кодду сканерлеңиз — түшүнүктүү «табылган жок» билдирүүсү, колдонмо жабылбайт."
+        ],
+        "en": [
+          "Stock → Products → tap the scanner icon and point it at a product barcode: the product is found.",
+          "Tap “Search by photo” and take a picture of a product: its name is filled in.",
+          "Scan an unknown code — a clear “not found” message, the app does not crash."
+        ],
+        "tr": [
+          "Depo → Ürünler → tarayıcı simgesine basıp ürün barkoduna doğrultun: ürün bulunur.",
+          "«Fotoğrafla ara»ya basıp ürünü çekin: adı yazılır.",
+          "Bilinmeyen bir kodu okutun — açık bir «bulunamadı» mesajı, uygulama çökmez."
+        ],
+        "uz": [
+          "Ombor → Tovarlar → skaner belgisini bosib, tovar shtrix-kodiga qarating: tovar topildi.",
+          "«Rasm bo'yicha qidiruv»ni bosib, tovarni suratga oling: uning nomi qo'yiladi.",
+          "Noma'lum kodni skanerlang — tushunarli «topilmadi» xabari, ilova yopilmaydi."
+        ]
+      }
+    },
+    {
+      "id": "1.18.24/receipt-share-link",
+      "version": "1.18.24",
+      "area": "sale",
+      "severity": "important",
+      "title": {
+        "ru": "Красивый чек по ссылке и QR",
+        "ky": "Шилтеме жана QR боюнча кооз чек",
+        "en": "Nice receipt by link and QR",
+        "tr": "Bağlantı ve QR ile şık fiş",
+        "uz": "Havola va QR orqali chiroyli chek"
+      },
+      "changed": {
+        "ru": "QR на чеке ведёт на страницу чека (ссылка с сервера); «Отправить чек» шлёт ссылку и «Ваш чек №…». Без связи чек печатается без QR.",
+        "ky": "Чектеги QR чектин барагына алып барат (шилтеме серверден); «Чекти жөнөтүү» шилтемени жана «Сиздин чек №…» жөнөтөт. Байланыш жок болсо чек QRсыз басылат.",
+        "en": "The QR on the receipt leads to the receipt page (link from the server); “Send receipt” sends the link and “Your receipt No…”. Offline, the receipt prints without a QR.",
+        "tr": "Fişteki QR fiş sayfasına götürür (bağlantı sunucudan); «Fişi gönder» bağlantıyı ve «Fişiniz No…» gönderir. Bağlantı yoksa fiş QR'sız basılır.",
+        "uz": "Chekdagi QR chek sahifasiga olib boradi (havola serverdan); «Chekni yuborish» havolani va «Sizning chekingiz №…» yuboradi. Aloqa bo'lmasa chek QRsiz chop etiladi."
+      },
+      "steps": {
+        "ru": [
+          "Проведите продажу с интернетом → откройте чек: есть QR, телефон камерой открывает страницу чека.",
+          "Нажмите «Отправить чек» → WhatsApp: в тексте ссылка и номер чека.",
+          "Проведите продажу без интернета — чек печатается без QR, продажа не теряется."
+        ],
+        "ky": [
+          "Интернет менен сатуу өткөрүңүз → чекти ачыңыз: QR бар, телефондун камерасы чектин барагын ачат.",
+          "«Чекти жөнөтүү» → WhatsApp: текстте шилтеме жана чектин номери.",
+          "Интернетсиз сатуу өткөрүңүз — чек QRсыз басылат, сатуу жоголбойт."
+        ],
+        "en": [
+          "Make a sale online → open the receipt: there is a QR, a phone camera opens the receipt page.",
+          "Tap “Send receipt” → WhatsApp: the text has the link and the receipt number.",
+          "Make a sale offline — the receipt prints without a QR, the sale is not lost."
+        ],
+        "tr": [
+          "İnternetle satış yapın → fişi açın: QR var, telefon kamerası fiş sayfasını açar.",
+          "«Fişi gönder» → WhatsApp: metinde bağlantı ve fiş numarası var.",
+          "İnternetsiz satış yapın — fiş QR'sız basılır, satış kaybolmaz."
+        ],
+        "uz": [
+          "Internet bilan sotuv o'tkazing → chekni oching: QR bor, telefon kamerasi chek sahifasini ochadi.",
+          "«Chekni yuborish» → WhatsApp: matnda havola va chek raqami.",
+          "Internetsiz sotuv o'tkazing — chek QRsiz chop etiladi, sotuv yo'qolmaydi."
+        ]
+      }
+    },
+    {
+      "id": "1.18.24/advisor-tools",
+      "version": "1.18.24",
+      "area": "other",
+      "severity": "normal",
+      "title": {
+        "ru": "Нур-советник знает разделы и отвечает быстрее",
+        "ky": "Нур-кеңешчи бөлүмдөрдү билет жана тезирээк жооп берет",
+        "en": "Nur advisor knows the sections and answers faster",
+        "tr": "Nur danışman bölümleri bilir ve daha hızlı yanıt verir",
+        "uz": "Nur-maslahatchi bo'limlarni biladi va tezroq javob beradi"
+      },
+      "changed": {
+        "ru": "Советник объясняет разделы и Маркетплейс, открывает нужный экран, только читает (ничего не меняет); ответ виден по мере прихода, под ним «Использовано: …».",
+        "ky": "Кеңешчи бөлүмдөрдү жана Маркетплейсти түшүндүрөт, керектүү экранды ачат, окуйт гана (эч нерсе өзгөртпөйт); жооп келген сайын көрүнөт, астында «Колдонулду: …».",
+        "en": "The advisor explains sections and the Marketplace, opens the right screen, only reads (changes nothing); the answer appears as it arrives, with “Used: …” under it.",
+        "tr": "Danışman bölümleri ve Pazaryeri'ni açıklar, doğru ekranı açar, yalnızca okur (hiçbir şeyi değiştirmez); yanıt geldikçe görünür, altında «Kullanıldı: …».",
+        "uz": "Maslahatchi bo'limlar va Marketpleysni tushuntiradi, kerakli ekranni ochadi, faqat o'qiydi (hech narsani o'zgartirmaydi); javob kelishi bilan ko'rinadi, ostida «Ishlatildi: …»."
+      },
+      "steps": {
+        "ru": [
+          "Спросите советника «что умеет раздел Склад?» — ответ по делу, текст появляется сразу по частям.",
+          "Скажите «открой Маркетплейс» — открывается Маркетплейс, под ответом строка «Использовано: …».",
+          "Попросите изменить цену — советник отвечает, что только читает, и ничего не меняет."
+        ],
+        "ky": [
+          "Кеңешчиден «Склад бөлүмү эмне кыла алат?» деп сураңыз — жооп так, текст дароо бөлүктөп чыгат.",
+          "«Маркетплейсти ач» деңиз — Маркетплейс ачылат, жооптун астында «Колдонулду: …» сабы.",
+          "Бааны өзгөртүүнү сураңыз — кеңешчи окуй гана аларын айтат жана эч нерсе өзгөртпөйт."
+        ],
+        "en": [
+          "Ask the advisor “what can the Stock section do?” — a to-the-point answer, the text appears in parts right away.",
+          "Say “open the Marketplace” — the Marketplace opens, under the answer there is a “Used: …” line.",
+          "Ask it to change a price — the advisor says it only reads and changes nothing."
+        ],
+        "tr": [
+          "Danışmana «Depo bölümü ne yapar?» diye sorun — net yanıt, metin hemen parça parça görünür.",
+          "«Pazaryeri'ni aç» deyin — Pazaryeri açılır, yanıtın altında «Kullanıldı: …» satırı.",
+          "Fiyatı değiştirmesini isteyin — danışman yalnızca okuduğunu söyler ve hiçbir şeyi değiştirmez."
+        ],
+        "uz": [
+          "Maslahatchidan «Ombor bo'limi nima qila oladi?» deb so'rang — aniq javob, matn darhol qism-qism chiqadi.",
+          "«Marketpleysni och» deng — Marketpleys ochiladi, javob ostida «Ishlatildi: …» qatori.",
+          "Narxni o'zgartirishni so'rang — maslahatchi faqat o'qishini aytadi va hech narsani o'zgartirmaydi."
+        ]
+      }
+    },
+    {
+      "id": "1.18.24/sphere-zero-login",
+      "version": "1.18.24",
+      "area": "profile",
+      "severity": "normal",
+      "title": {
+        "ru": "Сфера с сервера, «0» в полях, вход на «Мини»",
+        "ky": "Серверден чөйрө, талаалардагы «0», «Мини» тарифте кирүү",
+        "en": "Sphere from the server, “0” in fields, sign-in on “Mini”",
+        "tr": "Sunucudan alan, alanlarda «0», «Mini»de giriş",
+        "uz": "Serverdan soha, maydonlardagi «0», «Mini»da kirish"
+      },
+      "changed": {
+        "ru": "Сфера магазина перечитывается с сервера при запуске и «потянуть для обновления»; «0» в числовом поле стирается при вводе; на «Мини» при занятом месте — «Выйти там и войти здесь?».",
+        "ky": "Дүкөндүн чөйрөсү ишке киргенде жана «тартып жаңылоодо» серверден кайра окулат; сандык талаадагы «0» терүүдө өчөт; «Мини» тарифте орун бош эмес болсо — «Ал жактан чыгып, бул жерге кирүү?».",
+        "en": "The shop sphere is re-read from the server on start and on pull-to-refresh; “0” in a number field is erased when you type; on “Mini” with the seat taken — “Sign out there and sign in here?”.",
+        "tr": "Mağaza alanı açılışta ve «yenilemek için çek»te sunucudan yeniden okunur; sayı alanındaki «0» yazarken silinir; «Mini»de yer doluysa — «Orada çıkıp burada girilsin mi?».",
+        "uz": "Do'kon sohasi ishga tushganda va «yangilash uchun torting»da serverdan qayta o'qiladi; raqamli maydondagi «0» yozganda o'chadi; «Mini»da joy band bo'lsa — «U yerdan chiqib, bu yerda kirilsinmi?»."
+      },
+      "steps": {
+        "ru": [
+          "Смените сферу магазина в кассе → в телефоне потяните главный экран вниз: вид меняется без нового входа.",
+          "Создайте товар: в поле количества «0» стирается первой цифрой, пустое поле снова «0».",
+          "На тарифе «Мини» войдите со второго телефона — вопрос «Выйти там и войти здесь?», а не «неверный пароль»."
+        ],
+        "ky": [
+          "Кассада дүкөндүн чөйрөсүн өзгөртүңүз → телефондо башкы экранды ылдый тартыңыз: көрүнүш кайра кирбей эле өзгөрөт.",
+          "Товар түзүңүз: сан талаасындагы «0» биринчи цифра менен өчөт, бош талаа кайра «0».",
+          "«Мини» тарифте экинчи телефондон кириңиз — «Ал жактан чыгып, бул жерге кирүү?» суроосу, «туура эмес сырсөз» эмес."
+        ],
+        "en": [
+          "Change the shop sphere in the till → on the phone pull the home screen down: the look changes without signing in again.",
+          "Create a product: the “0” in the quantity field is erased by the first digit, an empty field becomes “0” again.",
+          "On the “Mini” plan sign in from a second phone — the question “Sign out there and sign in here?”, not “wrong password”."
+        ],
+        "tr": [
+          "Kasada mağaza alanını değiştirin → telefonda ana ekranı aşağı çekin: görünüm yeniden giriş yapmadan değişir.",
+          "Ürün oluşturun: miktar alanındaki «0» ilk rakamla silinir, boş alan yine «0» olur.",
+          "«Mini» tarifede ikinci telefondan girin — «yanlış şifre» değil, «Orada çıkıp burada girilsin mi?» sorusu."
+        ],
+        "uz": [
+          "Kassada do'kon sohasini o'zgartiring → telefonda bosh ekranni pastga torting: ko'rinish qayta kirmasdan o'zgaradi.",
+          "Tovar yarating: miqdor maydonidagi «0» birinchi raqam bilan o'chadi, bo'sh maydon yana «0».",
+          "«Mini» tarifda ikkinchi telefondan kiring — «noto'g'ri parol» emas, «U yerdan chiqib, bu yerda kirilsinmi?» savoli."
+        ]
+      }
     }
   ]
 }
