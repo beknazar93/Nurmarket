@@ -67,6 +67,55 @@ public sealed class CashierBadgeLoginUiTests : IDisposable
         UiShot.Settle(3, 20);
     }
 
+    /// <summary>2026-11-27 (живая проверка 1.17.97, D3): настоящий USB-сканер шлёт на КАЖДЫЙ символ WM_KEYDOWN, затем WM_CHAR, затем WM_KEYUP.
+    /// Avalonia/Win32 не присылает WM_CHAR, если KeyDown обработан (_ignoreWmChar) — это повторяем: текст (TextInput) идёт, только если
+    /// KeyDown никто не обработал. KeySymbol у KeyDown — символ клавиши (как у Win32 через ToUnicodeEx); клавиши — по латинским позициям
+    /// (VK не зависят от раскладки), символ — в выбранной раскладке. Заканчивается Enter. Между символами паузы нет (быстрый ввод).
+    /// <paramref name="withKeySymbol"/>=false — как Win32 без ToUnicodeEx (символа у KeyDown нет, остаётся только код клавиши).</summary>
+    internal static void ScanByKeys(Window w, TextBox? focus, string latinCode, bool russianLayout = false, bool enter = true, bool withKeySymbol = true, int delayMs = 0)
+    {
+        if (focus is not null)
+        {
+            focus.Focus();
+            UiShot.Pump();
+        }
+        var typed = russianLayout ? ToRussianLayout(latinCode) : latinCode;
+        for (var i = 0; i < latinCode.Length; i++)
+        {
+            var symbol = typed[i].ToString();
+            var (key, mods) = KeyFor(latinCode[i]);
+            var handled = false;
+            void Probe(object? s, KeyEventArgs e) => handled = e.Handled;
+            w.AddHandler(InputElement.KeyDownEvent, Probe, Avalonia.Interactivity.RoutingStrategies.Bubble, handledEventsToo: true);
+            try
+            {
+                w.KeyPress(key, mods, PhysicalKey.None, withKeySymbol ? symbol : null);
+                if (!handled)
+                    w.KeyTextInput(symbol); // WM_CHAR доходит только до необработанного KeyDown
+            }
+            finally
+            {
+                w.RemoveHandler(InputElement.KeyDownEvent, Probe);
+            }
+            w.KeyRelease(key, mods, PhysicalKey.None, withKeySymbol ? symbol : null);
+            if (delayMs > 0)
+                Thread.Sleep(delayMs); // медленный сканер: вся строка идёт дольше паузы между символами в сумме
+        }
+        UiShot.Pump();
+        if (enter)
+            w.KeyPress(Key.Return, RawInputModifiers.None, PhysicalKey.Enter, null);
+        UiShot.Settle(3, 20);
+    }
+
+    private static (Key Key, RawInputModifiers Mods) KeyFor(char c)
+    {
+        if (c == ':')
+            return (Key.OemSemicolon, RawInputModifiers.Shift);
+        if (c is >= '0' and <= '9')
+            return ((Key)((int)Key.D0 + (c - '0')), RawInputModifiers.None);
+        return ((Key)((int)Key.A + (char.ToLowerInvariant(c) - 'a')), char.IsUpper(c) ? RawInputModifiers.Shift : RawInputModifiers.None);
+    }
+
     private static LoginViewModel Vm(Window w) => (LoginViewModel)w.DataContext!;
 
     [AvaloniaFact]
@@ -118,6 +167,170 @@ public sealed class CashierBadgeLoginUiTests : IDisposable
             password.IsFocused.Should().BeTrue("остаётся ввести пароль");
         }
         finally { window.Close(); UiShot.Pump(); }
+    }
+
+    /// <summary>2026-11-27 (D3a): сканер с настоящими KeyDown+TextInput+KeyUp (латинская и русская раскладка, с символом у KeyDown и без) —
+    /// бейдж читается целиком, а не «не прочитан целиком».</summary>
+    [AvaloniaTheory]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    public void RealScannerKeyEvents_FirstTimeBadge_IsReadWhole(bool russian, bool withKeySymbol)
+    {
+        var (code, record) = IssueBadge();
+        CashierBadgeVault.Instance.Remove(record.EmployeeId);
+        var window = OpenLogin();
+        try
+        {
+            var email = window.FindControl<TextBox>("EmailBox")!;
+            var password = window.FindControl<TextBox>("PasswordBox")!;
+            ScanByKeys(window, password, code, russian, withKeySymbol: withKeySymbol);
+            Vm(window).ErrorMessage.Should().Be(CashierBadgeLogin.NeedPasswordText(record), "бейдж прочитан целиком, не «Malformed»");
+            email.Text.Should().Be("aigul.test@nbs.kg");
+            (password.Text ?? "").Should().BeEmpty();
+        }
+        finally { window.Close(); UiShot.Pump(); }
+    }
+
+    /// <summary>2026-11-27 (D3): медленный сканер (вся строка дольше 1,5 с, пауза между символами короткая), конец строки Tab вместо Enter, второй Enter (CR+LF) —
+    /// строка читается целиком, второй Enter не нажимает «Войти» с пустыми полями (сообщение «нужен пароль» остаётся).</summary>
+    [AvaloniaFact]
+    public void RealScanner_SlowString_TabTerminator_AndSecondEnter_AreHandled()
+    {
+        var (code, record) = IssueBadge();
+        CashierBadgeVault.Instance.Remove(record.EmployeeId);
+        var window = OpenLogin();
+        try
+        {
+            var password = window.FindControl<TextBox>("PasswordBox")!;
+            ScanByKeys(window, password, code, enter: false, delayMs: 40); // 44 символа × 40 мс ≈ 1,8 с > паузы 1,5 с, но каждый зазор короткий
+            window.KeyPress(Key.Tab, RawInputModifiers.None, PhysicalKey.Tab, null);
+            UiShot.Settle(3, 20);
+            Vm(window).ErrorMessage.Should().Be(CashierBadgeLogin.NeedPasswordText(record), "строка со сканера, оканчивающаяся Tab, прочитана целиком");
+
+            // Сканер с концом CR+LF шлёт два Enter подряд: второй не должен нажать «Войти» (иначе «Введите логин и пароль.»).
+            ScanByKeys(window, password, code);
+            window.KeyPress(Key.Return, RawInputModifiers.None, PhysicalKey.Enter, null);
+            UiShot.Settle(3, 20);
+            Vm(window).ErrorMessage.Should().Be(CashierBadgeLogin.NeedPasswordText(record), "второй Enter сканера проглочен");
+            (password.Text ?? "").Should().BeEmpty();
+        }
+        finally { window.Close(); UiShot.Pump(); }
+    }
+
+    /// <summary>2026-11-27 (D3): сканер без Enter в конце — целая строка бейджа уходит сама после короткой тишины, запоздавший Enter не «входит» с пустыми полями.</summary>
+    [AvaloniaFact]
+    public void RealScanner_NoTerminator_DeliversWholeBadgeAfterShortSilence()
+    {
+        var (code, record) = IssueBadge();
+        CashierBadgeVault.Instance.Remove(record.EmployeeId);
+        var window = OpenLogin();
+        try
+        {
+            ScanByKeys(window, window.FindControl<TextBox>("PasswordBox")!, code, enter: false);
+            UiRobot.WaitFor(() => Vm(window).ErrorMessage == CashierBadgeLogin.NeedPasswordText(record), 3000).Should().BeTrue("через полсекунды после последнего символа строка ушла сама");
+            window.KeyPress(Key.Return, RawInputModifiers.None, PhysicalKey.Enter, null);
+            UiShot.Settle(3, 20);
+            Vm(window).ErrorMessage.Should().Be(CashierBadgeLogin.NeedPasswordText(record), "запоздавший Enter проглочен");
+        }
+        finally { window.Close(); UiShot.Pump(); }
+    }
+
+    /// <summary>2026-11-27 (D3d): после скана бейджа без сохранённого входа («нужен пароль») следующий скан другого бейджа обрабатывается (раньше — тишина до перезапуска);
+    /// оборванные («не прочитан целиком») сканы не копят паузу и не блокируют верный бейдж.</summary>
+    [AvaloniaFact]
+    public void SecondScan_AfterNeedPassword_IsProcessed_AndTruncatedScansDoNotLockOut()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var (list, firstCode, first) = CashierBadgeRegistry.Issue(Array.Empty<CashierBadgeRecord>(), "badge-ui-42", "Айгуль Тест", "aigul.test@nbs.kg", now);
+        var (list2, secondCode, _) = CashierBadgeRegistry.Issue(list, "badge-ui-43", "Бакыт Тест", "bakyt.test@nbs.kg", now);
+        CashierBadgeRegistry.Revoke(list2, "badge-ui-43", now);
+        UserPreferences.Instance.CashierBadgesJson = CashierBadgeRegistry.Serialize(list2);
+        CashierBadgeVault.Instance.Remove(first.EmployeeId);
+        var window = OpenLogin();
+        try
+        {
+            var password = window.FindControl<TextBox>("PasswordBox")!;
+            // шесть оборванных сканов подряд (больше FreeAttempts) — паузы быть не должно
+            for (var i = 0; i < CashierBadgeThrottle.FreeAttempts + 1; i++)
+            {
+                ScanByKeys(window, password, firstCode[..30]);
+                Vm(window).ErrorMessage.Should().Be(CashierBadgeRegistry.Message(CashierBadgeStatus.Malformed));
+            }
+            ScanByKeys(window, password, firstCode);
+            Vm(window).ErrorMessage.Should().Be(CashierBadgeLogin.NeedPasswordText(first), "верный бейдж после оборванных сканов не упирается в паузу");
+            ScanByKeys(window, password, secondCode, russianLayout: true);
+            Vm(window).ErrorMessage.Should().Be(CashierBadgeRegistry.Message(CashierBadgeStatus.Revoked), "второй скан обработан сразу, без перезапуска");
+            (password.Text ?? "").Should().BeEmpty();
+        }
+        finally { window.Close(); UiShot.Pump(); }
+    }
+
+    /// <summary>2026-11-27 (D3b/D3c): основное окно кассы, фокус в поиске, настоящие KeyDown+TextInput: вопрос «Сменить кассира?» один раз, цифры секрета в поиск и
+    /// в «штрихкод» (не найден в каталоге) не попадают, поле поиска возвращается к набранному до скана.</summary>
+    [AvaloniaFact]
+    public void OpenTill_RealScannerKeyEvents_AsksSwitchCashier_AndNothingLeaksToSearchOrBarcode()
+    {
+        var (code, _) = IssueBadge();
+        var main = (MainWindow)ScreenCatalog.Get("main-kassa").Create();
+        UiRobot.Reset(main);
+        try
+        {
+            UiShot.Render(main).Dispose();
+            var confirms = 0;
+            UiRobot.WhenOpened<PosConfirmDialog>(d => { confirms++; d.Close(); });
+            var vm = (MainWindowViewModel)main.DataContext!;
+            var before = vm.Basket.Lines.Count;
+            var search = main.GetVisualDescendants().OfType<TextBox>().First(t => t.Name == "ProductSearchBox");
+            search.Focus();
+            UiShot.Pump();
+            main.KeyTextInput("ab");
+            UiShot.Settle(3, 30);
+            var typedBefore = search.Text ?? ""; // в общей модели окна может остаться поиск прошлого теста — сравниваем с тем, что было до скана
+            ScanByKeys(main, search, code);
+            UiRobot.WaitFor(() => confirms == 1, 6000).Should().BeTrue("вопрос «Сменить кассира?»; открыто: " + UiRobot.OpenNames());
+            (search.Text ?? "").Should().Be(typedBefore, "в поиск ничего от бейджа не попало");
+            vm.Basket.Lines.Count.Should().Be(before);
+            confirms.Should().Be(1);
+
+            // без фокуса в поле (на каталоге/окне) — то же самое
+            main.Focus();
+            UiShot.Pump();
+            ScanByKeys(main, null, code, russianLayout: true, delayMs: 25);
+            UiRobot.WaitFor(() => confirms == 2, 6000).Should().BeTrue("и без фокуса в поле; открыто: " + UiRobot.OpenNames());
+            vm.Basket.Lines.Count.Should().Be(before);
+        }
+        finally
+        {
+            UiRobot.CloseAll();
+            UiRobot.Main = null;
+            main.Close();
+            UiShot.Pump();
+        }
+    }
+
+    /// <summary>2026-11-27 (D3): «Смена кассира» — настоящие KeyDown+TextInput из поля Email: строка уходит в смену по бейджу целиком, поля чистые.</summary>
+    [AvaloniaFact]
+    public void SwitchCashierDialog_RealScannerKeyEvents_DeliversWholeCode()
+    {
+        var (code, _) = IssueBadge();
+        string? got = null;
+        var dialog = new SwitchCashierDialog(
+            (_, _) => Task.FromResult<(SwitchCashierOutcome, string?)>((SwitchCashierOutcome.InvalidCredentials, "нет")),
+            (raw, _) => { got = raw; return Task.FromResult<(SwitchCashierOutcome, string?, string?)>((SwitchCashierOutcome.InvalidCredentials, "ок", null)); });
+        try
+        {
+            UiShot.Render(dialog).Dispose();
+            dialog.Activate();
+            var email = dialog.FindControl<TextBox>("EmailBox")!;
+            ScanByKeys(dialog, email, code);
+            UiRobot.WaitFor(() => got != null).Should().BeTrue();
+            CashierBadgeCode.TryParse(got, out var id, out _).Should().BeTrue("строка пришла целиком, не обрезанной");
+            id.Should().Be(code.Split(':')[2]);
+            (email.Text ?? "").Should().BeEmpty();
+        }
+        finally { dialog.Close(); UiShot.Pump(); }
     }
 
     [AvaloniaFact]

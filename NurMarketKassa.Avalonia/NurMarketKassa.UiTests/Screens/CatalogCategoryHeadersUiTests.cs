@@ -163,4 +163,114 @@ public sealed class CatalogCategoryHeadersUiTests : IDisposable
             built.Dispose();
         }
     }
+
+    /// <summary>2026-11-27 (живая проверка 1.17.97, D1): после смены темы «на лету» (светлая → тёмная и обратно; палитру кладёт AccentThemeService прямо в ресурсы приложения)
+    /// названия категорий и числа остаются читаемыми — в «Табличном» виде они показывали цвет прежней темы (тёмно-серый на тёмном). Проверка по пикселям снимка:
+    /// в полосе названия есть и фон, и текст с контрастом не ниже 4,5.</summary>
+    [AvaloniaTheory]
+    [InlineData(UiTheme.Light, UiTheme.Dark, CatalogViewMode.Table)]
+    [InlineData(UiTheme.Light, UiTheme.Dark, CatalogViewMode.Cards)]
+    [InlineData(UiTheme.Dark, UiTheme.Light, CatalogViewMode.Table)]
+    [InlineData(UiTheme.Dark, UiTheme.Light, CatalogViewMode.Cards)]
+    public async Task Headers_StayReadable_AfterThemeSwitch(UiTheme from, UiTheme to, CatalogViewMode mode)
+    {
+        await TestHost.WarmAsync();
+        UiShot.Setup(from, AppLanguage.Russian);
+        UserPreferences.Instance.CatalogGroupByCategory = true;
+        var built = CatalogListFixture.Create(1024, 600, 0, null, AddShop);
+        try
+        {
+            built.Vm.SetViewMode(mode);
+            built.Window.Show();
+            UiShot.Settle(8);
+            UiShot.Render(built.Window).Dispose(); // панель успела нарисоваться в прежней теме
+            UiShot.Setup(to, AppLanguage.Russian);
+            UiShot.Settle(8);
+            using var bmp = UiShot.Render(built.Window);
+            var panel = (CatalogGroupedPanel)VisibleList(built.Window).ItemsPanelRoot!;
+            panel.Headers.Should().NotBeEmpty();
+            var checkedCount = 0;
+            foreach (var h in panel.Headers)
+            {
+                var at = panel.TranslatePoint(h.TitleBounds.BottomRight, built.Window) ?? default;
+                if (at.Y > bmp.Height - 40 || at.X > bmp.Width - 2 || at.Y < 0)
+                    continue; // нижние группы за краем окна (страница длиннее экрана) — их пикселей в снимке нет
+                checkedCount++;
+                var tag = $"({from}→{to} {mode} «{h.Title}»)";
+                HeaderContrast(bmp, panel, built.Window, h.TitleBounds).Should().BeGreaterThanOrEqualTo(4.5, "название категории читаемо " + tag);
+                if (h.CountText.Length > 0)
+                    HeaderContrast(bmp, panel, built.Window, h.CountBounds).Should().BeGreaterThanOrEqualTo(2.5, "число товаров читаемо " + tag);
+            }
+            checkedCount.Should().BeGreaterThanOrEqualTo(2, "в кадре есть хотя бы две группы");
+        }
+        finally
+        {
+            built.Dispose();
+        }
+    }
+
+    /// <summary>2026-11-27 (D1, механизм): палитру кладут прямо в ресурсы приложения (AccentThemeService) без смены ThemeVariant — заголовки групп уже нарисованы и должны
+    /// сами подхватить новый цвет текста (раньше хранили кисть, взятую при подготовке, и оставались прежнего цвета, пока не сменятся товары).</summary>
+    [AvaloniaTheory]
+    [InlineData(CatalogViewMode.Table)]
+    [InlineData(CatalogViewMode.Cards)]
+    public async Task Headers_FollowPaletteChange_WithoutThemeVariantChange(CatalogViewMode mode)
+    {
+        await TestHost.WarmAsync();
+        UiShot.Setup(UiTheme.Dark, AppLanguage.Russian);
+        UserPreferences.Instance.CatalogGroupByCategory = true;
+        var app = Avalonia.Application.Current!;
+        app.Resources.TryGetValue("BrushText", out var oldText);
+        var built = CatalogListFixture.Create(1024, 600, 0, null, AddShop);
+        try
+        {
+            built.Vm.SetViewMode(mode);
+            built.Window.Show();
+            UiShot.Settle(8);
+            UiShot.Render(built.Window).Dispose();
+            app.Resources["BrushText"] = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromRgb(255, 0, 0)); // палитра сменилась, вариант темы тот же
+            UiShot.Settle(8);
+            using var bmp = UiShot.Render(built.Window);
+            var panel = (CatalogGroupedPanel)VisibleList(built.Window).ItemsPanelRoot!;
+            var h = panel.Headers[0];
+            var p = panel.TranslatePoint(h.TitleBounds.TopLeft, built.Window) ?? default;
+            var red = 0;
+            for (var x = (int)p.X; x < Math.Min(bmp.Width, (int)Math.Ceiling(p.X + h.TitleBounds.Width)); x++)
+                for (var y = (int)p.Y; y < Math.Min(bmp.Height, (int)Math.Ceiling(p.Y + h.TitleBounds.Height)); y++)
+                {
+                    var c = bmp.GetPixel(x, y);
+                    if (c.Red > 200 && c.Green < 90 && c.Blue < 90)
+                        red++;
+                }
+            red.Should().BeGreaterThan(10, $"название «{h.Title}» перекрасилось новой палитрой ({mode})");
+        }
+        finally
+        {
+            if (oldText is not null)
+                app.Resources["BrushText"] = oldText;
+            built.Dispose();
+        }
+    }
+
+    /// <summary>Контраст самого яркого и самого тёмного пикселя в прямоугольнике (координаты панели → окно): фон против текста.</summary>
+    private static double HeaderContrast(SKBitmap bmp, Visual panel, Visual window, Rect r)
+    {
+        var p = panel.TranslatePoint(r.TopLeft, window) ?? default;
+        double lo = 1, hi = 0;
+        for (var x = (int)Math.Max(0, Math.Floor(p.X)); x < Math.Min(bmp.Width, Math.Ceiling(p.X + r.Width)); x++)
+            for (var y = (int)Math.Max(0, Math.Floor(p.Y)); y < Math.Min(bmp.Height, Math.Ceiling(p.Y + r.Height)); y++)
+            {
+                var c = bmp.GetPixel(x, y);
+                var l = 0.2126 * Lin(c.Red) + 0.7152 * Lin(c.Green) + 0.0722 * Lin(c.Blue);
+                lo = Math.Min(lo, l);
+                hi = Math.Max(hi, l);
+            }
+        return (hi + 0.05) / (lo + 0.05);
+
+        static double Lin(byte v)
+        {
+            var s = v / 255.0;
+            return s <= 0.03928 ? s / 12.92 : Math.Pow((s + 0.055) / 1.055, 2.4);
+        }
+    }
 }

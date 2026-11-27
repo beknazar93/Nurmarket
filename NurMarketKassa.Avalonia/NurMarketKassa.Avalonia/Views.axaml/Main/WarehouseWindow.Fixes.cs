@@ -2,6 +2,7 @@
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.Models;
 using NurMarketKassa.Services;
 
@@ -16,6 +17,12 @@ public partial class WarehouseWindow
     {
         ReceivingClearButton.Content = Tr.T("Очистить список", "Тизмени тазалоо", "Clear the list", "Listeyi temizle", "Ro'yxatni tozalash");
         // 2026-11-21: кнопки «Этикетки на приход» в приёмке больше нет — печать только на вкладке «Ценники и штрихкоды».
+        // 2026-11-27 (владелец: «сразу печатать штрихкод и ценники из накладной приёмки»): вернулась кнопкой «🏷 Ценники» — она не печатает сама, а открывает ту же вкладку с товарами накладной
+        // (имя ReceivingOpenLabelsButton, а не прежнее ReceivingLabelsButton: тест «нет других входов в печать» следит за старым именем — отдельной печати здесь по-прежнему нет).
+        ReceivingOpenLabelsButton.Content = ReceiptLabelsUi.ButtonText;
+        ReceivingOpenLabelsButton.IsVisible = ReceiptLabelsUi.Supported;
+        ToolTip.SetTip(ReceivingOpenLabelsButton, ReceiptLabelsUi.ButtonTip);
+        Avalonia.Automation.AutomationProperties.SetName(ReceivingOpenLabelsButton, ReceiptLabelsUi.ButtonTip);
 
         // Esc — закрыть подсказки и список поставщиков.
         AddHandler(KeyDownEvent, (_, e) =>
@@ -68,6 +75,28 @@ public partial class WarehouseWindow
         // Как «Убрать»: сначала отменить начатую правку ячейки — иначе строка вернётся при уходе с вкладки (2026-10-03).
         // 2026-11-11 (аудит «Закупки», БП-5): с плашкой «Вернуть» на 5 с (как Del).
         ReceivingRemoveWithUndo(line);
+    }
+
+    /// <summary>2026-11-27: «🏷 Ценники» в приёмке склада — позиции с количеством (новые товары без карточки не входят) → вкладка «Ценники и штрихкоды»; цена в накладной новая — спрашиваем.</summary>
+    private async void ReceivingLabels_Click(object? sender, RoutedEventArgs e)
+    {
+        if (!BarcodePrintAccess.Ensure(this))
+            return;
+        var lines = _viewModel.ReceivingLines.Where(l => l.Quantity > 0).ToList();
+        var plan = ReceiptLabelsUi.FromLines(lines);
+        if (plan.Items.Count == 0)
+        {
+            ReceivingSummaryText.Text = ReceiptLabelsUi.NothingText(plan);
+            return;
+        }
+        var differs = ReceiptLabelsUi.PriceDiffers(lines, plan);
+        if (differs > 0 && !await NurMarketKassa.AvaloniaHost.Views.Dialogs.PosConfirmDialog.ShowModalAsync(this,
+                Tr.T("Цена на ценнике", "Баа белгисиндеги баа", "Price on the tag", "Etiketteki fiyat", "Yorlikdagi narx"),
+                ReceiptLabelsUi.PriceDiffersText(differs), ReceiptLabelsUi.PrintAnywayText, ReceiptLabelsUi.LaterText).ConfigureAwait(true))
+            return;
+        if (plan.NotInCatalog > 0)
+            ReceivingSummaryText.Text = ReceiptLabelsUi.NotInCatalogNote(plan.NotInCatalog);
+        OpenLabelsTabWith(plan.Items);
     }
 
     private async void ReceivingClear_Click(object? sender, RoutedEventArgs e)

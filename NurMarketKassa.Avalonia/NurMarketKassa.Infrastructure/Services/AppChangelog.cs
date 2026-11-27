@@ -11,6 +11,7 @@
 /// кыргызским, а сами пункты русскими.</summary>
 public static class AppChangelog
 {
+    // 2026-11-27: 1.17.98 (обычный выпуск для клиентов) — сверху всех Latest* 7 пунктов (избранные первой группой, кнопка «Ценники» в приёмке, аналитика товаров у владельца, редактор ценников в «Стандарте», история чеков со своими продажами, вход по бейджу со сканера, мелочи), сверху AndroidLatest* — 3 кассовых (избранные, история чеков, бейдж).
     // 2026-11-27: 1.17.97 (обычный выпуск для клиентов) — сверху всех Latest* 5 пунктов (каталог по категориям, смена кассира и вход по скану QR-бейджа, подключение телефона-сканера, смена компании без «Access denied», ценники: ошибка «Печать на A4» и рамка), сверху AndroidLatest* — 3 кассовых (каталог, бейдж, ценники).
     // 2026-11-27: 1.17.96 (обычный выпуск для клиентов) — сверху всех Latest* 4 пункта (смешанная оплата без связи и ложные аварии, вход по QR-бейджу, редактор ценников и штрихкодов, исправления: расход в «Просмотре смены», экран покупателя, «Тех поддержка», «Возврат», Диктор), сверху AndroidLatest* — 4 кассовых (смешанная оплата, QR-бейдж, редактор ценников, исправления без «Тех поддержки» и Диктора).
     // 2026-11-27: 1.17.95 (обычный выпуск для клиентов) — сверху всех Latest* 12 пунктов (акции, бот-продавец и торг, ремонт, чек по ссылке и QR, 1С и «под ключ», рассылка и ЭСФ, Нур-советник, Маркетплейс, точность возвратов, закрытие смены, удобство и вид, исправления и скорость), сверху AndroidLatest* — 5 кассовых (акции, чек и QR, точность, закрытие смены, удобство).
@@ -23,6 +24,13 @@ public static class AppChangelog
     // 2026-11-20: 1.17.88 (тестовый канал) — сверху всех Latest* 8 пунктов (табель, подписка, чеки старше 7 суток, склад, Автозапчасти, малые экраны, разделы владельца, исправления), сверху AndroidLatest* — 4 общих.
     public static readonly string[] Latest =
     [
+        "Избранные товары: Товары с ★ снова стоят в каталоге первой группой «★ Избранные» — в 1.17.97 они разошлись по своим категориям.",
+        "Ценники из приёмки: В «Приёме товара», в накладной прихода и в «Склад → Приёмка» появилась кнопка «🏷 Ценники» — открывает «Ценники и штрихкоды» с товарами накладной, копий столько, сколько принято.",
+        "Аналитика товаров в программе владельца: «Отчёты → Аналитика → Склад»: всего товаров и единиц, стоимость по закупке и по продаже, наценка, нет в наличии, заканчивается, в минусе, без цены, без штрихкода, категории с долями, списки «Заканчивается» и «Нет в наличии», топ по стоимости, выгрузка в Excel.",
+        "Редактор ценников на любом тарифе: Редактор этикеток входит в тариф «Стандарт» — покупать отдельно не нужно.",
+        "История чеков: Если сервер не отвечает или за период ничего не вернул, список показывает продажи, проведённые на этой кассе, с пометкой — раньше было «чеков нет».",
+        "Вход по QR-бейджу со сканера: Бейдж, считанный настоящим сканером (символы с клавиатуры, конец — Enter или Tab), теперь читается целиком и входит сразу; после неудачного скана можно сразу сканировать ещё раз.",
+        "Мелочи: Заголовки категорий в табличном виде тёмной темы читаются; кнопка «+» в «Карточках» не закрывает цену; окно «QR для входа» шире — кнопки не обрезаются.",
         "Каталог по категориям: Плитки и список в каталоге разделены на группы — над каждой полоса с названием категории, числом товаров и линией, каждая категория с новой строки. Выключается в «Настройки → Экран» (галочка «Разделять каталог по категориям»). При поиске по тексту и в магазине без категорий всё как раньше.",
         "Смена кассира по QR-бейджу: Бейдж, поднесённый к сканеру в окне «Сменить кассира» или на экране входа, сразу входит от имени кассира (если он хоть раз входил паролем на этой кассе). Строка бейджа больше не попадает в поля, поиск и чек; на открытой кассе касса спросит «Сменить кассира на …?».",
         "Подключение телефона-сканера: В тёмной теме QR кассы рисовался наоборот и телефон его не читал — исправлено (и у QR чека, Telegram и бейджа). QR стал короче и крупнее; если телефон не подключается, окно подсказывает, как разрешить кассу в брандмауэре Windows.",
@@ -353,6 +361,13 @@ public static class AppChangelog
 
     public static readonly string[] LatestKy =
     [
+        "Тандалган товарлар: ★ белгиси бар товарлар каталогдо кайрадан биринчи топ «★ Тандалгандар» болуп турат — 1.17.97де алар өз категорияларына чачырап кеткен.",
+        "Кабыл алуудан баа белгилери: «Товар кабыл алуу», кирешенин накладнойунда жана «Склад → Кабыл алуу» бөлүмүндө «🏷 Баа белгилери» баскычы пайда болду — накладнойдогу товарлар менен «Баа белгилери жана штрихкоддор» бөлүмүн ачат, нускалар кабыл алынган санча.",
+        "Ээсинин программасында товарлар аналитикасы: «Отчёттор → Аналитика → Склад»: товарлардын жана бирдиктердин саны, сатып алуу жана сатуу боюнча наркы, үстөк баа, жок, түгөнүп жатат, минуста, баасыз, штрихкодсуз, үлүштөрү менен категориялар, «Түгөнүп жатат» жана «Жок» тизмелери, наркы боюнча топ, Excel'ге чыгаруу.",
+        "Баа белгилеринин редактору каалаган тарифте: Этикетка редактору «Стандарт» тарифине кирет — өзүнчө сатып алуунун кереги жок.",
+        "Чектер тарыхы: Сервер жооп бербесе же мезгил боюнча эч нерсе кайтарбаса, тизме ушул кассада өткөрүлгөн сатууларды белги менен көрсөтөт — мурда «чек жок» деп чыгып калчу.",
+        "Сканер менен QR-бейдж аркылуу кирүү: Чыныгы сканер менен окулган бейдж (баскычтоптон тамгалар, аягы — Enter же Tab) эми толугу менен окулуп, дароо кирет; ийгиликсиз скандан кийин дароо кайра скандаса болот.",
+        "Майда оңдоолор: Караңгы темадагы таблица көрүнүшүндө категориялардын аталыштары окулат; «Карточкалардагы» «+» баскычы бааны жаппайт; «Кирүү үчүн QR» терезеси кененирээк — баскычтар кесилбейт.",
         "Каталог категориялар боюнча: Каталогдогу плиткалар жана тизме топторго бөлүнөт — ар биринин үстүндө категориянын аталышы, товарлардын саны жана сызык бар, ар бир категория жаңы саптан башталат. «Жөндөөлөр → Экран» бөлүмүндө өчүрүлөт («Каталогду категориялар боюнча бөлүү» белгиси). Текст боюнча издөөдө жана категориясыз дүкөндө мурдагыдай.",
         "QR-бейдж менен кассирди алмаштыруу: «Кассирди алмаштыруу» терезесинде же кирүү экранында сканерге тийгизилген бейдж кассирдин атынан дароо кирет (ал бул кассада жок дегенде бир жолу сырсөз менен кирсе). Бейдждин сабы талааларга, издөөгө жана чекке түшпөйт; ачык кассада касса «Кассирди … алмаштырабы?» деп сурайт.",
         "Телефон-сканерди туташтыруу: Караңгы темада кассанын QR коду тескери тартылып, телефон окуй албай жаткан — оңдолду (чектин, Telegram жана бейджди QR кодуна да). QR кыскарып, чоңойду; телефон туташпаса, терезе кассаны Windows брандмауэринде кантип уруксаттоону көрсөтөт.",
@@ -681,6 +696,13 @@ public static class AppChangelog
 
     public static readonly string[] LatestEn =
     [
+        "Favourite products: Products marked ★ are again the first group “★ Favourites” in the catalog — in 1.17.97 they were scattered across their categories.",
+        "Price tags from receiving: A “🏷 Price tags” button appeared in “Receive goods”, in the receipt invoice and in “Warehouse → Receiving” — it opens “Price tags and barcodes” with the invoice products, with as many copies as were received.",
+        "Product analytics in the owner's program: “Reports → Analytics → Warehouse”: total products and units, cost at purchase and at sale price, markup, out of stock, running low, negative, no price, no barcode, categories with shares, “Running low” and “Out of stock” lists, top by value, Excel export.",
+        "Price tag editor on any plan: The label editor is included in the “Standard” plan — no separate purchase needed.",
+        "Receipt history: If the server does not respond or returns nothing for the period, the list shows the sales made on this till, with a note — before it said “no receipts”.",
+        "Sign-in with a QR badge from a scanner: A badge read by a real scanner (characters as keystrokes, ending with Enter or Tab) is now read in full and signs in right away; after a failed scan you can scan again at once.",
+        "Small fixes: Category headings in the table view of the dark theme are readable; the “+” button in “Cards” no longer covers the price; the “Sign-in QR” window is wider — buttons are not cut off.",
         "Catalog by category: Tiles and the list in the catalog are split into groups — above each one a strip with the category name, product count and a line, each category starting on a new row. Turn it off in “Settings → Screen” (“Split catalog by category”). In text search and in stores without categories it works as before.",
         "Switch cashier by QR badge: A badge held to the scanner in the “Switch cashier” window or on the login screen signs in as that cashier right away (if they have signed in with a password on this till at least once). The badge string no longer lands in fields, search or the receipt; on an open till it asks “Switch cashier to …?”.",
         "Connecting the phone scanner: In the dark theme the till's QR was drawn inverted and the phone could not read it — fixed (also for the receipt, Telegram and badge QR). The QR is shorter and larger; if the phone does not connect, the window explains how to allow the till in the Windows firewall.",
@@ -1009,6 +1031,13 @@ public static class AppChangelog
 
     public static readonly string[] LatestTr =
     [
+        "Favori ürünler: ★ işaretli ürünler kataloğda yine ilk grup olan «★ Favoriler» içinde duruyor — 1.17.97'de kendi kategorilerine dağılmışlardı.",
+        "Mal kabulünden etiketler: «Mal kabul», giriş faturası ve «Depo → Kabul» bölümlerinde «🏷 Etiketler» düğmesi göründü — fatura ürünleriyle «Etiketler ve barkodlar» bölümünü açar, kopya sayısı kabul edilen kadardır.",
+        "Sahibin programında ürün analitiği: «Raporlar → Analitik → Depo»: toplam ürün ve birim, alış ve satış değeri, kâr payı, stokta yok, azalıyor, eksi, fiyatsız, barkodsuz, paylarıyla kategoriler, «Azalıyor» ve «Stokta yok» listeleri, değere göre ilk sıralar, Excel'e aktarma.",
+        "Etiket düzenleyici her tarifede: Etiket düzenleyici «Standart» tarifesine dahildir — ayrıca satın almaya gerek yok.",
+        "Fiş geçmişi: Sunucu yanıt vermezse veya dönem için hiçbir şey döndürmezse liste, bu kasada yapılan satışları not ile gösterir — önceden «fiş yok» yazıyordu.",
+        "Tarayıcıdan QR rozetle giriş: Gerçek tarayıcıyla okutulan rozet (karakterler klavye tuşları olarak, sonu Enter veya Tab) artık tam okunur ve hemen girer; başarısız taramadan sonra hemen yeniden taranabilir.",
+        "Küçük düzeltmeler: Koyu temanın tablo görünümünde kategori başlıkları okunur; «Kartlar»daki «+» düğmesi fiyatı kapatmaz; «Giriş QR'ı» penceresi daha geniş — düğmeler kesilmez.",
         "Kategoriye göre katalog: Katalogdaki kutucuklar ve liste gruplara ayrılır — her grubun üstünde kategori adı, ürün sayısı ve bir çizgi bulunur, her kategori yeni satırdan başlar. «Ayarlar → Ekran» bölümünden kapatılır («Kataloğu kategorilere ayır»). Metin aramasında ve kategorisiz mağazada eskisi gibidir.",
         "QR rozetle kasiyer değiştirme: «Kasiyeri değiştir» penceresinde veya giriş ekranında tarayıcıya okutulan rozet hemen o kasiyer adına girer (bu kasada en az bir kez şifreyle girmişse). Rozet satırı artık alanlara, aramaya ve fişe düşmez; açık kasada kasa «Kasiyer … olarak değiştirilsin mi?» diye sorar.",
         "Telefon tarayıcıyı bağlama: Koyu temada kasanın QR kodu ters çiziliyordu ve telefon okuyamıyordu — düzeltildi (fiş, Telegram ve rozet QR'ı da). QR kısaldı ve büyüdü; telefon bağlanmazsa pencere kasayı Windows güvenlik duvarında nasıl izinli yapacağınızı gösterir.",
@@ -1337,6 +1366,13 @@ public static class AppChangelog
 
     public static readonly string[] LatestUz =
     [
+        "Tanlangan tovarlar: ★ belgili tovarlar katalogda yana birinchi guruh «★ Tanlanganlar» bo'lib turadi — 1.17.97da ular o'z kategoriyalariga tarqalib ketgan edi.",
+        "Qabul qilishdan narx yorliqlari: «Tovar qabul qilish», kirim nakladnoyi va «Ombor → Qabul» bo'limlarida «🏷 Narx yorliqlari» tugmasi paydo bo'ldi — nakladnoydagi tovarlar bilan «Narx yorliqlari va shtrix-kodlar» bo'limini ochadi, nusxalar qabul qilingan sonicha.",
+        "Egasi dasturida tovarlar analitikasi: «Hisobotlar → Analitika → Ombor»: tovarlar va birliklar soni, xarid va sotuv bo'yicha qiymat, ustama, yo'q, tugayapti, minusda, narxsiz, shtrix-kodsiz, ulushlari bilan kategoriyalar, «Tugayapti» va «Yo'q» ro'yxatlari, qiymat bo'yicha top, Excel'ga chiqarish.",
+        "Narx yorliqlari muharriri istalgan tarifda: Yorliq muharriri «Standart» tarifiga kiradi — alohida sotib olish shart emas.",
+        "Cheklar tarixi: Server javob bermasa yoki davr uchun hech narsa qaytarmasa, ro'yxat shu kassada o'tkazilgan sotuvlarni belgi bilan ko'rsatadi — avval «chek yo'q» deb chiqardi.",
+        "Skaner orqali QR-beyj bilan kirish: Haqiqiy skaner o'qigan beyj (belgilar klaviatura tugmalari sifatida, oxiri Enter yoki Tab) endi to'liq o'qiladi va darhol kiradi; muvaffaqiyatsiz skanerdan keyin darhol qayta skanerlash mumkin.",
+        "Mayda tuzatishlar: Qorong'i mavzuning jadval ko'rinishida kategoriya sarlavhalari o'qiladi; «Kartochkalar»dagi «+» tugmasi narxni yopmaydi; «Kirish uchun QR» oynasi kengroq — tugmalar kesilmaydi.",
         "Katalog kategoriyalar bo'yicha: Katalogdagi plitkalar va ro'yxat guruhlarga bo'linadi — har birining tepasida kategoriya nomi, tovarlar soni va chiziq bor, har bir kategoriya yangi qatordan boshlanadi. «Sozlamalar → Ekran» bo'limida o'chiriladi («Katalogni kategoriyalar bo'yicha ajratish» belgisi). Matn bo'yicha qidiruvda va kategoriyasiz do'konda avvalgidek.",
         "QR-beyj bilan kassirni almashtirish: «Kassirni almashtirish» oynasida yoki kirish ekranida skanerga tutilgan beyj darhol kassir nomidan kiradi (agar u bu kassada kamida bir marta parol bilan kirgan bo'lsa). Beyj qatori endi maydonlarga, qidiruvga va chekka tushmaydi; ochiq kassada kassa «Kassirni … ga almashtirasizmi?» deb so'raydi.",
         "Telefon-skanerni ulash: Qorong'i mavzuda kassaning QR kodi teskari chizilib, telefon uni o'qiy olmasdi — tuzatildi (chek, Telegram va beyj QR kodi ham). QR qisqa va katta bo'ldi; telefon ulanmasa, oyna kassani Windows brandmauerida qanday ruxsat etishni ko'rsatadi.",
@@ -1726,6 +1762,9 @@ public static class AppChangelog
     // 2026-10-05: Android 1.17.52. Без эмодзи — на Android их шрифт не рисует (снимок владельца: «Кнопка  в поиске»).
     public static readonly string[] AndroidLatest =
     [
+        "Избранные товары: Товары с ★ снова стоят в каталоге первой группой «★ Избранные» — в 1.17.97 они разошлись по своим категориям.",
+        "История чеков: Если сервер не отвечает или за период ничего не вернул, список показывает продажи, проведённые на этой кассе, с пометкой — раньше было «чеков нет».",
+        "Вход по QR-бейджу со сканера: Бейдж, считанный настоящим сканером (символы с клавиатуры, конец — Enter или Tab), теперь читается целиком и входит сразу; после неудачного скана можно сразу сканировать ещё раз.",
         "Каталог по категориям: Плитки и список в каталоге разделены на группы — над каждой полоса с названием категории, числом товаров и линией, каждая категория с новой строки. Выключается в «Настройки → Экран» (галочка «Разделять каталог по категориям»). При поиске по тексту и в магазине без категорий всё как раньше.",
         "Смена кассира по QR-бейджу: Бейдж, поднесённый к сканеру в окне «Сменить кассира» или на экране входа, сразу входит от имени кассира (если он хоть раз входил паролем на этой кассе). Строка бейджа больше не попадает в поля, поиск и чек; на открытой кассе касса спросит «Сменить кассира на …?».",
         "Ценники: Исправлена ошибка «Произошла ошибка в программе» в окне «Печать на A4». Новая рамка для ценников: толщина, скругление, цвет, пунктир — на этикетке в редакторе и на листе A4; редактор предупреждает, если элемент задевает рамку.",
@@ -1935,6 +1974,9 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestKy =
     [
+        "Тандалган товарлар: ★ белгиси бар товарлар каталогдо кайрадан биринчи топ «★ Тандалгандар» болуп турат — 1.17.97де алар өз категорияларына чачырап кеткен.",
+        "Чектер тарыхы: Сервер жооп бербесе же мезгил боюнча эч нерсе кайтарбаса, тизме ушул кассада өткөрүлгөн сатууларды белги менен көрсөтөт — мурда «чек жок» деп чыгып калчу.",
+        "Сканер менен QR-бейдж аркылуу кирүү: Чыныгы сканер менен окулган бейдж (баскычтоптон тамгалар, аягы — Enter же Tab) эми толугу менен окулуп, дароо кирет; ийгиликсиз скандан кийин дароо кайра скандаса болот.",
         "Каталог категориялар боюнча: Каталогдогу плиткалар жана тизме топторго бөлүнөт — ар биринин үстүндө категориянын аталышы, товарлардын саны жана сызык бар, ар бир категория жаңы саптан башталат. «Жөндөөлөр → Экран» бөлүмүндө өчүрүлөт («Каталогду категориялар боюнча бөлүү» белгиси). Текст боюнча издөөдө жана категориясыз дүкөндө мурдагыдай.",
         "QR-бейдж менен кассирди алмаштыруу: «Кассирди алмаштыруу» терезесинде же кирүү экранында сканерге тийгизилген бейдж кассирдин атынан дароо кирет (ал бул кассада жок дегенде бир жолу сырсөз менен кирсе). Бейдждин сабы талааларга, издөөгө жана чекке түшпөйт; ачык кассада касса «Кассирди … алмаштырабы?» деп сурайт.",
         "Баа белгилери: «Басып чыгаруу A4» терезесиндеги «Программада ката кетти» катасы оңдолду. Баа белгилери үчүн жаңы алкак: калыңдык, тегеректөө, түс, пунктир — редактордогу этикеткада жана A4 барагында; элемент алкакка тийсе, редактор эскертет.",
@@ -2142,6 +2184,9 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestEn =
     [
+        "Favourite products: Products marked ★ are again the first group “★ Favourites” in the catalog — in 1.17.97 they were scattered across their categories.",
+        "Receipt history: If the server does not respond or returns nothing for the period, the list shows the sales made on this till, with a note — before it said “no receipts”.",
+        "Sign-in with a QR badge from a scanner: A badge read by a real scanner (characters as keystrokes, ending with Enter or Tab) is now read in full and signs in right away; after a failed scan you can scan again at once.",
         "Catalog by category: Tiles and the list in the catalog are split into groups — above each one a strip with the category name, product count and a line, each category starting on a new row. Turn it off in “Settings → Screen” (“Split catalog by category”). In text search and in stores without categories it works as before.",
         "Switch cashier by QR badge: A badge held to the scanner in the “Switch cashier” window or on the login screen signs in as that cashier right away (if they have signed in with a password on this till at least once). The badge string no longer lands in fields, search or the receipt; on an open till it asks “Switch cashier to …?”.",
         "Price tags: Fixed the “An error occurred in the program” error in the “Print on A4” window. New frame for price tags: thickness, rounding, colour, dashed — on the label in the editor and on the A4 sheet; the editor warns if an element touches the frame.",
@@ -2349,6 +2394,9 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestTr =
     [
+        "Favori ürünler: ★ işaretli ürünler kataloğda yine ilk grup olan «★ Favoriler» içinde duruyor — 1.17.97'de kendi kategorilerine dağılmışlardı.",
+        "Fiş geçmişi: Sunucu yanıt vermezse veya dönem için hiçbir şey döndürmezse liste, bu kasada yapılan satışları not ile gösterir — önceden «fiş yok» yazıyordu.",
+        "Tarayıcıdan QR rozetle giriş: Gerçek tarayıcıyla okutulan rozet (karakterler klavye tuşları olarak, sonu Enter veya Tab) artık tam okunur ve hemen girer; başarısız taramadan sonra hemen yeniden taranabilir.",
         "Kategoriye göre katalog: Katalogdaki kutucuklar ve liste gruplara ayrılır — her grubun üstünde kategori adı, ürün sayısı ve bir çizgi bulunur, her kategori yeni satırdan başlar. «Ayarlar → Ekran» bölümünden kapatılır («Kataloğu kategorilere ayır»). Metin aramasında ve kategorisiz mağazada eskisi gibidir.",
         "QR rozetle kasiyer değiştirme: «Kasiyeri değiştir» penceresinde veya giriş ekranında tarayıcıya okutulan rozet hemen o kasiyer adına girer (bu kasada en az bir kez şifreyle girmişse). Rozet satırı artık alanlara, aramaya ve fişe düşmez; açık kasada kasa «Kasiyer … olarak değiştirilsin mi?» diye sorar.",
         "Etiketler: «A4'e yazdır» penceresindeki «Programda hata oluştu» hatası düzeltildi. Etiketler için yeni çerçeve: kalınlık, yuvarlama, renk, kesikli — düzenleyicideki etikette ve A4 sayfasında; öğe çerçeveye değerse düzenleyici uyarır.",
@@ -2556,6 +2604,9 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestUz =
     [
+        "Tanlangan tovarlar: ★ belgili tovarlar katalogda yana birinchi guruh «★ Tanlanganlar» bo'lib turadi — 1.17.97da ular o'z kategoriyalariga tarqalib ketgan edi.",
+        "Cheklar tarixi: Server javob bermasa yoki davr uchun hech narsa qaytarmasa, ro'yxat shu kassada o'tkazilgan sotuvlarni belgi bilan ko'rsatadi — avval «chek yo'q» deb chiqardi.",
+        "Skaner orqali QR-beyj bilan kirish: Haqiqiy skaner o'qigan beyj (belgilar klaviatura tugmalari sifatida, oxiri Enter yoki Tab) endi to'liq o'qiladi va darhol kiradi; muvaffaqiyatsiz skanerdan keyin darhol qayta skanerlash mumkin.",
         "Katalog kategoriyalar bo'yicha: Katalogdagi plitkalar va ro'yxat guruhlarga bo'linadi — har birining tepasida kategoriya nomi, tovarlar soni va chiziq bor, har bir kategoriya yangi qatordan boshlanadi. «Sozlamalar → Ekran» bo'limida o'chiriladi («Katalogni kategoriyalar bo'yicha ajratish» belgisi). Matn bo'yicha qidiruvda va kategoriyasiz do'konda avvalgidek.",
         "QR-beyj bilan kassirni almashtirish: «Kassirni almashtirish» oynasida yoki kirish ekranida skanerga tutilgan beyj darhol kassir nomidan kiradi (agar u bu kassada kamida bir marta parol bilan kirgan bo'lsa). Beyj qatori endi maydonlarga, qidiruvga va chekka tushmaydi; ochiq kassada kassa «Kassirni … ga almashtirasizmi?» deb so'raydi.",
         "Narx yorliqlari: «A4 ga chop etish» oynasidagi «Dasturda xatolik yuz berdi» xatosi tuzatildi. Narx yorliqlari uchun yangi ramka: qalinlik, yumaloqlash, rang, punktir — muharrirdagi yorliqda va A4 varag'ida; element ramkaga tegsa, muharrir ogohlantiradi.",

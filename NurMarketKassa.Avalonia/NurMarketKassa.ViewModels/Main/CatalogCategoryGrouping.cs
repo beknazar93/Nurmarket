@@ -16,18 +16,27 @@ public static class CatalogCategoryGrouping
     /// <summary>Сколько плиток минимум должно стоять под заголовком новой группы на той же странице (меньше — только если группа сама меньше).</summary>
     public const int MinTilesUnderHeader = 2;
 
-    /// <summary>Ключ группы: категория без пробелов по краям; "" — «Без категории».</summary>
-    public static string KeyOf(CatalogProductTileVm? product) => (product?.Category ?? "").Trim();
+    /// <summary>2026-11-27 (владелец: «ты сбил избранные товары в каталоге»): до 1.17.97 избранные стояли в начале каталога, а разделение по категориям
+    /// разбросало их по своим категориям. Теперь избранные — отдельная первая группа «★ Избранные» (служебный ключ, не совпадает ни с одной категорией).</summary>
+    public const string FavoritesKey = "\u0001fav";
+
+    /// <summary>Ключ группы: «избранные» — особый ключ; иначе категория без пробелов по краям; "" — «Без категории».</summary>
+    public static string KeyOf(CatalogProductTileVm? product) =>
+        product is { IsFavorite: true } ? FavoritesKey : (product?.Category ?? "").Trim();
 
     public static bool SameGroup(string? a, string? b) => string.Equals((a ?? "").Trim(), (b ?? "").Trim(), StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Подпись группы «Без категории» на языке программы.</summary>
     public static string UncategorizedTitle => Tr.T("Без категории", "Категориясыз", "No category", "Kategorisiz", "Kategoriyasiz");
 
-    public static string TitleOf(string key) => string.IsNullOrEmpty(key) ? UncategorizedTitle : key;
+    public static string FavoritesTitle => "★ " + Tr.T("Избранные", "Тандалгандар", "Favourites", "Favoriler", "Saralanganlar");
 
-    /// <summary>Порядок групп: «Без категории» последней, остальные — по названию (без учёта регистра).</summary>
-    public static int GroupRank(CatalogProductTileVm product) => KeyOf(product).Length == 0 ? 1 : 0;
+    public static string TitleOf(string key) =>
+        key == FavoritesKey ? FavoritesTitle : string.IsNullOrEmpty(key) ? UncategorizedTitle : key;
+
+    /// <summary>Порядок групп: «★ Избранные» первой, «Без категории» последней, остальные — по названию (без учёта регистра).</summary>
+    public static int GroupRank(CatalogProductTileVm product) =>
+        product.IsFavorite ? -1 : KeyOf(product).Length == 0 ? 1 : 0;
 
     /// <summary>Есть ли в каталоге хотя бы две разные (непустые) категории — только тогда разделение имеет смысл (продуктовый с категориями — да, каталог без категорий — нет).</summary>
     public static bool HasSeveralCategories(IReadOnlyList<CatalogProductTileVm> products)
@@ -35,7 +44,7 @@ public static class CatalogCategoryGrouping
         string? first = null;
         foreach (var p in products)
         {
-            var key = KeyOf(p);
+            var key = (p.Category ?? "").Trim(); // 2026-11-27: настоящая категория, а не группа «избранные»
             if (key.Length == 0)
                 continue;
             if (first is null)

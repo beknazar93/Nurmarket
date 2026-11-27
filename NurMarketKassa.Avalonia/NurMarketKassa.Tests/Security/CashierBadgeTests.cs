@@ -66,6 +66,45 @@ public sealed class CashierBadgeTests : IDisposable
         CashierBadgeCode.PrefixIndex("4607001234567").Should().Be(-1);
     }
 
+    /// <summary>2026-11-27 (D3): сканер потерял «:» (Shift не дошёл), поставил «;» или другие разделители, добавил лишние — строка всё равно читается (формат фиксированный).</summary>
+    [Theory]
+    [InlineData("")]
+    [InlineData(";")]
+    [InlineData("::")]
+    [InlineData(" ")]
+    public void Parse_SeparatorsLostOrReplaced_StillReadsTheBadge(string sep)
+    {
+        var (_, id, secret) = CashierBadgeCode.Generate();
+        var raw = $"NMBADGE{sep}v1{sep}{id}{sep}{secret}";
+        CashierBadgeCode.TryParse(raw, out var pid, out var psec).Should().BeTrue(raw);
+        (pid, psec).Should().Be((id, secret));
+        // то же посимвольно в русской раскладке (разделители — «ж»/«Ж»)
+        var ru = ToRussianLayout($"NMBADGE:v1:{id}:{secret}").Replace(':', 'Ж');
+        CashierBadgeCode.TryParse(ru, out pid, out psec).Should().BeTrue();
+        (pid, psec).Should().Be((id, secret));
+    }
+
+    [Fact]
+    public void Parse_LenientPath_StillRejectsWrongLengthVersionAndNonHex()
+    {
+        var (_, id, secret) = CashierBadgeCode.Generate();
+        CashierBadgeCode.TryParse($"NMBADGEv1{id}{secret[..^1]}", out _, out _).Should().BeFalse("секрет короче");
+        CashierBadgeCode.TryParse($"NMBADGEv1{id}{secret}0", out _, out _).Should().BeFalse("секрет длиннее");
+        CashierBadgeCode.TryParse($"NMBADGEv2{id}{secret}", out _, out _).Should().BeFalse("другая версия");
+        CashierBadgeCode.TryParse($"NMBADGEv1{id}{secret[..^1]}z", out _, out _).Should().BeFalse("не шестнадцатеричный знак");
+    }
+
+    /// <summary>2026-11-27 (D3d): оборванные сканы («не прочитан целиком») паузу не копят — верный бейдж после них проходит.</summary>
+    [Fact]
+    public void Check_TruncatedScans_DoNotCountTowardsLockout()
+    {
+        var s = Setup();
+        for (var i = 0; i < CashierBadgeThrottle.FreeAttempts * 2; i++)
+            s.Login.Check(s.Code[..25]).Status.Should().Be(CashierBadgeStatus.Malformed);
+        s.Throttle.Failures.Should().Be(0);
+        s.Login.Check(s.Code).Status.Should().Be(CashierBadgeStatus.Ok);
+    }
+
     [Theory]
     [InlineData("NMBADGE:v1:abc:def")]
     [InlineData("NMBADGE:v2:0123456789ab:0123456789abcdef0123456789abcdef")]

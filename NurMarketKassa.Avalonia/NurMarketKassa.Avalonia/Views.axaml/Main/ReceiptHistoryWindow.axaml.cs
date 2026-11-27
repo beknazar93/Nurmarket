@@ -554,6 +554,13 @@ public partial class ReceiptHistoryWindow : Window
                 "Not all receipts are shown: there are very many for the period, the newest ones are loaded. Look for an older receipt by number in “Sales” or pick another period.",
                 "Tüm fişler gösterilmiyor: dönemde çok fazla var, en yeniler yüklendi. Eski bir fişi «Satışlar»da numarayla arayın veya başka bir dönem seçin.",
                 "Hamma cheklar ko'rsatilmadi: davr ichida ular juda ko'p, eng yangilari yuklandi. Eski chekni «Sotuvlar»da raqami bo'yicha qidiring yoki boshqa davrni tanlang."));
+        // 2026-11-27: сервер ответил пустым списком, но касса знает свои продажи за период — показаны они (иначе было бы «чеков нет»).
+        if (result.ServerListEmptyUsedLocal)
+            parts.Add(Tr.T("Сервер не вернул чеки за этот период. Показаны чеки, проведённые на этой кассе. Нажмите «Обновить» позже.",
+                "Сервер бул мезгил үчүн чектерди кайтарган жок. Ушул кассада өткөрүлгөн чектер көрсөтүлдү. Кийинчерээк «Жаңыртуу» басыңыз.",
+                "The server returned no receipts for this period. Showing the receipts made on this till. Press “Refresh” later.",
+                "Sunucu bu dönem için fiş döndürmedi. Bu kasada yapılan fişler gösteriliyor. Daha sonra «Yenile»ye basın.",
+                "Server bu davr uchun cheklarni qaytarmadi. Shu kassada o'tkazilgan cheklar ko'rsatildi. Keyinroq «Yangilash»ni bosing."));
         if (result.ServerUnavailable)
             // 2026-11-03 (Д-3): текст без «нет связи» — связь могла быть, сервер просто не ответил за 8 с; показаны чеки из базы кассы.
             parts.Add(Tr.T("Историю чеков с сервера получить не удалось (нет связи или сервер отвечает медленно). Показаны чеки, проведённые на этой кассе; состав чека откроется, когда сервер ответит. Нажмите «Обновить» позже.",

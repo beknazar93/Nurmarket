@@ -612,6 +612,15 @@ public sealed partial class InvoiceDocumentWindow : Window
             var csv = Outline(_compact ? "CSV" : "Excel / CSV", () => SaveCsv());
             csv.IsEnabled = _rows.Count > 0;
             Add(csv);
+            // 2026-11-27 (владелец: «сразу печатать штрихкод и ценники из накладной»): «🏷 Ценники» — товары накладной (принято за вычетом возврата) уходят в «Ценники и штрихкоды».
+            if (ReceiptLabelsUi.Supported)
+            {
+                var labels = Outline(ReceiptLabelsUi.ButtonText, PrintLabels);
+                labels.IsEnabled = _rows.Count > 0;
+                ToolTip.SetTip(labels, ReceiptLabelsUi.ButtonTip);
+                Avalonia.Automation.AutomationProperties.SetName(labels, ReceiptLabelsUi.ButtonTip);
+                Add(labels);
+            }
             if (_store.IsEdited(_r.Id) || IsOwner())
                 Add(Outline(_compact ? T("Версии", "Версиялар", "Versions", "Sürümler", "Versiyalar") : T("История версий", "Версиялар тарыхы", "Version history", "Sürüm geçmişi", "Versiyalar tarixi"), () => _ = ShowHistoryAsync()));
             if (_context is null || _showReturnRepeat)
@@ -643,6 +652,25 @@ public sealed partial class InvoiceDocumentWindow : Window
                 }
             }
         }
+    }
+
+    /// <summary>2026-11-27: позиции для «Ценники и штрихкоды» (после Action = "labels"): товар, штрихкод, копии = принятое количество.</summary>
+    public IReadOnlyList<(string ProductId, string? Barcode, int Copies)>? LabelItems { get; private set; }
+
+    /// <summary>«🏷 Ценники»: окно накладной закрывается с действием «labels» — печать открывает вызывающее окно (поверх модальной накладной вкладку Склада не открыть).</summary>
+    private void PrintLabels()
+    {
+        if (!BarcodePrintAccess.Ensure(this))
+            return;
+        var plan = ReceiptLabelsUi.FromReceipt(_r);
+        if (plan.Items.Count == 0)
+        {
+            Say(ReceiptLabelsUi.NothingInReceiptText);
+            return;
+        }
+        LabelItems = plan.Items;
+        Action = "labels";
+        Close();
     }
 
     // ------------------------------------------------------------------ печать, PDF, CSV

@@ -180,25 +180,25 @@
                                                        TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"
                                                        Foreground="{DynamicResource BrushText}"/>
                                             <!-- 2026-10-19, К1: остаток как в «Классике» — мало оранжевым, 0 красным (LayoutStyles). -->
-                                            <TextBlock Grid.Row="2" Text="{Binding StockInfo}" FontSize="12" Margin="0,4,0,0"
+                                            <TextBlock Grid.Row="2" Text="{Binding StockInfo}" FontSize="12" Margin="0,4,36,0"
                                                        IsVisible="{Binding !IsService}" Foreground="{DynamicResource BrushCatalogStock}"
                                                        Classes.stock-low="{Binding IsLowStock}"
                                                        Classes.stock-out="{Binding Quantity, Converter={x:Static mainViews:WarehouseWindow.IsOutOfStock}}"
                                                        Classes.stock-minus="{Binding IsNegativeStock}"
                                                        TextTrimming="CharacterEllipsis"/>
-                                            <Grid Grid.Row="3" ColumnDefinitions="*,Auto">
-                                                <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                                    <TextBlock Classes="lx-price" FontSize="18"
-                                                               Text="{Binding PriceLine, Converter={StaticResource PriceAmountConverter}}"/>
-                                                    <TextBlock Text="{DynamicResource csh.catalog.currency}" FontSize="12" VerticalAlignment="Bottom"
-                                                               Margin="0,0,0,3" Foreground="{DynamicResource BrushCatalogMeta}"/>
-                                                </StackPanel>
-                                                <Border Grid.Column="1" Width="30" Height="30" CornerRadius="15"
-                                                        Background="{DynamicResource BrushSuccess}">
-                                                    <PathIcon Data="{StaticResource IconPlus}" Width="14" Height="14"
-                                                              Foreground="{DynamicResource BrushWindow}"/>
-                                                </Border>
-                                            </Grid>
+                                            <!-- 2026-11-27 (живая проверка 1.17.97, D4): цена «7 000,00 сом» не умещалась рядом с кнопкой «+» (30 px) и уходила под неё — кнопка теперь над ценой, в правом
+                                                 нижнем углу строки остатка (остаток справа не заходит под неё: поле 36 px), цена — на всю ширину плитки. -->
+                                            <Border Grid.Row="2" Width="30" Height="30" CornerRadius="15" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,0,4"
+                                                    Background="{DynamicResource BrushSuccess}">
+                                                <PathIcon Data="{StaticResource IconPlus}" Width="14" Height="14"
+                                                          Foreground="{DynamicResource BrushWindow}"/>
+                                            </Border>
+                                            <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                                <TextBlock Classes="lx-price" FontSize="18"
+                                                           Text="{Binding PriceLine, Converter={StaticResource PriceAmountConverter}}"/>
+                                                <TextBlock Text="{DynamicResource csh.catalog.currency}" FontSize="12" VerticalAlignment="Bottom"
+                                                           Margin="0,0,0,3" Foreground="{DynamicResource BrushCatalogMeta}"/>
+                                            </StackPanel>
                                         </Grid>
                                     </Border>
                                 </Button>

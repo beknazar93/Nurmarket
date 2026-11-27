@@ -177,6 +177,63 @@ public sealed class ReceiptHistoryPeriodTests : IDisposable
         SalesQueries().Should().ContainSingle().Which.From.Should().Be(Iso(first));
     }
 
+    // 2026-11-27: «История чеков» была пуста за Сегодня/Неделю/Месяц при чеках на кассе (живая проверка 1.17.97) — касса показывает свои продажи из базы, если сервер список не дал.
+    private static string OwnSale(string saleId, DateTime at, string item)
+    {
+        SoldLineItemsStore.AppendSale(new[] { ("p-" + saleId, item, 1.0, 50.0, at) }, saleId);
+        return saleId;
+    }
+
+    [AvaloniaFact]
+    public async Task Empty_server_list_shows_own_sales_of_this_till_with_a_notice()
+    {
+        await TestHost.WarmAsync();
+        UiFake.Reset();
+        var id = OwnSale("own-" + Guid.NewGuid().ToString("N"), DateTime.Now.AddMinutes(-1), "Бальзам");
+        StubSales(); // сервер ответил 200, но пустым списком
+
+        var today = await ReceiptHistoryService.LoadAsync(ReceiptHistoryPeriod.Today);
+        today.ServerRows.Should().Be(0);
+        today.ServerListEmptyUsedLocal.Should().BeTrue();
+        today.Entries.Select(e => e.Id).Should().Contain(id);
+        (await ReceiptHistoryService.LoadAsync(ReceiptHistoryPeriod.Week)).Entries.Select(e => e.Id).Should().Contain(id);
+        (await ReceiptHistoryService.LoadAsync(ReceiptHistoryPeriod.Month)).Entries.Select(e => e.Id).Should().Contain(id);
+        (await ReceiptHistoryService.LoadAsync(ReceiptHistoryPeriod.Yesterday)).Entries.Select(e => e.Id).Should().NotContain(id, "вчерашний период своих сегодняшних продаж не показывает");
+    }
+
+    [AvaloniaFact]
+    public async Task Server_list_with_the_same_sale_does_not_duplicate_it_from_the_local_base()
+    {
+        await TestHost.WarmAsync();
+        UiFake.Reset();
+        var id = OwnSale("srv-" + Guid.NewGuid().ToString("N"), DateTime.Now.AddMinutes(-1), "Бальзам");
+        StubSales(Row(id, "002168", DateTime.Now.AddMinutes(-1), "Бальзам"));
+
+        var today = await ReceiptHistoryService.LoadAsync(ReceiptHistoryPeriod.Today);
+        today.ServerListEmptyUsedLocal.Should().BeFalse();
+        today.Entries.Count(e => e.Id == id).Should().Be(1);
+    }
+
+    [AvaloniaFact]
+    public async Task Offline_mode_does_not_hide_own_sales_of_this_till()
+    {
+        await TestHost.WarmAsync();
+        UiFake.Reset();
+        var id = OwnSale("off-" + Guid.NewGuid().ToString("N"), DateTime.Now.AddMinutes(-1), "Бальзам");
+        var saved = PosApp.IsOfflineBootstrap;
+        PosApp.IsOfflineBootstrap = true; // касса в офлайн-режиме: сервер не спрашивается
+        try
+        {
+            var today = await ReceiptHistoryService.LoadAsync(ReceiptHistoryPeriod.Today);
+            today.ServerUnavailable.Should().BeTrue("список без сервера помечается, а не молча пуст");
+            today.Entries.Select(e => e.Id).Should().Contain(id);
+        }
+        finally
+        {
+            PosApp.IsOfflineBootstrap = saved;
+        }
+    }
+
     // ───────────── окно: сегменты, даты, поиск, размеры ─────────────
 
     public static IEnumerable<object[]> Cases() =>

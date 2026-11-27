@@ -56,14 +56,40 @@ public static class CashierBadgeCode
         var text = ExtractFromInput(raw);
         if (text is null)
             return false;
-        var parts = ToLatinLayout(text).Replace(';', ':').Split(':');
+        var latin = ToLatinLayout(text);
+        var parts = latin.Replace(';', ':').Split(':');
         if (parts.Length != 4
             || !string.Equals(parts[0], Prefix, StringComparison.OrdinalIgnoreCase)
             || !string.Equals(parts[1], Version, StringComparison.OrdinalIgnoreCase))
-            return false;
+            return TryParseWithoutSeparators(latin, out id, out secret);
         var pid = parts[2].Trim().ToLowerInvariant();
         var psec = parts[3].Trim().ToLowerInvariant();
         if (pid.Length != IdHexLength || psec.Length != SecretHexLength || !IsHex(pid) || !IsHex(psec))
+            return false;
+        id = pid;
+        secret = psec;
+        return true;
+    }
+
+    /// <summary>2026-11-27 (живая проверка 1.17.97, D3): сканер в другой раскладке или с потерянным «:» (Shift не дошёл) — разделителей нет или они
+    /// другие. Формат фиксированный: NMBADGE + «v1» + 12 + 32 шестнадцатеричных знака; берём только буквы и цифры после префикса, длина и
+    /// «v1» должны сойтись точно (лишнее и недостающее — по-прежнему не бейдж). Секрет проверяется хэшем, как и раньше.</summary>
+    private static bool TryParseWithoutSeparators(string latin, out string id, out string secret)
+    {
+        id = "";
+        secret = "";
+        if (latin.Length < Prefix.Length || !latin.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase))
+            return false;
+        var sb = new StringBuilder(latin.Length);
+        foreach (var c in latin.AsSpan(Prefix.Length))
+            if (char.IsAsciiLetterOrDigit(c))
+                sb.Append(char.ToLowerInvariant(c));
+        var body = sb.ToString();
+        if (body.Length != Version.Length + IdHexLength + SecretHexLength || !body.StartsWith(Version, StringComparison.Ordinal))
+            return false;
+        var pid = body.Substring(Version.Length, IdHexLength);
+        var psec = body.Substring(Version.Length + IdHexLength, SecretHexLength);
+        if (!IsHex(pid) || !IsHex(psec))
             return false;
         id = pid;
         secret = psec;

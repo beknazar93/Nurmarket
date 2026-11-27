@@ -60,8 +60,13 @@ public partial class LoginWindow : NurMarketKassa.AvaloniaHost.Services.ICashier
     internal async Task HandleBadgeScanAsync(string raw)
     {
         if (_badgeBusy || _enteringMain || _viewModel.IsLoading)
+        {
+            // 2026-11-27 (D3d): раньше скан во время входа/проверки пропадал молча — теперь хотя бы след в журнале.
+            PosLogger.Log("Скан QR-бейджа пропущен: предыдущий вход ещё идёт.", "AUTH");
             return;
+        }
         _badgeBusy = true;
+        _viewModel.ReportError(""); // 2026-11-27 (D3d): красная подсказка прошлого скана («нужен пароль» и т. п.) не висит над новым
         try
         {
             var login = CreateBadgeLogin();

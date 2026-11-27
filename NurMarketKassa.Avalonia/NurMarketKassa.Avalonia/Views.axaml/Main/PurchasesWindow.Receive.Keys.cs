@@ -199,20 +199,8 @@ public partial class PurchasesWindow
     {
         if (!BarcodePrintAccess.IsAllowed() || !LabelPrinterSelector.PrintingSupported)
             return;
-        var tiles = new Dictionary<string, NurMarketKassa.Models.Pos.CatalogProductTileVm>(StringComparer.OrdinalIgnoreCase);
-        try
-        {
-            foreach (var t in CatalogCacheService.Products)
-                tiles[t.Id] = t;
-        }
-        catch (InvalidOperationException) { /* каталог обновлялся — весовые узнаем по единице */ }
-        var items = new List<(string ProductId, string? Barcode, int Copies)>();
-        foreach (var l in posted.Where(l => !string.IsNullOrWhiteSpace(l.ProductId) && l.Quantity > 0 && l.VariantQuantities is not { Count: > 0 }))
-        {
-            var mustWeigh = tiles.TryGetValue(l.ProductId!, out var tile) && tile.MustWeigh;
-            var copies = BarcodePrintCatalog.CopiesForQuantity(l.Quantity, l.Unit, mustWeigh, out var capped);
-            items.Add((l.ProductId!, string.IsNullOrWhiteSpace(l.Barcode) ? null : l.Barcode.Trim(), capped ? 100 : copies));
-        }
+        // 2026-11-27: позиции и копии считает общий ReceiptLabelPlanner (одинаково для «Ценники» в приёмке, накладной и этого предложения; один товар в двух строках — одна позиция).
+        var items = ReceiptLabelsUi.Plan(posted.Select(l => new ReceiptLabelSource(l.ProductId, l.Barcode, l.Quantity, l.Unit, false, l.VariantQuantities is { Count: > 0 }))).Items;
         if (items.Count == 0)
             return;
         var copiesTotal = items.Sum(i => Math.Min(i.Copies, 99));
@@ -227,6 +215,29 @@ public partial class PurchasesWindow
             T("Не сейчас", "Азыр эмес", "Not now", "Şimdi değil", "Hozir emas"), PosConfirmAccent.Primary, enterCancels: true).ConfigureAwait(true);
         if (print)
             WarehouseWindow.RequestLabels(this, items); // 2026-11-21: печать — единая вкладка Склада «Ценники и штрихкоды»
+    }
+
+    /// <summary>2026-11-27: «🏷 Ценники» до проведения — товары склада из накладной (с количеством) уходят в «Ценники и штрихкоды»: копий = количество строки (меняется в окне печати).
+    /// Новых товаров в каталоге ещё нет — они появятся после «Оприходовать» (тогда сработает предложение «Этикетки на приход»). Если цена продажи в накладной новая, а в каталоге прежняя — спрашиваем.</summary>
+    private async Task ReceivePrintLabelsAsync(ReceiveState s)
+    {
+        if (!BarcodePrintAccess.Ensure(this)) // право «Печать штрих-кодов»: понятное сообщение, не исключение
+            return;
+        var lines = s.Lines.Where(l => l.Quantity > 0).ToList();
+        var plan = ReceiptLabelsUi.FromLines(lines);
+        if (plan.Items.Count == 0)
+        {
+            ReceiveMessage(ReceiptLabelsUi.NothingText(plan), warning: true);
+            return;
+        }
+        var differs = ReceiptLabelsUi.PriceDiffers(lines, plan);
+        if (differs > 0 && !await PosConfirmDialog.ShowModalAsync(this, T("Цена на ценнике", "Баа белгисиндеги баа", "Price on the tag", "Etiketteki fiyat", "Yorlikdagi narx"),
+                ReceiptLabelsUi.PriceDiffersText(differs), ReceiptLabelsUi.PrintAnywayText, ReceiptLabelsUi.LaterText, PosConfirmAccent.Primary, enterCancels: true).ConfigureAwait(true))
+            return;
+        if (_receive != s)
+            return;
+        ReceiveMessage(plan.NotInCatalog > 0 ? ReceiptLabelsUi.NotInCatalogNote(plan.NotInCatalog) : null);
+        WarehouseWindow.RequestLabels(this, plan.Items);
     }
 }
 

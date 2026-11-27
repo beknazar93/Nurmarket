@@ -1328,6 +1328,8 @@
                             <!-- 2026-10-29: «Наценка…» (правила автонаценки) и «Очистить список» — в верхнем ряду; внизу остаётся итоговая панель (спека Fable). -->
                             <Button Classes="SecondaryButton tool-quiet" x:Name="ReceivingMarkupButton" Click="ReceivingMarkup_Click"/>
                             <Button Classes="SecondaryButton tool-quiet" x:Name="ReceivingClearButton" Click="ReceivingClear_Click"/>
+                            <!-- 2026-11-27: «🏷 Ценники» — товары накладной с количеством уходят во вкладку «Ценники и штрихкоды» (копий = количество строки). -->
+                            <Button Classes="SecondaryButton tool-quiet" x:Name="ReceivingOpenLabelsButton" Click="ReceivingLabels_Click"/>
                         </WrapPanel>
 
                         <Border Grid.Row="2" x:Name="ReceivingSuggestionsBox" IsVisible="False"

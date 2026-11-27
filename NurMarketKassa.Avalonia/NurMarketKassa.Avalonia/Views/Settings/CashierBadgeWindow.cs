@@ -47,7 +47,7 @@ internal sealed class CashierBadgeWindow : Window
         _name = string.IsNullOrWhiteSpace(name) ? (login ?? "") : name.Trim();
         _login = login;
         Title = Tr.T("QR для входа", "Кирүү үчүн QR", "Sign-in QR", "Giriş QR'ı", "Kirish uchun QR");
-        SectionCards.AsModal(this, 640);
+        SectionCards.AsModal(this, 780); // 2026-11-27 (живая проверка 1.17.97, D6): после выпуска QR внизу 4 кнопки — при 640 «Выпустить QR» обрезалась справа
 
         foreach (var v in Validities)
             _validity.Items.Add(v.Text());

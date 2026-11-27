@@ -1202,6 +1202,10 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
             case "repeat":
                 OpenReceive(ReceivePrefill.FromReceipt(detail));
                 break;
+            case "labels": // 2026-11-27: «🏷 Ценники» в накладной — копий = принятое количество
+                if (dialog.LabelItems is { Count: > 0 } labelItems)
+                    WarehouseWindow.RequestLabels(this, labelItems);
+                break;
         }
     }
 

@@ -72,6 +72,8 @@ public sealed class CatalogGroupedPanel : Panel
     private readonly List<(HeaderSlot Slot, TextLayout? Title, TextLayout? Count, IBrush? Tone)> _drawn = new();
     private CatalogPanelViewModel? _catalog;
     private bool _textDirty = true;
+    private IBrush? _textBrushUsed;
+    private IBrush? _softBrushUsed;
     private readonly HeaderLayer _layer;
 
     public CatalogGroupedPanel()
@@ -80,6 +82,13 @@ public sealed class CatalogGroupedPanel : Panel
         // Children целиком принадлежат списку (контейнеры плиток по индексам), а Panel вставляет их в VisualChildren по тем же индексам — перед слоем.
         _layer = new HeaderLayer(this);
         VisualChildren.Add(_layer);
+        // 2026-11-27 (живая проверка 1.17.97, D1): кисти текста копируются в слои текста при подготовке; смена палитры (AccentThemeService кладёт BrushText прямо в ресурсы приложения)
+        // ActualThemeVariantChanged не вызывает — таблица, созданная в светлой теме, в тёмной показывала тёмные названия. Теперь заголовки пересобираются при смене ресурсов и кистей.
+        ResourcesChanged += (_, _) =>
+        {
+            _textDirty = true;
+            _layer.InvalidateVisual();
+        };
     }
 
     /// <summary>Заголовки последней раскладки (для тестов перекрытия и обрезки).</summary>
@@ -285,8 +294,10 @@ public sealed class CatalogGroupedPanel : Panel
         var fontSize = Math.Max(12, TextElement.GetFontSize(this) + 1);
         var titleFace = new Typeface(family, FontStyle.Normal, FontWeight.Bold);
         var countFace = new Typeface(family, FontStyle.Normal, FontWeight.SemiBold);
-        var text = Brush("BrushText") ?? Brushes.Black;
+        var text = Brush("BrushText") ?? (ActualThemeVariant == Avalonia.Styling.ThemeVariant.Light ? Brushes.Black : Brushes.White); // 2026-11-27: запасной цвет — по теме (чёрный на тёмном делал название невидимым)
         var soft = Brush("BrushTextSoft") ?? Brushes.Gray;
+        _textBrushUsed = Brush("BrushText");
+        _softBrushUsed = Brush("BrushTextSoft");
         var inset = Math.Max(0, HeaderInset);
         foreach (var slot in _headers)
         {
@@ -344,7 +355,8 @@ public sealed class CatalogGroupedPanel : Panel
     {
         if (_headers.Count == 0)
             return;
-        if (_textDirty || _drawn.Count != _headers.Count)
+        if (_textDirty || _drawn.Count != _headers.Count
+            || !ReferenceEquals(_textBrushUsed, Brush("BrushText")) || !ReferenceEquals(_softBrushUsed, Brush("BrushTextSoft")))
             PrepareText();
         var line = Brush("BrushBorderStrong") ?? Brush("BrushBorder") ?? Brushes.LightGray;
         var pen = new Pen(line, 1);

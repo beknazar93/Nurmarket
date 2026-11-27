@@ -69,6 +69,8 @@ public sealed partial class PurchasesWindow
         /// (раньше подписка снималась только при СЛЕДУЮЩЕМ срабатывании события, и закрытый раздел «Закупки» держался в памяти минутами).</summary>
         public Action? Detach;
         public Button Raise = null!;
+        /// <summary>2026-11-27: «🏷 Ценники» — печать ценников и штрихкодов на товары накладной.</summary>
+        public Button Labels = null!;
         /// <summary>2026-11-05 (функция 11): доп. расходы прихода (доставка, грузчики) и способ разнесения; доли лежат в строках (LandedExtraPerUnit).</summary>
         public double LandedTotal;
         public LandedMethod LandedMode;
@@ -420,7 +422,8 @@ public sealed partial class PurchasesWindow
         page.Children.Add(card);
 
         // Низ: итог и одна жёлтая «Оприходовать товары» (шаг 3 — окно «Подтверждение оплаты»).
-        var footer = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto,Auto"), Margin = new Thickness(0, 12, 0, 0) };
+        // 2026-11-27: +1 колонка — «🏷 Ценники» (печать ценников и штрихкодов на товары накладной) между «Обновить цены продажи» и «Итого приход».
+        var footer = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto,Auto,Auto"), Margin = new Thickness(0, 12, 0, 0) };
         Use(s.Footer, TextBlock.ForegroundProperty, "BrushText");
         footer.Children.Add(s.Footer);
         // 2026-10-28: «Наценка…» — правила автонаценки (наценка по умолчанию, по категориям, округление); менять могут владелец и администратор.
@@ -447,6 +450,16 @@ public sealed partial class PurchasesWindow
         s.Raise.Click += async (_, _) => await ReceiveRaiseAsync(s).ConfigureAwait(true);
         Grid.SetColumn(s.Raise, 3);
         footer.Children.Add(s.Raise);
+        // 2026-11-27 (владелец: «сразу печатать штрихкод и ценники из накладной приёмки»): кнопка «🏷 Ценники» — товары накладной (с количеством) уходят в «Ценники и штрихкоды», копий = принятое количество.
+        s.Labels = UiKit.Ghost(this, ReceiptLabelsUi.ButtonText);
+        s.Labels.Height = 48;
+        s.Labels.Margin = new Thickness(0, 0, 10, 0);
+        s.Labels.IsVisible = ReceiptLabelsUi.Supported; // в Android-кассе печати этикеток нет
+        Avalonia.Automation.AutomationProperties.SetName(s.Labels, ReceiptLabelsUi.ButtonTip);
+        ToolTip.SetTip(s.Labels, ReceiptLabelsUi.ButtonTip);
+        s.Labels.Click += async (_, _) => await ReceivePrintLabelsAsync(s).ConfigureAwait(true);
+        Grid.SetColumn(s.Labels, 4);
+        footer.Children.Add(s.Labels);
         s.Post = UiKit.Primary(this, T("Оприходовать товары", "Товарларды кирешке алуу", "Post the goods", "Malları kaydet", "Tovarlarni kirim qilish"));
         s.Post.Height = 48;
         s.Post.Focusable = true;
@@ -470,6 +483,7 @@ public sealed partial class PurchasesWindow
             s.Narrow = narrow;
             title.FontSize = narrow ? 17 : 20;
             supplierGoods.Content = ReceiveGoodsButtonText(s);
+            s.Labels.Content = narrow ? "🏷" : ReceiptLabelsUi.ButtonText; // 2026-11-27: на узком окне (800–1000) в низу только значок — иначе «Оприходовать» уезжает за край (ky/uz); имя и подсказка остаются полными
             applyAll.Content = narrow ? T("Ко всем", "Баарына", "To all", "Tümüne", "Hammasiga") : T("Применить ко всем", "Баарына колдонуу", "Apply to all", "Tümüne uygula", "Hammasiga qo'llash");
             // 2026-10-24 (Б2): на узком окне (1024) подсказка поля скана короче — не обрезается.
             s.Scan.Watermark = narrow

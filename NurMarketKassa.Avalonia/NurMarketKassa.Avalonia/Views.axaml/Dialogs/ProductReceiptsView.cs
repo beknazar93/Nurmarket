@@ -676,6 +676,8 @@ internal static class ProductReceiptsActions
         // 2026-10-30: «Накладная №…» из карточки товара — та же форма «Накладная прихода», что и в «Закупках».
         var dialog = new InvoiceDocumentWindow(detail, note, debt, supplier, new PurchaseReceiptContext(productId, filePath));
         await PosDialogHost.ShowAsync(dialog, owner).ConfigureAwait(true);
+        if (dialog.Action == "labels" && dialog.LabelItems is { Count: > 0 } labelItems) // 2026-11-27: «🏷 Ценники» в накладной
+            WarehouseWindow.RequestLabels(owner, labelItems);
     }
 
     public static async Task OpenSupplierAsync(Window owner, SupplierApiService api, ProductReceiptRow row)

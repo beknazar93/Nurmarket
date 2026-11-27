@@ -16,9 +16,17 @@ public partial class WarehouseWindow
     /// <summary>Просьба «открыть вкладку Ценники и штрихкоды» открытым складам (в программе владельца это раздел «Склад»).</summary>
     private static event Action<IReadOnlyList<(string ProductId, string? Barcode, int Copies)>?>? LabelsRequested;
 
+    /// <summary>Только для проверочного стенда (в программе всегда null): вместо открытия вкладки получает окно-источник и позиции.</summary>
+    public static Action<Window?, IReadOnlyList<(string ProductId, string? Barcode, int Copies)>?>? LabelsRequestOverride;
+
     /// <summary>Открыть вкладку «Ценники и штрихкоды» (<paramref name="items"/> — позиции для печати; null — просто открыть).</summary>
     public static void RequestLabels(Window? from, IReadOnlyList<(string ProductId, string? Barcode, int Copies)>? items = null)
     {
+        if (LabelsRequestOverride is { } hook) // 2026-11-27: проверочный стенд — «Ценники» в приёмке и накладной: какие позиции переданы, без открытия окна склада
+        {
+            hook(from, items);
+            return;
+        }
         if (AppMode.IsOwner && ProductActionPlan.OpenSection is { } openSection)
         {
             openSection("warehouse");

@@ -28,7 +28,9 @@ public static class TariffGate
         UserPreferences.Instance.LastKnownPlanName is { Length: > 0 } name ? name.Trim() : null;
 
     /// <summary>2026-11-08 (владелец): «Редактор этикетки» входит в тариф «Старт» — подключён сразу, без покупки (в файл настроек это не пишется: сменился тариф — условие пересчитается).</summary>
-    public static bool LabelEditorAvailable => UserPreferences.Instance.LabelEditorUnlocked || IsStartTariff;
+    // 2026-11-27 (владелец): «Редактор этикеток ценников добавь в состав тарифа Стандарт» — теперь входит и в «Стандарт»
+    // (раньше на «Стандарте» он был закрыт серийным номером), т.е. открыт на любом тарифе.
+    public static bool LabelEditorAvailable => true;
 
     public static bool IsStartTariff
     {

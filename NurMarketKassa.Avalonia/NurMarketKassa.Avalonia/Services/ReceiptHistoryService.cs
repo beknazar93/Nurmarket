@@ -101,6 +101,12 @@ public sealed class ReceiptHistoryResult
 
     /// <summary>2026-11-03 (ревью Н-1): список оборван не по числу страниц, а потому что сервер медлит (страница шла дольше 3 с и общее время вышло за 8 с, либо страница не ответила за 8 с).</summary>
     public bool TruncatedSlow { get; set; }
+
+    /// <summary>2026-11-27: сколько строк отдал сервер за период до отбора по кассе и дате; -1 — сервер не спрашивали или он не ответил.</summary>
+    public int ServerRows { get; set; } = -1;
+
+    /// <summary>2026-11-27 (живая проверка 1.17.97: «История чеков» пуста при чеках на кассе): сервер ответил, но чеков за период не вернул, а касса сама знает свои продажи — показаны они.</summary>
+    public bool ServerListEmptyUsedLocal { get; set; }
 }
 
 /// <summary>«История чеков» и повторная печать для кассира (2026-09-27, просьба владельца:
@@ -168,7 +174,13 @@ public static class ReceiptHistoryService
 
         // В автономном режиме сервера нет вообще — все чеки лежат в офлайн-очереди.
         // 2026-09-29: в аварии сервера — тоже только локальные чеки, без ожидания таймаута.
-        if (!autonomous && !OfflineModeHelper.SellLocally)
+        // 2026-11-27: раньше при этом список молча был пуст («чеков нет»), а свои продажи из базы кассы подмешивались только после сбоя запроса — теперь та же запасная ветка и пометка.
+        if (!autonomous && OfflineModeHelper.SellLocally)
+        {
+            PosLogger.Log("История чеков: сервер не спрашиваю (касса в офлайн-режиме или авария сервера) — показываю чеки этой кассы.", "SALES");
+            result.ServerUnavailable = true;
+        }
+        else if (!autonomous)
         {
             try
             {
@@ -195,13 +207,21 @@ public static class ReceiptHistoryService
 
         // 2026-11-03 (Д-3, живая проверка 1.17.73): сервер не ответил — кроме очереди показываем проведённые на этой кассе продажи из базы кассы
         // (раньше при медленном сервере список был пуст и писал «чеков нет», хотя минуту назад были продажи).
-        if (result.ServerUnavailable && !autonomous)
+        // 2026-11-27: сервер ответил, но за календарный период (не «эта смена») не вернул ни одной строки, хотя касса сама проводила продажи, — тоже показываем их (раньше «чеков нет»).
+        var serverEmpty = !result.ServerUnavailable && !autonomous && result.ServerRows == 0 && period != ReceiptHistoryPeriod.CurrentShift;
+        if ((result.ServerUnavailable || serverEmpty) && !autonomous)
         {
             var known = new HashSet<string>(syncedIds, StringComparer.OrdinalIgnoreCase);
             foreach (var queued in localEntries)
                 if (!string.IsNullOrWhiteSpace(queued.Local!.SyncedSaleId))
                     known.Add(queued.Local.SyncedSaleId!);
-            localEntries.AddRange(LoadCashSoldSales(from, toExclusive, InPeriod, known));
+            var own = LoadCashSoldSales(from, toExclusive, InPeriod, known);
+            if (serverEmpty && own.Count > 0)
+            {
+                result.ServerListEmptyUsedLocal = true;
+                PosLogger.Log($"История чеков: сервер не вернул чеков за период {period}, показываю {own.Count} своих продаж из базы кассы.", "SALES");
+            }
+            localEntries.AddRange(own);
         }
 
         result.Entries.AddRange(serverEntries);
@@ -356,6 +376,7 @@ public static class ReceiptHistoryService
     {
         var rows = new List<JsonElement>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        sink.ServerRows = 0; // 2026-11-27: запрос ушёл — дальше считаем строки
         var pageSize = period is ReceiptHistoryPeriod.Week or ReceiptHistoryPeriod.Month or ReceiptHistoryPeriod.Custom ? WidePageSize : PageSize; // 2026-11-11
         var startedUtc = DateTime.UtcNow;
         var lastPageTook = TimeSpan.Zero;
@@ -436,17 +457,32 @@ public static class ReceiptHistoryService
 
         var cashboxId = (PosApp.PosCashboxId ?? "").Trim();
         var result = new List<ReceiptHistoryEntry>(rows.Count);
+        // 2026-11-27: счётчики отбора — «История чеков» была пуста при чеках на кассе, а в журнале ничего (живая проверка 1.17.97); теперь видно, на каком шаге чеки отсеялись.
+        sink.ServerRows = rows.Count;
+        int dropNew = 0, dropTime = 0, dropPeriod = 0, dropCashbox = 0, dropShift = 0;
+        string? sampleCashbox = null;
         foreach (var row in rows)
         {
             var status = (Str(row, "status") ?? "").ToLowerInvariant();
 
             // «new» — продажа ещё не оплачена (открытая корзина), чека по ней не было.
             if (status == "new")
+            {
+                dropNew++;
                 continue;
+            }
 
             var createdAt = SaleTime(row);
-            if (createdAt is null || !inPeriod(createdAt.Value))
+            if (createdAt is null)
+            {
+                dropTime++;
                 continue;
+            }
+            if (!inPeriod(createdAt.Value))
+            {
+                dropPeriod++;
+                continue;
+            }
 
             // Чеки только этой кассы. Для «этой смены» достаточно номера смены: смена открыта на
             // этой кассе, а касса у кассира может смениться посреди смены (сервер отверг прежнюю,
@@ -458,16 +494,24 @@ public static class ReceiptHistoryService
             if (period == ReceiptHistoryPeriod.CurrentShift && rowShift != null)
             {
                 if (!string.Equals(rowShift, shiftId, StringComparison.OrdinalIgnoreCase))
+                {
+                    dropShift++;
                     continue;
+                }
             }
             else if (period == ReceiptHistoryPeriod.CurrentShift)
             {
                 // Сервер не прислал смену — берём только сегодняшние чеки, где касса точно эта.
                 if (createdAt.Value.Date != DateTime.Today || rowCashbox == null || !sameCashbox)
+                {
+                    dropCashbox++;
                     continue;
+                }
             }
             else if (!sameCashbox)
             {
+                dropCashbox++;
+                sampleCashbox ??= rowCashbox;
                 continue;
             }
 
@@ -492,6 +536,8 @@ public static class ReceiptHistoryService
             });
         }
 
+        PosLogger.Log($"История чеков: период {period}, с сервера строк {rows.Count}, показано {result.Count}; отсеяно: «new» {dropNew}, без даты {dropTime}, вне периода {dropPeriod}, другая касса {dropCashbox}, другая смена {dropShift}; касса этой программы {Short(cashboxId)}, у отсеянного чека {Short(sampleCashbox)}.", "SALES");
+
         // Полный состав чеков, пробитых на этой кассе, есть в локальной истории продаж — по нему
         // поиск находит чек по любому товару, а не только по первому.
         try
@@ -511,6 +557,8 @@ public static class ReceiptHistoryService
 
         return result;
     }
+
+    private static string Short(string? id) => string.IsNullOrEmpty(id) ? "—" : id.Length <= 8 ? id : id[..8];
 
     /// <summary>Сколько продаж компании (все кассы, все статусы) за [from; toExclusive) — для
     /// номера чека «как на сайте» у чеков вчерашнего дня. Ошибка — 0: номер съедет, но список

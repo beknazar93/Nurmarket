@@ -45,9 +45,12 @@ public sealed class CashierBadgeLogin
         if (_throttle.LockedFor(now) is { } wait)
             return new CashierBadgeCheck(CashierBadgeStatus.LockedOut, Wait: wait);
         var check = CashierBadgeRegistry.Verify(raw, CashierBadgeRegistry.Parse(_localRegistry()), now);
+        // 2026-11-27 (D3d): «не прочитан целиком» — не подбор секрета (хэш не проверялся), в паузу не засчитывается: оборванные сканы
+        // раньше копили 5 «неудач», и следующий верный бейдж упирался в паузу 30 с и дольше.
         if (check.Status is not (CashierBadgeStatus.Ok or CashierBadgeStatus.NotBadge))
         {
-            _throttle.RegisterFailure(now);
+            if (check.Status != CashierBadgeStatus.Malformed)
+                _throttle.RegisterFailure(now);
             PosLogger.Log($"Вход по бейджу отклонён: {check.Status} (бейдж {(CashierBadgeCode.TryParse(raw, out var id, out _) ? CashierBadgeCode.Mask(id) : "?")}).", "AUTH");
         }
         return check;

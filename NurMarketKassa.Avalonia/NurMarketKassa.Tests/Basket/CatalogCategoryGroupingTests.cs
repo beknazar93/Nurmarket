@@ -84,11 +84,29 @@ public sealed class CatalogCategoryGroupingTests
             var vm = Publish(Shop());
 
             vm.IsGroupedByCategory.Should().BeTrue();
-            // Молочка: Кефир★ первым (избранные), затем по названию; Напитки; Без категории — последней.
+            // «★ Избранные» (Кефир) — отдельная первая группа; Молочка; Напитки; Без категории — последней.
             vm.Products.Select(p => p.Title).Should().Equal("Кефир", "Айран", "Молоко", "Сыр весовой", "Кола", "Сок", "Батарейки", "Гвозди");
-            vm.CategoryHeader("Молочка").Should().Be(("Молочка", 4));
+            vm.CategoryHeader(CatalogCategoryGrouping.FavoritesKey).Should().Be((CatalogCategoryGrouping.FavoritesTitle, 1));
+            vm.CategoryHeader("Молочка").Should().Be(("Молочка", 3));
             vm.CategoryHeader("НАПИТКИ").Count.Should().Be(2);
             vm.CategoryHeader("").Should().Be((CatalogCategoryGrouping.UncategorizedTitle, 2));
+        });
+    }
+
+    // 2026-11-27 (владелец: «ты сбил избранные товары в каталоге»): избранные из любой категории — в начале каталога, а не в своей категории.
+    [Fact]
+    public void Favorites_FromAnyCategory_StandFirst()
+    {
+        WithGrouping(true, () =>
+        {
+            var tiles = Shop();
+            tiles.Add(Tile("9", "Спрайт", "Напитки", favorite: true));
+            tiles.Add(Tile("10", "Шуруп", null, favorite: true));
+            var vm = Publish(tiles);
+
+            vm.Products.Take(3).Select(p => p.Title).Should().Equal("Кефир", "Спрайт", "Шуруп");
+            vm.Products.Skip(3).Any(p => p.IsFavorite).Should().BeFalse();
+            vm.CategoryHeader(CatalogCategoryGrouping.FavoritesKey).Count.Should().Be(3);
         });
     }
 
