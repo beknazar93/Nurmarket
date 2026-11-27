@@ -21,6 +21,7 @@ import 'features/payment/debt_access.dart';
 import 'features/admin/advisor.dart';
 import 'features/admin/ai_access_ui.dart';
 import 'features/admin/analytics.dart';
+import 'features/admin/stock_analytics.dart';
 import 'features/admin/admin_receive.dart';
 import 'features/admin/invoice_import.dart';
 import 'features/admin/admin_repository.dart';
@@ -185,6 +186,7 @@ GoRouter buildRouter(Reader read, {required bool signedIn, Listenable? refresh})
     GoRoute(path: '/admin/advisor', builder: (_, _) => const AiAccessGate(child: AdvisorScreen())),
     GoRoute(path: '/admin/summary', builder: (_, _) => const SummaryScreen()),
     GoRoute(path: '/admin/abc', builder: (_, _) => const AbcScreen()),
+    GoRoute(path: '/admin/stock-analytics', builder: (_, _) => const StockAnalyticsScreen()), // 2026-11-27: «Аналитика склада»
     GoRoute(path: '/admin/esf', builder: (_, _) => const EsfScreen()),
     // 2026-11-27 (просьба владельца «И в мобилку тоже Маркетплейс добавь!»): Маркетплейс функций и тарифов — владельцу и администратору
     GoRoute(path: '/admin/marketplace', builder: (_, s) => MarketplaceScreen(openModule: s.uri.queryParameters['module'])),

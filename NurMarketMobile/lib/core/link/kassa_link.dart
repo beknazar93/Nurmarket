@@ -54,6 +54,47 @@ extension KassaLinkStatusRules on KassaLinkStatus {
   bool get refusesScans => this == KassaLinkStatus.revoked || this == KassaLinkStatus.disabled || this == KassaLinkStatus.rePair || this == KassaLinkStatus.badTime;
 }
 
+/// 2026-11-27 (жалоба владельца «не работает подключение сканера с телефона»): почему телефон не подключился к кассе —
+/// для понятной подсказки вместо общего «Касса не отвечает».
+enum KassaFailReason {
+  /// Телефон не в Wi-Fi (только мобильный интернет).
+  noWifi,
+
+  /// Телефон в другой сети Wi-Fi, чем адрес кассы из QR.
+  otherNetwork,
+
+  /// Сеть та же, но касса молчит (чаще всего брандмауэр Windows отбрасывает соединение).
+  noAnswer,
+
+  /// Компьютер ответил «порт закрыт»: приём с телефонов на кассе выключен или касса не запущена.
+  refused,
+
+  /// Касса ответила, но код не подошёл (устарел, заменён «Новым кодом» или окно на кассе закрыто).
+  codeExpired,
+}
+
+/// Подсеть /24 адреса («10.0.0.59» → «10.0.0»).
+String subnetOf(String ipv4) => ipv4.split('.').take(3).join('.');
+
+/// 2026-11-27: причина «касса не ответила» по сетям телефона ([phoneSubnets] — префиксы /24 Wi-Fi) и ошибке соединения.
+/// Маска сети телефону не известна: «другая сеть» — только когда это видно наверняка (192.168.x с другим x или другие первые
+/// два числа адреса), иначе «касса молчит» (подсказка про брандмауэр и ту же сеть).
+KassaFailReason diagnoseNoAnswer({required String kassaHost, required List<String> phoneSubnets, String? netError}) {
+  if (phoneSubnets.isEmpty) return KassaFailReason.noWifi;
+  final kassaNet = subnetOf(kassaHost);
+  if (!phoneSubnets.contains(kassaNet)) {
+    final k = kassaHost.split('.');
+    final surelyOther = phoneSubnets.every((s) {
+      final ph = s.split('.');
+      if (ph.length < 3 || k.length < 3) return true;
+      if (ph[0] != k[0] || ph[1] != k[1]) return true;
+      return k[0] == '192' && k[1] == '168'; // домашние роутеры 192.168.x.* — всегда /24
+    });
+    if (surelyOther) return KassaFailReason.otherNetwork;
+  }
+  return netError == 'refused' ? KassaFailReason.refused : KassaFailReason.noAnswer;
+}
+
 /// QR сопряжения не разобран.
 class KassaQrException implements Exception {
   /// 'format' — не QR кассы NurMarket; 'version' — другая версия протокола.
@@ -331,7 +372,10 @@ Future<String> socketExchange(String host, int port, String line, Duration conne
     return reply;
   } on TimeoutException {
     throw const KassaNetException('timeout');
-  } on SocketException {
+  } on SocketException catch (e) {
+    // 2026-11-27: «порт закрыт» (ECONNREFUSED: Android/Linux 111, iOS 61, Windows 1225/10061 — тесты) — компьютер в сети есть, а приём кассы выключен.
+    final code = e.osError?.errorCode;
+    if (code == 111 || code == 61 || code == 1225 || code == 10061) throw const KassaNetException('refused');
     throw const KassaNetException('socket');
   } on StateError {
     throw const KassaNetException('closed'); // касса закрыла соединение без ответа
@@ -463,6 +507,12 @@ class KassaLink extends ChangeNotifier {
   /// Идёт проверка связи / поиск кассы.
   bool checking = false;
 
+  /// 2026-11-27: почему последняя попытка связи не удалась (null — удалась или не было). Экран показывает понятную причину.
+  KassaFailReason? lastFailure;
+
+  /// Подсеть Wi-Fi телефона при последней неудаче («192.168.0.x»), для подсказки «другая сеть».
+  String phoneNetwork = '';
+
   /// Имя для hello (сотрудник из профиля). Ставят экраны.
   String deviceName = '';
 
@@ -473,6 +523,7 @@ class KassaLink extends ChangeNotifier {
   DateTime _lastDiscover = DateTime(2000);
   bool _discovering = false;
   int _failedSearches = 0;
+  List<String>? _lastSubnets;
 
   /// Идёт поиск кассы в подсети (экран пишет «Ищу кассу в сети Wi-Fi…»).
   bool get discovering => _discovering;
@@ -590,10 +641,17 @@ class KassaLink extends ChangeNotifier {
     _kassaSigns = false;
     _kassaName = '';
     shiftOpen = null;
+    lastFailure = null;
     _status = KassaLinkStatus.unknown;
     await _store.write(_kPairing, p.toJsonString());
     notifyListeners();
-    return check();
+    final st = await check();
+    // 2026-11-27: только что отсканированный ключ касса не знает — код на кассе устарел, заменён или окно закрыто.
+    if (st == KassaLinkStatus.rePair) {
+      lastFailure = KassaFailReason.codeExpired;
+      notifyListeners();
+    }
+    return st;
   }
 
   /// hello: проверить связь. Адрес из QR не ответил за 3 с — перебор подсети /24 телефона по портам 47830…47839.
@@ -618,15 +676,23 @@ class KassaLink extends ChangeNotifier {
     notifyListeners();
     try {
       KassaReply? r;
+      String? netError;
       try {
         r = await _callAt(p, p.host, p.port, 'hello', _helloBody, const Duration(seconds: 3), const Duration(seconds: 4));
-      } on KassaNetException {
+      } on KassaNetException catch (e) {
         r = null;
+        netError = e.message;
       }
       if (r == null && discover && (!background || _clock().difference(_lastDiscover) >= rediscoverPause(_failedSearches))) r = await _discover(p);
       if (r == null) {
+        // 2026-11-27: понятная причина (нет Wi-Fi / другая сеть / касса молчит / порт закрыт)
+        // сети телефона — из последнего поиска (лишний раз интерфейсы не читаем); поиска ещё не было — читаем сейчас
+        final subnets = _lastSubnets ?? await _subnets();
+        lastFailure = diagnoseNoAnswer(kassaHost: p.host, phoneSubnets: subnets, netError: netError);
+        phoneNetwork = subnets.isEmpty ? '' : '${subnets.first}.x';
         _setStatus(KassaLinkStatus.notFound);
       } else {
+        lastFailure = null;
         _applyReply(r);
       }
     } finally {
@@ -647,6 +713,7 @@ class KassaLink extends ChangeNotifier {
     notifyListeners();
     try {
       final prefixes = await _subnets(); // только Wi-Fi: на мобильном интернете подсеть оператора не перебирается
+      _lastSubnets = prefixes; // 2026-11-27: для причины неудачи (нет Wi-Fi / другая сеть)
       for (final prefix in prefixes) {
         final targets = [
           for (var port = defaultPort; port <= lastPort; port++)
@@ -687,6 +754,7 @@ class KassaLink extends ChangeNotifier {
   Future<void> forgetAccount() async {
     _retryTimer?.cancel();
     _queue.clear();
+    lastFailure = null;
     _pairing = null;
     _kassaSigns = false;
     _kassaName = '';
@@ -706,6 +774,7 @@ class KassaLink extends ChangeNotifier {
     await ensureLoaded();
     _retryTimer?.cancel();
     _queue.clear();
+    lastFailure = null;
     _pairing = null;
     _kassaSigns = false;
     _kassaName = '';

@@ -12921,6 +12921,204 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Это действие нужно подтвердить PIN-кодом владельца или администратора. Повторите и введите PIN.'**
   String get pinRequiredText;
+
+  /// No description provided for @klWhyNoWifi.
+  ///
+  /// In ru, this message translates to:
+  /// **'Телефон не подключён к Wi-Fi. Включите Wi-Fi и подключитесь к той же сети, что и компьютер с кассой (мобильный интернет не подходит).'**
+  String get klWhyNoWifi;
+
+  /// No description provided for @klWhyOtherNet.
+  ///
+  /// In ru, this message translates to:
+  /// **'Телефон в другой сети Wi-Fi ({phone}), а касса — по адресу {kassa}. Подключите телефон к Wi-Fi того же роутера, что и касса, и отсканируйте QR снова.'**
+  String klWhyOtherNet(String phone, String kassa);
+
+  /// No description provided for @klWhyNoAnswer.
+  ///
+  /// In ru, this message translates to:
+  /// **'Касса не отвечает, хотя телефон в той же сети. Чаще всего это брандмауэр Windows: на кассе в окне «Подключить телефон» будет красная подсказка — сделайте сеть «Частной» или разрешите NurCRM. Окно «Подключить телефон» на кассе должно быть открыто.'**
+  String get klWhyNoAnswer;
+
+  /// No description provided for @klWhyRefused.
+  ///
+  /// In ru, this message translates to:
+  /// **'Компьютер с кассой найден, но приём с телефонов закрыт. На кассе: Настройки → включите «Принимать сканы с телефонов», затем «Подключить телефон».'**
+  String get klWhyRefused;
+
+  /// No description provided for @klWhyCodeExpired.
+  ///
+  /// In ru, this message translates to:
+  /// **'Касса на связи, но код не подошёл: он действует 5 минут и меняется по кнопке «Новый код». На кассе нажмите «Новый код» и отсканируйте QR снова.'**
+  String get klWhyCodeExpired;
+
+  /// No description provided for @klQrCloser.
+  ///
+  /// In ru, this message translates to:
+  /// **'Не читается? Поднесите телефон ближе (15–25 см), чтобы QR занял почти весь квадрат, и уберите блики. Или сфотографируйте QR.'**
+  String get klQrCloser;
+
+  /// No description provided for @klPhotoQr.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сфотографировать QR'**
+  String get klPhotoQr;
+
+  /// No description provided for @klPhotoQrNone.
+  ///
+  /// In ru, this message translates to:
+  /// **'На фото не найден QR-код кассы. Сфотографируйте его ближе и ровнее.'**
+  String get klPhotoQrNone;
+
+  /// No description provided for @saTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Аналитика склада'**
+  String get saTitle;
+
+  /// No description provided for @saDesc.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сколько товаров на складе, на какую сумму, что закончилось и где не хватает цены или штрихкода.'**
+  String get saDesc;
+
+  /// No description provided for @saPositions.
+  ///
+  /// In ru, this message translates to:
+  /// **'Товаров (позиций)'**
+  String get saPositions;
+
+  /// No description provided for @saUnits.
+  ///
+  /// In ru, this message translates to:
+  /// **'Единиц на складе'**
+  String get saUnits;
+
+  /// No description provided for @saRetail.
+  ///
+  /// In ru, this message translates to:
+  /// **'Стоимость по продаже'**
+  String get saRetail;
+
+  /// No description provided for @saPurchase.
+  ///
+  /// In ru, this message translates to:
+  /// **'Стоимость по закупке'**
+  String get saPurchase;
+
+  /// No description provided for @saMarkup.
+  ///
+  /// In ru, this message translates to:
+  /// **'Наценка на остаток'**
+  String get saMarkup;
+
+  /// No description provided for @saZero.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нет в наличии'**
+  String get saZero;
+
+  /// No description provided for @saLow.
+  ///
+  /// In ru, this message translates to:
+  /// **'Заканчивается'**
+  String get saLow;
+
+  /// No description provided for @saMinus.
+  ///
+  /// In ru, this message translates to:
+  /// **'В минусе'**
+  String get saMinus;
+
+  /// No description provided for @saNoPrice.
+  ///
+  /// In ru, this message translates to:
+  /// **'Без цены'**
+  String get saNoPrice;
+
+  /// No description provided for @saNoCode.
+  ///
+  /// In ru, this message translates to:
+  /// **'Без штрихкода'**
+  String get saNoCode;
+
+  /// No description provided for @saAttention.
+  ///
+  /// In ru, this message translates to:
+  /// **'Что требует внимания'**
+  String get saAttention;
+
+  /// No description provided for @saAttentionHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нажмите на плитку — откроется список склада с этим фильтром.'**
+  String get saAttentionHint;
+
+  /// No description provided for @saBySale.
+  ///
+  /// In ru, this message translates to:
+  /// **'по цене продажи'**
+  String get saBySale;
+
+  /// No description provided for @saByCategory.
+  ///
+  /// In ru, this message translates to:
+  /// **'Склад по категориям'**
+  String get saByCategory;
+
+  /// No description provided for @saNoCategory.
+  ///
+  /// In ru, this message translates to:
+  /// **'Без категории'**
+  String get saNoCategory;
+
+  /// No description provided for @saTop.
+  ///
+  /// In ru, this message translates to:
+  /// **'Топ-10 товаров по стоимости остатка'**
+  String get saTop;
+
+  /// No description provided for @saRecent.
+  ///
+  /// In ru, this message translates to:
+  /// **'Последние поступления'**
+  String get saRecent;
+
+  /// No description provided for @saRecentNone.
+  ///
+  /// In ru, this message translates to:
+  /// **'Приходов от поставщиков не найдено'**
+  String get saRecentNone;
+
+  /// No description provided for @saRecentNoLink.
+  ///
+  /// In ru, this message translates to:
+  /// **'Поступления загрузятся, когда появится связь'**
+  String get saRecentNoLink;
+
+  /// No description provided for @saPurchaseMissing.
+  ///
+  /// In ru, this message translates to:
+  /// **'Закупка не задана у {n} товаров — в стоимость по закупке они не вошли.'**
+  String saPurchaseMissing(int n);
+
+  /// No description provided for @saEmpty.
+  ///
+  /// In ru, this message translates to:
+  /// **'На складе пока нет товаров'**
+  String get saEmpty;
+
+  /// No description provided for @saEmptyHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Загрузите каталог: «Склад» → «Обновить каталог».'**
+  String get saEmptyHint;
+
+  /// No description provided for @saHow.
+  ///
+  /// In ru, this message translates to:
+  /// **'Считается по товарам, загруженным на телефон (услуги не входят). Единицы — без весовых товаров. Стоимость — остаток × цена; товары в минусе в стоимость не входят. Цену закупки видят только владелец и администратор.'**
+  String get saHow;
 }
 
 class _AppLocalizationsDelegate

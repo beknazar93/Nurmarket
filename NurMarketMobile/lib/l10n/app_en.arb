@@ -1974,7 +1974,7 @@
   "stockPhotoHint": "Pick a product — it will show in the stock list",
   "stockPhotoNone": "Nothing similar to the photo was found in stock. Take the photo closer or search by name.",
   "stockPhotoOffline": "No connection — photo search needs the internet. Search by name or barcode.",
-  "stockCountShown":"Showing {shown} of {total}",
+  "stockCountShown": "Showing {shown} of {total}",
   "stockCountAll": "Products: {total}",
   "shopModeNotChosen": "Not chosen",
   "shopModeChoose": "Choose the store mode",
@@ -2141,5 +2141,45 @@
   "pinInvalidLeft": "Wrong PIN. Attempts left: {n}.",
   "pinLocked": "The PIN is locked after wrong attempts. Try again later.",
   "pinNotSet": "The PIN is not set — set it in Settings → Employees.",
-  "pinRequiredText": "This action must be confirmed with the owner's or administrator's PIN. Try again and enter the PIN."
+  "pinRequiredText": "This action must be confirmed with the owner's or administrator's PIN. Try again and enter the PIN.",
+  "klWhyNoWifi": "The phone is not on Wi-Fi. Turn on Wi-Fi and join the same network as the till computer (mobile data will not work).",
+  "klWhyOtherNet": "The phone is on another Wi-Fi network ({phone}), but the till is at {kassa}. Connect the phone to the same router's Wi-Fi as the till and scan the QR again.",
+  "klWhyNoAnswer": "The till does not answer although the phone is on the same network. Most often it is Windows Firewall: the till's “Connect a phone” window shows a red hint — make the network “Private” or allow NurCRM. Keep the “Connect a phone” window open on the till.",
+  "klWhyRefused": "The till computer was found, but phone input is closed. On the till: Settings → turn on “Accept scans from phones”, then “Connect a phone”.",
+  "klWhyCodeExpired": "The till answers, but the code did not match: it is valid for 5 minutes and changes with “New code”. Press “New code” on the till and scan the QR again.",
+  "klQrCloser": "Not reading? Hold the phone closer (15–25 cm) so the QR fills most of the square, and avoid glare. Or take a photo of the QR.",
+  "klPhotoQr": "Take a photo of the QR",
+  "klPhotoQrNone": "No till QR code found in the photo. Take it closer and straighter.",
+  "saTitle": "Stock analytics",
+  "saDesc": "How many products are in stock, what they are worth, what ran out and where a price or barcode is missing.",
+  "saPositions": "Products (items)",
+  "saUnits": "Units in stock",
+  "saRetail": "Value at sale price",
+  "saPurchase": "Value at purchase price",
+  "saMarkup": "Markup on stock",
+  "saZero": "Out of stock",
+  "saLow": "Running low",
+  "saMinus": "Negative stock",
+  "saNoPrice": "No price",
+  "saNoCode": "No barcode",
+  "saAttention": "What needs attention",
+  "saAttentionHint": "Tap a tile to open the stock list with that filter.",
+  "saBySale": "at sale price",
+  "saByCategory": "Stock by category",
+  "saNoCategory": "No category",
+  "saTop": "Top 10 products by stock value",
+  "saRecent": "Latest receipts",
+  "saRecentNone": "No supplier receipts found",
+  "saRecentNoLink": "Receipts will load when the connection is back",
+  "saPurchaseMissing": "Purchase price is not set for {n} products — they are not counted in the purchase value.",
+  "@saPurchaseMissing": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "saEmpty": "There are no products in stock yet",
+  "saEmptyHint": "Load the catalog: “Stock” → “Refresh catalog”.",
+  "saHow": "Counted over the products loaded on the phone (services are excluded). Units exclude weighed products. Value is stock × price; products with negative stock are not counted in the value. Only the owner and administrators see the purchase price."
 }

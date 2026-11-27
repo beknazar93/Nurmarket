@@ -637,7 +637,9 @@ void main() {
         expect(t.takeException(), isNull, reason: lang);
         expect(find.byKey(const Key('klHelp')), findsOneWidget, reason: lang);
         final l = t.element(find.byKey(const Key('klHelp'))).l;
-        expect(find.text(l.klHelpNotFound), findsOneWidget);
+        // 2026-11-27: при известной причине (здесь — телефон без Wi-Fi) вместо общего списка — точная подсказка
+        expect(link.lastFailure, KassaFailReason.noWifi);
+        expect(find.text(kassaFailText(l, link)!), findsOneWidget);
         expect(find.text(l.klCheckNow), findsOneWidget);
         await t.scrollUntilVisible(find.text(l.klScanQr), 200);
         expect(find.text(l.klScanQr), findsOneWidget);

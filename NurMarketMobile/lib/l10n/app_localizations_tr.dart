@@ -7519,4 +7519,116 @@ class AppLocalizationsTr extends AppLocalizations {
   @override
   String get pinRequiredText =>
       'Bu işlem sahibin veya yöneticinin PIN\'i ile onaylanmalı. Tekrar deneyin ve PIN\'i girin.';
+
+  @override
+  String get klWhyNoWifi =>
+      'Telefon Wi-Fi\'ye bağlı değil. Wi-Fi\'yi açın ve kasa bilgisayarıyla aynı ağa bağlanın (mobil veri olmaz).';
+
+  @override
+  String klWhyOtherNet(String phone, String kassa) {
+    return 'Telefon başka bir Wi-Fi ağında ($phone), kasa ise $kassa adresinde. Telefonu kasayla aynı modemin Wi-Fi\'sine bağlayıp QR\'ı yeniden tarayın.';
+  }
+
+  @override
+  String get klWhyNoAnswer =>
+      'Telefon aynı ağda olmasına rağmen kasa yanıt vermiyor. Çoğu zaman sebep Windows Güvenlik Duvarı\'dır: kasadaki «Telefonu bağla» penceresinde kırmızı bir ipucu çıkar — ağı «Özel» yapın veya NurCRM\'e izin verin. Kasada «Telefonu bağla» penceresi açık olmalı.';
+
+  @override
+  String get klWhyRefused =>
+      'Kasa bilgisayarı bulundu, ancak telefondan giriş kapalı. Kasada: Ayarlar → «Telefonlardan taramaları kabul et» seçeneğini açın, sonra «Telefonu bağla».';
+
+  @override
+  String get klWhyCodeExpired =>
+      'Kasa yanıt veriyor, ancak kod uymadı: 5 dakika geçerlidir ve «Yeni kod» ile değişir. Kasada «Yeni kod» düğmesine basıp QR\'ı yeniden tarayın.';
+
+  @override
+  String get klQrCloser =>
+      'Okunmuyor mu? Telefonu yaklaştırın (15–25 cm), QR kareyi neredeyse doldursun, parlamayı önleyin. Ya da QR\'ın fotoğrafını çekin.';
+
+  @override
+  String get klPhotoQr => 'QR\'ın fotoğrafını çek';
+
+  @override
+  String get klPhotoQrNone =>
+      'Fotoğrafta kasa QR kodu bulunamadı. Daha yakından ve düz çekin.';
+
+  @override
+  String get saTitle => 'Depo analizi';
+
+  @override
+  String get saDesc =>
+      'Depoda kaç ürün var, değeri ne kadar, nelerin bittiği ve nerede fiyat ya da barkod eksik.';
+
+  @override
+  String get saPositions => 'Ürünler (kalem)';
+
+  @override
+  String get saUnits => 'Depodaki adet';
+
+  @override
+  String get saRetail => 'Satış fiyatıyla değer';
+
+  @override
+  String get saPurchase => 'Alış fiyatıyla değer';
+
+  @override
+  String get saMarkup => 'Stok üzerindeki kâr payı';
+
+  @override
+  String get saZero => 'Stokta yok';
+
+  @override
+  String get saLow => 'Azalıyor';
+
+  @override
+  String get saMinus => 'Eksi stok';
+
+  @override
+  String get saNoPrice => 'Fiyatsız';
+
+  @override
+  String get saNoCode => 'Barkodsuz';
+
+  @override
+  String get saAttention => 'Nelere dikkat etmeli';
+
+  @override
+  String get saAttentionHint =>
+      'Bir kutuya dokunun — depo listesi bu filtreyle açılır.';
+
+  @override
+  String get saBySale => 'satış fiyatıyla';
+
+  @override
+  String get saByCategory => 'Kategoriye göre depo';
+
+  @override
+  String get saNoCategory => 'Kategorisiz';
+
+  @override
+  String get saTop => 'Stok değerine göre ilk 10 ürün';
+
+  @override
+  String get saRecent => 'Son girişler';
+
+  @override
+  String get saRecentNone => 'Tedarikçi girişi bulunamadı';
+
+  @override
+  String get saRecentNoLink => 'Girişler bağlantı gelince yüklenecek';
+
+  @override
+  String saPurchaseMissing(int n) {
+    return '$n üründe alış fiyatı yok — alış değerine dahil edilmedi.';
+  }
+
+  @override
+  String get saEmpty => 'Depoda henüz ürün yok';
+
+  @override
+  String get saEmptyHint => 'Kataloğu yükleyin: «Depo» → «Kataloğu yenile».';
+
+  @override
+  String get saHow =>
+      'Telefona yüklenen ürünler üzerinden hesaplanır (hizmetler hariç). Adet, tartılan ürünleri içermez. Değer = stok × fiyat; eksi stoklu ürünler değere katılmaz. Alış fiyatını yalnızca sahip ve yönetici görür.';
 }

@@ -5835,6 +5835,100 @@
           "«Mini» tarifda ikkinchi telefondan kiring — «noto'g'ri parol» emas, «U yerdan chiqib, bu yerda kirilsinmi?» savoli."
         ]
       }
+    },
+    {
+      "id": "1.18.25/kassa-link-qr",
+      "version": "1.18.25",
+      "area": "kassa",
+      "severity": "critical",
+      "title": {
+        "ru": "Подключение телефона к кассе по QR",
+        "ky": "Телефонду кассага QR аркылуу туташтыруу",
+        "en": "Connecting the phone to the till by QR",
+        "tr": "Telefonu kasaya QR ile bağlama",
+        "uz": "Telefonni kassaga QR orqali ulash"
+      },
+      "changed": {
+        "ru": "Камера в «Связь с кассой» читает QR кассы с экрана ноутбука (кадр Full HD и автоприближение вместо 640×480). Через 8 секунд без результата — подсказка «поднесите ближе» и кнопка «Сфотографировать QR». Если касса не ответила, телефон пишет причину: нет Wi-Fi, другая сеть, брандмауэр Windows, приём на кассе выключен, код устарел.",
+        "ky": "«Кассага туташуу» бөлүмүндөгү камера ноутбуктун экранынан кассанын QR кодун окуйт (640×480 ордуна Full HD кадр жана автожакындатуу). 8 секунддан кийин жыйынтык болбосо — «жакындатыңыз» кеңеши жана «QR'ды сүрөткө тартуу» баскычы. Касса жооп бербесе, телефон себебин жазат: Wi-Fi жок, башка тармак, Windows брандмауэри, кассада кабыл алуу өчүк, код эскирген.",
+        "en": "The camera in “Till link” reads the till's QR from a laptop screen (Full HD frame and auto zoom instead of 640×480). After 8 seconds without a result — a “hold closer” hint and a “Take a photo of the QR” button. If the till does not answer, the phone tells why: no Wi-Fi, another network, Windows Firewall, phone input off on the till, code expired.",
+        "tr": "«Kasa bağlantısı»ndaki kamera kasanın QR'ını dizüstü ekranından okur (640×480 yerine Full HD kare ve otomatik yakınlaştırma). 8 saniye sonuç yoksa — «yaklaştırın» ipucu ve «QR'ın fotoğrafını çek» düğmesi. Kasa yanıt vermezse telefon nedenini yazar: Wi-Fi yok, başka ağ, Windows Güvenlik Duvarı, kasada giriş kapalı, kodun süresi doldu.",
+        "uz": "«Kassa bilan aloqa»dagi kamera kassa QR kodini noutbuk ekranidan o'qiydi (640×480 o'rniga Full HD kadr va avtokattalashtirish). 8 soniyada natija bo'lmasa — «yaqinroq tuting» maslahati va «QR'ni suratga olish» tugmasi. Kassa javob bermasa, telefon sababini yozadi: Wi-Fi yo'q, boshqa tarmoq, Windows brandmaueri, kassada qabul o'chiq, kod eskirgan."
+      },
+      "steps": {
+        "ru": [
+          "На кассе (1.17.97 или новее): Настройки → «Подключить телефон». На телефоне: Профиль → «Связь с кассой» → «Сканировать QR на кассе», держите телефон в 15–30 см от экрана — должно появиться «Касса … подключена».",
+          "Не читается за 8 секунд — нажмите «Сфотографировать QR», сфотографируйте QR — подключение то же.",
+          "Выключите Wi-Fi на телефоне и нажмите «Проверить связь» — подсказка «Телефон не подключён к Wi-Fi»; закройте на кассе окно и отсканируйте старый QR — «код не подошёл»."
+        ],
+        "ky": [
+          "Кассада (1.17.97 же жаңыраак): Жөндөөлөр → «Телефонду туташтыруу». Телефондо: Профиль → «Кассага туташуу» → «Кассадагы QR кодду скандоо», телефонду экрандан 15–30 см аралыкта кармаңыз — «… кассасы туташты» чыгышы керек.",
+          "8 секундда окулбаса — «QR'ды сүрөткө тартуу» баскычын басып, QR'ды сүрөткө тартыңыз — туташуу ошондой эле болот.",
+          "Телефондо Wi-Fi'ды өчүрүп, «Байланышты текшерүү» басыңыз — «Телефон Wi-Fi'га туташкан эмес» кеңеши; кассадагы терезени жаап, эски QR'ды сканерлеңиз — «код туура келген жок»."
+        ],
+        "en": [
+          "On the till (1.17.97 or newer): Settings → “Connect a phone”. On the phone: Profile → “Till link” → “Scan the QR on the till”, hold the phone 15–30 cm from the screen — “Till … connected” should appear.",
+          "Not read within 8 seconds — tap “Take a photo of the QR” and photograph the QR — the same connection.",
+          "Turn off Wi-Fi on the phone and tap “Check the link” — the hint “The phone is not on Wi-Fi”; close the window on the till and scan the old QR — “the code did not match”."
+        ],
+        "tr": [
+          "Kasada (1.17.97 veya daha yeni): Ayarlar → «Telefonu bağla». Telefonda: Profil → «Kasa bağlantısı» → «Kasadaki QR'ı tara», telefonu ekrandan 15–30 cm uzakta tutun — «… kasası bağlandı» görünmeli.",
+          "8 saniyede okunmazsa — «QR'ın fotoğrafını çek» düğmesine basıp QR'ı fotoğraflayın — bağlantı aynı.",
+          "Telefonda Wi-Fi'yi kapatıp «Bağlantıyı kontrol et»e basın — «Telefon Wi-Fi'ye bağlı değil» ipucu; kasadaki pencereyi kapatıp eski QR'ı tarayın — «kod uymadı»."
+        ],
+        "uz": [
+          "Kassada (1.17.97 yoki yangiroq): Sozlamalar → «Telefonni ulash». Telefonda: Profil → «Kassa bilan aloqa» → «Kassadagi QR-kodni skanerlash», telefonni ekrandan 15–30 sm masofada tuting — «… kassasi ulandi» chiqishi kerak.",
+          "8 soniyada o'qilmasa — «QR'ni suratga olish»ni bosing va QR'ni suratga oling — ulanish xuddi shunday.",
+          "Telefonda Wi-Fi'ni o'chirib, «Aloqani tekshirish»ni bosing — «Telefon Wi-Fi'ga ulanmagan» maslahati; kassadagi oynani yopib, eski QR'ni skanerlang — «kod mos kelmadi»."
+        ]
+      }
+    },
+    {
+      "id": "1.18.26/stock-analytics",
+      "version": "1.18.26",
+      "area": "stock",
+      "severity": "important",
+      "title": {
+        "ru": "Аналитика склада",
+        "ky": "Кампанын аналитикасы",
+        "en": "Stock analytics",
+        "tr": "Depo analizi",
+        "uz": "Ombor tahlili"
+      },
+      "changed": {
+        "ru": "В «Управление» → «ИИ и аналитика» появилась плитка «Аналитика склада» (владелец и администратор): сколько товаров и единиц, стоимость по продаже и закупке, наценка, нет в наличии / заканчивается / в минусе, товары без цены и штрихкода, доли по категориям, топ-10 по стоимости остатка и последние поступления. Плитки со счётчиками открывают «Склад» с тем же фильтром. Закупка, наценка и поступления — только тем, кто видит закупку. Без связи показываются данные телефона с пометкой «Остатки на …».",
+        "ky": "«Башкаруу» → «ИИ жана аналитика» бөлүмүндө «Кампанын аналитикасы» плиткасы пайда болду (ээси жана администратор): канча товар жана даана, сатуу жана сатып алуу боюнча наркы, үстөк акы, жок / түгөнүп баратат / минустагы товарлар, баасыз жана штрих-кодсуз товарлар, категориялар боюнча үлүш, калдыктын наркы боюнча топ-10 жана акыркы келүүлөр. Эсептегичи бар плиткалар «Кампаны» ошол эле чыпка менен ачат. Сатып алуу баасы, үстөк акы жана келүүлөр — аны көрө алгандарга гана. Байланыш жок болсо телефондогу маалымат «Калдыктар … боюнча» белгиси менен көрсөтүлөт.",
+        "en": "In “Manage” → “AI and analytics” there is a new “Stock analytics” tile (owner and administrator): how many products and units, value at sale and purchase price, markup, out of stock / running low / negative, products without a price or barcode, category shares, top 10 by stock value and the latest receipts. Tiles with counters open “Stock” with the same filter. Purchase price, markup and receipts are shown only to those who can see purchase prices. Offline, the phone's data is shown with the note “Stock as of …”.",
+        "tr": "«Yönetim» → «YZ ve analiz» bölümünde yeni «Depo analizi» kutusu var (sahip ve yönetici): kaç ürün ve adet, satış ve alış değeri, kâr payı, stokta yok / azalıyor / eksi, fiyatsız ve barkodsuz ürünler, kategori payları, stok değerine göre ilk 10 ve son girişler. Sayaçlı kutular «Depo»yu aynı filtreyle açar. Alış fiyatı, kâr payı ve girişleri yalnızca alış fiyatını görebilenler görür. Bağlantı yoksa telefondaki veriler «Stok … itibarıyla» notuyla gösterilir.",
+        "uz": "«Boshqaruv» → «AI va tahlil» bo'limida yangi «Ombor tahlili» plitkasi paydo bo'ldi (egasi va administrator): nechta mahsulot va dona, sotuv va xarid bo'yicha qiymat, ustama, mavjud emas / tugayapti / minusda, narxsiz va shtrix-kodsiz mahsulotlar, kategoriyalar ulushi, qoldiq qiymati bo'yicha top-10 va oxirgi kirimlar. Hisoblagichli plitkalar «Ombor»ni shu filtr bilan ochadi. Xarid narxi, ustama va kirimlar — faqat uni ko'ra oladiganlarga. Aloqa bo'lmasa telefondagi ma'lumot «Qoldiq … holatida» belgisi bilan ko'rsatiladi."
+      },
+      "steps": {
+        "ru": [
+          "Войдите владельцем или администратором: «Управление» → «ИИ и аналитика» → «Аналитика склада». Сверьте «Товаров (позиций)» с числом товаров в «Склад» и «Стоимость по продаже» с ожидаемой суммой.",
+          "Нажмите плитку «В минусе» (затем «Нет в наличии», «Без цены», «Без штрихкода») — откроется «Склад» с меткой фильтра, число товаров в списке совпадает с числом на плитке.",
+          "Выключите интернет и откройте экран — цифры на месте, вверху «Нет связи» и «Остатки на ЧЧ:ММ», «Последние поступления» просят связь. Войдите сотрудником без доступа к закупке — закупки, наценки и поступлений нет."
+        ],
+        "ky": [
+          "Ээси же администратор катары кириңиз: «Башкаруу» → «ИИ жана аналитика» → «Кампанын аналитикасы». «Товарлар (позиция)» санын «Кампадагы» товарлар саны менен жана «Сатуу баасы боюнча наркты» күтүлгөн сумма менен салыштырыңыз.",
+          "«Минуста» плиткасын басыңыз (андан соң «Жок», «Баасыз», «Штрих-кодсуз») — «Кампа» чыпка белгиси менен ачылат, тизмедеги товарлар саны плиткадагы сан менен дал келет.",
+          "Интернетти өчүрүп экранды ачыңыз — сандар ордунда, үстүндө «Байланыш жок» жана «Калдыктар ЧЧ:ММ боюнча», «Акыркы келүүлөр» байланышты суранат. Сатып алуу баасына укугу жок кызматкер катары кириңиз — сатып алуу, үстөк акы жана келүүлөр жок."
+        ],
+        "en": [
+          "Sign in as the owner or an administrator: “Manage” → “AI and analytics” → “Stock analytics”. Compare “Products (items)” with the number of products in “Stock” and “Value at sale price” with the expected amount.",
+          "Tap the “Negative stock” tile (then “Out of stock”, “No price”, “No barcode”) — “Stock” opens with a filter chip, and the number of products in the list matches the number on the tile.",
+          "Turn off the internet and open the screen — the numbers are there, “No connection” and “Stock as of HH:MM” on top, “Latest receipts” asks for a connection. Sign in as a staff member without purchase-price access — no purchase value, markup or receipts."
+        ],
+        "tr": [
+          "Sahip veya yönetici olarak girin: «Yönetim» → «YZ ve analiz» → «Depo analizi». «Ürünler (kalem)» değerini «Depo»daki ürün sayısıyla, «Satış fiyatıyla değer»i beklenen tutarla karşılaştırın.",
+          "«Eksi stok» kutusuna dokunun (sonra «Stokta yok», «Fiyatsız», «Barkodsuz») — «Depo» filtre etiketiyle açılır, listedeki ürün sayısı kutudaki sayıyla aynıdır.",
+          "İnterneti kapatıp ekranı açın — sayılar yerinde, üstte «Bağlantı yok» ve «Stok HH:MM itibarıyla», «Son girişler» bağlantı ister. Alış fiyatına erişimi olmayan personel olarak girin — alış değeri, kâr payı ve giriş yok."
+        ],
+        "uz": [
+          "Egasi yoki administrator sifatida kiring: «Boshqaruv» → «AI va tahlil» → «Ombor tahlili». «Mahsulotlar (pozitsiya)»ni «Ombor»dagi mahsulotlar soni bilan, «Sotuv narxi bo'yicha qiymat»ni kutilgan summa bilan solishtiring.",
+          "«Minusda» plitkasini bosing (so'ng «Mavjud emas», «Narxsiz», «Shtrix-kodsiz») — «Ombor» filtr belgisi bilan ochiladi, ro'yxatdagi mahsulotlar soni plitkadagi son bilan bir xil.",
+          "Internetni o'chirib ekranni oching — raqamlar joyida, tepada «Aloqa yo'q» va «Qoldiq HH:MM holatida», «Oxirgi kirimlar» aloqa so'raydi. Xarid narxiga ruxsati yo'q xodim sifatida kiring — xarid qiymati, ustama va kirimlar yo'q."
+        ]
+      }
     }
   ]
 }

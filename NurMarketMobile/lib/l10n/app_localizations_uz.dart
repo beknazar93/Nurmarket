@@ -7575,4 +7575,117 @@ class AppLocalizationsUz extends AppLocalizations {
   @override
   String get pinRequiredText =>
       'Bu amalni egasi yoki administrator PIN kodi bilan tasdiqlash kerak. Qayta urinib, PIN kiriting.';
+
+  @override
+  String get klWhyNoWifi =>
+      'Telefon Wi-Fi\'ga ulanmagan. Wi-Fi\'ni yoqing va kassa kompyuteri bilan bir xil tarmoqqa ulaning (mobil internet to\'g\'ri kelmaydi).';
+
+  @override
+  String klWhyOtherNet(String phone, String kassa) {
+    return 'Telefon boshqa Wi-Fi tarmog\'ida ($phone), kassa esa $kassa manzilida. Telefonni kassa ulangan routerning Wi-Fi\'siga ulab, QR\'ni qayta skanerlang.';
+  }
+
+  @override
+  String get klWhyNoAnswer =>
+      'Telefon o\'sha tarmoqda bo\'lsa ham kassa javob bermayapti. Ko\'pincha bu Windows brandmaueri: kassadagi «Telefonni ulash» oynasida qizil maslahat chiqadi — tarmoqni «Xususiy» qiling yoki NurCRM\'ga ruxsat bering. Kassada «Telefonni ulash» oynasi ochiq bo\'lishi kerak.';
+
+  @override
+  String get klWhyRefused =>
+      'Kassa kompyuteri topildi, lekin telefondan qabul yopiq. Kassada: Sozlamalar → «Telefonlardan skanlarni qabul qilish»ni yoqing, so\'ng «Telefonni ulash».';
+
+  @override
+  String get klWhyCodeExpired =>
+      'Kassa aloqada, lekin kod mos kelmadi: u 5 daqiqa amal qiladi va «Yangi kod» tugmasi bilan almashadi. Kassada «Yangi kod»ni bosing va QR\'ni qayta skanerlang.';
+
+  @override
+  String get klQrCloser =>
+      'O\'qilmayaptimi? Telefonni yaqinroq tuting (15–25 sm), QR kvadratni deyarli to\'ldirsin, yaltirashni yo\'qoting. Yoki QR\'ni suratga oling.';
+
+  @override
+  String get klPhotoQr => 'QR\'ni suratga olish';
+
+  @override
+  String get klPhotoQrNone =>
+      'Suratda kassa QR kodi topilmadi. Yaqinroq va to\'g\'riroq suratga oling.';
+
+  @override
+  String get saTitle => 'Ombor tahlili';
+
+  @override
+  String get saDesc =>
+      'Omborda nechta mahsulot borligi, qiymati qancha, nima tugagani va qayerda narx yoki shtrix-kod yo\'qligi.';
+
+  @override
+  String get saPositions => 'Mahsulotlar (pozitsiya)';
+
+  @override
+  String get saUnits => 'Ombordagi dona';
+
+  @override
+  String get saRetail => 'Sotuv narxi bo\'yicha qiymat';
+
+  @override
+  String get saPurchase => 'Xarid narxi bo\'yicha qiymat';
+
+  @override
+  String get saMarkup => 'Qoldiqdagi ustama';
+
+  @override
+  String get saZero => 'Mavjud emas';
+
+  @override
+  String get saLow => 'Tugayapti';
+
+  @override
+  String get saMinus => 'Minusda';
+
+  @override
+  String get saNoPrice => 'Narxsiz';
+
+  @override
+  String get saNoCode => 'Shtrix-kodsiz';
+
+  @override
+  String get saAttention => 'Nimaga e\'tibor berish kerak';
+
+  @override
+  String get saAttentionHint =>
+      'Plitkani bosing — ombor ro\'yxati shu filtr bilan ochiladi.';
+
+  @override
+  String get saBySale => 'sotuv narxi bo\'yicha';
+
+  @override
+  String get saByCategory => 'Ombor kategoriyalar bo\'yicha';
+
+  @override
+  String get saNoCategory => 'Kategoriyasiz';
+
+  @override
+  String get saTop => 'Qoldiq qiymati bo\'yicha top-10 mahsulot';
+
+  @override
+  String get saRecent => 'Oxirgi kirimlar';
+
+  @override
+  String get saRecentNone => 'Yetkazib beruvchilardan kirim topilmadi';
+
+  @override
+  String get saRecentNoLink => 'Kirimlar aloqa paydo bo\'lganda yuklanadi';
+
+  @override
+  String saPurchaseMissing(int n) {
+    return '$n ta mahsulotda xarid narxi kiritilmagan — ular xarid qiymatiga kirmadi.';
+  }
+
+  @override
+  String get saEmpty => 'Omborda hali mahsulot yo\'q';
+
+  @override
+  String get saEmptyHint =>
+      'Katalogni yuklang: «Ombor» → «Katalogni yangilash».';
+
+  @override
+  String get saHow =>
+      'Telefonga yuklangan mahsulotlar bo\'yicha hisoblanadi (xizmatlar kirmaydi). Dona — tarozida tortiladigan mahsulotlarsiz. Qiymat — qoldiq × narx; minusdagi mahsulotlar qiymatga kirmaydi. Xarid narxini faqat egasi va administrator ko\'radi.';
 }

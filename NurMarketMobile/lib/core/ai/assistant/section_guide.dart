@@ -314,6 +314,13 @@ const kSectionGuide = <String, List<String>>{
     'ABC analysis: which products bring most of the revenue (Pareto chart).',
     'ABC analizi: hangi ürünler cironun çoğunu getirir (Pareto grafiği).',
   ],
+  'stock_analytics': [
+    'Аналитика склада: сколько товаров и единиц на складе, стоимость по продаже и закупке, что закончилось или в минусе, товары без цены и штрихкода, доли по категориям.',
+    'Кампанын аналитикасы: кампада канча товар жана даана бар, сатуу жана сатып алуу боюнча наркы, эмне түгөндү же минустада, баасыз жана штрих-кодсуз товарлар, категориялар боюнча үлүш.',
+    "Ombor tahlili: omborda nechta mahsulot va dona borligi, sotuv va xarid bo'yicha qiymat, nima tugagani yoki minusdaligi, narxsiz va shtrix-kodsiz mahsulotlar, kategoriyalar ulushi.",
+    'Stock analytics: how many products and units are in stock, value at sale and purchase price, what ran out or is negative, products without price or barcode, category shares.',
+    'Depo analizi: depoda kaç ürün ve adet var, satış ve alış değeri, nelerin bittiği ya da eksiye düştüğü, fiyatsız ve barkodsuz ürünler, kategori payları.',
+  ],
   'esf': [
     'ЭСФ: электронная счёт-фактура — подготовка и выписка.',
     'ЭСФ: электрондук эсеп-фактура — даярдоо жана жазуу.',

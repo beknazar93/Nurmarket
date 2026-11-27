@@ -329,6 +329,11 @@ const _extraSyn = <String, String>{
       'analitika|foyda|statistika|'
       'analytics|profit|overview|sales report|financial report|'
       'analiz|kar|genel bakis|satis raporu',
+  'stock_analytics': 'аналитика склада|анализ склада|статистика склада|сколько товаров на складе|стоимость склада|'
+      'кампа аналитикасы|кампанын аналитикасы|'
+      'ombor tahlili|ombor analitikasi|'
+      'stock analytics|warehouse analytics|inventory value|'
+      'depo analizi|depo istatistigi',
   'abc': 'abc анализ|abc-анализ|анализ abc|топ товаров|'
       'abc талдоо|'
       'abc tahlili|'
@@ -671,6 +676,14 @@ final List<ScreenDef> _screens = [
     'abc tahlil|pareto',
     'abc analysis|abc|pareto',
     'abc analizi|pareto',
+  ]),
+  // 2026-11-27: «Аналитика склада» — число товаров, стоимость, что закончилось, доли по категориям
+  _def('stock_analytics', '/admin/stock-analytics', ['Аналитика склада', 'Кампанын аналитикасы', 'Ombor tahlili', 'Stock analytics', 'Depo analizi'], [
+    'аналитика склада|анализ склада|статистика склада|стоимость склада|сколько товаров',
+    'кампа аналитикасы|кампанын аналитикасы',
+    'ombor tahlili|ombor analitikasi',
+    'stock analytics|warehouse analytics|inventory value',
+    'depo analizi|depo istatistigi',
   ]),
   _def('esf', '/admin/esf', ['ЭСФ', 'ЭСФ', 'ESF', 'ESF', 'ESF'], [
     'эсф|электронный счет фактура|счет фактура',

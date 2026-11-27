@@ -270,6 +270,11 @@ class _StockScreenState extends ConsumerState<StockScreen> {
       if (filter == 'sizes') e = e & productHasVariants();
       if (filter == 'weight') e = e & p.isWeight.equals(true);
       if (filter == 'units') e = e & p.isWeight.equals(false) & p.unit.isNotIn(const ['шт', 'шт.', 'pcs', 'Шт', 'ШТ', 'шт ', '']);
+      // 2026-11-27 («Аналитика склада»): плитки аналитики открывают склад с этим фильтром — ровно то же условие, что считает аналитика (stock_analytics.dart)
+      if (filter == 'zero') e = e & p.quantity.equals(0);
+      if (filter == 'minus') e = e & p.quantity.isSmallerThanValue(0);
+      if (filter == 'noprice') e = e & p.price.isSmallerOrEqualValue(0);
+      if (filter == 'nocode') e = e & (p.barcode.isNull() | p.barcode.equals('')) & p.altBarcodes.equals('') & (p.plu.isNull() | p.plu.equals(''));
       if (filter == 'expiry') {
         final until = DateTime.now().add(const Duration(days: 14));
         String two(int x) => x.toString().padLeft(2, '0');
@@ -488,7 +493,7 @@ class _StockScreenState extends ConsumerState<StockScreen> {
             ],
           ),
         ),
-        if (const {'sizes', 'weight', 'units', 'expiry'}.contains(_filter))
+        if (const {'sizes', 'weight', 'units', 'expiry', 'zero', 'minus', 'noprice', 'nocode'}.contains(_filter))
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
             child: Align(
@@ -500,6 +505,10 @@ class _StockScreenState extends ConsumerState<StockScreen> {
                   'sizes' => l.stockFilterSizes,
                   'weight' => l.stockFilterWeight,
                   'units' => l.stockFilterUnits,
+                  'zero' => l.saZero,
+                  'minus' => l.saMinus,
+                  'noprice' => l.saNoPrice,
+                  'nocode' => l.saNoCode,
                   _ => l.stockFilterExpiry,
                 }),
                 deleteButtonTooltipMessage: l.stockFilterClear,

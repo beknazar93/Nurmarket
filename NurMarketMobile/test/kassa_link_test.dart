@@ -109,6 +109,30 @@ void main() {
       bad('nurmarket-link:v1?d=K&h=192.168.1.20&p=47830&k=!!!!', 'format');
       bad('nurmarket-link:v2?d=K&h=192.168.1.20&p=47830&k=$_key', 'version');
     });
+
+    // 2026-11-27: касса 1.17.97+ кладёт в QR короткий формат (без имени кассы, id 12 символов), чтобы камера читала код с экрана.
+    test('короткий QR кассы 1.17.97 (без n) разбирается, имя пустое', () {
+      final p = KassaPairing.parseQr('nurmarket-link:v1?d=0123456789ab&h=10.0.0.59&p=47830&k=$_key&c=4b75a1c2');
+      expect(p.deviceId, '0123456789ab');
+      expect(p.host, '10.0.0.59');
+      expect(p.port, 47830);
+      expect(p.key, key);
+      expect(p.name, '');
+      expect(p.company, '4b75a1c2');
+    });
+  });
+
+  // 2026-11-27 (жалоба «не работает подключение сканера с телефона»): понятная причина, почему касса не ответила.
+  group('причина неудачи', () {
+    test('нет Wi-Fi, другая сеть, касса молчит, порт закрыт', () {
+      expect(diagnoseNoAnswer(kassaHost: '10.0.0.59', phoneSubnets: []), KassaFailReason.noWifi);
+      expect(diagnoseNoAnswer(kassaHost: '10.0.0.59', phoneSubnets: ['192.168.0']), KassaFailReason.otherNetwork);
+      expect(diagnoseNoAnswer(kassaHost: '192.168.1.20', phoneSubnets: ['192.168.0']), KassaFailReason.otherNetwork);
+      // 10.0.x — маска может быть /16: «другая сеть» наверняка не скажешь
+      expect(diagnoseNoAnswer(kassaHost: '10.0.0.59', phoneSubnets: ['10.0.1']), KassaFailReason.noAnswer);
+      expect(diagnoseNoAnswer(kassaHost: '10.0.0.59', phoneSubnets: ['10.0.0'], netError: 'socket'), KassaFailReason.noAnswer);
+      expect(diagnoseNoAnswer(kassaHost: '10.0.0.59', phoneSubnets: ['10.0.0'], netError: 'refused'), KassaFailReason.refused);
+    });
   });
 
   group('клиент на подставной сети', () {
@@ -197,6 +221,33 @@ void main() {
       netDown = true;
       expect(await link.pairFromQr(_qr), KassaLinkStatus.notFound);
       expect(link.isPaired, isTrue); // сопряжение не теряется
+    });
+
+    // 2026-11-27: причина неудачи видна экрану (lastFailure) и сбрасывается при успехе.
+    test('касса молчит в той же сети → noAnswer; другая сеть → otherNetwork; код устарел → codeExpired; успех сбрасывает', () async {
+      netDown = true;
+      final same = make(subnets: () async => ['192.168.1']);
+      expect(await same.pairFromQr(_qr), KassaLinkStatus.notFound);
+      expect(same.lastFailure, KassaFailReason.noAnswer);
+
+      final other = make(subnets: () async => ['192.168.0']);
+      expect(await other.pairFromQr(_qr), KassaLinkStatus.notFound);
+      expect(other.lastFailure, KassaFailReason.otherNetwork);
+      expect(other.phoneNetwork, '192.168.0.x');
+
+      final noWifi = make();
+      expect(await noWifi.pairFromQr(_qr), KassaLinkStatus.notFound);
+      expect(noWifi.lastFailure, KassaFailReason.noWifi);
+
+      netDown = false;
+      handler = (req, host, port) => fail('unknown_phone');
+      final expired = make();
+      expect(await expired.pairFromQr(_qr), KassaLinkStatus.rePair);
+      expect(expired.lastFailure, KassaFailReason.codeExpired);
+
+      handler = (req, host, port) => ok({'kassa': 'Основная', 'shift_open': true});
+      expect(await expired.pairFromQr(_qr), KassaLinkStatus.online);
+      expect(expired.lastFailure, isNull);
     });
 
     test('адрес из QR не отвечает → найдена в подсети телефона на другом порту, адрес запомнен', () async {
@@ -327,5 +378,10 @@ void main() {
     final deadPort = dead.port;
     await dead.close();
     await expectLater(socketExchange('127.0.0.1', deadPort, 'x\n', const Duration(milliseconds: 400), const Duration(milliseconds: 400)), throwsA(isA<KassaNetException>()));
+    // 2026-11-27: «порт закрыт» отличается от «молчит» (для подсказки «приём на кассе выключен»)
+    await expectLater(
+      socketExchange('127.0.0.1', deadPort, 'x\n', const Duration(seconds: 6), const Duration(milliseconds: 400)), // Windows отвечает «закрыт» на loopback через ~2 с
+      throwsA(isA<KassaNetException>().having((e) => e.message, 'message', 'refused')),
+    );
   });
 }

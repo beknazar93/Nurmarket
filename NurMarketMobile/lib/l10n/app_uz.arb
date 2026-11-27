@@ -1974,7 +1974,7 @@
   "stockPhotoHint": "Mahsulotni tanlang — u ombor ro'yxatida ko'rinadi",
   "stockPhotoNone": "Rasm bo'yicha omborda o'xshash mahsulot topilmadi. Yaqinroqdan suratga oling yoki mahsulotni nomi bo'yicha qidiring.",
   "stockPhotoOffline": "Aloqa yo'q — rasm bo'yicha qidirish faqat internet bilan ishlaydi. Mahsulotni nomi yoki shtrix-kodi bo'yicha qidiring.",
-  "stockCountShown":"{total} tadan {shown} tasi ko'rsatilmoqda",
+  "stockCountShown": "{total} tadan {shown} tasi ko'rsatilmoqda",
   "stockCountAll": "Mahsulotlar: {total}",
   "shopModeNotChosen": "Tanlanmagan",
   "shopModeChoose": "Do'kon rejimini tanlash",
@@ -2141,5 +2141,45 @@
   "pinInvalidLeft": "PIN noto'g'ri. Qolgan urinishlar: {n}.",
   "pinLocked": "PIN noto'g'ri urinishlardan keyin bloklandi. Keyinroq takrorlang.",
   "pinNotSet": "PIN o'rnatilmagan — Sozlamalar → Xodimlar bo'limida o'rnating.",
-  "pinRequiredText": "Bu amalni egasi yoki administrator PIN kodi bilan tasdiqlash kerak. Qayta urinib, PIN kiriting."
+  "pinRequiredText": "Bu amalni egasi yoki administrator PIN kodi bilan tasdiqlash kerak. Qayta urinib, PIN kiriting.",
+  "klWhyNoWifi": "Telefon Wi-Fi'ga ulanmagan. Wi-Fi'ni yoqing va kassa kompyuteri bilan bir xil tarmoqqa ulaning (mobil internet to'g'ri kelmaydi).",
+  "klWhyOtherNet": "Telefon boshqa Wi-Fi tarmog'ida ({phone}), kassa esa {kassa} manzilida. Telefonni kassa ulangan routerning Wi-Fi'siga ulab, QR'ni qayta skanerlang.",
+  "klWhyNoAnswer": "Telefon o'sha tarmoqda bo'lsa ham kassa javob bermayapti. Ko'pincha bu Windows brandmaueri: kassadagi «Telefonni ulash» oynasida qizil maslahat chiqadi — tarmoqni «Xususiy» qiling yoki NurCRM'ga ruxsat bering. Kassada «Telefonni ulash» oynasi ochiq bo'lishi kerak.",
+  "klWhyRefused": "Kassa kompyuteri topildi, lekin telefondan qabul yopiq. Kassada: Sozlamalar → «Telefonlardan skanlarni qabul qilish»ni yoqing, so'ng «Telefonni ulash».",
+  "klWhyCodeExpired": "Kassa aloqada, lekin kod mos kelmadi: u 5 daqiqa amal qiladi va «Yangi kod» tugmasi bilan almashadi. Kassada «Yangi kod»ni bosing va QR'ni qayta skanerlang.",
+  "klQrCloser": "O'qilmayaptimi? Telefonni yaqinroq tuting (15–25 sm), QR kvadratni deyarli to'ldirsin, yaltirashni yo'qoting. Yoki QR'ni suratga oling.",
+  "klPhotoQr": "QR'ni suratga olish",
+  "klPhotoQrNone": "Suratda kassa QR kodi topilmadi. Yaqinroq va to'g'riroq suratga oling.",
+  "saTitle": "Ombor tahlili",
+  "saDesc": "Omborda nechta mahsulot borligi, qiymati qancha, nima tugagani va qayerda narx yoki shtrix-kod yo'qligi.",
+  "saPositions": "Mahsulotlar (pozitsiya)",
+  "saUnits": "Ombordagi dona",
+  "saRetail": "Sotuv narxi bo'yicha qiymat",
+  "saPurchase": "Xarid narxi bo'yicha qiymat",
+  "saMarkup": "Qoldiqdagi ustama",
+  "saZero": "Mavjud emas",
+  "saLow": "Tugayapti",
+  "saMinus": "Minusda",
+  "saNoPrice": "Narxsiz",
+  "saNoCode": "Shtrix-kodsiz",
+  "saAttention": "Nimaga e'tibor berish kerak",
+  "saAttentionHint": "Plitkani bosing — ombor ro'yxati shu filtr bilan ochiladi.",
+  "saBySale": "sotuv narxi bo'yicha",
+  "saByCategory": "Ombor kategoriyalar bo'yicha",
+  "saNoCategory": "Kategoriyasiz",
+  "saTop": "Qoldiq qiymati bo'yicha top-10 mahsulot",
+  "saRecent": "Oxirgi kirimlar",
+  "saRecentNone": "Yetkazib beruvchilardan kirim topilmadi",
+  "saRecentNoLink": "Kirimlar aloqa paydo bo'lganda yuklanadi",
+  "saPurchaseMissing": "{n} ta mahsulotda xarid narxi kiritilmagan — ular xarid qiymatiga kirmadi.",
+  "@saPurchaseMissing": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "saEmpty": "Omborda hali mahsulot yo'q",
+  "saEmptyHint": "Katalogni yuklang: «Ombor» → «Katalogni yangilash».",
+  "saHow": "Telefonga yuklangan mahsulotlar bo'yicha hisoblanadi (xizmatlar kirmaydi). Dona — tarozida tortiladigan mahsulotlarsiz. Qiymat — qoldiq × narx; minusdagi mahsulotlar qiymatga kirmaydi. Xarid narxini faqat egasi va administrator ko'radi."
 }

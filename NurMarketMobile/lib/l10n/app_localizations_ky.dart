@@ -7544,4 +7544,117 @@ class AppLocalizationsKy extends AppLocalizations {
   @override
   String get pinRequiredText =>
       'Бул аракетти ээсинин же администратордун PIN коду менен ырастоо керек. Кайталап, PIN киргизиңиз.';
+
+  @override
+  String get klWhyNoWifi =>
+      'Телефон Wi-Fi\'га туташкан эмес. Wi-Fi\'ды күйгүзүп, кассасы бар компьютер менен бир тармакка туташыңыз (мобилдик интернет жарабайт).';
+
+  @override
+  String klWhyOtherNet(String phone, String kassa) {
+    return 'Телефон башка Wi-Fi тармагында ($phone), ал эми касса $kassa дарегинде. Телефонду кассадагы роутердин Wi-Fi\'ына туташтырып, QR\'ды кайра сканерлеңиз.';
+  }
+
+  @override
+  String get klWhyNoAnswer =>
+      'Телефон ошол эле тармакта болсо да касса жооп бербейт. Көбүнчө бул Windows брандмауэри: кассадагы «Телефонду туташтыруу» терезесинде кызыл кеңеш чыгат — тармакты «Жеке» кылыңыз же NurCRM\'ге уруксат бериңиз. Кассада «Телефонду туташтыруу» терезеси ачык болушу керек.';
+
+  @override
+  String get klWhyRefused =>
+      'Кассасы бар компьютер табылды, бирок телефондон кабыл алуу жабык. Кассада: Жөндөөлөр → «Телефондон сканерлерди кабыл алуу» күйгүзүп, андан соң «Телефонду туташтыруу».';
+
+  @override
+  String get klWhyCodeExpired =>
+      'Касса байланышта, бирок код туура келген жок: ал 5 мүнөт иштейт жана «Жаңы код» баскычы менен алмашат. Кассада «Жаңы код» баскычын басып, QR\'ды кайра сканерлеңиз.';
+
+  @override
+  String get klQrCloser =>
+      'Окулбай жатабы? Телефонду жакыныраак кармаңыз (15–25 см), QR квадратты дээрлик толтурсун, жарк этүүнү алып салыңыз. Же QR\'ды сүрөткө тартыңыз.';
+
+  @override
+  String get klPhotoQr => 'QR\'ды сүрөткө тартуу';
+
+  @override
+  String get klPhotoQrNone =>
+      'Сүрөттө кассанын QR-коду табылган жок. Жакыныраак жана түз тартыңыз.';
+
+  @override
+  String get saTitle => 'Кампанын аналитикасы';
+
+  @override
+  String get saDesc =>
+      'Кампада канча товар бар, кандай суммага, эмне түгөндү жана кайсынын баасы же штрих-коду жок.';
+
+  @override
+  String get saPositions => 'Товарлар (позиция)';
+
+  @override
+  String get saUnits => 'Кампадагы даана';
+
+  @override
+  String get saRetail => 'Сатуу баасы боюнча наркы';
+
+  @override
+  String get saPurchase => 'Сатып алуу баасы боюнча наркы';
+
+  @override
+  String get saMarkup => 'Калдыктын үстөк акысы';
+
+  @override
+  String get saZero => 'Жок';
+
+  @override
+  String get saLow => 'Түгөнүп баратат';
+
+  @override
+  String get saMinus => 'Минуста';
+
+  @override
+  String get saNoPrice => 'Баасыз';
+
+  @override
+  String get saNoCode => 'Штрих-кодсуз';
+
+  @override
+  String get saAttention => 'Эмнеге көңүл буруу керек';
+
+  @override
+  String get saAttentionHint =>
+      'Плитканы басыңыз — кампанын тизмеси ушул чыпка менен ачылат.';
+
+  @override
+  String get saBySale => 'сатуу баасы боюнча';
+
+  @override
+  String get saByCategory => 'Кампа категориялар боюнча';
+
+  @override
+  String get saNoCategory => 'Категориясыз';
+
+  @override
+  String get saTop => 'Калдыктын наркы боюнча топ-10 товар';
+
+  @override
+  String get saRecent => 'Акыркы келүүлөр';
+
+  @override
+  String get saRecentNone => 'Жеткирүүчүлөрдөн кирим табылган жок';
+
+  @override
+  String get saRecentNoLink => 'Келүүлөр байланыш пайда болгондо жүктөлөт';
+
+  @override
+  String saPurchaseMissing(int n) {
+    return 'Сатып алуу баасы $n товарда коюлган эмес — алар сатып алуу наркына кирген жок.';
+  }
+
+  @override
+  String get saEmpty => 'Кампада азырынча товар жок';
+
+  @override
+  String get saEmptyHint =>
+      'Каталогду жүктөңүз: «Кампа» → «Каталогду жаңыртуу».';
+
+  @override
+  String get saHow =>
+      'Телефонго жүктөлгөн товарлар боюнча эсептелет (кызматтар кирбейт). Даана — салмактуу товарларсыз. Наркы — калдык × баа; минустагы товарлар наркка кирбейт. Сатып алуу баасын ээси менен администратор гана көрөт.';
 }

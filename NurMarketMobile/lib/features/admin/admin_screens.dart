@@ -112,6 +112,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
           (Icons.auto_awesome_rounded, l.advisorTitle, '/admin/advisor'),
           (Icons.dashboard_outlined, l.summaryTitle, '/admin/summary'),
           (Icons.bar_chart_rounded, l.abcTitle, '/admin/abc'),
+          (Icons.inventory_2_outlined, l.saTitle, '/admin/stock-analytics'), // 2026-11-27: аналитика склада
           (Icons.notifications_none_rounded, l.notifications, '/admin/notifications'),
           (Icons.delete_sweep_outlined, l.deletedFromCheck, '/admin/deletions'),
         ],

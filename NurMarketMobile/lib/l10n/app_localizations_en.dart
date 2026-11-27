@@ -7656,4 +7656,116 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get pinRequiredText =>
       'This action must be confirmed with the owner\'s or administrator\'s PIN. Try again and enter the PIN.';
+
+  @override
+  String get klWhyNoWifi =>
+      'The phone is not on Wi-Fi. Turn on Wi-Fi and join the same network as the till computer (mobile data will not work).';
+
+  @override
+  String klWhyOtherNet(String phone, String kassa) {
+    return 'The phone is on another Wi-Fi network ($phone), but the till is at $kassa. Connect the phone to the same router\'s Wi-Fi as the till and scan the QR again.';
+  }
+
+  @override
+  String get klWhyNoAnswer =>
+      'The till does not answer although the phone is on the same network. Most often it is Windows Firewall: the till\'s “Connect a phone” window shows a red hint — make the network “Private” or allow NurCRM. Keep the “Connect a phone” window open on the till.';
+
+  @override
+  String get klWhyRefused =>
+      'The till computer was found, but phone input is closed. On the till: Settings → turn on “Accept scans from phones”, then “Connect a phone”.';
+
+  @override
+  String get klWhyCodeExpired =>
+      'The till answers, but the code did not match: it is valid for 5 minutes and changes with “New code”. Press “New code” on the till and scan the QR again.';
+
+  @override
+  String get klQrCloser =>
+      'Not reading? Hold the phone closer (15–25 cm) so the QR fills most of the square, and avoid glare. Or take a photo of the QR.';
+
+  @override
+  String get klPhotoQr => 'Take a photo of the QR';
+
+  @override
+  String get klPhotoQrNone =>
+      'No till QR code found in the photo. Take it closer and straighter.';
+
+  @override
+  String get saTitle => 'Stock analytics';
+
+  @override
+  String get saDesc =>
+      'How many products are in stock, what they are worth, what ran out and where a price or barcode is missing.';
+
+  @override
+  String get saPositions => 'Products (items)';
+
+  @override
+  String get saUnits => 'Units in stock';
+
+  @override
+  String get saRetail => 'Value at sale price';
+
+  @override
+  String get saPurchase => 'Value at purchase price';
+
+  @override
+  String get saMarkup => 'Markup on stock';
+
+  @override
+  String get saZero => 'Out of stock';
+
+  @override
+  String get saLow => 'Running low';
+
+  @override
+  String get saMinus => 'Negative stock';
+
+  @override
+  String get saNoPrice => 'No price';
+
+  @override
+  String get saNoCode => 'No barcode';
+
+  @override
+  String get saAttention => 'What needs attention';
+
+  @override
+  String get saAttentionHint =>
+      'Tap a tile to open the stock list with that filter.';
+
+  @override
+  String get saBySale => 'at sale price';
+
+  @override
+  String get saByCategory => 'Stock by category';
+
+  @override
+  String get saNoCategory => 'No category';
+
+  @override
+  String get saTop => 'Top 10 products by stock value';
+
+  @override
+  String get saRecent => 'Latest receipts';
+
+  @override
+  String get saRecentNone => 'No supplier receipts found';
+
+  @override
+  String get saRecentNoLink => 'Receipts will load when the connection is back';
+
+  @override
+  String saPurchaseMissing(int n) {
+    return 'Purchase price is not set for $n products — they are not counted in the purchase value.';
+  }
+
+  @override
+  String get saEmpty => 'There are no products in stock yet';
+
+  @override
+  String get saEmptyHint => 'Load the catalog: “Stock” → “Refresh catalog”.';
+
+  @override
+  String get saHow =>
+      'Counted over the products loaded on the phone (services are excluded). Units exclude weighed products. Value is stock × price; products with negative stock are not counted in the value. Only the owner and administrators see the purchase price.';
 }

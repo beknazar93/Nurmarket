@@ -136,6 +136,7 @@ class Session {
       case '/admin/advisor':
       case '/admin/summary':
       case '/admin/abc':
+      case '/admin/stock-analytics': // 2026-11-27: «Аналитика склада» — раздел аналитики (владелец и администратор)
         return viewAnalytics;
       case '/admin/staff':
       case '/admin/payqr':

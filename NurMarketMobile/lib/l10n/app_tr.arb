@@ -1974,7 +1974,7 @@
   "stockPhotoHint": "Bir ürün seçin — depo listesinde görünür",
   "stockPhotoNone": "Fotoğrafa benzer bir ürün depoda bulunamadı. Daha yakından çekin veya ürünü adıyla arayın.",
   "stockPhotoOffline": "Bağlantı yok — fotoğrafla arama internet gerektirir. Ürünü adı veya barkoduyla arayın.",
-  "stockCountShown":"{total} üründen {shown} gösteriliyor",
+  "stockCountShown": "{total} üründen {shown} gösteriliyor",
   "stockCountAll": "Ürünler: {total}",
   "shopModeNotChosen": "Seçilmedi",
   "shopModeChoose": "Mağaza modunu seç",
@@ -2141,5 +2141,45 @@
   "pinInvalidLeft": "PIN yanlış. Kalan deneme: {n}.",
   "pinLocked": "PIN yanlış denemelerden sonra kilitlendi. Daha sonra tekrar deneyin.",
   "pinNotSet": "PIN belirlenmemiş — Ayarlar → Çalışanlar bölümünde belirleyin.",
-  "pinRequiredText": "Bu işlem sahibin veya yöneticinin PIN'i ile onaylanmalı. Tekrar deneyin ve PIN'i girin."
+  "pinRequiredText": "Bu işlem sahibin veya yöneticinin PIN'i ile onaylanmalı. Tekrar deneyin ve PIN'i girin.",
+  "klWhyNoWifi": "Telefon Wi-Fi'ye bağlı değil. Wi-Fi'yi açın ve kasa bilgisayarıyla aynı ağa bağlanın (mobil veri olmaz).",
+  "klWhyOtherNet": "Telefon başka bir Wi-Fi ağında ({phone}), kasa ise {kassa} adresinde. Telefonu kasayla aynı modemin Wi-Fi'sine bağlayıp QR'ı yeniden tarayın.",
+  "klWhyNoAnswer": "Telefon aynı ağda olmasına rağmen kasa yanıt vermiyor. Çoğu zaman sebep Windows Güvenlik Duvarı'dır: kasadaki «Telefonu bağla» penceresinde kırmızı bir ipucu çıkar — ağı «Özel» yapın veya NurCRM'e izin verin. Kasada «Telefonu bağla» penceresi açık olmalı.",
+  "klWhyRefused": "Kasa bilgisayarı bulundu, ancak telefondan giriş kapalı. Kasada: Ayarlar → «Telefonlardan taramaları kabul et» seçeneğini açın, sonra «Telefonu bağla».",
+  "klWhyCodeExpired": "Kasa yanıt veriyor, ancak kod uymadı: 5 dakika geçerlidir ve «Yeni kod» ile değişir. Kasada «Yeni kod» düğmesine basıp QR'ı yeniden tarayın.",
+  "klQrCloser": "Okunmuyor mu? Telefonu yaklaştırın (15–25 cm), QR kareyi neredeyse doldursun, parlamayı önleyin. Ya da QR'ın fotoğrafını çekin.",
+  "klPhotoQr": "QR'ın fotoğrafını çek",
+  "klPhotoQrNone": "Fotoğrafta kasa QR kodu bulunamadı. Daha yakından ve düz çekin.",
+  "saTitle": "Depo analizi",
+  "saDesc": "Depoda kaç ürün var, değeri ne kadar, nelerin bittiği ve nerede fiyat ya da barkod eksik.",
+  "saPositions": "Ürünler (kalem)",
+  "saUnits": "Depodaki adet",
+  "saRetail": "Satış fiyatıyla değer",
+  "saPurchase": "Alış fiyatıyla değer",
+  "saMarkup": "Stok üzerindeki kâr payı",
+  "saZero": "Stokta yok",
+  "saLow": "Azalıyor",
+  "saMinus": "Eksi stok",
+  "saNoPrice": "Fiyatsız",
+  "saNoCode": "Barkodsuz",
+  "saAttention": "Nelere dikkat etmeli",
+  "saAttentionHint": "Bir kutuya dokunun — depo listesi bu filtreyle açılır.",
+  "saBySale": "satış fiyatıyla",
+  "saByCategory": "Kategoriye göre depo",
+  "saNoCategory": "Kategorisiz",
+  "saTop": "Stok değerine göre ilk 10 ürün",
+  "saRecent": "Son girişler",
+  "saRecentNone": "Tedarikçi girişi bulunamadı",
+  "saRecentNoLink": "Girişler bağlantı gelince yüklenecek",
+  "saPurchaseMissing": "{n} üründe alış fiyatı yok — alış değerine dahil edilmedi.",
+  "@saPurchaseMissing": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "saEmpty": "Depoda henüz ürün yok",
+  "saEmptyHint": "Kataloğu yükleyin: «Depo» → «Kataloğu yenile».",
+  "saHow": "Telefona yüklenen ürünler üzerinden hesaplanır (hizmetler hariç). Adet, tartılan ürünleri içermez. Değer = stok × fiyat; eksi stoklu ürünler değere katılmaz. Alış fiyatını yalnızca sahip ve yönetici görür."
 }

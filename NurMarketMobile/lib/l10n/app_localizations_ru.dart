@@ -7673,4 +7673,116 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get pinRequiredText =>
       'Это действие нужно подтвердить PIN-кодом владельца или администратора. Повторите и введите PIN.';
+
+  @override
+  String get klWhyNoWifi =>
+      'Телефон не подключён к Wi-Fi. Включите Wi-Fi и подключитесь к той же сети, что и компьютер с кассой (мобильный интернет не подходит).';
+
+  @override
+  String klWhyOtherNet(String phone, String kassa) {
+    return 'Телефон в другой сети Wi-Fi ($phone), а касса — по адресу $kassa. Подключите телефон к Wi-Fi того же роутера, что и касса, и отсканируйте QR снова.';
+  }
+
+  @override
+  String get klWhyNoAnswer =>
+      'Касса не отвечает, хотя телефон в той же сети. Чаще всего это брандмауэр Windows: на кассе в окне «Подключить телефон» будет красная подсказка — сделайте сеть «Частной» или разрешите NurCRM. Окно «Подключить телефон» на кассе должно быть открыто.';
+
+  @override
+  String get klWhyRefused =>
+      'Компьютер с кассой найден, но приём с телефонов закрыт. На кассе: Настройки → включите «Принимать сканы с телефонов», затем «Подключить телефон».';
+
+  @override
+  String get klWhyCodeExpired =>
+      'Касса на связи, но код не подошёл: он действует 5 минут и меняется по кнопке «Новый код». На кассе нажмите «Новый код» и отсканируйте QR снова.';
+
+  @override
+  String get klQrCloser =>
+      'Не читается? Поднесите телефон ближе (15–25 см), чтобы QR занял почти весь квадрат, и уберите блики. Или сфотографируйте QR.';
+
+  @override
+  String get klPhotoQr => 'Сфотографировать QR';
+
+  @override
+  String get klPhotoQrNone =>
+      'На фото не найден QR-код кассы. Сфотографируйте его ближе и ровнее.';
+
+  @override
+  String get saTitle => 'Аналитика склада';
+
+  @override
+  String get saDesc =>
+      'Сколько товаров на складе, на какую сумму, что закончилось и где не хватает цены или штрихкода.';
+
+  @override
+  String get saPositions => 'Товаров (позиций)';
+
+  @override
+  String get saUnits => 'Единиц на складе';
+
+  @override
+  String get saRetail => 'Стоимость по продаже';
+
+  @override
+  String get saPurchase => 'Стоимость по закупке';
+
+  @override
+  String get saMarkup => 'Наценка на остаток';
+
+  @override
+  String get saZero => 'Нет в наличии';
+
+  @override
+  String get saLow => 'Заканчивается';
+
+  @override
+  String get saMinus => 'В минусе';
+
+  @override
+  String get saNoPrice => 'Без цены';
+
+  @override
+  String get saNoCode => 'Без штрихкода';
+
+  @override
+  String get saAttention => 'Что требует внимания';
+
+  @override
+  String get saAttentionHint =>
+      'Нажмите на плитку — откроется список склада с этим фильтром.';
+
+  @override
+  String get saBySale => 'по цене продажи';
+
+  @override
+  String get saByCategory => 'Склад по категориям';
+
+  @override
+  String get saNoCategory => 'Без категории';
+
+  @override
+  String get saTop => 'Топ-10 товаров по стоимости остатка';
+
+  @override
+  String get saRecent => 'Последние поступления';
+
+  @override
+  String get saRecentNone => 'Приходов от поставщиков не найдено';
+
+  @override
+  String get saRecentNoLink => 'Поступления загрузятся, когда появится связь';
+
+  @override
+  String saPurchaseMissing(int n) {
+    return 'Закупка не задана у $n товаров — в стоимость по закупке они не вошли.';
+  }
+
+  @override
+  String get saEmpty => 'На складе пока нет товаров';
+
+  @override
+  String get saEmptyHint => 'Загрузите каталог: «Склад» → «Обновить каталог».';
+
+  @override
+  String get saHow =>
+      'Считается по товарам, загруженным на телефон (услуги не входят). Единицы — без весовых товаров. Стоимость — остаток × цена; товары в минусе в стоимость не входят. Цену закупки видят только владелец и администратор.';
 }
