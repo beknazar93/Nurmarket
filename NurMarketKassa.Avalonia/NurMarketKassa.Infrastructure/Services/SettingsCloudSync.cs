@@ -39,6 +39,7 @@ public static class SettingsCloudSync
         "Language", "DarkTheme", "AccentTheme", "MainLayoutMode", "CatalogViewMode", "ShowCatalogPhotos", "CatalogTileScalePercent",
         "SingleClickToCart", "ResetManualAddQtyAfterAdd", "DiscountModePercent", "ShowQuickProducts", "QuickCheckoutEnabled",
         "AutoShowTouchKeyboard", "HiddenSections", "OwnerSidebarCollapsed", "CatalogNoBarcodeFirst", // 2026-11-21: порядок каталога — личная привычка кассира
+        "CatalogGroupByCategory", // 2026-11-27: разделение каталога по категориям — тоже личная привычка
         // 2026-10-18: вид меню программы владельца (новое / бургер ☰ / старое) — личная настройка, как скрытые разделы.
         "OwnerMenuStyle",
         // 2026-10-19: вид меню ☰ кассы (старое / новое) — личная настройка.

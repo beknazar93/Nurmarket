@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -54,6 +54,10 @@ public sealed class BarcodeA4SheetWindow : Window
     private readonly ComboBox _paper;
     private readonly StackPanel _customPanel;
     private readonly NumericUpDown _startCell, _offX, _offY, _marginTop, _marginLeft, _cellW, _cellH, _pitchX, _pitchY;
+    // 2026-11-27 (владелец: «в ценники добавь возможность добавить рамку»): рамка вокруг каждого ценника на листе
+    private readonly CheckBox _frame, _frameDashed;
+    private readonly NumericUpDown _frameThickness, _frameRadius;
+    private readonly ComboBox _frameColor;
     private readonly TextBlock _summary;
     private readonly TextBlock _warning;
     private readonly ComboBox _printerCombo;
@@ -105,7 +109,10 @@ public sealed class BarcodeA4SheetWindow : Window
         _copies = Num(1, 99, Math.Clamp(settings.A4Copies, 1, 99));
 
         _positions = new ListBox { MaxHeight = 190, MinHeight = 60 };
-        _positions.ItemTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<Row>((row, _) => BuildRow(row), false); // 2026-11-01 (В-1): без переиспользования — иначе строки путались при прокрутке
+        // 2026-11-01 (В-1): без переиспользования — иначе строки путались при прокрутке.
+        // 2026-11-27 (жалоба владельца с фото: общий диалог «Произошла ошибка в программе» в «Печати на A4»): при смене «Копий каждого» список
+        // строк заменяется (RefreshPositions), Avalonia очищает старый контейнер и строит шаблон с row = null → NullReferenceException в BuildRow.
+        _positions.ItemTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<Row>((row, _) => row is null ? new Panel() : BuildRow(row), false);
         _resetButton = Ghost("");
         _resetButton.HorizontalAlignment = HorizontalAlignment.Right;
         _resetButton.MinHeight = 36;
@@ -175,6 +182,16 @@ public sealed class BarcodeA4SheetWindow : Window
         (_nameB, _nameI, _nameU) = (Tog(T("Ж", "Ж", "B", "K", "B"), FontWeight.Bold, FontStyle.Normal, false, _o.Name.Bold), Tog(T("К", "К", "I", "İ", "I"), FontWeight.Normal, FontStyle.Italic, false, _o.Name.Italic), Tog(T("П", "П", "U", "A", "U"), FontWeight.Normal, FontStyle.Normal, true, _o.Name.Underline));
         (_priceB, _priceI, _priceU) = (Tog(T("Ж", "Ж", "B", "K", "B"), FontWeight.Bold, FontStyle.Normal, false, _o.Price.Bold), Tog(T("К", "К", "I", "İ", "I"), FontWeight.Normal, FontStyle.Italic, false, _o.Price.Italic), Tog(T("П", "П", "U", "A", "U"), FontWeight.Normal, FontStyle.Normal, true, _o.Price.Underline));
 
+        _frame = Check(T("Рамка вокруг ценника", "Баа белгисинин алкагы", "Frame around each tag", "Etiket çevresinde çerçeve", "Narx yorlig'i atrofida ramka"), _o.Frame);
+        _frameDashed = Check(T("Пунктирная", "Чекиттүү", "Dashed", "Kesikli", "Punktir"), _o.FrameDashed);
+        _frameThickness = Dec((decimal)LabelFrameSpec.MinThicknessMm, (decimal)LabelFrameSpec.MaxThicknessMm, _o.FrameThicknessMm);
+        _frameThickness.Increment = 0.1m;
+        _frameRadius = Dec(0, (decimal)LabelFrameSpec.MaxRadiusMm, _o.FrameRadiusMm);
+        _frameColor = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+        _frameColor.Items.Add(T("Чёрная", "Кара", "Black", "Siyah", "Qora"));
+        _frameColor.Items.Add(T("Серая", "Боз", "Grey", "Gri", "Kulrang"));
+        _frameColor.SelectedIndex = _o.FrameGray ? 1 : 0;
+
         _summary = new TextBlock { FontSize = 12.5, TextWrapping = TextWrapping.Wrap };
         Use(_summary, TextBlock.ForegroundProperty, "BrushTextSoft");
         _warning = new TextBlock { FontSize = 12.5, TextWrapping = TextWrapping.Wrap, IsVisible = false };
@@ -200,6 +217,13 @@ public sealed class BarcodeA4SheetWindow : Window
         var f2 = Field(T("Строк на лист", "Барактагы катар", "Rows per sheet", "Sayfada satır", "Varaqda qator"), _rowsBox); Grid.SetColumn(f2, 2); grid3.Children.Add(f2);
         var f3 = Field(T("Копий каждого", "Ар биринин көчүрмөсү", "Copies of each", "Her birinin kopyası", "Har birining nusxasi"), _copies); Grid.SetColumn(f3, 4); grid3.Children.Add(f3);
         left.Children.Add(grid3);
+        left.Children.Add(Panel(_frame));
+        var gridFrame = new Grid { ColumnDefinitions = new ColumnDefinitions("*,8,*,8,*") };
+        gridFrame.Children.Add(Field(T("Толщина рамки, мм", "Алкактын калыңдыгы, мм", "Frame thickness, mm", "Çerçeve kalınlığı, mm", "Ramka qalinligi, mm"), _frameThickness));
+        var fRad = Field(T("Скругление, мм", "Бурч тегеректиги, мм", "Corner radius, mm", "Köşe yuvarlama, mm", "Burchak radiusi, mm"), _frameRadius); Grid.SetColumn(fRad, 2); gridFrame.Children.Add(fRad);
+        var fCol = Field(T("Цвет рамки", "Алкактын түсү", "Frame colour", "Çerçeve rengi", "Ramka rangi"), _frameColor); Grid.SetColumn(fCol, 4); gridFrame.Children.Add(fCol);
+        left.Children.Add(gridFrame);
+        left.Children.Add(Panel(_frameDashed));
 
         var posHeader = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
         var posTitle = new TextBlock { Text = T("Копии по позициям", "Позициялар боюнча көчүрмөлөр", "Copies by item", "Kalemlere göre kopyalar", "Pozitsiyalar bo'yicha nusxalar"), FontSize = 12.5, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center };
@@ -283,9 +307,10 @@ public sealed class BarcodeA4SheetWindow : Window
         _rowsBox.ValueChanged += (_, _) => Changed();
         _copies.ValueChanged += (_, _) => { RefreshPositions(); Changed(); };
         _heightSlider.PropertyChanged += (_, e) => { if (e.Property == RangeBase.ValueProperty) { UpdateHeightLabel(); Changed(); } };
-        foreach (var c in new[] { _barcode, _name, _price, _discount, _plu, _description })
+        foreach (var c in new[] { _barcode, _name, _price, _discount, _plu, _description, _frame, _frameDashed })
             c.IsCheckedChanged += (_, _) => Changed();
-        foreach (var n in new[] { _nameSize, _priceSize, _oldSize, _pluSize, _descSize, _startCell, _offX, _offY, _marginTop, _marginLeft, _cellW, _cellH, _pitchX, _pitchY })
+        _frameColor.SelectionChanged += (_, _) => Changed();
+        foreach (var n in new[] { _frameThickness, _frameRadius, _nameSize, _priceSize, _oldSize, _pluSize, _descSize, _startCell, _offX, _offY, _marginTop, _marginLeft, _cellW, _cellH, _pitchX, _pitchY })
             n.ValueChanged += (_, _) => Changed();
         foreach (var t in new[] { _nameB, _nameI, _nameU, _priceB, _priceI, _priceU, _oldB, _oldI, _oldU, _pluB, _pluI, _pluU, _descB, _descI, _descU })
             t.IsCheckedChanged += (_, _) => Changed();
@@ -369,6 +394,11 @@ public sealed class BarcodeA4SheetWindow : Window
         _o.CellHmm = (double)(_cellH.Value ?? 37);
         _o.PitchXmm = (double)(_pitchX.Value ?? 70);
         _o.PitchYmm = (double)(_pitchY.Value ?? 37);
+        _o.Frame = _frame.IsChecked == true;
+        _o.FrameThicknessMm = (double)(_frameThickness.Value ?? (decimal)LabelFrameSpec.DefaultThicknessMm);
+        _o.FrameRadiusMm = (double)(_frameRadius.Value ?? 0);
+        _o.FrameGray = _frameColor.SelectedIndex == 1;
+        _o.FrameDashed = _frameDashed.IsChecked == true;
     }
 
     private void Changed()

@@ -184,16 +184,43 @@ public sealed class UnsentDataDialog : Window
     }
 
     /// <summary>2026-11-05 (Л4-04): данные прежней компании убрать не удалось (файл занят) — всё возвращено на место, вход прерываем.
-    /// 2026-11-05 (ревью волн 0–3, п. 7): сообщение показываем ДО закрытия программы и ждём, пока его закроют, — раньше окно появлялось и сразу закрывалось вместе с кассой.</summary>
-    public static void ShowSwitchFailed(string reason)
+    /// 2026-11-05 (ревью волн 0–3, п. 7): сообщение показываем ДО закрытия программы и ждём, пока его закроют, — раньше окно появлялось и сразу закрывалось вместе с кассой.
+    /// 2026-11-27 (жалоба клиента: «…(не удалось убрать: data (Access to the path 'C:\Users\admin\AppData\Roaming\NurMarketKassa\data' is denied.))…» и тупик
+    /// «войдите снова»): технические подробности (пути, текст ОС) — только в журнал; пользователю — кто держит данные и одна главная кнопка «Повторить»
+    /// (держит программа владельца — «Закрыть программу владельца и повторить», касса закроет её штатно). Возвращает true = повторить; «Отмена» — выход из входа.
+    /// Окно синхронное, как «Вход в другую компанию» (PosConfirmDialog.Show, свой цикл окна) — ответ нужен до продолжения смены.</summary>
+    public static bool ShowSwitchFailed(AccountSwitchFailure failure)
     {
-        async Task ShowAndWaitAsync() => await PosAlertDialog.ShowAsync(ActiveWindow(),
-            T("Не удалось сменить компанию", "Компанияны алмаштыруу мүмкүн болгон жок", "Could not switch company", "Şirket değiştirilemedi", "Kompaniyani almashtirib bo'lmadi"),
-            T($"Данные прежней компании заняты другой программой ({reason}). Закройте программу владельца и антивирус и войдите снова. Ничего не потеряно.",
-                $"Мурунку компаниянын маалыматтарын башка программа кармап турат ({reason}). Ээси программасын жана антивирусту жаап, кайра кириңиз. Эч нерсе жоголгон жок.",
-                $"The previous company's data is held by another program ({reason}). Close the owner program and antivirus, then sign in again. Nothing was lost.",
-                $"Önceki şirketin verileri başka bir program tarafından kullanılıyor ({reason}). Sahip programını ve antivirüsü kapatıp tekrar girin. Hiçbir şey kaybolmadı.",
-                $"Avvalgi kompaniya ma'lumotlarini boshqa dastur ushlab turibdi ({reason}). Egasi dasturini va antivirusni yopib, qayta kiring. Hech narsa yo'qolmadi."),
+        var title = T("Не удалось сменить компанию", "Компанияны алмаштыруу мүмкүн болгон жок", "Could not switch company", "Şirket değiştirilemedi", "Kompaniyani almashtirib bo'lmadi");
+        if (failure.CanRetry)
+        {
+            var message = SwitchBlockedMessage(failure);
+            var confirm = failure.HeldByOwnerProgram
+                ? T("Закрыть программу владельца и повторить", "Ээси программасын жабып, кайталоо", "Close the owner program and retry", "Sahip programını kapat ve tekrar dene", "Egasi dasturini yopib, qayta urinish")
+                : T("Повторить", "Кайталоо", "Retry", "Tekrar dene", "Qayta urinish");
+            var cancel = T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish");
+            bool Ask() => PosConfirmDialog.Show(ActiveWindow(), title, message, confirm, cancel);
+            bool retry;
+            try
+            {
+                retry = Dispatcher.UIThread.CheckAccess() ? Ask() : Dispatcher.UIThread.InvokeAsync(Ask).GetAwaiter().GetResult();
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                PosLogger.Log($"Смена аккаунта: вопрос «Повторить» не показан ({ex.Message}).", "WARNING");
+                retry = false;
+            }
+            if (!retry)
+                AbortSignIn();
+            return retry;
+        }
+
+        async Task ShowAndWaitAsync() => await PosAlertDialog.ShowAsync(ActiveWindow(), title,
+            T("Данные прежней компании не удалось убрать. Ничего не потеряно: касса осталась в прежней компании. Перезапустите кассу и войдите снова. Подробности — в журнале кассы.",
+                "Мурунку компаниянын маалыматтарын алып салуу мүмкүн болгон жок. Эч нерсе жоголгон жок: касса мурунку компанияда калды. Кассаны кайра иштетип, кайра кириңиз. Чоо-жайы — кассанын журналында.",
+                "The previous company's data could not be removed. Nothing was lost: the till stayed in the previous company. Restart the till and sign in again. Details are in the till log.",
+                "Önceki şirketin verileri kaldırılamadı. Hiçbir şey kaybolmadı: kasa önceki şirkette kaldı. Kasayı yeniden başlatıp tekrar girin. Ayrıntılar kasa günlüğünde.",
+                "Avvalgi kompaniya ma'lumotlarini olib tashlab bo'lmadi. Hech narsa yo'qolmadi: kassa avvalgi kompaniyada qoldi. Kassani qayta ishga tushirib, qayta kiring. Tafsilotlar — kassa jurnalida."),
             PosAlertKind.Warning).ConfigureAwait(true);
 
         if (Dispatcher.UIThread.CheckAccess())
@@ -205,11 +232,64 @@ public sealed class UnsentDataDialog : Window
                 catch (Exception ex) when (ex is not OutOfMemoryException) { PosLogger.Log($"Смена аккаунта: сообщение о сбое не показано ({ex.Message}).", "WARNING"); }
                 AbortSignIn();
             });
-            return;
+            return false;
         }
         try { Dispatcher.UIThread.InvokeAsync(ShowAndWaitAsync).GetAwaiter().GetResult(); }
         catch (Exception ex) when (ex is not OutOfMemoryException) { PosLogger.Log($"Смена аккаунта: сообщение о сбое не показано ({ex.Message}).", "WARNING"); }
         AbortSignIn();
+        return false;
+    }
+
+    /// <summary>2026-11-27: текст окна «Не удалось сменить компанию» без путей и сообщений ОС: кто держит данные и что сделать.</summary>
+    public static string SwitchBlockedMessage(AccountSwitchFailure failure)
+    {
+        string who;
+        if (failure.HeldByOwnerProgram)
+            who = T("Данные прежней компании сейчас открыты в программе владельца NurCRM на этом компьютере.",
+                "Мурунку компаниянын маалыматтары азыр бул компьютердеги NurCRM ээси программасында ачык.",
+                "The previous company's data is open in the NurCRM owner program on this computer.",
+                "Önceki şirketin verileri şu anda bu bilgisayardaki NurCRM sahip programında açık.",
+                "Avvalgi kompaniya ma'lumotlari hozir shu kompyuterdagi NurCRM egasi dasturida ochiq.");
+        else if (failure.HeldBySelfOnly)
+            who = T("Касса ещё дописывает данные прежней компании.",
+                "Касса мурунку компаниянын маалыматтарын али жазып жатат.",
+                "The till is still finishing writing the previous company's data.",
+                "Kasa önceki şirketin verilerini yazmayı henüz bitirmedi.",
+                "Kassa avvalgi kompaniya ma'lumotlarini hali yozib bo'lmadi.");
+        else if (failure.OtherProgramNames.Count > 0)
+        {
+            var names = string.Join(", ", failure.OtherProgramNames.Take(3));
+            who = T($"Данные прежней компании сейчас заняты другой программой: {names}. Обычно это антивирус или открытая папка.",
+                $"Мурунку компаниянын маалыматтарын азыр башка программа кармап турат: {names}. Көбүнчө бул антивирус же ачык папка.",
+                $"The previous company's data is in use by another program: {names}. Usually this is an antivirus or an open folder.",
+                $"Önceki şirketin verileri şu anda başka bir program tarafından kullanılıyor: {names}. Genellikle bu bir antivirüs veya açık bir klasördür.",
+                $"Avvalgi kompaniya ma'lumotlarini hozir boshqa dastur band qilgan: {names}. Odatda bu antivirus yoki ochiq papka.");
+        }
+        else
+            who = T("Данные прежней компании сейчас заняты другой программой (обычно антивирус или программа владельца NurCRM).",
+                "Мурунку компаниянын маалыматтарын азыр башка программа кармап турат (көбүнчө антивирус же NurCRM ээси программасы).",
+                "The previous company's data is in use by another program (usually an antivirus or the NurCRM owner program).",
+                "Önceki şirketin verileri şu anda başka bir program tarafından kullanılıyor (genellikle antivirüs veya NurCRM sahip programı).",
+                "Avvalgi kompaniya ma'lumotlarini hozir boshqa dastur band qilgan (odatda antivirus yoki NurCRM egasi dasturi).");
+
+        var what = failure.HeldByOwnerProgram
+            ? T("Нажмите «Закрыть программу владельца и повторить» — касса закроет её и сменит компанию. Потом программу владельца можно открыть снова.",
+                "«Ээси программасын жабып, кайталоо» баскычын басыңыз — касса аны жаап, компанияны алмаштырат. Кийин ээси программасын кайра ачсаңыз болот.",
+                "Press «Close the owner program and retry» — the till will close it and switch the company. You can open the owner program again afterwards.",
+                "«Sahip programını kapat ve tekrar dene» düğmesine basın — kasa onu kapatıp şirketi değiştirecek. Sahip programını sonra yeniden açabilirsiniz.",
+                "«Egasi dasturini yopib, qayta urinish» tugmasini bosing — kassa uni yopib, kompaniyani almashtiradi. Keyin egasi dasturini qayta ochish mumkin.")
+            : T("Закройте программу владельца NurCRM, если она открыта, подождите несколько секунд и нажмите «Повторить». Если не помогает — перезапустите компьютер и войдите снова.",
+                "NurCRM ээси программасы ачык болсо, жабыңыз, бир нече секунд күтүп, «Кайталоо» баскычын басыңыз. Жардам бербесе — компьютерди өчүрүп-күйгүзүп, кайра кириңиз.",
+                "Close the NurCRM owner program if it is open, wait a few seconds and press «Retry». If that does not help, restart the computer and sign in again.",
+                "NurCRM sahip programı açıksa kapatın, birkaç saniye bekleyin ve «Tekrar dene» düğmesine basın. İşe yaramazsa bilgisayarı yeniden başlatıp tekrar girin.",
+                "NurCRM egasi dasturi ochiq bo'lsa, yoping, bir necha soniya kuting va «Qayta urinish» tugmasini bosing. Yordam bermasa — kompyuterni qayta ishga tushirib, qayta kiring.");
+
+        var safe = T("Ничего не потеряно: пока касса работает с прежней компанией. Подробности — в журнале кассы.",
+            "Эч нерсе жоголгон жок: азырынча касса мурунку компания менен иштейт. Чоо-жайы — кассанын журналында.",
+            "Nothing was lost: for now the till keeps working with the previous company. Details are in the till log.",
+            "Hiçbir şey kaybolmadı: kasa şimdilik önceki şirketle çalışıyor. Ayrıntılar kasa günlüğünde.",
+            "Hech narsa yo'qolmadi: hozircha kassa avvalgi kompaniya bilan ishlaydi. Tafsilotlar — kassa jurnalida.");
+        return who + "\n\n" + what + "\n\n" + safe;
     }
 
     /// <summary>Файл «неотправленное» записан — сказать, где он лежит (не блокирует: окно покажется после смены).</summary>

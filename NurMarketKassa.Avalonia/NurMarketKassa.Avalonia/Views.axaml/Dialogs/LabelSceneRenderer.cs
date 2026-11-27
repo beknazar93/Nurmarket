@@ -61,6 +61,11 @@ internal static class LabelSceneRenderer
                     case LabelSceneRect r:
                         ctx.DrawRectangle(new SolidColorBrush(Color.FromUInt32(r.Argb)), null, new Rect(r.X, r.Y, r.W, r.H));
                         break;
+                    case LabelSceneFrame f: // 2026-11-27: скруглённая/пунктирная рамка (LabelFrameSpec)
+                        var pen = new Pen(new SolidColorBrush(Color.FromUInt32(f.Argb)), f.StrokePx,
+                            f.Dashed ? new DashStyle(new[] { (double)LabelFrameSpec.DashPattern[0], LabelFrameSpec.DashPattern[1] }, 0) : null);
+                        ctx.DrawRectangle(null, pen, new Rect(f.X, f.Y, f.W, f.H), f.RadiusPx, f.RadiusPx);
+                        break;
                     case LabelSceneBars bars:
                         DrawBars(ctx, bars);
                         break;

@@ -31,6 +31,9 @@ public static class CashierBadgeCode
     /// касса не ищет как товар и не пишет в журнал.</summary>
     public static bool LooksLikeBadge(string? raw) => IndexOfPrefix(raw) >= 0;
 
+    /// <summary>2026-11-27 (вечер): позиция префикса NMBADGE в набранном (в любой раскладке), -1 — нет. Для перехвата ввода до поля.</summary>
+    public static int PrefixIndex(string? raw) => IndexOfPrefix(raw);
+
     /// <summary>Из ввода сканера (могли быть набранные раньше буквы) — часть, начиная с префикса бейджа; null — бейджа нет.</summary>
     public static string? ExtractFromInput(string? raw)
     {

@@ -137,6 +137,7 @@ public sealed partial class UserPreferences
                 CatalogViewMode = CatalogViewMode,
                 ShowCatalogPhotos = ShowCatalogPhotos,
                 CatalogNoBarcodeFirst = CatalogNoBarcodeFirst, // 2026-11-21
+                CatalogGroupByCategory = CatalogGroupByCategory, // 2026-11-27
                 BarcodePrintListView = BarcodePrintListView, // 2026-11-22
                 MarketplaceWebUrl = MarketplaceWebUrl, // 2026-11-06
                 AutoInstallPurchasedThemes = AutoInstallPurchasedThemes,
@@ -527,6 +528,7 @@ public sealed partial class UserPreferences
         public CatalogViewMode? CatalogViewMode { get; set; }
         public bool? ShowCatalogPhotos { get; set; }
         public bool? CatalogNoBarcodeFirst { get; set; } // 2026-11-21
+        public bool? CatalogGroupByCategory { get; set; } // 2026-11-27
         public bool? BarcodePrintListView { get; set; } // 2026-11-22
         public string? MarketplaceWebUrl { get; set; } // 2026-11-06
         public bool? AutoInstallPurchasedThemes { get; set; }

@@ -19,13 +19,20 @@ namespace NurMarketKassa.AvaloniaHost.Views.Dialogs;
 /// Окно строится в коде (как другие диалоги); цели касания ≥ 44 px, у кнопок AutomationProperties.Name.</summary>
 internal sealed class PhoneLinkPairWindow : Window
 {
-    private readonly ReceiptQrView _qr = new() { Size = 248, Dark = Brushes.Black, Light = Brushes.White };
+    // 2026-11-27, жалоба «не работает подключение сканера с телефона»: QR крупнее (≈300 px), модуль — целое число пикселей,
+    // белое поле — 4 модуля (как требует стандарт QR); было 248 px и поле 14 px (≈2,5 модуля) — камера телефона код с экрана не брала.
+    private const double QrTargetSize = 300;
+    private readonly ReceiptQrView _qr = new() { Size = QrTargetSize, Dark = Brushes.Black, Light = Brushes.White };
     private readonly Border _qrFrame;
     private readonly TextBlock _timer = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _status = new() { FontSize = 15, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _address = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap };
     private readonly ComboBox _ipCombo = new() { Height = 44, MinWidth = 200, IsVisible = false };
     private readonly StackPanel _phones = new() { Spacing = 6 };
+    // 2026-11-27 (диагностика «телефон не подключается»): «телефон стучался, но…» и предупреждение брандмауэра Windows.
+    private readonly TextBlock _knock = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap, IsVisible = false };
+    private readonly TextBlock _firewallWarn = new() { FontSize = 13, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, IsVisible = false };
+    private int _firewallCheckId;
     private readonly DispatcherTimer _tick = new() { Interval = TimeSpan.FromSeconds(1) };
     private string? _key;
     private bool _paired;
@@ -36,7 +43,7 @@ internal sealed class PhoneLinkPairWindow : Window
     public PhoneLinkPairWindow()
     {
         Title = T("Подключить телефон", "Телефонду туташтыруу", "Connect a phone", "Telefonu bağla", "Telefonni ulash");
-        SectionCards.AsModal(this, 780);
+        SectionCards.AsModal(this, 860); // 2026-11-27: было 780 — QR стал крупнее
 
         _qrFrame = new Border
         {
@@ -76,6 +83,10 @@ internal sealed class PhoneLinkPairWindow : Window
         _address.Bind(TextBlock.ForegroundProperty, _address.GetResourceObservable("BrushTextSoft"));
         steps.Children.Add(_status);
         steps.Children.Add(_timer);
+        _knock.Bind(TextBlock.ForegroundProperty, _knock.GetResourceObservable("BrushText"));
+        _firewallWarn.Bind(TextBlock.ForegroundProperty, _firewallWarn.GetResourceObservable("BrushDanger"));
+        steps.Children.Add(_knock);
+        steps.Children.Add(_firewallWarn);
 
         var newCode = SectionCards.Secondary(T("Новый код", "Жаңы код", "New code", "Yeni kod", "Yangi kod"));
         newCode.Click += (_, _) => NewCode();
@@ -83,11 +94,11 @@ internal sealed class PhoneLinkPairWindow : Window
         newCode.HorizontalAlignment = HorizontalAlignment.Left;
         steps.Children.Add(newCode);
 
-        var qrColumn = new StackPanel { Spacing = 8, Width = 280 };
+        var qrColumn = new StackPanel { Spacing = 8, Width = 372 };
         qrColumn.Children.Add(_qrFrame);
         qrColumn.Children.Add(_address);
         qrColumn.Children.Add(_ipCombo);
-        _ipCombo.SelectionChanged += (_, _) => { if (!_suppressIp) RedrawQr(); };
+        _ipCombo.SelectionChanged += (_, _) => { if (!_suppressIp) { RedrawQr(); CheckFirewall(); } };
 
         var top = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,24,*") };
         Grid.SetColumn(qrColumn, 0);
@@ -127,9 +138,11 @@ internal sealed class PhoneLinkPairWindow : Window
         {
             LoadAddresses();
             NewCode();
+            CheckFirewall();
             RefreshPhones();
             PhoneLinkHost.Pairing.Paired += OnPaired;
             PhoneLinkHost.Pairing.Changed += OnPairingChanged;
+            PhoneLinkHost.Knocked += OnKnocked;
             _tick.Tick += (_, _) => UpdateTimer();
             _tick.Start();
         };
@@ -138,6 +151,7 @@ internal sealed class PhoneLinkPairWindow : Window
             _tick.Stop();
             PhoneLinkHost.Pairing.Paired -= OnPaired;
             PhoneLinkHost.Pairing.Changed -= OnPairingChanged;
+            PhoneLinkHost.Knocked -= OnKnocked;
             PhoneLinkHost.Pairing.CancelPairing(); // закрыли окно — код больше не действует
         };
     }
@@ -198,6 +212,7 @@ internal sealed class PhoneLinkPairWindow : Window
             qr = PhoneLinkHost.BuildQr(_key, ip);
 
         _qr.Data = qr;
+        FitQr();
         _qrFrame.IsVisible = qr is not null;
         _address.Text = qr is null ? "" : T($"Адрес кассы в сети: {ip}:{PhoneLinkHost.Port}", $"Кассанын тармактагы дареги: {ip}:{PhoneLinkHost.Port}",
             $"Till address on the network: {ip}:{PhoneLinkHost.Port}", $"Kasanın ağ adresi: {ip}:{PhoneLinkHost.Port}", $"Kassaning tarmoqdagi manzili: {ip}:{PhoneLinkHost.Port}");
@@ -214,6 +229,18 @@ internal sealed class PhoneLinkPairWindow : Window
         else
             SetStatus(T("Ожидание телефона…", "Телефонду күтүүдө…", "Waiting for the phone…", "Telefon bekleniyor…", "Telefon kutilmoqda…"), "BrushText");
         UpdateTimer();
+    }
+
+    /// <summary>2026-11-27: целый размер модуля (не меньше 4 px) и белое поле в 4 модуля вокруг кода.</summary>
+    private void FitQr()
+    {
+        var modules = _qr.Modules;
+        if (modules <= 0)
+            return;
+        var cell = Math.Max(4, Math.Floor(QrTargetSize / modules));
+        _qr.Size = cell * modules;
+        _qrFrame.Padding = new Thickness(cell * 4);
+        _qrFrame.CornerRadius = new CornerRadius(Math.Min(12, cell * 2));
     }
 
     private void SetStatus(string text, string brush)
@@ -256,6 +283,66 @@ internal sealed class PhoneLinkPairWindow : Window
         UpdateTimer();
         RefreshPhones();
     });
+
+    /// <summary>2026-11-27: телефон достучался до кассы, но не подключился — говорим почему (адрес телефона, без ключей).</summary>
+    private void OnKnocked(string address, string op, string code) => Dispatcher.UIThread.Post(() =>
+    {
+        if (op != "hello" || code == PhoneLinkCodes.Ok)
+            return;
+        _knock.Text = code switch
+        {
+            PhoneLinkCodes.UnknownPhone or PhoneLinkCodes.BadSig or PhoneLinkCodes.Revoked => T(
+                $"Телефон {address} достучался до кассы, но код не подошёл (устарел или заменён). Нажмите «Новый код» и отсканируйте его снова.",
+                $"{address} телефону кассага жетти, бирок код туура келген жок (эскирген же алмашкан). «Жаңы код» баскычын басып, кайра сканерлеңиз.",
+                $"Phone {address} reached the till, but the code did not match (expired or replaced). Press “New code” and scan it again.",
+                $"{address} telefonu kasaya ulaştı, ancak kod uymadı (süresi doldu veya değişti). «Yeni kod» düğmesine basıp tekrar tarayın.",
+                $"{address} telefoni kassaga yetib keldi, lekin kod mos kelmadi (eskirgan yoki almashtirilgan). «Yangi kod» tugmasini bosib, qayta skanerlang."),
+            PhoneLinkCodes.BadTime => T(
+                $"Телефон {address} достучался до кассы, но время на телефоне отличается больше чем на 10 минут. Включите на телефоне «Время сети» и попробуйте снова.",
+                $"{address} телефону кассага жетти, бирок телефондогу убакыт 10 мүнөттөн ашык айырмаланат. Телефондо «Тармак убактысын» күйгүзүп, кайра аракет кылыңыз.",
+                $"Phone {address} reached the till, but its clock differs by more than 10 minutes. Turn on “Network time” on the phone and try again.",
+                $"{address} telefonu kasaya ulaştı, ancak saati 10 dakikadan fazla farklı. Telefonda «Ağ saati»ni açıp tekrar deneyin.",
+                $"{address} telefoni kassaga yetib keldi, lekin undagi vaqt 10 daqiqadan ko'proq farq qiladi. Telefonda «Tarmoq vaqti»ni yoqib, qayta urinib ko'ring."),
+            _ => T($"Телефон {address} достучался до кассы, но подключение не удалось ({code}). Нажмите «Новый код» и попробуйте снова.",
+                $"{address} телефону кассага жетти, бирок туташуу ишке ашкан жок ({code}). «Жаңы код» баскычын басып, кайра аракет кылыңыз.",
+                $"Phone {address} reached the till, but connecting failed ({code}). Press “New code” and try again.",
+                $"{address} telefonu kasaya ulaştı, ancak bağlantı başarısız oldu ({code}). «Yeni kod» düğmesine basıp tekrar deneyin.",
+                $"{address} telefoni kassaga yetib keldi, lekin ulanib bo'lmadi ({code}). «Yangi kod» tugmasini bosib, qayta urinib ko'ring."),
+        };
+        _knock.IsVisible = true;
+    });
+
+    /// <summary>2026-11-27: пустит ли брандмауэр Windows телефон к кассе в сети выбранного адреса (проверка в фоне, только чтение).</summary>
+    private void CheckFirewall()
+    {
+        var ip = _ipCombo.SelectedItem as string;
+        var port = PhoneLinkHost.Port;
+        var id = ++_firewallCheckId;
+        _firewallWarn.IsVisible = false;
+        if (!OperatingSystem.IsWindows() || ip is null || port == 0)
+            return;
+        _ = System.Threading.Tasks.Task.Run(() => PhoneLinkFirewall.Check(ip, port)).ContinueWith(t =>
+        {
+            if (t.IsFaulted || id != _firewallCheckId)
+                return;
+            var r = t.Result;
+            if (r.Verdict is PhoneLinkFirewall.Verdict.Allowed or PhoneLinkFirewall.Verdict.Unknown)
+                return;
+            PosLogger.Log($"PHONELINK: брандмауэр Windows не пустит телефон к порту {port} ({r.Verdict}, профиль сети {r.Profile}).", "WARNING");
+            _firewallWarn.Text = r.Profile == PhoneLinkFirewall.ProfilePublic
+                ? T("Брандмауэр Windows не пустит телефон: эта сеть отмечена как «Общедоступная», а кассе разрешены только частные сети. Сделайте сеть частной: Параметры Windows → Сеть и Интернет → Wi-Fi (или Ethernet) → свойства сети → «Частная сеть».",
+                    "Windows брандмауэри телефонду өткөрбөйт: бул тармак «Жалпыга ачык» деп белгиленген, ал эми кассага жеке тармактар гана уруксат. Тармакты жеке кылыңыз: Windows параметрлери → Тармак жана Интернет → Wi-Fi (же Ethernet) → тармак касиеттери → «Жеке тармак».",
+                    "Windows Firewall will block the phone: this network is marked “Public”, and the till is allowed only on private networks. Make the network private: Windows Settings → Network & Internet → Wi-Fi (or Ethernet) → network properties → “Private network”.",
+                    "Windows Güvenlik Duvarı telefonu engelleyecek: bu ağ «Genel» olarak işaretli ve kasaya yalnızca özel ağlarda izin var. Ağı özel yapın: Windows Ayarları → Ağ ve İnternet → Wi-Fi (veya Ethernet) → ağ özellikleri → «Özel ağ».",
+                    "Windows brandmaueri telefonni o'tkazmaydi: bu tarmoq «Umumiy» deb belgilangan, kassaga esa faqat xususiy tarmoqlarda ruxsat bor. Tarmoqni xususiy qiling: Windows sozlamalari → Tarmoq va Internet → Wi-Fi (yoki Ethernet) → tarmoq xususiyatlari → «Xususiy tarmoq».")
+                : T("Брандмауэр Windows не пустит телефон к кассе. Откройте «Брандмауэр Защитника Windows» → «Разрешение взаимодействия с приложением» → отметьте NurCRM (NurMarketKassa) для частной сети.",
+                    "Windows брандмауэри телефонду кассага өткөрбөйт. «Windows Defender брандмауэрин» ачып → «Тиркеме менен өз ара аракеттенүүгө уруксат» → жеке тармак үчүн NurCRM (NurMarketKassa) белгилеңиз.",
+                    "Windows Firewall will block the phone. Open “Windows Defender Firewall” → “Allow an app through the firewall” → tick NurCRM (NurMarketKassa) for private networks.",
+                    "Windows Güvenlik Duvarı telefonu engelleyecek. «Windows Defender Güvenlik Duvarı» → «Bir uygulamaya güvenlik duvarından izin ver» → özel ağ için NurCRM (NurMarketKassa) işaretleyin.",
+                    "Windows brandmaueri telefonni kassaga o'tkazmaydi. «Windows Defender brandmaueri» → «Ilovaga brandmauer orqali ruxsat berish» → xususiy tarmoq uchun NurCRM (NurMarketKassa) ni belgilang.");
+            _firewallWarn.IsVisible = true;
+        }, System.Threading.Tasks.TaskScheduler.FromCurrentSynchronizationContext());
+    }
 
     private void OnPairingChanged() => Dispatcher.UIThread.Post(RefreshPhones);
 

@@ -135,7 +135,7 @@ public partial class ScreenSettingsView : UserControl
         InitializeComponent();
         // 2026-11-11 (Д-5, живой показ 1.17.85): переключатели и ползунки, которые применяются и сохраняются сразу (без «Сохранить»), — не повод
         // спрашивать при закрытии «Есть несохранённые изменения» (PosSettingsWindow.SnapshotEditable их пропускает).
-        foreach (var immediate in new Control[] { QuickProductsCheck, UpsellCheck, NoBarcodeFirstCheck, PayDockBottomCheck, UiScaleSlider, TileSizeSlider, CompactAutoRadio, CompactOnRadio, CompactOffRadio })
+        foreach (var immediate in new Control[] { QuickProductsCheck, UpsellCheck, NoBarcodeFirstCheck, GroupByCategoryCheck, PayDockBottomCheck, UiScaleSlider, TileSizeSlider, CompactAutoRadio, CompactOnRadio, CompactOffRadio })
             immediate.Classes.Add(NurMarketKassa.AvaloniaHost.Views.PosSettingsWindow.ImmediateSettingClass);
         // 2026-11-05 (В4-10): пункт «Авто» списка касс следует за языком программы.
         AttachedToVisualTree += (_, _) =>
@@ -179,6 +179,10 @@ public partial class ScreenSettingsView : UserControl
         _suppressUiScaleChange = false;
         QuickProductsCheck.IsChecked = UserPreferences.Instance.ShowQuickProducts;
         NoBarcodeFirstCheck.IsChecked = UserPreferences.Instance.CatalogNoBarcodeFirst; // 2026-11-21
+        // 2026-11-27: «Разделять каталог по категориям» (по умолчанию включено; действует, если у товаров есть хотя бы две категории).
+        GroupByCategoryText.Text = GroupByCategoryTitle;
+        GroupByCategoryDesc.Text = GroupByCategoryHint;
+        GroupByCategoryCheck.IsChecked = UserPreferences.Instance.CatalogGroupByCategory;
         // 2026-10-27, аудит владельца Б-1: «Быстрые товары в пустом чеке» — личная привычка кассира, она хранится у каждого пользователя в
         // его программе и в программу владельца не доходит. В программе владельца чека нет — переключатель только вводил в заблуждение, скрыт.
         if (AppMode.IsOwner && QuickProductsCheck.Parent is Control quickRow)
@@ -424,6 +428,20 @@ public partial class ScreenSettingsView : UserControl
     /// <summary>2026-11-21: «Сначала товары без штрихкода» — сразу, без «Сохранить»; каталог пересортировывается.</summary>
     private void NoBarcodeFirstCheck_Changed(object? sender, RoutedEventArgs e) =>
         UserPreferences.SetCatalogNoBarcodeFirst(NoBarcodeFirstCheck.IsChecked == true);
+
+    /// <summary>2026-11-27: «Разделять каталог по категориям» — сразу, без «Сохранить»; каталог перестраивается группами (линия и заголовок категории).</summary>
+    private void GroupByCategoryCheck_Changed(object? sender, RoutedEventArgs e) =>
+        UserPreferences.SetCatalogGroupByCategory(GroupByCategoryCheck.IsChecked == true);
+
+    internal static string GroupByCategoryTitle => Tr.T("Разделять каталог по категориям", "Каталогду категориялар боюнча бөлүү", "Split the catalog by category",
+        "Kataloğu kategorilere ayır", "Katalogni toifalar bo'yicha ajratish");
+
+    internal static string GroupByCategoryHint => Tr.T(
+        "Товары идут группами: над каждой категорией — линия и название с числом товаров. При поиске порядок по совпадению, без групп.",
+        "Товарлар топ-топ болуп турат: ар бир категориянын үстүндө сызык жана товарлардын саны менен аталышы. Издөөдө топтор жок, дал келүү боюнча.",
+        "Products are shown in groups: a line and the category name with the number of products above each group. Search results keep the match order, without groups.",
+        "Ürünler gruplar hâlinde gösterilir: her kategorinin üstünde bir çizgi ve ürün sayısıyla adı. Aramada gruplar olmadan eşleşme sırası kullanılır.",
+        "Mahsulotlar guruhlab ko'rsatiladi: har bir toifa ustida chiziq va mahsulotlar soni bilan nomi. Qidiruvda guruhlarsiz, moslik bo'yicha.");
 
     /// <summary>2026-10-01: подсказки допродажи — сразу, без «Сохранить».</summary>
     private void UpsellCheck_Changed(object? sender, RoutedEventArgs e) =>

@@ -1744,6 +1744,9 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         EnqueueBarcode(text);
     }
 
+    /// <summary>2026-11-27 (вечер): отсканирован QR-бейдж кассира (строка — секрет, не показывать и не писать в журнал).</summary>
+    public event Action<string>? CashierBadgeScanned;
+
     /// <summary>Скан в очередь добавления (поле ввода, «Добавить», сервис сканера).</summary>
     public void EnqueueBarcode(string? barcode)
     {
@@ -1753,6 +1756,12 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         // 2026-11-27: QR-бейдж кассира на открытой кассе — не товар: в чек и в поиск не идёт, в журнал не пишется (код бейджа — ключ входа).
         if (CashierBadgeCode.LooksLikeBadge(barcode))
         {
+            // 2026-11-27 (вечер): окно кассы спрашивает «Сменить кассира на …?» (MainWindow.OnCashierBadgeScanned); без окна — только подсказка.
+            if (CashierBadgeScanned is { } onBadge)
+            {
+                onBadge(barcode.Trim());
+                return;
+            }
             CartMessage = Tr.T("Это QR-бейдж кассира — по нему входят на экране входа. Чтобы сменить кассира: ☰ → «Сменить кассира».",
                 "Бул кассирдин QR-бейджи — аны менен кирүү экранында киришет. Кассирди алмаштыруу үчүн: ☰ → «Кассирди алмаштыруу».",
                 "This is a cashier QR badge — it is used on the sign-in screen. To switch cashier: ☰ → “Switch cashier”.",

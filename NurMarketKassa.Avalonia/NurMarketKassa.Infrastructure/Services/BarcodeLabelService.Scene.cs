@@ -11,6 +11,9 @@ public abstract record LabelSceneItem;
 /// <summary>Залитый прямоугольник (фон акционного ценника, плашка скидки). Цвет — ARGB.</summary>
 public sealed record LabelSceneRect(float X, float Y, float W, float H, uint Argb) : LabelSceneItem;
 
+/// <summary>2026-11-27: скруглённая или пунктирная рамка этикетки — линия толщиной <paramref name="StrokePx"/> по средней линии X, Y, W, H (LabelFrameSpec).</summary>
+public sealed record LabelSceneFrame(float X, float Y, float W, float H, float StrokePx, float RadiusPx, uint Argb, bool Dashed) : LabelSceneItem;
+
 /// <summary>Текст в рамке. <paramref name="SizePt"/> &gt; 0 — ручной размер (пункты, как у System.Drawing.Font): перенос по ширине,
 /// обрезка по рамке; 0 — автоподбор от <paramref name="MaxAutoPt"/> вниз до 6 пт в одну строку по центру.</summary>
 public sealed record LabelSceneText(float X, float Y, float W, float H, string Text, string Family, bool Bold, bool Italic, bool Strike,
@@ -67,13 +70,8 @@ public static partial class BarcodeLabelService
         if (!string.IsNullOrWhiteSpace(variantText) && variantElement is { Enabled: true })
             AddTextScene(items, variantElement, variantText!.Trim(), true, template);
         AddExtrasScene(items, template); // 2026-11-21: свои элементы «Редактора ценников»
-        if (template.Frame) // 2026-11-19: «Рамка» по контуру этикетки — четыре линии в 1 точку (как в GenerateLabelBitmap)
-        {
-            items.Add(new LabelSceneRect(0, 0, widthPx, 1, Black));
-            items.Add(new LabelSceneRect(0, heightPx - 1, widthPx, 1, Black));
-            items.Add(new LabelSceneRect(0, 0, 1, heightPx, Black));
-            items.Add(new LabelSceneRect(widthPx - 1, 0, 1, heightPx, Black));
-        }
+        if (template.Frame) // 2026-11-19: «Рамка» по контуру этикетки; 2026-11-27: толщина, цвет, скругление, отступ, пунктир — LabelFrameSpec (как в GenerateLabelBitmap)
+            LabelFrameSpec.From(template).AddScene(items, widthPx, heightPx);
         return new LabelScene(widthPx, heightPx, items);
     }
 

@@ -19,7 +19,8 @@ public static class LabelAutoLayout
     /// (меньше запрошенной, если этикетка низкая и остальные элементы заняли место).</summary>
     public static int Apply(LabelTemplate t, double barcodeHeightPx)
     {
-        const double margin = 1.2;
+        // 2026-11-27: с рамкой элементы отходят от края на её толщину, отступ и зазор — рамка не режет штрихкод и текст.
+        var margin = t.Frame ? Math.Max(1.2, LabelFrameSpec.From(t).KeepOutMm) : 1.2;
         const double gap = 0.6;
         var innerW = Math.Max(5, t.WidthMm - 2 * margin);
         var innerH = Math.Max(5, t.HeightMm - 2 * margin);

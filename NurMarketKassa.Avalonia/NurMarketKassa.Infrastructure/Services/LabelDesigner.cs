@@ -92,6 +92,16 @@ public static class LabelDesignerMath
     public static IEnumerable<LabelElementLayout> Visible(LabelTemplate t) =>
         BuiltIns(t).Select(b => b.Layout).Concat(t.Extras ?? new()).Where(e => e.Enabled);
 
+    /// <summary>2026-11-27: заходит ли элемент на полосу рамки (отступ + толщина) — рамка заденет текст или штрихкод. Без рамки — false.</summary>
+    public static bool TouchesFrame(LabelElementLayout e, LabelTemplate t)
+    {
+        if (!t.Frame)
+            return false;
+        var spec = LabelFrameSpec.From(t);
+        var band = spec.Inset + spec.Thickness;
+        return e.XMm < band - 0.01 || e.YMm < band - 0.01 || e.XMm + e.WidthMm > t.WidthMm - band + 0.01 || e.YMm + e.HeightMm > t.HeightMm - band + 0.01;
+    }
+
     /// <summary>Заходят ли два элемента друг на друга по площади больше 0,5 мм² (подсказка редактора, не запрет).</summary>
     public static bool Overlaps(LabelElementLayout a, LabelElementLayout b)
     {

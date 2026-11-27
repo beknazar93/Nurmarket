@@ -1,5 +1,4 @@
-using System;
-using System.Text;
+﻿using System;
 using System.Threading.Tasks;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -11,52 +10,49 @@ using NurMarketKassa.Ui.Shared;
 namespace NurMarketKassa.AvaloniaHost.Views;
 
 /// <summary>2026-11-27 (просьба владельца «открытие кассы с помощью QR — при сканере сразу входит от имени кассира»):
-/// на экране входа кассы скан QR-бейджа кассира (USB-сканер = клавиатура) входит от его имени. Ввод перехватывается
-/// на уровне окна (туннелем — до полей), строка с префиксом NMBADGE по Enter не уходит ни в логин, ни в пароль, поля
-/// очищаются, код в журнал не пишется. Проверка и вход — <see cref="CashierBadgeLogin"/>.</summary>
-public partial class LoginWindow
+/// на экране входа кассы скан QR-бейджа кассира (USB-сканер = клавиатура) входит от его имени. Строку перехватывает
+/// CashierBadgeInputGuard (до полей), в логин и пароль она не попадает, код в журнал не пишется. Проверка и вход — <see cref="CashierBadgeLogin"/>.</summary>
+public partial class LoginWindow : NurMarketKassa.AvaloniaHost.Services.ICashierBadgeScanTarget
 {
-    private readonly StringBuilder _badgeBuffer = new();
-    private DateTime _badgeLastInputUtc;
     /// <summary>Бейдж принят, но на этой кассе нужен вход паролем один раз — после него вход сохраняется под бейдж.</summary>
     private CashierBadgeRecord? _pendingBadge;
     private bool _badgeBusy;
 
     private void AttachBadgeScanner()
     {
+        // 2026-11-27 (вечер): строку бейджа ловит общий перехват всех окон (CashierBadgeInputGuard) — до полей, поле возвращается к
+        // тексту до скана; раньше здесь был свой буфер окна, а в «Смене кассира» перехвата не было (секрет печатался в Email).
+        NurMarketKassa.AvaloniaHost.Services.CashierBadgeInputGuard.EnsureRegistered();
         if (AppMode.IsOwner)
             return; // вход по бейджу — только в кассе
         CashierBadgeVault.StartAutoRemember(App.GetRequiredService<IAuthSessionManager>());
-        AddHandler(TextInputEvent, OnBadgeTextInput, RoutingStrategies.Tunnel, handledEventsToo: true);
-        AddHandler(KeyDownEvent, OnBadgeKeyDown, RoutingStrategies.Tunnel, handledEventsToo: true);
         // Отозванные владельцем бейджи — их сохранённые входы на кассе стираются.
         CashierBadgeVault.PruneRevoked();
+        // 2026-11-27 (вечер, владелец): окно входа сразу принимает скан бейджа — подсказка над полем логина (если бейджи в магазине выпускались).
+        if (UserPreferences.Instance.CashierBadgesJson is not null && EmailFieldBorder.Parent is Avalonia.Controls.Panel form)
+        {
+            var hint = new Avalonia.Controls.TextBlock
+            {
+                Text = Tr.T("Есть QR-бейдж? Поднесите его к сканеру — вход сразу.", "QR-бейдж барбы? Аны сканерге жакындатыңыз — дароо кирүү.",
+                    "Have a QR badge? Hold it to the scanner — instant sign-in.", "QR rozetiniz var mı? Tarayıcıya tutun — anında giriş.", "QR-beydj bormi? Uni skanerga yaqinlashtiring — darhol kirish."),
+                FontSize = 13,
+                TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                Margin = new Avalonia.Thickness(0, 0, 0, 8),
+            };
+            hint.Bind(Avalonia.Controls.TextBlock.ForegroundProperty, hint.GetResourceObservable("BrushTextSoft"));
+            form.Children.Insert(Math.Max(0, form.Children.IndexOf(EmailFieldBorder) - 1), hint);
+        }
     }
 
-    private void OnBadgeTextInput(object? sender, TextInputEventArgs e)
+    /// <summary>Скан бейджа (от CashierBadgeInputGuard, по Enter). В программе владельца — только понятное сообщение.</summary>
+    public void OnCashierBadgeScanned(string raw)
     {
-        if (string.IsNullOrEmpty(e.Text))
+        if (AppMode.IsOwner)
+        {
+            _viewModel.ReportError(Tr.T("Вход по QR-бейджу — только в кассе. Здесь войдите паролем.", "QR-бейдж менен кирүү — кассада гана. Бул жерде сырсөз менен кириңиз.",
+                "QR badge sign-in works only in the till. Sign in with the password here.", "QR rozetle giriş yalnızca kasada. Burada şifreyle girin.", "QR-beydj bilan kirish — faqat kassada. Bu yerda parol bilan kiring."));
             return;
-        var now = DateTime.UtcNow;
-        // Сканер печатает подряд; пауза больше 3 с — начинаем копить заново (ручной ввод логина не смешивается со сканом).
-        if (_badgeBuffer.Length > 0 && (now - _badgeLastInputUtc).TotalSeconds > 3)
-            _badgeBuffer.Clear();
-        _badgeLastInputUtc = now;
-        if (_badgeBuffer.Length < 256)
-            _badgeBuffer.Append(e.Text);
-    }
-
-    private void OnBadgeKeyDown(object? sender, KeyEventArgs e)
-    {
-        if (e.Key != Key.Return)
-            return;
-        var raw = CashierBadgeCode.ExtractFromInput(_badgeBuffer.ToString());
-        _badgeBuffer.Clear();
-        if (raw is null)
-            return;
-        // Строка бейджа — не логин и не пароль: Enter не уходит в поля, набранное сканером стирается.
-        e.Handled = true;
-        ClearCredentialControls();
+        }
         _ = HandleBadgeScanAsync(raw);
     }
 
@@ -164,7 +160,7 @@ public partial class LoginWindow
         }
     }
 
-    private static CashierBadgeLogin CreateBadgeLogin() => new(
+    internal static CashierBadgeLogin CreateBadgeLogin() => new(
         App.GetRequiredService<IOnlineOfflineAuthenticationService>(),
         App.GetRequiredService<IAuthSessionManager>(),
         CashierBadgeVault.Instance,
@@ -179,7 +175,7 @@ public partial class LoginWindow
     private static string? IdOf(string raw) => CashierBadgeCode.TryParse(raw, out var id, out _) ? id : null;
 
     /// <summary>Журнал входов: кто, когда, на какой кассе — без кода бейджа (только маска id).</summary>
-    private static void LogBadgeAudit(string action, string? userId, string? badgeId, string result)
+    internal static void LogBadgeAudit(string action, string? userId, string? badgeId, string result)
     {
         try
         {

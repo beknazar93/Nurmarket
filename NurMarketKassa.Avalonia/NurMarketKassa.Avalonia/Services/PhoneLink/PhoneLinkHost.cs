@@ -37,6 +37,9 @@ public static class PhoneLinkHost
     /// <summary>Причина, по которой приём не запустился (нет свободного порта и т. п.); null — всё в порядке.</summary>
     public static string? LastError { get; private set; }
 
+    /// <summary>2026-11-27: телефон достучался до кассы (адрес, операция, код ответа) — для окна «Подключить телефон». Поток сети.</summary>
+    public static event Action<string, string, string>? Knocked;
+
     /// <summary>Изменилось состояние (включили/выключили, порт открыт/закрыт, телефоны).</summary>
     public static event Action? StateChanged;
 
@@ -121,6 +124,7 @@ public static class PhoneLinkHost
                     (code, ct) => _enqueue is { } post ? post(code, ct) : Task.FromResult(PhoneScanHandler.EnqueueResult.TillInactive),
                     Pairing);
                 _server = new PhoneLinkServer(Pairing, BuildHostInfo);
+                _server.Knocked += (address, op, code) => Knocked?.Invoke(address, op, code); // 2026-11-27: «телефон стучался»
                 _server.Register("scan", _scan.HandleAsync);
                 // 2026-10-29 (скорость синхронизации): касса — центр событий магазина; телефон держит «events» и шлёт «hint» после своей правки.
                 _server.Register(PhoneLinkEvents.OpEvents, PhoneLinkEvents.HandleEventsAsync);
@@ -294,13 +298,14 @@ public static class PhoneLinkHost
     /// <summary>Новое ожидание сопряжения: свежий случайный ключ (действует 5 минут, прежний отменяется).</summary>
     public static string BeginPairingKey() => Pairing.BeginPairing();
 
-    /// <summary>Строка QR: nurmarket-link:v1?d=…&amp;h=…&amp;p=…&amp;k=…&amp;n=…&amp;c=… . null — порт закрыт или нет адреса.</summary>
+    /// <summary>Строка QR: nurmarket-link:v1?d=…&amp;h=…&amp;p=…&amp;k=…&amp;c=… . null — порт закрыт или нет адреса.
+    /// 2026-11-27: имени кассы в QR больше нет (QR короче — камера телефона читает его с экрана), телефон узнаёт имя из hello.</summary>
     public static string? BuildQr(string key, string ipv4)
     {
         var port = Port;
         if (port == 0 || string.IsNullOrWhiteSpace(ipv4))
             return null;
-        return PhoneLinkProtocol.BuildQr(LanSyncService.DeviceId, ipv4, port, key, KassaName(), CompanyHash8());
+        return PhoneLinkProtocol.BuildQr(LanSyncService.DeviceId, ipv4, port, key, CompanyHash8());
     }
 
     /// <summary>IPv4-адреса кассы в локальной сети: сначала подключения со шлюзом (настоящий Wi-Fi/кабель), виртуальные адаптеры

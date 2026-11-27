@@ -585,6 +585,14 @@ public static class ClientMailing
         }
     }
 
+    /// <summary>2026-11-27: смена компании — client-mailing.json унесён в карантин (клиенты и «не беспокоить» прежней компании, CompanyStoreRegistry);
+    /// хранилище в памяти сбрасываем, чтобы оно не записалось в файл новой компании. Следующее обращение прочитает файл заново.</summary>
+    public static void ResetMemory()
+    {
+        lock (Sync)
+            _store = null;
+    }
+
     /// <summary>Для тестов: пустое хранилище; без <paramref name="persist"/> файл на диск не пишется. <paramref name="filePath"/> — читать и писать этот файл
     /// (хранилище загрузится из него при первом обращении, как после перезапуска программы).</summary>
     public static void ResetForTests(bool persist = false, string? filePath = null)

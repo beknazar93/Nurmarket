@@ -111,8 +111,18 @@ public sealed partial class CatalogPanelViewModel : ViewModelBase, IDisposable
 
         // 2026-11-21: переключатель «Сначала товары без штрихкода» — порядок каталога и избранного пересобирается сразу, страница остаётся прежней.
         _noBarcodeFirstChanged = () => _dispatcher.InvokeAsync(() => { ApplyFilter(); RefreshFavorites(); });
-        _cloudApplied = () => { if (NoFactoryBarcodes.Refresh()) _noBarcodeFirstChanged(); };
+        _cloudApplied = () =>
+        {
+            if (NoFactoryBarcodes.Refresh())
+                _noBarcodeFirstChanged();
+            // 2026-11-27: из облака пришло другое значение «Разделять каталог по категориям» — пересобрать (события SetCatalogGroupByCategory при этом нет).
+            if (UserPreferences.Instance.CatalogGroupByCategory != _groupedPrefSeen)
+                _groupByCategoryChanged();
+        };
         UserPreferences.CatalogNoBarcodeFirstChanged += _noBarcodeFirstChanged;
+        // 2026-11-27: переключатель «Разделять каталог по категориям» — порядок и страницы пересобираются сразу, с первой страницы (состав страниц меняется целиком).
+        _groupByCategoryChanged = () => _dispatcher.InvokeAsync(() => { ResetCurrentPage(); ApplyFilter(); });
+        UserPreferences.CatalogGroupByCategoryChanged += _groupByCategoryChanged;
         // 2026-11-21: отметки «Без заводского штрихкода» поменялись (карточка, склад, генератор, облако) — порядок пересобирается.
         NoFactoryBarcodes.Changed += _noBarcodeFirstChanged;
         SettingsCloudSync.Applied += _cloudApplied;
@@ -127,6 +137,7 @@ public sealed partial class CatalogPanelViewModel : ViewModelBase, IDisposable
     private readonly Action _marketSpheresChanged;
     private readonly Action _languageChanged;
     private readonly Action _noBarcodeFirstChanged;
+    private readonly Action _groupByCategoryChanged;
     private Action _cloudApplied = null!;
     private int _disposed;
 
@@ -142,6 +153,7 @@ public sealed partial class CatalogPanelViewModel : ViewModelBase, IDisposable
         MarketSpheres.Changed -= _marketSpheresChanged;
         Tr.LanguageChanged -= _languageChanged;
         UserPreferences.CatalogNoBarcodeFirstChanged -= _noBarcodeFirstChanged;
+        UserPreferences.CatalogGroupByCategoryChanged -= _groupByCategoryChanged;
         NoFactoryBarcodes.Changed -= _noBarcodeFirstChanged;
         SettingsCloudSync.Applied -= _cloudApplied;
     }
@@ -1276,6 +1288,9 @@ public sealed partial class CatalogPanelViewModel : ViewModelBase, IDisposable
         NoFactoryBarcodes.Refresh(); // отметки из облака / настроек
         NoFactoryBarcodes.ResolvePending(allProducts); // товары с кодом нашего генератора получают отметку
         var noBarcodeFirst = !isActiveSearch && UserPreferences.Instance.CatalogNoBarcodeFirst;
+        // 2026-11-27 (владелец: «добавь линии, разделение по категориям»): без поиска товары идут группами по категориям («Без категории» — последней),
+        // внутри группы — прежний порядок. При поиске, в «Избранных» и внутри одной категории группировки нет (см. GroupingWanted).
+        var grouped = GroupingWanted(allProducts, searchText);
         List<CatalogProductTileVm> Build(bool fuzzy) => allProducts
             .Where(p => isActiveSearch || MatchesTab(p))
             .Where(p => MatchesSearch(p, query, sq, fuzzy, partQuery)
@@ -1284,7 +1299,9 @@ public sealed partial class CatalogPanelViewModel : ViewModelBase, IDisposable
             .Where(MatchesHotkeyGroup)
             .Where(p => isActiveSearch || MatchesBazaarCategory(p)) // 2026-11-21 («Базар», плитки категорий): открытая категория; поиск идёт по всему каталогу
             // 2026-11-20 (АЗ3): точный номер — в начало, потом начало номера и вхождение; при равенстве — в наличии, оригинал → аналог → Б/У. Без номера порядок прежний (ключ 0).
-            .OrderBy(p => partQuery.Length > 0 ? PartRank(p, partQuery) : 0)
+            .OrderBy(p => grouped ? CatalogCategoryGrouping.GroupRank(p) : 0)
+            .ThenBy(p => grouped ? CatalogCategoryGrouping.KeyOf(p) : "", StringComparer.OrdinalIgnoreCase)
+            .ThenBy(p => partQuery.Length > 0 ? PartRank(p, partQuery) : 0)
             .ThenBy(p => partQuery.Length > 0 && p.Quantity <= 0 ? 1 : 0)
             .ThenBy(p => partQuery.Length > 0 ? PartStateOrder(p) : 0)
             .ThenBy(p => noBarcodeFirst && p.HasNoFactoryBarcode ? 0 : 1) // 2026-11-21: внутри группы — прежний порядок (избранные → название)
@@ -1309,14 +1326,27 @@ public sealed partial class CatalogPanelViewModel : ViewModelBase, IDisposable
         _lastFilteredGeneration = Volatile.Read(ref _filterGeneration);
         _filteredProductCount = filtered.Count;
         OnPropertyChanged(nameof(ShowPager));
-        TotalPages = Math.Max(1, (int)Math.Ceiling(_filteredProductCount / (double)PageSize));
+        // 2026-11-27: страницы с учётом заголовков категорий (CatalogCategoryGrouping.PageStarts) — считаются один раз на отбор, смена страницы берёт готовые.
+        var grouped = GroupingWanted(_allProducts, _searchText);
+        if (!ReferenceEquals(_pagedFor, filtered) || _pagedGrouped != grouped || _pagedSize != PageSize)
+        {
+            _pageStarts = CatalogCategoryGrouping.PageStarts(filtered, PageSize, grouped);
+            _groupCounts = grouped ? CatalogCategoryGrouping.CountByGroup(filtered) : null;
+            _pagedFor = filtered;
+            _pagedGrouped = grouped;
+            _pagedSize = PageSize;
+        }
+        _groupedPrefSeen = UserPreferences.Instance.CatalogGroupByCategory;
+        TotalPages = Math.Max(1, _pageStarts.Count);
         if (CurrentPage > TotalPages)
             CurrentPage = TotalPages;
 
         // 2026-10-04, отчёт о производительности (п. 15): видимые плитки правим на месте — меняются только
         // те, что стали другими объектами (изменённые товары после синхронизации); остальные не
         // перерисовываются. Раньше страница каждый раз очищалась и строилась заново.
-        var pageItems = filtered.Skip((CurrentPage - 1) * PageSize).Take(PageSize).ToList();
+        var pageStart = Math.Min(_pageStarts[Math.Min(CurrentPage, _pageStarts.Count) - 1], filtered.Count);
+        var pageEnd = CurrentPage < _pageStarts.Count ? _pageStarts[CurrentPage] : filtered.Count;
+        var pageItems = filtered.GetRange(pageStart, Math.Max(0, pageEnd - pageStart));
         if (Products.Count == pageItems.Count)
         {
             for (var i = 0; i < pageItems.Count; i++)
@@ -1339,10 +1369,72 @@ public sealed partial class CatalogPanelViewModel : ViewModelBase, IDisposable
                 $"Ko'rsatilgan: {_filteredProductCount} / {_allProducts.Count}");
 
         RebuildPagerEntries();
+        IsGroupedByCategory = grouped;
+        CategoryGroupsVersion++; // 2026-11-27: панель плиток перерисовывает заголовки (счётчики, язык «Без категории»)
         // 2026-10-20 (К9): текст пустого каталога зависит от поиска/вкладки/фильтра — после каждого отбора.
         RaiseEmptyState();
         RebuildBazaarCategoryTiles(); // 2026-11-21 («Базар», плитки категорий): плитки и что показывать — после каждого отбора
         MaybeSearchOnServer(); // 2026-11-21: ничего не нашли у себя — спросить сервер
+    }
+
+    // ── 2026-11-27: разделение каталога по категориям ─────────────────────────────────────────────────────────────
+    private List<int> _pageStarts = [0];
+    private Dictionary<string, int>? _groupCounts;
+    private List<CatalogProductTileVm>? _pagedFor;
+    private bool _pagedGrouped;
+    private int _pagedSize;
+    private bool _groupedPrefSeen = UserPreferences.Instance.CatalogGroupByCategory;
+    private bool _isGroupedByCategory;
+    private int _categoryGroupsVersion;
+
+    private sealed record CategoriesProbe(List<CatalogProductTileVm> For, bool Several);
+    private volatile CategoriesProbe? _categoriesProbe;
+
+    /// <summary>Каталог показан группами по категориям (над группой — линия и заголовок). Читает панель плиток (CatalogGroupedPanel).</summary>
+    public bool IsGroupedByCategory
+    {
+        get => _isGroupedByCategory;
+        private set => SetProperty(ref _isGroupedByCategory, value);
+    }
+
+    /// <summary>Растёт после каждого отбора — панель плиток перерисовывает заголовки (счётчики групп, язык).</summary>
+    public int CategoryGroupsVersion
+    {
+        get => _categoryGroupsVersion;
+        private set => SetProperty(ref _categoryGroupsVersion, value);
+    }
+
+    /// <summary>Начала страниц в текущем отборе (для тестов и отладки).</summary>
+    public IReadOnlyList<int> PageStartIndexes => _pageStarts;
+
+    /// <summary>Заголовок группы: название (или «Без категории») и сколько товаров этой категории в текущем отборе (на всех страницах).</summary>
+    public (string Title, int Count) CategoryHeader(string? key)
+    {
+        var k = (key ?? "").Trim();
+        var count = _groupCounts is { } counts && counts.TryGetValue(k, out var n) ? n : 0;
+        return (CatalogCategoryGrouping.TitleOf(k), count);
+    }
+
+    /// <summary>Группировать ли отбор по категориям. Логика по умолчанию (2026-11-27):
+    /// включено настройкой «Разделять каталог по категориям» (по умолчанию да) И в каталоге есть хотя бы две разные категории (у магазина без категорий — как раньше)
+    /// И нет поиска по тексту (2+ символа: там порядок по совпадению важнее) И не выбрана одна категория (фильтр, плитки категорий «Базара»)
+    /// И не включён вид «Избранные» в фильтре. Вкладки типа товара («Весовые», «Штучные»…) группируются внутри себя.</summary>
+    private bool GroupingWanted(List<CatalogProductTileVm> allProducts, string searchText)
+    {
+        if (!UserPreferences.Instance.CatalogGroupByCategory || searchText.Trim().Length >= 2)
+            return false;
+        if (_advancedFilter is { } f && (!string.IsNullOrWhiteSpace(f.Category) || f.Kind == CatalogFilterViewModel.FavoriteProducts))
+            return false;
+        if (CategoryTilesMode && _bazaarCategory is not null)
+            return false;
+        var probe = _categoriesProbe;
+        if (probe is null || !ReferenceEquals(probe.For, allProducts))
+        {
+            probe = new CategoriesProbe(allProducts, CatalogCategoryGrouping.HasSeveralCategories(allProducts));
+            _categoriesProbe = probe;
+        }
+
+        return probe.Several;
     }
 
     private void GoToPage(int? page)

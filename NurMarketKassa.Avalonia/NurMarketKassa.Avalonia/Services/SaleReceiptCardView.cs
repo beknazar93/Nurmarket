@@ -319,10 +319,18 @@ internal sealed class ReceiptQrView : Control
 
     public double Size { get => Width; set { Width = value; Height = value; } }
 
+    /// <summary>2026-11-27: число модулей QR по стороне (0 — кода нет) — окно «Подключить телефон» подбирает по нему
+    /// целый размер модуля и белое поле в 4 модуля, чтобы камера телефона читала код с экрана.</summary>
+    public int Modules => _matrix?.Width ?? 0;
+
     public ReceiptQrView()
     {
-        this.Bind(DarkProperty, this.GetResourceObservable("BrushText"));
-        this.Bind(LightProperty, this.GetResourceObservable("BrushPanel"));
+        // 2026-11-27, жалоба «не работает подключение сканера с телефона»: привязка к теме была на уровне LocalValue и при показе окна
+        // ПЕРЕБИВАЛА явные Dark = чёрный / Light = белый. В тёмной теме QR «Подключить телефон» (и QR чека, Telegram, бейджа) рисовался
+        // наоборот — светлые модули на тёмном фоне, а ML Kit в мобилке инверсный QR не читает. Теперь тема — только значение по
+        // умолчанию (приоритет стиля), явно заданные цвета сильнее.
+        this.Bind(DarkProperty, this.GetResourceObservable("BrushText"), Avalonia.Data.BindingPriority.Style);
+        this.Bind(LightProperty, this.GetResourceObservable("BrushPanel"), Avalonia.Data.BindingPriority.Style);
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)

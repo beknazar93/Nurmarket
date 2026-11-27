@@ -99,6 +99,15 @@ public sealed class LabelTemplate
     /// <summary>2026-11-19: «Рамка» (веб-редактор ценников) — тонкая рамка по контуру этикетки. Поля нет в старом файле — false, вид прежних шаблонов не меняется.</summary>
     public bool Frame { get; set; }
 
+    // 2026-11-27 (владелец: «в ценники добавь возможность добавить рамку»): вид рамки (LabelFrameSpec). Полей нет в старом файле — толщина 0,3 мм,
+    // чёрная, без скругления и отступа; рамка по-прежнему выключена, пока не включат «Рамку».
+    public double FrameThicknessMm { get; set; } = LabelFrameSpec.DefaultThicknessMm;
+    public double FrameRadiusMm { get; set; }
+    /// <summary>Отступ рамки от края этикетки, мм (рамка не попадает под нож/край рулона).</summary>
+    public double FrameInsetMm { get; set; }
+    public bool FrameGray { get; set; }
+    public bool FrameDashed { get; set; }
+
     /// <summary>2026-11-21 («Редактор ценников»): свои элементы поверх встроенных — произвольный текст, старая цена, скидка,
     /// бренд, дата печати, ячейка, линия, логотип. Пусто — этикетка как раньше.</summary>
     public List<LabelCustomElement> Extras { get; set; } = new();
@@ -131,6 +140,11 @@ public sealed class LabelTemplate
         PriceHideDecimals = PriceHideDecimals,
         SkuCustomText = SkuCustomText,
         Frame = Frame,
+        FrameThicknessMm = FrameThicknessMm,
+        FrameRadiusMm = FrameRadiusMm,
+        FrameInsetMm = FrameInsetMm,
+        FrameGray = FrameGray,
+        FrameDashed = FrameDashed,
         Extras = (Extras ?? new()).Select(e => e.CloneExtra()).ToList(),
         Item = Item,
     };

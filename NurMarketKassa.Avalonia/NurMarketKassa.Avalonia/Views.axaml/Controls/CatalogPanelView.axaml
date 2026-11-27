@@ -692,7 +692,9 @@
                                 <ItemsPanelTemplate>
                                     <!-- 2026-10-04, владелец (Android): «каталоги по центру, по 2, чтобы отступы были равными» —
                                          на Android плитки по центру, в Windows — как раньше, слева. -->
-                                    <WrapPanel HorizontalAlignment="{OnPlatform Left, Android=Center}" Orientation="Horizontal"/>
+                                    <!-- 2026-11-27 (владелец: «добавь линии, разделение по категориям»): вместо WrapPanel — CatalogGroupedPanel: так же переносит плитки,
+                                         а при включённом разделении перед каждой категорией ставит полосу «метка · название · число · линия», категория — с новой строки. -->
+                                    <ctl:CatalogGroupedPanel CenterRows="{OnPlatform False, Android=True}"/>
                                 </ItemsPanelTemplate>
                             </ListBox.ItemsPanel>
                             <ListBox.ItemTemplate>
@@ -945,6 +947,12 @@
                                      SelectedItem="{Binding SelectedProduct}"
                                      SelectionMode="Single"
                                      HorizontalAlignment="Stretch">
+                                <!-- 2026-11-27: список строками — те же заголовки категорий (строки на всю ширину). На странице не больше 50 строк, виртуализация не нужна. -->
+                                <ListBox.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <ctl:CatalogGroupedPanel StackItems="True" HeaderInset="2"/>
+                                    </ItemsPanelTemplate>
+                                </ListBox.ItemsPanel>
                                 <ListBox.ItemTemplate>
                                     <DataTemplate x:DataType="pos:CatalogProductTileVm">
                                         <Border Background="{DynamicResource BrushPanel}"

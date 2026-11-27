@@ -58,6 +58,14 @@ public sealed class A4SheetOptions
     public double OffsetXmm { get; set; }
     public double OffsetYmm { get; set; }
 
+    // 2026-11-27 (владелец, фото листа 3×2 без рамок: «в ценники добавь возможность добавить рамку»): рамка вокруг каждого ценника на листе.
+    // Рисуется внутри ячейки (по краю, со сдвигами X/Y вместе с ячейкой); вместо пунктира реза. Нет поля в файле — рамки нет, как раньше.
+    public bool Frame { get; set; }
+    public double FrameThicknessMm { get; set; } = LabelFrameSpec.DefaultThicknessMm;
+    public double FrameRadiusMm { get; set; }
+    public bool FrameGray { get; set; }
+    public bool FrameDashed { get; set; }
+
     public A4SheetOptions Clone() => new()
     {
         Title = Title, Landscape = Landscape, Columns = Columns, Rows = Rows, BarcodeHeightPx = BarcodeHeightPx,
@@ -70,7 +78,11 @@ public sealed class A4SheetOptions
         Description = new A4TextStyle { SizePt = Description.SizePt, Bold = Description.Bold, Italic = Description.Italic, Underline = Description.Underline },
         Preset = Preset, MarginTopMm = MarginTopMm, MarginLeftMm = MarginLeftMm, CellWmm = CellWmm, CellHmm = CellHmm,
         PitchXmm = PitchXmm, PitchYmm = PitchYmm, StartCell = StartCell, OffsetXmm = OffsetXmm, OffsetYmm = OffsetYmm,
+        Frame = Frame, FrameThicknessMm = FrameThicknessMm, FrameRadiusMm = FrameRadiusMm, FrameGray = FrameGray, FrameDashed = FrameDashed,
     };
+
+    /// <summary>2026-11-27: внутренний отступ содержимого ячейки, мм — 1,2 как раньше; с рамкой не меньше её толщины и зазора до текста.</summary>
+    public double ContentPadMm => Frame ? Math.Max(1.2, LabelFrameSpec.From(this).KeepOutMm) : 1.2;
 }
 
 /// <summary>Одна позиция листа A4: данные товара (в PriceTagData цена уже готова — «новая», старая в OldPriceText), копии, ПЛУ, описание.</summary>
@@ -198,7 +210,7 @@ public static class A4SheetService
     {
         var W = Px(cellWmm);
         var H = Px(cellHmm);
-        var pad = Px(1.2);
+        var pad = Px(o.ContentPadMm); // 2026-11-27: с рамкой текст и штрихкод не касаются её
         var innerW = Math.Max(W - 2 * pad, 4);
         var innerH = Math.Max(H - 2 * pad, 4);
         var gap = Px(0.8);
@@ -209,7 +221,9 @@ public static class A4SheetService
         using var mg = Graphics.FromImage(scratch);
         mg.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
 
-        if (o.CutLines)
+        if (o.Frame)
+            LabelFrameSpec.From(o).DrawGdi(g, W, H); // 2026-11-27: рамка ценника — внутри ячейки, вместо пунктира реза
+        else if (o.CutLines)
         {
             using var pen = new Pen(Color.FromArgb(170, 170, 170), 1f) { DashStyle = DashStyle.Dash };
             g.DrawRectangle(pen, 0.5f, 0.5f, W - 1, H - 1);

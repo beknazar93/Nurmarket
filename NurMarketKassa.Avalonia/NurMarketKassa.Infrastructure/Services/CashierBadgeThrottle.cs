@@ -33,6 +33,10 @@ public sealed class CashierBadgeThrottle
     public static CashierBadgeThrottle Instance =>
         _instance ??= new CashierBadgeThrottle(Path.Combine(AppPaths.Local, AppMode.DataFolderName, "badge_attempts.json"));
 
+    /// <summary>2026-11-27: смена компании — файл badge_attempts.json унесён в карантин (данные компании, CompanyStoreRegistry); счётчик неудачных попыток прежней
+    /// компании не должен остаться в памяти и записаться в файл новой. Следующее обращение прочитает файл заново.</summary>
+    public static void ResetMemory() => _instance = null;
+
     public int Failures
     {
         get { lock (_gate) return _state.Failures; }

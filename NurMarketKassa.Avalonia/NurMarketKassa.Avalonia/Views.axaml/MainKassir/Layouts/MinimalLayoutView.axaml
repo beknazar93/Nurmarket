@@ -139,7 +139,8 @@
                              SelectedItem="{Binding Catalog.SelectedProduct}" SelectionMode="Single">
                         <ListBox.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <WrapPanel Orientation="Horizontal"/>
+                                <!-- 2026-11-27: как в «Классике» — разделение каталога по категориям (линия и заголовок группы), без него — обычный перенос плиток. -->
+                                <ctl:CatalogGroupedPanel HeaderInset="0" GroupGap="0"/>
                             </ItemsPanelTemplate>
                         </ListBox.ItemsPanel>
                         <ListBox.ItemTemplate>

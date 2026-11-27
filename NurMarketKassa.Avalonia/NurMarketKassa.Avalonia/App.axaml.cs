@@ -155,6 +155,8 @@ public partial class App : Application
         NurMarketKassa.AvaloniaHost.Services.LowPerformanceLive.Attach(); // 2026-11-21: режим слабого устройства — на лету, без перезапуска (и в кассе, и в программе владельца)
         // 2026-10-23: закрытое окно с бегущей полосой загрузки оставалось в памяти (утечка владельца, круг 5) — см. WindowLeakGuard.
         NurMarketKassa.AvaloniaHost.Services.WindowLeakGuard.Install();
+        // 2026-11-27 (вечер): строка QR-бейджа кассира со сканера не попадает ни в одно поле ни в одном окне (CashierBadgeInputGuard).
+        NurMarketKassa.AvaloniaHost.Services.CashierBadgeInputGuard.EnsureRegistered();
         // 2026-10-27 (приёмка 1.17.63, Д-10): имена для диктора (ячейки таблиц, кнопки прокрутки, поля без имени) — и в кассе, не только в программе владельца.
         NurMarketKassa.AvaloniaHost.Views.AutomationNaming.Install();
         AppHost =Host.CreateDefaultBuilder()
@@ -222,8 +224,7 @@ public partial class App : Application
         AccountDataIsolation.UnsentExported += UnsentDataDialog.ShowExported;
         // 2026-11-05 (аудит №4, Л4-01/Л4-04): вопрос при любой смене компании; сбой переноса данных — сообщение и выход из входа.
         AccountDataIsolation.CompanyChangeConfirmHandler = UnsentDataDialog.ConfirmCompanyChange;
-        AccountDataIsolation.SwitchFailedHandler = UnsentDataDialog.ShowSwitchFailed;
-        CompanyInfoService.CompanyChanged += id => AccountDataIsolation.SwitchTo(id);
+        AccountDataIsolation.SwitchFailedHandler = UnsentDataDialog.ShowSwitchFailed;        CompanyInfoService.CompanyChanged += id => AccountDataIsolation.SwitchTo(id);
         // 2026-10-04: общий кеш размеров/цветов одежды (окно выбора размера, прокат, бот) — см. ProductVariantCache.
         ProductVariantCache.Loader = (productId, token) => CatalogApi.GetProductVariantsAsync(productId, token);
         CompanyInfoService.CompanyChanged += _ => ProductVariantCache.Clear();

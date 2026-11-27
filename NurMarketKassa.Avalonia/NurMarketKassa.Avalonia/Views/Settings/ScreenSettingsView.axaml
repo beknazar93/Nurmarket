@@ -204,6 +204,17 @@
                 <CheckBox Grid.Column="1" x:Name="NoBarcodeFirstCheck" x:FieldModifier="public" Classes="ToggleSwitch" VerticalAlignment="Top"
                           IsCheckedChanged="NoBarcodeFirstCheck_Changed"/>
               </Grid>
+
+              <!-- 2026-11-27 (владелец: «добавь линии, разделение по категориям»): «Разделять каталог по категориям» — применяется сразу; подписи на 5 языках ставит код (Tr.T). -->
+              <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Grid.Column="0">
+                  <TextBlock x:Name="GroupByCategoryText" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
+                  <TextBlock x:Name="GroupByCategoryDesc"
+                             FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="520" HorizontalAlignment="Left"/>
+                </StackPanel>
+                <CheckBox Grid.Column="1" x:Name="GroupByCategoryCheck" x:FieldModifier="public" Classes="ToggleSwitch" VerticalAlignment="Top"
+                          IsCheckedChanged="GroupByCategoryCheck_Changed"/>
+              </Grid>
             </StackPanel>
           </Border>
         </StackPanel>

@@ -52,6 +52,11 @@ public sealed class PhoneLinkServer : IDisposable
         _lastPort = lastPort;
     }
 
+    /// <summary>2026-11-27 (диагностика «телефон не подключается»): телефон достучался до кассы — адрес, операция, код ответа.
+    /// Окно «Подключить телефон» показывает «телефон стучался, но…», чтобы отличить «не доходит по сети/брандмауэр» от «код не подошёл».
+    /// Вызывается из потока сети; ключей и подписей не содержит.</summary>
+    public event Action<string, string, string>? Knocked;
+
     /// <summary>Порт, на котором слушаем (0 — остановлен).</summary>
     public int Port { get; private set; }
 
@@ -377,6 +382,8 @@ public sealed class PhoneLinkServer : IDisposable
     {
         public byte[]? Key;
         public PhoneLinkRequest? Request;
+        /// <summary>2026-11-27: операция из разобранного запроса (для события <see cref="Knocked"/>), null — запрос не разобран.</summary>
+        public string? Op;
     }
 
     private async Task<PhoneLinkReply> ProcessAsync(string line, string address, CancellationToken serverToken)
@@ -385,6 +392,7 @@ public sealed class PhoneLinkServer : IDisposable
         var reply = await ProcessCoreAsync(line, address, serverToken, ctx).ConfigureAwait(false);
         if (ctx.Key is not null && ctx.Request is not null)
             reply = reply.WithSig(PhoneLinkProtocol.SignReply(ctx.Key, ctx.Request.Op, ctx.Request.Phone, ctx.Request.Nonce, reply));
+        try { Knocked?.Invoke(address, ctx.Op ?? "?", reply.Code); } catch { /* подписчик не должен ронять ответ телефону */ }
         return reply;
     }
 
@@ -392,6 +400,7 @@ public sealed class PhoneLinkServer : IDisposable
     {
         if (!PhoneLinkProtocol.TryParseRequest(line, out var request, out var parseError) || request is null)
             return PhoneLinkReply.Fail(parseError ?? PhoneLinkCodes.BadRequest, "Неверный формат запроса.");
+        ctx.Op = request.Op;
 
         // 1. Чей это телефон и каким ключом проверять подпись.
         var standing = _pairing.GetStanding(request.Phone, out var key);

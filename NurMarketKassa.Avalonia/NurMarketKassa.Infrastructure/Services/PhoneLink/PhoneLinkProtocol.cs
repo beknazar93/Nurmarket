@@ -302,14 +302,23 @@ public static class PhoneLinkProtocol
     public static string CompanyHash8(string? companyId) =>
         Sha256Hex(companyId ?? "").Substring(0, 8);
 
-    /// <summary>Строка для QR: nurmarket-link:v1?d=…&amp;h=…&amp;p=…&amp;k=…&amp;n=…&amp;c=…</summary>
-    public static string BuildQr(string deviceId, string ipv4, int port, string keyBase64Url, string kassaName, string company8) =>
-        "nurmarket-link:v1?d=" + Uri.EscapeDataString(deviceId)
-        + "&h=" + Uri.EscapeDataString(ipv4)
-        + "&p=" + port.ToString(System.Globalization.CultureInfo.InvariantCulture)
-        + "&k=" + keyBase64Url
-        + "&n=" + Uri.EscapeDataString(kassaName)
-        + "&c=" + company8;
+    /// <summary>2026-11-27: сколько символов идентификатора кассы кладём в QR (телефон его только хранит, ни с чем не сравнивает).</summary>
+    public const int QrDeviceIdChars = 12;
+
+    /// <summary>Строка для QR: nurmarket-link:v1?d=…&amp;h=…&amp;p=…&amp;k=…&amp;c=…
+    /// 2026-11-27, жалоба владельца «не работает подключение сканера с телефона»: QR был слишком плотным для камеры телефона
+    /// (имя кассы кириллицей в URL-кодировке — 6 символов на букву, плюс 32 символа id): 45–57 модулей, а камера мобилки по
+    /// умолчанию даёт кадр 640×480 — ML Kit код не видел. Имя кассы из QR убрано (телефон берёт его из ответа hello, поле n
+    /// у телефона необязательное — старые мобилки 1.18.x читают такой QR), id укорочен до 12 символов: ~110 символов, 37–41 модуль.</summary>
+    public static string BuildQr(string deviceId, string ipv4, int port, string keyBase64Url, string company8)
+    {
+        var d = deviceId.Length > QrDeviceIdChars ? deviceId[..QrDeviceIdChars] : deviceId;
+        return "nurmarket-link:v1?d=" + Uri.EscapeDataString(d)
+            + "&h=" + Uri.EscapeDataString(ipv4)
+            + "&p=" + port.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            + "&k=" + keyBase64Url
+            + "&c=" + company8;
+    }
 }
 
 /// <summary>2026-10-27, К-П2: защита от повтора — последние 1000 значений nonce за 15 минут (ключ — телефон + nonce).</summary>

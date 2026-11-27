@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
@@ -436,6 +436,68 @@ public sealed class LabelDesignerUiTests : IDisposable
             d.GetVisualDescendants().OfType<CheckBox>().First(c => UiDrive.TextOf(c) == Tr.T("Цифры под штрихкодом", "Штрихкоддун астындагы сандар", "Digits under the barcode", "Barkodun altında rakamlar", "Shtrix-kod ostidagi raqamlar"))
                 .IsEnabled.Should().BeFalse("у QR цифр под кодом нет");
             SaveShot(window, $"labeldesigner-thickness-{Lang(lang)}-1024x600", new UiSize(1024, 600));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>2026-11-27 (владелец: «в ценники добавь возможность добавить рамку»): «Рамка по контуру этикетки» открывает толщину, скругление, отступ, цвет,
+    /// пунктир; поля не налезают и не выходят за окно 1024×600 (ru/ky/uz); значения попадают в шаблон и в сохранённый файл.</summary>
+    [AvaloniaTheory]
+    [InlineData(AppLanguage.Russian)]
+    [InlineData(AppLanguage.Kyrgyz)]
+    [InlineData(AppLanguage.Uzbek)]
+    public async Task Editor_Frame_HasStyleFields_ThatFitAndSave(AppLanguage lang)
+    {
+        await TestHost.WarmAsync();
+        LabelTemplateStore.Save(LabelTemplate.CreateDefault());
+        var (window, hub) = OpenHub(1024, 600, lang, LabelsHubMode.Editor);
+        try
+        {
+            var d = hub.Designer!;
+            d.Reload();
+            UiShot.Settle(4);
+            var frameText = Tr.T("Рамка по контуру этикетки", "Этикетканын контуру боюнча алкак", "Frame around the label", "Etiket çevresinde çerçeve", "Yorliq atrofida ramka");
+            var check = d.GetVisualDescendants().OfType<CheckBox>().First(c => UiDrive.TextOf(c) == frameText);
+            check.BringIntoView();
+            UiShot.Settle(3);
+            UiDrive.Click(window, check);
+            UiShot.Settle(6);
+            d.WorkingTemplate.Frame.Should().BeTrue();
+            var thicknessCaption = Tr.T("Толщина, ", "Калыңдыгы, ", "Thickness, ", "Kalınlık, ", "Qalinligi, ");
+            var thickness = d.GetVisualDescendants().OfType<NumericUpDown>().First(n => n.Maximum == (decimal)LabelFrameSpec.MaxThicknessMm);
+            thickness.Value = 1.5m;
+            UiShot.Settle(4);
+            d.WorkingTemplate.FrameThicknessMm.Should().Be(1.5);
+            var color = d.GetVisualDescendants().OfType<ComboBox>().First(c => c.Items.OfType<string>().Contains(Tr.T("Серая", "Боз", "Grey", "Gri", "Kulrang")));
+            color.SelectedIndex = 1;
+            UiShot.Settle(3);
+            d.WorkingTemplate.FrameGray.Should().BeTrue();
+            UiDrive.AllText(window).Should().Contain(thicknessCaption.TrimEnd(',', ' '));
+
+            // Поля рамки: внутри окна и не налезают друг на друга.
+            var grid = thickness.GetVisualAncestors().OfType<Grid>().First(g => g.ColumnDefinitions.Count == 2 && g.Children.Count >= 4);
+            grid.BringIntoView();
+            UiShot.Settle(3);
+            var rects = grid.Children.OfType<Control>().Where(c => c.IsVisible).Select(c => Bounds(c, window)).ToList();
+            for (var i = 0; i < rects.Count; i++)
+            {
+                rects[i].Right.Should().BeLessThanOrEqualTo(window.Bounds.Width + 1, $"{Lang(lang)}: поле рамки не выходит за окно");
+                for (var j = i + 1; j < rects.Count; j++)
+                {
+                    var inter = rects[i].Intersect(rects[j]);
+                    (inter.Width > 1 && inter.Height > 1).Should().BeFalse($"{Lang(lang)}: поля рамки не налезают: {rects[i]} и {rects[j]}");
+                }
+            }
+            foreach (var t in grid.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible && !string.IsNullOrEmpty(t.Text)))
+                (t.DesiredSize.Width <= t.Bounds.Width + 1 || t.TextWrapping != Avalonia.Media.TextWrapping.NoWrap).Should().BeTrue($"{Lang(lang)}: подпись «{t.Text}» не обрезана");
+            SaveShot(window, $"labeldesigner-frame-{Lang(lang)}-1024x600", new UiSize(1024, 600));
+
+            d.Save();
+            var saved = LabelTemplateStore.Load();
+            (saved.Frame, saved.FrameThicknessMm, saved.FrameGray).Should().Be((true, 1.5, true));
         }
         finally
         {

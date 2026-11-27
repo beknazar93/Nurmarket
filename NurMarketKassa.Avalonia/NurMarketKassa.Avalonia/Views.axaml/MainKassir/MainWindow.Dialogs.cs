@@ -16,7 +16,7 @@ using NurMarketKassa.ViewModels.Main;
 
 namespace NurMarketKassa.AvaloniaHost.Views.MainKassir;
 
-public partial class MainWindow
+public partial class MainWindow : ICashierBadgeScanTarget // 2026-11-27 (вечер): скан QR-бейджа на открытой кассе — смена кассира с вопросом
 {
     private ICartService? _cartService;
     private IDeferredCartService? _deferredCartService;
@@ -1485,7 +1485,115 @@ public partial class MainWindow
     /// <summary>«Сменить кассира» (бэклог 2026-09-03, этап 10) — открывает SwitchCashierDialog,
     /// вся реальная логика — в ValidateAndSwitchCashierAsync.</summary>
     internal Task SwitchCashierAsync() =>
-        SwitchCashierDialog.ShowAsync(this, ValidateAndSwitchCashierAsync);
+        SwitchCashierDialog.ShowAsync(this, ValidateAndSwitchCashierAsync, SwitchCashierByBadgeAsync);
+
+    /// <summary>2026-11-27 (вечер, баг с кассы клиента): смена кассира по QR-бейджу — проверка бейджа (отзыв, срок, перебор, PIN),
+    /// затем то же, что у «Сменить» по паролю (ValidateAndSwitchCashierCoreAsync: закрытие смены прежнего кассира, переключение входа).
+    /// Нет сохранённого входа сотрудника на этой кассе — «один раз войдите паролем», логин подставляется. Код бейджа нигде не показывается.</summary>
+    internal async Task<(SwitchCashierOutcome Outcome, string? ErrorMessage, string? PrefillLogin)> SwitchCashierByBadgeAsync(string raw, Window dialogOwner)
+    {
+        if (AppMode.IsOwner)
+            return (SwitchCashierOutcome.InvalidCredentials, Tr.T("Вход по QR-бейджу — только в кассе.", "QR-бейдж менен кирүү — кассада гана.", "QR badge sign-in works only in the till.", "QR rozetle giriş yalnızca kasada.", "QR-beydj bilan kirish — faqat kassada."), null);
+        var login = LoginWindow.CreateBadgeLogin();
+        var check = login.Check(raw);
+        if (check.Status != CashierBadgeStatus.Ok || check.Record is null)
+        {
+            if (check.Status != CashierBadgeStatus.NotBadge)
+                LoginWindow.LogBadgeAudit("badge_denied", App.CurrentUserId, check.Record?.Id, "switch:" + check.Status);
+            return (SwitchCashierOutcome.InvalidCredentials, CashierBadgeRegistry.Message(check.Status, check.Wait), null);
+        }
+        var record = check.Record;
+        if (record.RequiresPin)
+        {
+            var pin = await CashierBadgePinWindow.AskAsync(dialogOwner, record.Name).ConfigureAwait(true);
+            if (pin is null)
+                return (SwitchCashierOutcome.InvalidCredentials, Tr.T("PIN бейджа не введён.", "Бейдждин PIN-коду киргизилген жок.", "Badge PIN was not entered.", "Rozet PIN'i girilmedi.", "Beydj PIN-kodi kiritilmadi."), null);
+            if (!login.CheckPin(record, pin))
+            {
+                LoginWindow.LogBadgeAudit("badge_denied", App.CurrentUserId, record.Id, "switch:WrongPin");
+                return (SwitchCashierOutcome.InvalidCredentials, Tr.T("Неверный PIN бейджа.", "Бейдждин PIN-коду туура эмес.", "Wrong badge PIN.", "Rozet PIN'i yanlış.", "Beydj PIN-kodi noto'g'ri."), null);
+            }
+        }
+        if (!login.HasSavedLogin(record))
+            return (SwitchCashierOutcome.InvalidCredentials, SwitchNeedPasswordText(record), record.Login);
+
+        var (outcome, message) = await ValidateAndSwitchCashierCoreAsync(
+            () => login.LoginAsync(record, rememberMe: false), record.Login ?? "").ConfigureAwait(true);
+        if (outcome == SwitchCashierOutcome.Success)
+            LoginWindow.LogBadgeAudit("badge_switch", App.CurrentUserId, record.Id, "ok");
+        else if (outcome == SwitchCashierOutcome.InvalidCredentials && !login.HasSavedLogin(record))
+            return (outcome, SwitchNeedPasswordText(record), record.Login); // сервер отверг сохранённый вход
+        return (outcome, message, null);
+    }
+
+    private static string SwitchNeedPasswordText(CashierBadgeRecord record)
+    {
+        var who = string.IsNullOrWhiteSpace(record.Name) ? "" : $" ({record.Name})";
+        return Tr.T($"Бейдж принят{who}, но на этой кассе по нему ещё не входили. Один раз войдите паролем — дальше хватит бейджа.",
+            $"Бейдж кабыл алынды{who}, бирок бул кассада аны менен али кирише элек. Бир жолу сырсөз менен кириңиз — андан ары бейдж жетиштүү.",
+            $"Badge accepted{who}, but it has not been used on this till yet. Sign in with the password once — after that the badge is enough.",
+            $"Rozet kabul edildi{who}, ama bu kasada henüz kullanılmadı. Bir kez şifreyle girin — sonrası için rozet yeterli.",
+            $"Beydj qabul qilindi{who}, lekin bu kassada u bilan hali kirilmagan. Bir marta parol bilan kiring — keyin beydj yetarli.");
+    }
+
+    private bool _badgeSwitchBusy;
+
+    /// <summary>2026-11-27 (вечер): скан бейджа на открытой кассе (поиск, чек, сканер-клавиатура) — не товар: спрашиваем
+    /// «Сменить кассира на …? Смена будет закрыта», без автосмены втихую. Повторный скан, пока идёт вопрос/смена, игнорируется.</summary>
+    public void OnCashierBadgeScanned(string raw) => _ = OnCashierBadgeScannedAsync(raw);
+
+    private async Task OnCashierBadgeScannedAsync(string raw)
+    {
+        if (_badgeSwitchBusy)
+            return;
+        _badgeSwitchBusy = true;
+        try
+        {
+            if (AppMode.IsOwner)
+                return;
+            var login = LoginWindow.CreateBadgeLogin();
+            var check = login.Check(raw);
+            if (check.Status != CashierBadgeStatus.Ok || check.Record is null)
+            {
+                if (check.Status != CashierBadgeStatus.NotBadge)
+                {
+                    LoginWindow.LogBadgeAudit("badge_denied", App.CurrentUserId, check.Record?.Id, "open:" + check.Status);
+                    _prompts.ShowWarning(CashierBadgeRegistry.Message(check.Status, check.Wait));
+                }
+                return;
+            }
+            var record = check.Record;
+            var name = string.IsNullOrWhiteSpace(record.Name) ? (record.Login ?? "?") : record.Name;
+            var current = App.CurrentUserId;
+            if (!string.IsNullOrWhiteSpace(current)
+                && string.Equals(current.Trim(), record.EmployeeId.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                _prompts.ShowWarning(Tr.T($"Бейдж кассира «{name}» — он уже за кассой.", $"«{name}» кассиринин бейджи — ал азыр кассада.",
+                    $"Badge of cashier “{name}” — they are already at the till.", $"«{name}» kasiyerinin rozeti — zaten kasada.", $"«{name}» kassirining beydji — u allaqachon kassada."));
+                return;
+            }
+            var ok = await PosConfirmDialog.ShowModalAsync(this,
+                Tr.T("Бейдж кассира: смена кассира", "Кассирдин бейджи: кассирди алмаштыруу", "Cashier badge: switch cashier", "Kasiyer rozeti: kasiyer değiştir", "Kassir beydji: kassirni almashtirish"),
+                Tr.T($"Сменить кассира на «{name}»? Текущая смена будет закрыта.", $"Кассирди «{name}» менен алмаштырасызбы? Учурдагы смена жабылат.",
+                    $"Switch cashier to “{name}”? The current shift will be closed.", $"Kasiyer «{name}» olarak değiştirilsin mi? Mevcut vardiya kapatılacak.", $"Kassir «{name}»ga almashtirilsinmi? Joriy smena yopiladi."),
+                Tr.T("Сменить", "Алмаштыруу", "Switch", "Değiştir", "Almashtirish"),
+                Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"),
+                PosConfirmAccent.Danger, enterCancels: true).ConfigureAwait(true);
+            if (!ok)
+                return;
+            var (outcome, message, _) = await SwitchCashierByBadgeAsync(raw, this).ConfigureAwait(true);
+            if (outcome == SwitchCashierOutcome.InvalidCredentials && !string.IsNullOrWhiteSpace(message))
+                _prompts.ShowWarning(message);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            PosLogger.Log($"Смена кассира по бейджу на открытой кассе: сбой ({ex.GetType().Name}).", "WARNING");
+        }
+        finally
+        {
+            _badgeSwitchBusy = false;
+        }
+    }
 
     /// <summary>
     /// Проверяет логин/пароль НОВОГО кассира на сервере, и только при успехе закрывает текущую
@@ -1499,8 +1607,16 @@ public partial class MainWindow
     /// токенов ДО попытки входа и восстановление через RestoreOfflineSession при неудаче —
     /// иначе опечатка в пароле нового кассира вышибала бы старого из системы.
     /// </summary>
-    private async Task<(SwitchCashierOutcome Outcome, string? ErrorMessage)> ValidateAndSwitchCashierAsync(
-        string email, string password)
+    private Task<(SwitchCashierOutcome Outcome, string? ErrorMessage)> ValidateAndSwitchCashierAsync(
+        string email, string password) =>
+        ValidateAndSwitchCashierCoreAsync(
+            () => App.GetRequiredService<IOnlineOfflineAuthenticationService>().LoginAsync(email, password, rememberMe: false, CancellationToken.None),
+            email);
+
+    /// <summary>2026-11-27 (вечер): общая часть смены кассира — вход нового (паролем или по бейджу, <paramref name="loginNew"/>),
+    /// проверки и закрытие смены прежнего; <paramref name="email"/> — для сравнения «тот же кассир».</summary>
+    private async Task<(SwitchCashierOutcome Outcome, string? ErrorMessage)> ValidateAndSwitchCashierCoreAsync(
+        Func<Task<AuthenticationResult>> loginNew, string email)
     {
         // 2026-10-18, аудит: снимок ПОЛНОГО входа (токены + профиль с ролью/доступами + филиал + ИНН компании).
         // Раньше восстанавливались только токены — после неверного пароля до перезапуска у владельца
@@ -1508,7 +1624,6 @@ public partial class MainWindow
         var apiClient = App.GetRequiredService<NurMarketApiClient>();
         var oldState = apiClient.CaptureSessionState();
 
-        var auth = App.GetRequiredService<IOnlineOfflineAuthenticationService>();
         // 2026-09-26: LoginAsync с rememberMe: false СТИРАЕТ сохранённый вход кассы — после любой
         // смены кассира следующий запуск кассы открывался на окне входа (живой случай). Запоминаем
         // сохранённый вход и в конце кладём на место нужный: нового кассира или прежний.
@@ -1540,8 +1655,7 @@ public partial class MainWindow
         AuthenticationResult result;
         try
         {
-            result = await auth.LoginAsync(email, password, rememberMe: false, CancellationToken.None)
-                .ConfigureAwait(true);
+            result = await loginNew().ConfigureAwait(true);
         }
         catch (Exception ex)
         {

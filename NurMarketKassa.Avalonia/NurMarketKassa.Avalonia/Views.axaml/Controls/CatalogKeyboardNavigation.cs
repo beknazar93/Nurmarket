@@ -126,6 +126,12 @@ public static class CatalogKeyboardNavigation
             _ => current + columns,
         };
 
+        // 2026-11-27: каталог разделён по категориям — каждая группа с новой строки, ряды неровные, и «индекс ± столбцы» попадал бы не туда.
+        // Вверх/Вниз — по координатам: ближайшая по горизонтали плитка соседнего ряда; соседнего ряда нет — листаем страницу, как раньше.
+        var grouped = key is Key.Up or Key.Down && listBox.ItemsPanelRoot is CatalogGroupedPanel { HasHeaders: true };
+        if (grouped)
+            target = NeighborInNextRow(listBox, current, key == Key.Down) ?? (key == Key.Down ? count : -1);
+
         if (target >= 0 && target < count)
         {
             FocusTile(listBox, target);
@@ -134,7 +140,7 @@ public static class CatalogKeyboardNavigation
 
         // Вниз, а под плиткой пусто, потому что последний ряд неполный, — на последнюю плитку,
         // листать страницу ещё рано.
-        if (key == Key.Down && current / columns < (count - 1) / columns)
+        if (!grouped && key == Key.Down && current / columns < (count - 1) / columns)
         {
             FocusTile(listBox, count - 1);
             return;
@@ -187,6 +193,39 @@ public static class CatalogKeyboardNavigation
                 return listBox.IndexFromContainer(tile);
         }
         return -1;
+    }
+
+    /// <summary>2026-11-27: плитка соседнего ряда (ниже или выше), ближайшая по горизонтали к текущей; null — ряда нет.</summary>
+    private static int? NeighborInNextRow(ListBox listBox, int current, bool down)
+    {
+        if (listBox.ContainerFromIndex(current) is not { } here)
+            return null;
+        var y0 = here.Bounds.Y;
+        var x0 = here.Bounds.Center.X;
+        double? rowY = null;
+        int? best = null;
+        var bestDx = double.MaxValue;
+        for (var i = 0; i < listBox.ItemCount; i++)
+        {
+            if (listBox.ContainerFromIndex(i) is not { } tile)
+                continue;
+            var y = tile.Bounds.Y;
+            if (down ? y <= y0 + 1 : y >= y0 - 1)
+                continue;
+            var dx = Math.Abs(tile.Bounds.Center.X - x0);
+            if (rowY is null || (down ? y < rowY.Value - 1 : y > rowY.Value + 1))
+            {
+                rowY = y;
+                best = i;
+                bestDx = dx;
+            }
+            else if (Math.Abs(y - rowY.Value) <= 1 && dx < bestDx)
+            {
+                best = i;
+                bestDx = dx;
+            }
+        }
+        return best;
     }
 
     /// <summary>Сколько плиток в ряду сейчас: считаем плитки первого ряда по их координатам —

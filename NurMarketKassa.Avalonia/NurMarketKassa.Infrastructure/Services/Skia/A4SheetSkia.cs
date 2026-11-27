@@ -47,12 +47,14 @@ public static class A4SheetSkia
     {
         var W = Px(cellWmm);
         var H = Px(cellHmm);
-        var pad = Px(1.2);
+        var pad = Px(o.ContentPadMm); // 2026-11-27: с рамкой текст и штрихкод не касаются её
         var innerW = Math.Max(W - 2 * pad, 4);
         var innerH = Math.Max(H - 2 * pad, 4);
         var gap = Px(0.8);
 
-        if (o.CutLines)
+        if (o.Frame)
+            LabelFrameSpec.From(o).DrawSkia(canvas, W, H); // 2026-11-27: рамка ценника (как в A4SheetService.DrawCell)
+        else if (o.CutLines)
             DashedRect(canvas, W, H, 170);
 
         var data = it.Data;

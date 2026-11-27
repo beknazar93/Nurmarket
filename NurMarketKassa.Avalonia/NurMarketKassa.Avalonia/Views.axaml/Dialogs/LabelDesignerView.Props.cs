@@ -237,8 +237,10 @@ public sealed partial class LabelDesignerView
             // Вся этикетка.
             _props.Children.Add(new Border { Height = 1, Margin = new Thickness(0, 6), Opacity = 0.4, Background = Brushes.Gray });
             var frame = new CheckBox { Content = T("Рамка по контуру этикетки", "Этикетканын контуру боюнча алкак", "Frame around the label", "Etiket çevresinde çerçeve", "Yorliq atrofida ramka"), IsChecked = _t.Frame, MinHeight = 32 };
-            frame.Click += (_, _) => { Push(); _t.Frame = frame.IsChecked == true; Changed(); };
+            frame.Click += (_, _) => { Push(); _t.Frame = frame.IsChecked == true; Changed(true); };
             _props.Children.Add(frame);
+            if (_t.Frame)
+                BuildFrameProps();
             var font = new ComboBox { MinHeight = 34, HorizontalAlignment = HorizontalAlignment.Stretch };
             var fonts = FontNames.ToList();
             if (!fonts.Contains(_t.FontFamily, StringComparer.OrdinalIgnoreCase))
@@ -263,6 +265,55 @@ public sealed partial class LabelDesignerView
     }
 
     private static string Mm => T("мм", "мм", "mm", "mm", "mm");
+
+    /// <summary>2026-11-27 (владелец: «в ценники добавь возможность добавить рамку»): вид рамки — толщина, скругление, отступ от края, цвет, пунктир.</summary>
+    private void BuildFrameProps()
+    {
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*"), RowDefinitions = new RowDefinitions("Auto,Auto") };
+        FrameNum(grid, 0, 0, T("Толщина, ", "Калыңдыгы, ", "Thickness, ", "Kalınlık, ", "Qalinligi, ") + Mm, _t.FrameThicknessMm, LabelFrameSpec.MinThicknessMm, LabelFrameSpec.MaxThicknessMm, 0.1, v => _t.FrameThicknessMm = v);
+        FrameNum(grid, 1, 0, T("Скругление, ", "Бурч тегеректиги, ", "Corner radius, ", "Köşe yuvarlama, ", "Burchak radiusi, ") + Mm, _t.FrameRadiusMm, 0, LabelFrameSpec.MaxRadiusMm, 0.5, v => _t.FrameRadiusMm = v);
+        FrameNum(grid, 0, 1, T("Отступ от края, ", "Четтен аралык, ", "Inset from edge, ", "Kenardan boşluk, ", "Chetdan masofa, ") + Mm, _t.FrameInsetMm, 0, LabelFrameSpec.MaxInsetMm, 0.5, v => _t.FrameInsetMm = v);
+        var color = new ComboBox { MinHeight = 34, HorizontalAlignment = HorizontalAlignment.Stretch };
+        color.Items.Add(T("Чёрная", "Кара", "Black", "Siyah", "Qora"));
+        color.Items.Add(T("Серая", "Боз", "Grey", "Gri", "Kulrang"));
+        color.SelectedIndex = _t.FrameGray ? 1 : 0;
+        color.SelectionChanged += (_, _) => { if (_building || color.SelectedIndex < 0) return; Push(); _t.FrameGray = color.SelectedIndex == 1; Changed(); };
+        var colorCell = Cap(T("Цвет", "Түсү", "Colour", "Renk", "Rangi"), color);
+        colorCell.Margin = new Thickness(0, 0, 0, 2);
+        Grid.SetColumn(colorCell, 1);
+        Grid.SetRow(colorCell, 1);
+        grid.Children.Add(colorCell);
+        _props.Children.Add(grid);
+        var dashed = new CheckBox { Content = T("Пунктирная", "Чекиттүү", "Dashed", "Kesikli", "Punktir"), IsChecked = _t.FrameDashed, MinHeight = 32 };
+        dashed.Click += (_, _) => { Push(); _t.FrameDashed = dashed.IsChecked == true; Changed(); };
+        _props.Children.Add(dashed);
+        _props.Children.Add(Hint(T("Термопринтер и ч/б принтер печатают рамку чёрной или серой (точками). Элементы держите не ближе рамки — иначе она заденет текст и штрихкод.",
+            "Термопринтер жана ак-кара принтер алкакты кара же боз (чекит менен) басат. Элементтерди алкакка жакын койбоңуз — антпесе ал текстке жана штрихкодго тиет.",
+            "Thermal and black-and-white printers print the frame black or grey (dotted). Keep elements off the frame, or it will touch the text and barcode.",
+            "Termal ve siyah-beyaz yazıcılar çerçeveyi siyah veya gri (noktalı) basar. Öğeleri çerçeveden uzak tutun, yoksa metne ve barkoda değer.",
+            "Termoprinter va oq-qora printer ramkani qora yoki kulrang (nuqtali) chop etadi. Elementlarni ramkaga yaqin qo'ymang — aks holda u matn va shtrix-kodga tegadi.")));
+    }
+
+    private void FrameNum(Grid grid, int col, int row, string caption, double value, double min, double max, double step, Action<double> set)
+    {
+        var box = Num(min, max, step);
+        box.MinWidth = 0;
+        box.HorizontalAlignment = HorizontalAlignment.Stretch;
+        box.Value = (decimal)Math.Round(Math.Clamp(value, min, max), 2);
+        box.ValueChanged += (_, _) =>
+        {
+            if (_building || box.Value is null)
+                return;
+            Push();
+            set(Math.Clamp((double)box.Value.Value, min, max));
+            Changed();
+        };
+        var cell = Cap(caption, box);
+        cell.Margin = new Thickness(0, 0, 0, 2);
+        Grid.SetColumn(cell, col);
+        Grid.SetRow(cell, row);
+        grid.Children.Add(cell);
+    }
 
     private TextBlock Hint(string text)
     {

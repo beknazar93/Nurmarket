@@ -56,6 +56,16 @@ public sealed class CashierBadgeTests : IDisposable
         CashierBadgeCode.ExtractFromInput("kassir@mail.kg").Should().BeNull();
     }
 
+    [Fact]
+    public void PrefixIndex_FindsPrefixInTypedStream_AnyLayout()
+    {
+        var (code, _, _) = CashierBadgeCode.Generate();
+        CashierBadgeCode.PrefixIndex("kas" + code).Should().Be(3);
+        CashierBadgeCode.PrefixIndex("ab" + ToRussianLayout(code)).Should().Be(2);
+        CashierBadgeCode.PrefixIndex("ТЬИФВП").Should().Be(-1, "префикс ещё не набран целиком");
+        CashierBadgeCode.PrefixIndex("4607001234567").Should().Be(-1);
+    }
+
     [Theory]
     [InlineData("NMBADGE:v1:abc:def")]
     [InlineData("NMBADGE:v2:0123456789ab:0123456789abcdef0123456789abcdef")]

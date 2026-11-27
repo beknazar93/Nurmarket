@@ -104,6 +104,9 @@ public static class CompanyStoreRegistry
         "phone-print-journal.json",                           // журнал печати чеков с телефона (PhoneSalePrintJournal) — продажи компании
         "product-merge",                                      // журнал объединения товаров (MergeStore) — товары компании
         "Rongta",                                             // рабочий products.txp для весов Rongta — товары компании
+        // 2026-11-27 (check-store-registry, хранилища 1.17.96): сохранённые входы кассиров по QR-бейджу (CashierBadgeVault, секрет — токены кассиров компании)
+        // не должны достаться другой компании на этом ПК; рассылка клиентам (ClientMailing: клиенты, «не беспокоить») и выбор частей/формата выгрузки в 1С (OneCExport).
+        "cashier_badge_sessions.dat", "cashier_badge_sessions.dat.bak", "client-mailing.json", "onec-export.json",
     ];
 
     /// <summary>Шаблоны имён в папке данных (флаги «бонусы импортированы» по компаниям, резервные копии настроек с ключами).</summary>
@@ -128,6 +131,7 @@ public static class CompanyStoreRegistry
         "trade-in-records.json", "trade-in-records.json.bak", // 2026-11-13: выкупы «Trade-in / скупки» (TradeInStore) — данные компании (паспорт и телефоны клиентов)
         "parts-orders.json", "parts-orders.json.bak", "parts-orders.json.bad", "autoparts-products.json", "autoparts-products.json.bak", // 2026-11-20: «Заказ под клиента» и признаки товаров «Автозапчастей» — данные компании
         "estimates.json", "estimates.json.bak",               // 2026-11-19: сметы «Сметы» (EstimateStore) — данные компании (клиенты, цены), общий файл кассы и владельца
+        "badge_attempts.json",                                // 2026-11-27: неудачные попытки входа по QR-бейджу (CashierBadgeThrottle, %LOCALAPPDATA%) — данные компании
         "removed-products.json", "removed-products.json.bak", // 2026-11-06: память об удалённых/архивных товарах (закупка, категория, бренд для прошлых периодов аналитики) — товары прежней компании
     ];
 

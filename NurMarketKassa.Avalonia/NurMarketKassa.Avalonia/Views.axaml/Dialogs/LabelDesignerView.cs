@@ -470,6 +470,11 @@ public sealed partial class LabelDesignerView : UserControl
             var warn = BarcodeLabelService.DescribeBarcodeProblem(_sampleCode, _t);
             if (BarcodeLabelService.DescribeThinBarsLimit(_sampleCode, _t) is { } thin) // 2026-11-27: «Толщина штриха» 1 держит штрихкод узким
                 warn = string.IsNullOrEmpty(warn) ? thin : warn + "\n" + thin;
+            // 2026-11-27: рамка включена, а элемент заходит на неё — рамка заденет текст или штрихкод.
+            var onFrame = AllElements().Where(e => e.Layout.Enabled && !(e.Extra is { Kind: LabelExtraKind.Line }) && LabelDesignerMath.TouchesFrame(e.Layout, _t)).Select(e => e.Title).Take(3).ToList();
+            if (onFrame.Count > 0)
+                warn = (string.IsNullOrEmpty(warn) ? "" : warn + "\n") + T("Рамка задевает: ", "Алкак тийип турат: ", "The frame touches: ", "Çerçeve değiyor: ", "Ramka tegib turibdi: ") + string.Join(", ", onFrame)
+                    + T(" — отодвиньте от края.", " — четтен алыстатыңыз.", " — move it away from the edge.", " — kenardan uzaklaştırın.", " — chetdan uzoqlashtiring.");
             var overlaps = FindOverlaps();
             if (overlaps.Count > 0)
                 warn = (string.IsNullOrEmpty(warn) ? "" : warn + "\n") + T("Элементы наезжают друг на друга: ", "Элементтер бири-бирине тийип турат: ", "Elements overlap: ", "Öğeler üst üste biniyor: ", "Elementlar bir-birining ustiga chiqqan: ") + string.Join("; ", overlaps);

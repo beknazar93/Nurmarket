@@ -104,15 +104,8 @@ public static partial class BarcodeLabelService
 
         DrawExtras(g, template); // 2026-11-21: свои элементы «Редактора ценников»
 
-        if (template.Frame) // 2026-11-19: «Рамка» — четыре линии в 1 точку 203 dpi по краю (в g координаты 203 dpi, ScaleTransform уже выставлен)
-        {
-            var fw = widthPx * Dpi / (float)dpi;
-            var fh = heightPx * Dpi / (float)dpi;
-            g.FillRectangle(Brushes.Black, 0, 0, fw, 1);
-            g.FillRectangle(Brushes.Black, 0, fh - 1, fw, 1);
-            g.FillRectangle(Brushes.Black, 0, 0, 1, fh);
-            g.FillRectangle(Brushes.Black, fw - 1, 0, 1, fh);
-        }
+        if (template.Frame) // 2026-11-19: «Рамка» по краю (в g координаты 203 dpi, ScaleTransform уже выставлен); 2026-11-27: вид рамки — LabelFrameSpec
+            LabelFrameSpec.From(template).DrawGdi(g, widthPx * Dpi / (float)dpi, heightPx * Dpi / (float)dpi);
 
         return label;
     }

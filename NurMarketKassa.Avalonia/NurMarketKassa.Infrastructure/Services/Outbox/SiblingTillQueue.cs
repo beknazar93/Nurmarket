@@ -48,7 +48,10 @@ public static class SiblingTillQueue
         var db = Path.Combine(root, "data", "pos_local.db");
         if (!File.Exists(db))
             return 0;
-        using var connection = new SqliteConnection($"Data Source={db};Mode=ReadOnly;Default Timeout=2");
+        // 2026-11-27 (жалоба «Не удалось сменить компанию… Access to the path …\NurMarketKassa\data is denied»): без Pooling=False соединение после Dispose
+        // оставалось в пуле программы владельца и держало pos_local.db (+ -wal/-shm) кассы открытыми до выхода из владельца — касса не могла унести папку data
+        // в карантин при смене компании. Проверено на ПК: Restart Manager показывал процесс «--owner» держателем базы кассы.
+        using var connection = new SqliteConnection($"Data Source={db};Mode=ReadOnly;Default Timeout=2;Pooling=False");
         connection.Open();
         using var command = connection.CreateCommand();
         command.CommandText = "SELECT COUNT(*) FROM OfflineSales WHERE sync_status <> $synced AND COALESCE(json_extract(json_data, '$.isAutonomous'), 0) = 0;";

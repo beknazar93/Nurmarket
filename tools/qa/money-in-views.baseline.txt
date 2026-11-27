@@ -1,4 +1,5 @@
-﻿Views.axaml\Controls\CatalogPanelView.axaml.cs;6
+﻿Views.axaml\Controls\CatalogGroupedPanel.cs;1
+Views.axaml\Controls\CatalogPanelView.axaml.cs;6
 Views.axaml\Controls\KpiTileGrid.cs;3
 Views.axaml\Controls\PhotoshopColorPicker.axaml.cs;3
 Views.axaml\Controls\SaleDoneBar.axaml.cs;1
@@ -18,13 +19,14 @@ Views.axaml\Dialogs\DialogScreenFit.cs;1
 Views.axaml\Dialogs\ExchangeWindow.cs;3
 Views.axaml\Dialogs\HardwareCalcWindow.cs;1
 Views.axaml\Dialogs\LabelDesignerView.cs;3
-Views.axaml\Dialogs\LabelDesignerView.Props.cs;2
+Views.axaml\Dialogs\LabelDesignerView.Props.cs;3
 Views.axaml\Dialogs\LabelTemplateEditorDialog.axaml.cs;1
 Views.axaml\Dialogs\ModalShell.cs;2
 Views.axaml\Dialogs\OrderDiscountDialog.axaml.cs;2
 Views.axaml\Dialogs\PayDebtDialog.axaml.cs;3
 Views.axaml\Dialogs\PayDebtDialog.OneSum.cs;1
 Views.axaml\Dialogs\PaymentDockPlacement.cs;3
+Views.axaml\Dialogs\PhoneLinkPairWindow.cs;1
 Views.axaml\Dialogs\ProductEditDialog.axaml.cs;1
 Views.axaml\Dialogs\ProductEditDialog.Properties.cs;3
 Views.axaml\Dialogs\ProductEditDialog.Save.cs;4

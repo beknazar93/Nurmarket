@@ -216,6 +216,9 @@ public partial class MainWindow : Window
             () => _viewModel.Basket.HasItems || _viewModel.Basket.IsBusy);
         Screens.Changed += OnCashierScreensChanged;
         _barcodeInputService.BarcodeScanned += OnBarcodeScanned;
+        // 2026-11-27 (вечер): QR-бейдж кассира — не в поиск и не в чек, а вопрос «Сменить кассира?» (CashierBadgeInputGuard и камера/телефон через чек).
+        NurMarketKassa.AvaloniaHost.Services.CashierBadgeInputGuard.EnsureRegistered();
+        _viewModel.Basket.CashierBadgeScanned += OnCashierBadgeScanned;
         AddHandler(PointerPressedEvent, OnGlobalPointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
         AddHandler(TextBox.TextChangedEvent, OnQuantityTextChanged, RoutingStrategies.Bubble); // 2026-11-01 (Р-4): штрихкод, установленный в поле количества целиком
         // Tunnel, а не обычный (Bubble) KeyDown="OnMainWindowKeyDown": пока фокус стоит на

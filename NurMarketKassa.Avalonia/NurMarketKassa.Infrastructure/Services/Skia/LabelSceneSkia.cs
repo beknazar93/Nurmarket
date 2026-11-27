@@ -30,6 +30,9 @@ public static class LabelSceneSkia
                     using (var paint = new SKPaint { Color = new SKColor(r.Argb), IsAntialias = false })
                         canvas.DrawRect(new SKRect(r.X, r.Y, r.X + r.W, r.Y + r.H), paint);
                     break;
+                case LabelSceneFrame frame: // 2026-11-27: скруглённая/пунктирная рамка
+                    LabelFrameSpec.DrawSkiaItem(canvas, frame);
+                    break;
                 case LabelSceneBars bars:
                     DrawBars(canvas, bars);
                     break;

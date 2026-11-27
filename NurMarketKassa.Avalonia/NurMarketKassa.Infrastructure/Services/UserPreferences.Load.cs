@@ -335,6 +335,8 @@ public sealed partial class UserPreferences
                 p.ShowCatalogPhotos = fromFile.ShowCatalogPhotos.Value;
             if (fromFile.CatalogNoBarcodeFirst is not null)
                 p.CatalogNoBarcodeFirst = fromFile.CatalogNoBarcodeFirst.Value; // 2026-11-21
+            if (fromFile.CatalogGroupByCategory is not null)
+                p.CatalogGroupByCategory = fromFile.CatalogGroupByCategory.Value; // 2026-11-27
             if (fromFile.BarcodePrintListView is not null)
                 p.BarcodePrintListView = fromFile.BarcodePrintListView.Value; // 2026-11-22
             if (!string.IsNullOrWhiteSpace(fromFile.MarketplaceWebUrl))

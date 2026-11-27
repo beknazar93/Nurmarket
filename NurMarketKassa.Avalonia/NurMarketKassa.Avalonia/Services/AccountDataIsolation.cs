@@ -18,6 +18,28 @@ public sealed record UnsentSummary(int Sales, decimal SalesTotal, int CashOperat
     public int Count => Sales + CashOperations + DeferredCarts + ReceivingJobs + DebtOperations + UnknownCheckouts + BonusQueue + TelegramItems + PendingProducts;
 }
 
+/// <summary>2026-11-27: почему не удалось убрать данные прежней компании. <paramref name="Details"/> — технический текст для журнала (пути, сообщения ОС),
+/// пользователю не показывается; <paramref name="Holders"/> — кто держит файлы (Restart Manager, может быть пусто).</summary>
+public sealed record AccountSwitchFailure(string Details, IReadOnlyList<FileLockHolders.Holder> Holders, bool CanRetry)
+{
+    /// <summary>Файлы держит программа владельца этого ПК (тот же exe, другой процесс; у самой программы владельца так не считается — там это касса).</summary>
+    public bool HeldByOwnerProgram => !AppMode.IsOwner && Holders.Any(h => h.IsSiblingNurCrm);
+
+    /// <summary>Файлы держит только сама программа (фоновая запись не успела закончиться).</summary>
+    public bool HeldBySelfOnly => Holders.Count > 0 && Holders.All(h => h.IsSelf);
+
+    /// <summary>Посторонние программы (антивирус, проводник, облако): имена процессов без путей.</summary>
+    public IReadOnlyList<string> OtherProgramNames => Holders.Where(h => !h.IsSelf && !h.IsSiblingNurCrm)
+        .Select(h => string.IsNullOrWhiteSpace(h.AppName) ? h.ProcessName : h.AppName)
+        .Where(n => !string.IsNullOrWhiteSpace(n)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+}
+
+/// <summary>2026-11-27: перенос в карантин не удался из-за занятых файлов — всё уже возвращено на место.</summary>
+public sealed class AccountSwitchBlockedException(AccountSwitchFailure failure) : IOException(failure.Details)
+{
+    public AccountSwitchFailure Failure { get; } = failure;
+}
+
 /// <summary>Решение пользователя, когда от прежней компании остались неотправленные данные.</summary>
 public enum UnsentDecision
 {
@@ -74,8 +96,11 @@ public static class AccountDataIsolation
     /// (приложение само выходит из только что выполненного входа). Не задан — смена выполняется (данные уходят в карантин, а не стираются).</summary>
     public static Func<string, string, bool>? CompanyChangeConfirmHandler { get; set; }
 
-    /// <summary>2026-11-05 (Л4-04): данные прежней компании убрать не удалось (файл занят) — всё возвращено на место, вход нужно прервать.</summary>
-    public static Action<string>? SwitchFailedHandler { get; set; }
+    /// <summary>2026-11-05 (Л4-04): данные прежней компании убрать не удалось (файл занят) — всё возвращено на место.
+    /// 2026-11-27 (жалоба клиента «Access to the path …\data is denied»): было Action&lt;string&gt; — тупик «закройте и войдите снова». Теперь обработчик
+    /// возвращает true = «Повторить» (если файлы держит программа владельца этого ПК — касса сначала закрывает её штатно), false = отказ
+    /// (обработчик сам прерывает вход). При <see cref="AccountSwitchFailure.CanRetry"/> = false ответ не учитывается.</summary>
+    public static Func<AccountSwitchFailure, bool>? SwitchFailedHandler { get; set; }
 
     /// <summary>Папка карантина внутри папки данных: <c>_previous\{время}\</c>. Программа её не читает, через 14 дней она удаляется.</summary>
     public const string PreviousFolderName = "_previous";
@@ -183,6 +208,7 @@ public static class AccountDataIsolation
         var lanWasRunning = lan?.IsRunning ?? false;
         IDisposable? syncPause = null;
         var receivingStopped = false;
+        var failureShown = false;
         try
         {
             lan?.Stop();
@@ -196,7 +222,36 @@ public static class AccountDataIsolation
                 receivingStopped = true;
                 PrepareForSwap();
             }
-            QuarantineCompanyFiles();   // 2026-11-05 (Л4-01/Л4-04): не стираем, а переносим в _previous\{время}; сбой — всё возвращается назад
+            // 2026-11-05 (Л4-01/Л4-04): не стираем, а переносим в _previous\{время}; сбой — всё возвращается назад.
+            // 2026-11-27: сбой «файл занят» — вопрос «Повторить / Отмена» вместо тупика; держит программа владельца этого ПК — по «Повторить» касса её штатно закрывает.
+            for (var round = 1; ; round++)
+            {
+                try
+                {
+                    QuarantineCompanyFiles();
+                    break;
+                }
+                catch (AccountSwitchBlockedException blocked) when (SwitchFailedHandler is not null)
+                {
+                    bool retry;
+                    try { retry = SwitchFailedHandler(blocked.Failure); }
+                    catch (Exception hex) when (hex is not OutOfMemoryException)
+                    {
+                        PosLogger.Log($"Смена аккаунта: вопрос «Повторить» не показан ({hex.Message}).", "WARNING");
+                        retry = false;
+                    }
+                    if (!retry)
+                    {
+                        failureShown = true;   // обработчик уже сказал пользователю и прервал вход
+                        throw;
+                    }
+                    PosLogger.Log($"Смена аккаунта: повтор №{round} по просьбе пользователя.", "AUTH");
+                    if (blocked.Failure.HeldByOwnerProgram)
+                        CloseSiblingPrograms(blocked.Failure.Holders);
+                    if (!standMode)
+                        PrepareForSwap();
+                }
+            }
             OfflineClientCache.ResetMemory(); // 2026-10-29: кэш клиентов прежней компании не должен остаться в памяти
             NurMarketKassa.Services.Api.ServerCapabilities.Reset(); // 2026-11-01: признаки сервера прежнего аккаунта (receipt_edit и др.) не должны жить в новом
             NurMarketKassa.AvaloniaHost.Services.PhotoSearchMemory.ResetMemory(); // 2026-11-03: память поиска фото прежней компании (файл уже стёрт)
@@ -204,6 +259,8 @@ public static class AccountDataIsolation
             ServerAddons.ResetMemory(); // 2026-10-31: функции, включённые сервером прежней компании, не должны открывать функции новой
             MarketplaceThemesClient.Shared.ResetMemory(); // 2026-11-06: каталог тем с сайта и запись о поставленных — прежней компании (файлы уже унесены)
             ServerThemeRegistry.Shared.ResetMemory();
+            CashierBadgeThrottle.ResetMemory(); // 2026-11-27: счётчик попыток входа по QR-бейджу прежней компании (файл уже унесён)
+            NurMarketKassa.AvaloniaHost.Services.ClientMailing.ResetMemory();       // 2026-11-27: рассылка клиентам прежней компании (файл уже унесён)
             SettingsCloudSync.RunAccountReset(() =>
             {
                 CompanyScopedSettings.ResetForAccountSwitch(UserPreferences.Instance);
@@ -233,8 +290,12 @@ public static class AccountDataIsolation
                 NurMarketKassa.Services.BackgroundReceivingQueue.Instance.ResumeAfterAbortedSwitch(); // 2026-11-06: В3 Р8 — смена не состоялась, прежняя компания остаётся: приходы в фоне продолжаются
                 NurMarketKassa.Services.PendingProductQueue.Instance.ResumeAfterAbortedSwitch();
             }
-            try { SwitchFailedHandler?.Invoke(ex.Message); }
-            catch (Exception ex2) { PosLogger.Log($"Смена аккаунта: сообщение о сбое не показано ({ex2.Message}).", "WARNING"); }
+            if (!failureShown)
+            {
+                // 2026-11-27: прочие сбои (не «файл занят») — только сообщение, повтор здесь не выполняется (CanRetry = false).
+                try { SwitchFailedHandler?.Invoke(new AccountSwitchFailure(ex.Message, [], CanRetry: false)); }
+                catch (Exception ex2) { PosLogger.Log($"Смена аккаунта: сообщение о сбое не показано ({ex2.Message}).", "WARNING"); }
+            }
             return false;
         }
         finally
@@ -279,6 +340,23 @@ public static class AccountDataIsolation
         catch (Exception ex) { PosLogger.Log($"Смена аккаунта: сообщение о файле не показано ({ex.Message}).", "WARNING"); }
     }
 
+    /// <summary>Только для стенда проверки (задан <see cref="RootOverride"/>): один проход переноса данных компании в карантин без вопросов и сброса настроек.
+    /// null — всё перенесено; иначе — что не вышло (всё уже возвращено на место).</summary>
+    public static AccountSwitchFailure? QuarantineNowForStand()
+    {
+        if (RootOverride is null)
+            throw new InvalidOperationException("Только для стенда проверки (RootOverride).");
+        try
+        {
+            QuarantineCompanyFiles();
+            return null;
+        }
+        catch (AccountSwitchBlockedException blocked)
+        {
+            return blocked.Failure;
+        }
+    }
+
     /// <summary>Сбрасывает то, что держит файлы открытыми или может записать данные
     /// прошлой компании уже после очистки.</summary>
     private static void PrepareForSwap()
@@ -292,12 +370,12 @@ public static class AccountDataIsolation
     /// <summary>2026-11-05 (аудит №4, Л4-01/Л4-04): вместо стирания каждая вещь переносится в <c>_previous\{время}\</c> (на одном диске это
     /// мгновенное переименование). Если хоть одна не переносится (файл занят антивирусом, замок программы владельца, WebView) — всё уже
     /// перенесённое возвращается назад и бросается исключение: смесь двух компаний не остаётся, сброс настроек не выполняется.
-    /// Общие с кассой журналы в %LOCALAPPDATA%\NurMarketKassa убирает только касса — программа владельца их не трогает (Л4-02).</summary>
+    /// Общие с кассой журналы в %LOCALAPPDATA%\NurMarketKassa убирает только касса — программа владельца их не трогает (Л4-02).
+    /// 2026-11-27: занятую папку (например, data с базой, открытой программой владельца) переносит по частям, занятую базу SQLite — копией и очисткой на месте.</summary>
     private static void QuarantineCompanyFiles()
     {
         var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
-        var moved = new List<(string From, string To)>();
-        var failed = new List<string>();
+        var run = new QuarantineRun();
 
         // 2026-11-06 (аудит №5, Л5-03): отложенные записи (AtomicFile.DeferWrite) файлов этой папки снимаем ДО переноса: иначе через 7 с таймер запишет состояние
         // прежней компании (смена, касса, отложенные чеки…) на место файла новой, а AtomicFile.TryRead отдаст его из памяти первым. Сбой — вернуть назад.
@@ -315,40 +393,91 @@ public static class AccountDataIsolation
                 }
                 catch (Exception ex)
                 {
-                    failed.Add($"{pattern}: {ex.Message}");
+                    run.Failed.Add($"{pattern}: {ex.Message}");
                 }
             }
         }
-        MoveAside(items, Path.Combine(Root, PreviousFolderName, stamp), moved, failed);
+        MoveAside(items, Path.Combine(Root, PreviousFolderName, stamp), run);
 
         if (RootOverride is null && !AppMode.IsOwner)
         {
             // Журналы возвратов/списаний/удалений из чека лежат в папке КАССЫ (общей по замыслу); путь тот же, что у SaleReturnLedger и др.
             var local = NurMarketKassa.Services.AppPaths.KassaLocal;
-            MoveAside(LocalLogItems.Select(item => Path.Combine(local, item)), Path.Combine(local, PreviousFolderName, stamp), moved, failed);
+            MoveAside(LocalLogItems.Select(item => Path.Combine(local, item)), Path.Combine(local, PreviousFolderName, stamp), run);
         }
 
-        if (failed.Count == 0)
+        if (run.Failed.Count == 0)
+        {
+            if (run.Cleared.Count > 0)
+                PosLogger.Log($"Смена аккаунта: база прежней компании была занята другой программой — скопирована в {PreviousFolderName}\\{stamp} и очищена на месте ({string.Join(", ", run.Cleared.Select(c => Path.GetFileName(c.Db)))}).", "AUTH");
             return;
+        }
+        // 2026-11-27: кто держит файлы — для журнала и понятного сообщения (программа владельца / сама касса / антивирус и т. п.). Определяем ДО отката.
+        var holders = FileLockHolders.Find(run.FailedPaths);
+        foreach (var h in holders)
+            PosLogger.Log($"Смена аккаунта: файлы прежней компании держит процесс {h.ProcessId} «{h.ProcessName}» ({h.AppName}){(h.IsSelf ? " — сама эта программа" : h.IsSiblingNurCrm ? " — другая программа NurCRM на этом ПК" : "")}.", "WARNING");
+
         AtomicFile.RestoreDeferred(detached); // 2026-11-06 (Л5-03): смена не состоялась — прежняя компания остаётся, её отложенные записи возвращаются
-        for (var i = moved.Count - 1; i >= 0; i--)
+        // 2026-11-27: база, очищенная на месте, возвращается из своей копии (до переноса файлов назад — порядок не важен, пути разные).
+        for (var i = run.Cleared.Count - 1; i >= 0; i--)
         {
             try
             {
-                if (Directory.Exists(moved[i].To))
-                    Directory.Move(moved[i].To, moved[i].From);
-                else if (File.Exists(moved[i].To))
-                    File.Move(moved[i].To, moved[i].From);
+                RestoreSqlite(run.Cleared[i].Backup, run.Cleared[i].Db);
             }
             catch (Exception ex)
             {
-                PosLogger.Log($"Смена аккаунта: не удалось вернуть «{moved[i].From}» из {PreviousFolderName} ({ex.Message}) — файл ищите в {moved[i].To}.", "ERROR");
+                PosLogger.Log($"Смена аккаунта: не удалось вернуть базу «{run.Cleared[i].Db}» из копии ({ex.Message}) — копия лежит в {run.Cleared[i].Backup}.", "ERROR");
             }
         }
-        throw new IOException("не удалось убрать: " + string.Join("; ", failed));
+        for (var i = run.Moved.Count - 1; i >= 0; i--)
+        {
+            try
+            {
+                if (Directory.Exists(run.Moved[i].To))
+                    Directory.Move(run.Moved[i].To, run.Moved[i].From);
+                else if (File.Exists(run.Moved[i].To))
+                    File.Move(run.Moved[i].To, run.Moved[i].From);
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Смена аккаунта: не удалось вернуть «{run.Moved[i].From}» из {PreviousFolderName} ({ex.Message}) — файл ищите в {run.Moved[i].To}.", "ERROR");
+            }
+        }
+        // 2026-11-27: пустые папки набора после отката убираем — иначе «Повторить» в ту же секунду упрётся в уже существующую _previous\{время}\data.
+        var stampDirs = new List<string> { Path.Combine(Root, PreviousFolderName, stamp) };
+        if (RootOverride is null && !AppMode.IsOwner)
+            stampDirs.Add(Path.Combine(NurMarketKassa.Services.AppPaths.KassaLocal, PreviousFolderName, stamp));
+        foreach (var dir in stampDirs)
+        {
+            try
+            {
+                if (Directory.Exists(dir) && !Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories).Any())
+                    Directory.Delete(dir, recursive: true);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                PosLogger.Log($"Смена аккаунта: пустой набор {dir} не убран ({ex.Message}).", "WARNING");
+            }
+        }
+        throw new AccountSwitchBlockedException(new AccountSwitchFailure("не удалось убрать: " + string.Join("; ", run.Failed), holders, CanRetry: true));
     }
 
-    private static void MoveAside(IEnumerable<string> paths, string destinationDir, List<(string From, string To)> moved, List<string> failed)
+    /// <summary>2026-11-27: что сделано за один проход переноса — для отката при сбое.</summary>
+    private sealed class QuarantineRun
+    {
+        public readonly List<(string From, string To)> Moved = [];
+        public readonly List<string> Failed = [];
+        /// <summary>Полные пути того, что не перенеслось (по ним ищем, кто держит файлы).</summary>
+        public readonly List<string> FailedPaths = [];
+        /// <summary>Базы SQLite, скопированные в карантин и очищенные на месте (файл держала другая программа).</summary>
+        public readonly List<(string Db, string Backup)> Cleared = [];
+    }
+
+    /// <summary>2026-11-27: паузы между попытками переноса (мс): всего ~2,5 с. Было 3 попытки по 300 мс — антивирусу и фоновой записи этого мало.</summary>
+    private static readonly int[] RetryPausesMs = [200, 400, 700, 1200];
+
+    private static void MoveAside(IEnumerable<string> paths, string destinationDir, QuarantineRun run)
     {
         foreach (var path in paths.Distinct(StringComparer.OrdinalIgnoreCase))
         {
@@ -359,9 +488,10 @@ public static class AccountDataIsolation
                     continue;
                 Directory.CreateDirectory(destinationDir);
                 var target = Path.Combine(destinationDir, Path.GetFileName(path));
-                // 2026-11-05 (ревью волн 0–3, п. 8): файл на мгновение может держать фоновая запись (синхронизация, очередь) — 3 попытки с паузой 300 мс,
+                // 2026-11-05 (ревью волн 0–3, п. 8): файл на мгновение может держать фоновая запись (синхронизация, очередь) — несколько попыток с паузой,
                 // между ними закрываем свободные соединения базы; иначе вход в новую компанию отменялся из-за случайной записи.
-                for (var attempt = 1; ; attempt++)
+                Exception? last = null;
+                for (var attempt = 0; attempt <= RetryPausesMs.Length; attempt++)
                 {
                     try
                     {
@@ -369,23 +499,303 @@ public static class AccountDataIsolation
                             Directory.Move(path, target);
                         else
                             File.Move(path, target);
+                        last = null;
                         break;
                     }
-                    catch (Exception retryEx) when (attempt < 3 && retryEx is IOException or UnauthorizedAccessException)
+                    catch (Exception retryEx) when (retryEx is IOException or UnauthorizedAccessException)
                     {
-                        PosLogger.Log($"Смена аккаунта: «{Path.GetFileName(path)}» занят ({retryEx.Message}), попытка {attempt} из 3.", "WARNING");
-                        Thread.Sleep(300);
+                        last = retryEx;
+                        if (attempt == RetryPausesMs.Length)
+                            break;
+                        PosLogger.Log($"Смена аккаунта: «{Path.GetFileName(path)}» занят ({retryEx.Message}), попытка {attempt + 1} из {RetryPausesMs.Length + 1}.", "WARNING");
+                        Thread.Sleep(RetryPausesMs[attempt]);
                         if (RootOverride is null)
                         {
                             try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); } catch (Exception) { /* пул — удобство, не причина отказа */ }
                         }
                     }
                 }
-                moved.Add((path, target));
+                if (last is null)
+                {
+                    run.Moved.Add((path, target));
+                    continue;
+                }
+                // 2026-11-27 (жалоба «Access to the path …\data is denied»): папку целиком не переименовать, если внутри открыт хоть один файл (база кассы у программы
+                // владельца, антивирус). Тогда переносим по частям: всё свободное — переносом, занятую базу SQLite — копией в карантин и очисткой на месте.
+                if (isDirectory && MoveDirectoryPiecewise(path, target, run))
+                {
+                    PosLogger.Log($"Смена аккаунта: папка «{Path.GetFileName(path)}» перенесена по частям (целиком не вышло: {last.Message}).", "WARNING");
+                    continue;
+                }
+                if (!isDirectory)
+                {
+                    run.Failed.Add($"{Path.GetFileName(path)} ({last.Message})");
+                    run.FailedPaths.Add(path);
+                }
+                else if (!run.FailedPaths.Any(p => p.StartsWith(path, StringComparison.OrdinalIgnoreCase)))
+                {
+                    run.Failed.Add($"{Path.GetFileName(path)} ({last.Message})");
+                    run.FailedPaths.Add(path);
+                }
             }
             catch (Exception ex)
             {
-                failed.Add($"{Path.GetFileName(path)} ({ex.Message})");
+                run.Failed.Add($"{Path.GetFileName(path)} ({ex.Message})");
+                run.FailedPaths.Add(path);
+            }
+        }
+    }
+
+    private static readonly string[] SqliteSidecars = ["-wal", "-shm", "-journal"];
+
+    private static bool IsSqliteDatabase(string file)
+    {
+        var name = Path.GetFileName(file);
+        if (!(name.EndsWith(".db", StringComparison.OrdinalIgnoreCase) || name.EndsWith(".sqlite", StringComparison.OrdinalIgnoreCase)))
+            return false;
+        try
+        {
+            // Заголовок файла SQLite: «SQLite format 3\0». Файл занят — читаем с общим доступом.
+            using var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            var header = new byte[16];
+            return stream.Read(header, 0, 16) == 16 && System.Text.Encoding.ASCII.GetString(header, 0, 15) == "SQLite format 3";
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>2026-11-27: перенос папки по частям, когда целиком она не переносится. Подпапки — переносом (или так же по частям), файлы — переносом;
+    /// занятая база SQLite — проверенной копией в карантин и очисткой на месте (её «-wal/-shm» остаются при ней). Что-то не вышло — false (вызывающий откатит всё).</summary>
+    private static bool MoveDirectoryPiecewise(string source, string target, QuarantineRun run)
+    {
+        var ok = true;
+        try
+        {
+            Directory.CreateDirectory(target);
+            foreach (var dir in Directory.GetDirectories(source))
+            {
+                var to = Path.Combine(target, Path.GetFileName(dir));
+                if (TryMoveOnce(dir, to, isDirectory: true))
+                    run.Moved.Add((dir, to));
+                else if (!MoveDirectoryPiecewise(dir, to, run))
+                    ok = false;
+            }
+
+            var files = Directory.GetFiles(source);
+            var databases = files.Where(IsSqliteDatabase).ToList();
+            // Сначала базы: от их судьбы зависит, переносить ли «-wal/-shm».
+            var clearedInPlace = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var db in databases)
+            {
+                var to = Path.Combine(target, Path.GetFileName(db));
+                var sidecars = SqliteSidecars.Select(s => db + s).Where(File.Exists).ToList();
+                if (TryMoveOnce(db, to, isDirectory: false))
+                {
+                    run.Moved.Add((db, to));
+                    foreach (var side in sidecars)
+                    {
+                        var sideTo = Path.Combine(target, Path.GetFileName(side));
+                        if (TryMoveOnce(side, sideTo, isDirectory: false))
+                            run.Moved.Add((side, sideTo));
+                        else
+                        {
+                            ok = false;
+                            run.Failed.Add($"{Path.GetFileName(side)} (занят)");
+                            run.FailedPaths.Add(side);
+                        }
+                    }
+                    continue;
+                }
+                if (TryBackupAndClearSqlite(db, to, run))
+                {
+                    clearedInPlace.Add(db);
+                    continue;
+                }
+                ok = false;
+                run.Failed.Add($"{Path.GetFileName(db)} (занят другой программой)");
+                run.FailedPaths.Add(db);
+            }
+
+            foreach (var file in files)
+            {
+                if (databases.Contains(file, StringComparer.OrdinalIgnoreCase))
+                    continue;
+                if (databases.Any(db => SqliteSidecars.Any(s => string.Equals(file, db + s, StringComparison.OrdinalIgnoreCase))))
+                    continue; // «хвосты» базы уже обработаны вместе с ней
+                var to = Path.Combine(target, Path.GetFileName(file));
+                if (TryMoveOnce(file, to, isDirectory: false))
+                {
+                    run.Moved.Add((file, to));
+                    continue;
+                }
+                ok = false;
+                run.Failed.Add($"{Path.GetFileName(file)} (занят)");
+                run.FailedPaths.Add(file);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            ok = false;
+            run.Failed.Add($"{Path.GetFileName(source)} ({ex.Message})");
+            run.FailedPaths.Add(source);
+        }
+        return ok;
+    }
+
+    private static bool TryMoveOnce(string from, string to, bool isDirectory)
+    {
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            try
+            {
+                if (isDirectory)
+                    Directory.Move(from, to);
+                else
+                    File.Move(from, to);
+                return true;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                if (attempt == 0)
+                    Thread.Sleep(150);
+            }
+        }
+        return false;
+    }
+
+    /// <summary>2026-11-27: база SQLite занята другой программой (чтением) — переименовать её нельзя, но можно: 1) снять целую копию средствами SQLite
+    /// (вместе с журналом WAL) в карантин и проверить её (quick_check); 2) только после этого убрать все таблицы на месте — новая компания получит пустую базу
+    /// (схему накатит DatabaseService.ReopenAfterAccountSwitch), как после обычного переноса. Копии нет или она не целая — база не трогается (false).</summary>
+    private static bool TryBackupAndClearSqlite(string db, string backupPath, QuarantineRun run)
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(backupPath)!);
+            if (File.Exists(backupPath))
+                return false;
+            using var source = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={db};Pooling=False;Default Timeout=5");
+            source.Open();
+            using (var copy = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={backupPath};Pooling=False"))
+            {
+                copy.Open();
+                source.BackupDatabase(copy);
+            }
+            using (var check = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={backupPath};Mode=ReadOnly;Pooling=False"))
+            {
+                check.Open();
+                using var cmd = check.CreateCommand();
+                cmd.CommandText = "PRAGMA quick_check;";
+                var verdict = Convert.ToString(cmd.ExecuteScalar(), CultureInfo.InvariantCulture);
+                if (!string.Equals(verdict, "ok", StringComparison.OrdinalIgnoreCase))
+                {
+                    PosLogger.Log($"Смена аккаунта: копия базы «{Path.GetFileName(db)}» не целая ({verdict}) — база не очищается.", "ERROR");
+                    return false;
+                }
+            }
+            run.Cleared.Add((db, backupPath)); // с этого момента откат вернёт базу из копии
+            ClearSqlite(source);
+            PosLogger.Log($"Смена аккаунта: «{Path.GetFileName(db)}» занята другой программой — целая копия в {backupPath}, база очищена на месте.", "WARNING");
+            return true;
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            PosLogger.Log($"Смена аккаунта: базу «{Path.GetFileName(db)}» не удалось скопировать и очистить ({ex.Message}).", "WARNING");
+            if (run.Cleared.Any(c => string.Equals(c.Db, db, StringComparison.OrdinalIgnoreCase)))
+            {
+                // Очистка началась и сорвалась — возвращаем из копии сразу (вызывающий получит false и откатит остальное).
+                try { RestoreSqlite(backupPath, db); }
+                catch (Exception rex) { PosLogger.Log($"Смена аккаунта: базу «{db}» не удалось вернуть из копии ({rex.Message}) — копия в {backupPath}.", "ERROR"); }
+                run.Cleared.RemoveAll(c => string.Equals(c.Db, db, StringComparison.OrdinalIgnoreCase));
+            }
+            return false;
+        }
+    }
+
+    /// <summary>Убирает из базы все таблицы, представления и триггеры (повторяя, пока есть что убирать: виртуальные таблицы уносят свои служебные).</summary>
+    private static void ClearSqlite(Microsoft.Data.Sqlite.SqliteConnection connection)
+    {
+        using (var fk = connection.CreateCommand())
+        {
+            fk.CommandText = "PRAGMA foreign_keys=OFF;";
+            fk.ExecuteNonQuery();
+        }
+        using (var tx = connection.BeginTransaction())
+        {
+            for (var pass = 0; pass < 5; pass++)
+            {
+                var objects = new List<(string Type, string Name)>();
+                using (var list = connection.CreateCommand())
+                {
+                    list.Transaction = tx;
+                    list.CommandText = "SELECT type, name FROM sqlite_master WHERE type IN ('view','trigger','table') AND name NOT LIKE 'sqlite_%' ORDER BY CASE type WHEN 'trigger' THEN 0 WHEN 'view' THEN 1 ELSE 2 END;";
+                    using var reader = list.ExecuteReader();
+                    while (reader.Read())
+                        objects.Add((reader.GetString(0), reader.GetString(1)));
+                }
+                if (objects.Count == 0)
+                    break;
+                foreach (var (type, name) in objects)
+                {
+                    try
+                    {
+                        using var drop = connection.CreateCommand();
+                        drop.Transaction = tx;
+                        drop.CommandText = $"DROP {type.ToUpperInvariant()} IF EXISTS \"{name.Replace("\"", "\"\"")}\";";
+                        drop.ExecuteNonQuery();
+                    }
+                    catch (Microsoft.Data.Sqlite.SqliteException) when (pass < 4)
+                    {
+                        // служебная таблица виртуальной — уйдёт вместе с ней на следующем проходе
+                    }
+                }
+            }
+            tx.Commit();
+        }
+        foreach (var sql in new[] { "PRAGMA wal_checkpoint(TRUNCATE);", "VACUUM;" })
+        {
+            try
+            {
+                using var cmd = connection.CreateCommand();
+                cmd.CommandText = sql;
+                cmd.ExecuteNonQuery();
+            }
+            catch (Microsoft.Data.Sqlite.SqliteException)
+            {
+                // не страшно: место освободится позже, данные прежней компании уже недоступны программе
+            }
+        }
+    }
+
+    /// <summary>Возвращает содержимое базы из копии (средствами SQLite: файл назначения может быть открыт другой программой на чтение).</summary>
+    private static void RestoreSqlite(string backupPath, string db)
+    {
+        using var copy = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={backupPath};Mode=ReadOnly;Pooling=False");
+        copy.Open();
+        using var target = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={db};Pooling=False;Default Timeout=5");
+        target.Open();
+        copy.BackupDatabase(target);
+    }
+
+    /// <summary>2026-11-27: «Повторить» при занятых файлах, а держит их программа владельца этого ПК (тот же exe, другой процесс), — закрываем её штатно
+    /// (как кнопкой «×»: несохранённые разделы она спросит сама) и ждём до 20 с. Принудительно не убиваем.</summary>
+    private static void CloseSiblingPrograms(IEnumerable<FileLockHolders.Holder> holders)
+    {
+        foreach (var holder in holders.Where(h => h.IsSiblingNurCrm))
+        {
+            try
+            {
+                using var process = System.Diagnostics.Process.GetProcessById(holder.ProcessId);
+                PosLogger.Log($"Смена аккаунта: закрываю программу владельца (процесс {holder.ProcessId}), она держит данные прежней компании.", "AUTH");
+                if (!process.CloseMainWindow())
+                    PosLogger.Log($"Смена аккаунта: у процесса {holder.ProcessId} нет окна — закрыть штатно нельзя.", "WARNING");
+                else if (!process.WaitForExit(20_000))
+                    PosLogger.Log($"Смена аккаунта: программа владельца (процесс {holder.ProcessId}) не закрылась за 20 с.", "WARNING");
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                PosLogger.Log($"Смена аккаунта: программу владельца (процесс {holder.ProcessId}) закрыть не удалось ({ex.Message}).", "WARNING");
             }
         }
     }

@@ -950,6 +950,22 @@ public sealed partial class UserPreferences
         Instance.SaveToDisk();
         CatalogNoBarcodeFirstChanged?.Invoke();
     }
+
+    /// <summary>2026-11-27 (просьба владельца «добавь линии, разделение по категориям»): плитки и список каталога кассы идут группами по категориям — над группой
+    /// тонкая линия и заголовок «Категория · N». По умолчанию включено; действует только если в каталоге есть хотя бы две категории (см. CatalogCategoryGrouping),
+    /// при поиске по тексту — выключено (порядок по совпадению). Переключатель применяется сразу, без «Сохранить».</summary>
+    public bool CatalogGroupByCategory { get; set; } = true;
+
+    public static event Action? CatalogGroupByCategoryChanged;
+
+    public static void SetCatalogGroupByCategory(bool on)
+    {
+        if (Instance.CatalogGroupByCategory == on)
+            return;
+        Instance.CatalogGroupByCategory = on;
+        Instance.SaveToDisk();
+        CatalogGroupByCategoryChanged?.Invoke();
+    }
     /// <summary>2026-11-06: адрес страницы Маркетплейса на сайте (кнопка «Открыть Маркетплейс на сайте»). Пусто — адрес по умолчанию (<see cref="MarketplaceWebLink.DefaultUrl"/>).
     /// Только https; токен и пароль в адрес не передаются — вход на сайте делает сам клиент.</summary>
     public string MarketplaceWebUrl { get; set; } = MarketplaceWebLink.DefaultUrl;
