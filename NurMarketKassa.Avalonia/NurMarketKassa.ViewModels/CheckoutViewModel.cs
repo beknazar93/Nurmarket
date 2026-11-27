@@ -658,12 +658,14 @@ namespace NurMarketKassa.ViewModels
                 if (PaymentMethod == "cash" && string.IsNullOrWhiteSpace(CashReceived))
                     return Tr.T("Введите сумму, полученную наличными.", "Накталай алынган сумманы киргизиңиз.", "Enter the amount received in cash.",
                         "Nakit alınan tutarı girin.", "Naqd olingan summani kiriting.");
+                // 2026-11-27 (живой проход, 1920×1080): длинная подсказка в узкой колонке подвала (≈160 px) резалась многоточием на 3-й строке
+                // («…больше нуля. Дл…»). Как разделить сумму, уже сказано жёлтой строкой над полями — здесь только суть.
                 if (PaymentMethod == "mixed" && MixedAmountsMatch && !MixedPartsPositive)
-                    return Tr.T("В смешанной оплате обе суммы должны быть больше нуля. Для одного способа выберите «Наличные» или «Безнал».",
-                        "Аралаш төлөмдө эки сумма тең нөлдөн чоң болушу керек. Бир ыкма үчүн «Накталай» же «Накталай эмес» тандаңыз.",
-                        "In a mixed payment both amounts must be above zero. For a single method choose “Cash” or “Cashless”.",
-                        "Karışık ödemede iki tutar da sıfırdan büyük olmalıdır. Tek yöntem için «Nakit» veya «Nakitsiz» seçin.",
-                        "Aralash to'lovda ikkala summa ham noldan katta bo'lishi kerak. Bitta usul uchun «Naqd» yoki «Naqdsiz»ni tanlang.");
+                    return Tr.T("Обе суммы должны быть больше нуля.",
+                        "Эки сумма тең нөлдөн чоң болушу керек.",
+                        "Both amounts must be above zero.",
+                        "İki tutar da sıfırdan büyük olmalı.",
+                        "Ikkala summa ham noldan katta bo'lishi kerak.");
                 if (PaymentMethod == "debt")
                 {
                     if (SelectedClient == null)

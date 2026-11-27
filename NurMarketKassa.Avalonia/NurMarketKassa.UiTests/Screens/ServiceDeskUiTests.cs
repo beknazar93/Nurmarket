@@ -198,6 +198,114 @@ public sealed class ServiceDeskUiTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task Repair_StatusLinkOnReceipt_AndTelegramReady_OnlyWhenAvailable()
+    {
+        await TestHost.WarmAsync();
+        UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
+        var (baseDeps, till, printed, _) = RepairDeps();
+        var sent = new List<string>();
+        var linked = false;
+        var deps = new RepairOrdersDeps
+        {
+            Store = baseDeps.Store, Till = till, Print = baseDeps.Print, OpenUrl = baseDeps.OpenUrl, Confirm = baseDeps.Confirm, Cashier = baseDeps.Cashier, Today = baseDeps.Today,
+            CanTelegram = _ => linked,
+            TelegramReady = o => { sent.Add(RepairRules.Code(o)); return Task.FromResult(TelegramReceiptSendResult.Sent); },
+            StatusUrl = (_, o) => Task.FromResult<string?>(RepairStatusPublic.Url("shop-x", o)),
+        };
+        var window = new RepairOrdersWindow(deps);
+        try
+        {
+            using var _ = UiShot.Render(window, new UiSize(1366, 768));
+            var order = await window.AcceptAsync(RepairValues());
+            // Ссылка на ленте переносится по ширине — склеиваем строки.
+            printed.Should().ContainSingle().Which.Replace("\n", "").Should().Contain("market.nurcrm.kg/catalog/shop-x/repair?code=1");
+            window.StatusMessage.Should().NotContain("пока недоступен", "ссылка на витрину есть — подсказка «позвоните» не нужна");
+
+            window.MarkReady(order!.Id, 1700m);
+            UiShot.Settle(4);
+            Buttons(window).Should().NotContain(b => b.Name == "RepairNotifyTelegram", "номер не привязан к боту — кнопки Telegram нет");
+
+            linked = true;
+            window.Select(order.Id);
+            UiShot.Settle(4);
+            Named(window, "RepairNotifyTelegram").Should().NotBeNull();
+            (await window.NotifyTelegramAsync(order.Id)).Should().BeTrue();
+            sent.Should().ContainSingle().Which.Should().Be("Р-0001");
+            deps.Store.Find(order.Id)!.NotifiedAt.Should().NotBeNull("отправленное уведомление записывается в квитанцию");
+        }
+        finally
+        {
+            window.Close();
+            UiShot.Pump();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task Repair_ServerWroteToClientInTelegram_HidesTelegramButton_OtherAnswersKeepIt()
+    {
+        // 2026-11-26 (Умар 16:20): PUT при «Готов» → notified. sent — пометка и нет кнопки Telegram; no_chat — подсказка и кнопка как раньше
+        await TestHost.WarmAsync();
+        UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
+        var (baseDeps, till, _, _) = RepairDeps();
+        var deps = new RepairOrdersDeps
+        {
+            Store = baseDeps.Store, Till = till, Print = baseDeps.Print, OpenUrl = baseDeps.OpenUrl, Confirm = baseDeps.Confirm, Cashier = baseDeps.Cashier, Today = baseDeps.Today,
+            CanTelegram = _ => true,
+            StatusUrl = (_, _) => Task.FromResult<string?>(null),
+        };
+        var window = new RepairOrdersWindow(deps);
+        try
+        {
+            using var _ = UiShot.Render(window, new UiSize(1366, 768));
+            var order = await window.AcceptAsync(RepairValues());
+            window.MarkReady(order!.Id, 1700m);
+            var rev = deps.Store.Find(order.Id)!.Rev;
+
+            deps.Store.MarkSynced(order.Id, rev, null, null, "no_chat");
+            window.Select(order.Id);
+            UiShot.Settle(4);
+            Named(window, "RepairNotifyTelegram").Should().NotBeNull("no_chat — кнопки Telegram и WhatsApp остаются");
+            Named(window, "RepairNotify").Should().NotBeNull();
+
+            deps.Store.MarkSynced(order.Id, rev, null, null, "sent");
+            window.Select(order.Id);
+            UiShot.Settle(4);
+            Buttons(window).Should().NotContain(b => b.Name == "RepairNotifyTelegram", "сервер уже написал клиенту в Telegram — основной кнопки нет");
+            Named(window, "RepairNotify").Should().NotBeNull("WhatsApp вручную остаётся");
+        }
+        finally
+        {
+            window.Close();
+            UiShot.Pump();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task Repair_Accept_WithoutServerStatus_TellsCashierToGiveCodeAndShopPhone()
+    {
+        await TestHost.WarmAsync();
+        UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
+        var (baseDeps, till, _, _) = RepairDeps();
+        var deps = new RepairOrdersDeps
+        {
+            Store = baseDeps.Store, Till = till, Print = baseDeps.Print, OpenUrl = baseDeps.OpenUrl, Confirm = baseDeps.Confirm, Cashier = baseDeps.Cashier, Today = baseDeps.Today,
+            StatusUrl = (_, _) => Task.FromResult<string?>(null),
+        };
+        var window = new RepairOrdersWindow(deps);
+        try
+        {
+            using var _ = UiShot.Render(window, new UiSize(1366, 768));
+            await window.AcceptAsync(RepairValues());
+            window.StatusMessage.Should().Contain("пока недоступен").And.Contain("Р-0001");
+        }
+        finally
+        {
+            window.Close();
+            UiShot.Pump();
+        }
+    }
+
+    [AvaloniaFact]
     public async Task Repair_OwnerProgram_HasNoTill_PrepayFieldDisabled_AndMoneyActionsRefused()
     {
         await TestHost.WarmAsync();

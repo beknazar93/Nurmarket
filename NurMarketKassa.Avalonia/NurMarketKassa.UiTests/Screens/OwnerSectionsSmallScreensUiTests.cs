@@ -149,6 +149,7 @@ public sealed class OwnerSectionsSmallScreensUiTests : IDisposable
         yield return ("clients", () => Svc<ClientsWindow>());
         yield return ("telegrambot", () => new TelegramBotAnalyticsWindow());
         yield return ("funnel", () => new FunnelWindow());
+        yield return ("mailing", () => new ClientMailingWindow()); // 2026-11-26
         yield return ("salary", () => new SalaryWindow());
         yield return ("timesheet", () => new StaffTimesheetWindow()); // ведёт другой исполнитель — замечания только в отчёт
         yield return ("marketplace", () => new MarketplaceWindow().AsSection());

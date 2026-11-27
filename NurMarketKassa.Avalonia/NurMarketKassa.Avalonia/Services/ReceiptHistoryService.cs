@@ -705,6 +705,17 @@ public static class ReceiptHistoryService
             isReprint: true);
     }
 
+    /// <summary>2026-11-26 (красивый чек по QR): приложить к тексту копии чека ссылку на страницу чека (share_url продажи; нет — POST share-link, не дольше 5 с).
+    /// Выключено в настройках, офлайн-чек без id или сбой — текст как был.</summary>
+    public static async Task<string> WithShareLinkAsync(string text, string? saleId, JsonElement? detail)
+    {
+        if (!UserPreferences.Instance.PrintReceiptLinkQr)
+            return text;
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var url = await ReceiptShareLink.EnsureAsync(App.SalesApi, saleId, detail, cts.Token).ConfigureAwait(false);
+        return ReceiptShareLink.Attach(text, url);
+    }
+
     /// <summary>Печатает готовый текст чека тем же принтером, что и оплата. null — напечатано,
     /// иначе — понятная кассиру причина.</summary>
     public static async Task<string?> PrintAsync(string receiptText)
@@ -793,7 +804,10 @@ public static class ReceiptHistoryService
             }
 
             var detail = await LoadDetailAsync(last, ct).ConfigureAwait(false);
-            var error = await PrintAsync(BuildReprintText(last, detail)).ConfigureAwait(false);
+            var reprint = BuildReprintText(last, detail);
+            if (last.Local is null)
+                reprint = await WithShareLinkAsync(reprint, last.Id, detail).ConfigureAwait(false); // 2026-11-26: QR со ссылкой на красивый чек
+            var error = await PrintAsync(reprint).ConfigureAwait(false);
             if (error != null)
                 return (false, error);
 
@@ -851,6 +865,7 @@ public static class ReceiptHistoryService
                         SalesWindow.ReadSaleDiscount(detail),
                         SalesWindow.ReadSaleTotal(detail),
                         isReprint: true);
+                    text = await WithShareLinkAsync(text, saleId, detail).ConfigureAwait(false); // 2026-11-26: QR со ссылкой на красивый чек
                 }
                 catch (OperationCanceledException) when (ct.IsCancellationRequested)
                 {

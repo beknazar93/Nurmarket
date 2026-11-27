@@ -241,6 +241,9 @@ class _NavTools {
           'filter: stock list low|out|in|all. query: search text for search/clients/orders/receipts. '
           'period: summary today|week|month. tab: scan sale|price; new_product product|clothes|service; smartcam shelf|invoice|labels. '
           'Open exactly the section the user NAMED; never guess a neighbouring one. If the answer is "ambiguous", ask which and call again with pick. '
+          // 2026-11-27 (доступы советника ко всем разделам): страница функции Маркетплейса и разделы, которых в телефоне нет
+          'Marketplace feature page: screen=marketplace, query=feature name or key. '
+          'Section not in Keys (ru: акции, диалоги бота, ремонт): open nothing, call explain_section. '
           'Say "opened" only if the result says status ok. Keys: $names. Never use it to pay or to change data.',
           parameters: sObj({
             'screen': sStr(desc: 'Screen key', values: keys),

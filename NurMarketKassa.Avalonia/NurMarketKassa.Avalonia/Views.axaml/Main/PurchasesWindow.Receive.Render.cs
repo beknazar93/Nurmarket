@@ -926,7 +926,8 @@ public partial class PurchasesWindow
         try
         {
             jobId = BackgroundReceivingQueue.Instance.Enqueue(new ReceivingJobRequest(ReceivingJobSource.Purchases, lines, supplier, paidNow, employee, pay?.DueDays ?? 30, fields,
-                "purchases", pay is null ? null : PurchaseFinishPayload.From(pay, s.OrderId, shiftId), SupplierDocNumber: supplier is null ? null : s.DocNumber.Text));
+                "purchases", pay is null ? null : PurchaseFinishPayload.From(pay, s.OrderId, shiftId), SupplierDocNumber: supplier is null ? null : s.DocNumber.Text,
+                EsfNumber: supplier is null ? null : s.Esf.Text)); // 2026-11-26 (ТОП-15 п. 4): № ЭСФ уходит с приходом
         }
         catch (Exception ex)
         {
@@ -939,7 +940,10 @@ public partial class PurchasesWindow
         }
 
         if (supplier is not null)
+        {
             s.DocNumber.Text = ""; // 2026-10-30: номер накладной поставщика ушёл с приходом
+            s.Esf.Text = "";       // 2026-11-26: и номер ЭСФ
+        }
         s.LandedTotal = 0; // 2026-11-05 (функция 11): доп. расходы ушли с этим приходом (доли — в строках задачи)
         // Задача на диске — список очищаем сразу и готовимся к следующей накладной (заказ уже закрыт этой задачей — к новому приёму не привязываем).
         _bgWaiting.Add(jobId);

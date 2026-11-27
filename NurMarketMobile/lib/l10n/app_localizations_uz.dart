@@ -1559,11 +1559,26 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get qrDownloadHint =>
-      'Xaridor kamerasi chekni darhol PDF fayl qilib yuklab oladi';
+      'Xaridor chiroyli chekni brauzerda ko\'radi: PDF yoki rasm qilib saqlashi mumkin';
 
   @override
   String get qrTextHint =>
-      'Server chekka havola bermaguncha kamera uni matn sifatida ko\'rsatadi. PDF faylni mijozga — pastdagi tugma bilan.';
+      'Chekka havola hozircha mavjud emas. Aloqani tekshirib, «Qayta urinish»ni bosing yoki PDF faylni pastdagi tugma bilan yuboring.';
+
+  @override
+  String get qrOfflineHint =>
+      'Bu chek serverga hali yuborilmagan. QR-kod sinxronlashdan keyin paydo bo\'ladi: aloqa tiklangach, chekni «Cheklar» bo\'limidan oching.';
+
+  @override
+  String get openReceiptLink => 'Chekni ochish';
+
+  @override
+  String get shareReceiptLink => 'Havolani ulashish';
+
+  @override
+  String shareReceiptText(String number) {
+    return 'Sizning chekingiz №$number';
+  }
 
   @override
   String get cashInOut => 'Kiritish / olish';
@@ -6911,6 +6926,36 @@ class AppLocalizationsUz extends AppLocalizations {
   }
 
   @override
+  String get stockScanBtn => 'Shtrix-kod skaneri';
+
+  @override
+  String get stockPhotoBtn => 'Rasm bo\'yicha qidirish';
+
+  @override
+  String get stockScanHint =>
+      'Mahsulotning shtrix-kodi yoki QR-kodiga qarating — u qidiruvga qo\'yiladi';
+
+  @override
+  String stockScanFound(String code, String name) {
+    return '$code kodi bo\'yicha topildi: $name';
+  }
+
+  @override
+  String get stockPhotoTitle => 'Ombordagi o\'xshash mahsulotlar';
+
+  @override
+  String get stockPhotoHint =>
+      'Mahsulotni tanlang — u ombor ro\'yxatida ko\'rinadi';
+
+  @override
+  String get stockPhotoNone =>
+      'Rasm bo\'yicha omborda o\'xshash mahsulot topilmadi. Yaqinroqdan suratga oling yoki mahsulotni nomi bo\'yicha qidiring.';
+
+  @override
+  String get stockPhotoOffline =>
+      'Aloqa yo\'q — rasm bo\'yicha qidirish faqat internet bilan ishlaydi. Mahsulotni nomi yoki shtrix-kodi bo\'yicha qidiring.';
+
+  @override
   String stockCountShown(int shown, int total) {
     return '$total tadan $shown tasi ko\'rsatilmoqda';
   }
@@ -7483,4 +7528,51 @@ class AppLocalizationsUz extends AppLocalizations {
   @override
   String get recvModeAutoparts =>
       'Avtoehtiyot: tovarni katalog raqami bo\'yicha toping; miqdor — dona, to\'plam va juft.';
+
+  @override
+  String get loginDeviceKeyRequired =>
+      'Bu qurilma aniqlanmadi. NurCRM ilovasini yangilab, qayta kiring.';
+
+  @override
+  String get deviceSlotTitle => 'Boshqa qurilmada allaqachon kirilgan';
+
+  @override
+  String get deviceSlotBody =>
+      'Siz boshqa qurilmada kirgan edingiz. U yerdan chiqib, shu yerda kiraylikmi?\n\nU qurilmadagi kirish yopiladi.';
+
+  @override
+  String get deviceSlotConfirm => 'U yerdan chiqish, shu yerda kirish';
+
+  @override
+  String get pinTitle => 'Egasi yoki administrator PIN kodi';
+
+  @override
+  String get pinReturnInfo =>
+      'Bu chekni qaytarish uchun server tasdiq so\'raydi: egasi yoki administrator PIN kodini kiriting (kirish paroli emas).';
+
+  @override
+  String get pinFieldLabel => 'PIN';
+
+  @override
+  String get pinConfirm => 'Tasdiqlash';
+
+  @override
+  String get pinInvalid => 'PIN noto\'g\'ri.';
+
+  @override
+  String pinInvalidLeft(int n) {
+    return 'PIN noto\'g\'ri. Qolgan urinishlar: $n.';
+  }
+
+  @override
+  String get pinLocked =>
+      'PIN noto\'g\'ri urinishlardan keyin bloklandi. Keyinroq takrorlang.';
+
+  @override
+  String get pinNotSet =>
+      'PIN o\'rnatilmagan — Sozlamalar → Xodimlar bo\'limida o\'rnating.';
+
+  @override
+  String get pinRequiredText =>
+      'Bu amalni egasi yoki administrator PIN kodi bilan tasdiqlash kerak. Qayta urinib, PIN kiriting.';
 }

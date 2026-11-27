@@ -69,6 +69,9 @@ public static partial class ReceiptSnapshotCartEditor
             var oldQty = JsonNumericReader.ToDouble(existing["quantity"]);
             // 2026-10-26 (ХМ2): «Хозтовары» + дробная единица (м, м², л) — сумма по шагу единицы; иначе прежнее oldQty + qty.
             existing["quantity"] = QuantityRules.MergeQuantity(existing, product, salePackageId, oldQty, qty);
+            // 2026-11-26: к строке «По сумме» добавили вес — точная сумма строки растёт на вес × цену (сервер принимает у такого товара одну строку, duplicate_line).
+            if (existing[WeighedAmount.Field] is not null)
+                AddWeightToAmountLine(existing, qty, unitPrice);
 
             // Исправляем потенциальный баг, когда is_weight ошибочно стало true после возврата в чек
             if (existing["is_weight"]?.GetValue<bool>() != product.MustWeigh)
@@ -242,6 +245,7 @@ public static partial class ReceiptSnapshotCartEditor
         line["quantity"] = IsWeighedLine(line)
             ? JsonNumericReader.RoundWeight(qty)
             : fractionalRule != null ? QuantityRules.Normalize(qty, fractionalRule) : Math.Round(qty, 0);
+        line.Remove(WeighedAmount.Field); // 2026-11-26: вес изменён — точная сумма «По сумме» больше не верна, строка снова вес × цена
         // Скидка суммой была выставлена под прежний gross: после смены количества
         // её нужно переклампить, иначе «лишняя» скидка утечёт на другие строки чека.
         ClampLineDiscountToGross(line);
@@ -447,6 +451,7 @@ public static partial class ReceiptSnapshotCartEditor
             return;
         }
 
+        line.Remove(WeighedAmount.Field); // 2026-11-26: сервер не принимает скидку в строке с точной суммой (400 line_total_with_discount) — скидка кассира главнее, строка снова вес × цена
         if (mode == "percent" && double.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out var pct))
             line["discount_percent"] = Math.Clamp(pct, 0, 100);
         else if (double.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out var sum))
@@ -625,6 +630,96 @@ public static partial class ReceiptSnapshotCartEditor
         }
     }
 
+    /// <summary>2026-11-26: сумма «По сумме» растёт на «вес × цена» (вниз до шага весов, как считает сервер); не сходится с весом в пределах 1 г — поле снимается, строка снова вес × цена.</summary>
+    private static void AddWeightToAmountLine(JsonObject line, double addedKg, double unitPrice)
+    {
+        var added = QuantityRules.FloorToStep(QuantityRules.GrossExact(addedKg, unitPrice), QuantityRules.WeightStep());
+        var total = (decimal)JsonNumericReader.ToDouble(line[WeighedAmount.Field]) + added;
+        var qty = (decimal)JsonNumericReader.ToDouble(line["quantity"]);
+        if (WeighedAmount.WithinTolerance(total, qty, (decimal)unitPrice))
+            line[WeighedAmount.Field] = (double)total;
+        else
+            line.Remove(WeighedAmount.Field);
+    }
+
+    private static bool LineHasDiscountFields(JsonObject line) =>
+        line["discount_total"] != null || line["discount_percent"] != null || line["line_discount"] != null || line["discount"] != null;
+
+    /// <summary>2026-11-26 («По сумме», ответ Умара): добавить весовой товар на введённую сумму — вес до грамма и ТОЧНАЯ сумма строки (на сервер уйдёт line_total). Одна строка на товар:
+    /// такой товар уже в чеке (обычной строкой или «по сумме») — вес и суммы складываются. false — так нельзя (нет признака сервера, у товара акция, у строки скидка, сумма не сходится с
+    /// весом в пределах 1 г): вызывающий добавляет вес обычным способом (вес × цена).</summary>
+    public static bool AddWeighedAmount(ICartService cart, CatalogProductTileVm product, double kg, decimal amount)
+    {
+        ArgumentNullException.ThrowIfNull(product);
+        if (!WeighedAmount.Enabled() || !double.IsFinite(kg) || kg <= 0 || amount <= 0m || !product.MustWeigh || product.ServerIsWeight == false)
+            return false;
+        var unitPrice = ParsePrice(product.PriceLine);
+        if (!(unitPrice > 0) || PromotionRules.ApplyToLine(new JsonObject(), product.Id)
+            || !WeighedAmount.WithinTolerance(amount, (decimal)kg, (decimal)unitPrice))
+            return false;
+
+        EnsureCart(cart);
+        var root = ParseRoot(cart);
+        var items = root["items"] as JsonArray ?? new JsonArray();
+        root["items"] = items;
+        RepairMissingProductIds(items);
+
+        var existing = FindLineByProductIdAndPrice(items, product.Id, unitPrice);
+        if (existing != null)
+        {
+            if (LineHasDiscountFields(existing))
+                return false;
+            var oldQty = JsonNumericReader.ToDouble(existing["quantity"]);
+            var oldTotal = existing[WeighedAmount.Field] is not null
+                ? (decimal)JsonNumericReader.ToDouble(existing[WeighedAmount.Field])
+                : QuantityRules.FloorToStep(QuantityRules.GrossExact(oldQty, unitPrice), QuantityRules.WeightStep());
+            var newQty = (decimal)oldQty + (decimal)kg;
+            var newTotal = oldTotal + amount;
+            if (!WeighedAmount.WithinTolerance(newTotal, newQty, (decimal)unitPrice))
+                return false;
+            existing["quantity"] = JsonNumericReader.RoundWeight((double)newQty);
+            existing[WeighedAmount.Field] = (double)newTotal;
+            RecalcLine(existing);
+        }
+        else
+        {
+            var line = BuildLine(product.Id, product.Title, product.Barcode, unitPrice, kg, product.MustWeigh, null, product.ServerIsWeight);
+            line[WeighedAmount.Field] = (double)amount;
+            RecalcLine(line);
+            items.Add(line);
+        }
+
+        CartDisplayHelper.HintProductWeighedForDisplay(product.Id);
+        RecalcCartTotals(root);
+        ApplyRoot(cart, root);
+        return true;
+    }
+
+    /// <summary>2026-11-26: «Взвесить заново» строку по сумме — новый вес и точная сумма строки (не складываются). false — так нельзя (нет признака, у строки скидка/акция, сумма не сходится с весом).</summary>
+    public static bool SetLineWeighedAmount(ICartService cart, string itemId, double kg, decimal amount)
+    {
+        if (!WeighedAmount.Enabled() || !double.IsFinite(kg) || kg <= 0 || amount <= 0m)
+            return false;
+        EnsureCart(cart);
+        var root = ParseRoot(cart);
+        var items = root["items"] as JsonArray ?? new JsonArray();
+        root["items"] = items;
+        var line = FindLineByItemId(items, itemId);
+        if (line == null || !IsWeighedLine(line) || LineHasDiscountFields(line))
+            return false;
+        var unitPrice = JsonNumericReader.ToDouble(line["unit_price"]);
+        var pid = ExtractId(line["product_id"]);
+        if (!(unitPrice > 0) || (!string.IsNullOrEmpty(pid) && PromotionRules.ApplyToLine(new JsonObject(), pid))
+            || !WeighedAmount.WithinTolerance(amount, (decimal)kg, (decimal)unitPrice))
+            return false;
+        line["quantity"] = JsonNumericReader.RoundWeight(kg);
+        line[WeighedAmount.Field] = (double)amount;
+        RecalcLine(line);
+        RecalcCartTotals(root);
+        ApplyRoot(cart, root);
+        return true;
+    }
+
     /// <summary>2026-10-01, владелец: «магазин одежды — при выборе нужно выбрать размер, цвет, возможно
     /// изменение цены, если на какой-то размер или цвет есть скидка». Вариант NurCRM — своя строка
     /// чека: сливается только с тем же вариантом (никогда — с основным товаром или другим размером,
@@ -754,9 +849,37 @@ public static partial class ReceiptSnapshotCartEditor
             }
         }
 
+        // 2026-11-27 (акции v2): перед оплатой — акции на момент пробития (часы, дни недели), офлайн-чек уходит с расчётом на sold_at.
+        if (PromoV2Cart.Apply(root))
+        {
+            foreach (var node in items)
+                if (node is JsonObject v2Line)
+                    RecalcLine(v2Line);
+            changed = true;
+        }
+
         if (!changed)
             return false;
 
+        RecalcCartTotals(root);
+        ApplyRoot(cart, root);
+        return true;
+    }
+
+    /// <summary>2026-11-27 (pos/quote/, 409 total_mismatch): наложить на чек скидки строк, посчитанные сервером (lines[] с index = порядок строк чека).
+    /// До следующего изменения состава чека экран, окно оплаты и expected_total показывают итог сервера. true — чек изменился.</summary>
+    public static bool ApplyServerPromoLines(ICartService cart, JsonElement lines, JsonElement? hints = null, JsonElement? warnings = null)
+    {
+        if (!cart.HasCart || !(cart.IsStaging || cart.IsLocalOffline))
+            return false;
+        var root = ParseRoot(cart);
+        if (root["items"] is not JsonArray items || lines.ValueKind != JsonValueKind.Array)
+            return false; // число строк не совпало (сервер склеил одинаковые) — не гадаем, какой строке какая скидка
+        if (!PromoV2Cart.ApplyServerLines(root, lines, hints, warnings))
+            return false;
+        foreach (var node in items)
+            if (node is JsonObject line)
+                RecalcLine(line);
         RecalcCartTotals(root);
         ApplyRoot(cart, root);
         return true;
@@ -781,6 +904,8 @@ public static partial class ReceiptSnapshotCartEditor
             return false;
         if (line[LabelAmountField] != null)
             return false;
+        if (line[WeighedAmount.Field] != null)
+            return false; // 2026-11-26: «По сумме» — сумма строки задана кассиром, сервер сам считает цену за кг
         if (!(JsonNumericReader.ToDouble(line["unit_price"]) > 0))
             return false;
         var pid = ExtractId(line["product_id"]) ?? (line["product"] is JsonObject productObj ? ExtractId(productObj["id"]) : null);
@@ -883,14 +1008,14 @@ public static partial class ReceiptSnapshotCartEditor
             return false;
         return CartDisplayHelper.EnumerateItems(cart.Root)
             .Any(it => string.Equals(CartDisplayHelper.TryItemId(it), itemId, StringComparison.Ordinal)
-                       && PromotionRules.LineHasRules(it));
+                       && (PromotionRules.LineHasRules(it) || PromoV2Cart.ManualBlocked(it))); // 2026-11-27: акция v2 без «сочетается с ручной»
     }
 
     private static void RecalcLine(JsonObject line)
     {
         var qty = JsonNumericReader.ToDouble(line["quantity"]);
         var unitPrice = JsonNumericReader.ToDouble(line["unit_price"]);
-        var gross = QuantityRules.GrossExact(qty, unitPrice); // 2026-11-01 (ответ Умара): без округления, округляется один раз — показываемая сумма строки
+        var gross = WeighedAmount.Gross(line, qty, unitPrice); // 2026-11-01 (ответ Умара): без округления, округляется один раз — показываемая сумма строки; 2026-11-26: «По сумме» — точная сумма строки
         // 2026-09-28, продажа №1136: сумма строки — с той же скидкой, что в итоге чека и в запросе
         // на сервер (CartDisplayHelper.EffectiveLineDiscount: скидка кассира или акция товара).
         // Раньше здесь был свой разбор (только discount_total / discount_percent, без акций).
@@ -907,6 +1032,12 @@ public static partial class ReceiptSnapshotCartEditor
 
     private static void RecalcCartTotals(JsonObject root)
     {
+        // 2026-11-27 (акции v2): акции считаются по всему чеку (N+M по категории, лимит на чек) — после любой правки строки пересчитываются метки
+        // всех строк (PromoV2Cart), и суммы строк, чьи скидки изменились. Без признака promotions_v2 — только снимаются старые метки.
+        if (PromoV2Cart.Apply(root) && root["items"] is JsonArray v2Items)
+            foreach (var node in v2Items)
+                if (node is JsonObject v2Line)
+                    RecalcLine(v2Line);
         using var doc = JsonDocument.Parse(root.ToJsonString());
         var totals = CartTotalsCalculator.Calculate(doc.RootElement);
         root["subtotal"] = totals.Subtotal;

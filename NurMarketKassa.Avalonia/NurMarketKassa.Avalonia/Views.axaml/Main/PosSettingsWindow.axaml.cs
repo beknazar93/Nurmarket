@@ -116,6 +116,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
         private CheckBox ShowItemsCheck => _printView.ShowItemsCheck;
         private CheckBox ShowTotalCheck => _printView.ShowTotalCheck;
         private CheckBox ShowQrCodeCheck => _printView.ShowQrCodeCheck;
+        private CheckBox PrintReceiptLinkQrCheck => _printView.PrintReceiptLinkQrCheck;
+        private CheckBox PrintShopQrCheck => _printView.PrintShopQrCheck; // 2026-11-26: QR витрины на чеке
         private TextBlock GraphicQrStatusText => _printView.GraphicQrStatusText;
         private TextBox StatusText => _printView.StatusText;
         private Border PrintErrorPanel => _printView.PrintErrorPanel;
@@ -418,6 +420,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
             ShowItemsCheck.IsChecked = prefs.ShowItems;
             ShowTotalCheck.IsChecked = prefs.ShowTotal;
             ShowQrCodeCheck.IsChecked = prefs.ShowQrCode;
+            PrintReceiptLinkQrCheck.IsChecked = prefs.PrintReceiptLinkQr;
+            PrintShopQrCheck.IsChecked = prefs.PrintShopQr;
 
             DoubleClickToCartRadio.IsChecked = !prefs.SingleClickToCart;
             SingleClickToCartRadio.IsChecked = prefs.SingleClickToCart;
@@ -2148,6 +2152,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
             prefs.ShowItems = ShowItemsCheck.IsChecked == true;
             prefs.ShowTotal = ShowTotalCheck.IsChecked == true;
             prefs.ShowQrCode = ShowQrCodeCheck.IsChecked == true;
+            prefs.PrintReceiptLinkQr = PrintReceiptLinkQrCheck.IsChecked == true;
+            prefs.PrintShopQr = PrintShopQrCheck.IsChecked == true;
 
             // 2026-11-21 (владелец: данные чека — только во вкладке «Чек»): были на странице «Экран».
             prefs.StoreName = StoreNameBox.Text?.Trim() ?? string.Empty;

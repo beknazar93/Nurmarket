@@ -43,8 +43,11 @@ public sealed class FormFieldsOverlapUiTests : IDisposable
         Directory.CreateDirectory(_dir);
     }
 
+    private IDisposable? _tariffModules; // 2026-11-26: реестр модулей и цены для «n-tariff-custom-modules» (статические CompanyModules / PublicModules) — возвращаются в Dispose
+
     public void Dispose()
     {
+        _tariffModules?.Dispose();
         ModalShell.WorkingAreaForTests = null;
         NurMarketKassa.Services.Hardware.HardwareCalcSettings.Use(null);
         try { Directory.Delete(_dir, true); } catch { /* временная папка */ }
@@ -53,18 +56,25 @@ public sealed class FormFieldsOverlapUiTests : IDisposable
     /// <summary>Известные и осознанно отложенные нарушения: «окно|правило|элемент А|элемент Б». Пока пусто. Окна других исполнителей сюда не вносятся — их нарушения идут отчётом.</summary>
     private static readonly HashSet<string> Known = new(StringComparer.Ordinal)
     {
+        // 2026-11-26: таблица накладной (колонки 928 px) на экране 800×600 шире окна — в ней боковая прокрутка (InvoiceEditorWindow), поля справа достижимы прокруткой; перекраивать колонки накладной не стали.
+        "n-invoice-editor-barcodes|поле-вне-окна-по-ширине|TextBox", "n-invoice-editor-barcodes|поле-вне-окна-по-ширине|TextBox«скан или вписать»","n-invoice-editor-barcodes|поле-вне-окна-по-ширине|TextBox«скан же жазуу»", "n-invoice-editor-barcodes|поле-вне-окна-по-ширине|TextBox«skan yoki yozing»",
+        // 2026-11-26: на 800×600 нижняя рамка списка «Авто» в панели настроек ценника обрезана на 3 px (ресайз панели по высоте окна — отдельная задача); список виден и работает.
+        "c-barcode-print|поле-вне-прокрутки-по-высоте|ComboBox«Авто»", "c-barcode-print|поле-вне-прокрутки-по-высоте|ComboBox«Avto»",
     };
 
     private static readonly string[] OwnNames =
     [
         "n-estimates", "n-estimate-editor-new", "n-estimate-editor-filled", "n-estimate-editor-filled-open", "n-estimate-calc-tile", "n-estimate-calc-paint", "n-estimate-print",
-        "n-parts-orders", "n-parts-order-edit", "n-subscription", "n-subscription-year", "n-tariff-custom", "n-tariff-custom-standard", "n-tariff-custom-removed", "n-product-batches", "n-receiving-batch", "n-support-request", "n-analogs", "n-sphere-wizard", "n-fiscal-settings-server",
+        "n-parts-orders", "n-parts-order-edit", "n-subscription", "n-subscription-year", "n-tariff-custom", "n-tariff-custom-standard", "n-tariff-custom-removed", "n-tariff-custom-modules", "n-product-batches", "n-receiving-batch", "n-support-request", "n-analogs", "n-sphere-wizard", "n-fiscal-settings-server",
         "n-invoice-editor-barcodes", "n-barcode-extras", "n-barcode-conflict", // 2026-11-20: штрихкоды в накладных
         "n-ai-variants-card", "n-ai-variants-bar", // 2026-11-20: вкусы одного товара при загрузке накладной через ИИ (блок вариантов и панель «Команда ИИ»)
         "n-bazaar-haggle", "n-bazaar-rates", // 2026-11-21 («Базар»): окно торга и окно курсов валют
         "n-catalog-filter", // 2026-11-21: окно «Фильтр» каталога кассы (без своего поиска, «Сбросить» с обводкой)
         "n-staff-timesheet", // 2026-11-21: табель сотрудников (раскладка под низкий экран)
         "n-supplier-return-edit", // 2026-11-21 (ответ Умара 21.11): правка возврата поставщику — «Добавить товар», причина и вид компенсации, добавленная строка
+        "n-supplier-debt-pay", "n-supplier-debt-pay-part", "n-supplier-return-new", // 2026-11-26: оплата долга поставщику любой суммой; «Новый возврат поставщику» с долгом у поставщика
+        "n-purchase-receive", // 2026-11-26 (ТОП-15 п. 4): страница «Приём товара» с новым полем «№ ЭСФ» под номером накладной
+        "n-repair-form", "n-tradein-form", "n-repair-price-form", // 2026-11-26 (снимок владельца): формы «Ремонта и сервиса» — «Комплектация» вылезала за окно, «Срок, дней» — за низ (подробно — ServiceFormsFitUiTests)
     ];
 
     public static IEnumerable<object[]> Matrix()
@@ -110,6 +120,67 @@ public sealed class FormFieldsOverlapUiTests : IDisposable
         }
         var fresh = found.Where(kv => !Known.Contains(kv.Key)).ToList();
         Assert.True(fresh.Count == 0, $"Поля форм налезают ({name}, {code}):\n" + string.Join("\n", fresh.Take(25).Select(kv => $"  {kv.Key} — {string.Join(", ", kv.Value.Distinct())}"))
+            + (fresh.Count > 25 ? $"\n  … и ещё {fresh.Count - 25}" : ""));
+    }
+
+    /// <summary>2026-11-26 (владелец: форма «Нового приёма в ремонт» обрезалась справа и снизу): окна, куда в 1.17.93–1.17.94 добавляли поля и панели, — на самом маленьком экране кассы 800×600.
+    /// Окна на весь экран — растянуты до 800×600; диалоги — как в программе (своя ширина, предел по экрану кассы: окно не шире 784, рабочая область для оболочки — 800×600).
+    /// Правила те же, что у основного теста, плюс: ничего не выходит за ширину окна и области прокрутки без боковой полосы, окно не больше экрана (<see cref="ServiceFormsFitUiTests.FitProblems"/>).
+    /// «Тариф «Своё»» и страницы модулей Маркетплейса ведут другие исполнители — их здесь нет. Карточка товара (вкладка «Доп. штрих-коды», подпись «Кол-во в уп.» вплотную к полю в режиме compact) — найдено, не правилось, в список не входит.</summary>
+    private static readonly string[] SmallScreenNames =
+    [
+        "c-purchases-receive", "c-barcode-print", "c-return-sale", "n-receiving-batch", "n-invoice-editor-barcodes", "n-barcode-extras", "n-supplier-return-edit",
+        "n-repair-form", "n-tradein-form", "n-repair-price-form",
+    ];
+
+    public static IEnumerable<object[]> SmallScreenMatrix() =>
+        SmallScreenNames.SelectMany(name => new[] { AppLanguage.Russian, AppLanguage.Kyrgyz, AppLanguage.Uzbek }.Select(lang => new object[] { name, lang }));
+
+    [AvaloniaTheory]
+    [MemberData(nameof(SmallScreenMatrix))]
+    public async Task Window_FormFields_DoNotOverlap_OnSmallScreen800x600(string name, AppLanguage lang)
+    {
+        await TestHost.WarmAsync();
+        UiShot.Setup(UiTheme.Light, lang);
+        var screen = new UiSize(800, 600);
+        ModalShell.WorkingAreaForTests = new Size(screen.Width, screen.Height);
+        var (window, sized) = Create(name);
+        var code = lang switch { AppLanguage.Kyrgyz => "ky", AppLanguage.Uzbek => "uz", _ => "ru" };
+        var found = new Dictionary<string, List<string>>();
+        try
+        {
+            if (sized)
+            {
+                // Окно большое: на экране 800×600 касса сожмёт его до рабочей области минус отступ 16 (FitToKassaScreen).
+                ServiceFormsFitUiTests.ApplyKassaScreenLimits(window, screen);
+                using (var _ = UiShot.Render(window, new UiSize(screen.Width - 16, screen.Height - 16)))
+                {
+                }
+                UiShot.Settle(3);
+            }
+            else
+                ServiceFormsFitUiTests.ShowLikeInApp(window, screen);
+            ServiceFormsFitUiTests.Save(window, $"smallscreen-{name}-{code}-{screen}.png"); // снимок для глаз: %TEMP%\nurmarket-tests\ui-actual
+            Collect(found, window, name, screen.ToString());
+            foreach (var problem in ServiceFormsFitUiTests.FitProblems(window, screen, formButtons: false))
+                found[$"{name}|вписывание|{problem}"] = [$"{screen}: {problem}"];
+            foreach (var (label, activate) in Modes(window))
+            {
+                activate();
+                UiShot.Settle(3);
+                Collect(found, window, name + "/" + label, screen.ToString());
+                foreach (var problem in ServiceFormsFitUiTests.FitProblems(window, screen, formButtons: false))
+                    found[$"{name}/{label}|вписывание|{problem}"] = [$"{screen}: {problem}"];
+            }
+        }
+        finally
+        {
+            window.Close();
+            UiShot.Pump();
+            ModalShell.WorkingAreaForTests = null;
+        }
+        var fresh = found.Where(kv => !Known.Contains(kv.Key)).ToList();
+        Assert.True(fresh.Count == 0, $"На экране 800×600 обрезание или налезание ({name}, {code}):\n" + string.Join("\n", fresh.Take(25).Select(kv => $"  {kv.Key} — {string.Join(", ", kv.Value.Distinct())}"))
             + (fresh.Count > 25 ? $"\n  … и ещё {fresh.Count - 25}" : ""));
     }
 
@@ -227,6 +298,14 @@ public sealed class FormFieldsOverlapUiTests : IDisposable
                 };
                 return (removedWindow, true);
             }
+            case "n-tariff-custom-modules": // 2026-11-26: «Своё» собирается из Маркетплейса — 11 пакетов и 29 функций строками (значок, название, «что делает», цена, переключатель), выбор из Маркетплейса уже отмечен
+            {
+                _tariffModules ??= TariffBuilderFixture.Apply(Path.Combine(_dir, "tariff-modules"), "condition", "repair");
+                TariffDraft.SetModule("haggle", true, false);
+                TariffDraft.SetModule("quick_items", false, true);
+                TariffDraft.SetPack("ai", true, false);
+                return (new TariffCustomWindow(new TariffBuilderUiTests.BuilderTariffApi(), "Старт"), true);
+            }
             case "n-staff-timesheet":
             {
                 Directory.CreateDirectory(_dir);
@@ -286,6 +365,33 @@ public sealed class FormFieldsOverlapUiTests : IDisposable
                 var dialog = new SupplierReturnEditDialog(info, "ВП-2026-000123");
                 dialog.AddProductForTests(new CatalogProductTileVm("pNew", "Кефир «Нурсүт» 0,9 л", "90.00 сом", false, null) { Unit = "шт", PurchasePrice = 70 });
                 return (dialog, false);
+            }
+            case "n-supplier-debt-pay": // 2026-11-26: оплата долга поставщику — сумма, «Весь долг / 50 % / 20 %», способ оплаты, пояснение «долг без графика»
+                return (new SupplierDebtPayDialog("ОсОО «Поставщик строительных материалов»", "взнос №2 по долгу «Закупка 12.11.2026», срок 30.11.2026", 23400.5, "Остаток взноса",
+                    "Долг без графика (1 200,00 сом) сюда не входит — его гасят на сайте NurCRM."), false);
+            case "n-supplier-debt-pay-part": // то же с введённой частичной суммой («Останется долг: …»)
+            {
+                var dialog = new SupplierDebtPayDialog("ОсОО «Поставщик»", "весь долг", 9999999.99, "Долг к оплате");
+                dialog.PickForTests(20);
+                return (dialog, false);
+            }
+            case "n-supplier-return-new": // 2026-11-26: «Новый возврат поставщику» — долг поставщика, вид «Зачесть в долг перед поставщиком», строка «Долг перед поставщиком: …»
+            {
+                var dialog = new SupplierReturnDialog();
+                dialog.SetSupplierDebtForTests(1500);
+                return (dialog, false);
+            }
+            case "n-repair-form": // 2026-11-26: формы «Ремонта и сервиса» — те же конструкторы, что в программе
+                return (ServiceFormsFitUiTests.CreateForm(_dir, "repair-new"), false);
+            case "n-tradein-form":
+                return (ServiceFormsFitUiTests.CreateForm(_dir, "tradein-new"), false);
+            case "n-repair-price-form":
+                return (ServiceFormsFitUiTests.CreateForm(_dir, "repair-price"), false);
+            case "n-purchase-receive":
+            {
+                var w = new PurchasesWindow();
+                w.OpenReceive(null);
+                return (w, true);
             }
             default:
                 throw new InvalidOperationException("Неизвестное окно " + name);

@@ -164,6 +164,13 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
             Grid.SetColumn(PayAllButton, 2);
         }
 
+        // 2026-11-26: «Итого к оплате» на плашке клиента — справа от имени; на телефоне строкой под именем (иначе имя сжимается в узкий столбец).
+        ClientPlateGrid.RowDefinitions = narrow ? new RowDefinitions("Auto,Auto") : new RowDefinitions();
+        ClientPlateGrid.ColumnDefinitions = new ColumnDefinitions(narrow ? "*" : "*,Auto");
+        Grid.SetRow(TotalOwedBlock, narrow ? 1 : 0);
+        Grid.SetColumn(TotalOwedBlock, narrow ? 0 : 1);
+        TotalOwedBlock.Margin = narrow ? new Avalonia.Thickness(0, 4, 0, 0) : new Avalonia.Thickness(12, 0, 0, 0);
+
         // 2026-10-18: способ оплаты — на телефоне подпись строкой выше кнопок «Наличные / Безнал».
         MethodGrid.ColumnDefinitions = new ColumnDefinitions(narrow ? "*" : "Auto,*");
         MethodGrid.RowDefinitions = narrow ? new RowDefinitions("Auto,6,Auto") : new RowDefinitions();
@@ -214,8 +221,10 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
         // 2026-10-22 (модалки, пакет 2): верхний блок не выше ~45 % окна — остальное всегда у таблицы долгов (на 910×512
         // плашки «неизвестной оплаты»/предупреждения сжимали таблицу до нуля); сам блок при этом прокручивается.
         // Клиент ещё не выбран (таблицы нет) — блок поиска без предела.
+        // 2026-11-26 (живая проверка, 1024×600, «Смешанно»): 45 % (166 px) резали «Погасить одной суммой» и «Погасить» пополам. Предел вырос до «высота окна минус 150 px под таблицу долгов
+        // (заголовок, шапка, строка)», но не больше 240 px: на высоком окне прежние 45 %, и плашки не сжимают таблицу.
         void LimitTop() => TopScroll.MaxHeight = HasSelectedClient && RootGrid.Bounds.Height > 0
-            ? Math.Max(140, Math.Floor(RootGrid.Bounds.Height * 0.45))
+            ? Math.Max(140, Math.Max(Math.Floor(RootGrid.Bounds.Height * 0.45), Math.Min(Math.Floor(RootGrid.Bounds.Height) - 150, 240)))
             : double.PositiveInfinity;
         RootGrid.SizeChanged += (_, _) => LimitTop();
         ((INotifyPropertyChanged)this).PropertyChanged += (_, a) =>
@@ -301,8 +310,20 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
     public string SelectedClientName => _selectedClient?.DisplayName ?? "";
     public bool HasClientSearchResults => ClientSearchResults.Count > 0;
 
+    // 2026-11-26 (жёсткая сверка): сразу после оплаты «Итого» ~3 с мелькал «0,00 сом». Причины две: (1) перечитывание долгов очищало список до ответа сервера — теперь на это время держим
+    // прежний текст (_heldTotalText); (2) сервер ещё не отдал остаток по сделке (все строки «уточняется») — вместо «0,00 сом + уточняется» пишем «уточняется…» (точной суммы нет, 0 — неправда).
+    private string? _heldTotalText;
+
     /// <remarks>2026-10-18, десятый круг (п.6): итог — только по точным остаткам; «уточняется» — отдельной припиской.</remarks>
-    public string TotalOwedText =>
+    public string TotalOwedText => _heldTotalText ?? TotalOwedTextNow;
+
+    private string TotalOwedTextNow =>
+        DebtSales.Count > 0 && DebtSales.All(s => s.RemainingUnknown)
+            ? $"{Tr.T("Итого к оплате", "Жалпы төлөнө турган сумма", "Total due", "Ödenecek toplam", "Jami to'lanadigan summa")}: " +
+              Tr.T("уточняется…", "такталууда…", "being checked…", "kontrol ediliyor…", "aniqlanmoqda…")
+            : TotalOwedTextExact;
+
+    private string TotalOwedTextExact =>
         $"{Tr.T("Итого к оплате", "Жалпы төлөнө турган сумма", "Total due", "Ödenecek toplam", "Jami to'lanadigan summa")}: " +
         // 2026-10-19, К1: сумма — «64 500,00 сом» (MoneyText), как у владельца; сама сумма та же.
         MoneyText.Som(DebtSales.Where(s => !s.RemainingUnknown).Sum(s => s.Amount))
@@ -356,6 +377,7 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
         if (_paying)
             return;
         _debtLoadGen++; // 2026-10-18: недогруженный список прежнего клиента не появится у нового
+        _heldTotalText = null; // 2026-11-26
         SelectedClient = null;
         DebtSales.Clear();
         DebtHistory.Clear();
@@ -496,6 +518,7 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
         {
             ErrorMessage = "";
             SuccessMessage = "";
+            _heldTotalText = DebtSales.Count > 0 ? TotalOwedTextNow : null; // 2026-11-26: на время чтения сервера «Итого» не прыгает в 0,00 (снимается при ответе / в finally)
             DebtSales.Clear();
             DebtHistory.Clear();
             OnPropertyChanged(nameof(TotalOwedText));
@@ -504,6 +527,8 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
         if (OfflineModeHelper.IsServerOutage)
         {
             ErrorMessage = ServerDownMessage(null);
+            _heldTotalText = null; // 2026-11-26: список очищен, ответа не будет
+            OnPropertyChanged(nameof(TotalOwedText));
             return false;
         }
 
@@ -521,6 +546,7 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
                 return false;
             _loadedSeq = startSeq; // это последняя загрузка (номер проверен выше) — её версия
             var lowered = false;
+            _heldTotalText = null; // 2026-11-26: ответ пришёл — «Итого» считается по новым строкам
             DebtSales.Clear();
             DebtHistory.Clear();
             foreach (var row in rows)
@@ -606,6 +632,15 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
             if (gen == _debtLoadGen)
                 ErrorMessage = Tr.T("Не удалось загрузить долги клиента: ", "Клиенттин карызын жүктөө мүмкүн болгон жок: ", "Could not load the client's debts: ", "Müşteri borçları yüklenemedi: ", "Mijozning qarzlarini yuklab bo'lmadi: ") + NurMarketKassa.Services.ServerOutageMonitor.UserText(ex);
             PosLogger.Log($"PayDebt sales load failed: {ex}", "WARNING");
+        }
+        finally
+        {
+            // 2026-11-26: сбой чтения (или выход без ответа) — удержанный «Итого» снимается, показывается итог по текущему списку (при гонке двух загрузок — только самая новая).
+            if (gen == _debtLoadGen && _heldTotalText is not null)
+            {
+                _heldTotalText = null;
+                OnPropertyChanged(nameof(TotalOwedText));
+            }
         }
         return false;
     }
@@ -962,6 +997,16 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
             ErrorMessage = DebtPaymentFlow.NoSaleByReceiptText;
             return;
         }
+        // 2026-11-26: «Смешанно» — только кнопкой «Погасить» (поле «Из них безналом»); у строки чека — один способ.
+        if (IsMixedMethod)
+        {
+            ErrorMessage = Tr.T("Смешанную оплату принимайте кнопкой «Погасить» (поле «Из них безналом»). По чеку — наличными или безналом.",
+                "Аралаш төлөмдү «Төлөө» баскычы менен кабыл алыңыз («Анын ичинен накталай эмес» талаасы). Чек боюнча — накталай же накталай эмес.",
+                "Take mixed payments with the “Pay off” button (the “Of which non-cash” field). By receipt — cash or non-cash.",
+                "Karışık ödemeyi «Öde» düğmesiyle alın («Bunun nakitsiz kısmı» alanı). Fiş için — nakit veya nakitsiz.",
+                "Aralash to'lovni «To'lash» tugmasi bilan qabul qiling («Shundan naqd emas» maydoni). Chek bo'yicha — naqd yoki naqd emas.");
+            return;
+        }
 
         // 2026-10-18, третий круг ревью: разбор суммы — как у владельца (CashAmountInput: запятая/точка, пробелы).
         if (!CashAmountInput.TryParse(row.AmountToPayText, out var amountDec) || amountDec <= 0m)
@@ -994,6 +1039,8 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
             $"Accept {rowAmountText} from “{rowClient.Name}” for receipt {row.Label} ({rowMethod})?\nLeft on the receipt: {rowLeftText}",
             $"«{rowClient.Name}» müşterisinden {row.Label} fişi için {rowAmountText} alınsın mı ({rowMethod})?\nFişte kalan: {rowLeftText}",
             $"«{rowClient.Name}» mijozdan {row.Label} chek uchun {rowAmountText} qabul qilinsinmi ({rowMethod})?\nChekda qolgan: {rowLeftText}");
+        if (DuplicatePaymentWarning(rowClient, amount) is { Length: > 0 } rowSameAgain)
+            rowConfirm += "\n\n" + rowSameAgain; // 2026-11-26: такая же оплата только что принята — возможно, повторное нажатие
         bool rowConfirmed;
         _confirmingPayAll = true;
         try

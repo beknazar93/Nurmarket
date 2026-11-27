@@ -465,8 +465,19 @@
   "receiptQr": "QR code",
   "showQr": "Show QR to customer",
   "qrPointCamera": "The customer points their phone camera",
-  "qrDownloadHint": "The customer's camera downloads the receipt as a PDF right away",
-  "qrTextHint": "Until the server issues a receipt link, the camera shows it as text. Send the PDF with the button below.",
+  "qrDownloadHint": "The customer sees a neat receipt in the browser: they can save it as PDF or an image",
+  "qrTextHint": "The receipt link is not available yet. Check the connection and tap Retry, or send the PDF with the button below.",
+  "qrOfflineHint": "This receipt has not reached the server yet. The QR code will appear after sync: open the receipt in Checks once you are online.",
+  "openReceiptLink": "Open receipt",
+  "shareReceiptLink": "Share link",
+  "shareReceiptText": "Your receipt No. {number}",
+  "@shareReceiptText": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
   "cashInOut": "Cash in / out",
   "cashIn": "Cash in",
   "cashOut": "Cash out",
@@ -1955,7 +1966,15 @@
   "catalogIncompleteNoTotal": "The catalog is not fully loaded. Loading continues on its own; you can tap “Refresh catalog”.",
   "catalogRefresh": "Refresh catalog",
   "catalogRefreshed": "Catalog updated: {n} products",
-  "stockCountShown": "Showing {shown} of {total}",
+  "stockScanBtn": "Barcode scanner",
+  "stockPhotoBtn": "Search by photo",
+  "stockScanHint": "Point at the product's barcode or QR code — it goes into the search",
+  "stockScanFound": "Found by code {code}: {name}",
+  "stockPhotoTitle": "Similar products in stock",
+  "stockPhotoHint": "Pick a product — it will show in the stock list",
+  "stockPhotoNone": "Nothing similar to the photo was found in stock. Take the photo closer or search by name.",
+  "stockPhotoOffline": "No connection — photo search needs the internet. Search by name or barcode.",
+  "stockCountShown":"Showing {shown} of {total}",
   "stockCountAll": "Products: {total}",
   "shopModeNotChosen": "Not chosen",
   "shopModeChoose": "Choose the store mode",
@@ -2109,5 +2128,18 @@
   "shopSearchAutoparts": "Name, part number, OEM",
   "shopEmptyAutoparts": "Nothing found. Search by name, part number (OEM, cross number) or barcode.",
   "recvModeBazaar": "Bazaar: receive by name and barcode; quantity in pieces or weight.",
-  "recvModeAutoparts": "Auto parts: find items by part number; quantity in pieces, sets and pairs."
+  "recvModeAutoparts": "Auto parts: find items by part number; quantity in pieces, sets and pairs.",
+  "loginDeviceKeyRequired": "Could not identify this device. Update the NurCRM app and sign in again.",
+  "deviceSlotTitle": "Already signed in on another device",
+  "deviceSlotBody": "You have already signed in on another device. Sign out there and sign in here?\n\nThe sign-in on that device will be closed.",
+  "deviceSlotConfirm": "Sign out there, sign in here",
+  "pinTitle": "Owner or administrator PIN",
+  "pinReturnInfo": "The server asks for confirmation to return this receipt: enter the owner's or administrator's PIN (not the login password).",
+  "pinFieldLabel": "PIN",
+  "pinConfirm": "Confirm",
+  "pinInvalid": "Wrong PIN.",
+  "pinInvalidLeft": "Wrong PIN. Attempts left: {n}.",
+  "pinLocked": "The PIN is locked after wrong attempts. Try again later.",
+  "pinNotSet": "The PIN is not set — set it in Settings → Employees.",
+  "pinRequiredText": "This action must be confirmed with the owner's or administrator's PIN. Try again and enter the PIN."
 }

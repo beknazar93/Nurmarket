@@ -151,6 +151,40 @@ public sealed partial class DatabaseService
         return list;
     }
 
+    /// <summary>2026-11-26: то же, что <see cref="ListShiftEvents"/>, плюс source_id события (у возврата — «id чека:время»): по нему окно «Возвраты» смены
+    /// находит номер чека и возвращённые товары, а не печатает служебное «cash=…;debt=…».</summary>
+    public List<(DateTime CreatedAt, double Amount, string? Note, string? SourceId)> ListShiftEventsWithSource(string shiftId, string kind)
+    {
+        var list = new List<(DateTime, double, string?, string?)>();
+        _dbLock.EnterReadLock();
+        try
+        {
+            using var connection = OpenConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT created_at, amount, note, source_id FROM ShiftEvents WHERE shift_id = $shift AND kind = $kind ORDER BY created_at;";
+            command.Parameters.AddWithValue("$shift", shiftId);
+            command.Parameters.AddWithValue("$kind", kind);
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                var at = DateTime.TryParse(reader.GetString(0), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsed)
+                    ? parsed
+                    : DateTime.MinValue;
+                list.Add((at, reader.GetDouble(1), reader.IsDBNull(2) ? null : reader.GetString(2), reader.IsDBNull(3) ? null : reader.GetString(3)));
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"ShiftEvents list (with source) read failed: {ex.Message}", "WARNING");
+        }
+        finally
+        {
+            _dbLock.ExitReadLock();
+        }
+
+        return list;
+    }
+
     /// <summary>Строки продаж по номерам продаж — товары чеков для подробного отчёта смены.</summary>
     public Dictionary<string, List<(string ProductName, double Quantity, double UnitPrice)>> LoadSoldLinesBySaleIds(IReadOnlyCollection<string> saleIds)
     {

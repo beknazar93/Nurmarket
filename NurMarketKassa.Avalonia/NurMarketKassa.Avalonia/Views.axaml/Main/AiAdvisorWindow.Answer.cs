@@ -588,7 +588,8 @@ public sealed partial class AiAdvisorWindow
         {
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             cts.CancelAfter(TimeSpan.FromSeconds(8));
-            var report = await App.SalesApi.MarketSalesReportAsync(from, toEx.AddDays(-1), cts.Token).ConfigureAwait(true);
+            // 2026-11-26: из ответа нужны только cards — include_stock=0 (без таблицы остатков).
+            var report = await App.SalesApi.MarketSalesReportAsync(from, toEx.AddDays(-1), cts.Token, withoutStock: true).ConfigureAwait(true);
             if (report.ValueKind != System.Text.Json.JsonValueKind.Object || !report.TryGetProperty("cards", out var cards))
                 return null;
             double N(string n) => cards.TryGetProperty(n, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.Number ? v.GetDouble()

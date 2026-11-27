@@ -215,7 +215,7 @@ public sealed class CartService : ICartService, IDisposable
         var unitPrice = CartDisplayHelper.UnitPrice(line);
         // 2026-11-01 (ответ Умара, округление): показываемая сумма строки — decimal, округляется один раз (половина вверх);
         // итог чека (CartTotalsCalculator) складывает строки без округления.
-        var grossExact = QuantityRules.GrossExact(quantity, unitPrice);
+        var grossExact = WeighedAmount.Gross(line, quantity, unitPrice); // 2026-11-26: «По сумме» — точная сумма строки
         var gross = (double)grossExact;
         var discount = ReadLineDiscount(line, gross);
         var (discountPercent, fixedDiscountAmount) = ReadDiscountDefinition(line);

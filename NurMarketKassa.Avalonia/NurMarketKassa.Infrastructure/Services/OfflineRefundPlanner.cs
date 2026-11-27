@@ -76,6 +76,41 @@ public sealed class OfflineRefundPlan
     public string? Warning { get; set; }
 }
 
+/// <summary>2026-11-27 (ответ Умара 27.11, п. 2, refund_calc.py): сумма возврата части строки — шаги сервера, КАЖДЫЙ округляется до копейки HALF_UP (MidpointRounding.AwayFromZero):
+/// сумма = округл( округл(цена × кол-во − округл(скидка строки × кол-во / кол-во строки)) × (итог чека / сумма строк после скидок на позиции) ).
+/// Последний возврат по чеку — ровно остаток оплаченного (это делает вызывающий: OfflineRefundPlanner.Plan / окно возврата).</summary>
+public static class RefundMath
+{
+    public static decimal Round2(decimal value) => Math.Round(value, 2, MidpointRounding.AwayFromZero);
+
+    /// <param name="unitPrice">цена единицы до скидки на позицию; 0 или неизвестна — скидка строки неизвестна, берётся пропорция суммы строки</param>
+    /// <param name="lineQty">количество строки в продаже</param>
+    /// <param name="lineTotal">сумма строки после скидки на позицию (до скидки на весь чек)</param>
+    /// <param name="returnQty">сколько возвращается</param>
+    /// <param name="factor">итог чека / сумма строк после скидок на позиции (1 — скидки на чек нет)</param>
+    public static decimal LineRefund(decimal unitPrice, double lineQty, decimal lineTotal, double returnQty, decimal factor)
+    {
+        if (!(lineQty > 0) || !(returnQty > 0))
+            return 0m;
+        var total = (decimal)lineQty;
+        var qty = (decimal)returnQty;
+        decimal part;
+        var gross = Round2(unitPrice * total);
+        if (unitPrice > 0m && lineTotal <= gross + 0.004m)
+        {
+            // скидка строки = цена × кол-во − сумма строки; доля скидки на возвращаемое количество округляется, затем вычитается из цены × кол-во
+            var discount = Math.Max(0m, gross - lineTotal);
+            part = Round2(unitPrice * qty - Round2(discount * qty / total));
+        }
+        else
+        {
+            // цена неизвестна или сумма строки больше цены × кол-во (округление весов, надбавка) — пропорция суммы строки
+            part = Round2(lineTotal * qty / total);
+        }
+        return Round2(part * factor);
+    }
+}
+
 /// <summary>2026-10-29: расчёт возврата без связи — чистая арифметика (без файлов и сети), её гонит мини-прогон. Правила как у сервера и окна возврата
 /// (Д-4, ComputeSelectedTotal): возврат строки = её цена со скидкой × доля скидки на чек; не больше проданного количества и оплаченной суммы с учётом
 /// уже сделанных возвратов; последний возврат — ровно остаток; чем вернуть — как ReturnSaleDialog.ComputeRefundSplit (долг уменьшается, выдаётся
@@ -154,10 +189,15 @@ public static class OfflineRefundPlanner
                     $"“{line.Name}”: sold {Q(line.Quantity)}, already returned {Q(returned[line.Key])}, at most {Q(room)} can be returned.",
                     $"«{line.Name}»: satılan {Q(line.Quantity)}, daha önce iade {Q(returned[line.Key])}, en fazla {Q(room)} iade edilebilir.",
                     $"«{line.Name}»: sotilgan {Q(line.Quantity)}, avval qaytarilgan {Q(returned[line.Key])}, {Q(room)} dan ko'p qaytarib bo'lmaydi."));
+            // 2026-11-27 (ответ Умара, п. 2: refund_calc.py): сумма строки считается по шагам, каждый — до копейки HALF_UP (см. RefundMath.LineRefund). Раньше была одна дробь
+            // без промежуточных округлений, и на «половине тыйына» сумма расходилась с сервером на 0,01 (94,28 против 94,27).
             var value = line.Quantity > 0
-                ? Math.Round(line.LineTotal * (decimal)(qty / line.Quantity) * sale.Factor, 2, MidpointRounding.AwayFromZero)
+                ? RefundMath.LineRefund(line.UnitPrice, line.Quantity, line.LineTotal, qty, sale.Factor)
                 : 0m;
-            if (value <= 0m)
+            // 2026-11-26 (жёсткий тест точности): позиция, отданная бесплатно (скидка 100 %, сумма строки 0), возвращается вместе с чеком на 0 сом — товар вернётся на склад.
+            // Раньше любая нулевая позиция запрещала возврат всего чека без связи. Нулевая сумма у ОПЛАЧЕННОЙ позиции (возврат на копейки) по-прежнему отказ —
+            // кроме остатка позиции целиком: его копейки уже ушли с прошлыми частичными возвратами (округление), а товар должен вернуться.
+            if (value < 0m || (value == 0m && line.LineTotal > 0.004m && qty < room - 1e-6))
                 return Fail(Tr.T($"«{line.Name}»: сумма возврата по позиции нулевая или отрицательная — вернуть её без связи нельзя.", $"«{line.Name}»: позиция боюнча кайтаруу суммасы нөл же терс — байланышсыз кайтарууга болбойт.",
                     $"“{line.Name}”: the return amount for this item is zero or negative — it cannot be returned without a connection.", $"«{line.Name}»: kalem iade tutarı sıfır veya negatif — bağlantısız iade edilemez.",
                     $"«{line.Name}»: pozitsiya qaytarish summasi nol yoki manfiy — aloqasiz qaytarib bo'lmaydi."));
@@ -174,7 +214,9 @@ public static class OfflineRefundPlanner
         var last = openLines.Count > 0
             && openLines.All(l => picked.Any(p => p.Line.Key == l.Key && p.Qty >= l.Quantity - returned[l.Key] - 1e-6));
         decimal amount;
-        if (last && leftMoney <= linesSum + 0.01m * picked.Count)
+        // 2026-11-26 (жёсткий тест точности): копейки округления копятся с КАЖДОЙ строкой каждого прошлого возврата, а не только с нынешними строками —
+        // после 9 частичных возвратов последнему не хватало 0,03 до оплаченного (покупатель недополучал). Допуск — по копейке на каждую строку всех возвратов чека.
+        if (last && leftMoney <= linesSum + 0.01m * (picked.Count + priors.Sum(p => Math.Max(1, p.Lines.Count))))
             amount = leftMoney;
         else
         {
@@ -206,6 +248,15 @@ public static class OfflineRefundPlanner
                     ? Math.Max(0m, amount - assigned)
                     : Math.Round(amount * picked[i].Value / linesSum, 2, MidpointRounding.AwayFromZero);
                 assigned += lines[i].Amount;
+            }
+            // 2026-11-27 (шаги округления сервера, RefundMath): последняя строка может быть бесплатной (0) и не принять лишнюю копейку округления предыдущих — сумма строк уходила на 0,01 выше суммы возврата.
+            // Остаток раздаём с конца: лишнее снимается с последней строки, где есть что снять, недостающее добавляется последней платной строке.
+            var rest = amount - lines.Sum(l => l.Amount);
+            for (var i = lines.Count - 1; i >= 0 && rest != 0m; i--)
+            {
+                var take = rest < 0m ? Math.Max(rest, -lines[i].Amount) : (picked[i].Value > 0m ? rest : 0m);
+                lines[i].Amount += take;
+                rest -= take;
             }
         }
         plan.Lines = lines;

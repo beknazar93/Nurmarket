@@ -939,12 +939,16 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
             askText += navNote;
             var attachList = attachments.Select(a => (a.Data, a.Mime)).ToList();
             TelegramAiChat.OwnerAskResult result;
+            // 2026-11-27 (владелец: «дай Нур-советнику доступ ко всем разделам»): инструменты — открыть, описать, данные раздела (только чтение, по правам).
+            // ИИ вызывает их только при нужде; вызвал — к сроку ответа добавляется ExtraBudget (внутри AskOwnerAppAsync), без вызова срок прежний.
+            var tools = attachments.Count == 0 && image is null && ShouldOfferTools(question) ? CreateToolDispatcher() : null;
             if (attachments.Count == 0)
             {
                 // 2026-10-27: общий предел ≈12 с на вопрос (сводка тоже в нём): не успели — «ИИ долго отвечает — повторить?» с кнопкой.
                 var limit = TimeSpan.FromSeconds(Math.Max(6, 12 - watch.Elapsed.TotalSeconds));
+                var wait = limit + TimeSpan.FromSeconds(1) + (tools is null ? TimeSpan.Zero : AdvisorToolDispatcher.ExtraBudget);
                 var (timed, slow) = await AdvisorTurn.WithBudget(c => TelegramAiChat.AskOwnerAppAsync(askText, shop, access, c, attachList,
-                    stage => Dispatcher.UIThread.Post(() => setStage(stage)), forceFull: ForceSections(question), budget: limit), limit + TimeSpan.FromSeconds(1), token).ConfigureAwait(true);
+                    stage => Dispatcher.UIThread.Post(() => setStage(stage)), forceFull: ForceSections(question), budget: limit, tools: tools), wait, token).ConfigureAwait(true);
                 if (gen != _gen)
                     return;
                 if (slow || timed is null)
@@ -1030,6 +1034,9 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
             {
                 thinking.Text = OwnerAiContext.RevealCodes(TelegramAiChat.ToPlainText(answer), debtorNames);
                 AddAnswerExtras(thinking, question, thinking.Text ?? "", result.Included, localOnly: false, fallback: result.Fallback);
+                // 2026-11-27: прозрачность — какие разделы советник смотрел через инструменты («Использовано: …»).
+                if (tools is { Used.Count: > 0 })
+                    AddToolsUsedLine(thinking, tools.Used);
             }
             else
                 ShowFriendlyError(thinking, error, question);

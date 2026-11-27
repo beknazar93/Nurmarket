@@ -6,5 +6,8 @@ class CallTurn {
   final String text;
   final bool table;
   final String? display;
-  const CallTurn(this.user, this.text, {this.table = false, this.display});
+
+  /// 2026-11-27 (доступы советника): какие инструменты чтения и навигации звонок использовал для этой реплики — для строки «Использовано: …».
+  final List<String> used;
+  const CallTurn(this.user, this.text, {this.table = false, this.display, this.used = const []});
 }

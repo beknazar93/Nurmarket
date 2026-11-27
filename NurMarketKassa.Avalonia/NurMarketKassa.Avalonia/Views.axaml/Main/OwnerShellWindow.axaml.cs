@@ -964,6 +964,13 @@ public partial class OwnerShellWindow : Window, IMainShell
         // 2026-11-20: ky «Воронка» была по-русски — «Сатуу воронкасы».
         Add("funnel", "FunnelIcon", Tr.T("Воронка", "Сатуу воронкасы", "Sales funnel", "Satış hunisi", "Savdo voronkasi"), TariffGate.CanViewClients,
             () => { if (Authorize(PosPermissions.ViewClients)) OpenSection("funnel", () => new FunnelWindow()); });
+        // 2026-11-26 (ТОП-15 п. 2 отчёта о конкурентах): «Рассылка» — сегменты клиентов, чаты WhatsApp по одному, отправляет владелец (ClientMailingWindow).
+        Add("mailing", "MailingIcon", Tr.T("Рассылка", "Жөнөтмө", "Mailing", "Toplu mesaj", "Xabarnoma"), TariffGate.CanViewClients,
+            () => { if (Authorize(PosPermissions.ViewClients)) OpenSection("mailing", () => new ClientMailingWindow()); });
+        // 2026-11-27 (ответ Умара «Конструктор акций Ф1»): «Акции» — список и мастер акций v2 (PromotionsWindow). Только при признаке сервера promotions_v2 и роли владелец/админ
+        // (создавать и менять акции сервер разрешает им); меню пересобирается по ServerCapabilities.Changed.
+        Add("promotions", "IconPercent", Tr.T("Акции", "Акциялар", "Promotions", "Kampanyalar", "Aksiyalar"), PromotionsWindow.CanOffer(),
+            () => OpenSection("promotions", () => new PromotionsWindow()));
 
         // 2026-10-06, редизайн меню: «Сервис» → «Управление» — зарплата, сайт NurCRM, покупка функций, настройки.
         Group("manage", Tr.T("Управление", "Башкаруу", "Management", "Yönetim", "Boshqaruv"));

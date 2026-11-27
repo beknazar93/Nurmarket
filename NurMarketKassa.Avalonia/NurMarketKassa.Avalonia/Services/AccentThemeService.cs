@@ -532,6 +532,8 @@ public static class AccentThemeService
         "BrushCatalogTabBg", "BrushCatalogTabBgHover", "BrushCatalogTabBgSelected", "BrushCatalogTabBorderSelected",
         "BrushFocus", "BrushFocusRing", "BrushMoney", "BrushSurfaceSubtle",
         "BrushHeader", "BrushHeaderText",
+        // 2026-11-26 (дизайн и удобство): цвет подсказки в пустом поле (Fluent) — главный цвет текста темы (см. ниже).
+        "TextControlPlaceholderForeground", "TextControlPlaceholderForegroundPointerOver", "TextControlPlaceholderForegroundFocused",
         // Цвета состояний задаёт только своя тема (редактор тем, 2026-09-28); у встроенных они
         // из Themes/AppThemeLight/AppThemeDark, поэтому снятие ключа их не трогает.
         "BrushSuccess", "BrushSuccessSoft", "BrushWarning", "BrushWarningSoft", "BrushDanger", "BrushDangerSoft",
@@ -742,6 +744,11 @@ public static class AccentThemeService
         app.Resources["BrushAccentPressed"] = Brush(PressedAccent(p));
         // 2026-10-27: акцент как ТЕКСТ/значок на панели (BrushAccentStrong в тёмной «Классической» — тёмно-синий #1D4ED8, 1,9:1): доведён до 4,5:1 на мягкой панели.
         app.Resources["BrushAccentText"] = Brush(Readable(p.Accent, p.PanelSoft, p.Text, 4.5));
+        // 2026-11-26 (дизайн и удобство, DesignAuditUiTests): подсказка в пустом поле («Скан, код или название…») была 1,6:1 — штатный цвет Fluent (в фокусе — чёрный 40 %) да ещё полупрозрачность 0,5 из шаблона.
+        // Берём цвет текста темы: после полупрозрачности выходит не ниже 3:1 на светлой и тёмной теме, введённый текст остаётся ярче. Стилем это не переопределить (Fluent задаёт цвет в фокусе точнее) — меняем ключи ресурсов.
+        app.Resources["TextControlPlaceholderForeground"] = Brush(p.Text);
+        app.Resources["TextControlPlaceholderForegroundPointerOver"] = Brush(p.Text);
+        app.Resources["TextControlPlaceholderForegroundFocused"] = Brush(p.Text);
         // 2026-10-27: в тёмной теме шаг 0,08 давал нажатую плашку #434343, под серым текстом #AAA — 4,3:1 (нужно 4,5); 0,05 → #3E3E3E, 4,6:1. Светлая — прежний шаг.
         app.Resources["BrushPanelPressed"] = Brush(Mix(p.PanelSoft, p.Text, dark ? 0.05 : 0.08));
 

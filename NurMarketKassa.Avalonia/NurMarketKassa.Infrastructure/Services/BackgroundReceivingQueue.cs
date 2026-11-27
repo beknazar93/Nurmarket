@@ -191,6 +191,8 @@ public sealed partial class BackgroundReceivingQueue
             job.State.SupplierDocNumber = request.SupplierDocNumber.Trim();
             job.State.SupplierDocDate = request.SupplierDocDate;
         }
+        if (!string.IsNullOrWhiteSpace(request.EsfNumber))
+            job.State.EsfNumber = DocumentNumberingCore.NormalizeEsf(request.EsfNumber); // 2026-11-26
         job.Signature = SignatureOf(job);
 
         lock (_sync)

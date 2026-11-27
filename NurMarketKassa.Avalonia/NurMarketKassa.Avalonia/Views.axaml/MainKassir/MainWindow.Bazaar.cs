@@ -80,12 +80,12 @@ public partial class MainWindow
         // Потолок «Максимальная скидка» компании (как у обычной скидки на позицию): владелец и администратор не ограничены.
         if (MaxDiscountGate.Exceeds(result.Percent, isPercent: true, baseSum: 0))
         {
-            var limit = MaxDiscountGate.Limit ?? 0m;
-            _prompts.ShowWarning(Tr.T($"Скидка не может превышать {limit:0.##}% — таково ограничение для сотрудников.",
-                $"Арзандатуу {limit:0.##}%дан ашпашы керек — бул кызматкерлер үчүн чектөө.",
-                $"The discount can't exceed {limit:0.##}% — that's the limit set for employees.",
-                $"İndirim en fazla %{limit:0.##} olabilir — personel için belirlenen sınır budur.",
-                $"Chegirma {limit:0.##}%dan oshmasligi kerak — bu xodimlar uchun belgilangan chegara."));
+            var limit = MoneyText.Weight(MaxDiscountGate.Limit ?? 0m, "0.##"); // 2026-11-27: процент одним форматтером (NumberFormatRatchet)
+            _prompts.ShowWarning(Tr.T($"Скидка не может превышать {limit}% — таково ограничение для сотрудников.",
+                $"Арзандатуу {limit}%дан ашпашы керек — бул кызматкерлер үчүн чектөө.",
+                $"The discount can't exceed {limit}% — that's the limit set for employees.",
+                $"İndirim en fazla %{limit} olabilir — personel için belirlenen sınır budur.",
+                $"Chegirma {limit}%dan oshmasligi kerak — bu xodimlar uchun belgilangan chegara."));
             return;
         }
         if (!await BazaarHaggleGuard.ConfirmAsync(result.Percent, line.Title).ConfigureAwait(true))
@@ -129,12 +129,13 @@ internal static class BazaarHaggleGuard
             var prompts = App.GetRequiredService<IUserPrompts>();
             if (level == HaggleGuardLevel.SeniorOnly)
             {
+                var hard = MoneyText.Weight(BazaarHaggle.HardPercent, "0.#"); // 2026-11-27: процент одним форматтером (NumberFormatRatchet)
                 PosLogger.Log($"Торг: скидка {percent:0.#} % выше предела {BazaarHaggle.HardPercent:0.#} % — только владелец / администратор.", "SECURITY");
-                prompts.ShowToast(Tr.T($"Торг выше {BazaarHaggle.HardPercent:0.#} % — только владелец или администратор.",
-                    $"{BazaarHaggle.HardPercent:0.#} %дан жогору соодалашуу — ээси же администратор гана.",
-                    $"Haggling above {BazaarHaggle.HardPercent:0.#} % — owner or administrator only.",
-                    $"%{BazaarHaggle.HardPercent:0.#} üstü pazarlık — yalnızca sahip veya yönetici.",
-                    $"{BazaarHaggle.HardPercent:0.#} % dan yuqori savdolashuv — faqat egasi yoki administrator."), isWarning: true);
+                prompts.ShowToast(Tr.T($"Торг выше {hard} % — только владелец или администратор.",
+                    $"{hard} %дан жогору соодалашуу — ээси же администратор гана.",
+                    $"Haggling above {hard} % — owner or administrator only.",
+                    $"%{hard} üstü pazarlık — yalnızca sahip veya yönetici.",
+                    $"{hard} % dan yuqori savdolashuv — faqat egasi yoki administrator."), isWarning: true);
                 return false;
             }
             PosLogger.Log($"PIN старшего: нужен для торга (скидка {percent:0.#} %).", "SECURITY");

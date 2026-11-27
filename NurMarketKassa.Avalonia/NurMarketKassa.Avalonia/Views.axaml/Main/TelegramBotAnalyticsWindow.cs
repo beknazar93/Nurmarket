@@ -5,6 +5,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
 using NurMarketKassa.Services;
+using NurMarketKassa.Services.Api;
 
 namespace NurMarketKassa.AvaloniaHost.Views;
 
@@ -36,7 +37,7 @@ public sealed class TelegramBotAnalyticsWindow : Window
         // 2026-10-01, владелец (скриншот): «сделай фиксированную высоту и добавь скролл» — шапка и плитки
         // на месте, а колонки «Покупатели» и «Последние обращения» занимают остаток высоты окна и
         // прокручиваются каждая сама, не утаскивая за собой всю страницу.
-        var root = new Grid { Margin = new Thickness(24, 16, 24, 24), RowDefinitions = new RowDefinitions("Auto,Auto,Auto,Auto,*") };
+        var root = new Grid { Margin = new Thickness(24, 16, 24, 24), RowDefinitions = new RowDefinitions("Auto,Auto,Auto,Auto,Auto,*") };
         var title = new TextBlock
         {
             Text = Tr.T("Обращения покупателей к боту", "Сатып алуучулардын ботко кайрылуулары", "Customer inquiries to the bot",
@@ -50,7 +51,7 @@ public sealed class TelegramBotAnalyticsWindow : Window
         _tiles.Margin = new Thickness(0, 0, 0, 16);
         Grid.SetRow(_status, 1);
         Grid.SetRow(_chips, 2);
-        Grid.SetRow(_tiles, 3);
+        Grid.SetRow(_tiles, 4);
         root.Children.Add(title);
         // 2026-11-08 (п. 31 ответа сервера): журнал сообщений бота покупателям и тихие часы — отдельное окно.
         var journal = new Button { Classes = { "sec-outline" }, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top,
@@ -62,6 +63,15 @@ public sealed class TelegramBotAnalyticsWindow : Window
             catch (Exception ex) { PosLogger.Log($"Журнал сообщений бота не открылся: {ex.Message}", "WARNING"); }
         };
         root.Children.Add(journal);
+        // 2026-11-26 (ответ Умара 26.11, «Бот-продавец, этап 1»): «Бот-продавец», «Диалоги бота» и «Продажи бота» — каждая кнопка видна только при своём признаке сервера
+        // (bot_seller / bot_handoff / bot_sales_stats); без признаков ряд скрыт и места не занимает.
+        _sellerButtons.Margin = new Thickness(0, 0, 0, 12);
+        _sellerButtons.Children.Add(SellerButton(ServerCapabilities.BotSeller, Tr.T("Бот-продавец", "Бот-сатуучу", "Seller bot", "Satıcı bot", "Bot-sotuvchi"), () => new BotSellerSettingsWindow()));
+        _sellerButtons.Children.Add(SellerButton(ServerCapabilities.BotHandoff, Tr.T("Диалоги бота", "Боттун диалогдору", "Bot dialogs", "Bot diyalogları", "Bot dialoglari"), () => new BotDialogsWindow()));
+        _sellerButtons.Children.Add(SellerButton(ServerCapabilities.BotSalesStats, Tr.T("Продажи бота", "Боттун сатуулары", "Bot sales", "Bot satışları", "Bot savdolari"), () => new BotSalesStatsWindow()));
+        _sellerButtons.Children.Add(SellerButton(ServerCapabilities.BotBargain, Tr.T("Торг по товарам", "Товарлар боюнча соодалашуу", "Bargaining by product", "Ürün bazında pazarlık", "Mahsulotlar bo'yicha savdolashish"), () => new BotBargainProductsWindow()));
+        Grid.SetRow(_sellerButtons, 3);
+        root.Children.Add(_sellerButtons);
         root.Children.Add(_status);
         root.Children.Add(_chips);
         root.Children.Add(_tiles);
@@ -69,7 +79,7 @@ public sealed class TelegramBotAnalyticsWindow : Window
         var columns = new Grid { ColumnDefinitions = new ColumnDefinitions("2*,16,3*") };
         columns.Children.Add(Card(Tr.T("Покупатели (30 дней)", "Сатып алуучулар (30 күн)", "Customers (30 days)", "Müşteriler (30 gün)", "Xaridorlar (30 kun)"), _customers, 0));
         columns.Children.Add(Card(Tr.T("Последние обращения", "Акыркы кайрылуулар", "Latest inquiries", "Son başvurular", "Oxirgi murojaatlar"), _feed, 2));
-        Grid.SetRow(columns, 4);
+        Grid.SetRow(columns, 5);
         root.Children.Add(columns);
 
         Content = root;
@@ -78,8 +88,14 @@ public sealed class TelegramBotAnalyticsWindow : Window
         {
             _ = RenderAsync();
             _timer.Start();
+            ServerCapabilities.Changed += OnCapabilitiesChanged;
+            RefreshSellerButtons();
         };
-        Closed += (_, _) => _timer.Stop();
+        Closed += (_, _) =>
+        {
+            _timer.Stop();
+            ServerCapabilities.Changed -= OnCapabilitiesChanged;
+        };
         // 2026-11-01 (В2-02, контрольный аудит): спрятанный раздел (владелец ушёл в другой) и свёрнутое окно сервер не опрашивают —
         // раньше ~240 запросов в час впустую; при возврате данные старше 60 с обновляются сами.
         _timer.Tick += (_, _) =>
@@ -95,6 +111,29 @@ public sealed class TelegramBotAnalyticsWindow : Window
     }
 
     private DateTime _lastRenderUtc = DateTime.MinValue;
+
+    private readonly WrapPanel _sellerButtons = new() { IsVisible = false };
+
+    private Button SellerButton(string feature, string text, Func<Window> create)
+    {
+        var button = new Button { Classes = { "sec-outline" }, Content = text, Tag = feature, IsVisible = false, Margin = new Thickness(0, 0, 8, 4) };
+        Avalonia.Automation.AutomationProperties.SetName(button, text);
+        button.Click += (_, _) =>
+        {
+            try { create().Show(this); }
+            catch (Exception ex) { PosLogger.Log($"«{text}» не открылось: {ex.Message}", "WARNING"); }
+        };
+        return button;
+    }
+
+    private void OnCapabilitiesChanged() => Dispatcher.UIThread.Post(RefreshSellerButtons); // событие приходит из потока запроса
+
+    private void RefreshSellerButtons()
+    {
+        foreach (var b in _sellerButtons.Children.OfType<Button>())
+            b.IsVisible = b.Tag is string feature && ServerCapabilities.Has(feature);
+        _sellerButtons.IsVisible = _sellerButtons.Children.OfType<Button>().Any(b => b.IsVisible);
+    }
 
     /// <summary>2026-10-01, ТЗ часть 5: бот на сервере NurCRM — обращения пишет сервер
     /// (GET /api/main/telegram-bot/inquiries/), а журнал этого компьютера больше не пополняется.

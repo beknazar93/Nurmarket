@@ -13,13 +13,16 @@ Views.axaml/Dialogs/CloseShiftDialog.axaml.cs;6
 Views.axaml/Dialogs/CustomerDisplayEditorWindow.axaml.cs;2
 Views.axaml/Dialogs/ExchangeWindow.cs;2
 Views.axaml/Dialogs/InvoiceImportFlow.cs;5
+Views.axaml/Dialogs/LabelDesignerView.cs;1;2026-11-27: Guid.ToString("N") — id копии шаблона, не число
 Views.axaml/Dialogs/MassaKScaleSettingsWindow.axaml.cs;6
 Views.axaml/Dialogs/MissingSalePriceDialog.cs;1
 Views.axaml/Dialogs/ModalMotion.cs;3
 Views.axaml/Dialogs/OrderDiscountDialog.axaml.cs;2
+Views.axaml/Dialogs/PayDebtDialog.Method.cs;1;2026-11-27: Guid.ToString("N") — ключ смешанной оплаты, не число
 Views.axaml/Dialogs/PayDebtDialog.axaml.cs;5
 Views.axaml/Dialogs/PhoneLinkPairWindow.cs;5
 Views.axaml/Dialogs/ProductAlternativesDialog.axaml.cs;5
+Views.axaml/Dialogs/ProductEditDialog.Bazaar.cs;2;2026-11-27: текст поля ввода оптовой цены (разбор в инвариантной культуре), не показ
 Views.axaml/Dialogs/ProductEditDialog.Properties.cs;9
 Views.axaml/Dialogs/ProductEditDialog.Save.cs;25
 Views.axaml/Dialogs/ProductEditDialog.axaml.cs;8
@@ -32,7 +35,7 @@ Views.axaml/Dialogs/RongtaScaleSettingsWindow.axaml.cs;32
 Views.axaml/Dialogs/SalaryPayoutDialog.cs;1
 Views.axaml/Dialogs/SalarySchemeDialog.cs;6
 Views.axaml/Dialogs/SchoolListWindow.cs;5
-Views.axaml/Dialogs/ShiftDetailsDialog.axaml.cs;80
+Views.axaml/Dialogs/ShiftDetailsDialog.axaml.cs;81;2026-11-27: +3 печатный текст Z/X-отчёта «0.00» как соседние строки (оплата долгов безналом), −2 внесения/изъятия на MoneyText
 Views.axaml/Dialogs/ShtrikhScaleSettingsWindow.Currency.cs;2
 Views.axaml/Dialogs/StockTransferDialog.Branches.cs;18
 Views.axaml/Dialogs/StockTransferDialog.axaml.cs;1
@@ -49,6 +52,8 @@ Views.axaml/Main/AiAdvisorWindow.Preview.cs;1
 Views.axaml/Main/AiAdvisorWindow.ProductPlan.cs;2
 Views.axaml/Main/AiAdvisorWindow.cs;2
 Views.axaml/Main/BonusAnalyticsWindow.cs;40
+Views.axaml/Main/BotBargainProductsWindow.cs;2;2026-11-27: поля ввода мин. цены/скидки (InvariantCulture), не показ
+Views.axaml/Main/BotSellerSettingsWindow.cs;2;2026-11-27: поля ввода процентов (InvariantCulture), не показ
 Views.axaml/Main/BranchesWindow.cs;2
 Views.axaml/Main/BulkImportWindow.axaml.cs;9
 Views.axaml/Main/BulkImportWizardWindow.File.cs;10
@@ -86,12 +91,14 @@ Views.axaml/Main/OwnerShellWindow.SalesPlan.cs;7
 Views.axaml/Main/PosSettingsWindow.axaml.cs;7
 Views.axaml/Main/PriceHintsDialog.cs;7
 Views.axaml/Main/ProductAnalyticsWindow.axaml.cs;8
+Views.axaml/Main/PromotionsWindow.Preview.cs;1;2026-11-27: Guid.ToString("N") — ключ идемпотентности
+Views.axaml/Main/PromotionsWindow.Wizard.cs;2;2026-11-27: Guid.ToString("N") ключ и время «00:мм», не деньги
 Views.axaml/Main/PurchasesRegistryView.cs;10
 Views.axaml/Main/PurchasesWindow.Receive.Goods.cs;2
 Views.axaml/Main/PurchasesWindow.Receive.Render.cs;1
 Views.axaml/Main/PurchasesWindow.Receive.cs;1
 Views.axaml/Main/RentalsWindow.cs;1
-Views.axaml/Main/RepairOrdersWindow.cs;1
+Views.axaml/Main/RepairOrdersWindow.cs;2;2026-11-27: +1 — Guid.ToString("N") в ключе предоплаты ремонта
 Views.axaml/Main/RestockSuggestionsWindow.axaml.cs;5
 Views.axaml/Main/SalesWindow.Data.cs;15
 Views.axaml/Main/ScalesPluWindow.Cas.cs;10
@@ -103,16 +110,17 @@ Views.axaml/Main/SiteOrdersWindow.axaml.cs;5
 Views.axaml/Main/SizesReportWindow.cs;6
 Views.axaml/Main/StaffReportsWindow.cs;6
 Views.axaml/Main/StaffTimesheetWindow.axaml.cs;1
-Views.axaml/Main/SupplierCardView.cs;2
+Views.axaml/Main/SupplierCardView.cs;4;2026-11-27: +2 — ключи идемпотентности оплаты поставщику (InvariantCulture), не показ
 Views.axaml/Main/SupplierEditDialog.cs;1
 Views.axaml/Main/SupplierReturnsWindow.cs;8
-Views.axaml/Main/WarehouseWindow.BulkScan.cs;17
+Views.axaml/Main/WarehouseWindow.BulkScan.cs;18;2026-11-27: +1 — строка из 1.17.93, список отставал
 Views.axaml/Main/WarehouseWindow.CycleCount.cs;10
 Views.axaml/Main/WarehouseWindow.Lifecycle.cs;1
 Views.axaml/Main/WarehouseWindow.ReceivingScan.cs;4
 Views.axaml/Main/WarehouseWindow.Redesign.cs;10
 Views.axaml/Main/WarehouseWindow.Sort.cs;15
 Views.axaml/Main/WarehouseWindow.axaml.cs;10
+Views.axaml/MainKassir/MainWindow.Bazaar.cs;2;2026-11-27: значение скидки торга в данные корзины (InvariantCulture), не показ
 Views.axaml/MainKassir/MainWindow.Dialogs.cs;44
 Views/Analytics/AbcXyzView.cs;12
 Views/Analytics/CategoryAnalyticsView.cs;12

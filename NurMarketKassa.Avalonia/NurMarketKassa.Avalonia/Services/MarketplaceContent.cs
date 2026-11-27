@@ -16,9 +16,13 @@ internal static partial class MarketplaceContent
         foreach (var item in items)
         {
             item.Group = GroupOf(item);
+            // 2026-11-26: у Сметы, Проката, Ремонта и Trade-in (свои карточки) строка «что делает» — та же, что в диалоге «Своё» (MarketplaceModuleContent.Lines).
+            if (item.Line.Length == 0 && Array.IndexOf(ModuleIds.WithOwnCard, item.Id) >= 0)
+                item.Line = MarketplaceModuleContent.LineOf(item.Id) ?? "";
             try
             {
                 Fill(item);
+                MarketplaceDemos.Apply(item); // 2026-11-26: демонстрация работы (код-макет) и «Что получите» — для функций без GIF
             }
             catch (Exception ex)
             {
@@ -46,7 +50,7 @@ internal static partial class MarketplaceContent
             "sms" => MarketplaceGroup.Soon,
             "timesheet" or "export" or "telegram" => MarketplaceGroup.Owner,
             "scales" or "analytics" or "pricetag" or "bulktag" or "labeleditor" => MarketplaceGroup.Warehouse,
-            _ => MarketplaceGroup.Sales, // loyalty, shiftstats, language
+            _ => MarketplaceFeatureCards.GroupOf(item.Id) ?? MarketplaceGroup.Sales, // loyalty, shiftstats, language; 2026-11-26: карточки без модуля сервера — своя группа
         };
     }
 

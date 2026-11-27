@@ -32,6 +32,10 @@ internal static class DebtPaymentFlow
         $"Borç ödeniyor… {seconds} sn. Sunucu taksitleri sırayla kapatır — büyük borçta yarım dakikaya kadar sürebilir. Pencere çalışıyor, kapatmayın ve «Al» düğmesine tekrar basmayın: ikinci kez tahsil edilmez.",
         $"Qarz to'lanmoqda… {seconds} s. Server badallarni navbat bilan yopadi — katta qarzda yarim daqiqagacha cho'zilishi mumkin. Oyna ishlayapti, uni yopmang va «Qabul qilish»ni qayta bosmang: ikkinchi marta yechilmaydi.");
 
+    /// <summary>2026-11-26: «Способ оплаты: Наличные.» — в сообщении кассе после принятой оплаты (кассир видит, как записана оплата: в ящик или безналом).</summary>
+    public static string MethodNote(string method) =>
+        T("Способ оплаты: ", "Төлөө ыкмасы: ", "Payment method: ", "Ödeme yöntemi: ", "To'lov usuli: ") + MethodTitle(method) + ".";
+
     /// <summary>Для журнала (по-русски, как остальные строки PAYMENT).</summary>
     public static string MethodLog(string method) => method == DebtPaymentSettings.MethodTransfer ? "безнал" : "наличные";
 

@@ -99,6 +99,7 @@ public sealed partial class UserPreferences
                 TradeInUnlocked = TradeInUnlocked, // 2026-11-13
                 EstimateEnabled = EstimateEnabled, // 2026-11-19
                 RentalEnabled = RentalEnabled, // 2026-11-20
+                CarcassYieldEnabled = CarcassYieldEnabled, // 2026-11-26: модуль «Выход мяса при приходе»
                 ScalesUnlocked = ScalesUnlocked,
                 BulkPriceTagKind = BulkPriceTagKind,
                 BulkPriceTagWidthMm = BulkPriceTagWidthMm,
@@ -215,6 +216,7 @@ public sealed partial class UserPreferences
                 EmployeeAccessCodesCompanyId = EmployeeAccessCodesCompanyId,
                 DebtPaymentOptions = DebtPaymentOptions,
                 DebtPaymentOptionsCompanyId = DebtPaymentOptionsCompanyId,
+                LastDebtPaymentMethod = LastDebtPaymentMethod, // 2026-11-26
                 LoyaltyEnabled = LoyaltyEnabled,
                 ShowQuickProducts = ShowQuickProducts,
                 UpsellEnabled = UpsellEnabled,
@@ -300,6 +302,10 @@ public sealed partial class UserPreferences
                 ShowItems = ShowItems,
                 ShowTotal = ShowTotal,
                 ShowQrCode = ShowQrCode,
+                PrintReceiptLinkQr = PrintReceiptLinkQr,
+                PrintShopQr = PrintShopQr,
+                StorefrontSlug = StorefrontSlug,
+                StorefrontSlugCompany = StorefrontSlugCompany,
                 GraphicFontSize = GraphicFontSize,
                 BackgroundImagePath = BackgroundImagePath,
                 BackgroundOpacity = BackgroundOpacity,
@@ -479,6 +485,7 @@ public sealed partial class UserPreferences
         public bool? TradeInUnlocked { get; set; } // 2026-11-13
         public bool? EstimateEnabled { get; set; } // 2026-11-19
         public bool? RentalEnabled { get; set; } // 2026-11-20
+        public bool? CarcassYieldEnabled { get; set; } // 2026-11-26
         public bool? ScalesUnlocked { get; set; }
         public int? BulkPriceTagKind { get; set; }
         public double? BulkPriceTagWidthMm { get; set; }
@@ -597,6 +604,7 @@ public sealed partial class UserPreferences
         public string? EmployeeAccessCodesCompanyId { get; set; }
         public DebtPaymentOptions? DebtPaymentOptions { get; set; }
         public string? DebtPaymentOptionsCompanyId { get; set; }
+        public string? LastDebtPaymentMethod { get; set; }
         public bool? LoyaltyEnabled { get; set; }
         public bool? ShowQuickProducts { get; set; }
         public bool? UpsellEnabled { get; set; }
@@ -684,6 +692,10 @@ public sealed partial class UserPreferences
         public bool? ShowItems { get; set; }
         public bool? ShowTotal { get; set; }
         public bool? ShowQrCode { get; set; }
+        public bool? PrintReceiptLinkQr { get; set; }
+        public bool? PrintShopQr { get; set; }
+        public string? StorefrontSlug { get; set; }
+        public string? StorefrontSlugCompany { get; set; }
         public float? GraphicFontSize { get; set; }
         public string? BackgroundImagePath { get; set; }
         public double? BackgroundBlurPercent { get; set; }

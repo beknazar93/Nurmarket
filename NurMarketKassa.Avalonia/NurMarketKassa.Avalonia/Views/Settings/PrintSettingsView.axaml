@@ -388,6 +388,17 @@
                   <TextBlock Text="{DynamicResource printSettings.qrHeader}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
                   <CheckBox Grid.Column="1" x:Name="ShowQrCodeCheck" x:FieldModifier="public" Classes="ToggleSwitch"/>
                 </Grid>
+                <!-- 2026-11-26: QR со ссылкой на страницу чека (по умолчанию включён) -->
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="{DynamicResource printSettings.linkQr}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
+                  <CheckBox Grid.Column="1" x:Name="PrintReceiptLinkQrCheck" x:FieldModifier="public" Classes="ToggleSwitch"/>
+                </Grid>
+                <!-- 2026-11-26 (отчёт «Конкуренты», п. 3): второй QR — на витрину магазина, подпись «Заказать онлайн» (по умолчанию выключен) -->
+                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                  <TextBlock Text="{DynamicResource printSettings.shopQr}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
+                  <CheckBox Grid.Column="1" x:Name="PrintShopQrCheck" x:FieldModifier="public" Classes="ToggleSwitch"/>
+                  <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{DynamicResource printSettings.shopQrHint}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                </Grid>
               </StackPanel>
 
               <StackPanel Grid.Column="2" Spacing="8">

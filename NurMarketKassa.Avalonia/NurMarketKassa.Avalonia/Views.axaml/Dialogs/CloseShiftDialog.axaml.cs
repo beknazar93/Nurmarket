@@ -70,6 +70,9 @@ public partial class CloseShiftDialog : Window
     private ServerShiftReport? _report;
     private readonly CancellationTokenSource _reportCts = new();
 
+    /// <summary>2026-11-27 (живой проход, A): отчёт смены сервера, полученный окном до закрытия, — для Z, если сервер не ответит на само закрытие.</summary>
+    public ServerShiftReport? ServerReport => _report;
+
     public CloseShiftDialog()
     {
         InitializeComponent();
@@ -414,9 +417,8 @@ public partial class CloseShiftDialog : Window
             // 2026-11-01 (Ж-07): строка «Возвраты» — наличная часть (cash= в примечании журнала), как в X-отчёте; безнал и списание долга
             // из ящика не берутся. Журнала нет — сумма возвратов сервера.
             var returnEvents = ShiftEventsStore.ListForShift(shiftId, ShiftEventsStore.KindReturn);
-            var returns = returnEvents.Count > 0
-                ? returnEvents.Sum(r => (decimal)(ParseNote(r.Note, "cash") ?? r.Amount))
-                : _report?.ReturnsTotal ?? 0m;
+            // 2026-11-27 (живой проход, B): тот же расчёт, что X/Z (ShiftDetailsDialog.ReturnsForExpected): возвраты сервера не теряются после возврата на кассе.
+            var returns = ShiftDetailsDialog.ReturnsForExpected(new ShiftModel { Id = shiftId }, _report, null);
             var (deposits, withdrawals) = _report is { } depReport ? (depReport.Deposits, depReport.Withdrawals) : ShiftCashOperationsStore.SumsForShift(shiftId);
             // 2026-11-13 (п. 7): наличная часть сторно возврата прошлой смены — отдельной строкой раскладки (суммы ящика те же: returns уже включает её)
             var prevReturnsCash = returnEvents.Count > 0

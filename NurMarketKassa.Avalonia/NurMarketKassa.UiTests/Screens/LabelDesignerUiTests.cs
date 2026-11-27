@@ -170,6 +170,38 @@ public sealed class LabelDesignerUiTests : IDisposable
 
     // ------------------------------------------------------------------ действия
 
+    /// <summary>2026-11-26 (отчёт «Конкуренты», п. 3): «QR магазина» — в меню «Добавить элемент»; после добавления на холсте рамка 14×14 мм, в свойствах подсказка
+    /// про витрину (ru/ky/uz), блоки свойств не выходят за окно 1024×600.</summary>
+    [AvaloniaTheory]
+    [InlineData(AppLanguage.Russian)]
+    [InlineData(AppLanguage.Kyrgyz)]
+    [InlineData(AppLanguage.Uzbek)]
+    public async Task Editor_ShopQr_CanBeAdded_AndItsHintIsShown(AppLanguage lang)
+    {
+        await TestHost.WarmAsync();
+        var (window, hub) = OpenHub(1024, 600, lang, LabelsHubMode.Editor);
+        try
+        {
+            var d = hub.Designer!;
+            var before = d.WorkingTemplate.Extras.Count;
+            d.AddElement(LabelExtraKind.ShopQr);
+            UiShot.Settle(6);
+            d.WorkingTemplate.Extras.Should().HaveCount(before + 1);
+            var shopQr = d.WorkingTemplate.Extras.Last();
+            shopQr.Kind.Should().Be(LabelExtraKind.ShopQr);
+            shopQr.WidthMm.Should().BeGreaterThanOrEqualTo(7);
+            shopQr.HeightMm.Should().BeGreaterThanOrEqualTo(8, "в блок такой высоты влезает подпись «Заказать онлайн»");
+            UiDrive.AllText(window).Should().Contain("market.nurcrm.kg", $"{Lang(lang)}: в свойствах подсказка про витрину");
+            var windowRect = new Rect(0, 0, window.Bounds.Width, window.Bounds.Height);
+            foreach (var t in d.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible && !string.IsNullOrWhiteSpace(t.Text) && t.Text!.Contains("market.nurcrm.kg")))
+                Bounds(t, window).Right.Should().BeLessThanOrEqualTo(windowRect.Right + 1, $"{Lang(lang)}: подсказка не выходит за окно");
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaFact]
     public async Task Editor_AddElement_DragAndResizeByMouse_Undo_Save_AndTemplate()
     {

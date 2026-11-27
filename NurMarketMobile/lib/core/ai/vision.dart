@@ -16,6 +16,7 @@ import '../providers.dart';
 import 'ai_access.dart';
 import 'ai_image.dart';
 import 'assistant/ai_journal.dart';
+import 'chat_toolkit.dart';
 import 'cam_aliases.dart';
 import 'gemini_keys.dart';
 import 'scale_reading.dart';
@@ -123,6 +124,13 @@ class _ChatFail {
 
   /// 2026-10-27: короткий вопрос без сводки магазина — первой модели даём меньше времени.
   bool fast = false;
+
+  /// 2026-11-26 (жалоба «ИИ тормозит»): показывать ответ по мере прихода (потоковый запрос Gemini). null — ответ ждётся целиком.
+  void Function(String partial)? onPartial;
+
+  /// 2026-11-27 (доступы советника ко всем разделам): инструменты чтения и навигации для этого вопроса (function calling Gemini).
+  /// null — обычный чат без инструментов.
+  ChatToolkit? toolkit;
   VisionIssue? issue;
   DateTime? until;
   String? model;
@@ -855,6 +863,16 @@ class VisionService {
   /// Флагом, а не параметром: у [chat] есть подменяющие её фейки в тестах. Сбрасывается самим [chat].
   bool fastChat = false;
 
+  /// 2026-11-26 (жалоба «ИИ тормозит»): если задан — чат Советника просит у Gemini потоковый ответ (streamGenerateContent, SSE) и
+  /// отдаёт набранный текст по мере прихода: первые слова видны через 1–1,5 с, а не после полного ответа (таблица — 6–10 с).
+  /// Флагом по той же причине, что [fastChat]; сбрасывается самим [chat].
+  void Function(String partial)? onChatPartial;
+
+  /// 2026-11-27 (доступы советника ко всем разделам): инструменты чтения и навигации для следующего вопроса чата (function calling).
+  /// С инструментами ответ приходит целиком (без потока) — их ставят, только когда вопрос про разделы и данные. Флагом, как [fastChat];
+  /// сбрасывается самим [chat].
+  ChatToolkit? chatToolkit;
+
   /// 2026-10-27: модель, ответившая на последний вопрос чата (для журнала замеров ai_perf).
   static String? lastChatModel;
 
@@ -1165,8 +1183,13 @@ class VisionService {
   /// 2026-10-27: [budget] — общий срок ответа (с ожиданием подключения и запасными ИИ): по его истечении — ошибка «ИИ долго не
   /// отвечает» (VisionIssue.timeout) с кнопкой «Повторить», а не бесконечный индикатор. Последняя ошибка пишется в журнал ИИ.
   Future<String> chat(String system, List<({bool user, String text})> history, {Duration budget = const Duration(seconds: 45)}) async {
-    final fail = _ChatFail()..fast = fastChat;
+    final fail = _ChatFail()
+      ..fast = fastChat
+      ..onPartial = onChatPartial
+      ..toolkit = chatToolkit;
     fastChat = false;
+    onChatPartial = null;
+    chatToolkit = null;
     try {
       return await _chat(system, history, fail, budget).timeout(
         budget,
@@ -1190,7 +1213,9 @@ class VisionService {
       if (text != null) return text;
     }
     if (fail.cancelled) throw const VisionException('ИИ долго не отвечает…', issue: VisionIssue.timeout);
-    final alt = await _fallbackChat(system, history, errors);
+    // 2026-11-27: запасные ИИ функции не вызывают — им инструкция без обещания инструментов (иначе «открыла» без открытия)
+    final fb = fail.toolkit?.fallbackSystem ?? '';
+    final alt = await _fallbackChat(fb.isEmpty ? system : fb, history, errors);
     if (alt != null) return alt;
     if (errors.isEmpty) {
       final e = noKeyFailure(note: false);
@@ -1238,6 +1263,8 @@ class VisionService {
       errors.add('Gemini: нет вопроса');
       return null;
     }
+    final tk = fail.toolkit; // 2026-11-27: инструменты чтения и навигации (function calling); null — обычный чат
+    var toolRounds = 0;
     Map<String, dynamic> body(int step) => {
       'systemInstruction': {
         'parts': [
@@ -1245,6 +1272,8 @@ class VisionService {
         ],
       },
       'contents': contents,
+      // 2026-11-27: после лимита вызовов инструменты не объявляются — модель обязана ответить текстом
+      if (tk != null && !tk.exhausted && tk.declarations.isNotEmpty) 'tools': [{'functionDeclarations': tk.declarations}],
       'generationConfig': {
         'temperature': 0.5,
         'maxOutputTokens': 4096,
@@ -1282,14 +1311,19 @@ class VisionService {
         ..detail = null;
       final cap = limit < left ? limit : left;
       try {
-        final r = await _http
-            .post<dynamic>(
-              'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent',
-              data: body(step),
-              options: Options(headers: {'x-goog-api-key': used}, validateStatus: (_) => true, sendTimeout: cap, receiveTimeout: cap),
-            )
-            // connectTimeout Dio (15 с) считается сверху — общий срок попытки держим сами
-            .timeout(cap + const Duration(seconds: 1));
+        // 2026-11-26: с onPartial — потоковый запрос (текст виден по мере прихода); ошибки до первого куска разбираются ниже так же
+        // 2026-11-27: с инструментами ответ целиком (в потоке куски functionCall не собираются)
+        final onPartial = tk != null ? null : fail.onPartial;
+        final r = onPartial != null
+            ? await _streamPost('https://generativelanguage.googleapis.com/v1beta/models/$model:streamGenerateContent', body(step), used, cap, onPartial)
+            : await _http
+                  .post<dynamic>(
+                    'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent',
+                    data: body(step),
+                    options: Options(headers: {'x-goog-api-key': used}, validateStatus: (_) => true, sendTimeout: cap, receiveTimeout: cap),
+                  )
+                  // connectTimeout Dio (15 с) считается сверху — общий срок попытки держим сами
+                  .timeout(cap + const Duration(seconds: 1));
         final status = r.statusCode ?? 0;
         final data = r.data is Map ? (r.data as Map).cast<String, dynamic>() : const <String, dynamic>{};
         if (status >= 400) {
@@ -1341,6 +1375,31 @@ class VisionService {
           };
           continue; // следующая модель
         }
+        // 2026-11-27 (доступы советника ко всем разделам): модель просит инструменты — исполняем (не больше maxCalls, каждый ≤ 5 с,
+        // параллельно) и возвращаем ответы той же модели; её ход уходит обратно как есть (в нём подпись размышлений Gemini 3).
+        final asked = tk == null ? const <({String name, Map<String, dynamic> args})>[] : _functionCalls(data);
+        if (asked.isNotEmpty) {
+          if (toolRounds >= 5) {
+            lastError = 'нейросеть не закончила вызовы инструментов';
+            fail.detail = lastError;
+            break;
+          }
+          toolRounds++;
+          final cand = (data['candidates'] as List).first as Map;
+          contents.add({'role': 'model', 'parts': ((cand['content'] as Map)['parts'] as List)});
+          final answers = await Future.wait([for (final c in asked) tk!.execute(c.name, c.args)]);
+          contents.add({
+            'role': 'user',
+            'parts': [
+              for (var i = 0; i < asked.length; i++)
+                {
+                  'functionResponse': {'name': asked[i].name, 'response': answers[i]},
+                },
+            ],
+          });
+          mi--; // тот же вопрос той же моделью с ответами инструментов
+          continue;
+        }
         final text = _text(data);
         if (text != null) {
           _workingModel = model;
@@ -1381,6 +1440,107 @@ class VisionService {
     return null;
   }
 
+  /// 2026-11-26: до первого куска потокового ответа ждём не дольше этого (обычно 1–2,5 с): зависшую модель меняем на следующую,
+  /// а не ждём весь срок попытки (25 с).
+  static Duration chatFirstChunk = const Duration(seconds: 10);
+
+  /// 2026-11-26 (жалоба «ИИ тормозит»): потоковый запрос чата (Server-Sent Events, `?alt=sse`). Возвращает ответ в той же форме, что
+  /// обычный `generateContent` (статус + карта), поэтому разбор ошибок, ротация ключей и смена модели в [_geminiChat] не меняются.
+  /// Ошибка Google до первого куска — как раньше (статус 4xx/5xx и тело). Обрыв или срок посреди ответа — берём пришедший текст
+  /// (с «…» в конце), а не выбрасываем его и не просим другую модель: человек уже читает.
+  Future<Response<dynamic>> _streamPost(String url, Map<String, dynamic> body, String key, Duration cap, void Function(String) onPartial) async {
+    final cancel = CancelToken();
+    final text = StringBuffer();
+    String? finish;
+    String? blocked;
+    Map<String, dynamic>? streamError;
+    var timedOut = false;
+    void stop(String why) {
+      timedOut = true;
+      cancel.cancel(why);
+    }
+
+    final firstTimer = Timer(cap < chatFirstChunk ? cap : chatFirstChunk, () => stop('first'));
+    final totalTimer = Timer(cap, () => stop('total'));
+    Response<dynamic> made(int status, Object? data) => Response<dynamic>(requestOptions: RequestOptions(path: url), statusCode: status, data: data);
+    Response<dynamic> assembled() => made(200, {
+      'candidates': [
+        {
+          'content': {
+            'parts': text.isEmpty
+                ? const <Map<String, dynamic>>[]
+                : [
+                    {'text': finish == null ? '$text\n\n…' : '$text'},
+                  ],
+          },
+          'finishReason': ?finish,
+        },
+      ],
+      if (blocked != null) 'promptFeedback': {'blockReason': blocked},
+    });
+    try {
+      final r = await _http.post<ResponseBody>(
+        '$url?alt=sse',
+        data: body,
+        cancelToken: cancel,
+        options: Options(headers: {'x-goog-api-key': key}, responseType: ResponseType.stream, validateStatus: (_) => true, sendTimeout: cap, receiveTimeout: cap),
+      );
+      final status = r.statusCode ?? 0;
+      final lines = r.data!.stream.cast<List<int>>().transform(utf8.decoder).transform(const LineSplitter());
+      if (status >= 400) {
+        final raw = await lines.join('\n');
+        Object? parsed;
+        try {
+          parsed = jsonDecode(raw);
+        } catch (_) {
+          parsed = raw;
+        }
+        return made(status, parsed);
+      }
+      await for (final line in lines) {
+        if (!line.startsWith('data:')) continue;
+        Object? ev;
+        try {
+          ev = jsonDecode(line.substring(5).trim());
+        } catch (_) {
+          continue;
+        }
+        if (ev is! Map) continue;
+        if (ev['error'] is Map) {
+          streamError = (ev['error'] as Map).cast<String, dynamic>();
+          break;
+        }
+        final pf = ev['promptFeedback'];
+        if (pf is Map && pf['blockReason'] != null) blocked = '${pf['blockReason']}';
+        final c = ev['candidates'];
+        if (c is! List || c.isEmpty || c.first is! Map) continue;
+        final cand = c.first as Map;
+        if (cand['finishReason'] != null) finish = '${cand['finishReason']}';
+        final content = cand['content'];
+        final parts = content is Map ? content['parts'] : null;
+        if (parts is! List) continue;
+        // «размышления» модели (thought: true) не показываем — как в обычном ответе ([_text])
+        final piece = parts.whereType<Map>().where((p) => p['thought'] != true).map((p) => p['text']?.toString() ?? '').join();
+        if (piece.isEmpty) continue;
+        if (text.isEmpty) firstTimer.cancel();
+        text.write(piece);
+        onPartial(text.toString());
+      }
+      if (streamError != null && text.isEmpty) {
+        final code = streamError['code'];
+        return made(code is int && code >= 400 ? code : 500, {'error': streamError});
+      }
+      return assembled();
+    } catch (e) {
+      if (text.isNotEmpty) return assembled(); // ответ оборвался, но часть текста уже на экране — оставляем её
+      if (timedOut) throw TimeoutException('stream');
+      rethrow;
+    } finally {
+      firstTimer.cancel();
+      totalTimer.cancel();
+    }
+  }
+
   static String? _text(Map<String, dynamic> data) {
     final c = data['candidates'];
     if (c is! List || c.isEmpty || c.first is! Map) return null;
@@ -1391,6 +1551,27 @@ class VisionService {
     final t = parts.whereType<Map>().where((p) => p['thought'] != true).map((p) => p['text']?.toString() ?? '').join();
     return t.trim().isEmpty ? null : t;
   }
+
+  /// 2026-11-27: вызовы инструментов в ответе Gemini (parts[].functionCall {name, args}); пусто — обычный текстовый ответ.
+  static List<({String name, Map<String, dynamic> args})> _functionCalls(Map<String, dynamic> data) {
+    final c = data['candidates'];
+    if (c is! List || c.isEmpty || c.first is! Map) return const [];
+    final content = (c.first as Map)['content'];
+    final parts = content is Map ? content['parts'] : null;
+    if (parts is! List) return const [];
+    return [
+      for (final p in parts.whereType<Map>())
+        if (p['functionCall'] is Map && (p['functionCall'] as Map)['name'] is String)
+          (
+            name: (p['functionCall'] as Map)['name'] as String,
+            args: ((p['functionCall'] as Map)['args'] is Map) ? Map<String, dynamic>.from((p['functionCall'] as Map)['args'] as Map) : <String, dynamic>{},
+          ),
+    ];
+  }
+
+  /// 2026-11-27: для тестов — вызовы инструментов из ответа Gemini.
+  @visibleForTesting
+  static List<({String name, Map<String, dynamic> args})> functionCallsOf(Map<String, dynamic> data) => _functionCalls(data);
 
   /// 2026-10-22 (советник мобилки): текст ответа Gemini без «размышлений» — для тестов.
   @visibleForTesting

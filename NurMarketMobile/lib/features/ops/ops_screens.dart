@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/api/confirm_pin.dart';
 import '../../core/api/session_store.dart' show Session;
 import '../../core/providers.dart';
 import '../../core/util/access.dart' show checkAccess;
@@ -687,6 +688,7 @@ class _ReturnScreenState extends ConsumerState<ReturnScreen> {
     // 2026-11-02 (аудит №2, М3-06): то, что нужно после ответа сервера, берём до первого await — после закрытия экрана ref недоступен
     final ops = ref.read(opsRepoProvider);
     final shiftNotifier = ref.read(shiftProvider.notifier);
+    final api = ref.read(apiProvider);
     final session = ref.read(sessionProvider);
     final picks = _picked(whole: whole);
     if (picks.isEmpty) {
@@ -724,7 +726,8 @@ class _ReturnScreenState extends ConsumerState<ReturnScreen> {
     final send = whole && untouched ? const <(String, double)>[] : [for (final (i, q) in picks) (_lines[i].id, q)];
     final Map<String, dynamic> resp;
     try {
-      resp = await ops.returnSale(widget.saleId, send);
+      // 2026-11-26 (проверка сфер, autoparts): «Подтверждать PIN» у компании — сервер отвечает 403 pin_required; PIN владельца/админа → повтор с X-Confirm-Token
+      resp = await ops.returnSale(widget.saleId, send, askPin: () async => mounted ? ConfirmPin.ask(context, api) : null);
       _aiPosted = amount;
     } on ReturnMaybeDone catch (d) {
       // 2026-11-06 (аудит №5, М7-05): по чеку уже есть возврат после прошлой попытки — новый НЕ отправлен, просим проверить возвраты
@@ -743,7 +746,7 @@ class _ReturnScreenState extends ConsumerState<ReturnScreen> {
       if (mounted) context.pop(false);
       return;
     } on ApiException catch (e) {
-      if (mounted) toast(context, e.message, error: true);
+      if (mounted) toast(context, e.isPinRequired ? l.pinRequiredText : e.message, error: true);
       // ответ не дошёл — возврат мог пройти; повтор пойдёт тем же ключом (OpsRepository._withKey) и второй раз не проведётся
       _aiSink.report(OpsRepository.outcomeUnknown(e) ? const HandleOutcome(ToolStatus.error, unknown: true) : HandleOutcome.error(e.message));
       return;

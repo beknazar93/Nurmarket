@@ -7,7 +7,8 @@ namespace NurMarketKassa.Services;
 
 /// <summary>Модуль из GET public/modules/: цена в месяц (Monthly) и разовая (Once; по решению 21.11 разовой платы за модули нет — 0), профили, где он входит бесплатно.</summary>
 /// 2026-11-21 (ответ Умара 21.11): TrialDays — trial_days (пробный период модуля, 7 дней; 0 — пробы нет).
-public sealed record PublicModule(string Id, string Name, string Group, decimal Monthly, decimal Once, IReadOnlyList<string> DefaultIn, int TrialDays = 0);
+/// 2026-11-26: Description — description / summary из ответа сервера (сейчас сервер его не присылает; если начнёт — запасная строка «что делает», НАША строка в MarketplaceModuleContent главнее).
+public sealed record PublicModule(string Id, string Name, string Group, decimal Monthly, decimal Once, IReadOnlyList<string> DefaultIn, int TrialDays = 0, string? Description = null);
 
 /// <summary>2026-11-21 (решение «цены только серверные»; ответ Умара В.23): цены модулей Маркетплейса — GET public/modules/ ({currency, modules:[{id, name{ru,en}, group, monthly, once, default_in}], profiles}).
 /// Кэш 10 минут в памяти; цен не нашли (нет связи, старый сервер) — <see cref="PriceOf"/> даёт null, и касса НЕ придумывает цену. <see cref="Changed"/> — цены пришли или изменились (витрина перечитывается).</summary>
@@ -114,7 +115,7 @@ public static class PublicModules
     private sealed class ModuleComparer : IEqualityComparer<PublicModule>
     {
         public static readonly ModuleComparer Instance = new();
-        public bool Equals(PublicModule? a, PublicModule? b) => a is not null && b is not null && a.Id == b.Id && a.Monthly == b.Monthly && a.Once == b.Once && a.Name == b.Name && a.TrialDays == b.TrialDays;
+        public bool Equals(PublicModule? a, PublicModule? b) => a is not null && b is not null && a.Id == b.Id && a.Monthly == b.Monthly && a.Once == b.Once && a.Name == b.Name && a.TrialDays == b.TrialDays && a.Description == b.Description;
         public int GetHashCode(PublicModule m) => HashCode.Combine(m.Id, m.Monthly, m.Once);
     }
 
@@ -136,7 +137,8 @@ public static class PublicModules
             if (el.TryGetProperty("default_in", out var d) && d.ValueKind == JsonValueKind.Array)
                 def.AddRange(d.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.String).Select(x => x.GetString()!.Trim()));
             list.Add(new PublicModule(id, TariffApi.LocalName(el, "name") ?? id, Str(el, "group") ?? "", Dec(el, "monthly") ?? 0m, Dec(el, "once") ?? 0m, def,
-                Dec(el, "trial_days") is { } td && td > 0 ? (int)td : 0));
+                Dec(el, "trial_days") is { } td && td > 0 ? (int)td : 0,
+                TariffApi.LocalName(el, "description") ?? TariffApi.LocalName(el, "summary")));
         }
         return list;
     }

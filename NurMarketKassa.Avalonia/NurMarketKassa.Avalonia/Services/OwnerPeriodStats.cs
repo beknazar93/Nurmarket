@@ -111,7 +111,8 @@ public static class OwnerPeriodStats
             {
                 try
                 {
-                    var r = await App.SalesApi.MarketSalesReportAsync(from, to, timeout.Token).ConfigureAwait(false);
+                    // 2026-11-26: нужны только cards и charts — таблица остатков (products_stock) не нужна, include_stock=0 (2,8 МБ/~1 с → 4 КБ/0,08 с).
+                    var r = await App.SalesApi.MarketSalesReportAsync(from, to, timeout.Token, withoutStock: true).ConfigureAwait(false);
                     return (key, r.ValueKind == JsonValueKind.Object ? r.Clone() : null);
                 }
                 catch (Exception ex) when (!ct.IsCancellationRequested)

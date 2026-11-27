@@ -33,7 +33,30 @@ public partial class IrregularReceiptsWindow : Window
         });
     }
 
-    private void Window_Loaded(object? sender, RoutedEventArgs e) => LoadRows();
+    // 2026-11-27 (живой проход, G): первое открытие ~7 с — чтение базы (журнал и очередь, SQLite под общим замком LanJournal) шло в потоке окна.
+    // Теперь первое чтение — фоном, окно рисуется сразу («Загружаю…» — пустая таблица без надписи «пусто»), результат тот же.
+    private async void Window_Loaded(object? sender, RoutedEventArgs e)
+    {
+        var version = ++_loadVersion;
+        EmptyText.IsVisible = false;
+        try
+        {
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            var (irregular, queue) = await System.Threading.Tasks.Task.Run(() => (IrregularReceiptsStore.LoadAll(), OfflinePendingSalesStore.LoadAllUnsynced())).ConfigureAwait(true);
+            if (version != _loadVersion)
+                return; // пока читали, список уже перечитали кнопкой
+            BuildRows(irregular, queue);
+            if (watch.ElapsedMilliseconds > 1000)
+                PosLogger.Log($"«Некорректные чеки»: чтение базы {watch.ElapsedMilliseconds} мс (журнал {irregular.Count}, очередь {queue.Count}).", "PERF");
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"«Некорректные чеки» не загрузились: {ex.Message}", "WARNING");
+            LoadRows();
+        }
+    }
+
+    private int _loadVersion;
 
     private void Refresh_Click(object? sender, RoutedEventArgs e) => LoadRows();
 
@@ -141,10 +164,17 @@ public partial class IrregularReceiptsWindow : Window
 
     private void LoadRows()
     {
+        _loadVersion++;
+        // 2026-11-27 (G): из очереди — только невыгруженные (выгруженные строки ниже всё равно пропускались, а их JSON разбирался зря).
+        BuildRows(IrregularReceiptsStore.LoadAll(), OfflinePendingSalesStore.LoadAllUnsynced());
+    }
+
+    private void BuildRows(List<IrregularReceiptEntry> irregular, List<OfflineSaleEntry> queue)
+    {
         var rows = new List<RowVm>();
         _closedCount = 0;
 
-        foreach (var entry in IrregularReceiptsStore.LoadAll())
+        foreach (var entry in irregular)
         {
             if (entry.ClosedAt is not null)
             {
@@ -177,7 +207,7 @@ public partial class IrregularReceiptsWindow : Window
         }
 
         _failedCount = 0;
-        foreach (var sale in OfflinePendingSalesStore.LoadAll())
+        foreach (var sale in queue)
         {
             if (string.Equals(sale.Status, OfflineSaleEntry.Synced, System.StringComparison.OrdinalIgnoreCase))
                 continue;

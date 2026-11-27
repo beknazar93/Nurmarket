@@ -224,6 +224,7 @@ public sealed class PurchaseReceivingService
         body["idempotency_key"] = sendKey;
         await AddDocumentFieldsAsync(body, sendKey, st, ct).ConfigureAwait(false);
         AppendVariantNotes(body, ready); // 2026-11-20
+        AppendCarcassNotes(body, ready); // 2026-11-26: «Выход мяса при приходе»
         // 2026-11-14 (ответ Умара 13.11, П0-2): приход, принятый заметно раньше отправки (без связи), уходит с "offline": true и "received_at" — сервер ставит эту дату в приход,
         // историю закупок, расход из кассы и срок долга поставщику. Время приёма у задачи фиксировано (CreatedAt + поправка часов), поэтому повтор уходит с тем же телом.
         var offlineStamp = ReceivedAtStamp(st);
@@ -322,6 +323,20 @@ public sealed class PurchaseReceivingService
         body["comment"] = comment.Length > 2000 ? comment[..1999] + "…" : comment;
     }
 
+    /// <summary>2026-11-26 («Выход мяса при приходе», просьба владельца): у строк, принятых с выходом, в примечание документа прихода (comment) добавляется «Брутто 300 кг, выход 75 %, отходы 75 кг»;
+    /// строк с выходом несколько — с названием товара («Говядина: Брутто …; Баранина: Брутто …»). Сервер хранит comment до 2000 знаков — режем так же, как у вкусов. Приход без поставщика документа не создаёт — там примечания нет.</summary>
+    internal static void AppendCarcassNotes(Dictionary<string, object?> body, IEnumerable<ReceivingLineVm> lines)
+    {
+        var withNote = lines.Where(l => !string.IsNullOrWhiteSpace(l.CarcassNote)).ToList();
+        if (withNote.Count == 0)
+            return;
+        var text = string.Join("; ", withNote.Select(l => withNote.Count > 1 && !string.IsNullOrWhiteSpace(l.ProductName) ? l.ProductName.Trim() + ": " + l.CarcassNote.Trim() : l.CarcassNote.Trim()));
+        if (text.Length > 1500)
+            text = text[..1500] + "…";
+        var comment = body.TryGetValue("comment", out var old) && old is string s && s.Length > 0 ? s + "; " + text : text;
+        body["comment"] = comment.Length > 2000 ? comment[..1999] + "…" : comment;
+    }
+
     /// <summary>2026-10-30 (нумерация закупок): номер документа и номер накладной поставщика уходят с приходом в служебном комментарии
     /// («№ ПР-2026-000123; накладная поставщика: 45 от 29.10.2026») и, на будущее, в document_number / document_date (сервер лишние поля пропускает).
     /// Номер резервируется по ключу прихода: повтор отправки получает тот же. Нет связи для сверки истории — номер временный («ПР-2026-ч5»),
@@ -342,17 +357,7 @@ public sealed class PurchaseReceivingService
             var parts = new List<string>();
             if (!res.Draft)
                 parts.Add("№ " + text);
-            if (st?.SupplierDocNumber is { Length: > 0 } supplierNo)
-            {
-                parts.Add("накладная поставщика: " + supplierNo + (st.SupplierDocDate is { } d ? " от " + d.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture) : ""));
-                body["document_number"] = supplierNo;
-                if (st.SupplierDocDate is { } dd)
-                    body["document_date"] = dd.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-            }
-            // 2026-11-06: офлайн-приход — сервер сам ставит дату документа (поля «время прихода» в POST suppliers/{id}/receipt/ нет, вопрос Умару), поэтому настоящее время
-            // приёма сохраняем в комментарии документа. Пометка считается один раз на ключ — повтор уходит с тем же телом.
-            if (st?.GetOrMakeDelayNote(DateTime.Now) is { } delayNote)
-                parts.Add(delayNote);
+            AddSupplierDocParts(body, st, parts);
             if (parts.Count > 0)
                 body["comment"] = string.Join("; ", parts);
             PosLogger.Log($"Закупки: приходу присвоен номер {text}{(res.Draft ? " (временный, нет сверки с историей сервера)" : "")}.", "STOCK");
@@ -365,7 +370,44 @@ public sealed class PurchaseReceivingService
         {
             // Номер — служебная пометка: сбой нумерации приход не блокирует.
             PosLogger.Log($"Закупки: номер прихода не присвоен ({ex.Message}).", "WARNING");
+            // 2026-11-26 (стресс-тест): раньше при сбое нумерации вместе с номером терялись № накладной поставщика и № ЭСФ — приход уходил без них.
+            if (!body.ContainsKey("comment"))
+            {
+                var parts = new List<string>();
+                try
+                {
+                    AddSupplierDocParts(body, st, parts);
+                }
+                catch (Exception inner) when (inner is not OperationCanceledException)
+                {
+                    PosLogger.Log($"Закупки: № накладной/ЭСФ не добавлены ({inner.Message}).", "WARNING");
+                }
+                if (parts.Count > 0)
+                    body["comment"] = string.Join("; ", parts);
+            }
         }
+    }
+
+    /// <summary>Накладная поставщика, № ЭСФ и пометка офлайн-прихода — в служебный комментарий и отдельные поля тела прихода (не зависят от нумерации документа).</summary>
+    internal static void AddSupplierDocParts(Dictionary<string, object?> body, ReceivingPostState? st, List<string> parts)
+    {
+        if (st?.SupplierDocNumber is { Length: > 0 } supplierNo)
+        {
+            parts.Add("накладная поставщика: " + supplierNo + (st.SupplierDocDate is { } d ? " от " + d.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture) : ""));
+            body["document_number"] = supplierNo;
+            if (st.SupplierDocDate is { } dd)
+                body["document_date"] = dd.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        }
+        // 2026-11-26 (ТОП-15 п. 4): номер ЭСФ поставщика — в комментарий прихода (читается обратно DocumentNumberingCore.EsfFromText) и в поле esf_number на будущее (сервер лишние поля пропускает).
+        if (st?.EsfNumber is { Length: > 0 } esf)
+        {
+            parts.Add("ЭСФ №: " + esf);
+            body["esf_number"] = esf;
+        }
+        // 2026-11-06: офлайн-приход — сервер сам ставит дату документа (поля «время прихода» в POST suppliers/{id}/receipt/ нет, вопрос Умару), поэтому настоящее время
+        // приёма сохраняем в комментарии документа. Пометка считается один раз на ключ — повтор уходит с тем же телом.
+        if (st?.GetOrMakeDelayNote(DateTime.Now) is { } delayNote)
+            parts.Add(delayNote);
     }
 
     /// <summary>Сбой, после которого очередь повторит попытку: исход неизвестен (сеть, таймаут, 5xx, 408, 429) или нет входа (401 — ждём вход).</summary>
@@ -826,6 +868,9 @@ public sealed class PurchaseReceivingService
             // 2026-11-07 («Принять упаковками»): режим включён, а сколько штук в упаковке — не указано: штуки и цену за штуку считать нечем, строку не проводим.
             if (line.PackNeedsSize)
                 problems.Add($"{name}: {line.PackNote}");
+            // 2026-11-26 («Выход мяса»): блок включён, а вес или выход не заданы / неверны — вес в продажу посчитать нельзя, строку не проводим
+            if (line.CarcassOn && line.CarcassProblem != CarcassYieldProblem.None)
+                problems.Add($"{name}: {CarcassYieldTexts.ProblemText(line.CarcassProblem)}");
             // 2026-11-07 («поштучная продажа» в приёмке): упаковку заводят только у НОВОГО товара, штук в упаковке — целое от 2 (как в карточке товара), цена продажи упаковки обязательна
             // (цена штуки = она ÷ штук). Строка, ставшая не-новой (товар нашёлся по штрихкоду), не проводится: у товара с остатком смена единицы остатка искажает склад.
             if (line.PackSale)
@@ -1350,6 +1395,7 @@ public sealed class PurchaseReceivingService
                 receiptKey = body["idempotency_key"] as string;
                 await AddDocumentFieldsAsync(body, receiptKey!, null, ct).ConfigureAwait(false);
                 AppendVariantNotes(body, ready); // 2026-11-20
+                AppendCarcassNotes(body, ready); // 2026-11-26: «Выход мяса при приходе»
             }
 
             // 2026-10-22 (закупки как в вебе): приход пишет в товар цену закупки, а сервер у товара с наценкой (markup_percent) может

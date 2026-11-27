@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -36,6 +38,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// и только потом показывал «Заканчиваются» из базы телефона. Теперь локальное — сразу, смена — параллельно.
   Future<void> _load() async {
     ref.invalidate(myTasksProvider); // 2026-10-26 (В7): плашка «Задач на сегодня» обновляется вместе с главной
+    unawaited(ref.read(prefsProvider.notifier).syncShopFromServer()); // 2026-11-26: «потянуть для обновления» перечитывает и сферу магазина
     final shift = ref.read(shiftProvider.notifier).refresh();
     final db = ref.read(databaseProvider);
     await _countLow(db);
@@ -112,7 +115,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(s?.userName ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                    // 2026-11-26 (проверка в эмуляторе): длинное имя («Автозапчасти Тест») обрезалось до «Автозапчасти Те…» — переносится на вторую строку
+                    Text(s?.userName ?? '', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
                     Text(
                       [s?.companyName, s?.cashboxName].whereType<String>().where((e) => e.isNotEmpty).join(' · '),
                       maxLines: 2,

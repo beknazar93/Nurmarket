@@ -255,4 +255,17 @@ public sealed class CheckoutWave9Tests
         vm.MixedNonCashAmount.Should().NotBeNullOrEmpty();
         vm.CanPay.Should().BeTrue();
     }
+
+    // 2026-11-27 (живой проход): причина серой «Оплатить» в смешанной стоит в узкой колонке подвала (≈160 px, 3 строки) —
+    // длинный текст резался многоточием. Короткая фраза помещается целиком на любом из 5 языков.
+    [Fact]
+    public void Mixed_PayBlockedHint_IsShortEnoughForFooterColumn()
+    {
+        var vm = Create(75);
+
+        vm.IsMixed = true;
+        vm.CanPay.Should().BeFalse();
+        vm.PayBlockedHint.Should().NotBeNullOrWhiteSpace();
+        vm.PayBlockedHint.Length.Should().BeLessThanOrEqualTo(48);
+    }
 }

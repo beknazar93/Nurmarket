@@ -389,6 +389,7 @@ public partial class App : Application
         // 2026-10-06, моноблоки клиентов: касание поля ввода пальцем — клавиатура Windows (TouchKeyboardAuto).
         TouchKeyboardAuto.Register();
         SearchBoxEscape.Register(); // 2026-10-29: Esc очищает поле поиска (аудит поисков)
+        NumericFocus.Register(); // 2026-11-26: «0» в числовом поле выделяется при фокусе (цифра заменяет ноль), numField/numZero
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {

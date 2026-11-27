@@ -100,7 +100,7 @@
                            Foreground="{DynamicResource BrushTextMuted}"/>
 
                 <Grid ColumnDefinitions="*,10,Auto">
-                    <TextBox x:Name="QuantityBox" Grid.Column="0"
+                    <TextBox x:Name="QuantityBox" Grid.Column="0" Classes="numField"
                              Height="46"
                              Padding="12,8"
                              FontSize="18"

@@ -113,4 +113,17 @@ public sealed class CartLineItemVmTests
         line.IsPercentageDiscount.Should().BeFalse();
         line.DiscountDisplayText.Should().Be("-100 сом");
     }
+
+    // 2026-11-27 (живой проход): весовой «по сумме» — 100 сом при 70 сом/кг = 1,429 кг (100,03), строка ровно 100.
+    // Раньше значок показывал «-0 сом» (DiscountAmount = 0); теперь настоящую разницу, а меньше копейки — ничего.
+    [Fact]
+    public void DiscountDisplayText_WeighBySumRounding_ShowsRealCentsNotZero()
+    {
+        var line = new CartLineItemVm { UnitPrice = 70, Quantity = 1.429, LineTotal = 100, DiscountAmount = 0 };
+        line.HasDiscount.Should().BeTrue();
+        line.DiscountDisplayText.Should().NotStartWith("-0 ").And.Contain("0,03");
+
+        var noise = new CartLineItemVm { UnitPrice = 70, Quantity = 1, LineTotal = 69.999, DiscountAmount = 0 };
+        noise.DiscountDisplayText.Should().BeEmpty();
+    }
 }

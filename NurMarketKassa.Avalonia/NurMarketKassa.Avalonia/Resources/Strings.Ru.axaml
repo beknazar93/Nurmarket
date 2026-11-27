@@ -151,6 +151,9 @@
   <x:String x:Key="printSettings.lptNotFound">Принтер по этому адресу не найден</x:String>
   <x:String x:Key="printSettings.previewTextReceipt">Предпросмотр текстового чека</x:String>
   <x:String x:Key="printSettings.qrHeader">QR-код</x:String>
+  <x:String x:Key="printSettings.linkQr">QR со ссылкой на электронный чек</x:String>
+  <x:String x:Key="printSettings.shopQr">QR магазина «Заказать онлайн»</x:String>
+  <x:String x:Key="printSettings.shopQrHint">Второй QR внизу чека ведёт покупателя на витрину вашего магазина (market.nurcrm.kg), где он может заказать онлайн. Печатается, только если у магазина есть витрина. На ценнике — элемент «QR магазина» в редакторе ценников.</x:String>
   <x:String x:Key="printSettings.uploadQr">Загрузить QR</x:String>
   <x:String x:Key="printSettings.deleteQr">Удалить</x:String>
   <x:String x:Key="printSettings.qrNotLoaded">QR-код не загружен</x:String>
@@ -1389,7 +1392,7 @@
     <x:String x:Key="loc.settings.telegram.routerHint">Если у Gemini кончился дневной лимит, ответит бесплатная модель OpenRouter (50 запросов в день). Нажмите «Получить бесплатный ключ» → войдите через Google → «Create API Key», скопируйте ключ (sk-or-…) и вставьте сюда. Вопрос и сводка магазина при этом уходят в OpenRouter. Пустое поле — выключено.</x:String>
     <x:String x:Key="loc.settings.dynamicQr.toggle">Показывать покупателю QR с суммой чека</x:String>
     <x:String x:Key="loc.settings.dynamicQr.desc">Вместо обычного QR банка на экране покупателя показывается код, в который уже вписана сумма чека — набирать её вручную не нужно. Реквизиты берутся из загруженного выше QR.</x:String>
-    <x:String x:Key="loc.settings.dynamicQr.warning">Перед включением отсканируйте пробный чек приложениями двух-трёх банков: формат сверен с QR MBank, на других банках не проверялся. Оплату кассир по-прежнему подтверждает вручную — касса не узнаёт о платеже сама.</x:String>
+    <x:String x:Key="loc.settings.dynamicQr.warning">QR с суммой собирается только для банков, чей QR прошёл самопроверку: касса сверяет контрольную сумму вашего QR со своей формулой, и если она сходится — банковское приложение такой код примет. Остальным банкам показывается обычный QR. Оплату кассир по-прежнему подтверждает вручную (Enter) — касса не узнаёт о платеже сама.</x:String>
     <x:String x:Key="loc.settings.bank.showAtCheckout">Показывать при оплате</x:String>
     <x:String x:Key="loc.settings.lanScale.title">Сетевые весы (выгрузка товаров)</x:String>
     <x:String x:Key="loc.settings.lanScale.desc">Адрес, порт и пароль берутся из системного меню самих весов. Эти же значения использует окно «Весы» при выгрузке списка товаров.</x:String>

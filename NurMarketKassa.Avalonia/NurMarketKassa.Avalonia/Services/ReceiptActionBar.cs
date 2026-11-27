@@ -364,15 +364,27 @@ internal static class ReceiptShare
             Light = Brushes.White,
         };
         var frame = new Border { Background = Brushes.White, CornerRadius = new CornerRadius(16), Padding = new Thickness(14), HorizontalAlignment = HorizontalAlignment.Center, Child = qr };
-        var hint = new TextBlock
-        {
-            Text = d.QrUrl != null
-                ? Tr.T("Покупатель наводит камеру телефона — по ссылке откроется электронный чек (PDF).", "Сатып алуучу телефонунун камерасын багыттайт — шилтеме боюнча электрондук чек (PDF) ачылат.",
-                    "The customer points a phone camera — the e-receipt (PDF) opens by the link.", "Müşteri telefon kamerasını tutar — bağlantıdan e-fiş (PDF) açılır.", "Xaridor telefon kamerasini yo'naltiradi — havola bo'yicha elektron chek (PDF) ochiladi.")
-                : Tr.T("Электронной ссылки пока нет — камера покажет чек текстом (его можно сохранить).", "Электрондук шилтеме азырынча жок — камера чекти текст катары көрсөтөт (аны сактоого болот).",
-                    "There is no e-receipt link yet — the camera will show the receipt as text (it can be saved).", "Henüz e-fiş bağlantısı yok — kamera fişi metin olarak gösterir (kaydedilebilir).", "Elektron havola hozircha yo'q — kamera chekni matn sifatida ko'rsatadi (saqlash mumkin)."),
-            FontSize = 13, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, Margin = new Thickness(0, 12, 0, 0),
-        };
+        var hint = new TextBlock { FontSize = 13, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, Margin = new Thickness(0, 12, 0, 0) };
+        string HintText() => d.QrUrl != null
+            ? Tr.T("Покупатель наводит камеру телефона — по ссылке откроется электронный чек.", "Сатып алуучу телефонунун камерасын багыттайт — шилтеме боюнча электрондук чек ачылат.",
+                "The customer points a phone camera — the e-receipt opens by the link.", "Müşteri telefon kamerasını tutar — bağlantıdan e-fiş açılır.", "Xaridor telefon kamerasini yo'naltiradi — havola bo'yicha elektron chek ochiladi.")
+            : Tr.T("Электронной ссылки пока нет — камера покажет чек текстом (его можно сохранить).", "Электрондук шилтеме азырынча жок — камера чекти текст катары көрсөтөт (аны сактоого болот).",
+                "There is no e-receipt link yet — the camera will show the receipt as text (it can be saved).", "Henüz e-fiş bağlantısı yok — kamera fişi metin olarak gösterir (kaydedilebilir).", "Elektron havola hozircha yo'q — kamera chekni matn sifatida ko'rsatadi (saqlash mumkin).");
+        hint.Text = HintText();
+        // 2026-11-26 (красивый чек по QR): у продажи ещё нет публичной ссылки — просим её у сервера (повтор вернёт ту же), QR и подсказка обновятся сами.
+        if (d.QrUrl == null && d.SaleId.Length > 0)
+            _ = Task.Run(async () =>
+            {
+                var url = await ReceiptShareLink.EnsureAsync(App.SalesApi, d.SaleId, null).ConfigureAwait(false);
+                if (url == null)
+                    return;
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    d.QrUrl = url;
+                    qr.Data = d.QrPayload();
+                    hint.Text = HintText();
+                });
+            });
         hint.Bind(TextBlock.ForegroundProperty, hint.GetResourceObservable("BrushTextSoft"));
         var close = SectionCards.Cancel(Tr.T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"));
         var w = new Window();

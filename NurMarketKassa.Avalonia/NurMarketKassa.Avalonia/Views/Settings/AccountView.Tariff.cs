@@ -147,11 +147,12 @@ public partial class AccountView
         return Card(
             Title(Tr.T("Тариф «Своё»", "«Өзүмдүкү» тарифи", "“Custom” plan", "«Özel» tarife", "«O'zimniki» tarifi")),
             // 2026-11-20: «поверх вашего тарифа» (было «поверх Старта»): конструктор нужен и на «Стандарте».
-            Soft(Tr.T("Выберите нужные функции поверх вашего тарифа: цены считает сервер. Заявку обработает менеджер и свяжется с вами.",
-                "Тарифиңиздин үстүнөн керектүү функцияларды тандаңыз: баасын сервер эсептейт. Өтүнүчтү менеджер иштетип, сиз менен байланышат.",
-                "Pick the features you need on top of your plan: the server calculates the prices. A manager will process the request and contact you.",
-                "Tarifenizin üzerine ihtiyacınız olan özellikleri seçin: fiyatları sunucu hesaplar. Talebi bir yönetici işleyip sizinle iletişime geçer.",
-                "Tarifingiz ustiga kerakli funksiyalarni tanlang: narxni server hisoblaydi. Arizani menejer ko'rib chiqib, siz bilan bog'lanadi.")),
+            // 2026-11-26: «Своё» собирается из Маркетплейса — выбор общий с кнопкой «+» на карточках (TariffDraft).
+            Soft(Tr.T("Выберите нужные функции поверх вашего тарифа — здесь или кнопкой «+» на карточках Маркетплейса (выбор общий): цены считает сервер. Заявку обработает менеджер и свяжется с вами.",
+                "Тарифиңиздин үстүнөн керектүү функцияларды ушул жерден же Маркетплейстин карточкаларындагы «+» баскычы менен тандаңыз (тандоо жалпы): баасын сервер эсептейт. Өтүнүчтү менеджер иштетип, сиз менен байланышат.",
+                "Pick the features you need on top of your plan — here or with the “+” button on Marketplace cards (the selection is shared): the server calculates the prices. A manager will process the request and contact you.",
+                "Tarifenizin üzerine ihtiyacınız olan özellikleri buradan veya Marketplace kartlarındaki «+» düğmesiyle seçin (seçim ortaktır): fiyatları sunucu hesaplar. Talebi bir yönetici işleyip sizinle iletişime geçer.",
+                "Tarifingiz ustiga kerakli funksiyalarni shu yerda yoki Marketpleys kartalaridagi «+» tugmasi bilan tanlang (tanlov umumiy): narxni server hisoblaydi. Arizani menejer ko'rib chiqib, siz bilan bog'lanadi.")),
             button);
     }
 }

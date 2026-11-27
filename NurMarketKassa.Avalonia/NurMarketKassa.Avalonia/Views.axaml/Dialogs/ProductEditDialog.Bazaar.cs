@@ -46,7 +46,7 @@ public partial class ProductEditDialog
 
         if (BazaarVolumePrices.ServerTiers(existing.Id) is { Count: > 0 } server)
             panel.Children.Add(Hint(Tr.T("С сервера: ", "Сервердеги: ", "From the server: ", "Sunucudan: ", "Serverdan: ")
-                + string.Join("; ", server.Select(t => $"{t.MinQty:0.###} → {MoneyText.Amount((double)t.Price)}"))
+                + string.Join("; ", server.Select(t => $"{MoneyText.Qty(t.MinQty)} → {MoneyText.Amount((double)t.Price)}"))
                 + Tr.T(" — они главнее местных.", " — алар жергиликтүүдөн маанилүү.", " — they win over local ones.", " — yerel olanlardan önceliklidir.", " — ular mahalliylardan ustun.")));
 
         // Заголовок и строки — одна сетка колонок: [от, шт] [цена] [убрать]

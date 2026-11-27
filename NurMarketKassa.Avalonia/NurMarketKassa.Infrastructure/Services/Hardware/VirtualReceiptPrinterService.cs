@@ -10,7 +10,7 @@ public sealed class VirtualReceiptPrinterService : IReceiptPrinterService
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var text = cart.ReceiptText;
+        var text = ReceiptShareLink.Split(cart.ReceiptText ?? "", out _); // 2026-11-26: служебная строка со ссылкой на чек в тексте не нужна
         if (string.IsNullOrWhiteSpace(text))
         {
             text = CartReceiptTextBuilder.BuildSimpleReceipt(

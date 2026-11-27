@@ -950,8 +950,7 @@ public partial class ReceiptHistoryWindow : Window
         card.DateTimeText = entry.CreatedAt.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
         card.Cashier = (entry.Cashier ?? CartDisplayHelper.TryCashierName(detail) ?? "").Trim();
         card.Cashbox = Str(detail, "cashbox_name") ?? Str(detail, "cashbox_display") ?? "";
-        card.Shift = detail.ValueKind == JsonValueKind.Object && detail.TryGetProperty("shift", out var sh) && sh.ValueKind == JsonValueKind.Object
-            ? Str(sh, "number") ?? "" : Str(detail, "shift_number") ?? "";
+        card.Shift = SaleReceiptCardData.ShiftNo(detail); // 2026-11-26: shift_no с сервера
         card.Client = Str(detail, "client_name") ?? Str(detail, "client_display") ?? "";
         card.Consultant = Str(detail, "consultant_display") ?? "";
         card.QrUrl = SaleReceiptCardData.EReceiptUrl(detail);
@@ -1032,8 +1031,27 @@ public partial class ReceiptHistoryWindow : Window
         }
 
         if (!entry.IsLocal && method == "debt" && !CartDisplayHelper.IsSaleFullyReturned(detail) // 2026-11-01: у возвращённого целиком чека сервер оставляет старый долг
-            && (Money(detail, "remaining_debt") ?? Money(detail, "debt_amount")) is { } debt && debt > 0)
-            pay.Add(new SummaryVm(Tr.T("Долг", "Карыз", "Debt", "Borç", "Qarz"), SaleReceiptCardData.Fmt(debt), accent: 1));
+            && (Money(detail, "remaining_debt") ?? Money(detail, "debt_amount")) is { } debt && debt >= 0)
+        {
+            // 2026-11-26 (жёсткая сверка): остаток 0 (долг погашен позже полностью) тоже входит — «Внесено 200 · Погашено позже 300 · Долг 0»; без оплат долга и с остатком 0 строк нет, как раньше.
+            // 2026-11-26 (владелец, чек 000006: «Внесено 500 · Долг 454,25» при итоге 1 074,25 — «пропадает сумма 120»): сервер показывает ТЕКУЩИЙ остаток долга, а оплаты
+            // долга клиента, которые он зачёл на этот чек, на экране нигде не названы. Теперь строка «Погашено позже» объясняет разницу: итог − внесено при продаже − остаток.
+            var paidAtSale = SaleReturnLedger.Get(entry.Id) is { Total: > 0m } paidLedger ? paidLedger.PaidCash + paidLedger.PaidNonCash : received;
+            // 2026-11-26 (Умар 16:20): сервер отдаёт оплаты долга по чеку (debt_payments) — «Погашено позже» берётся из них, ниже список «дата · способ — сумма»; нет поля — прежний расчёт
+            var serverPays = SaleReceiptCardData.DebtPayments(detail);
+            var (paidLater, showDebt) = SaleReceiptCardData.DebtTail(total, paidAtSale, debt, serverPays?.Sum(x => x.Amount));
+            if (paidLater is { } later)
+            {
+                pay.Add(new SummaryVm(SaleReceiptCardData.DebtPaidLaterLabel, SaleReceiptCardData.Fmt(later)));
+                foreach (var payment in serverPays ?? (IReadOnlyList<SaleReceiptCardData.DebtPaymentLine>)Array.Empty<SaleReceiptCardData.DebtPaymentLine>())
+                {
+                    var (label, value) = SaleReceiptCardData.DebtPaymentRow(payment);
+                    pay.Add(new SummaryVm(label, value));
+                }
+            }
+            if (showDebt)
+                pay.Add(new SummaryVm(Tr.T("Долг", "Карыз", "Debt", "Borç", "Qarz"), SaleReceiptCardData.Fmt(debt), accent: 1));
+        }
         if (!entry.IsLocal && method == "debt")
             AddDebtDueRows(pay, SaleReturnLedger.Get(entry.Id));
 
@@ -1242,6 +1260,8 @@ public partial class ReceiptHistoryWindow : Window
         try
         {
             var text = ReceiptHistoryService.BuildReprintText(row.Entry, detail);
+            if (row.Entry.Local is null)
+                text = await ReceiptHistoryService.WithShareLinkAsync(text, row.Entry.Id, detail).ConfigureAwait(true); // 2026-11-26: QR со ссылкой на красивый чек
             var error = await ReceiptHistoryService.PrintAsync(text).ConfigureAwait(true);
             ShowAction(error ?? Tr.T("Копия чека напечатана.", "Чектин көчүрмөсү басылып чыкты.", "The receipt copy has been printed.", "Fiş kopyası yazdırıldı.", "Chek nusxasi chop etildi."),
                 ok: error == null);

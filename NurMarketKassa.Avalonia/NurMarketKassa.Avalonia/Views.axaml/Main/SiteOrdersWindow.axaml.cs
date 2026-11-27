@@ -773,6 +773,21 @@ public partial class SiteOrdersWindow : Window, IOwnerSection, IOwnerSectionExce
         _ = LoadProductVariantsAsync(order);
     }
 
+    /// <summary>2026-11-26: items[].bargain заказа бота-продавца; у обычной строки null.</summary>
+    public static string? BargainNote(SiteOrderItem item)
+    {
+        if (item.Bargain is not { } b)
+            return null;
+        var agreed = Money(b.AgreedPrice);
+        var list = Money(b.ListPrice);
+        var discount = NurMarketKassa.Services.MoneyText.Weight(b.DiscountPercent, "0.#");
+        return Tr.T($"Цена по торгу: {agreed} сом (в списке {list} сом, скидка {discount} %)",
+            $"Соодалашуу баасы: {agreed} сом (тизмеде {list} сом, арзандатуу {discount} %)",
+            $"Bargained price: {agreed} som (list price {list} som, discount {discount} %)",
+            $"Pazarlık fiyatı: {agreed} som (liste fiyatı {list} som, indirim {discount} %)",
+            $"Savdolashilgan narx: {agreed} so'm (ro'yxatda {list} so'm, chegirma {discount} %)");
+    }
+
     /// <summary>2026-10-22 (витрина одежды): строка с размером — «Размер L, Белый · на складе: 3»; без размера у товара с
     /// размерами — предупреждение (витрина NurCRM пока не даёт выбрать размер, его надо уточнить у покупателя).</summary>
     private static (string Text, bool Warning)? VariantNote(SiteOrderItem item)
@@ -885,6 +900,13 @@ public partial class SiteOrdersWindow : Window, IOwnerSection, IOwnerSectionExce
             AddCell(grid, 3, Money(item.Total), right: true, bold: true);
             line.Child = grid;
             box.Children.Add(line);
+            // 2026-11-26 (торг бота-продавца, Ф2): строка заказа по цене торга — «Цена по торгу: X (в списке Y, скидка Z %)».
+            if (BargainNote(item) is { } bargainText)
+            {
+                var bargainLine = new TextBlock { Text = bargainText, FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 7) };
+                UseBrush(bargainLine, TextBlock.ForegroundProperty, "BrushTextSoft");
+                box.Children.Add(bargainLine);
+            }
         }
 
         var totalLine = new Border { Padding = new Thickness(0, 9, 0, 0), BorderThickness = new Thickness(0, 1, 0, 0) };

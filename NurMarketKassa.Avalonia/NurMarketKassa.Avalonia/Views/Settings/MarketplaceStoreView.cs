@@ -82,6 +82,47 @@ public sealed partial class MarketplaceStoreView : UserControl
         };
     }
 
+    // 2026-11-26 («Своё» собирается из Маркетплейса): набор «в тариф» поменяли в другом месте (диалог «Своё», полоса) — открытая страница «подробно» перерисовывается на месте
+    // (подпись «Добавить в тариф» / «Убрать из тарифа»); плитки и полоса обновляются сами.
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        TariffDraft.Changed += OnTariffDraftChanged;
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        TariffDraft.Changed -= OnTariffDraftChanged;
+    }
+
+    private bool _tariffModeShown;
+
+    private void OnTariffDraftChanged()
+    {
+        void Refresh()
+        {
+            if (_openId != null)
+            {
+                _tariffModeShown = TariffDraft.Active;
+                ShowDetail(_openId, keepScroll: true);
+            }
+            else if (_tariffModeShown != TariffDraft.Active)
+            {
+                // 2026-11-26: режим сборки включили или выключили — «+» на плитках появляются или исчезают; полоса прокрутки остаётся где была.
+                _tariffModeShown = TariffDraft.Active;
+                var offset = (_list.Content as ScrollViewer)?.Offset ?? default;
+                RenderList();
+                if (_list.Content is ScrollViewer scroll)
+                    Dispatcher.UIThread.Post(() => scroll.Offset = offset, DispatcherPriority.Loaded);
+            }
+        }
+        if (Dispatcher.UIThread.CheckAccess())
+            Refresh();
+        else
+            Dispatcher.UIThread.Post(Refresh);
+    }
+
     public void Initialize(IMarketplaceCatalogSource source)
     {
         _source = source;

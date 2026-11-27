@@ -22,6 +22,12 @@ public sealed record SupplierInfo(
 public sealed record SupplierRequisites(string Name, string Phone, string Email, string Llc, string Inn, string Okpo, string Score, string Bik, string Address);
 
 /// <summary>GET clients/{id}/kpis/: у поставщика debt — наш долг ему (сумма remaining_debt сделок-долгов), prepayment — предоплаты.</summary>
+/// <summary>2026-11-26: ответ pay-supplier-debt — сколько оплачено и сколько долга осталось (null — сервер не прислал «left»; тогда долг перечитывается).</summary>
+public sealed record SupplierDebtPayResult(double Paid, double? Left, JsonElement Raw);
+
+/// <summary>2026-11-26: ответ POST suppliers/{id}/returns/ — id возврата и долг поставщику после возврата (supplier_debt; null — сервер не прислал).</summary>
+public sealed record SupplierReturnPosted(string? Id, double? SupplierDebt);
+
 public sealed record SupplierKpis(double Debt, int DebtCount, double Prepayment, int PrepaymentCount, double Sales, int SalesCount);
 
 /// <summary>Взнос графика сделки-долга (installments).</summary>
@@ -78,7 +84,9 @@ public sealed record SupplierReceipt(
     // 2026-11-01 (ответ Умара: PATCH прихода): версия документа (для If-Match / version), оплата и скидка накладной, если сервер их отдаёт.
     int Version = 0, string PaymentType = "", double PaidAmount = 0, double Discount = 0, double DiscountPercent = 0,
     // 2026-11-01 (проверка бэкенда): готовый номер документа от сервера («ПР-2026-000073») — для показа, если поле пришло.
-    string NumberDisplay = "");
+    string NumberDisplay = "",
+    // 2026-11-26 (ТОП-15 п. 4): номер ЭСФ поставщика — поле esf_number (когда сервер начнёт его отдавать, ТЗ Умару) или пометка «ЭСФ №: …» в комментарии прихода.
+    string EsfNumber = "");
 
 /// <summary>2026-11-06 (аудит №5, Л5-13): приход изменён на другом устройстве между показом и удалением (412). <see cref="Current"/> — перечитанный приход (null, если перечитать не вышло);
 /// повторять удаление можно только после повторного подтверждения пользователя: <c>DeleteReceiptAsync(..., knownVersion: CurrentVersion)</c> с новым ключом.</summary>
@@ -304,7 +312,11 @@ public sealed class SupplierApiService
     /// компании (cashbox_role "expense_variable", как у прихода «оплачено»); принимает ли это сервер для pay/, на NBS не подтверждено
     /// (исследование 2026-10-20, вопрос 6.3) — отказ придёт ApiException, деньги при этом не двигаются. Повтор с ТЕМ ЖЕ ключом
     /// сервер не проводит второй раз. Расход отдельным запросом (construction/cashflows/) НЕ пишем — чтобы не получить двойной расход.</summary>
-    public Task<JsonElement> PayInstallmentAsync(string supplierId, string dealId, string installmentId, string idempotencyKey, string note, CancellationToken ct = default)
+    /// <remarks>2026-11-26 (владелец: платить поставщику можно было только 100 %): <paramref name="amount"/> — частичная оплата взноса (null — взнос целиком, без поля, как раньше);
+    /// сервер по ТЗ Б-13 п. 6 принимает amount ≤ остатка взноса, больше — 400 amount_exceeds_installment (data.max). <paramref name="paymentMethod"/> — только «transfer» (безнал)
+    /// уходит полем payment_method (то же имя, что у pos/sales/{id}/pay-debt/); наличные (null/«cash») — тело как раньше. Принимает ли deals/{d}/pay/ payment_method, Умаром не подтверждено.</remarks>
+    public Task<JsonElement> PayInstallmentAsync(string supplierId, string dealId, string installmentId, string idempotencyKey, string note, CancellationToken ct = default,
+        double? amount = null, string? paymentMethod = null)
     {
         if (ClientCheckDebtDeals.RejectVirtualDealId(dealId) is { } virtualDeal) // 2026-11-11: «sale:…» — долг по чеку, не сделка
             return Task.FromException<JsonElement>(virtualDeal);
@@ -316,8 +328,52 @@ public sealed class SupplierApiService
             ["idempotency_key"] = idempotencyKey,
             ["installment_id"] = installmentId.Trim(),
         };
+        if (amount is { } part)
+            body["amount"] = part.ToString("0.00", CultureInfo.InvariantCulture);
+        if (string.Equals(paymentMethod?.Trim(), "transfer", StringComparison.OrdinalIgnoreCase))
+            body["payment_method"] = "transfer";
         InvalidateSummaries(); // 2026-10-31: оплата меняет долг — кэш сводок устарел
         return PayInstallmentCoreAsync(supplierId, dealId, body, ct);
+    }
+
+    /// <summary>2026-11-26 (ответ Умара 26.11, ТЗ Н-11): оплата долга поставщику ЛЮБОЙ частью — POST clients/{supplier_id}/pay-supplier-debt/ (Idempotency-Key обязателен: заголовок и поле в теле),
+    /// {amount, method "cash"|"transfer", date, comment, shift? (из ящика смены), cashbox?} → {paid, left, applied[], cashflows[]}. Сервер сам раскладывает сумму от старых взносов к новым
+    /// (тонкая обёртка над deals/pay-any/), на каждый взнос — свой расход. Раньше касса платила только взнос за взносом через deals/{d}/pay/ и для части слала amount, который сервер
+    /// для поставщиков не подтверждал (живой захват 15.09: «Максимум: копейки») — владелец видел «только 100 %». Здесь касса и смена не шлются (владелец платит из общей кассы), если их не передали.</summary>
+    /// <remarks>2026-11-26 (ответ Умара 26.11 16:20): необязательные <paramref name="installmentId"/> (сначала гасится этот взнос, остаток суммы — дальше по той же сделке) и
+    /// <paramref name="dealId"/> (платить только по этой сделке); ошибки 400 installment_not_found / deal_not_found. Без них — как раньше (от старых взносов к новым). Те же поля у deals/pay-any/.</remarks>
+    public async Task<SupplierDebtPayResult> PaySupplierDebtAsync(string supplierId, double amount, string method, string idempotencyKey, string comment, CancellationToken ct = default, string? shiftId = null,
+        string? installmentId = null, string? dealId = null)
+    {
+        if (string.IsNullOrWhiteSpace(idempotencyKey))
+            throw new ArgumentException("Idempotency-Key обязателен.", nameof(idempotencyKey));
+        var key = idempotencyKey.Trim();
+        var body = new Dictionary<string, object?>
+        {
+            ["amount"] = amount.ToString("0.00", CultureInfo.InvariantCulture),
+            ["method"] = string.Equals(method?.Trim(), "transfer", StringComparison.OrdinalIgnoreCase) ? "transfer" : "cash",
+            ["date"] = DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            ["comment"] = comment,
+            ["idempotency_key"] = key,
+        };
+        if (!string.IsNullOrWhiteSpace(shiftId))
+            body["shift"] = shiftId.Trim();
+        if (!string.IsNullOrWhiteSpace(installmentId))
+            body["installment_id"] = installmentId.Trim();
+        if (!string.IsNullOrWhiteSpace(dealId) && ClientCheckDebtDeals.RejectVirtualDealId(dealId) is null)
+            body["deal_id"] = dealId.Trim();
+        InvalidateSummaries(); // оплата меняет долг — кэш сводок устарел
+        try
+        {
+            var (data, _) = await _api.RequestWithHeadersAsync(HttpMethod.Post, $"api/main/clients/{Esc(supplierId)}/pay-supplier-debt/", body,
+                new Dictionary<string, string> { ["Idempotency-Key"] = key }, ct, Timeout).ConfigureAwait(false);
+            return new SupplierDebtPayResult(data.ValueKind == JsonValueKind.Object && Has(data, "paid") ? Num(data, "paid") : amount,
+                data.ValueKind == JsonValueKind.Object && Has(data, "left") ? Num(data, "left") : null, data);
+        }
+        finally
+        {
+            InvalidateSummaries(); // и после ответа (успех или сбой — оплата могла пройти)
+        }
     }
 
     /// <summary>2026-10-31 (приёмка 1.17.68, С-6): сброс кэша сводок ещё раз ПОСЛЕ ответа сервера (успех или сбой — оплата могла пройти).</summary>
@@ -484,7 +540,12 @@ public sealed class SupplierApiService
     /// <summary>2026-10-30 (редактор накладных, ТЗ 3.3-6): возврат поставщику POST suppliers/{id}/returns/ с заголовком Idempotency-Key (раньше ключ не слали —
     /// повтор после обрыва мог провести возврат дважды). Тот же ключ дублируется в теле (idempotency_key) — как у остальных денежных POST NurCRM.
     /// Возвращает id возврата, если сервер его вернул.</summary>
-    public async Task<string?> PostReturnAsync(string supplierId, IDictionary<string, object?> body, string idempotencyKey, CancellationToken ct = default)
+    public async Task<string?> PostReturnAsync(string supplierId, IDictionary<string, object?> body, string idempotencyKey, CancellationToken ct = default) =>
+        (await PostReturnDetailedAsync(supplierId, body, idempotencyKey, ct).ConfigureAwait(false)).Id;
+
+    /// <summary>2026-11-26 (ответ Умара 26.11 16:20): ответ POST suppliers/{id}/returns/ теперь несёт supplier_debt — долг поставщику ПОСЛЕ возврата (строка «2700.00»).
+    /// SupplierDebt = null — сервер поля не прислал (старый ответ): тогда долг «после» перечитывается из kpis, как раньше.</summary>
+    public async Task<SupplierReturnPosted> PostReturnDetailedAsync(string supplierId, IDictionary<string, object?> body, string idempotencyKey, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(idempotencyKey))
             throw new ArgumentException("Idempotency-Key обязателен.", nameof(idempotencyKey));
@@ -494,7 +555,8 @@ public sealed class SupplierApiService
         try
         {
             var (data, _) = await _api.RequestWithHeadersAsync(HttpMethod.Post, $"api/main/suppliers/{Esc(supplierId)}/returns/", body, headers, ct, TimeSpan.FromSeconds(40)).ConfigureAwait(false);
-            return Str(data, "id") is { Length: > 0 } id ? id : null;
+            return new SupplierReturnPosted(Str(data, "id") is { Length: > 0 } id ? id : null,
+                Has(data, "supplier_debt") && double.TryParse(Str(data, "supplier_debt"), NumberStyles.Any, CultureInfo.InvariantCulture, out var debtAfter) ? debtAfter : null);
         }
         finally
         {
@@ -924,7 +986,8 @@ public sealed class SupplierApiService
             comment, Str(x, "number"),
             Str(x, "supplier_document_number") is { Length: > 0 } sdn ? sdn : Str(x, "document_number") is { Length: > 0 } dn ? dn : DocumentNumberingCore.SupplierDocFromText(comment).Number,
             Date(Str(x, "supplier_document_date")) ?? Date(Str(x, "document_date")) ?? DocumentNumberingCore.SupplierDocFromText(comment).Date,
-            (int)Num(x, "version"), Str(x, "payment_type"), Num(x, "paid_amount"), Num(x, "discount"), Num(x, "discount_percent"), Str(x, "number_display"));
+            (int)Num(x, "version"), Str(x, "payment_type"), Num(x, "paid_amount"), Num(x, "discount"), Num(x, "discount_percent"), Str(x, "number_display"),
+            Str(x, "esf_number") is { Length: > 0 } esf ? DocumentNumberingCore.NormalizeEsf(esf) : DocumentNumberingCore.EsfFromText(comment));
     }
 
     /// <summary>Возврат из ответа сервера (строка списка suppliers/returns/ или карточка suppliers/returns/{id}/). 2026-11-05: публичный — по нему же

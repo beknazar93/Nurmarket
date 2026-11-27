@@ -38,7 +38,7 @@ public sealed class InvoiceColumnMapUiTests : IDisposable
     }
 
     public static IEnumerable<object[]> Cases() =>
-        new (int W, int H)[] { (1024, 600), (1366, 768) }
+        new (int W, int H)[] { (800, 600), (1024, 600), (1366, 768) } // 2026-11-26: и самый маленький экран кассы 800×600
             .SelectMany(s => new[] { AppLanguage.Russian, AppLanguage.Kyrgyz, AppLanguage.Uzbek }.Select(l => new object[] { s.W, s.H, l }));
 
     private static string Code(AppLanguage lang) => lang switch { AppLanguage.Kyrgyz => "ky", AppLanguage.Uzbek => "uz", _ => "ru" };

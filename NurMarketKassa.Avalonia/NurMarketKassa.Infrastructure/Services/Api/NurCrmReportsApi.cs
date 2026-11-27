@@ -419,6 +419,68 @@ public static class NurCrmReportsApi
         }
     }
 
+    /// <summary>2026-11-27 (ответ Умара 27.11, dret2711; Д-2 жёсткого теста 26.11): сколько денег ФАКТИЧЕСКИ ушло из ящика по возврату этого чека — сумма расходов (type «expense»)
+    /// из движений денег с source_id = id чека, записанных не раньше <paramref name="notBefore"/> (минута запаса на часы сервера) и относящихся к этой смене (если строка называет смену).
+    /// Сервер до 27.11 писал расход только на предоплату (20 из 45, чек 2139), после исправления — предоплату вместе с чеком и отдельный расход «Возврат по чеку … (гашения долга)».
+    /// Формат строки гашений (source_kind) не описан — берём все расходы этого чека. null — движения не прочитаны (поправку тогда не пишем).
+    /// Чистая часть — <see cref="SumReturnDrawerExpenses"/> (тестируется без сети).</summary>
+    public static async Task<decimal?> ReturnDrawerExpensesAsync(string? saleId, string? shiftId, DateTimeOffset? notBefore, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(saleId) || Client is not { } client)
+            return null;
+        try
+        {
+            var data = await client.RequestAsync(
+                HttpMethod.Get,
+                "api/construction/cashflows/",
+                null,
+                new Dictionary<string, string> { ["source_id"] = saleId.Trim() },
+                ct).ConfigureAwait(false);
+            var rows = data.ValueKind == JsonValueKind.Array
+                ? data
+                : data.ValueKind == JsonValueKind.Object && data.TryGetProperty("results", out var r) ? r : default;
+            if (rows.ValueKind != JsonValueKind.Array)
+                return null;
+            return SumReturnDrawerExpenses(rows.EnumerateArray(), saleId, shiftId, notBefore);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Расходы ящика по возврату чека {saleId} не прочитаны: {ex.Message}", "SALES");
+            return null;
+        }
+    }
+
+    /// <summary>2026-11-27: сумма расходов ящика по чеку (см. <see cref="ReturnDrawerExpensesAsync"/>). Всегда число (0 — расходов нет).</summary>
+    public static decimal SumReturnDrawerExpenses(IEnumerable<JsonElement> rows, string saleId, string? shiftId, DateTimeOffset? notBefore)
+    {
+        var sum = 0m;
+        foreach (var row in rows)
+        {
+            if (!string.Equals(Str(row, "source_id"), saleId.Trim(), StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(Str(row, "type"), "expense", StringComparison.OrdinalIgnoreCase)
+                || Dec(row, "amount") is not { } amount)
+                continue;
+            if (Str(row, "status") is { } status && string.Equals(status, "cancelled", StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (!string.IsNullOrWhiteSpace(shiftId) && Str(row, "shift") is { } rowShift
+                && !string.Equals(rowShift, shiftId.Trim(), StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (notBefore is { } since)
+            {
+                if (Str(row, "created_at") is not { } at
+                    || !DateTimeOffset.TryParse(at, CultureInfo.InvariantCulture, DateTimeStyles.None, out var flowAt)
+                    || flowAt < since - TimeSpan.FromMinutes(1))
+                    continue;
+            }
+            sum += Math.Abs(amount);
+        }
+        return sum;
+    }
+
     private static string? Str(JsonElement e, string key)
     {
         if (e.ValueKind != JsonValueKind.Object || !e.TryGetProperty(key, out var v))

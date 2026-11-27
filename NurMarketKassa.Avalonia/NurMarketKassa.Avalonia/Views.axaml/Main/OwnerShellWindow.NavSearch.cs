@@ -170,6 +170,14 @@ public partial class OwnerShellWindow
         });
         ProductActionPlan.NavigateByWords = NavigateByWords;
         ProductActionPlan.OpenNavTarget = OpenNavTargetAsync; // 2026-10-27: переходы Нур Советника — по словарю, с проверкой результата
+        // 2026-11-27 (Нур-советник: доступ к разделам): какие пункты меню видны сейчас — тот же список, что построило меню (права, тариф, модули, «Разделы меню»).
+        Func<string, bool> menuKeyVisible = MenuKeyVisibleNow;
+        ProductActionPlan.MenuKeyVisible = menuKeyVisible;
+        Closed += (_, _) =>
+        {
+            if (ProductActionPlan.MenuKeyVisible == menuKeyVisible)
+                ProductActionPlan.MenuKeyVisible = null;
+        };
         // 2026-10-07, владелец: «открывай вкладки только после команды открыть» — после «Выполнить» склад сам не открывается:
         // итог — в чате советника, а отметка «Изменено ИИ» ставится на складе, если он уже открыт (увидите, когда перейдёте).
         ProductActionPlan.ShowChangedProducts = (keys, summary) => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
@@ -234,6 +242,12 @@ public partial class OwnerShellWindow
             PosLogger.Log($"Owner app: переход Нур Советника «{target.TitleRu}» упал ({ex.Message}).", "WARNING");
             return new NavOutcome(false, "", Tr.T("ошибка при открытии", "ачууда ката кетти", "error while opening", "açılırken hata", "ochishda xato"));
         }
+        // 2026-11-27 (Нур-советник: доступ к разделам): пункты-окна (возврат, подписка, неотправленное, перенос данных) — не разделы: окно открыто, раздел не меняется.
+        if (DialogNavKeys.Contains(target.Section))
+        {
+            PosLogger.Log($"Owner app: Нур Советник открыл окно «{entry.Title}».", "UI");
+            return new NavOutcome(true, entry.Title);
+        }
         // Факт: раздел действительно стал активным («Сводка» — когда активного раздела нет).
         var active = _activeSection?.Key ?? "overview";
         if (!string.Equals(active, target.Section, StringComparison.OrdinalIgnoreCase))
@@ -258,6 +272,15 @@ public partial class OwnerShellWindow
             case "purchases" when window is PurchasesWindow purchases:
                 tabOk = purchases.SelectNavTab(target.Tab!);
                 break;
+            // 2026-11-27: окна Телеграм-бота (бот-продавец, диалоги, продажи бота, торг, отчёт торга) — как кнопки раздела, только при признаке сервера.
+            case "telegrambot":
+                tabOk = OpenBotWindow(target.Tab!);
+                break;
+            // 2026-11-27: «Экспорт в 1С» — окно из Настроек → Операции (одно на программу).
+            case "settings" when target.Tab == "onec":
+                OneCExportWindow.Open(this);
+                tabOk = true;
+                break;
             case "settings" when window is PosSettingsWindow settings:
                 tabOk = settings.SelectNavTab(target.Tab!);
                 break;
@@ -267,6 +290,45 @@ public partial class OwnerShellWindow
             ? new NavOutcome(true, target.Title)
             : new NavOutcome(true, entry.Title, Tr.T("вкладка скрыта правами или тарифом", "өтмөк укук же тариф менен жашырылган", "the tab is hidden by permissions or plan",
                 "sekme yetki veya tarife nedeniyle gizli", "varaq huquq yoki tarif tufayli yashirilgan"));
+    }
+
+    /// <summary>2026-11-27: пункты меню, которые открывают окно, а не раздел (активный раздел не меняется).</summary>
+    private static readonly HashSet<string> DialogNavKeys = new(StringComparer.OrdinalIgnoreCase) { "salereturn", "subscription", "outbox", "transfer" };
+
+    /// <summary>2026-11-27 (Нур-советник): пункт меню виден сейчас. Меню живёт в потоке интерфейса — из фонового потока спрашиваем через него.</summary>
+    private bool MenuKeyVisibleNow(string key)
+    {
+        bool Check() => string.Equals(key, "overview", StringComparison.OrdinalIgnoreCase)
+                        || _navEntries.Any(x => string.Equals(x.Key, key, StringComparison.OrdinalIgnoreCase));
+        return Avalonia.Threading.Dispatcher.UIThread.CheckAccess() ? Check() : Avalonia.Threading.Dispatcher.UIThread.Invoke(Check);
+    }
+
+    /// <summary>2026-11-27: окно Телеграм-бота по вкладке словаря — как кнопки раздела «Телеграм-бот» (TelegramBotAnalyticsWindow.SellerButton): только при признаке сервера.</summary>
+    private bool OpenBotWindow(string tab)
+    {
+        string feature;
+        Func<Window> create;
+        switch (tab)
+        {
+            case "seller": feature = NurMarketKassa.Services.Api.ServerCapabilities.BotSeller; create = () => new BotSellerSettingsWindow(); break;
+            case "dialogs": feature = NurMarketKassa.Services.Api.ServerCapabilities.BotHandoff; create = () => new BotDialogsWindow(); break;
+            case "sales": feature = NurMarketKassa.Services.Api.ServerCapabilities.BotSalesStats; create = () => new BotSalesStatsWindow(); break;
+            case "bargain": feature = NurMarketKassa.Services.Api.ServerCapabilities.BotBargain; create = () => new BotBargainProductsWindow(); break;
+            case "offers": feature = NurMarketKassa.Services.Api.ServerCapabilities.BotBargain; create = () => new BotBargainOffersWindow(); break;
+            default: return false;
+        }
+        if (!NurMarketKassa.Services.Api.ServerCapabilities.Has(feature))
+            return false;
+        try
+        {
+            create().Show(this);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Owner app: окно бота «{tab}» не открылось ({ex.GetType().Name}).", "WARNING");
+            return false;
+        }
     }
 
     private void UpdateNavSearchLook()

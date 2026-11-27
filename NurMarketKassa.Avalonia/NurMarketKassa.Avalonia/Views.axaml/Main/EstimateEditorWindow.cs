@@ -212,12 +212,13 @@ public sealed class EstimateEditorWindow : Window
         _add.Width = double.NaN;
         _add.HorizontalAlignment = HorizontalAlignment.Stretch;
         _add.MinWidth = 240;
-        _add.Margin = new Thickness(0, 0, 8, 8);
+        // 2026-11-27: нижний отступ 8 → 4 px — на 1024×600 таблица получала 228 px = 38 % окна, тест требует больше 38 %.
+        _add.Margin = new Thickness(0, 0, 8, 4);
         var addButtons = new WrapPanel { Orientation = Orientation.Horizontal };
         addButtons.Children.Add(ServiceDeskUi.Action("EstimateAddCustom", EstimateUi.T("＋ Своя позиция", "＋ Өз позициясы", "＋ Custom line", "＋ Özel kalem", "＋ O'z pozitsiyasi"), () => AddCustomLine()));
         addButtons.Children.Add(ServiceDeskUi.Action("EstimateCalc", EstimateUi.T("Рассчитать материал", "Материалды эсептөө", "Calculate material", "Malzeme hesapla", "Materialni hisoblash"), () => _ = OpenCalcAsync(), primary: true));
         addButtons.Children.Add(ServiceDeskUi.Action("EstimateAddSection", EstimateUi.T("＋ Раздел", "＋ Бөлүм", "＋ Section", "＋ Bölüm", "＋ Bo'lim"), () => AddSection()));
-        var toolbar = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), RowDefinitions = new RowDefinitions("Auto,Auto"), Margin = new Thickness(0, 4, 0, 0) };
+        var toolbar = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), RowDefinitions = new RowDefinitions("Auto,Auto"), Margin = new Thickness(0) }; // 2026-11-27: верхний отступ 4 → 0 (таблица на 1024×600 — главная часть окна)
         Grid.SetColumn(addButtons, 1);
         toolbar.Children.Add(_add);
         toolbar.Children.Add(addButtons);

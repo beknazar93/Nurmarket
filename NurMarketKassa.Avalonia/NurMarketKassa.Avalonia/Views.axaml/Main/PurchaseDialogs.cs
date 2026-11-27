@@ -495,6 +495,8 @@ public sealed class PurchaseReceiptDialog : Window
         var supplierDocText = PurchaseNumberUi.SupplierDocText(r.SupplierDocNumber, r.SupplierDocDate);
         if (supplierDocText.Length > 0)
             Line(T("Накладная поставщика", "Жеткирүүчүнүн накладнойу", "Supplier invoice", "Tedarikçi faturası", "Yetkazib beruvchi yuk xati"), r.SupplierDocNumber + (r.SupplierDocDate is { } sd ? " · " + sd.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture) : ""));
+        if (r.EsfNumber.Length > 0) // 2026-11-26 (ТОП-15 п. 4)
+            Line(T("№ ЭСФ", "ЭСФ №", "ESF no.", "ESF no.", "ESF №"), r.EsfNumber);
         Line(T("Поставщик", "Жеткирүүчү", "Supplier", "Tedarikçi", "Yetkazib beruvchi"), r.SupplierName);
         Line(T("Принял", "Кабыл алды", "Received by", "Kabul eden", "Qabul qildi"), r.CreatedBy.Length > 0 ? r.CreatedBy : "—");
         Line(T("Дата", "Күнү", "Date", "Tarih", "Sana"), r.CreatedAt?.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture) ?? "—");

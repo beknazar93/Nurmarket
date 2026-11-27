@@ -2897,14 +2897,38 @@ abstract class AppLocalizations {
   /// No description provided for @qrDownloadHint.
   ///
   /// In ru, this message translates to:
-  /// **'Камера покупателя сразу скачает чек PDF-файлом'**
+  /// **'Покупатель увидит красивый чек в браузере: можно сохранить PDF или картинку'**
   String get qrDownloadHint;
 
   /// No description provided for @qrTextHint.
   ///
   /// In ru, this message translates to:
-  /// **'Пока сервер не выдаёт ссылку на чек, камера покажет его текстом. PDF-файл клиенту — кнопкой ниже.'**
+  /// **'Ссылка на красивый чек пока недоступна. Проверьте связь и нажмите «Повторить» — или отправьте PDF кнопкой ниже.'**
   String get qrTextHint;
+
+  /// No description provided for @qrOfflineHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Чек ещё не отправлен на сервер. QR-код появится после синхронизации — откройте чек в «Чеках», когда появится связь.'**
+  String get qrOfflineHint;
+
+  /// No description provided for @openReceiptLink.
+  ///
+  /// In ru, this message translates to:
+  /// **'Открыть чек'**
+  String get openReceiptLink;
+
+  /// No description provided for @shareReceiptLink.
+  ///
+  /// In ru, this message translates to:
+  /// **'Поделиться ссылкой'**
+  String get shareReceiptLink;
+
+  /// No description provided for @shareReceiptText.
+  ///
+  /// In ru, this message translates to:
+  /// **'Ваш чек №{number}'**
+  String shareReceiptText(String number);
 
   /// No description provided for @cashInOut.
   ///
@@ -11842,6 +11866,54 @@ abstract class AppLocalizations {
   /// **'Каталог обновлён: {n} товаров'**
   String catalogRefreshed(int n);
 
+  /// No description provided for @stockScanBtn.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сканер штрихкода'**
+  String get stockScanBtn;
+
+  /// No description provided for @stockPhotoBtn.
+  ///
+  /// In ru, this message translates to:
+  /// **'Поиск по фото'**
+  String get stockPhotoBtn;
+
+  /// No description provided for @stockScanHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Наведите на штрихкод или QR-код товара — он подставится в поиск'**
+  String get stockScanHint;
+
+  /// No description provided for @stockScanFound.
+  ///
+  /// In ru, this message translates to:
+  /// **'Найдено по коду {code}: {name}'**
+  String stockScanFound(String code, String name);
+
+  /// No description provided for @stockPhotoTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Похожие товары на складе'**
+  String get stockPhotoTitle;
+
+  /// No description provided for @stockPhotoHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Выберите товар — он появится в списке склада'**
+  String get stockPhotoHint;
+
+  /// No description provided for @stockPhotoNone.
+  ///
+  /// In ru, this message translates to:
+  /// **'По фото ничего похожего на складе не нашлось. Сфотографируйте ближе или найдите товар по названию.'**
+  String get stockPhotoNone;
+
+  /// No description provided for @stockPhotoOffline.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нет связи — поиск по фото работает только с интернетом. Найдите товар по названию или штрихкоду.'**
+  String get stockPhotoOffline;
+
   /// No description provided for @stockCountShown.
   ///
   /// In ru, this message translates to:
@@ -12771,6 +12843,84 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Автозапчасти: находите товар по каталожному номеру; количество — в штуках, комплектах и парах.'**
   String get recvModeAutoparts;
+
+  /// No description provided for @loginDeviceKeyRequired.
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось определить это устройство. Обновите приложение NurCRM и повторите вход.'**
+  String get loginDeviceKeyRequired;
+
+  /// No description provided for @deviceSlotTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Вход уже есть на другом устройстве'**
+  String get deviceSlotTitle;
+
+  /// No description provided for @deviceSlotBody.
+  ///
+  /// In ru, this message translates to:
+  /// **'Вы уже входили на другом устройстве. Выйти там и войти здесь?\n\nНа том устройстве вход закроется.'**
+  String get deviceSlotBody;
+
+  /// No description provided for @deviceSlotConfirm.
+  ///
+  /// In ru, this message translates to:
+  /// **'Выйти там и войти здесь'**
+  String get deviceSlotConfirm;
+
+  /// No description provided for @pinTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'PIN владельца или администратора'**
+  String get pinTitle;
+
+  /// No description provided for @pinReturnInfo.
+  ///
+  /// In ru, this message translates to:
+  /// **'Для возврата этого чека сервер просит подтверждение: введите PIN владельца или администратора (не пароль от входа).'**
+  String get pinReturnInfo;
+
+  /// No description provided for @pinFieldLabel.
+  ///
+  /// In ru, this message translates to:
+  /// **'PIN'**
+  String get pinFieldLabel;
+
+  /// No description provided for @pinConfirm.
+  ///
+  /// In ru, this message translates to:
+  /// **'Подтвердить'**
+  String get pinConfirm;
+
+  /// No description provided for @pinInvalid.
+  ///
+  /// In ru, this message translates to:
+  /// **'PIN неверный.'**
+  String get pinInvalid;
+
+  /// No description provided for @pinInvalidLeft.
+  ///
+  /// In ru, this message translates to:
+  /// **'PIN неверный. Осталось попыток: {n}.'**
+  String pinInvalidLeft(int n);
+
+  /// No description provided for @pinLocked.
+  ///
+  /// In ru, this message translates to:
+  /// **'PIN заблокирован после неверных попыток. Повторите позже.'**
+  String get pinLocked;
+
+  /// No description provided for @pinNotSet.
+  ///
+  /// In ru, this message translates to:
+  /// **'PIN не задан — задайте в Настройки → Сотрудники.'**
+  String get pinNotSet;
+
+  /// No description provided for @pinRequiredText.
+  ///
+  /// In ru, this message translates to:
+  /// **'Это действие нужно подтвердить PIN-кодом владельца или администратора. Повторите и введите PIN.'**
+  String get pinRequiredText;
 }
 
 class _AppLocalizationsDelegate

@@ -47,6 +47,8 @@ public sealed class ReceivingPostState
     // DocNumber — номер документа в кассе («ПР-2026-000123» или временный «ПР-2026-ч5»), для показа в очереди и итоге.
     public string? SupplierDocNumber { get; set; }
     public DateTime? SupplierDocDate { get; set; }
+    /// <summary>2026-11-26 (ТОП-15 п. 4): номер ЭСФ поставщика — уходит с приходом (comment «ЭСФ №: …» и поле esf_number).</summary>
+    public string? EsfNumber { get; set; }
     public string? DocNumber { get; set; }
     /// <summary>2026-11-06 (живой тест, Б-3): номер прихода, который сервер вернул в ответе (number_display) — источник истины для списка, окна документа, печати и PDF.
     /// DocNumber до отправки — только предварительный номер кассы.</summary>

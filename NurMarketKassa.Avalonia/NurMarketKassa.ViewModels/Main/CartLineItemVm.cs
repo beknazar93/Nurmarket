@@ -192,6 +192,12 @@ public sealed class CartLineItemVm : ViewModelBase
             var amount = FixedDiscountAmount is > 1e-6
                 ? FixedDiscountAmount.Value
                 : DiscountAmount;
+            // 2026-11-27 (живой проход): весовой «по сумме» 100 сом → 1,429 кг × 70 = 100,03, строка ровно 100 — DiscountAmount = 0,
+            // и над строкой висел значок «-0 сом». Берём настоящую разницу «цена × вес − сумма строки»; меньше копейки — значка нет.
+            if (amount < 0.005)
+                amount = Math.Round(UnitPrice * Quantity - LineTotal, 2, MidpointRounding.AwayFromZero);
+            if (amount < 0.005)
+                return string.Empty;
             return $"-{MoneyText.Weight(amount, "0.##")} {Tr.T("сом", "сом", "som", "som", "so'm")}";
         }
     }

@@ -58,7 +58,7 @@ public sealed class MarketplaceItem
     public MarketplaceKind Kind { get; init; } = MarketplaceKind.Feature;
     public required string Title { get; init; }
     public string ShortDescription { get; init; } = "";
-    public string LongDescription { get; init; } = "";
+    public string LongDescription { get; set; } = ""; // 2026-11-26: set — подробное «Что делает» пакетов дописывает MarketplaceDemos.Apply
     /// <summary>Эмодзи на значке и цвет подложки (hex). Для тем и видов кассы вместо глифа — IconVisual.</summary>
     public string IconGlyph { get; init; } = "";
     public string IconColor { get; init; } = "#FFB208";
@@ -98,10 +98,16 @@ public sealed class MarketplaceItem
     public string IconKey { get; set; } = "";
     /// <summary>Одна строка пользы для героя и обложки.</summary>
     public string Tagline { get; set; } = "";
+    /// <summary>2026-11-26 (замечание владельца: «описание новым функциям что он делает»): одна строка «что делает» без названия — для плитки и строк списков; у модулей — MarketplaceModuleContent.LineOf.</summary>
+    public string Line { get; set; } = "";
+    /// <summary>Что показать под названием плитки: своя строка, иначе Tagline, иначе ShortDescription (у темы или вида кассы — их короткое описание).</summary>
+    public string BlurbText => !string.IsNullOrWhiteSpace(Line) ? Line : !string.IsNullOrWhiteSpace(Tagline) ? Tagline : ShortDescription;
     /// <summary>До 3 коротких чипов в шапке.</summary>
     public IReadOnlyList<string> KeyFacts { get; set; } = [];
     public IReadOnlyList<MarketplaceSlide> Slides { get; set; } = [];
     public MarketplaceDemo? Demo { get; set; }
+    /// <summary>2026-11-26: демонстрация работы, нарисованная кодом (3–5 шагов; MarketplaceDemos.*); пусто — демонстрации нет. Показывается вместо баннера-обложки.</summary>
+    public IReadOnlyList<MockStep> MockDemo { get; set; } = [];
     public IReadOnlyList<MarketplaceBenefit> Benefits { get; set; } = [];
     /// <summary>Шаги «Как включить».</summary>
     public IReadOnlyList<string> HowTo { get; set; } = [];
@@ -716,6 +722,7 @@ public sealed class LocalMarketplaceCatalogSource : IMarketplaceCatalogSource
         MarketplaceSiteThemes.Append(items, _run); // 2026-10-27: темы сайта (в т.ч. 10 тем одежды) — ТЗ «Сайт», С-3
         MarketplaceServerThemes.Append(items, _run); // 2026-11-06: темы и виды кассы с сервера (покупка на сайте) — только при признаке marketplace_themes
         MarketplaceModules.Append(items, _run, AppVersion); // 2026-11-21: общие карточки «Модуль» для модулей сервера без своей карточки (только при ответе сервера)
+        MarketplaceFeatureCards.Append(items, _run, AppVersion); // 2026-11-26: функции без модуля сервера (бот-продавец, торг бота, ЭСФ, онлайн-ККМ, рассылки, 1С, QR…) — с описанием и демонстрацией
         MarketplaceContent.Enrich(items); // 2026-10-23: группы и (позже) контент страницы «подробно» — отдельным файлом
         return items;
     }

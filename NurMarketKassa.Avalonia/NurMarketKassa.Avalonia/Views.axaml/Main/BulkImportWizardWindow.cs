@@ -492,7 +492,9 @@ public sealed partial class BulkImportWizardWindow : Window
     private void UpdateToggles()
     {
         // 2026-11-20: «Дополнительно: сопоставление столбцов» — сворачиваемая боковая полоса шага «Проверьте» (по умолчанию свёрнута).
-        _mapToggle.Content = (_advCol.IsVisible ? "▾ " : "▸ ") + T("Дополнительно: сопоставление столбцов", "Кошумча: мамычаларды дал келтирүү", "Advanced: column mapping", "Gelişmiş: sütun eşleme", "Qo'shimcha: ustunlarni moslash");
+        // 2026-11-27: подпись короче («Дополнительно»), полный текст — в подсказке: кнопка шириной 359 px сжимала итог до 274 px (4 строки), и таблица на 1024×600 теряла 10–30 px.
+        _mapToggle.Content = (_advCol.IsVisible ? "▾ " : "▸ ") + T("Дополнительно", "Кошумча", "Advanced", "Gelişmiş", "Qo'shimcha");
+        ToolTip.SetTip(_mapToggle, T("Дополнительно: сопоставление столбцов", "Кошумча: мамычаларды дал келтирүү", "Advanced: column mapping", "Gelişmiş: sütun eşleme", "Qo'shimcha: ustunlarni moslash"));
         _opsToggle.Content = T("Действия над отмеченными", "Белгиленгендер үчүн аракеттер", "Actions on ticked rows", "İşaretlilerde işlemler", "Belgilanganlar ustida amallar");
     }
 

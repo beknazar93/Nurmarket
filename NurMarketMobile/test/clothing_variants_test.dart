@@ -732,7 +732,12 @@ void main() {
       expect(ShopModeX.fromServer('grocery', 'hozmag'), ShopMode.hardware);
       expect(ShopModeX.fromServer('grocery', 'stroymag'), ShopMode.hardware);
       expect(ShopModeX.fromServer('clothing', 'autoparts'), ShopMode.clothing, reason: 'точная сфера совместима только с базовой grocery');
-      expect(ShopModeX.fromServer('bazaar', null), isNull, reason: 'market_sphere сервера бывает только grocery / clothing / services');
+      // 2026-11-26: сервер отдаёт точную сферу и прямо в market_sphere (company.market_sphere = 'autoparts'); неизвестная сфера — не выбор
+      expect(ShopModeX.fromServer('autoparts', null), ShopMode.autoparts);
+      expect(ShopModeX.fromServer('bazaar', null), ShopMode.bazaar);
+      expect(ShopModeX.fromServer('bazaar_retail', null), ShopMode.bazaar);
+      expect(ShopModeX.fromServer('hardware', null), ShopMode.hardware);
+      expect(ShopModeX.fromServer('container', null), isNull);
       // телефон берёт сферу и следит за её сменой на сервере (база везде grocery)
       api.routes[ShopModeSync.companyPath] = (_) => {'market_sphere': 'grocery'};
       api.routes[ShopModeSync.settingsPath] = (_) => {

@@ -101,6 +101,35 @@ public static class ElqrQrBuilder
         return ((long)tiyin).ToString(CultureInfo.InvariantCulture);
     }
 
+    /// <summary>2026-11-26 (отчёт «Конкуренты», п. 1): результат самопроверки статического QR банка.</summary>
+    public enum StaticQrCheck
+    {
+        /// <summary>Это ELQR, а его собственная контрольная сумма сходится с нашей формулой — значит, QR с суммой, собранный по ней, банк примет.</summary>
+        Ok,
+        /// <summary>Не ELQR (нет тегов формата/контрольной суммы) — сумму вписать нельзя, показывается обычный QR.</summary>
+        NotElqr,
+        /// <summary>ELQR, но контрольная сумма иного вида — наша формула ему не подходит, QR с суммой банк бы отверг.</summary>
+        ChecksumMismatch,
+    }
+
+    /// <summary>2026-11-26: проверяет статический QR банка ДО сборки QR с суммой. Раньше формулу проверяли руками (двумя QR MBank) и функцию держали выключенной
+    /// «пока не проверят другие банки»; теперь проверка идёт по самому QR магазина: пересчитываем тег 63 по его же данным — сошлось, формула для этого банка верна.</summary>
+    public static StaticQrCheck Inspect(string? staticQrTextOrLink)
+    {
+        if (string.IsNullOrWhiteSpace(staticQrTextOrLink))
+            return StaticQrCheck.NotElqr;
+        var (_, rawPayload) = SplitLink(staticQrTextOrLink.Trim());
+        string decoded;
+        try { decoded = Uri.UnescapeDataString(rawPayload); }
+        catch (UriFormatException) { return StaticQrCheck.NotElqr; }
+        var fields = Parse(decoded);
+        if (fields.Count < 3 || !fields.Any(f => f.Tag == "00") || !fields.Any(f => f.Tag == TagChecksum))
+            return StaticQrCheck.NotElqr;
+        var body = Serialize(fields.Where(f => f.Tag != TagChecksum));
+        var given = fields.Last(f => f.Tag == TagChecksum).Value;
+        return string.Equals(given, ComputeChecksum(body), StringComparison.OrdinalIgnoreCase) ? StaticQrCheck.Ok : StaticQrCheck.ChecksumMismatch;
+    }
+
     /// <summary>Главный метод: берёт СТАТИЧЕСКИЙ QR владельца (ссылку или голый payload) и
     /// возвращает такую же ссылку, но с суммой чека внутри.
     ///
@@ -121,6 +150,9 @@ public static class ElqrQrBuilder
         if (fields.Count < 3 || !fields.Any(f => f.Tag == "00") || !fields.Any(f => f.Tag == TagChecksum))
             return null;
 
+        // 2026-11-26 (стресс-тест QR): сумма больше 13 цифр в тыйынах (предел тега 54) или переполнение long — не QR с суммой, а обычный QR (раньше OverflowException ронял показ QR).
+        if (amountSom > 9_999_999_999.99m)
+            return null;
         var amount = AmountToTiyin(amountSom);
         if (amount == "0")
             return null; // нулевой чек — смысла в динамическом QR нет

@@ -373,6 +373,16 @@ class _CheckDetailScreenState extends ConsumerState<CheckDetailScreen> {
     return Receipt.fromSale(session: session, sale: sale, number: r.number, total: r.total, at: r.at, payment: r.payment, status: r.status);
   }
 
+  /// 2026-11-26: «Отправить чек» — ссылка на красивую страницу и «Ваш чек №…» (WhatsApp, Telegram); без ссылки (чек без связи) — прежний текст чека.
+  Future<void> _shareReceiptText() async {
+    final base = _receipt();
+    if (base == null) return;
+    final r = await receiptWithLink(context, base);
+    if (!mounted) return;
+    final url = r.eReceiptUrl;
+    await SharePlus.instance.share(ShareParams(text: url == null ? r.toText() : shareReceiptMessage(context.l, r, url), subject: r.fileName));
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = context.l;
@@ -459,7 +469,7 @@ class _CheckDetailScreenState extends ConsumerState<CheckDetailScreen> {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: _receipt() == null ? null : () => shareReceiptPdf(_receipt()!),
+                  onPressed: _receipt() == null ? null : () async => shareReceiptPdf(await receiptWithLink(context, _receipt()!)),
                   icon: const Icon(Icons.picture_as_pdf_outlined),
                   label: const Text('PDF'),
                 ),
@@ -467,7 +477,7 @@ class _CheckDetailScreenState extends ConsumerState<CheckDetailScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: _receipt() == null ? null : () => SharePlus.instance.share(ShareParams(text: _receipt()!.toText())),
+                  onPressed: _receipt() == null ? null : _shareReceiptText,
                   icon: const Icon(Icons.chat_outlined),
                   label: Text(l.sendReceipt),
                 ),

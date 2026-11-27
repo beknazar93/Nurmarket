@@ -22,6 +22,9 @@ public sealed class ScaleTokensStaticTests
         // «таблетка»: радиус равен половине высоты чипа, это форма, а не шаг шкалы
         "PosDialogStyles.axaml|Property=\"CornerRadius\" Value=\"22\"",
         "PosDialogStyles.axaml|CornerRadius=\"25\"",
+        // 2026-11-27: размер ползунка (кружок 32 px, цель касания — строка 44 по ключу) и переключатель не ниже 40 px (проход DesignAuditUiTests) — промежуточных значений в шкале нет
+        "AppControlStyles.axaml|Property=\"Height\" Value=\"32\"",
+        "AppControlStyles.axaml|Property=\"MinHeight\" Value=\"40\"",
     ];
 
     private static readonly Regex Number = new(

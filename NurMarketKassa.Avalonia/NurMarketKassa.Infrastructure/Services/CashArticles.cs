@@ -153,6 +153,31 @@ public static class CashArticles
         return name.Length > 255 ? name[..255] : name;
     }
 
+    /// <summary>2026-11-26 («внесение на аналитике исчезает»): статья ВНЕСЕНИЯ из движения shift_drawer_inflow. Все внесения на сервере лежат в одной
+    /// статье «Внесение» (CashArticle.ServerTitles), поэтому category_title статью не различает — берём её из названия «Внесение: &lt;статья&gt; — …».
+    /// Нет статьи в названии, а category_title другой (внесение вручную на сайте) — статья по нему; иначе null.</summary>
+    public static CashArticle? FromDepositFlow(string? name, string? categoryTitle)
+    {
+        var n = (name ?? "").Trim();
+        var colon = n.IndexOf(':');
+        if (colon >= 0)
+        {
+            var rest = n[(colon + 1)..].Trim();
+            var dash = rest.IndexOf(" — ", StringComparison.Ordinal);
+            var head = dash >= 0 ? rest[..dash].Trim() : rest;
+            if (Deposits.FirstOrDefault(a => a.Ru.Equals(head, StringComparison.OrdinalIgnoreCase)) is { } byName)
+                return byName;
+        }
+
+        var title = (categoryTitle ?? "").Trim();
+        return title.Length > 0 && !title.Equals(DepositServerTitle, StringComparison.OrdinalIgnoreCase)
+            ? new CashArticle { Key = ServerKeyPrefix + title, IsWithdrawal = false, Ru = title }
+            : null;
+    }
+
+    /// <summary>Общая статья всех внесений в справочнике сервера (см. <see cref="D"/>).</summary>
+    private const string DepositServerTitle = "Внесение";
+
     /// <summary>Статья движения для отчётов владельца: category_title с сервера; нет — из названия «Изъятие: &lt;статья&gt; — …»
     /// (только если это одна из наших статей). null — статьи нет (старые изъятия со свободной причиной).</summary>
     public static CashArticle? FromFlow(string? name, string? categoryTitle)
@@ -319,53 +344,84 @@ public static class CashArticles
     /// статья — category_title, для старых записей — из названия «Изъятие: Аренда — …», иначе «Без статьи». Дата и вид
     /// проверяются ещё раз здесь (сервер может проигнорировать фильтр). Отклонённые (status rejected) не считаются.
     /// null — сервер не ответил.</summary>
-    public static async Task<IReadOnlyList<ArticleTotal>?> WithdrawalsByArticleAsync(
-        NurMarketApiClient api, DateTime from, DateTime to, CancellationToken ct)
+    public static Task<IReadOnlyList<ArticleTotal>?> WithdrawalsByArticleAsync(
+        NurMarketApiClient api, DateTime from, DateTime to, CancellationToken ct) =>
+        DrawerOperationsByArticleAsync(api, from, to, withdrawal: true, ct);
+
+    /// <summary>2026-11-26 («при внесении и изъятии на аналитике покажется только изъятие, а внесение исчезает»): внесения в ящик смен за период
+    /// по статьям (GET api/construction/cashflows/?source_kind=shift_drawer_inflow) — зеркало <see cref="WithdrawalsByArticleAsync"/>. Раньше
+    /// «Прибыль и деньги», «Аналитика» и выгрузка Word/Excel показывали только изъятия: расход сервер ведёт в pnl, а внесение — не доход и не расход,
+    /// и нигде в отчётах владельца не появлялось. null — сервер не ответил.</summary>
+    public static Task<IReadOnlyList<ArticleTotal>?> DepositsByArticleAsync(
+        NurMarketApiClient api, DateTime from, DateTime to, CancellationToken ct) =>
+        DrawerOperationsByArticleAsync(api, from, to, withdrawal: false, ct);
+
+    /// <summary>Группа статьи при сборе движений ящика: подпись, сумма, число операций, инкассация ли.</summary>
+    internal sealed class DrawerGroups : Dictionary<string, (string Title, double Amount, int Count, bool IsCollection)>
+    {
+        public DrawerGroups() : base(StringComparer.OrdinalIgnoreCase) { }
+
+        public IReadOnlyList<ArticleTotal> ToTotals() => Values
+            .Select(g => new ArticleTotal(g.Title, Math.Round(g.Amount, 2), g.Count, g.IsCollection))
+            .OrderBy(g => g.IsCollection)
+            .ThenByDescending(g => g.Amount)
+            .ToList();
+    }
+
+    /// <summary>Складывает строки движений ящика (одна страница ответа cashflows) в группы по статьям. Вид (shift_drawer_outflow / shift_drawer_inflow),
+    /// дата и статус проверяются ещё раз здесь (сервер может проигнорировать фильтр); отклонённые (status rejected) и нулевые суммы не считаются.
+    /// Внесение и изъятие считаются РАЗДЕЛЬНО (разные вызовы, разные группы) — «Прочее 1 000» внесением и «Прочее 1 000» изъятием не схлопываются.</summary>
+    internal static void AddDrawerRows(DrawerGroups groups, IEnumerable<JsonElement> rows, bool withdrawal, DateTime from, DateTime to)
+    {
+        var sourceKind = withdrawal ? "shift_drawer_outflow" : "shift_drawer_inflow";
+        var noArticle = withdrawal
+            ? Tr.T("Без статьи (до 22.10.2026 — свободная причина)", "Беренесиз (22.10.2026 чейин — эркин себеп)",
+                "No category (before 22.10.2026 — free-text reason)", "Kalemsiz (22.10.2026 öncesi — serbest neden)",
+                "Moddasiz (22.10.2026 gacha — erkin sabab)")
+            : Tr.T("Без статьи", "Беренесиз", "No category", "Kalemsiz", "Moddasiz");
+        foreach (var row in rows)
+        {
+            if (!string.Equals(Str(row, "source_kind"), sourceKind, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(Str(row, "status"), "rejected", StringComparison.OrdinalIgnoreCase)
+                || !DateTimeOffset.TryParse(Str(row, "created_at"), CultureInfo.InvariantCulture, DateTimeStyles.None, out var at)
+                || at.LocalDateTime.Date < from.Date || at.LocalDateTime.Date > to.Date)
+                continue;
+            var amountText = row.TryGetProperty("amount", out var a)
+                ? a.ValueKind == JsonValueKind.Number ? a.GetRawText() : a.ValueKind == JsonValueKind.String ? a.GetString() : null
+                : null;
+            if (!double.TryParse(amountText, NumberStyles.Number, CultureInfo.InvariantCulture, out var amount) || amount <= 0)
+                continue;
+            var article = withdrawal ? FromFlow(Str(row, "name"), Str(row, "category_title")) : FromDepositFlow(Str(row, "name"), Str(row, "category_title"));
+            var key = article?.Ru ?? "";
+            var title = article is null ? noArticle : article.Names.Length >= 5 ? article.Title : article.Ru;
+            var old = groups.TryGetValue(key, out var g) ? g : (title, 0d, 0, article?.IsCollection == true);
+            groups[key] = (old.Item1, old.Item2 + amount, old.Item3 + 1, old.Item4);
+        }
+    }
+
+    private static async Task<IReadOnlyList<ArticleTotal>?> DrawerOperationsByArticleAsync(
+        NurMarketApiClient api, DateTime from, DateTime to, bool withdrawal, CancellationToken ct)
     {
         try
         {
-            var groups = new Dictionary<string, (string Title, double Amount, int Count, bool IsCollection)>(StringComparer.OrdinalIgnoreCase);
-            var noArticle = Tr.T("Без статьи (до 22.10.2026 — свободная причина)", "Беренесиз (22.10.2026 чейин — эркин себеп)",
-                "No category (before 22.10.2026 — free-text reason)", "Kalemsiz (22.10.2026 öncesi — serbest neden)",
-                "Moddasiz (22.10.2026 gacha — erkin sabab)");
+            var groups = new DrawerGroups();
             for (var page = 1; page <= 20; page++)
             {
                 var data = await api.RequestAsync(HttpMethod.Get, "api/construction/cashflows/", null,
                     new Dictionary<string, string>
                     {
-                        ["source_kind"] = "shift_drawer_outflow",
-                        ["type"] = "expense",
+                        ["source_kind"] = withdrawal ? "shift_drawer_outflow" : "shift_drawer_inflow",
+                        ["type"] = withdrawal ? "expense" : "income",
                         ["date_from"] = from.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                         ["date_to"] = to.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                         ["page_size"] = "500",
                         ["page"] = page.ToString(CultureInfo.InvariantCulture),
                     }, ct, TimeSpan.FromSeconds(30)).ConfigureAwait(false);
-                foreach (var row in NurMarketApiClient.UnwrapList(data))
-                {
-                    if (!string.Equals(Str(row, "source_kind"), "shift_drawer_outflow", StringComparison.OrdinalIgnoreCase)
-                        || string.Equals(Str(row, "status"), "rejected", StringComparison.OrdinalIgnoreCase)
-                        || !DateTimeOffset.TryParse(Str(row, "created_at"), CultureInfo.InvariantCulture, DateTimeStyles.None, out var at)
-                        || at.LocalDateTime.Date < from.Date || at.LocalDateTime.Date > to.Date)
-                        continue;
-                    var amountText = row.TryGetProperty("amount", out var a)
-                        ? a.ValueKind == JsonValueKind.Number ? a.GetRawText() : a.ValueKind == JsonValueKind.String ? a.GetString() : null
-                        : null;
-                    if (!double.TryParse(amountText, NumberStyles.Number, CultureInfo.InvariantCulture, out var amount) || amount <= 0)
-                        continue;
-                    var article = FromFlow(Str(row, "name"), Str(row, "category_title"));
-                    var key = article?.Ru ?? "";
-                    var title = article is null ? noArticle : article.Names.Length >= 5 ? article.Title : article.Ru;
-                    var old = groups.TryGetValue(key, out var g) ? g : (title, 0d, 0, article?.IsCollection == true);
-                    groups[key] = (old.Item1, old.Item2 + amount, old.Item3 + 1, old.Item4);
-                }
+                AddDrawerRows(groups, NurMarketApiClient.UnwrapList(data), withdrawal, from, to);
                 if (!(data.ValueKind == JsonValueKind.Object && data.TryGetProperty("next", out var next) && next.ValueKind == JsonValueKind.String))
                     break;
             }
-            return groups.Values
-                .Select(g => new ArticleTotal(g.Title, Math.Round(g.Amount, 2), g.Count, g.IsCollection))
-                .OrderBy(g => g.IsCollection)
-                .ThenByDescending(g => g.Amount)
-                .ToList();
+            return groups.ToTotals();
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -373,7 +429,7 @@ public static class CashArticles
         }
         catch (Exception ex)
         {
-            PosLogger.Log($"Изъятия по статьям не получены с сервера: {ex.Message}", "WARNING");
+            PosLogger.Log($"{(withdrawal ? "Изъятия" : "Внесения")} по статьям не получены с сервера: {ex.Message}", "WARNING");
             return null;
         }
     }

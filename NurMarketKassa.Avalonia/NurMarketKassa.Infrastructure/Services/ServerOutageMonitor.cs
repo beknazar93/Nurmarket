@@ -454,13 +454,27 @@ public static class ServerOutageMonitor
         if (ex is ApiException { StatusCode: 401 })
             return Tr.T("Сессия истекла — войдите заново.", "Сессия бүттү — кайра кириңиз.", "The session expired — sign in again.",
                 "Oturum süresi doldu — yeniden giriş yapın.", "Sessiya tugadi — qayta kiring.");
-        if (ex is ApiException { StatusCode: 403 })
-            return Tr.T("Нет права на это действие. Обратитесь к владельцу.", "Бул аракетке укук жок. Ээсине кайрылыңыз.",
+        if (ex is ApiException { StatusCode: 403 } forbidden)
+        {
+            var noRight = Tr.T("Нет права на это действие. Обратитесь к владельцу.", "Бул аракетке укук жок. Ээсине кайрылыңыз.",
                 "You have no permission for this action. Ask the owner.", "Bu işlem için yetkiniz yok. Sahibine başvurun.", "Bu amalga ruxsat yo'q. Egasiga murojaat qiling.");
+            // 2026-11-26 (Д1, отчёт «Проверка сфер»): если сервер объяснил отказ (detail), показываем причину вместо одной общей фразы; технический текст и коды не выводим.
+            var reason = ForbiddenReason(forbidden);
+            return reason is null ? noRight : noRight + " " + Tr.T("Причина: ", "Себеби: ", "Reason: ", "Neden: ", "Sababi: ") + reason;
+        }
         if (ex is ApiException api && !string.IsNullOrWhiteSpace(api.Message) && api.Message.Length <= 200 && (showServerText || !LooksTechnical(api.Message)))
             return api.Message.Trim();
         return Tr.T("Не удалось выполнить запрос. Повторите позже.", "Суроону аткаруу мүмкүн болгон жок. Кийинчерээк кайталаңыз.",
             "The request failed. Try again later.", "İstek gerçekleştirilemedi. Daha sonra tekrar deneyin.", "So'rovni bajarib bo'lmadi. Keyinroq qayta urinib ko'ring.");
+    }
+
+    /// <summary>2026-11-26 (Д1): причина отказа 403 из поля detail тела ответа (текст сервера по-русски); null — нет поля, слишком длинно или похоже на технический текст.</summary>
+    private static string? ForbiddenReason(ApiException ex)
+    {
+        if (ex.Payload is not { ValueKind: JsonValueKind.Object } p || !p.TryGetProperty("detail", out var d) || d.ValueKind != JsonValueKind.String)
+            return null;
+        var text = d.GetString()?.Trim();
+        return string.IsNullOrWhiteSpace(text) || text.Length > 200 || LooksTechnical(text) ? null : text;
     }
 
     /// <summary>2026-11-12 (оценка UX/UI, Д-2): сбой именно «сервер/сеть недоступны» (а не отказ 4xx, не медленный ответ, не принтер и не отмена) — для блока состояния:

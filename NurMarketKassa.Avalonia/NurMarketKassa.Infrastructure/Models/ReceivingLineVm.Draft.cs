@@ -48,6 +48,14 @@ public sealed partial class ReceivingLineVm
         ExtraBarcodes = ExtraBarcodes.Count > 0 ? ExtraBarcodes.ToList() : null, // 2026-11-20
         VariantNote = VariantNote.Length > 0 ? VariantNote : null, // 2026-11-20
         ScanPackNote = ScanPackNote.Length > 0 ? ScanPackNote : null,
+        // 2026-11-26 («Выход мяса при приходе»): состояние блока и примечание прихода переживают перезапуск
+        CarcassOn = _carcassOn ? true : null,
+        CarcassGross = _carcassOn ? _cGross : null,
+        CarcassPrice = _carcassOn ? _cPrice : null,
+        CarcassTotal = _carcassOn ? _cTotal : null,
+        CarcassYield = _carcassOn ? _cYield : null,
+        CarcassNet = _carcassOn ? _cNet : null,
+        CarcassNote = CarcassNote.Length > 0 ? CarcassNote : null,
     };
 
     private static double Finite(double v, double max = 1e12) => double.IsFinite(v) && Math.Abs(v) < max ? v : 0;
@@ -101,6 +109,7 @@ public sealed partial class ReceivingLineVm
             vm.ExtraBarcodes = d.ExtraBarcodes.Where(v => !string.IsNullOrWhiteSpace(v.Barcode)).ToList(); // 2026-11-20
         vm.ScanPackNote = d.ScanPackNote ?? "";
         vm.VariantNote = d.VariantNote ?? ""; // 2026-11-20
+        vm.CarcassFromDraft(d); // 2026-11-26: «Выход мяса при приходе»
         return vm;
     }
 }

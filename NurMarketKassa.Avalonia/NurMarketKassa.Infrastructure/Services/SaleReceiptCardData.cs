@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
@@ -60,6 +60,10 @@ public sealed class SaleReceiptCardData
     public string OfflineNote { get; set; } = "";
     /// <summary>Ссылка на электронный чек из ответа сервера (как eReceiptUrl мобилки); null — сервер её не выдал.</summary>
     public string? QrUrl { get; set; }
+    /// <summary>2026-11-26: адрес витрины магазина (market.nurcrm.kg/catalog/{slug}) для второго QR «Заказать онлайн»; null — настройка выключена или витрины нет.</summary>
+    public string? ShopQrUrl { get; set; }
+    /// <summary>QR витрины показывается на обычном чеке; на возвратном документе — нет.</summary>
+    public bool ShowShopQr => ShopQrUrl != null && !IsReturnDoc;
     /// <summary>Показывать ли плашку статуса («Оплачен/Долг/Возврат») внутри бумаги: у окна истории она уже в шапке окна.</summary>
     public bool ShowStatusBadge { get; set; } = true;
     /// <summary>Статус стоит показать плашкой (долг, возврат, «Долг погашен»); обычный «Оплачен» уже виден по блоку оплаты.</summary>
@@ -77,6 +81,58 @@ public sealed class SaleReceiptCardData
     }
 
     public static string Som(decimal v) => Fmt(v) + " " + Tr.T("сом", "сом", "som", "som", "so'm");
+
+    /// <summary>2026-11-26 (владелец, чек 000006): сколько по чеку «в долг» погашено ПОСЛЕ продажи — итог минус внесённое при продаже минус остаток долга сейчас.
+    /// Меньше копейки (или меньше нуля: остаток сервера больше ожидаемого) — null, строку не показываем.</summary>
+    public static decimal? DebtPaidLater(decimal total, decimal paidAtSale, decimal debtNow)
+    {
+        var later = Math.Round(total - paidAtSale - debtNow, 2);
+        return later > 0.005m ? later : null;
+    }
+
+    /// <summary>2026-11-26 (жёсткая сверка): что дописать к чеку «в долг» после «Внесено»: сколько погашено позже и нужна ли строка «Долг». Долг погашен полностью (остаток 0) —
+    /// «Погашено позже» всё равно показываем (раньше пропадала: строки были только при остатке &gt; 0), а «Долг 0» — только если есть что объяснять (без оплат долга строки нет, как раньше).</summary>
+    /// <remarks>2026-11-26 (Умар 16:20): <paramref name="serverPaidLater"/> — сумма debt_payments чека (GET pos/sales/{id}/); сервер знает оплаты точно, поэтому она главнее расчёта
+    /// «итог − внесено − остаток». null — поля у сервера нет: прежний расчёт.</remarks>
+    public static (decimal? PaidLater, bool ShowDebt) DebtTail(decimal total, decimal? paidAtSale, decimal debtNow, decimal? serverPaidLater = null)
+    {
+        var later = serverPaidLater is { } known ? (known > 0.005m ? Math.Round(known, 2) : null) : paidAtSale is { } paid ? DebtPaidLater(total, paid, debtNow) : null;
+        return (later, debtNow > 0 || later is not null);
+    }
+
+    /// <summary>2026-11-26 (Умар 16:20): одна оплата долга по чеку из debt_payments[] ответа GET pos/sales/{id}/ — дата, способ (cash / transfer…), сумма.</summary>
+    public sealed record DebtPaymentLine(DateTime? Date, string Method, decimal Amount);
+
+    /// <summary>Оплаты долга по чеку из ответа сервера (debt_payments[] = {id, kind, amount, method, date, created_at, by}). null — поля нет (старый ответ, офлайн-чек): тогда
+    /// «Погашено позже» считается по-старому (<see cref="DebtTail"/>). Берутся только оплаты (kind «pay» или без вида) с суммой больше нуля.</summary>
+    public static IReadOnlyList<DebtPaymentLine>? DebtPayments(JsonElement sale)
+    {
+        if (sale.ValueKind != JsonValueKind.Object || !sale.TryGetProperty("debt_payments", out var arr) || arr.ValueKind != JsonValueKind.Array)
+            return null;
+        var list = new List<DebtPaymentLine>();
+        foreach (var p in arr.EnumerateArray())
+        {
+            var kind = (Str(p, "kind") ?? "").Trim().ToLowerInvariant();
+            if (kind.Length > 0 && kind != "pay")
+                continue;
+            if (Money(p, "amount") is not { } amount || amount <= 0.004m)
+                continue;
+            DateTime? date = DateTime.TryParse(Str(p, "date") ?? Str(p, "created_at"), CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : null;
+            list.Add(new DebtPaymentLine(date, (Str(p, "method") ?? "").Trim().ToLowerInvariant(), amount));
+        }
+        return list;
+    }
+
+    /// <summary>Строка «26.11.2026 · Наличными» / «Безналом» и сумма — для списка оплат долга под «Погашено позже».</summary>
+    public static (string Label, string Value) DebtPaymentRow(DebtPaymentLine p)
+    {
+        var how = p.Method is "cash" or "" ? Tr.T("наличными", "накталай", "cash", "nakit", "naqd")
+            : Tr.T("безналом", "накталайсыз", "non-cash", "nakitsiz", "naqdsiz");
+        return ((p.Date is { } at ? at.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture) + " · " : "") + how, Fmt(p.Amount));
+    }
+
+    /// <summary>Подпись строки «Погашено позже» в чеке продажи в долг.</summary>
+    public static string DebtPaidLaterLabel => Tr.T("Погашено позже (оплаты долга)", "Кийин төлөндү (карыз төлөмдөрү)", "Paid later (debt payments)", "Sonradan ödendi (borç ödemeleri)", "Keyin to'landi (qarz to'lovlari)");
 
     /// <summary>2026-10-27 (аудит кассы, С-12): «база-ггггммдд-ччмм-id6» для имени PDF. Нет даты — без этой части; нет id продажи —
     /// 6 знаков хэша от запасной строки (тот же чек — то же имя, другой — другое).</summary>
@@ -128,6 +184,7 @@ public sealed class SaleReceiptCardData
             Consultant = Str(sale, "consultant_display") ?? "",
             Client = Str(sale, "client_name") ?? "",
             QrUrl = EReceiptUrl(sale),
+            ShopQrUrl = prefs.PrintShopQr ? StorefrontLink.PrintableUrl() : null, // 2026-11-26: QR витрины «Заказать онлайн» (настройка «Печать»)
         };
         if (prefs.ShowDate)
         {
@@ -239,6 +296,19 @@ public sealed class SaleReceiptCardData
                 if (!CartDisplayHelper.IsSaleFullyReturned(sale) && Money(sale, "remaining_debt") is { } remaining) // 2026-11-01: возвращённый целиком чек — долг 0, сервер оставляет старое число
                 {
                     debtNow = remaining;
+                    // 2026-11-26 (владелец, чек 000006): разницу «долг при продаже − остаток сейчас» объясняет строка «Погашено позже» (оплаты долга, зачтённые сервером на чек).
+                    // 2026-11-26 (Умар 16:20): сервер отдаёт оплаты долга по чеку (debt_payments) — берём их сумму и показываем список; нет поля — прежний расчёт
+                    var serverPays = DebtPayments(sale);
+                    var (paidLater, _) = DebtTail(due, paidNow, remaining, serverPays?.Sum(x => x.Amount));
+                    if (paidLater is { } later)
+                    {
+                        d.Payment.Add(new Row(DebtPaidLaterLabel, Fmt(later)));
+                        foreach (var pay in serverPays ?? (IReadOnlyList<DebtPaymentLine>)Array.Empty<DebtPaymentLine>())
+                        {
+                            var (label, value) = DebtPaymentRow(pay);
+                            d.Payment.Add(new Row(label, value, 0));
+                        }
+                    }
                     d.Payment.Add(new Row(Tr.T("Остаток долга сейчас", "Азыркы карыз калдыгы", "Debt balance now", "Şu anki borç bakiyesi", "Hozirgi qarz qoldig'i"), Fmt(remaining), 1));
                 }
                 if (ledger?.ClientPhone is { Length: > 0 } phone && CartReceiptTextBuilder.MaskPhone(phone) is { Length: > 0 } masked)
@@ -312,6 +382,7 @@ public sealed class SaleReceiptCardData
             foreach (var r in Returns) b.AppendLine(r.Value.Length == 0 ? r.Label.Trim() : $"{r.Label.Trim()}: {r.Value}");
         }
         if (QrUrl != null) b.AppendLine(Tr.T("Электронный чек: ", "Электрондук чек: ", "E-receipt: ", "E-fiş: ", "Elektron chek: ") + QrUrl);
+        if (ShowShopQr) b.AppendLine(StorefrontLink.Caption + ": " + ShopQrUrl);
         b.AppendLine(Tr.T("Спасибо за покупку!", "Сатып алганыңыз үчүн рахмат!", "Thank you for your purchase!", "Alışveriş için teşekkürler!", "Xaridingiz uchun rahmat!"));
         return b.ToString();
     }
@@ -344,11 +415,14 @@ public sealed class SaleReceiptCardData
         return string.Join("\n", head) + "\n" + string.Join("\n", middle) + "\n…\n" + string.Join("\n", tail);
     }
 
-    /// <summary>Ссылка на электронный чек из ответа сервера — как eReceiptUrl мобилки (e_receipt.pdf_url / url / token).</summary>
+    /// <summary>Ссылка на электронный чек из ответа сервера: сначала публичная страница чека (share_url, 26.11.2026 — «красивый чек» в браузере покупателя),
+    /// затем как eReceiptUrl мобилки (e_receipt.pdf_url / url / token).</summary>
     public static string? EReceiptUrl(JsonElement sale)
     {
         if (sale.ValueKind != JsonValueKind.Object)
             return null;
+        if (ReceiptShareLink.FromSale(sale) is { } page)
+            return page;
         JsonElement nested = default;
         if (sale.TryGetProperty("e_receipt", out var e) && e.ValueKind == JsonValueKind.Object)
             nested = e;
@@ -362,13 +436,29 @@ public sealed class SaleReceiptCardData
         return token == null ? null : "https://check.nurcrm.kg/" + token + ".pdf";
     }
 
-    private static string ShiftNo(JsonElement sale)
+    // 2026-11-26: сервер (rcpt2611c) отдаёт shift_no — порядковый номер смены в компании (число),
+    // в pos/sales/, pos/sales/<id>/ и ответе checkout; поле shift остаётся строкой-uuid.
+    public static string ShiftNo(JsonElement sale)
     {
         if (sale.ValueKind != JsonValueKind.Object)
             return "";
+        if (sale.TryGetProperty("shift_no", out var n))
+        {
+            if (n.ValueKind == JsonValueKind.Number && n.TryGetInt64(out var num) && num > 0)
+                return num.ToString(CultureInfo.InvariantCulture);
+            if (n.ValueKind == JsonValueKind.String && IsShiftNumber(n.GetString()))
+                return n.GetString()!.Trim();
+        }
         if (sale.TryGetProperty("shift", out var s) && s.ValueKind == JsonValueKind.Object)
-            return Str(s, "number") ?? "";
-        return Str(sale, "shift_number") ?? "";
+            return IsShiftNumber(Str(s, "number")) ? Str(s, "number")! : "";
+        return IsShiftNumber(Str(sale, "shift_number")) ? Str(sale, "shift_number")! : "";
+    }
+
+    /// <summary>2026-11-26 (стресс-тест): «Смена №» — только короткое число («0», «-», uuid и мусор строкой не печатаются, «Смена №» тогда не выводится).</summary>
+    private static bool IsShiftNumber(string? text)
+    {
+        var t = (text ?? "").Trim();
+        return t.Length is > 0 and <= 10 && t.All(char.IsAsciiDigit) && t.Any(c => c != '0');
     }
 
     private static string? Str(JsonElement obj, string key) =>

@@ -61,6 +61,42 @@ public sealed class RepairOrder
     /// <summary>Сколько оплачено при выдаче продажей услуги (после подтверждения «чек оплачен»).</summary>
     public decimal PaidAtIssue { get; set; }
     public List<RepairLogEntry> Log { get; set; } = new();
+
+    // 2026-11-26 (сервер, этап 1 «статус ремонта»): передача заказа серверу. Rev растёт при каждой правке; SyncedRev — какая правка уже принята сервером
+    // (−1 — ещё не отправляли, в том числе у заказов, созданных до этой функции). Разные числа = заказ ждёт отправки (так офлайн ничего не теряется).
+    public int Rev { get; set; }
+    public int SyncedRev { get; set; } = -1;
+    /// <summary>Номер, который присвоил сервер (печатаем наш код; серверный номер — на будущее, этап 2).</summary>
+    public string ServerNumber { get; set; } = "";
+    /// <summary>Адрес страницы статуса из ответа сервера (public_url); пусто — сервер не прислал.</summary>
+    public string PublicUrl { get; set; } = "";
+    /// <summary>2026-11-26 (Умар 16:20): что ответил сервер про сообщение клиенту «Ремонт готов» в Telegram: sent | no_chat | deferred | failed; пусто — не знаем (ещё не было «Готов» или старый сервер).</summary>
+    public string NotifiedStatus { get; set; } = "";
+    // 2026-11-26 (Умар, этап 2 «синхронизация», docs/ТЗ/Умар — ремонт этап 2 синхронизация (26.11).md): номер выдаёт сервер, защита от затирания, чтение чужих квитанций.
+    /// <summary>Id квитанции на сервере (из ответа/чтения); у квитанций из программы владельца и мобилки (<see cref="Source"/> = server, external_id нет) — единственный ключ.</summary>
+    public string ServerId { get; set; } = "";
+    /// <summary>Откуда квитанция: пусто/kassa — с кассы (ключ external_id = <see cref="Id"/>), server — создана на сервере (программа владельца, мобилка): касса её только показывает.</summary>
+    public string Source { get; set; } = "";
+    /// <summary>updated_at из последнего ответа сервера (как есть, строкой) — уходит в PUT как base_updated_at.</summary>
+    public string UpdatedAt { get; set; } = "";
+    /// <summary>Номер временный (создан без связи, сервер ещё не выдал свой): после синхронизации заменяется серверным.</summary>
+    public bool TempNumber { get; set; }
+    /// <summary>Код, который выдал сервер («Р-0005»); пусто — код считается по <see cref="Number"/>.</summary>
+    public string ServerCode { get; set; } = "";
+    /// <summary>Код, с которым квитанция была напечатана; если потом он сменился (серверный номер) — карточка показывает оба: на бумаге у клиента старый.</summary>
+    public string PrintedCode { get; set; } = "";
+    /// <summary>Хэш содержимого квитанции, как её знает сервер (последний принятый PUT или прочитанное с сервера): так видно, менял ли кто-то данные на сервере, или только метку времени.</summary>
+    public string BaseKey { get; set; } = "";
+    /// <summary>stale_version: актуальное состояние с сервера (JSON поля current), пока кассир не решил «мои правки поверх» или «взять с сервера»; пусто — конфликта нет.</summary>
+    public string ConflictJson { get; set; } = "";
+    [JsonIgnore]
+    public bool HasConflict => !string.IsNullOrEmpty(ConflictJson);
+    /// <summary>Квитанция создана на сервере (программа владельца, мобилка): ключа external_id у неё нет, поэтому касса меняет её НЕ через PUT по external_id, а обычными адресами
+    /// repair-orders/&lt;uuid&gt;/ (PATCH), …/status/, …/prepay/, …/issue/ (ответ Умара 27.11; раньше — «только просмотр»).</summary>
+    [JsonIgnore]
+    public bool ServerOnly => Source == "server";
+    [JsonIgnore]
+    public bool SyncPending => SyncedRev != Rev && !HasConflict;
 }
 
 /// <summary>Файл квитанций.</summary>
@@ -68,6 +104,8 @@ public sealed class RepairData
 {
     public int Version { get; set; } = 1;
     public int LastNumber { get; set; }
+    /// <summary>2026-11-26 (этап 2): курсор чтения изменений с сервера (next_since); файл — данные компании, значит курсор свой у каждой компании.</summary>
+    public string NextSince { get; set; } = "";
     public List<RepairOrder> Orders { get; set; } = new();
 }
 
@@ -76,7 +114,8 @@ public static class RepairRules
 {
     public static string Code(int number) => "Р-" + number.ToString("0000", CultureInfo.InvariantCulture);
 
-    public static string Code(RepairOrder o) => Code(o.Number);
+    /// <summary>Код квитанции: тот, что выдал сервер («Р-0005»), иначе по номеру.</summary>
+    public static string Code(RepairOrder o) => string.IsNullOrWhiteSpace(o.ServerCode) ? Code(o.Number) : o.ServerCode.Trim();
 
     /// <summary>Деньги — до копеек, от нуля вверх (как на кассе).</summary>
     public static decimal Money(decimal value) => Math.Round(value, 2, MidpointRounding.AwayFromZero);
@@ -181,7 +220,7 @@ public static class RepairRules
     }
 
     /// <summary>Квитанция приёма: клиент, устройство, серийный номер, неисправность, комплектация, предоплата, срок, условия и две подписи.</summary>
-    public static string BuildReceipt(RepairOrder o, int width)
+    public static string BuildReceipt(RepairOrder o, int width, string? statusUrl = null)
     {
         var sb = new StringBuilder(700);
         Header(sb, Tr.T("КВИТАНЦИЯ ПРИЁМА В РЕМОНТ", "ОҢДООГО КАБЫЛ АЛУУ КВИТАНЦИЯСЫ", "REPAIR INTAKE RECEIPT", "TAMİR KABUL MAKBUZU", "TA'MIRLASHGA QABUL QILISH KVITANSIYASI"), width);
@@ -203,6 +242,14 @@ public static class RepairRules
             sb.Append(ReceiptLineLayout.FormatLabelAmount(Tr.T("Предоплата", "Алдын ала төлөм", "Prepayment", "Ön ödeme", "Oldindan to'lov"), Sum(o.Prepay), width)).Append('\n');
         if (o.DueDate is { } due)
             sb.Append($"{Tr.T("Срок", "Мөөнөт", "Due", "Süre", "Muddat")}: {Day(due)}").Append('\n');
+        // 2026-11-26: как клиенту узнать статус — ссылка на витрину (если сервер умеет, см. RepairStatusPublic) или «позвоните в магазин, назовите код».
+        var statusLines = RepairStatusPublic.ReceiptLines(o, statusUrl, UserPreferences.Instance.OwnerPhone, width);
+        if (statusLines.Count > 0)
+        {
+            sb.Append(new string('-', width)).Append('\n');
+            foreach (var line in statusLines)
+                sb.Append(line).Append('\n');
+        }
         sb.Append('\n');
         foreach (var p in ReceiptLineLayout.WrapLeft(Tr.T(
             "Окончательная стоимость определяется после диагностики. Устройство выдаётся по этой квитанции и документу клиента. Не забранное в течение 30 дней после уведомления может быть удержано в счёт хранения.",
@@ -251,6 +298,9 @@ public static class RepairRules
     }
 
     public static string BuildReceipt(RepairOrder o) => BuildReceipt(o, ReceiptLayout.CharWidth);
+
+    /// <summary>Квитанция приёма на ленте кассы с адресом страницы статуса на витрине (null — без ссылки).</summary>
+    public static string BuildReceiptWithStatus(RepairOrder o, string? statusUrl) => BuildReceipt(o, ReceiptLayout.CharWidth, statusUrl);
 
     public static string BuildIssueAct(RepairOrder o) => BuildIssueAct(o, ReceiptLayout.CharWidth);
 

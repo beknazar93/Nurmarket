@@ -84,7 +84,7 @@
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
                     <Button Classes="pick" Width="44" Height="44" Margin="0" Padding="0" HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center" Content="−" FontSize="18" Click="Minus_Click"/>
-                    <TextBox x:Name="QtyBox" Width="90" Height="44" FontSize="15" CornerRadius="8"
+                    <TextBox x:Name="QtyBox" Classes="numField" Width="90" Height="44" FontSize="15" CornerRadius="8"
                              HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Text="1"/>
                     <Button Classes="pick" Width="44" Height="44" Margin="0" Padding="0" HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center" Content="+" FontSize="18" Click="Plus_Click"/>

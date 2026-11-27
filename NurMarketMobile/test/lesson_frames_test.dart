@@ -42,7 +42,6 @@ import 'package:nurmarket/features/shift/close_shift_screen.dart';
 import 'package:nurmarket/features/admin/admin_screens.dart';
 import 'package:nurmarket/features/admin/analytics.dart';
 import 'package:nurmarket/features/profile/profile_screen.dart';
-import 'package:nurmarket/features/receipt/receipt.dart';
 import 'package:nurmarket/features/scan/scan_animations.dart';
 import 'package:nurmarket/features/scan/scan_screen.dart';
 import 'package:nurmarket/l10n/app_localizations.dart';
@@ -187,13 +186,12 @@ const _owner = Session(email: 'ainura@nur.kg', access: 'a', refresh: 'r', userId
 
 /// Фейковый сервер: отвечает по пути; всё остальное — пустой ответ.
 class _FakeApi extends ApiClient {
-  _FakeApi(this.get_, {this.post_}) : super(SessionStore());
+  _FakeApi(this.get_) : super(SessionStore()); // 2026-11-27: необязательный post_ нигде не передавался — убран (предупреждение анализатора)
   final Future<dynamic> Function(String path, Map<String, dynamic>? q) get_;
-  final Future<dynamic> Function(String path, Object? body)? post_;
   @override
   Future<dynamic> get(String path, {Map<String, dynamic>? query, Duration? timeout}) => get_(path, query);
   @override
-  Future<dynamic> post(String path, {Object? body, Map<String, String>? headers, Duration? timeout}) async => post_ != null ? post_!(path, body) : <String, dynamic>{};
+  Future<dynamic> post(String path, {Object? body, Map<String, String>? headers, Duration? timeout}) async => <String, dynamic>{};
   @override
   Future<dynamic> patch(String path, {Object? body}) async => <String, dynamic>{};
 }

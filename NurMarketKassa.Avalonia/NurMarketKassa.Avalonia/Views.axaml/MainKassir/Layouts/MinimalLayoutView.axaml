@@ -320,6 +320,9 @@
 
                 <!-- 2026-10-01: подсказка допродажи «С этим часто берут» (UpsellBannerView) под сообщением чека. -->
                 <StackPanel Grid.Row="3">
+                    <!-- 2026-11-27 (акции v2): подсказки акций и итог сервера (pos/quote/). -->
+                    <TextBlock Text="{Binding Basket.PromoNoticeText}" IsVisible="{Binding Basket.HasPromoNotice}"
+                           FontSize="12.5" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,8,0,0" Foreground="{DynamicResource BrushAccent}"/>
                     <TextBlock Text="{Binding Basket.CartMessage}" IsVisible="{Binding Basket.HasCartMessage}"
                            FontSize="12" TextWrapping="Wrap" Margin="0,8,0,0" Foreground="{DynamicResource BrushUiStatusOk}"/>
                     <ctl:UpsellBannerView DataContext="{Binding Basket}"/>
@@ -340,9 +343,8 @@
                 <!-- Огромная кнопка оплаты с суммой -->
                 <Button Grid.Row="5" Classes="lx-accent mn-pay" HorizontalAlignment="Stretch" Command="{Binding Basket.PayCommand}">
                     <StackPanel Orientation="Horizontal" Spacing="10">
+                        <!-- 2026-11-26 (дизайн и удобство): сумма печаталась дважды — PayButtonText с 05.11 уже содержит сумму; лишние блоки убраны. -->
                         <TextBlock Text="{Binding Basket.PayButtonText}" VerticalAlignment="Center"/>
-                        <TextBlock Classes="num" Text="{Binding Basket.Total, Converter={x:Static conv:MoneyConverter.Instance}}" VerticalAlignment="Center"/>
-                        <TextBlock Text="{DynamicResource csh.catalog.currency}" FontSize="16" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
 

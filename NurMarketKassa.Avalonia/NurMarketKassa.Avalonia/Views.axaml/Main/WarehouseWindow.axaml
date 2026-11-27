@@ -173,7 +173,8 @@
             <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
         </Style>
         <Style Selector="TabItem:selected">
-            <Setter Property="Foreground" Value="{DynamicResource BrushAccentStrong}"/>
+            <!-- 2026-11-26 (дизайн и удобство): текст выбранной вкладки — BrushAccentText (читаемый акцент; AccentStrong на светло-жёлтом был 2,0:1). -->
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentText}"/>
             <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
         </Style>
@@ -294,8 +295,9 @@
         <Style Selector="Button.WindowControlButton">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
-            <Setter Property="Width" Value="36"/>
-            <Setter Property="Height" Value="32"/>
+            <!-- 2026-11-26 (дизайн и удобство): 36×32 → 44×40 — «Свернуть» и «Закрыть» нажимаются пальцем (проверка DesignAuditUiTests: цель не ниже 40 px). -->
+            <Setter Property="Width" Value="44"/>
+            <Setter Property="Height" Value="40"/>
             <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>

@@ -103,8 +103,10 @@ extension ShopModeX on ShopMode {
 
   /// Режим по ответу сервера: базовая сфера + точная (точная совместима только с базовой grocery, как SphereCatalog.Resolve кассы).
   static ShopMode? fromServer(String? base, String? detail) {
-    final b = parse(base);
-    if (b == null || !b.isBase) return null;
+    // 2026-11-26 (проверка в эмуляторе): сервер отдаёт точную сферу и прямо в market_sphere (company.market_sphere = 'autoparts'),
+    // а не только в MarketSphereDetail поверх grocery — раньше такой ответ отбрасывался и плитка «Режим магазина» была «Не выбран».
+    final b = parse(base) ?? fromDetail(base);
+    if (b == null) return null;
     if (b == ShopMode.grocery) return fromDetail(detail) ?? ShopMode.grocery;
     return b;
   }
@@ -145,15 +147,17 @@ class ShopModeSync {
     // 2026-11-22: «виденное» — полный серверный режим (с точной сферой), а не базовая сфера: иначе смена hardware → bazaar → autoparts
     // на сервере (база везде grocery) телефон не замечал. Старое значение (базовая сфера) читается как есть.
     if (seen == target.code) {
-      // сфера на сервере та же; режим на телефоне не выбирали, а сервер говорит не «Продукты» — берём серверный
-      if (current == null && target != ShopMode.grocery) {
+      // сфера на сервере та же; режим на телефоне не выбирали (или он расходится с явной сферой сервера), а сервер говорит не «Продукты» — берём серверный
+      // 2026-11-26 («при смене сферы сфера не меняется»): выбора сферы в телефоне больше нет, поэтому явная сфера сервера (не «Продукты» по умолчанию) всегда главнее старого выбора
+      if (target != ShopMode.grocery && current != target) {
         await write(db, target);
         return target;
       }
       return null;
     }
     await db.setSetting(serverSeenKey, target.code);
-    final firstSightOnConfigured = seen == null && current != null;
+    // 2026-11-26: защита выбора на настроенном телефоне при первом знакомстве — только против «Продуктов» (значение по умолчанию); явная сфера сервера применяется сразу
+    final firstSightOnConfigured = seen == null && current != null && target == ShopMode.grocery;
     if (firstSightOnConfigured || current == target) return null;
     // «Продукты» на сервере — значение по умолчанию любой компании: на телефоне оно не считается выбором (иначе магазин одежды,
     // которому на кассе не меняли сферу, никогда не получил бы подсказку «Включить режим «Одежда»?»)
@@ -162,15 +166,23 @@ class ShopModeSync {
     return target;
   }
 
-  /// Прочитать сферу компании с сервера и применить. Нет связи/ошибка — тихо ничего.
-  static Future<ShopMode?> syncFromServer(AppDatabase db, ApiClient api, {Duration timeout = const Duration(seconds: 6)}) async {
+  /// Прочитать сферу компании с сервера (без записи в базу): (base, detail) для [applyServer]. Нет связи/ошибка — null.
+  /// 2026-11-26 («при смене сферы сфера не меняется»): сервер отдаёт готовый профиль компании `market_profile` (grocery, clothing, hozmag,
+  /// stroymag, bazaar_retail, bazaar_wholesale, autoparts, electronics …). У «Хозмага» и «Строймага» `market_sphere` = null — раньше телефон
+  /// такой ответ не понимал и сферу не менял. Профиль главнее; нет его (старый сервер) — прежний путь через market_sphere + MarketSphereDetail.
+  static Future<({String? base, String? detail})?> fetchServer(ApiClient api, {Duration timeout = const Duration(seconds: 6)}) async {
     try {
       var company = await api.get(companyPath, timeout: timeout);
       if (company is Map && company['data'] is Map) company = company['data'];
       if (company is! Map) return null;
+      final profile = company['market_profile'] is String ? (company['market_profile'] as String).trim().toLowerCase() : '';
+      if (profile.isNotEmpty && profile != 'grocery') {
+        // профиль без своего режима в телефоне (electronics …) — обычные «Продукты», а не прежний режим другой сферы
+        return (base: fromServerKnown(profile) ? profile : 'grocery', detail: null);
+      }
       final base = company['market_sphere'] is String ? company['market_sphere'] as String : null;
       String? detail;
-      if ((base ?? '').trim().toLowerCase() == 'grocery') {
+      if ((base ?? '').trim().toLowerCase() == 'grocery' || profile == 'grocery') {
         // точная сфера (hardware / bazaar / autoparts) лежит в общих настройках компании, её выбирает владелец в кассе
         try {
           final doc = await api.get(settingsPath, timeout: timeout);
@@ -182,10 +194,20 @@ class ShopModeSync {
           return null;
         }
       }
-      return await applyServer(db, base: base, detail: detail);
+      return (base: base ?? (profile == 'grocery' ? 'grocery' : null), detail: detail);
     } catch (_) {
       return null;
     }
+  }
+
+  /// Знает ли телефон такой профиль сервера (есть свой режим).
+  static bool fromServerKnown(String profile) => ShopModeX.fromServer(profile, null) != null;
+
+  /// Прочитать сферу компании с сервера и применить. Нет связи/ошибка — тихо ничего.
+  static Future<ShopMode?> syncFromServer(AppDatabase db, ApiClient api, {Duration timeout = const Duration(seconds: 6)}) async {
+    final r = await fetchServer(api, timeout: timeout);
+    if (r == null) return null;
+    return applyServer(db, base: r.base, detail: r.detail);
   }
 }
 

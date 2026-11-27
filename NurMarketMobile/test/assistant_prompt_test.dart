@@ -129,8 +129,10 @@ void main() {
       await rig.startCall(t);
       final act = rig.c.toolsMeasure!;
       debugPrint('замер владельца: ${act.count} инструментов, ${act.chars} символов');
-      expect(act.count, inInclusiveRange(45, 60));
-      expect(act.chars, inInclusiveRange(17000, 26000));
+      // 2026-11-27: +6 инструментов изучения (explain_section, marketplace_info, tariff_info, app_settings_info, suppliers_info, whats_new)
+      // по просьбе владельца «дай советнику доступы ко всем разделам»: было 45–60 инструментов и до 26 тыс. символов
+      expect(act.count, inInclusiveRange(45, 66));
+      expect(act.chars, inInclusiveRange(17000, 30000));
       expect(rig.c.mode, AssistantMode.act);
       expect(rig.prepared.single.mode, AssistantMode.act);
       await rig.dispose(t);

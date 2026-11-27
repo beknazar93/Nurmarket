@@ -55,7 +55,7 @@ public sealed record ServerBotCustomer(string ChatId, string Name, string Userna
 /// <see cref="LastKnownServerMode"/> — последнее известное состояние: опрос Telegram в программе
 /// (TelegramBotPollingService) при «server» выключается (Telegram и не даст getUpdates при вебхуке),
 /// а сводку смены шлёт сервер — касса её не дублирует.</summary>
-public sealed class ServerTelegramBotApi
+public sealed partial class ServerTelegramBotApi
 {
     private const string Root = "api/main/telegram-bot/";
     private readonly NurMarketApiClient _api;
@@ -306,17 +306,28 @@ public sealed class ServerTelegramBotApi
         ["date_to"] = to.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
     };
 
+    // 2026-11-26 (стресс-тест бота): строка списка не объект (null, строка) пропускается — раньше Str/Int по ней бросали InvalidOperationException и весь список не открывался.
     private static IEnumerable<JsonElement> Rows(JsonElement data)
     {
         if (data.ValueKind == JsonValueKind.Array)
-            return data.EnumerateArray();
+            return data.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.Object);
         if (data.ValueKind == JsonValueKind.Object && data.TryGetProperty("results", out var r) && r.ValueKind == JsonValueKind.Array)
-            return r.EnumerateArray();
+            return r.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.Object);
         return Array.Empty<JsonElement>();
     }
 
+    // 2026-11-26 (стресс-тест бота): пустой ответ (204), массив или строка вместо объекта — не падение, а «поля нет».
+    // Важно для «Ответить покупателю»: сообщение уже ушло, а разбор ответа падал — программа писала «Не отправлено» и владелец слал второй раз.
+    private static bool TryProp(JsonElement e, string name, out JsonElement v)
+    {
+        if (e.ValueKind == JsonValueKind.Object && e.TryGetProperty(name, out v))
+            return true;
+        v = default;
+        return false;
+    }
+
     private static string? Str(JsonElement e, string name) =>
-        e.TryGetProperty(name, out var v)
+        TryProp(e, name, out var v)
             ? v.ValueKind switch
             {
                 JsonValueKind.String => v.GetString(),
@@ -325,13 +336,21 @@ public sealed class ServerTelegramBotApi
             }
             : null;
 
-    private static bool Bool(JsonElement e, string name) => e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.True;
+    private static bool Bool(JsonElement e, string name) => TryProp(e, name, out var v) && v.ValueKind == JsonValueKind.True;
 
+    // 2026-11-26 (стресс-тест): число строкой («12») тоже число — раньше счётчики сообщений/заказов показывались нулём.
     private static int Int(JsonElement e, string name) =>
-        e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out var i) ? i : 0;
+        TryProp(e, name, out var v)
+            ? v.ValueKind switch
+            {
+                JsonValueKind.Number => v.TryGetInt32(out var i) ? i : 0,
+                JsonValueKind.String when int.TryParse(v.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var s) => s,
+                _ => 0,
+            }
+            : 0;
 
     private static double Num(JsonElement e, string name) =>
-        e.TryGetProperty(name, out var v)
+        TryProp(e, name, out var v)
             ? v.ValueKind switch
             {
                 JsonValueKind.Number => v.GetDouble(),

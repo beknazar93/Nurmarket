@@ -156,6 +156,25 @@ public static class DynamicPaymentQrService
         }
     }
 
+    /// <summary>2026-11-26 (отчёт «Конкуренты», п. 1): что можно сделать с QR банка в Настройках → Операции — для подсказки владельцу.</summary>
+    public enum QrSupport { NoFile, Unreadable, NotElqr, ChecksumMismatch, Ok }
+
+    /// <summary>Самопроверка картинки статического QR банка: читается ли она и подойдёт ли для QR с суммой.</summary>
+    public static QrSupport Inspect(string? staticQrImagePath)
+    {
+        if (string.IsNullOrWhiteSpace(staticQrImagePath) || !File.Exists(staticQrImagePath))
+            return QrSupport.NoFile;
+        var payload = TryDecodeStaticQr(staticQrImagePath);
+        if (string.IsNullOrWhiteSpace(payload))
+            return QrSupport.Unreadable;
+        return ElqrQrBuilder.Inspect(payload) switch
+        {
+            ElqrQrBuilder.StaticQrCheck.Ok => QrSupport.Ok,
+            ElqrQrBuilder.StaticQrCheck.ChecksumMismatch => QrSupport.ChecksumMismatch,
+            _ => QrSupport.NotElqr,
+        };
+    }
+
     /// <summary>Главный метод для экрана покупателя: по картинке статического QR владельца и
     /// сумме чека возвращает путь к PNG с динамическим QR. null — работаем как раньше.</summary>
     public static string? TryBuildDynamicQrImage(string staticQrImagePath, decimal totalSom, int sizePx = 420)
@@ -166,6 +185,15 @@ public static class DynamicPaymentQrService
         var staticPayload = TryDecodeStaticQr(staticQrImagePath);
         if (string.IsNullOrWhiteSpace(staticPayload))
             return null;
+
+        // 2026-11-26 (отчёт «Конкуренты», п. 1): QR с суммой собираем только если собственная контрольная сумма QR банка сходится с нашей формулой —
+        // иначе банковское приложение отвергло бы собранный код. Не сошлось — null: показывается обычный QR банка.
+        var check = ElqrQrBuilder.Inspect(staticPayload);
+        if (check != ElqrQrBuilder.StaticQrCheck.Ok)
+        {
+            PosLogger.Log($"QR с суммой не собран: QR банка «{Path.GetFileName(staticQrImagePath)}» — {check}.", "QR");
+            return null;
+        }
 
         var dynamicPayload = ElqrQrBuilder.BuildWithAmount(staticPayload, totalSom);
         if (string.IsNullOrWhiteSpace(dynamicPayload))

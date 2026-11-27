@@ -1552,11 +1552,26 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get qrDownloadHint =>
-      'Müşterinin kamerası fişi hemen PDF olarak indirir';
+      'Müşteri fişi tarayıcıda düzgün bir sayfa olarak görür: PDF veya resim olarak kaydedebilir';
 
   @override
   String get qrTextHint =>
-      'Sunucu fiş bağlantısı verene kadar kamera metin gösterir. PDF\'i aşağıdaki düğmeyle gönderin.';
+      'Fiş bağlantısı henüz hazır değil. Bağlantıyı kontrol edip «Tekrar dene»ye basın veya aşağıdaki düğmeyle PDF gönderin.';
+
+  @override
+  String get qrOfflineHint =>
+      'Bu fiş henüz sunucuya gönderilmedi. QR kod eşitlemeden sonra görünür: bağlantı gelince fişi «Fişler» bölümünden açın.';
+
+  @override
+  String get openReceiptLink => 'Fişi aç';
+
+  @override
+  String get shareReceiptLink => 'Bağlantıyı paylaş';
+
+  @override
+  String shareReceiptText(String number) {
+    return 'Fişiniz No. $number';
+  }
 
   @override
   String get cashInOut => 'Para girişi / çıkışı';
@@ -6864,6 +6879,35 @@ class AppLocalizationsTr extends AppLocalizations {
   }
 
   @override
+  String get stockScanBtn => 'Barkod tarayıcı';
+
+  @override
+  String get stockPhotoBtn => 'Fotoğrafla ara';
+
+  @override
+  String get stockScanHint =>
+      'Ürünün barkoduna veya QR koduna doğrultun — aramaya yazılır';
+
+  @override
+  String stockScanFound(String code, String name) {
+    return '$code koduyla bulundu: $name';
+  }
+
+  @override
+  String get stockPhotoTitle => 'Depodaki benzer ürünler';
+
+  @override
+  String get stockPhotoHint => 'Bir ürün seçin — depo listesinde görünür';
+
+  @override
+  String get stockPhotoNone =>
+      'Fotoğrafa benzer bir ürün depoda bulunamadı. Daha yakından çekin veya ürünü adıyla arayın.';
+
+  @override
+  String get stockPhotoOffline =>
+      'Bağlantı yok — fotoğrafla arama internet gerektirir. Ürünü adı veya barkoduyla arayın.';
+
+  @override
   String stockCountShown(int shown, int total) {
     return '$total üründen $shown gösteriliyor';
   }
@@ -7428,4 +7472,51 @@ class AppLocalizationsTr extends AppLocalizations {
   @override
   String get recvModeAutoparts =>
       'Oto yedek parça: ürünü katalog numarasıyla bulun; miktar adet, takım ve çift.';
+
+  @override
+  String get loginDeviceKeyRequired =>
+      'Bu cihaz tanımlanamadı. NurCRM uygulamasını güncelleyin ve tekrar giriş yapın.';
+
+  @override
+  String get deviceSlotTitle => 'Başka bir cihazda zaten giriş var';
+
+  @override
+  String get deviceSlotBody =>
+      'Başka bir cihazda zaten giriş yapmıştınız. Orada çıkış yapıp burada giriş yapılsın mı?\n\nO cihazdaki oturum kapatılacak.';
+
+  @override
+  String get deviceSlotConfirm => 'Orada çık, burada giriş yap';
+
+  @override
+  String get pinTitle => 'Sahip veya yönetici PIN\'i';
+
+  @override
+  String get pinReturnInfo =>
+      'Bu fişin iadesi için sunucu onay istiyor: sahibin veya yöneticinin PIN\'ini girin (giriş şifresi değil).';
+
+  @override
+  String get pinFieldLabel => 'PIN';
+
+  @override
+  String get pinConfirm => 'Onayla';
+
+  @override
+  String get pinInvalid => 'PIN yanlış.';
+
+  @override
+  String pinInvalidLeft(int n) {
+    return 'PIN yanlış. Kalan deneme: $n.';
+  }
+
+  @override
+  String get pinLocked =>
+      'PIN yanlış denemelerden sonra kilitlendi. Daha sonra tekrar deneyin.';
+
+  @override
+  String get pinNotSet =>
+      'PIN belirlenmemiş — Ayarlar → Çalışanlar bölümünde belirleyin.';
+
+  @override
+  String get pinRequiredText =>
+      'Bu işlem sahibin veya yöneticinin PIN\'i ile onaylanmalı. Tekrar deneyin ve PIN\'i girin.';
 }

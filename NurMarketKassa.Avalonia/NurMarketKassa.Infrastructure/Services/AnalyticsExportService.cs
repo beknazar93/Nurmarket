@@ -179,6 +179,10 @@ public static class AnalyticsExportService
             new XlKeyValue(ReportLabels.WithUnit(LReturns, Currency), data.Returns, XlKind.Money),
             new XlKeyValue(ReportLabels.WithUnit(LWriteOffs, Currency), data.WriteOffs, XlKind.Money),
             new XlKeyValue(ReportLabels.WithUnit(expenses.Label, Currency), expenses.Value, XlKind.Money),
+            // 2026-11-26: внесения в кассу — строкой рядом с расходом, когда они были (иначе в сводке виден только расход).
+            .. expenses.DepositsValue > 0.005
+                ? new[] { new XlKeyValue(ReportLabels.WithUnit(expenses.DepositsLabel, Currency), expenses.DepositsValue, XlKind.Money) }
+                : Array.Empty<XlKeyValue>(),
             new XlKeyValue(ReportLabels.WithUnit(LDebtPayments, Currency), data.DebtPayments, XlKind.Money),
             new XlKeyValue(LCatalogItems, data.StockPositions, XlKind.Integer),
             new XlKeyValue(ReportLabels.WithUnit(LStockValue, Currency), data.StockValue, XlKind.Money),
@@ -325,28 +329,49 @@ public static class AnalyticsExportService
     /// <summary>2026-10-22 (статьи изъятия): расходы NurCRM по статьям отчёта pnl (opex) — зарплата, аренда, налоги, коммунальные, прочие.</summary>
     private sealed record ServerOpex(double Total, double Salaries, double Rent, double Taxes, double Utilities, double Other);
 
-    /// <summary>Расход периода, подпись строки и (2026-10-22, статьи изъятия) разбивка: статьи NurCRM и изъятия из кассы по статьям.</summary>
-    private sealed record ShopExpenseInfo(double Value, string Label, ServerOpex? Opex, IReadOnlyList<CashArticles.ArticleTotal>? Articles);
+    /// <summary>Расход периода, подпись строки и (2026-10-22, статьи изъятия) разбивка: статьи NurCRM и изъятия из кассы по статьям.
+    /// 2026-11-26: и внесения в кассу — по статьям с сервера (Deposits) или, если сервер не ответил, одной суммой по журналу этой кассы (DepositsValue).</summary>
+    private sealed record ShopExpenseInfo(double Value, string Label, ServerOpex? Opex, IReadOnlyList<CashArticles.ArticleTotal>? Articles,
+        IReadOnlyList<CashArticles.ArticleTotal>? Deposits, double DepositsValue, string DepositsLabel);
 
     /// <summary>Расход периода для отчёта и подпись строки. Вызывается из фонового потока выгрузки (Task.Run у всех окон).</summary>
-    private static ShopExpenseInfo ShopExpenses(AnalyticsReportData data) =>
-        FetchServerExpenses(data.FromLocal, data.ToLocal) is { } server
-            ? new ShopExpenseInfo(server.Total, LExpenses, server, FetchWithdrawalArticles(data.FromLocal, data.ToLocal))
-            : new ShopExpenseInfo(data.Expenses, LExpensesTillOnly, null, null);
+    private static ShopExpenseInfo ShopExpenses(AnalyticsReportData data)
+    {
+        if (FetchServerExpenses(data.FromLocal, data.ToLocal) is { } server)
+        {
+            var deposits = FetchDrawerArticles(data.FromLocal, data.ToLocal, withdrawal: false);
+            return new ShopExpenseInfo(server.Total, LExpenses, server, FetchDrawerArticles(data.FromLocal, data.ToLocal, withdrawal: true),
+                deposits, deposits?.Sum(d => d.Amount) ?? data.CashDeposits, deposits is null ? LCashDepositsTillOnly : LCashDeposits);
+        }
 
-    /// <summary>2026-10-22 (статьи изъятия): изъятия из кассы смен по статьям (тот же расчёт, что в «Прибыль и деньги»).</summary>
-    private static IReadOnlyList<CashArticles.ArticleTotal>? FetchWithdrawalArticles(DateTime from, DateTime to)
+        return new ShopExpenseInfo(data.Expenses, LExpensesTillOnly, null, null, null, data.CashDeposits, LCashDepositsTillOnly);
+    }
+
+    // 2026-11-26 («внесение на аналитике исчезает»): внесения в кассу — рядом с расходом, не выручка и не расход.
+    private static string LCashDeposits => Tr.T("Внесения в кассу", "Кассага салынган акча", "Cash put into the till", "Kasaya konan para", "Kassaga kiritilgan pul");
+    private static string LCashDepositsTillOnly => Tr.T(
+        "Внесения в кассу (только этой кассы)",
+        "Кассага салынган акча (ушул касса гана)",
+        "Cash put into the till (this till only)",
+        "Kasaya konan para (yalnızca bu kasa)",
+        "Kassaga kiritilgan pul (faqat shu kassa)");
+
+    /// <summary>2026-10-22 (статьи изъятия): изъятия из кассы смен по статьям (тот же расчёт, что в «Прибыль и деньги»); 2026-11-26: и внесения (<paramref name="withdrawal"/> = false).</summary>
+    private static IReadOnlyList<CashArticles.ArticleTotal>? FetchDrawerArticles(DateTime from, DateTime to, bool withdrawal)
     {
         try
         {
             if (NurMarketKassa.Services.Api.NurCrmReportsApi.ClientResolver?.Invoke() is not { AccessToken.Length: > 0 } api)
                 return null;
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
-            return Task.Run(() => CashArticles.WithdrawalsByArticleAsync(api, from, to, cts.Token)).GetAwaiter().GetResult();
+            return Task.Run(() => withdrawal
+                    ? CashArticles.WithdrawalsByArticleAsync(api, from, to, cts.Token)
+                    : CashArticles.DepositsByArticleAsync(api, from, to, cts.Token))
+                .GetAwaiter().GetResult();
         }
         catch (Exception ex)
         {
-            PosLogger.Log($"Выгрузка аналитики: изъятия по статьям не получены: {ex.Message}", "WARNING");
+            PosLogger.Log($"Выгрузка аналитики: {(withdrawal ? "изъятия" : "внесения")} по статьям не получены: {ex.Message}", "WARNING");
             return null;
         }
     }
@@ -378,6 +403,13 @@ public static class AnalyticsExportService
             foreach (var a in articles)
                 rows.Add((section, a.IsCollection ? a.Title + Tr.T(" — не расход", " — чыгым эмес", " — not an expense", " — gider değil", " — xarajat emas") : a.Title,
                     a.Count, a.Amount));
+        }
+        // 2026-11-26: внесения в кассу по статьям — отдельным разделом (не расход и не выручка), чтобы рядом с изъятием была и вторая половина.
+        if (info.Deposits is { Count: > 0 } deposits)
+        {
+            var section = LCashDeposits;
+            foreach (var d in deposits)
+                rows.Add((section, d.Title, d.Count, d.Amount));
         }
         return rows;
     }
@@ -455,6 +487,10 @@ public static class AnalyticsExportService
                 [ReportLabels.WithUnit(LReturns, Currency), ReportFormat.Money(data.Returns)],
                 [ReportLabels.WithUnit(LWriteOffs, Currency), ReportFormat.Money(data.WriteOffs)],
                 [ReportLabels.WithUnit(expenses.Label, Currency), ReportFormat.Money(expenses.Value)],
+                // 2026-11-26: внесения в кассу — строкой рядом с расходом, когда они были.
+                .. expenses.DepositsValue > 0.005
+                    ? new[] { new[] { ReportLabels.WithUnit(expenses.DepositsLabel, Currency), ReportFormat.Money(expenses.DepositsValue) } }
+                    : Array.Empty<string[]>(),
                 [ReportLabels.WithUnit(LDebtPayments, Currency), ReportFormat.Money(data.DebtPayments)],
                 [LCatalogItems, ReportFormat.Integer(data.StockPositions)],
                 [ReportLabels.WithUnit(LStockValue, Currency), ReportFormat.Money(data.StockValue)],

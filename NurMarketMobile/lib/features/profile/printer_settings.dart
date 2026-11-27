@@ -9,6 +9,7 @@ import '../../core/print/sunmi_builtin.dart';
 import '../../core/providers.dart';
 import '../../core/util/ui.dart';
 import '../../l10n/app_localizations.dart';
+import '../payment/receipt_qr.dart';
 import '../receipt/receipt.dart';
 
 /// 2026-10-20, владелец: «исправь подключение к принтерам». Понятный текст ошибки печати на языке кассира.
@@ -39,7 +40,10 @@ Future<void> printReceiptUi(BuildContext context, Receipt r, {bool silentIfNone 
     return;
   }
   try {
-    await service.printReceipt(r, config: c, afterSale: afterSale);
+    // 2026-11-26: у чека нет ссылки на красивую страницу — просим у сервера, чтобы QR на ленте вёл на неё (сбой — печать без QR)
+    if (!context.mounted) return;
+    final withLink = await receiptWithLink(context, r);
+    await service.printReceipt(withLink, config: c, afterSale: afterSale);
     if (context.mounted) toast(context, l.prnSent);
   } on PrinterException catch (e) {
     if (context.mounted) toast(context, printerProblemText(l, e), error: true);

@@ -742,6 +742,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     ReadSaleDiscount(_currentReceiptJson),
                     ReadSaleTotal(_currentReceiptJson),
                     isReprint: true);
+                // 2026-11-26 (красивый чек по QR): копия с QR-ссылкой на страницу чека.
+                reprintText = await ReceiptHistoryService.WithShareLinkAsync(reprintText, PosSaleRowFormatter.TrySaleId(_currentReceiptJson), _currentReceiptJson).ConfigureAwait(true);
 
                 // В фоне: медленный принтер не подвешивает окно.
                 await Task.Run(() => ReceiptPrintService.PrintReceipt("{}", receiptText: reprintText)).ConfigureAwait(true);

@@ -302,7 +302,7 @@ public sealed class BulkAddRowLayoutUiTests
     }
 
     /// <summary>2026-11-12 (У-3): 1000 сканов подряд — виртуальный список создаёт только видимые строки; ещё одна строка добавляется быстро и не зависит от длины списка; конец списка достижим.</summary>
-    [AvaloniaFact]
+    [AvaloniaFact(Skip = "2026-11-27: вкладки «Массовое добавление» больше нет с 21.11 (карточки в «Приёмке»), список _bulkList вне дерева окна; как и соседние проверки этого файла")]
     public async Task BulkAdd_ThousandRows_AreVirtualized_AndAddingOneMoreStaysFast()
     {
         await TestHost.WarmAsync();

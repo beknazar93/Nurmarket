@@ -144,7 +144,8 @@ public partial class ReturnSaleDialog
             var cashBefore = await ReadDrawerBeforeRefundAsync(debtSaleForDrawer).ConfigureAwait(true);
             _refundSentAt = DateTimeOffset.Now; // 2026-11-02 (К3-03): документ возврата старше этого момента — не наш
             // 2026-11-03 (аудит №3, Д3-01/С-08): окно ждёт сервер не дольше 8 с; запрос НЕ отменяется и не задваивается (тот же ключ), ответ дожидается и обрабатывается ниже тем же кодом.
-            var refundResponse = await SlowMoneyCall.RunAsync("pos/return", "return|" + saleId, t => PosRefundService.RefundLinesAsync(
+            // 2026-11-26 (Д1): сервер может ответить 403 pin_required — тогда PIN владельца/админа и повтор с X-Confirm-Token (тот же ключ); окно PIN — вне 8-секундного ожидания.
+            var refundResponse = await SendWithPinRetryAsync(pinToken => SlowMoneyCall.RunAsync("pos/return", "return|" + saleId, t => PosRefundService.RefundLinesAsync(
                 App.SalesApi,
                 saleId,
                 requests,
@@ -152,7 +153,8 @@ public partial class ReturnSaleDialog
                 App.PosCashboxId,
                 isDefect,
                 t,
-                idempotencyKey: returnKey), () => IsBusy = false).ConfigureAwait(true);
+                idempotencyKey: returnKey,
+                confirmToken: pinToken), () => IsBusy = false)).ConfigureAwait(true);
             PendingReturn.OnSuccess();
             FraudMonitor.OnReturn(saleId, _currentReceiptNumber, fraudAmount);
             toSupplier = SupplierHandoff(reasonDialog.Outcome, selected);
@@ -174,7 +176,7 @@ public partial class ReturnSaleDialog
             total = outcome.Amount;
             if (!debtSaleForDrawer || ExchangeCashCorrections.DebtRefundHandledByServer) // 2026-11-05 (Р3-06 / Д3-11): шапка «Касса:» уменьшается сразу, не ждёт ответа сервера об остатке; у долгового чека — если сервер снимает наличные сам
                 ExchangeCashCorrections.NotePendingServerCash(PosApp.ActiveShiftId, Math.Min(outcome.Cash, outcome.ServerCashOut ?? outcome.Cash));
-            CheckDrawerAfterRefund(cashBefore, outcome.Cash, "lines|" + returnKey, saleId, outcome.NonCash, outcome.ServerCashOut, debtSaleForDrawer);
+            CheckDrawerAfterRefund(cashBefore, outcome.Cash, "lines|" + returnKey, saleId, outcome.NonCash, outcome.ServerCashOut, debtSaleForDrawer, _refundSentAt == default ? null : _refundSentAt);
 
             // В итогах смены на сервере возвратов нет вовсе — записываем сами, иначе кассир
             // при закрытии смены их не увидит (см. ShiftEventsStore).
@@ -526,7 +528,8 @@ public partial class ReturnSaleDialog
                 }).ToList()
                 : null;
             wholeSent = wholeLinesToSend;
-            var wholeResponse = await SlowMoneyCall.RunAsync("pos/return-whole", "return|" + saleId, t => wholeLinesToSend is not null
+            // 2026-11-26 (Д1): 403 pin_required → PIN владельца/админа и повтор с X-Confirm-Token (см. возврат по позициям).
+            var wholeResponse = await SendWithPinRetryAsync(pinToken => SlowMoneyCall.RunAsync("pos/return-whole", "return|" + saleId, t => wholeLinesToSend is not null
                 ? PosRefundService.RefundLinesAsync(
                     App.SalesApi,
                     saleId,
@@ -535,7 +538,8 @@ public partial class ReturnSaleDialog
                     App.PosCashboxId,
                     reasonDialog.IsDefect,
                     t,
-                    idempotencyKey: returnKey)
+                    idempotencyKey: returnKey,
+                    confirmToken: pinToken)
                 : PosRefundService.RefundWholeSaleAsync(
                     App.SalesApi,
                     saleId,
@@ -543,7 +547,8 @@ public partial class ReturnSaleDialog
                     App.PosCashboxId,
                     reasonDialog.IsDefect,
                     t,
-                    idempotencyKey: returnKey), () => IsBusy = false).ConfigureAwait(true);
+                    idempotencyKey: returnKey,
+                    confirmToken: pinToken), () => IsBusy = false)).ConfigureAwait(true);
             PendingReturn.OnSuccess();
             FraudMonitor.OnReturn(saleId, _currentReceiptNumber, (double)estimatedWhole);
             toSupplier = SupplierHandoff(reasonDialog.Outcome, Lines.Where(l => l.CanReturn).ToList());
@@ -565,7 +570,7 @@ public partial class ReturnSaleDialog
             var wholeTotal = wholeOutcome.Amount;
             if (!debtSaleForDrawer || ExchangeCashCorrections.DebtRefundHandledByServer) // 2026-11-05 (Р3-06 / Д3-11): шапка «Касса:» уменьшается сразу
                 ExchangeCashCorrections.NotePendingServerCash(PosApp.ActiveShiftId, Math.Min(wholeOutcome.Cash, wholeOutcome.ServerCashOut ?? wholeOutcome.Cash));
-            CheckDrawerAfterRefund(cashBeforeWhole, wholeOutcome.Cash, "whole|" + returnKey, saleId, wholeOutcome.NonCash, wholeOutcome.ServerCashOut, debtSaleForDrawer);
+            CheckDrawerAfterRefund(cashBeforeWhole, wholeOutcome.Cash, "whole|" + returnKey, saleId, wholeOutcome.NonCash, wholeOutcome.ServerCashOut, debtSaleForDrawer, _refundSentAt == default ? null : _refundSentAt);
             ShiftEventsStore.Record(
                 ShiftEventsStore.KindReturn,
                 PosApp.ActiveShiftId,

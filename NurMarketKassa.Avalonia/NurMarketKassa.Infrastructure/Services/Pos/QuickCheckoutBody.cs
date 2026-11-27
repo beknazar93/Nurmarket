@@ -1,4 +1,6 @@
 ﻿using System.Globalization;
+using System.Runtime.CompilerServices;
+using NurMarketKassa.Services.Api;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -32,6 +34,8 @@ public static class QuickCheckoutBody
     // 2026-11-01: какие строки тела — весовые (на сервере сумма весовой строки округляется вниз до 0,01). Не сериализуется.
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<JsonObject, object> WeighedLines = new();
     private static readonly object WeighedMark = new();
+    // 2026-11-27 (акции v2): скидка по акции v2 строки тела — её сервер считает сам (в теле её нет), но итог для сверки (ComputeTotal) и expected_total её учитывает. Не сериализуется.
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<JsonObject, StrongBox<decimal>> PromoV2Lines = new();
 
     public static JsonObject? TryBuild(
         string? cartJson,
@@ -86,16 +90,20 @@ public static class QuickCheckoutBody
                     var variant = line["variant"] is JsonValue variantValue && variantValue.TryGetValue<string>(out var v) ? v : "";
                     // 2026-10-27 (Б-03 сервера): строка с намеренно изменённой ценой (price_override) не сливается с обычной строкой той же цены —
                     // иначе обычная строка потеряла бы строгую проверку устаревшей цены.
-                    var key = product + "|" + price + "|" + variant + "|" + (line["price_override"] is not null ? "o" : "");
+                    var key = product + "|" + price + "|" + variant + "|" + (line["price_override"] is not null ? "o" : "") + (line["line_total"] is not null ? "|lt" : "");
                     if (byProductAndPrice.TryGetValue(key, out var first))
                     {
                         first["qty"] = SumDecimalText(first["qty"], line["qty"]);
+                        if (line["line_total"] is not null)
+                            first["line_total"] = SumDecimalText(first["line_total"], line["line_total"], money: true); // 2026-11-26: две строки «По сумме» одного товара — одной позицией, суммы складываются
                         // 2026-11-13 (сервер sn1311): одинаковые строки склеиваются — серийники тоже, без повторов (как у сервера).
                         if (line["serial_numbers"] is JsonArray mergedSerials)
                             first["serial_numbers"] = ServerSerials.ToJson(
                                 ServerSerials.Merge(ReadSerialNodes(first["serial_numbers"]), ReadSerialNodes(mergedSerials)));
                         if (line["discount"] is not null)
                             first["discount"] = SumDecimalText(first["discount"], line["discount"], money: true);
+                        if (PromoV2Lines.TryGetValue(line, out var mergedPromo))
+                            PromoV2Lines.AddOrUpdate(first, new StrongBox<decimal>((PromoV2Lines.TryGetValue(first, out var firstPromo) ? firstPromo.Value : 0m) + mergedPromo.Value));
                         continue;
                     }
 
@@ -192,6 +200,10 @@ public static class QuickCheckoutBody
             // 2026-11-14: владелец подтвердил превышение лимита долга клиента (иначе 409 credit_limit_exceeded). Только «в долг».
             if (overrideCreditLimit && string.Equals(method, "debt", StringComparison.OrdinalIgnoreCase))
                 body["override_credit_limit"] = true;
+            // 2026-11-27 (ответ Умара «pos/quote/», п. 0): expected_total — итог, который видел кассир; сервер при расхождении > 0,01 отвечает 409 total_mismatch и продажу не создаёт.
+            // Только при признаке pos_quote (без него тело прежнее байт в байт). В ключ повтора не входит (Fingerprint).
+            if (ServerCapabilities.Has(ServerCapabilities.PosQuote))
+                body[ExpectedTotalField] = ComputeTotal(body).ToString("0.00", CultureInfo.InvariantCulture);
             NegativeStockPolicy.ApplyTo(body); // 2026-11-21: «Продавать товар без остатка (в минус)» включено — allow_negative_stock (без него сервер откажет 409 insufficient_stock); до полей устройства: те дописываются в конец (ReplaceDeviceFields)
             DeviceIdentity.ApplyTo(body); // 2026-11-05: device_key / device_name / branch — только при признаке сервера checkout_branch
             ServerStock.ApplyReservationIds(body); // 2026-11-19 (склад К-8): reservation_ids — только при признаке reservations и выбранном резерве (иначе тело прежнее)
@@ -200,6 +212,23 @@ public static class QuickCheckoutBody
     }
 
     private static readonly string[] DeviceFieldNames = { "device_key", "device_name", "branch" };
+    public const string ExpectedTotalField = "expected_total";
+
+    /// <summary>2026-11-27 (pos/quote/): позиции запроса БЕЗ склейки одинаковых строк — index ответа quote = порядок строк чека (PromoV2Cart.ApplyServerLines).
+    /// null — чек этим путём не отправить (как <see cref="TryBuild"/>).</summary>
+    public static JsonArray? TryBuildUnmerged(JsonElement root, out string? unsupportedReason)
+    {
+        unsupportedReason = null;
+        var items = new JsonArray();
+        foreach (var it in CartDisplayHelper.EnumerateItems(root))
+        {
+            var line = TryBuildLine(it, out unsupportedReason);
+            if (line == null)
+                return null;
+            items.Add(line);
+        }
+        return items.Count == 0 ? null : items;
+    }
 
     private static IEnumerable<string?> ReadSerialNodes(JsonNode? node) =>
         node is JsonArray arr ? arr.Select(n => n is JsonValue v && v.TryGetValue<string>(out var s) ? s : null) : Enumerable.Empty<string?>();
@@ -215,7 +244,8 @@ public static class QuickCheckoutBody
             {
                 foreach (var name in DeviceFieldNames)
                     o.Remove(name);
-                o.Remove(NegativeStockPolicy.BodyField); // 2026-11-21: настройку могли переключить между первой попыткой и повтором — ключ повтора от неё не зависит
+                o.Remove(NegativeStockPolicy.BodyField);
+                o.Remove(ExpectedTotalField); // 2026-11-27: признак pos_quote мог «мигнуть» между попытками — ключ повтора от него не зависит // 2026-11-21: настройку могли переключить между первой попыткой и повтором — ключ повтора от неё не зависит
                 // 2026-11-13 (сервер sn1311): серийники в отпечаток не входят — флаг electronics_2026_11 мог «мигнуть» между первой попыткой и повтором, ключ повтора от него не зависит.
                 if (o["items"] is JsonArray items)
                     foreach (var item in items)
@@ -334,8 +364,16 @@ public static class QuickCheckoutBody
         if (it.TryGetProperty(ReceiptSnapshotCartEditor.VariantPartField, out var variantPart) && variantPart.ValueKind == JsonValueKind.String
             && ReceiptSnapshotCartEditor.VariantPart(variantPart.GetString(), null) is { } variantName)
             line["variant_name"] = variantName;
-        if (CartDisplayHelper.OptionalDiscountTotalParam(it) is { } lineDiscount)
+        // 2026-11-26 («По сумме» в окне «Взвесить», ответ Умара): весовая строка с точной суммой — line_total (признак сервера weight_line_total) вместе с qty до грамма: сервер сам ставит цену за кг,
+        // чек ровно на введённую сумму. Скидку в такой строке не передаём (400 line_total_with_discount); сумма обязана сходиться с вес × цена в пределах 1 г (иначе 400 line_total_mismatch).
+        if (CartDisplayHelper.LineIsWeightProduct(it) && WeighedAmount.Of(it) is { } exactTotal
+            && WeighedAmount.WithinTolerance(exactTotal, (decimal)qty, (decimal)CartDisplayHelper.UnitPrice(it)))
+            line["line_total"] = exactTotal.ToString("0.00", CultureInfo.InvariantCulture);
+        else if (CartDisplayHelper.OptionalDiscountTotalParam(it) is { } lineDiscount)
             line["discount"] = lineDiscount;
+        // 2026-11-27 (акции v2): скидка по акции в тело не идёт (её считает сервер), но участвует в сверке итога.
+        if (PromoV2Cart.Of(it) is { Promo: > 0 } v2)
+            PromoV2Lines.AddOrUpdate(line, new StrongBox<decimal>(QuantityRules.ToMoneyDecimal(v2.Promo)));
         // 2026-10-27 (Б-03 сервера, PRICE_SYNC): цена строки изменена кассиром намеренно — серверу не считать её устаревшей.
         // Скидка строки и чека сюда НЕ входят: цена товара прежняя, скидка уходит отдельно (discount / order_discount_*).
         if (IsIntentionalPrice(it))
@@ -361,6 +399,8 @@ public static class QuickCheckoutBody
             return true;
         if (it.TryGetProperty(ReceiptSnapshotCartEditor.LabelAmountField, out var labelAmount) && labelAmount.ValueKind != JsonValueKind.Null)
             return true;
+        if (WeighedAmount.Of(it) is not null)
+            return true; // 2026-11-26: «По сумме» — цену за кг ставит сервер из суммы строки
         return !string.IsNullOrWhiteSpace(CartDisplayHelper.ServerVariantId(it))
                || !string.IsNullOrWhiteSpace(CartDisplayHelper.SalePackageId(it));
     }
@@ -387,12 +427,14 @@ public static class QuickCheckoutBody
                     continue;
                 var qty = ReadMoney(line["qty"]);
                 var price = ReadMoney(line["price"]);
-                var exact = QuantityRules.GrossExact(qty, price);
+                var exact = line["line_total"] is not null ? (decimal)ReadMoney(line["line_total"]) : QuantityRules.GrossExact(qty, price); // 2026-11-26: точная сумма строки «По сумме»
                 if (WeighedLines.TryGetValue(line, out _))
                     weighedLines.Add(exact);
                 else
                     otherSum += exact;
                 lineDiscounts += QuantityRules.ToMoneyDecimal(ReadMoney(line["discount"]));
+                if (PromoV2Lines.TryGetValue(line, out var promo))
+                    lineDiscounts += promo.Value; // 2026-11-27: скидка акции v2 (сервер посчитает её сам)
             }
         }
 

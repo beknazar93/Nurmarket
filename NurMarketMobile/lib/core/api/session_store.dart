@@ -157,6 +157,8 @@ class Session {
     // 2026-10-22 (мобилка, админ, П9): уведомления — раздел управления (заказы, долги, остатки), раньше открывался всем.
     if (loc == '/admin' || loc == '/admin/notifications') return showAdmin;
     if (loc == '/admin/tasks') return manageTasks; // 2026-10-26 (голос-управление, В7)
+    // 2026-11-27 (Маркетплейс мобилки): функции и тарифы меняют владелец и администратор (как в кассе); кассиру и сотруднику раздел закрыт
+    if (loc == '/admin/marketplace') return isAdmin;
     // 2026-10-28 (сотрудники): список сотрудников сервер отдаёт по can_view_employees (Б-16), а права правят с «Настройками».
     if (loc == '/admin/staff') return isAdmin || can(viewSettings) || can(viewEmployees);
     final p = routePermission(loc);

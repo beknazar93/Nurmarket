@@ -20,6 +20,15 @@ public partial class MarketplaceView
         var owner = TopLevel.GetTopLevel(this) as Window;
         try
         {
+            // 2026-11-26 («Выход мяса при приходе»): сервер этот модуль пока не знает — включается и выключается только местным признаком, без запроса (бесплатно).
+            if (id == ModuleIds.CarcassYield && CompanyModules.Snapshot?.Knows(id) != true)
+            {
+                if (enable)
+                    SetLocalModuleFlag(id);
+                else
+                    ClearLocalModuleFlag(id);
+                return;
+            }
             var knownBefore = CompanyModules.IsKnown;
             var result = enable ? await CompanyModules.EnableAsync(id).ConfigureAwait(true) : await CompanyModules.DisableAsync(id).ConfigureAwait(true);
             if (result.Status == ModuleChangeStatus.Ok)
@@ -91,6 +100,8 @@ public partial class MarketplaceView
             prefs.EstimateEnabled = true;
         else if (id == ModuleIds.Rental)
             prefs.RentalEnabled = true;
+        else if (id == ModuleIds.CarcassYield)
+            prefs.CarcassYieldEnabled = true; // 2026-11-26
         prefs.SaveToDisk();
     }
 
@@ -101,6 +112,7 @@ public partial class MarketplaceView
         {
             case ModuleIds.Estimate: prefs.EstimateEnabled = false; break;
             case ModuleIds.Rental: prefs.RentalEnabled = false; break;
+            case ModuleIds.CarcassYield: prefs.CarcassYieldEnabled = false; break; // 2026-11-26
             case ModuleIds.Repair: prefs.RepairUnlocked = false; break; // ключ (платный) снимается вместе с модулем; включить снова можно здесь же, без ключа
             case ModuleIds.TradeIn: prefs.TradeInUnlocked = false; break;
             default: return;

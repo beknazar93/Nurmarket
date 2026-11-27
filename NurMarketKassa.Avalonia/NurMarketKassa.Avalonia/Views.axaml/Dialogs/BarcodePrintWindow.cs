@@ -835,7 +835,20 @@ public sealed partial class BarcodePrintView : UserControl
         // На низком окне (1024×600) вторая строка отняла бы у списка высоту — там прежний порог 900 px, а переключатель сжимается до значков «☰ ▦».
         // На низком окне порог без гистерезиса 900/960: первый вызов приходит при ещё высоком размере окна (768) и включал «две строки», а 960 потом не давал их выключить при ширине 944 — список терял 38 px.
         var lowWindow = (TopLevel.GetTopLevel(this)?.ClientSize.Height ?? 0) is > 0 and < 700;
-        ApplyTightToolbar(lowWindow ? width < 900 : (_tightToolbar ? listWidth < 1560 : listWidth < 1500));
+        // 2026-11-27: без гистерезиса 1500/1560 — listWidth считается по ширине всей вкладки и не зависит от режима панели, а гистерезис делал раскладку зависимой от пути
+        // (масштаб 90→100→90 % на 1505 px оставлял две строки; LayoutStabilityTests «Склад» владельца 1900×1060 краснел).
+        ApplyTightToolbar(lowWindow ? width < 900 : listWidth < 1500);
+        // 2026-11-26 (экран 800×600): во второй строке сегмент фильтров был ограничен первой колонкой (~340 px, шире него кнопка «Сканы» торчала наружу), а «Категория» стояла в колонке
+        // сканера и налезала на «Сканы» на 48–73 px. На ширине < 900: сегмент — слева по своей ширине на всю строку, «Категория» — справа в той же строке (вместе ≈ 620 px из 744), не пересекаются.
+        // Шире 900 — как раньше (сегмент в первой колонке, категория в колонках сканера).
+        var veryNarrow = _tightToolbar && width < 900;
+        Grid.SetColumnSpan(_filterSegmentCtl, veryNarrow ? 3 : 1); // сегмент по стилю sec-segment прижат влево и занимает ширину по содержимому
+        if (_tightToolbar)
+        {
+            Grid.SetColumn(_categoryCombo, veryNarrow ? 0 : 1);
+            Grid.SetColumnSpan(_categoryCombo, veryNarrow ? 3 : 2);
+            _categoryCombo.HorizontalAlignment = veryNarrow ? HorizontalAlignment.Right : HorizontalAlignment.Left;
+        }
         // 2026-11-22: на низком окне вкладки переключатель — в нижней строке (рядом с «Виды ценников…», её высота уже занята): в панели инструментов на 1024 px он сжимал поиск до 64–104 px.
         PlaceViewToggle(lowWindow && _bottomBar != null);
         SetViewToggleCompact(lowWindow);

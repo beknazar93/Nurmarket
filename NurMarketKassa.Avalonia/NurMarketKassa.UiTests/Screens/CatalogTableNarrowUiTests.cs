@@ -122,6 +122,53 @@ public sealed class CatalogTableNarrowUiTests
         }
     }
 
+    /// <summary>2026-11-26 (Д7, отчёт «Проверка сфер», снимок standard-11-касса-1024x600): в узком списке остаток стоит ПОД ценой (колонка цены: цена сверху, остаток снизу),
+    /// но у обоих стоял локальный VerticalAlignment=Center, который перебивал стиль «узкого» вида, — мелкий остаток печатался поверх цифр цены. Правило: прямоугольники цены и остатка
+    /// в одной строке не пересекаются (зазор не меньше 0), остаток ниже цены, оба внутри строки; в широком списке остаток — своя колонка слева от цены.</summary>
+    [AvaloniaTheory]
+    [InlineData(500.0, 600.0, AppLanguage.Russian)]
+    [InlineData(500.0, 600.0, AppLanguage.Kyrgyz)]
+    [InlineData(500.0, 600.0, AppLanguage.Uzbek)]
+    [InlineData(560.0, 600.0, AppLanguage.Russian)]
+    [InlineData(650.0, 700.0, AppLanguage.Russian)]
+    [InlineData(650.0, 768.0, AppLanguage.Kyrgyz)]
+    [InlineData(780.0, 700.0, AppLanguage.Russian)]
+    [InlineData(900.0, 768.0, AppLanguage.Uzbek)]
+    public async Task Table_Price_And_Stock_DoNotOverlap(double width, double height, AppLanguage lang)
+    {
+        await TestHost.WarmAsync();
+        UiShot.Setup(UiTheme.Light, lang);
+        var built = CatalogListFixture.Create(width, height, 0, null, null);
+        try
+        {
+            using var _ = UiShot.Render(built.Window);
+            var root = built.View.GetVisualDescendants().OfType<Border>().First(b => b.Name == "CatalogRoot");
+            var narrow = root.Classes.Contains("tbl-narrow");
+            var list = built.View.GetVisualDescendants().OfType<ListBox>().First(l => l.Name == "TableListBox");
+            var rows = list.GetVisualDescendants().OfType<Grid>().Where(g => g.Classes.Contains("tbl-row") && g.IsEffectivelyVisible).ToList();
+            rows.Should().HaveCountGreaterThanOrEqualTo(3);
+            foreach (var row in rows)
+            {
+                Rect R(Control c) => new(c.TranslatePoint(default, row)!.Value, c.Bounds.Size);
+                var title = row.GetVisualDescendants().OfType<TextBlock>().First(t => t.Classes.Contains("tbl-title")).Text;
+                var price = row.GetVisualDescendants().OfType<TextBlock>().First(t => t.Classes.Contains("tbl-price-amount"));
+                var stock = row.GetVisualDescendants().OfType<TextBlock>().First(t => t.Classes.Contains("tbl-stock"));
+                var tag = $"«{title}» ({width}×{height}, {lang}, {(narrow ? "узкий" : "широкий")})";
+                stock.IsEffectivelyVisible.Should().BeTrue($"остаток виден: {tag}");
+                R(price).Intersects(R(stock)).Should().BeFalse($"цена и остаток не печатаются друг поверх друга: {tag}; цена {R(price)}, остаток {R(stock)}");
+                if (narrow)
+                    R(stock).Top.Should().BeGreaterThanOrEqualTo(R(price).Bottom - 0.5, $"в узком списке остаток под ценой: {tag}");
+                R(price).Top.Should().BeGreaterThanOrEqualTo(-0.5, $"цена внутри строки сверху: {tag}");
+                R(stock).Bottom.Should().BeLessThanOrEqualTo(row.Bounds.Height + 0.5, $"остаток внутри строки снизу: {tag}");
+            }
+            SavePng(built.Window, $"catalog-table-stock-{Code(lang)}-{width:0}x{height:0}");
+        }
+        finally
+        {
+            built.Dispose();
+        }
+    }
+
     [AvaloniaTheory]
     [InlineData(500.0)]
     [InlineData(650.0)]

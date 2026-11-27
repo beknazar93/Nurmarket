@@ -521,7 +521,7 @@ public sealed class BarcodesListViewUiTests : IDisposable
             var text = UiDrive.AllText(window);
             foreach (var label in header)
                 text.Should().Contain(label, $"шапка списка на языке интерфейса ({lang})");
-            if (items.Bounds.Width >= 840)
+            if (items.Bounds.Width >= 910) // 2026-11-27: порог колонки остатка 840 → 910 вместе с шириной колонки штрихкода (246 px)
                 text.Should().Contain(lang switch { AppLanguage.Kyrgyz => "Калдык", AppLanguage.Uzbek => "Qoldiq", _ => "Остаток" }, "на широком списке есть колонка остатка");
 
             // поле поиска не сжато до щели (панель инструментов с переключателем помещается)

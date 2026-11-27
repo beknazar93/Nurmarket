@@ -117,11 +117,11 @@ public sealed class BazaarHaggleDialog : Window
         var r = Current;
         _preview.Text = r.Outcome switch
         {
-            HaggleOutcome.Ok => T($"Скидка {MoneyText.Som(r.Discount)} ({r.Percent:0.#} %) · к оплате {MoneyText.Som(r.Agreed)}",
-                $"Арзандатуу {MoneyText.Som(r.Discount)} ({r.Percent:0.#} %) · төлөнүүчү {MoneyText.Som(r.Agreed)}",
-                $"Discount {MoneyText.Som(r.Discount)} ({r.Percent:0.#} %) · to pay {MoneyText.Som(r.Agreed)}",
-                $"İndirim {MoneyText.Som(r.Discount)} (%{r.Percent:0.#}) · ödenecek {MoneyText.Som(r.Agreed)}",
-                $"Chegirma {MoneyText.Som(r.Discount)} ({r.Percent:0.#} %) · to'lanadi {MoneyText.Som(r.Agreed)}"),
+            HaggleOutcome.Ok => T($"Скидка {MoneyText.Som(r.Discount)} ({MoneyText.Weight(r.Percent, "0.#")} %) · к оплате {MoneyText.Som(r.Agreed)}",
+                $"Арзандатуу {MoneyText.Som(r.Discount)} ({MoneyText.Weight(r.Percent, "0.#")} %) · төлөнүүчү {MoneyText.Som(r.Agreed)}",
+                $"Discount {MoneyText.Som(r.Discount)} ({MoneyText.Weight(r.Percent, "0.#")} %) · to pay {MoneyText.Som(r.Agreed)}",
+                $"İndirim {MoneyText.Som(r.Discount)} (%{MoneyText.Weight(r.Percent, "0.#")}) · ödenecek {MoneyText.Som(r.Agreed)}",
+                $"Chegirma {MoneyText.Som(r.Discount)} ({MoneyText.Weight(r.Percent, "0.#")} %) · to'lanadi {MoneyText.Som(r.Agreed)}"),
             HaggleOutcome.CannotRaise => T("Торг только вниз: итог не может быть больше суммы.", "Соодалашуу төмөн гана: жыйынтык суммадан чоң болбойт.",
                 "Haggling only goes down: the total cannot exceed the amount.", "Pazarlık yalnızca aşağı: toplam tutardan büyük olamaz.", "Savdolashuv faqat pastga: jami summadan oshmasligi kerak."),
             HaggleOutcome.NoChange => T("Сумма та же — скидки нет.", "Сумма ошол эле — арзандатуу жок.", "Same amount — no discount.", "Tutar aynı — indirim yok.", "Summa o'sha — chegirma yo'q."),

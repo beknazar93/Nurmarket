@@ -43,6 +43,8 @@
         <!-- 2026-10-06: раздел «Филиалы» — два магазина рядом. -->
         <StreamGeometry x:Key="BranchesIcon">M2,21 H22 M3,21 V10 L8,6 L13,10 V21 M13,21 V13 L17.5,10 L22,13 V21 M6.5,21 V16 H9.5 V21 M16,21 V17 H19 V21</StreamGeometry>
         <StreamGeometry x:Key="FunnelIcon">M3,4 H21 L14,12 V19 L10,21 V12 Z</StreamGeometry>
+        <!-- 2026-11-26: «Рассылка» — рупор с волной. -->
+        <StreamGeometry x:Key="MailingIcon">M3,10 V14 H7 L14,18 V6 L7,10 Z M17,9 A4,4 0 0 1 17,15 M7,14 L8.5,20 H11 L9.5,15.5</StreamGeometry>
         <!-- 2026-10-01: раздел «Телеграм-бот» — самолётик Telegram. -->
         <StreamGeometry x:Key="TelegramBotIcon">M21,4 L3,11 L9,13.5 L11,20 L14,15.5 L19,19 Z M9,13.5 L21,4</StreamGeometry>
         <!-- 2026-10-05: раздел «ИИ-советник» — облачко разговора с искрой. -->
@@ -218,8 +220,8 @@
         </Style>
         <Style Selector="Border.iconsOnly Button.railGroup">
             <Setter Property="Padding" Value="0,7"/>
-            <!-- 2026-11-01: цель нажатия не меньше 36 и у нижних кнопок (у них значок 20, а не 22). -->
-            <Setter Property="MinHeight" Value="36"/>
+            <!-- 2026-11-01: цель нажатия не меньше 36 и у нижних кнопок (у них значок 20, а не 22). 2026-11-26: 36 → 40 (дизайн и удобство, DesignAuditUiTests). -->
+            <Setter Property="MinHeight" Value="40"/>
         </Style>
         <Style Selector="Border.iconsOnly Button.railGroup TextBlock.railLabel">
             <Setter Property="IsVisible" Value="False"/>
@@ -227,7 +229,8 @@
         <!-- Кнопка «»» в тёмной колонке (колонка пунктов свёрнута). -->
         <Style Selector="Button.railMini">
             <Setter Property="Width" Value="44"/>
-            <Setter Property="Height" Value="36"/>
+            <!-- 2026-11-26 (дизайн и удобство): 36 → 40 — цель касания (DesignAuditUiTests). -->
+            <Setter Property="Height" Value="40"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
@@ -796,7 +799,7 @@
                                 <Path Data="{StaticResource ExpandNavIcon}"/>
                             </Button>
                             <!-- 2026-10-19, вид «Вкладки»: колонки пунктов нет — поиск раздела (тот же, что Ctrl+K) значком под логотипом. -->
-                            <Button x:Name="RailSearchButton" Classes="railMini" Width="44" Height="36" Click="RailSearch_Click" IsVisible="False">
+                            <Button x:Name="RailSearchButton" Classes="railMini" Width="44" Height="40" Click="RailSearch_Click" IsVisible="False">
                                 <Path Data="{StaticResource SearchIcon}" Width="16" Height="16"/>
                             </Button>
                         </StackPanel>

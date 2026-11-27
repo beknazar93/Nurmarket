@@ -21,7 +21,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
     public partial class FinanceWindow
     {
         /// <summary>Расходы периода с сервера: всего, зарплата, прочее (остальные статьи), чистая прибыль сервера.</summary>
-        private sealed record ServerExpenses(decimal Total, decimal Salaries, decimal Other, decimal? OperatingProfit, decimal? GrossProfit);
+        /// <param name="Deposits">2026-11-26: внесения в кассу за период с сервера (shift_drawer_inflow); 0 — не было или сервер не ответил. Не выручка и не расход.</param>
+        private sealed record ServerExpenses(decimal Total, decimal Salaries, decimal Other, decimal? OperatingProfit, decimal? GrossProfit, decimal Deposits = 0m);
 
         private ServerExpenses _serverExpenses;
         /// <summary>Отчёт расходов запрошен, ответа ещё нет — в плитках «…».</summary>
@@ -61,6 +62,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     ["date_to"] = to.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                 };
                 var api = App.GetRequiredService<NurMarketApiClient>();
+                // 2026-11-26 («при внесении и изъятии на аналитике покажется только изъятие, а внесение исчезает»): внесения в кассу за период — тем же заходом,
+                // параллельно отчёту pnl. Сбой этого запроса (null) плитку не ломает — просто без строки про внесения.
+                var depositsTask = CashArticles.DepositsByArticleAsync(api, from, to, ct);
                 var data = await api.RequestAsync(HttpMethod.Get, "api/main/analytics/pnl/", null, query, ct, TimeSpan.FromSeconds(60))
                     .ConfigureAwait(true);
                 if (data is not { ValueKind: JsonValueKind.Object } d
@@ -68,7 +72,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     || PnlNum(opex, "total") is not { } total)
                     return null;
                 var salaries = PnlNum(opex, "salaries") ?? 0m;
-                return new ServerExpenses(total, salaries, total - salaries, PnlNum(d, "operating_profit"), PnlNum(d, "gross_profit"));
+                var deposits = await depositsTask.ConfigureAwait(true);
+                return new ServerExpenses(total, salaries, total - salaries, PnlNum(d, "operating_profit"), PnlNum(d, "gross_profit"),
+                    deposits is null ? 0m : (decimal)deposits.Sum(x => x.Amount));
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -186,6 +192,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
                         $"salaries {srv.Salaries:N2} · other {srv.Other:N2} som (NurCRM)",
                         $"maaşlar {srv.Salaries:N2} · diğer {srv.Other:N2} som (NurCRM)",
                         $"ish haqi {srv.Salaries:N2} · boshqa {srv.Other:N2} so'm (NurCRM)");
+                // 2026-11-26: изъятие уже внутри «прочих» (расход сервера), а внесение раньше не показывалось нигде — теперь отдельной подписью (не выручка и не расход).
+                if (srv.Deposits > 0m)
+                    breakdown += "\n" + Tr.T($"внесено в кассу: {MoneyText.Amount(srv.Deposits)} сом", $"кассага салынды: {MoneyText.Amount(srv.Deposits)} сом", $"put into the till: {MoneyText.Amount(srv.Deposits)} som",
+                        $"kasaya konan: {MoneyText.Amount(srv.Deposits)} som", $"kassaga kiritildi: {MoneyText.Amount(srv.Deposits)} so'm");
             }
             else
             {

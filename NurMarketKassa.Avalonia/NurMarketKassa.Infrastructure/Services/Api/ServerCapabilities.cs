@@ -46,6 +46,8 @@ public static class ServerCapabilities
     public const string CheckoutLinesMerged = "checkout_lines_merged";
     public const string CheckoutBelowCostWarning = "checkout_below_cost_warning";
     public const string WeightLineTotalFloor = "weight_line_total_floor";
+    /// <summary>2026-11-26 (ответ Умара): весовая строка pos/checkout принимает <c>line_total</c> — точную сумму строки при весе до грамма («По сумме» в окне «Взвесить»).</summary>
+    public const string WeightLineTotal = "weight_line_total";
     public const string ReceiptDelete = "receipt_delete";
     public const string ReceiptVersionRequired = "receipt_version_required";
     public const string RentalIdempotency = "rental_idempotency";
@@ -56,6 +58,9 @@ public static class ServerCapabilities
     /// <summary>2026-11-10 (ТЗ «правка и аннулирование возвратных накладных 24 ч»): сервер умеет править/аннулировать возврат поставщику по PIN руководителя
     /// (поля can_edit/editable_until, PATCH, void, history). Контракт предложен нами (docs/Отчеты/«ТЗ Умару — правка и аннулирование возвратных накладных 24 ч.md»), сервером не подтверждён.</summary>
     public const string SupplierReturnEdit24h = "supplier_return_edit_24h";
+    /// <summary>2026-11-26 (ответ Умара 05.11, п. 1): возврат поставщику с compensation=debt_offset сам уменьшает долг прихода (метка «receipt:…» разбирается в обоих видах, переплата не создаётся).
+    /// С признаком карточка поставщика не пишет «сервер пока не уменьшает долг по такому возврату».</summary>
+    public const string SupplierReturnDebtOffsetV2 = "supplier_return_debt_offset_v2";
     /// <summary>2026-11-10: то же для возврата от клиента (pos/returns).</summary>
     public const string PosReturnEdit24h = "pos_return_edit_24h";
     /// <summary>2026-11-12 (ХМ2, ТЗ бэкенду Б-52): флаг компании company_flags.hardware_2026_11 — сервер принимает дробное quantity у обычного (не весового) товара и проверяет шаг/минимум.
@@ -91,6 +96,22 @@ public static class ServerCapabilities
     public const string ShiftsMonthFilter = "shifts_month_filter";
     /// <summary>2026-11-19: то же по датам (?date_from=&amp;date_to=), есть с 03.11.</summary>
     public const string ShiftsDateFilter = "shifts_date_filter";
+
+    // 2026-11-27 (ответ Умара «Конструктор акций Ф1 + pos/quote/», prm2711): без признаков касса и программа владельца работают как раньше.
+    /// <summary>Конструктор акций v2: promotions/ (CRUD, start/pause/resume/finish, preview, report) и pos/promotions/active/ для кассы (локальный расчёт по разделу 4).</summary>
+    public const string PromotionsV2 = "promotions_v2";
+    /// <summary>POST pos/quote/ — предпросмотр чека (итог сервера до копейки, applied[], hints[], warnings[]) и expected_total в pos/checkout/ (409 total_mismatch).</summary>
+    public const string PosQuote = "pos_quote";
+
+    // 2026-11-26 (ответ Умара 26.11, «Бот-продавец, этап 1»): признаки в users/capabilities/ → features. Без признака раздел в программе владельца скрыт.
+    /// <summary>Раздел «Бот-продавец»: настройки seller_config и «Проверить бота» (test-ai as=customer).</summary>
+    public const string BotSeller = "bot_seller";
+    /// <summary>Окно «Диалоги бота»: список, «Взять» / «Вернуть боту» (telegram-bot/dialogs/).</summary>
+    public const string BotHandoff = "bot_handoff";
+    /// <summary>Отчёт по продажам бота (telegram-bot/sales-stats/).</summary>
+    public const string BotSalesStats = "bot_sales_stats";
+    /// <summary>2026-11-26 (Ф2): торг бота-продавца — блок «Торг» в настройках, правила по товарам, «Проверить торг», журнал оферт, блок в отчёте.</summary>
+    public const string BotBargain = "bot_bargain";
 
     /// <summary>2026-11-05: синхронная проверка признака для мест, где ждать сеть нельзя (расчёт «Касса:», тело чека). true — признак есть у ЭТОГО аккаунта; нет списка, он устарел
     /// или запрос не удался — false (поведение «как раньше»). Если список не получен или старше срока, в фоне просит его заново (ServerAddons.Api — тот же клиент, что у бонусов).</summary>
@@ -277,6 +298,9 @@ public static class ServerCapabilities
                 // 2026-11-19 (склад К-5/К-8): признаки политик — в фоне читаем settings/stock/ (только чтение). Без признаков запроса нет.
                 if (set.Contains(ExpiredSalePolicy) || set.Contains(Reservations))
                     ServerStock.RefreshPoliciesInBackground();
+                // 2026-11-27 (акции v2): набор акций кассы — сразу после признаков (при старте и смене аккаунта), дальше не чаще раза в 5 минут.
+                if (set.Contains(PromotionsV2) && !AppMode.IsOwner)
+                    PromoV2Store.RefreshInBackground(force: true);
                 return set;
             }
             catch (Exception ex) when (ex is not OperationCanceledException)

@@ -21,7 +21,7 @@ Map<String, dynamic> _sale({bool fiscal = false}) => {
     {'product_name': 'Яблоки', 'quantity': 1.25, 'unit': 'кг', 'unit_price': 120, 'total': 150},
   ],
   if (fiscal) 'fiscal': {'fd': '1234', 'fpd': '987654321', 'reg_number': '0000123456', 'fiscal_module': 'FM0001', 'taxes': [{'name': 'НДС 12%', 'amount': 50.36}, {'name': 'НсП 2%', 'amount': 9.4}]},
-  'e_receipt': {'token': 'AbCdEf123'},
+  'share_url': 'https://app.nurcrm.kg/r/AbCdEf123', // 2026-11-26: красивая страница вместо старого PDF
 };
 
 void main() {
@@ -32,7 +32,7 @@ void main() {
     expect(plain.shift, '42');
     expect(plain.discount, 20);
     expect(plain.change, 1530);
-    expect(plain.eReceiptUrl, 'https://check.nurcrm.kg/AbCdEf123.pdf');
+    expect(plain.eReceiptUrl, 'https://app.nurcrm.kg/r/AbCdEf123');
     final f = Receipt.fromSale(session: _session, sale: _sale(fiscal: true), number: '1744', total: 470, at: null, payment: 'cash');
     expect(f.title, contains('КАССОВЫЙ ЧЕК'));
     final text = f.toText();

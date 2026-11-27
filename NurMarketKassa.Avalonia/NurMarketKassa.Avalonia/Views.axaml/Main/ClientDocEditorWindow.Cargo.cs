@@ -149,8 +149,9 @@ public sealed partial class ClientDocEditorWindow
             return;
         var places = BazaarCargo.TotalPlaces(_doc);
         var gross = BazaarCargo.TotalGross(_doc);
-        _cargoTotals.Text = T($"Всего мест: {places} · брутто: {gross:0.###} кг", $"Бардыгы орун: {places} · брутто: {gross:0.###} кг", $"Total places: {places} · gross: {gross:0.###} kg",
-            $"Toplam koli: {places} · brüt: {gross:0.###} kg", $"Jami joy: {places} · brutto: {gross:0.###} kg");
+        var gross3 = MoneyText.Weight(gross); // 2026-11-27: вес одним форматтером (NumberFormatRatchet)
+        _cargoTotals.Text = T($"Всего мест: {places} · брутто: {gross3} кг", $"Бардыгы орун: {places} · брутто: {gross3} кг", $"Total places: {places} · gross: {gross3} kg",
+            $"Toplam koli: {places} · brüt: {gross3} kg", $"Jami joy: {places} · brutto: {gross3} kg");
     }
 
     private void SaveCargo()

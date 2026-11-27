@@ -46,6 +46,7 @@ public sealed class ClosedSectionLeakTests
         ["sizesreport"] = () => new SizesReportWindow(),
         ["salary"] = () => new SalaryWindow(),
         ["funnel"] = () => new FunnelWindow(),
+        ["mailing"] = () => new ClientMailingWindow(), // 2026-11-26
         ["telegrambot"] = () => new TelegramBotAnalyticsWindow(),
         ["profitcash"] = () => new ProfitCashReconcileWindow(),
         ["siteorders"] = () => new SiteOrdersWindow(),

@@ -194,6 +194,14 @@ public sealed class PosCheckoutResult
     /// <summary>2026-10-27: отказ сервера 409 price_changed (заголовок X-NurMarket-Strict-Price).</summary>
     public static PosCheckoutResult PriceChangedFailure(string error, IReadOnlyList<ServerPriceMismatch> changes) =>
         new() { IsSuccess = false, ErrorMessage = error, PriceChanged = true, PriceChanges = changes };
+
+    /// <summary>2026-11-27 (expected_total): сервер ответил 409 total_mismatch — продажа НЕ проведена, итог сервера другой (акции/цены изменились).
+    /// <see cref="TotalMismatchPayload"/> — ответ сервера (server_total, expected_total, lines[]): касса накладывает строки на чек и возвращает кассира к оплате.</summary>
+    public bool TotalMismatchRejected { get; init; }
+    public JsonElement? TotalMismatchPayload { get; init; }
+
+    public static PosCheckoutResult TotalMismatchFailure(string error, JsonElement? payload) =>
+        new() { IsSuccess = false, ErrorMessage = error, TotalMismatchRejected = true, TotalMismatchPayload = payload };
 }
 
 /// <summary>2026-10-27: строка price_mismatch сервера — позиция чека, цена которой отличается от текущей цены товара.</summary>

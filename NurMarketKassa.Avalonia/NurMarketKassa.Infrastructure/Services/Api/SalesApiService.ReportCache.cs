@@ -32,11 +32,19 @@ public sealed partial class SalesApiService
     /// <summary>Сбросить кэш отчётов — «Обновить» в окнах аналитики и новые продажи.</summary>
     public static void InvalidateReportCache() => ReportCache.Clear();
 
-    private Task<JsonElement> CachedReportAsync(string tab, DateTime from, DateTime to, CancellationToken ct)
+    private Task<JsonElement> CachedReportAsync(string tab, DateTime from, DateTime to, CancellationToken ct, bool withoutStock = false)
     {
-        var key = string.Create(CultureInfo.InvariantCulture, $"{tab}|{from:yyyy-MM-dd}|{to:yyyy-MM-dd}");
+        var fullKey = string.Create(CultureInfo.InvariantCulture, $"{tab}|{from:yyyy-MM-dd}|{to:yyyy-MM-dd}");
+        // 2026-11-26: ответ без остатков (include_stock=0) — отдельная запись кэша; готовый полный ответ за тот же период годится и для него (он шире).
+        var key = withoutStock ? fullKey + "|nostock" : fullKey;
         var ttl = to.Date >= DateTime.Today ? TimeSpan.FromSeconds(15) : TimeSpan.FromMinutes(10);
         var now = DateTime.UtcNow;
+        if (withoutStock
+            && ReportCache.TryGetValue(fullKey, out var fullHit)
+            && now - fullHit.AtUtc < ttl
+            && !fullHit.Task.IsFaulted
+            && !fullHit.Task.IsCanceled)
+            return fullHit.Task.WaitAsync(ct);
         if (ReportCache.TryGetValue(key, out var hit)
             && now - hit.AtUtc < ttl
             && !hit.Task.IsFaulted
@@ -54,6 +62,8 @@ public sealed partial class SalesApiService
         // передаёт limit (фильтр «limit» в аналитике сайта) — просим все проданные товары периода.
         if (tab == "products")
             qs["limit"] = "10000";
+        if (withoutStock)
+            qs["include_stock"] = "0";
         // Запрос не привязан к токену одного окна: его ждут и другие. Окно, сменившее период, просто
         // перестаёт ждать (WaitAsync), а ответ остаётся в кэше — вернуться к периоду можно мгновенно.
         var task = GetRetryingThrottleAsync("api/main/analytics/market/", qs, CancellationToken.None);

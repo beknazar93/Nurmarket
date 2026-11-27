@@ -162,6 +162,8 @@ public partial class OwnerShellWindow
         DebtsCard.IsVisible = true;
         DebtsTitle.Text = DebtsView.TitleText;
         DebtsLinkText.Text = T5("Подробно", "Толугу менен", "Details", "Ayrıntılar", "Batafsil");
+        // 2026-11-27 (живой проход): у кнопки-ссылки внутри StackPanel Диктор читал «Avalonia.Controls.StackPanel» — даём понятное имя.
+        Avalonia.Automation.AutomationProperties.SetName(DebtsLink, DebtsView.TitleText + ": " + DebtsLinkText.Text);
         // 2026-10-18, ревью О1: «Всё в порядке» в «Требует внимания» — только после того, как долги действительно получены.
         _attnDebtsLoaded = true;
         if (debtors.Count == 0)

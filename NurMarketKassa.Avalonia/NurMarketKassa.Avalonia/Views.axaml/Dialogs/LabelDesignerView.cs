@@ -203,6 +203,7 @@ public sealed partial class LabelDesignerView : UserControl
         LabelExtraKind.Cell => T("Ячейка", "Уяча", "Cell", "Hücre", "Katak"),
         LabelExtraKind.Line => T("Линия", "Сызык", "Line", "Çizgi", "Chiziq"),
         LabelExtraKind.Logo => T("Логотип", "Логотип", "Logo", "Logo", "Logotip"),
+        LabelExtraKind.ShopQr => T("QR магазина", "Дүкөндүн QR'ы", "Shop QR", "Mağaza QR'ı", "Do'kon QR'i"),
         _ => kind.ToString(),
     };
 
@@ -228,7 +229,7 @@ public sealed partial class LabelDesignerView : UserControl
         _presetCombo.SelectionChanged += OnPresetPicked;
         _sizeCombo = new ComboBox { MinWidth = 110, MinHeight = 36 };
         foreach (var (w, h) in LabelDesignerMath.Sizes)
-            _sizeCombo.Items.Add($"{w:0.#}×{h:0.#}");
+            _sizeCombo.Items.Add($"{MoneyText.Weight(w, "0.#")}×{MoneyText.Weight(h, "0.#")}"); // 2026-11-27: запятая одним форматтером (NumberFormatRatchet)
         _sizeCombo.Items.Add(T("Свой размер", "Жеке өлчөм", "Custom size", "Özel boyut", "Maxsus o'lcham"));
         _sizeCombo.SelectionChanged += (_, _) =>
         {
@@ -243,7 +244,7 @@ public sealed partial class LabelDesignerView : UserControl
         _hBox.ValueChanged += (_, _) => { if (!_building) ApplySize(_t.WidthMm, (double)(_hBox.Value ?? 30)); };
         _gridCombo = new ComboBox { MinWidth = 100, MinHeight = 36 };
         foreach (var s in LabelDesignerMath.GridSteps)
-            _gridCombo.Items.Add(s <= 0 ? T("Без сетки", "Тордун жок", "No grid", "Izgara yok", "To'rsiz") : $"{s:0.#} " + T("мм", "мм", "mm", "mm", "mm"));
+            _gridCombo.Items.Add(s <= 0 ? T("Без сетки", "Тордун жок", "No grid", "Izgara yok", "To'rsiz") : MoneyText.Weight(s, "0.#") + " " + T("мм", "мм", "mm", "mm", "mm"));
         _gridCombo.SelectionChanged += (_, _) =>
         {
             if (_building || _gridCombo.SelectedIndex < 0)

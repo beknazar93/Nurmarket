@@ -22,6 +22,9 @@ public static class MarketSphereSync
     private static readonly object Sync = new();
     private static string? _companyId;
     private static string? _serverSphere;
+    // 2026-11-26 (Д4, отчёт «Проверка сфер»): точная сфера, если сервер вернул её прямо в market_sphere (autoparts, bazaar, bazaar_retail, bazaar_wholesale).
+    // _serverSphere при этом — базовая grocery (на ней живут эти сферы), чтобы сравнения в настройках и замок MarketSphereLock работали как прежде.
+    private static string? _serverDetail;
     private static string? _appliedKey;
 
     /// <summary>Вид магазина на сервере из последнего ответа компании; null — не задан или ещё не загружен.</summary>
@@ -29,6 +32,16 @@ public static class MarketSphereSync
     {
         get { lock (Sync) return _serverSphere; }
     }
+
+    /// <summary>2026-11-26 (Д4): точная сфера с сервера (autoparts / bazaar…) или null, если сервер вернул обычную базовую сферу или ничего.</summary>
+    public static string? ServerDetail
+    {
+        get { lock (Sync) return _serverDetail; }
+    }
+
+    /// <summary>2026-11-26 (Д4): значения market_sphere, которые касса понимает как точную сферу на базе grocery (как в мобилке ShopModeX.fromDetail).</summary>
+    internal static bool IsServerDetail(string? raw) =>
+        raw is "autoparts" or BazaarProfile.Id or BazaarProfile.RetailDetail or BazaarProfile.WholesaleDetail;
 
     /// <summary>Запоминает market_sphere из ответа GET /api/users/company/ (вызывается из
     /// NurMarketApiClient.GetCompanyAsync). Неизвестное значение считается «не задан».</summary>
@@ -41,6 +54,7 @@ public static class MarketSphereSync
             data = inner;
 
         string? sphere = null;
+        string? detail = null;
         if (data.ValueKind == JsonValueKind.Object
             && data.TryGetProperty("market_sphere", out var el)
             && el.ValueKind == JsonValueKind.String)
@@ -48,12 +62,19 @@ public static class MarketSphereSync
             var raw = el.GetString()?.Trim().ToLowerInvariant();
             if (raw is MarketSpheres.Grocery or MarketSpheres.Clothing or MarketSpheres.Services)
                 sphere = raw;
+            else if (IsServerDetail(raw))
+            {
+                // 2026-11-26 (Д4): раньше такие значения считались «не задан», и на чистой установке касса спрашивала «Какой у вас магазин?».
+                sphere = MarketSpheres.Grocery;
+                detail = raw;
+            }
         }
 
         lock (Sync)
         {
             _companyId = companyId;
             _serverSphere = sphere;
+            _serverDetail = detail;
         }
     }
 
@@ -66,11 +87,12 @@ public static class MarketSphereSync
         {
             if (_serverSphere is null)
                 return false;
-            var key = (_companyId ?? "") + "|" + _serverSphere;
+            // 2026-11-26 (Д4): для точной сферы серверное значение — она сама (autoparts…), а не базовая grocery.
+            sphere = _serverDetail ?? _serverSphere;
+            var key = (_companyId ?? "") + "|" + sphere;
             if (key == _appliedKey)
                 return false;
             _appliedKey = key;
-            sphere = _serverSphere;
         }
 
         // 2026-09-29, правило владельца «при обновлениях не меняй установленные клиентом настройки»:
@@ -96,10 +118,20 @@ public static class MarketSphereSync
 
         if (prefs.MarketSphere == sphere)
             return false;
+        // 2026-11-26 (Д4): точная сфера уже выбрана в кассе — второй раз не применяем.
+        if (IsServerDetail(sphere) && MarketSpheres.Profile.Id == SphereCatalog.TryGet(sphere)?.Id)
+            return false;
 
         PosLogger.Log($"Вид магазина взят с сервера: {prefs.MarketSphere} → {sphere} ("
             + (seen is null ? "новая установка" : $"на сервере сменили {seen} → {sphere}") + ").", "API");
         MarketSpheres.Set(sphere);
+        // 2026-11-26 (Д4): «Базар» розница / опт хранится в MarketSphereDetail исходным значением сервера (SphereSettings.GetBazaarMode читает bazaar_wholesale).
+        if (sphere is BazaarProfile.RetailDetail or BazaarProfile.WholesaleDetail && prefs.MarketSphereDetail != sphere)
+        {
+            prefs.MarketSphereDetail = sphere;
+            prefs.SaveToDisk();
+            MarketSpheres.RaiseChanged();
+        }
         return true;
     }
 
@@ -110,6 +142,7 @@ public static class MarketSphereSync
         lock (Sync)
         {
             _serverSphere = normalized;
+            _serverDetail = null; // 2026-11-26 (Д4): владелец записал базовую сферу — точной с сервера больше нет
             _appliedKey = (_companyId ?? "") + "|" + normalized;
         }
 

@@ -28,6 +28,11 @@
             <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
 
+        <!-- 2026-11-26: способ оплаты, выключенный в настройках «Оплата долга», виден, но приглушён и не нажимается. -->
+        <Style Selector="RadioButton.modal-seg:disabled">
+            <Setter Property="Opacity" Value="0.45"/>
+        </Style>
+
         <Style Selector="Button.ClientDropdownItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
@@ -80,10 +85,13 @@
 
             <!-- 2026-10-22 (модалки, пакет 2): верхний блок (клиент, «одной суммой», плашки, ошибки) — в своей прокрутке не выше
                  ~45 % окна (TopScroll.MaxHeight в коде): на 910×512 он больше не сжимает таблицу долгов до нуля. -->
-            <ScrollViewer x:Name="TopScroll" Grid.Row="1" Margin="0,0,0,14"
+            <ScrollViewer x:Name="TopScroll" Grid.Row="1" Margin="0,0,0,8"
                           HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-            <StackPanel Spacing="10" Margin="0,0,8,0">
-                <TextBlock x:Name="ClientLabelText" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSoft}"/>
+            <!-- 2026-11-26 (живая проверка, 1024×600): отступы верхнего блока 10→8, поля ввода 44 (было 46), нижний отступ 14→8 — «Смешанно» целиком и таблица долгов с шапкой и строкой. -->
+            <StackPanel Spacing="8" Margin="0,0,8,0">
+                <!-- 2026-11-26 (живая проверка, 1024×600): подпись «Клиент» над плашкой выбранного клиента лишняя (имя и так на плашке) — только пока клиент не выбран. -->
+                <TextBlock x:Name="ClientLabelText" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSoft}"
+                           IsVisible="{Binding !HasSelectedClient}"/>
 
                 <!-- Выбранный клиент: компактная плашка вместо списка — освобождает место под
                      таблицу долгов ниже, чтобы её не приходилось лишний раз прокручивать. -->
@@ -94,8 +102,15 @@
                             BorderThickness="1"
                             CornerRadius="10"
                             Padding="12,10">
-                        <TextBlock Text="{Binding SelectedClientName}" FontSize="15" FontWeight="SemiBold"
-                                   Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
+                        <!-- 2026-11-26 (живая проверка, 1024×600): «Итого к оплате» переехал на плашку клиента (справа от имени) — отдельная строка съедала высоту верхнего блока. -->
+                        <Grid x:Name="ClientPlateGrid" ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{Binding SelectedClientName}" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
+                            <!-- Долг — красным (правило 4: красный — для долга). -->
+                            <TextBlock x:Name="TotalOwedBlock" Grid.Column="1" Text="{Binding TotalOwedText}" Margin="12,0,0,0"
+                                       FontSize="18" FontWeight="Bold" Classes="num" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource BrushDanger}" TextWrapping="Wrap" MaxWidth="460"/>
+                        </Grid>
                     </Border>
                     <Button Grid.Column="1" Classes="modal-secondary" Margin="8,0,0,0"
                             Content="{DynamicResource payDebt.changeClientButton}"
@@ -149,11 +164,45 @@
                     </Border>
                 </StackPanel>
 
-                <!-- Долг — красным (правило 4: красный — для долга), крупнее. -->
-                <TextBlock Text="{Binding TotalOwedText}"
-                           FontSize="18" FontWeight="Bold" Classes="num"
-                           Foreground="{DynamicResource BrushDanger}" TextWrapping="Wrap"
-                           IsVisible="{Binding HasSelectedClient}"/>
+                <!-- 2026-10-18: способ оплаты долга — по общим настройкам «Оплата долга» (PayDebtDialog.Method.cs). Действует и на «Оплатить» у строки.
+                     (С 2026-11-26 выбор виден всегда и стоит выше суммы: на 1024×600 верхний блок прокручивается, ниже он уходил из виду.) -->
+                <!-- 2026-11-26, владелец: «при оплате долга должно быть видно — наличными или безналичными». Две крупные кнопки показаны всегда
+                     (≥ 44 px, сенсор); выбранная — тёмным сегментом; последний выбор запоминается (DebtPaymentSettings.RememberMethod), по умолчанию
+                     наличные. Способ, выключенный в настройках, недоступен — под кнопками сказано, кто его включает. -->
+                <Grid x:Name="MethodGrid" ColumnDefinitions="Auto,*" IsVisible="{Binding ShowMethodChoice}" IsEnabled="{Binding CanEditPayment}">
+                    <TextBlock Grid.Column="0" Text="{Binding MethodLabel}" VerticalAlignment="Center"
+                               FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" Margin="0,0,10,0"/>
+                    <!-- 2026-11-26: третий сегмент «Смешанно» (часть наличными, часть безналом за один раз); виден при включённых обоих способах. -->
+                    <Grid Grid.Column="1" ColumnDefinitions="*,*,*" MaxWidth="660" HorizontalAlignment="Left">
+                        <RadioButton Grid.Column="0" x:Name="MethodCashRadio" GroupName="DebtPayMethod" Classes="modal-seg"
+                                     Margin="0,0,4,0" Focusable="False" MinWidth="150" MinHeight="48"
+                                     IsEnabled="{Binding CashMethodAllowed}"
+                                     Content="{Binding CashMethodLabel}" IsChecked="{Binding IsCashMethod, Mode=TwoWay}"/>
+                        <RadioButton Grid.Column="1" x:Name="MethodTransferRadio" GroupName="DebtPayMethod" Classes="modal-seg"
+                                     Margin="4,0,4,0" Focusable="False" MinWidth="150" MinHeight="48"
+                                     IsEnabled="{Binding TransferMethodAllowed}"
+                                     Content="{Binding TransferMethodLabel}" IsChecked="{Binding IsTransferMethod, Mode=TwoWay}"/>
+                        <RadioButton Grid.Column="2" x:Name="MethodMixedRadio" GroupName="DebtPayMethod" Classes="modal-seg"
+                                     Margin="4,0,0,0" Focusable="False" MinWidth="110" MinHeight="48"
+                                     IsEnabled="{Binding MixedMethodAllowed}" IsVisible="{Binding MixedMethodAllowed}"
+                                     Content="{Binding MixedMethodLabel}" IsChecked="{Binding IsMixedMethod, Mode=TwoWay}"/>
+                    </Grid>
+                </Grid>
+                <!-- 2026-11-26: «Смешанно» — сколько из общей суммы безналом; остальное наличными. -->
+                <StackPanel Spacing="4" IsVisible="{Binding ShowMixedInput}">
+                    <Grid x:Name="MixedGrid" ColumnDefinitions="Auto,160,*" IsEnabled="{Binding CanEditPayment}">
+                        <TextBlock Grid.Column="0" Text="{Binding MixedNonCashLabel}" VerticalAlignment="Center"
+                                   FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" Margin="0,0,10,0"/>
+                        <TextBox Grid.Column="1" x:Name="MixedNonCashBox" Text="{Binding MixedNonCashText, Mode=TwoWay}"
+                                 FontWeight="Bold" MinHeight="44"/>
+                        <TextBlock Grid.Column="2" Text="{Binding MixedHint}" FontSize="12.5" TextWrapping="Wrap" VerticalAlignment="Center"
+                                   Margin="12,0,0,0" Foreground="{DynamicResource BrushTextSoft}"/>
+                    </Grid>
+                </StackPanel>
+                <TextBlock Text="{Binding MethodOffHint}" FontSize="12.5" TextWrapping="Wrap"
+                           IsVisible="{Binding ShowMethodOffHint}" Foreground="{DynamicResource BrushTextSoft}"/>
+                <TextBlock Text="{Binding TransferHint}" FontSize="12.5" TextWrapping="Wrap"
+                           IsVisible="{Binding ShowTransferHint}" Foreground="{DynamicResource BrushTextSoft}"/>
 
                 <!-- 2026-09-28: погашение одной суммой (POST clients/{id}/pay-debt/, BE-12) — сервер
                      сам раскладывает сумму от старых долгов к новым, одним запросом вместо десятков
@@ -163,7 +212,7 @@
                         <TextBlock x:Name="PayAllLabelText" Grid.Column="0" Text="{Binding PayAllLabel}" VerticalAlignment="Center"
                                    FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" Margin="0,0,10,0"/>
                         <TextBox Grid.Column="1" x:Name="PayAllAmountBox" Text="{Binding PayAllAmountText, Mode=TwoWay}"
-                                 FontWeight="Bold" MinHeight="46"/>
+                                 FontWeight="Bold" MinHeight="44"/>
                         <Button Grid.Column="2" x:Name="PayAllButton" Classes="modal-primary" Margin="8,0,0,0"
                                 Content="{Binding PayAllButtonLabel}" Click="PayAll_Click"
                                 IsEnabled="{Binding CanPayAll}"/>
@@ -179,26 +228,10 @@
                     <!-- 2026-10-18, девятый круг: по части чеков точный остаток не получен — «одной суммой» закрыта. -->
                     <TextBlock Text="{Binding RemainingUnknownHint}" FontSize="12.5" TextWrapping="Wrap" FontWeight="SemiBold"
                                IsVisible="{Binding HasRemainingUnknown}" Foreground="{DynamicResource BrushDanger}"/>
+                    <!-- 2026-11-26 (живая проверка, 1024×600): при «Смешанно» пояснение скрыто — у поля безнала своя подсказка, а высота верхнего блока ограничена. -->
                     <TextBlock Text="{Binding PayAllHint}" FontSize="12.5" TextWrapping="Wrap"
-                               Foreground="{DynamicResource BrushTextSoft}"/>
+                               IsVisible="{Binding !ShowMixedInput}" Foreground="{DynamicResource BrushTextSoft}"/>
                 </StackPanel>
-
-                <!-- 2026-10-18: способ оплаты долга — по общим настройкам «Оплата долга» (PayDebtDialog.Method.cs). Разрешён
-                     один способ — выбора нет (по умолчанию только наличные, как раньше). Действует и на «Оплатить» у строки. -->
-                <Grid x:Name="MethodGrid" ColumnDefinitions="Auto,*" IsVisible="{Binding ShowMethodChoice}" IsEnabled="{Binding CanEditPayment}">
-                    <TextBlock Grid.Column="0" Text="{Binding MethodLabel}" VerticalAlignment="Center"
-                               FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" Margin="0,0,10,0"/>
-                    <Grid Grid.Column="1" ColumnDefinitions="*,*" MaxWidth="460" HorizontalAlignment="Left">
-                        <RadioButton Grid.Column="0" x:Name="MethodCashRadio" GroupName="DebtPayMethod" Classes="modal-seg"
-                                     Margin="0,0,4,0" Focusable="False" MinWidth="220"
-                                     Content="{Binding CashMethodLabel}" IsChecked="{Binding IsCashMethod, Mode=TwoWay}"/>
-                        <RadioButton Grid.Column="1" x:Name="MethodTransferRadio" GroupName="DebtPayMethod" Classes="modal-seg"
-                                     Margin="4,0,0,0" Focusable="False" MinWidth="220"
-                                     Content="{Binding TransferMethodLabel}" IsChecked="{Binding IsTransferMethod, Mode=TwoWay}"/>
-                    </Grid>
-                </Grid>
-                <TextBlock Text="{Binding TransferHint}" FontSize="12.5" TextWrapping="Wrap"
-                           IsVisible="{Binding ShowTransferHint}" Foreground="{DynamicResource BrushTextSoft}"/>
 
                 <!-- 2026-10-18, ревью (деньги): ответ на оплату не дошёл — сумма, способ, чек и смена клиента закрыты; выход —
                      «Повторить» (тот же ключ, сервер не проведёт дважды) или «Оплата есть / нет на сайте» после проверки (пятый круг ревью). -->
@@ -237,14 +270,14 @@
                 <TextBlock Text="{Binding ErrorMessage}"
                            Foreground="{DynamicResource BrushDanger}"
                            FontSize="13"
-                           IsVisible="{Binding !!ErrorMessage}"
+                           IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                            TextWrapping="Wrap"/>
 
                 <!-- 2026-09-28: после «Оплатить» строка просто исчезала — кассир не видел, прошла ли оплата. -->
                 <TextBlock Text="{Binding SuccessMessage}"
                            Foreground="{DynamicResource BrushUiStatusOk}"
                            FontSize="13" FontWeight="SemiBold"
-                           IsVisible="{Binding !!SuccessMessage}"
+                           IsVisible="{Binding SuccessMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                            TextWrapping="Wrap"/>
             </StackPanel>
             </ScrollViewer>

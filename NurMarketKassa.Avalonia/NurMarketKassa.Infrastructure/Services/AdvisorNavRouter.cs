@@ -137,6 +137,23 @@ public static class AdvisorNavRouter
         "права|права доступа|доступ сотрудников|права сотрудников|permissions|access rights|yetkiler|yetki|huquqlar|ruxsatlar|кызматкерлердин укуктары");
     private static readonly NavTarget SetKeys = Sub(Settings, "settings.keys", "keys", null, "Клавиши", "Баскычтар", "Keys", "Tuşlar", "Tugmalar",
         "клавиши|горячие клавиши|баскычтар|hotkeys|shortcuts|keyboard shortcuts|kisayollar|kisayol|tuslar|tez tugmalar|tugmalar");
+    // 2026-11-27 (владелец: «дай Нур-советнику доступ ко всем новым функциям и разделам»): экспорт в 1С (Настройки → Операции → «Экспорт в 1С»).
+    private static readonly NavTarget SetOneC = Sub(Settings, "settings.onec", "onec", null, "Экспорт в 1С", "1С'ге экспорт", "Export to 1C", "1C'ye aktarım", "1C ga eksport",
+        "экспорт в 1с|выгрузка в 1с|выгрузка 1с|1с экспорт|экспорт 1с|1с|1c|export to 1c|1c export|1c ye aktarim|1c ga eksport");
+
+    // 2026-11-27: Телеграм-бот и его окна (бот-продавец, диалоги, продажи бота, торг, отчёт торга) — советник открывает их по просьбе.
+    private static readonly NavTarget TelegramBot = S("telegrambot", "telegrambot", "Телеграм-бот", "Телеграм-бот", "Telegram bot", "Telegram botu", "Telegram bot",
+        "телеграм бот|телеграм|телеграм-бот|бот|бота|боту|телеграмм|telegram bot|telegram|bot|telegram botu|botu");
+    private static readonly NavTarget BotSeller = Sub(TelegramBot, "telegrambot.seller", "seller", null, "Бот-продавец", "Бот-сатуучу", "Seller bot", "Satıcı bot", "Bot-sotuvchi",
+        "бот продавец|бот продавца|настройки бота продавца|бот сатуучу|seller bot|bot seller|satici bot|bot sotuvchi");
+    private static readonly NavTarget BotDialogs = Sub(TelegramBot, "telegrambot.dialogs", "dialogs", null, "Диалоги бота", "Боттун диалогдору", "Bot dialogs", "Bot diyalogları", "Bot dialoglari",
+        "диалоги бота|диалоги|диалог|переписка бота|переписки|чаты бота|боттун диалогдору|диалогдор|bot dialogs|dialogs|bot chats|bot diyaloglari|diyaloglar|bot dialoglari|dialoglar");
+    private static readonly NavTarget BotSales = Sub(TelegramBot, "telegrambot.sales", "sales", null, "Продажи бота", "Боттун сатуулары", "Bot sales", "Bot satışları", "Bot savdolari",
+        "продажи бота|отчет бота|отчет по боту|боттун сатуулары|bot sales|bot report|bot satislari|bot savdolari");
+    private static readonly NavTarget BotBargain = Sub(TelegramBot, "telegrambot.bargain", "bargain", null, "Торг по товарам", "Товарлар боюнча соодалашуу", "Bargaining by product", "Ürün bazında pazarlık", "Mahsulotlar bo'yicha savdolashish",
+        "торг по товарам|правила торга|торг бота|торг|соодалашуу|bargaining by product|bargain rules|bargaining|haggle|urun bazinda pazarlik|pazarlik|savdolashish");
+    private static readonly NavTarget BotOffers = Sub(TelegramBot, "telegrambot.offers", "offers", null, "Отчёт торга", "Соодалашуу отчёту", "Bargain report", "Pazarlık raporu", "Savdolashish hisoboti",
+        "отчет торга|журнал торга|журнал оферт|оферты|предложения покупателей|соодалашуу отчету|bargain report|bargain offers|offer log|pazarlik raporu|teklifler|savdolashish hisoboti|takliflar");
 
     private static readonly NavTarget[] All =
     {
@@ -147,6 +164,9 @@ public static class AdvisorNavRouter
         Warehouse, WhReceiving, WhRevision, WhWriteOff, WhMovements, WhBarcodes, WhBulk, WhLow, WhOut, WhExpiry,
         S("calculator", "calculator", "Калькуляция", "Калькуляция", "Pricing calculator", "Hesaplama", "Kalkulyatsiya",
             "калькуляция|калькуляцию|калькулятор|расчет цены|расчет наценки|pricing calculator|calculator|hesaplama|hesap makinesi|kalkulyatsiya|kalkulyator"),
+        // 2026-11-27 (Нур-советник, доступ ко всем разделам): пункты меню владельца, которых в словаре не было.
+        S("estimate", "estimate", "Смета", "Смета", "Estimate", "Keşif", "Smeta",
+            "смета|смету|сметы|сметой|составить смету|estimate|estimates|kesif|smeta"),
         S("restock", "restock", "Пополнение и сроки", "Толуктоо жана мөөнөттөр", "Restock & expiry", "Stok yenileme ve SKT", "To'ldirish va muddatlar",
             "пополнение|пополнения|пополнить|пополнение и сроки|сроки|срок|толуктоо|толуктоо жана мөөнөттөр|мөөнөттөр|мөөнөт|restock|replenish|replenishment|restock and expiry|stok yenileme|yenileme|skt|toldirish|toldirish va muddatlar|muddatlar"),
         Purchases, PurOrders, PurReceive,
@@ -161,12 +181,26 @@ public static class AdvisorNavRouter
             "долги|долг|должники|долги клиентов|кто мне должен|карыз|карыздар|карызкорлор|debts|debt|debtors|receivables|borclar|borc|musteri borclari|qarzlar|qarz|qarzdorlar"),
         S("rentals", "rentals", "Прокат", "Прокат", "Rentals", "Kiralama", "Prokat",
             "прокат|проката|аренда|аренду|ижара|rentals|rental|rent|kiralama|kira|prokat|ijara"),
+        S("partsorders", "partsorders", "Заказы под клиента", "Кардарга заказдар", "Customer orders", "Müşteri siparişleri", "Mijozga buyurtmalar",
+            "заказы под клиента|заказ под клиента|заказы запчастей|заказ запчасти|кардарга заказдар|customer orders|parts orders|musteri siparisleri|mijozga buyurtmalar"),
+        S("salereturn", "salereturn", "Оформить возврат", "Кайтарууну тариздөө", "Process a return", "İade işle", "Qaytarishni rasmiylashtirish",
+            "оформить возврат|оформление возврата|возврат по чеку|сделать возврат|кайтарууну тариздоо|process a return|make a return|iade isle|qaytarishni rasmiylashtirish"),
+        S("repair", "repair", "Ремонт и сервис", "Оңдоо жана тейлөө", "Repair and service", "Tamir ve servis", "Ta'mirlash va servis",
+            "ремонт|ремонта|ремонты|ремонт и сервис|квитанции ремонта|квитанция ремонта|мастерская|ондоо|ондоо жана тейлоо|repair|repairs|repair and service|tamir|tamir ve servis|tamirlash|tamirlash va servis"),
+        S("tradein", "tradein", "Trade-in / скупка", "Trade-in / сатып алуу", "Trade-in / buy-back", "Trade-in / alım", "Trade-in / sotib olish",
+            "trade in|tradein|трейд ин|трейдин|скупка|скупку|скупки|выкуп|buy back|buyback"),
         S("analytics", "analytics", "Аналитика", "Талдоо", "Analytics", "Analiz", "Analitika",
             "аналитика|аналитику|аналитики|отчеты|отчет|графики|сезонность|талдоо|analytics|reports|report|analiz|raporlar|rapor|analitika|hisobotlar|hisobot"),
         S("abc", "abc", "ABC-анализ", "ABC-анализ", "ABC analysis", "ABC analizi", "ABC-tahlil",
             "abc|авс|abc анализ|авс анализ|abc analizi|abc tahlil|abc analysis|abc-анализ"),
         S("profitcash", "profitcash", "Прибыль и деньги", "Пайда жана акча", "Profit & cash", "Kâr ve nakit", "Foyda va pul",
             "прибыль и деньги|прибыль|прибыли|доход|доходы|деньги|движение денег|пайда жана акча|пайда|киреше|акча|profit and cash|profit|income|cash flow|cash|kar ve nakit|kar|nakit|foyda va pul|foyda|pul"),
+        S("investments", "investments", "Инвестиции и окупаемость", "Инвестициялар жана кайтарым", "Investments and payback", "Yatırımlar ve geri dönüş", "Investitsiyalar va o'zini oqlash",
+            "инвестиции|инвестиций|окупаемость|окупаемости|вложения|инвесторы|инвестициялар|investments|investment|payback|yatirimlar|geri donus|investitsiyalar"),
+        S("bonusanalytics", "bonusanalytics", "Бонусы", "Бонустар", "Bonuses", "Bonuslar", "Bonuslar",
+            "бонусы|бонусов|бонусная программа|бонусы клиентов|баллы|бонустар|bonuses|bonus points|bonuslar|puanlar"),
+        S("staffreport", "staffreport", "Кассиры и часы", "Кассирлер жана сааттар", "Cashiers and hours", "Kasiyerler ve saatler", "Kassirlar va soatlar",
+            "кассиры и часы|отчет по кассирам|кассиры|продажи по часам|по дням недели|кассирлер жана сааттар|cashiers and hours|cashiers report|kasiyerler ve saatler|kassirlar va soatlar"),
         S("losssales", "losssales", "Продажи в убыток", "Зыян менен сатуулар", "Sales at a loss", "Zararına satışlar", "Zarariga sotuvlar",
             "продажи в убыток|убыток|убытки|убыточные продажи|продаю в минус|зыян менен сатуулар|зыян|sales at a loss|loss sales|selling at a loss|zararina satislar|zararina satis|zarar|zarariga sotuvlar|zarar"),
         S("fiscalreport", "fiscalreport", "Продажи без фискального чека", "Фискалдык чексиз сатуулар", "Sales without a fiscal receipt", "Mali fişsiz satışlar", "Fiskal chekisiz sotuvlar",
@@ -177,29 +211,45 @@ public static class AdvisorNavRouter
             "заказы с сайта|заказы сайта|заказ с сайта|интернет заказы|онлайн заказы|сайттан заказдар|website orders|site orders|online orders|web sitesi siparisleri|web siparisleri|saytdan buyurtmalar|onlayn buyurtmalar|buyurtmalar|buyurtma|заказы|заказ"),
         S("siteeditor", "siteeditor", "Редактор сайта", "Сайттын редактору", "Website editor", "Web sitesi düzenleyici", "Sayt muharriri",
             "редактор сайта|редактировать сайт|сайт редактор|сайттын редактору|website editor|site editor|edit website|web sitesi duzenleyici|site duzenleyici|sayt muharriri|sayt tahrirlash"),
+        S("sitereviews", "sitereviews", "Отзывы", "Пикирлер", "Reviews", "Yorumlar", "Sharhlar",
+            "отзывы|отзыв|отзывы сайта|отзывы покупателей|пикирлер|reviews|review|yorumlar|sharhlar"),
+        S("sitecollections", "sitecollections", "Коллекции", "Коллекциялар", "Collections", "Koleksiyonlar", "Kolleksiyalar",
+            "коллекции|коллекция|коллекции сайта|коллекциялар|collections|koleksiyonlar|kolleksiyalar"),
         S("sitesettings", "sitesettings", "Настройки сайта", "Сайттын жөндөөлөрү", "Website settings", "Web sitesi ayarları", "Sayt sozlamalari",
             "настройки сайта|настройка сайта|сайттын жондоолору|website settings|site settings|web sitesi ayarlari|site ayarlari|sayt sozlamalari"),
         S("appshop", "appshop", "Магазин в приложении", "Тиркемедеги дүкөн", "Shop in the app", "Uygulamadaki mağaza", "Ilovadagi do'kon",
             "магазин в приложении|магазин приложение|магазин в телефоне|тиркемедеги дукон|shop in the app|app shop|uygulamadaki magaza|ilovadagi dokon|ilova dokon"),
         S("clients", "clients", "Клиенты", "Кардарлар", "Customers", "Müşteriler", "Mijozlar",
             "клиенты|клиент|клиентов|покупатели|покупатель|кардарлар|кардар|customers|customer|clients|client|musteriler|musteri|mijozlar|mijoz"),
-        S("telegrambot", "telegrambot", "Телеграм-бот", "Телеграм-бот", "Telegram bot", "Telegram botu", "Telegram bot",
-            "телеграм бот|телеграм|телеграм-бот|бот|бота|боту|телеграмм|telegram bot|telegram|bot|telegram botu|botu"),
+        TelegramBot, BotSeller, BotDialogs, BotSales, BotBargain, BotOffers,
         S("whatsapp", "whatsapp", "WhatsApp", "WhatsApp", "WhatsApp", "WhatsApp", "WhatsApp",
             "ватсап|вотсап|ватсапп|whatsapp|whats app|watsap"),
         S("funnel", "funnel", "Воронка", "Воронка", "Sales funnel", "Satış hunisi", "Savdo voronkasi",
             "воронка|воронку|воронка продаж|sales funnel|funnel|satis hunisi|huni|savdo voronkasi|voronka"),
+        S("promotions", "promotions", "Акции", "Акциялар", "Promotions", "Kampanyalar", "Aksiyalar",
+            "акции|акция|акций|акциями|конструктор акций|скидки по акции|акциялар|promotions|promotion|promo|kampanyalar|kampanya|aksiyalar|aksiya"),
+        S("mailing", "mailing", "Рассылка", "Жөнөтмө", "Mailing", "Toplu mesaj", "Xabarnoma",
+            "рассылка|рассылку|рассылки|рассылка клиентам|жонотмо|mailing|newsletter|broadcast|toplu mesaj|xabarnoma"),
+        // 2026-11-27: «табель» — свой пункт меню «Табель» (раньше слово вело в «Зарплату»).
         S("salary", "salary", "Зарплата", "Эмгек акы", "Salary", "Maaş", "Ish haqi",
-            "зарплата|зарплату|зарплаты|табель|сотрудники|сотрудник|сотрудников|ставки|эмгек акы|эмгек акыны|эмгек акысы|эмгек акысын|айлык|кызматкерлер|кызматкер|salary|payroll|timesheet|employees|staff|maas|maaslar|puantaj|calisanlar|ish haqi|xodimlar|xodim|oylik"),
+            "зарплата|зарплату|зарплаты|сотрудники|сотрудник|сотрудников|ставки|эмгек акы|эмгек акыны|эмгек акысы|эмгек акысын|айлык|кызматкерлер|кызматкер|salary|payroll|employees|staff|maas|maaslar|calisanlar|ish haqi|xodimlar|xodim|oylik"),
+        S("timesheet", "timesheet", "Табель", "Табель", "Timesheet", "Çizelge", "Tabel",
+            "табель|табеля|табелю|отметки сотрудников|учет рабочего времени|timesheet|time sheet|cizelge|puantaj|tabel"),
         S("crm", "crm", "NurCRM", "NurCRM", "NurCRM", "NurCRM", "NurCRM",
             "nurcrm|нурсрм|нур срм|срм|crm|nur crm|сайт нурсрм"),
+        S("subscription", "subscription", "Подписка", "Жазылуу", "Subscription", "Abonelik", "Obuna",
+            "подписка|подписку|подписки|оплата подписки|продлить подписку|жазылуу|subscription|abonelik|obuna"),
+        S("transfer", "transfer", "Перенос данных", "Маалыматты которуу", "Data transfer", "Veri aktarımı", "Ma'lumot ko'chirish",
+            "перенос данных|импорт из других программ|импорт данных|перенести данные|маалыматты которуу|data transfer|import data|veri aktarimi|malumot kochirish"),
         S("marketplace", "marketplace", "Маркетплейс", "Маркетплейс", "Marketplace", "Pazar yeri", "Marketpleys",
             "маркетплейс|маркетплейса|магазин функций|купить функцию|marketplace|market place|pazar yeri|marketpleys|marketpleysi"),
-        Settings, SetScreen, SetScales, SetPrint, SetUpdates, SetOperations, SetCustom, SetAccount, SetEmployees, SetKeys,
+        Settings, SetScreen, SetScales, SetPrint, SetUpdates, SetOperations, SetCustom, SetAccount, SetEmployees, SetKeys, SetOneC,
         S("kb", "kb", "База знаний", "Билим базасы", "Knowledge base", "Bilgi bankası", "Bilimlar bazasi",
             "база знаний|базу знаний|знания|инструкция|инструкции|помощь|справка|билим базасы|жардам|knowledge base|help|manual|guide|bilgi bankasi|yardim|bilimlar bazasi|yordam"),
         S("support", "support", "Тех. поддержка", "Тех колдоо", "Support", "Destek", "Texnik yordam",
             "тех поддержка|техподдержка|поддержка|поддержку|удаленная помощь|помощь|тех колдоо|колдоо|жардам|support|tech support|remote help|help|destek|teknik destek|yardim|texnik yordam|yordam"),
+        S("outbox", "outbox", "Неотправленное", "Жөнөтүлбөгөндөр", "Unsent", "Gönderilmeyenler", "Yuborilmaganlar",
+            "неотправленное|неотправленные|не отправлено|очередь отправки|жонотулбогондор|unsent|outbox|gonderilmeyenler|yuborilmaganlar"),
         S("logs", "logs", "Журнал ошибок", "Каталар журналы", "Error log", "Hata günlüğü", "Xatolar jurnali",
             "журнал ошибок|журнал|ошибки|ошибок|каталар журналы|каталар|error log|logs|log|errors|hata gunlugu|hata kayitlari|hatalar|xatolar jurnali|xatolar"),
     };

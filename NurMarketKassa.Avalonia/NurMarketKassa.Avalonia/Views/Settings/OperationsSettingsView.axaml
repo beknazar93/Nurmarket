@@ -333,6 +333,9 @@
             <TextBlock FontSize="12" TextWrapping="Wrap"
                        Foreground="{DynamicResource BrushWarning}"
                        Text="{DynamicResource loc.settings.dynamicQr.warning}"/>
+            <!-- 2026-11-26 (отчёт «Конкуренты», п. 1): какие из загруженных QR банков подходят для QR с суммой (самопроверка), текст — в коде (RefreshDynamicQrStatus) -->
+            <TextBlock x:Name="DynamicQrStatusText" x:FieldModifier="public" FontSize="12.5" TextWrapping="Wrap"
+                       Foreground="{DynamicResource BrushText}"/>
           </StackPanel>
         </Border>
 

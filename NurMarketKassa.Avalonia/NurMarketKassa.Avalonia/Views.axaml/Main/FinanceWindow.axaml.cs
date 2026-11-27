@@ -203,6 +203,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
             public string CashboxName { get; set; } = "";
             public string CashierLine { get; set; } = "";
             public DateTime OpenedAtRaw { get; set; }
+            /// <summary>2026-11-27 (живой проход, E): время закрытия (closed_at сервера); MinValue — не прислано или смена открыта.</summary>
+            public DateTime ClosedAtRaw { get; set; }
             public string ShiftId { get; set; } = "";
             public string CashboxId { get; set; } = "";
             public decimal SalesTotalRaw { get; set; }
@@ -814,8 +816,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             // 2026-10-20, аудит программы владельца: «Смены» не следовали периоду (закрытых 256 за всё время при «Неделе»).
             // У владельца закрытые смены — открытые в выбранном периоде; открытые — все (они идут сейчас). Касса — как было.
             var inPeriod = _isOwnerSection
-                ? _allShifts.Where(s => s.IsOpen || s.OpenedAtRaw == DateTime.MinValue
-                                        || (s.OpenedAtRaw.Date >= _displayFrom.Date && s.OpenedAtRaw.Date <= _displayTo.Date)).ToList()
+                ? _allShifts.Where(s => ShiftInPeriod(s, _displayFrom, _displayTo)).ToList()
                 : _allShifts;
             if (_isOwnerSection && _shiftsLoaded)
             {
@@ -833,6 +834,16 @@ namespace NurMarketKassa.AvaloniaHost.Views
                         ? Tr.T("Открытых смен нет.", "Ачык сменалар жок.", "No open shifts.", "Açık vardiya yok.", "Ochiq smenalar yo'q.")
                         : Tr.T("Закрытых смен за этот период нет.", "Бул мезгилде жабык сменалар жок.", "No closed shifts in this period.",
                             "Bu dönemde kapalı vardiya yok.", "Bu davrda yopiq smenalar yo'q.");
+        }
+
+        /// <summary>2026-11-27 (живой проход, E): «Сегодня → Закрытые 0» при смене, открытой вчера и закрытой сегодня. Закрытая смена попадает в период по дню
+        /// ЗАКРЫТИЯ (closed_at), а если сервер его не прислал — по дню открытия, как раньше; открытые — всегда (они идут сейчас).</summary>
+        public static bool ShiftInPeriod(ShiftCardVm s, DateTime from, DateTime to)
+        {
+            if (s.IsOpen)
+                return true;
+            var day = s.ClosedAtRaw != DateTime.MinValue ? s.ClosedAtRaw : s.OpenedAtRaw;
+            return day == DateTime.MinValue || (day.Date >= from.Date && day.Date <= to.Date);
         }
 
         /// <summary>2026-10-20: список смен уже пришёл с сервера (до этого надпись «Загружаю смены…»).</summary>
@@ -880,6 +891,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
             var openedAt = row.TryGetProperty("opened_at", out var openedProp) &&
                 DateTime.TryParse(openedProp.GetString(), out var openedDt) ? openedDt : DateTime.MinValue;
+            // 2026-11-27 (E): closed_at — для фильтра закрытых смен по дню закрытия.
+            var closedAt = row.TryGetProperty("closed_at", out var closedProp) && closedProp.ValueKind == JsonValueKind.String &&
+                DateTime.TryParse(closedProp.GetString(), out var closedDt) ? closedDt : DateTime.MinValue;
 
             var idText = row.TryGetProperty("id", out var idProp) ? (idProp.GetString() ?? "") : "";
             var shortId = idText.Length >= 8 ? idText[..8].ToUpperInvariant() : idText.ToUpperInvariant();
@@ -906,6 +920,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 CashboxName = cashboxName,
                 CashierLine = $"{Tr.T("Кассир", "Кассир", "Cashier", "Kasiyer", "Kassir")}: {cashierName}",
                 OpenedAtRaw = openedAt,
+                ClosedAtRaw = closedAt,
                 ShiftId = idText,
                 CashboxId = cashboxId,
                 SalesTotalRaw = salesTotal,

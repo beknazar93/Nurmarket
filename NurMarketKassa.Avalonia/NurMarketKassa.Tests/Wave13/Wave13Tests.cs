@@ -207,6 +207,41 @@ public sealed class Wave13Tests : IDisposable
     public void GeminiLive_ReconnectDelay_1_2_4_8(int attempt, int seconds) =>
         GeminiLiveVoice.ReconnectDelay(attempt).Should().Be(TimeSpan.FromSeconds(seconds));
 
+    // ---------- 2026-11-26: «ИИ при звонке тормозит» — общий срок на части сводки (было 6 с на КАЖДУЮ часть по очереди → 12 с на две) ----------
+
+    [Fact]
+    public async Task AiDeadline_SharedDeadline_TwoSlowParts_WaitOnceNotTwice()
+    {
+        var slowA = Task.Delay(TimeSpan.FromSeconds(30)).ContinueWith(_ => "a");
+        var slowB = Task.Delay(TimeSpan.FromSeconds(30)).ContinueWith(_ => "b");
+        var deadline = Task.Delay(TimeSpan.FromMilliseconds(400));
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        var first = await AiDeadline.WithinAsync(slowA, deadline);
+        var second = await AiDeadline.WithinAsync(slowB, deadline);
+        watch.Stop();
+        first.Done.Should().BeFalse();
+        second.Done.Should().BeFalse();
+        watch.ElapsedMilliseconds.Should().BeLessThan(1500, "срок общий: вторая часть не ждёт заново");
+    }
+
+    [Fact]
+    public async Task AiDeadline_ReadyPart_IsTakenEvenAfterDeadline_AndNullResultIsStillDone()
+    {
+        var deadline = Task.CompletedTask;
+        var ready = await AiDeadline.WithinAsync(Task.FromResult("данные"), deadline);
+        ready.Should().Be((true, "данные"));
+        var emptyReady = await AiDeadline.WithinAsync(Task.FromResult<string?>(null), deadline);
+        emptyReady.Done.Should().BeTrue("часть собралась, просто пустая — это не «не успела»");
+        emptyReady.Value.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task AiDeadline_FaultedPart_ThrowsForCaller()
+    {
+        var act = async () => await AiDeadline.WithinAsync(Task.FromException<string>(new InvalidOperationException("сервер")), Task.Delay(1000));
+        await act.Should().ThrowAsync<InvalidOperationException>();
+    }
+
     // ---------- Л4-19: PIN владельца на ПК с кассой ----------
 
     [Fact]

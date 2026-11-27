@@ -190,6 +190,8 @@ public sealed partial class ReceivingLineVm : INotifyPropertyChanged // 2026-11-
                 OnPropertyChanged(nameof(LowMarginText));
                 if (_packMode && !_inPackCalc)
                     SyncPackFromQuantity(); // 2026-11-07: штуки поменяли снаружи (повторный скан +1, «Обнулить») — число упаковок следует за ними
+                if (_carcassOn && !_inCarcassCalc)
+                    CarcassQuantityEditedOutside(); // 2026-11-26: «Выход мяса» — вес в продажу поправили в ячейке «Кол-во»: выход и цена за кг пересчитываются
             }
         }
     }
@@ -226,6 +228,8 @@ public sealed partial class ReceivingLineVm : INotifyPropertyChanged // 2026-11-
                 NotifyPricing();
                 if (_packMode && !_inPackCalc)
                     SyncPackPriceFromPurchase(); // 2026-11-07: цену за штуку поставили снаружи (поставщик, заказ) — цена упаковки следует за ней
+                if (_carcassOn && !_inCarcassCalc)
+                    CarcassPriceEditedOutside(); // 2026-11-26: «Выход мяса» — себестоимость кг поправили в ячейке «Закупка»: сумма закупки и цена за кг брутто следуют за ней
             }
         }
     }

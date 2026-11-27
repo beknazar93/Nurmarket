@@ -16,6 +16,9 @@ class CheckoutDevice {
   /// Филиал сотрудника из профиля (`users/profile/`), если сервер его отдал; пусто — поле `branch` не отправляется.
   static String branch = '';
 
+  /// Имя устройства для сервера (device_name чека и входа).
+  static String get deviceName => 'NurMarket mobile (${Platform.operatingSystem})';
+
   static final _valid = RegExp(r'^[A-Za-z0-9_-]{8,64}$');
 
   static bool isValidKey(String? k) => k != null && _valid.hasMatch(k);
@@ -59,7 +62,7 @@ class CheckoutDevice {
     return {
       ...body,
       'device_key': await key(db),
-      'device_name': 'NurMarket mobile (${Platform.operatingSystem})',
+      'device_name': deviceName,
       if (branch.isNotEmpty) 'branch': branch,
     };
   }

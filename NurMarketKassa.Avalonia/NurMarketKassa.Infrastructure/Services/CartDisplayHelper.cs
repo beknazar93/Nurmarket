@@ -767,7 +767,8 @@ public static class CartDisplayHelper
         // нулевое), а итог чека (CartTotalsCalculator) читал скидку по-своему, и акции товара
         // (PromotionRules) не видел никто. Теперь тело запроса, экран и окно оплаты берут скидку
         // строки из одной функции — EffectiveLineDiscount.
-        var d = EffectiveLineDiscount(it);
+        // 2026-11-27 (акции v2): у строки с акцией v2 скидку акции сервер считает сам — передаём только ручную скидку, которую он примет (PromoV2Cart).
+        var d = PromoV2Cart.Of(it) is { } v2 ? v2.Manual : EffectiveLineDiscount(it);
         return d > 1e-6 ? FormatMoney(d) : null;
     }
 
@@ -803,6 +804,9 @@ public static class CartDisplayHelper
     {
         if (it.ValueKind != JsonValueKind.Object)
             return 0;
+        // 2026-11-27 (акции v2): метка расчёта акций в строке (PromoV2Cart) — скидка по акциям + ручная, которую примет сервер.
+        if (PromoV2Cart.Of(it) is { } v2)
+            return v2.Promo + v2.Manual;
         return PromotionRules.LineDiscount(it, LineQuantity(it), UnitPrice(it)) ?? ManualLineDiscount(it);
     }
 

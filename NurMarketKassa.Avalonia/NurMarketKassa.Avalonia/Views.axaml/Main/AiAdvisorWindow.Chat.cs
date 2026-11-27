@@ -775,18 +775,22 @@ public sealed partial class AiAdvisorWindow
         var upsell = parts.HasFlag(SummaryParts.Upsell) ? CachedPart("upsell", access, () => BuildUpsellAsync(ct)) : null;
         // 2026-10-06, лог владельца (23:10, сервер не отвечал после запуска): одна упавшая часть роняла всю сводку — ИИ
         // оставался без данных магазина. Теперь упавшая часть пропускается, остальные идут в сводку.
-        static async Task<T?> Part<T>(Task<T>? task, string name) where T : class
+        // 2026-11-26 («ИИ при звонке тормозит»: сводка из 2 частей собиралась 12 с при сроке 6 с — каждая часть ждалась по очереди заново):
+        // один общий срок на всю сводку; готовая часть берётся сразу, не успевшая — пропускается.
+        var deadline = Task.Delay(PartWait);
+        async Task<T?> Part<T>(Task<T>? task, string name) where T : class
         {
             if (task is null)
                 return null;
             try
             {
-                if (await Task.WhenAny(task, Task.Delay(PartWait)).ConfigureAwait(false) != task)
+                var (ready, value) = await AiDeadline.WithinAsync(task, deadline).ConfigureAwait(false);
+                if (!ready)
                 {
                     PosLogger.Log($"ИИ-советник: часть сводки «{name}» не успела за {PartWait.TotalSeconds:0} с — отвечаю без неё.", "WARNING");
                     return null;
                 }
-                return await task.ConfigureAwait(false);
+                return value;
             }
             catch (Exception ex)
             {
@@ -820,7 +824,7 @@ public sealed partial class AiAdvisorWindow
         {
             if (debtors is not null)
             {
-                if (await Task.WhenAny(debtors, Task.Delay(PartWait)).ConfigureAwait(false) == debtors)
+                if (debtors.IsCompleted || await Task.WhenAny(debtors, deadline).ConfigureAwait(false) == debtors)
                 {
                     var (section, n) = await debtors.ConfigureAwait(false);
                     if (section is not null)

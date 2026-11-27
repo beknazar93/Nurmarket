@@ -31,6 +31,22 @@ public static class ServerErrorCodes
     public const string QuantityBelowMin = "quantity_below_min";
     public const string ObjectNotFound = "object_not_found";
     public const string CreditLimitExceeded = "credit_limit_exceeded";
+    // 2026-11-26 (Д1, отчёт «Проверка сфер»): отказы 403 по тарифу компании (ответ Умара 20.11) — раньше любой 403 показывался как «Нет права на это действие».
+    public const string PlanLimit = "plan_limit";
+    public const string PlanClientNotAllowed = "plan_client_not_allowed";
+    // 2026-11-26 (Д1, autoparts): сервер на возврат чека отвечает 403 pin_required — действие нужно подтвердить PIN владельца/админа (X-Confirm-Token), а не «нет права».
+    public const string PinRequired = "pin_required";
+
+    /// <summary>2026-11-26 (Д1): сервер просит подтвердить действие PIN-кодом (403 <c>pin_required</c>) — касса спрашивает PIN и повторяет запрос с X-Confirm-Token.</summary>
+    public static bool IsPinRequired(Exception? ex) => ex is ApiException { StatusCode: 403 } && Is(ex, PinRequired);
+
+    /// <summary>2026-11-26 (Д1): текст, если PIN не введён (отмена) или повтор с токеном тоже отклонён.</summary>
+    public static string PinRequiredText() => Tr.T(
+        "Это действие нужно подтвердить PIN-кодом владельца или администратора. Повторите и введите PIN.",
+        "Бул аракетти ээсинин же администратордун PIN коду менен ырастоо керек. Кайталап, PIN киргизиңиз.",
+        "This action must be confirmed with the owner's or administrator's PIN. Try again and enter the PIN.",
+        "Bu işlem sahibin veya yöneticinin PIN'i ile onaylanmalı. Tekrar deneyin ve PIN'i girin.",
+        "Bu amalni egasi yoki administrator PIN kodi bilan tasdiqlash kerak. Qayta urinib, PIN kiriting.");
 
     /// <summary>Код из тела ответа (<c>code</c>, иначе <c>error</c>), строчными; null — нет.</summary>
     public static string? Code(Exception? ex) => ex is ApiException { Payload: { } p } ? Code(p) : null;
@@ -104,6 +120,22 @@ public static class ServerErrorCodes
         "The receipt cannot be deleted: payments on its debt have already been made to the supplier.",
         "Giriş silinemez: borcu için tedarikçiye zaten ödeme yapıldı.",
         "Kirimni o'chirib bo'lmaydi: uning qarzi bo'yicha yetkazib beruvchiga allaqachon to'langan.");
+
+    /// <summary>2026-11-26 (Д1): лимит тарифа компании исчерпан (сотрудник, вторая касса и т. п.).</summary>
+    public static string PlanLimitText() => Tr.T(
+        "Лимит вашего тарифа исчерпан. Обратитесь к владельцу: нужно сменить тариф.",
+        "Тарифиңиздин чеги түгөндү. Ээсине кайрылыңыз: тарифти алмаштыруу керек.",
+        "Your plan limit has been reached. Ask the owner to change the plan.",
+        "Tarifinizin sınırı doldu. Sahibine başvurun: tarifin değiştirilmesi gerekiyor.",
+        "Tarifingiz limiti tugadi. Egasiga murojaat qiling: tarifni almashtirish kerak.");
+
+    /// <summary>2026-11-26 (Д1): тариф компании не пускает этот вид программы (например, «Мини» — только с телефона).</summary>
+    public static string PlanClientNotAllowedText() => Tr.T(
+        "Ваш тариф не позволяет работать в этой программе. Обратитесь к владельцу: нужно сменить тариф.",
+        "Тарифиңиз бул программада иштөөгө уруксат бербейт. Ээсине кайрылыңыз: тарифти алмаштыруу керек.",
+        "Your plan does not allow using this application. Ask the owner to change the plan.",
+        "Tarifiniz bu programda çalışmaya izin vermiyor. Sahibine başvurun: tarifin değiştirilmesi gerekiyor.",
+        "Tarifingiz bu dasturda ishlashga ruxsat bermaydi. Egasiga murojaat qiling: tarifni almashtirish kerak.");
 
     public static string ReadOnlyText() => Tr.T(
         "У вас нет права менять товары (режим «только просмотр»). Обратитесь к владельцу.",
@@ -348,6 +380,9 @@ public static class ServerErrorCodes
         HasReturns => HasReturnsText(),
         DebtAlreadyPaid => DebtAlreadyPaidText(),
         ReadOnly => ReadOnlyText(),
+        PlanLimit when ex is ApiException { StatusCode: 403 } => PlanLimitText(), // 2026-11-26 (Д1)
+        PlanClientNotAllowed when ex is ApiException { StatusCode: 403 } => PlanClientNotAllowedText(), // 2026-11-26 (Д1)
+        PinRequired when ex is ApiException { StatusCode: 403 } => PinRequiredText(), // 2026-11-26 (Д1)
         PinInvalid => PinInvalidText(AttemptsLeft(ex)),
         PinLocked => PinLockedText(RetryAfterSeconds(ex)),
         PinNotSet => PinNotSetText(),

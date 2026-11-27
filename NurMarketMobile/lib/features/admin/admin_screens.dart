@@ -25,6 +25,7 @@ import '../scan/repeat_scan_dialog.dart';
 import '../scan/repeat_scan_guard.dart';
 import '../stock/product_delete.dart';
 import '../stock/product_edit.dart';
+import '../marketplace/marketplace_strings.dart' show Ms;
 
 final adminRepoProvider = Provider((ref) => AdminRepository(ref.watch(apiProvider), ref.watch(databaseProvider)));
 
@@ -154,6 +155,11 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
           (Icons.payments_outlined, l.stfSalaryTitle, '/admin/salary'),
           (Icons.fact_check_outlined, l.auditTitle, '/admin/audit'),
         ],
+      ),
+      // 2026-11-27 (просьба владельца «И в мобилку тоже Маркетплейс добавь!»): Маркетплейс функций и тарифов (владелец и администратор, см. Session.canRoute)
+      (
+        context.t5('Функции и тарифы', 'Функциялар жана тарифтер', 'Funksiyalar va tariflar', 'Features and plans', 'Özellikler ve tarifeler'),
+        [(Icons.storefront_outlined, Ms.title(context), '/admin/marketplace')],
       ),
     ];
     final q = _find.text.trim().toLowerCase();

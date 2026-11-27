@@ -5,7 +5,6 @@
 // Запуск: flutter test test/ad_details_snapshots_test.dart --dart-define=SNAP_DIR=<папка> [--plain-name "18-mobile-cam-prop"]
 // PNG-снимки кладутся в <папка>; для видео — кадры в <папка>/_fr_<имя>/ + list.txt (12 к/с, склеивает ffmpeg вне теста).
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';

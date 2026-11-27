@@ -979,7 +979,8 @@
                             <TextBlock Text="NURCRM" FontSize="18" FontWeight="Bold"
                                    Foreground="{DynamicResource BrushText}" VerticalAlignment="Center" />
                         </StackPanel>
-                        <Button Content="✕" Width="32" Height="32" Padding="0"
+                        <!-- 2026-11-26 (дизайн и удобство): 32 → 40 px — закрыть меню пальцем. -->
+                        <Button Content="✕" Width="40" Height="40" Padding="0"
                             HorizontalAlignment="Right" FontSize="18"
                             Foreground="{DynamicResource BrushText}" Background="Transparent"
                             BorderThickness="0" Cursor="Hand"

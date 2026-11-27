@@ -61,6 +61,92 @@ public static class ServiceDeskUi
 /// <summary>Описание поля формы.</summary>
 public sealed record FormField(string Key, string Label, string Initial = "", bool Multiline = false, bool Enabled = true, string Hint = "", double Width = 360, int MaxLength = 200);
 
+/// <summary>2026-11-26 (владелец прислал снимок «Нового приёма в ремонт»: «Комплектация» шириной 734 вылезала за область содержимого, следующее поле торчало справа и обрезалось краем окна,
+/// «Срок, дней» — нижним краем): раньше ячейки формы были фиксированной ширины в WrapPanel (734 / 360 / 230 + отступ 14), а в окне 800 содержимому достаётся только 720
+/// (поля оболочки 16 + 16, отступы 24 + 24), на экране 800×600 — ещё меньше (окно сжимается до экрана). Теперь ширина ячейки — доля строки из шести частей:
+/// заданная ширина поля (<see cref="FormField.Width"/>) только выбирает размер — от 600 — вся строка, до 250 — треть, иначе — половина. Если часть строки получается уже <see cref="MinCell"/>,
+/// ячейка берёт следующий размер (треть → половина → вся строка). Строка набирается до шести частей, затем переносится; ячейки всегда в пределах доступной ширины, а высота растёт — окно прокручивается.</summary>
+internal sealed class FormFlowPanel : Panel
+{
+    /// <summary>Зазор между ячейками по горизонтали.</summary>
+    public const double ColumnGap = 14;
+    /// <summary>Зазор между строками.</summary>
+    public const double RowGap = 8;
+    /// <summary>Уже этой ширины ячейка не бывает: короткие подписи и числа читаются, длинные подписи переносятся.</summary>
+    public const double MinCell = 190;
+    private const int Parts = 6;
+
+    /// <summary>Сколько частей строки занимает ячейка с заданной шириной поля.</summary>
+    public static int PartsFor(double preferredWidth) => preferredWidth >= 600 ? Parts : preferredWidth <= 250 ? 2 : 3;
+
+    private static double CellWidth(double rowWidth, int parts) => (rowWidth - ColumnGap * (Parts - 1)) / Parts * parts + ColumnGap * (parts - 1);
+
+    private static int Fit(double rowWidth, int parts)
+    {
+        while (parts < Parts && CellWidth(rowWidth, parts) < MinCell)
+            parts = parts == 2 ? 3 : Parts;
+        return parts;
+    }
+
+    private List<List<(Control Cell, double Width)>> Plan(double rowWidth)
+    {
+        var rows = new List<List<(Control, double)>>();
+        var used = 0;
+        foreach (var child in Children.OfType<Control>().Where(c => c.IsVisible))
+        {
+            var parts = Fit(rowWidth, PartsFor(child.Tag is double w ? w : 360));
+            if (rows.Count == 0 || used + parts > Parts)
+            {
+                rows.Add(new List<(Control, double)>());
+                used = 0;
+            }
+            rows[^1].Add((child, CellWidth(rowWidth, parts)));
+            used += parts;
+        }
+        return rows;
+    }
+
+    protected override Size MeasureOverride(Size availableSize)
+    {
+        var rowWidth = double.IsInfinity(availableSize.Width) ? 720 : availableSize.Width;
+        double height = 0;
+        double widest = 0;
+        var rows = Plan(rowWidth);
+        for (var i = 0; i < rows.Count; i++)
+        {
+            double rowHeight = 0;
+            double rowUsed = 0;
+            foreach (var (cell, width) in rows[i])
+            {
+                cell.Measure(new Size(width, double.PositiveInfinity));
+                rowHeight = Math.Max(rowHeight, cell.DesiredSize.Height);
+                rowUsed += width + (rowUsed > 0 ? ColumnGap : 0);
+            }
+            height += rowHeight + (i > 0 ? RowGap : 0);
+            widest = Math.Max(widest, rowUsed);
+        }
+        return new Size(Math.Min(widest, rowWidth), height);
+    }
+
+    protected override Size ArrangeOverride(Size finalSize)
+    {
+        double y = 0;
+        var rows = Plan(finalSize.Width);
+        for (var i = 0; i < rows.Count; i++)
+        {
+            double x = 0;
+            double rowHeight = rows[i].Max(c => c.Cell.DesiredSize.Height);
+            foreach (var (cell, width) in rows[i])
+            {
+                cell.Arrange(new Rect(x, y, width, rowHeight));
+                x += width + ColumnGap;
+            }
+            y += rowHeight + RowGap;
+        }
+        return finalSize;
+    }
+}
+
 /// <summary>2026-11-13: окно-форма «Новый приём в ремонт» / «Новый выкуп»: поля в два столбца, проверка перед закрытием (ошибки списком под полями), «Сохранить» / «Отмена».
 /// Окно собирает значения и ничего не сохраняет — решение и запись остаются за окном журнала.</summary>
 public sealed class ServiceDeskFormDialog : Window
@@ -87,12 +173,13 @@ public sealed class ServiceDeskFormDialog : Window
         var body = new StackPanel { Spacing = 6 };
         if (!string.IsNullOrWhiteSpace(hint))
             body.Children.Add(ServiceDeskUi.Text(hint, 12.5, brush: "BrushTextSoft"));
-        var wrap = new WrapPanel { Orientation = Orientation.Horizontal };
+        // 2026-11-26: вместо WrapPanel с фиксированной шириной ячеек — FormFlowPanel (ячейки по долям строки, не шире окна; см. описание класса).
+        var wrap = new FormFlowPanel();
         foreach (var f in fields)
         {
             var box = new TextBox
             {
-                Name = "Field_" + f.Key, Text = f.Initial, Width = f.Width, MaxLength = f.MaxLength, IsEnabled = f.Enabled,
+                Name = "Field_" + f.Key, Text = f.Initial, MaxLength = f.MaxLength, IsEnabled = f.Enabled,
                 AcceptsReturn = f.Multiline, TextWrapping = f.Multiline ? TextWrapping.Wrap : TextWrapping.NoWrap,
                 Height = f.Multiline ? 72 : 44, FontSize = 15, VerticalContentAlignment = f.Multiline ? VerticalAlignment.Top : VerticalAlignment.Center,
                 CornerRadius = new CornerRadius(10),
@@ -104,7 +191,8 @@ public sealed class ServiceDeskFormDialog : Window
             if (!f.Multiline)
                 box.KeyDown += (_, e) => { if (e.Key == Key.Enter) { e.Handled = true; Confirm(); } };
             _boxes[f.Key] = box;
-            var cell = new StackPanel { Margin = new Thickness(0, 0, 14, 8), Width = f.Width };
+            // 2026-11-26: Tag — желаемая ширина поля, по ней FormFlowPanel выбирает долю строки; Spacing 3 — подпись больше не лежит на рамке поля (зазор был 0 px).
+            var cell = new StackPanel { Tag = f.Width, Spacing = 3 };
             cell.Children.Add(ServiceDeskUi.Text(f.Label, 12, brush: "BrushTextSoft"));
             cell.Children.Add(box);
             if (!string.IsNullOrWhiteSpace(f.Hint))

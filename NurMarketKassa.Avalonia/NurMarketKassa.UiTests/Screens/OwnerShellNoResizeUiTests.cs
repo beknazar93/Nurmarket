@@ -24,7 +24,7 @@ public sealed class OwnerShellNoResizeUiTests
     private static readonly HashSet<string> SafeKeys = new(StringComparer.Ordinal)
     {
         "overview", "aiadvisor", "warehouse", "calculator", "restock", "purchases", "suppliers", "supplierreturns", "branches", "salesfinance", "debts",
-        "analytics", "abc", "profitcash", "losssales", "bonusanalytics", "staffreport", "appshop", "clients", "telegrambot", "whatsapp", "funnel",
+        "analytics", "abc", "profitcash", "losssales", "bonusanalytics", "staffreport", "appshop", "clients", "telegrambot", "whatsapp", "funnel", "mailing",
     };
 
     public static IEnumerable<object[]> Cases()

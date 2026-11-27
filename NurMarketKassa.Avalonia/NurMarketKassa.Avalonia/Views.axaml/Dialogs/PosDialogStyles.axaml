@@ -378,6 +378,34 @@
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}" />
   </Style>
+  <!-- 2026-11-27 (живой проход): ToggleButton.nur-ghost («Итоги» в «Табеле») — селектор Button.nur-ghost его не ловит (другой тип),
+       включённая кнопка была бирюзовой (цвет Fluent) с текстом у верхнего края. Теперь как ghost; включённая — мягкий фон с рамкой. -->
+  <Style Selector="ToggleButton.nur-ghost">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="{DynamicResource NurRadiusControl}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="MinHeight" Value="{DynamicResource NurHeightControl}" />
+    <Setter Property="Padding" Value="14,0" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="ToggleButton.nur-ghost:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+  </Style>
+  <Style Selector="ToggleButton.nur-ghost:checked /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector="ToggleButton.nur-ghost:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+  </Style>
 
   <!-- 2026-10-22 (модалки, пакет 0): поле ввода в модалке — касание ≥ 44 px (стандарт: «поля MinHeight 44»).
        Класс ставит окно: Classes="modal-field" (или SectionCards.Field(...) в коде). -->

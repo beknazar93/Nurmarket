@@ -798,7 +798,8 @@
                                                     HorizontalAlignment="Right" Margin="0,0,0,3">
                                             <Border IsVisible="{Binding HasLoss}" Background="#7F1D1D" CornerRadius="6" Padding="8,3" VerticalAlignment="Center" ToolTip.Tip="{Binding LossTooltip}"><TextBlock Text="{Binding LossDisplayText}" Foreground="White" FontSize="12" FontWeight="Bold"/></Border>
                                             <!-- 2026-10-19, К1 (правило 4): скидка — не убыток, плашка тёмно-синяя, а не красная. -->
-                                            <Border IsVisible="{Binding HasDiscount}"
+                                            <!-- 2026-11-27: видна по тексту (меньше копейки текста нет) — пустой тёмной плашки не бывает. -->
+                                            <Border IsVisible="{Binding DiscountDisplayText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                                     Background="{DynamicResource BrushText}"
                                                     CornerRadius="6"
                                                     Padding="9,4">
@@ -1284,6 +1285,10 @@
                                    FontWeight="SemiBold"
                                    Foreground="{DynamicResource BrushText}"/>
                     </Border>
+                    <!-- 2026-11-27 (акции v2): подсказки акций («Добавьте ещё 1 — будет бесплатно»), урезание до закупки, итог сервера (pos/quote/). -->
+                    <TextBlock Text="{Binding PromoNoticeText}" IsVisible="{Binding HasPromoNotice}"
+                               FontSize="12.5" FontWeight="SemiBold" TextWrapping="Wrap"
+                               Foreground="{DynamicResource BrushAccent}"/>
                     <TextBlock Text="{Binding CartMessage}"
                                FontSize="12"
                                Foreground="{DynamicResource BrushUiStatusOk}"

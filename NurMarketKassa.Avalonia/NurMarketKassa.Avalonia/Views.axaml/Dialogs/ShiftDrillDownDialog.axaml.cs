@@ -70,14 +70,15 @@ public partial class ShiftDrillDownDialog : Window
         _kind = kind;
         _saleRows = saleRows;
         Shell.Title = TitleFor(kind);
+        // 2026-11-26 (владелец, фото «Оплата долгов»: «Смена 76EE49C5» кассиру непонятна): в заголовке — «Смена от 24.11.2026 13:42» (дата открытия), код смены не показываем;
+        // нет даты открытия — короткий код, как раньше.
+        var opened = shift.OpenedAt is { } openedAt ? openedAt.ToString("dd.MM.yyyy HH:mm") : null;
         var number = string.IsNullOrWhiteSpace(shift.ShiftNumber)
             ? "—"
             : shift.ShiftNumber[..Math.Min(8, shift.ShiftNumber.Length)].ToUpperInvariant();
-        Shell.Subtitle = Tr.T($"Смена {number} · {shift.OpenedAt:dd.MM.yyyy HH:mm} — ",
-                $"Смена {number} · {shift.OpenedAt:dd.MM.yyyy HH:mm} — ",
-                $"Shift {number} · {shift.OpenedAt:dd.MM.yyyy HH:mm} — ",
-                $"Vardiya {number} · {shift.OpenedAt:dd.MM.yyyy HH:mm} — ",
-                $"Smena {number} · {shift.OpenedAt:dd.MM.yyyy HH:mm} — ")
+        Shell.Subtitle = (opened is not null
+                ? Tr.T($"Смена от {opened} — ", $"{opened} ачылган смена — ", $"Shift from {opened} — ", $"{opened} tarihli vardiya — ", $"{opened} dagi smena — ")
+                : Tr.T($"Смена {number} — ", $"Смена {number} — ", $"Shift {number} — ", $"Vardiya {number} — ", $"Smena {number} — "))
             + (shift.ClosedAt is { } closed ? closed.ToString("dd.MM.yyyy HH:mm") : Tr.T("сейчас", "азыр", "now", "şu an", "hozir"));
         Opened += async (_, _) => await LoadAsync();
     }
@@ -244,26 +245,35 @@ public partial class ShiftDrillDownDialog : Window
         };
 
         // 2026-10-18, ревью: у оплаты долгов — и наличные, и безнал (свой вид события); способ подписывается при показе.
-        var events = ShiftEventsStore.ListForShift(_shift!.Id, kind)
-            .Select(e => (e.CreatedAt, e.Amount, e.Note, NonCash: false)).ToList();
+        // 2026-11-26: source_id нужен списку «Оплата долгов» — по нему видно, что две части ушли одной смешанной оплатой (ShiftEventText.MixGroupOf).
+        var events = ShiftEventsStore.ListDetailedForShift(_shift!.Id, kind)
+            .Select(e => (e.CreatedAt, e.Amount, e.Note, NonCash: false, e.SourceId)).ToList();
         if (kind == ShiftEventsStore.KindDebtPayment)
             events = events
-                .Concat(ShiftEventsStore.ListForShift(_shift!.Id, ShiftEventsStore.KindDebtPaymentNonCash).Select(e => (e.CreatedAt, e.Amount, e.Note, NonCash: true)))
+                .Concat(ShiftEventsStore.ListDetailedForShift(_shift!.Id, ShiftEventsStore.KindDebtPaymentNonCash).Select(e => (e.CreatedAt, e.Amount, e.Note, NonCash: true, e.SourceId)))
                 .OrderBy(e => e.CreatedAt).ToList();
-        var rows = events
-            .Select(e => new Row(
-                e.CreatedAt == DateTime.MinValue ? "—" : e.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm"),
-                Money(e.Amount),
-                kind != ShiftEventsStore.KindDebtPayment
-                    ? e.Note ?? ""
-                    : string.Join(" · ", new[]
-                    {
-                        e.Note,
-                        e.NonCash
-                            ? Tr.T("безнал", "накталай эмес", "non-cash", "nakitsiz", "naqd emas")
-                            : Tr.T("наличные", "накталай", "cash", "nakit", "naqd"),
-                    }.Where(x => !string.IsNullOrWhiteSpace(x)))))
-            .ToList();
+        string TimeText(DateTime at) => at == DateTime.MinValue ? "—" : at.ToLocalTime().ToString("dd.MM.yyyy HH:mm");
+        List<Row> rows;
+        if (kind == ShiftEventsStore.KindDebtPayment)
+        {
+            // 2026-11-26 (владелец): у каждой оплаты долга — способ «Наличными» / «Безналом» / «Смешанно» (40 наличными + 60 безналом за один раз — одна строка).
+            rows = ShiftEventText.BuildDebtRows(events).Select(r => new Row(TimeText(r.At), Money(r.Amount), r.Details)).ToList();
+        }
+        else if (kind == ShiftEventsStore.KindReturn)
+        {
+            // 2026-11-26 (владелец, фото «Возвраты»: «cash=119.75;noncash=0.00;debt=454.25» — внутренний код): время, номер чека, что возвращено, и как —
+            // «Наличными 119,75 · В счёт долга 454,25». Номер и товары — из журнала возвратов по чекам (нет записи — только способ).
+            rows = ShiftEventsStore.ListDetailedForShift(_shift!.Id, kind).Select(e =>
+            {
+                var ledger = ShiftEventText.SaleIdFromSource(e.SourceId) is { } saleId ? SaleReturnLedger.Get(saleId) : null;
+                var refund = ShiftEventText.FindRefund(ledger, e.CreatedAt, e.Amount);
+                return new Row(TimeText(e.CreatedAt), Money(e.Amount), ShiftEventText.ReturnDetails(e.Note, e.Amount, ledger?.Number, refund?.Lines));
+            }).ToList();
+        }
+        else
+        {
+            rows = events.Select(e => new Row(TimeText(e.CreatedAt), Money(e.Amount), e.Note ?? "")).ToList();
+        }
         if (kind == ShiftEventsStore.KindDebtPayment)
         {
             // 2026-10-18, второй круг ревью: наличные (= плитка «Оплата долгов») и безнал — отдельно.

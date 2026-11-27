@@ -1,0 +1,11 @@
+# 2026-11-26: имена, которые check-store-registry.ps1 находит в коде, но которые не хранилища данных компании. Причина обязательна рядом.
+backup                  # внутри папки data (уже в реестре) — копии неотправленных чеков
+cas-exchange.log        # внутри Logs (Terminal): журнал обмена с весами
+massak-exchange.log     # внутри Logs (Terminal)
+rongta-udp-exchange.log # внутри Logs (Terminal)
+tm30f-exchange.log      # внутри Logs (Terminal)
+nurmarket-kassa.log     # внутри Logs (Terminal): основной журнал
+NurMarketLan            # %LOCALAPPDATA%\NurMarketLan\peers: реестр соседних касс этого ПК, не данные компании
+NurMarketShared         # %APPDATA%\NurMarketShared\{компания}\: имя компании уже в пути, смена компании чужих файлов не показывает
+unsent-receipts        # папка внутри data (уже в реестре): копии неотправленных чеков
+peers                   # %LOCALAPPDATA%\NurMarketLan\peers: список соседних касс этого ПК, не данные компании

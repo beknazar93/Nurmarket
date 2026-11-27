@@ -143,8 +143,11 @@ public interface ISalesApiService
     Task<JsonElement> MarketSalaryReportAsync(DateTime from, DateTime to, CancellationToken ct = default);
 
     /// <summary>Аналитика продаж сайта за дни [from; to]: GET api/main/analytics/market/?tab=sales
-    /// — выручка, чеки, способы оплаты и «Документы» (в т.ч. «Возврат продажи»).</summary>
-    Task<JsonElement> MarketSalesReportAsync(DateTime from, DateTime to, CancellationToken ct = default);
+    /// — выручка, чеки, способы оплаты и «Документы» (в т.ч. «Возврат продажи»).
+    /// 2026-11-26: <paramref name="withoutStock"/> = true — include_stock=0: сервер не кладёт в ответ tables.products_stock (у большого магазина
+    /// 2,8 МБ и ~1 с вместо 4 КБ и 0,08 с); cards, charts и остальные tables те же. Только для сводки ИИ, которой остатки из этого ответа не нужны
+    /// (остатки ИИ берёт из склада программы). Старый сервер параметра не знает и вернёт полный ответ — разбор от этого не зависит.</summary>
+    Task<JsonElement> MarketSalesReportAsync(DateTime from, DateTime to, CancellationToken ct = default, bool withoutStock = false);
 
     /// <summary>2026-10-06, ТЗ ч.12, п. 3.7: карточки продаж (как cards у tab=sales) сразу за несколько периодов
     /// одним запросом — GET api/main/analytics/market/summary/?periods=2026-10-01..2026-10-06,…

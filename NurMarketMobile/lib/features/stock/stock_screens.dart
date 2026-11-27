@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/ai/vision.dart' show SeenMatch;
 import '../../core/ui/link_banner.dart';
 import '../../core/api/api_client.dart';
 import '../../core/catalog/global_products.dart';
@@ -18,7 +19,9 @@ import '../../core/ui/infographic/infographic_data.dart' show StockHealth;
 import '../../core/ui/infographic/infographics.dart' show SplitBar;
 import '../../core/util/ui.dart';
 import '../admin/admin_screens.dart';
+import '../scan/code_lookup.dart';
 import '../scan/scan_screen.dart';
+import 'stock_scan_page.dart';
 import 'audit_money.dart';
 import 'product_edit.dart';
 import 'product_edit_repository.dart';
@@ -34,7 +37,13 @@ import '../scan/smart_camera.dart';
 /// Склад кассира (Т7): остатки, «Приёмка сканером», «Ревизия». Цены и новые товары меняет администратор.
 class StockScreen extends ConsumerStatefulWidget {
   final String? filter;
-  const StockScreen({super.key, this.filter});
+
+  /// 2026-11-26: подмена камеры в проверках — код, который «считал» сканер (null — закрыли без скана), и «ответ ИИ» по фото.
+  @visibleForTesting
+  final Future<String?> Function()? debugScan;
+  @visibleForTesting
+  final Future<List<SeenMatch>?> Function()? debugPhotoSearch;
+  const StockScreen({super.key, this.filter, this.debugScan, this.debugPhotoSearch});
   @override
   ConsumerState<StockScreen> createState() => _StockScreenState();
 }
@@ -291,6 +300,92 @@ class _StockScreenState extends ConsumerState<StockScreen> {
         : stockWithPack(qtyText, p.quantity, pk, packWord: context.l.pkPackShort, pcs: context.l.pkPcs);
   }
 
+  /// Нажатие на товар: с правом «Склад» — карточка товара, иначе — действия с ним (как раньше, вынесено из строки списка).
+  Future<void> _openProduct(Product p) async {
+    final s = ref.read(sessionProvider);
+    if (s != null && s.canRoute('/admin/product')) {
+      await openProductEditor(context, ref, p);
+      await _load(keepWindow: true);
+    } else {
+      await _productActions(p);
+    }
+  }
+
+  /// 2026-11-26: найденный сканером или по фото товар — в строку поиска (по названию) без фильтров остатка и категории,
+  /// чтобы его не спрятал «Заканчивается». Название товара не нашлось в списке (редкий случай) — ищем по коду.
+  Future<void> _showFound(Product p, {String? code}) async {
+    _debounce?.cancel();
+    setState(() {
+      _filter = 'all';
+      _category = null;
+      _q.text = p.name;
+    });
+    await _load();
+    if (!mounted) return;
+    if (code != null && !_list.any((x) => x.id == p.id)) {
+      _q.text = code;
+      await _load();
+    }
+  }
+
+  /// 2026-11-26: «Сканер штрихкода» — камера читает один код, дальше как в продаже ([CodeLookup]: телефон, потом сервер;
+  /// штрихкод упаковки и размера, весовая этикетка). Не нашли — код остаётся в поиске и сказано, нашёл ли сервер (связи нет — отдельный текст).
+  Future<void> _scan() async {
+    final raw = await (widget.debugScan?.call() ?? StockScanPage.open(context));
+    final code = raw?.trim() ?? '';
+    if (code.isEmpty || !mounted) return;
+    final hit = await CodeLookup.find(ref.read(databaseProvider), ref.read(apiProvider), code);
+    if (!mounted) return;
+    final l = context.l;
+    final p = hit.product;
+    if (p != null) {
+      await _showFound(p, code: code);
+      if (mounted) toast(context, l.stockScanFound(code, p.name));
+      return;
+    }
+    _debounce?.cancel();
+    setState(() => _q.text = code);
+    await _load();
+    if (mounted) toast(context, hit.unavailable ? l.notFoundOffline(code) : l.barcodeNotFound(code), error: true);
+  }
+
+  /// 2026-11-26: «Поиск по фото» («по виду») — снимок и распознавание уже существующей «Умной камерой» (режим «Продажа»:
+  /// штрихкод со снимка, ИИ, сверка с обученными товарами). Результат — список подходящих товаров склада с остатком и ценой, без закупки.
+  /// Ключа ИИ нет / нет права на ИИ — подсказку показывает [photoAndRecognize]; связи нет — сообщение до съёмки.
+  Future<void> _photoSearch() async {
+    final l = context.l;
+    final List<SeenMatch>? matches;
+    if (widget.debugPhotoSearch != null) {
+      matches = await widget.debugPhotoSearch!();
+    } else {
+      if (ref.read(apiProvider).link.value.offline) {
+        toast(context, l.stockPhotoOffline, error: true);
+        return;
+      }
+      matches = await photoAndRecognize(context, ref, 'sale');
+    }
+    if (matches == null || !mounted) return;
+    final best = <String, (Product, double)>{};
+    for (final m in matches) {
+      for (final (p, score) in m.candidates) {
+        if (p.isService) continue;
+        if (score > (best[p.id]?.$2 ?? 0)) best[p.id] = (p, score);
+      }
+    }
+    final found = (best.values.toList()..sort((a, b) => b.$2.compareTo(a.$2))).take(10).map((e) => e.$1).toList();
+    if (found.isEmpty) {
+      toast(context, l.stockPhotoNone, error: true);
+      return;
+    }
+    final picked = await showModalBottomSheet<Product>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (c) => _PhotoResults(found, stockText: _stockText),
+    );
+    if (picked != null && mounted) await _showFound(picked);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = context.l;
@@ -362,13 +457,35 @@ class _StockScreenState extends ConsumerState<StockScreen> {
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-          child: TextField(
-            controller: _q,
-            onChanged: (_) {
-              _debounce?.cancel();
-              _debounce = Timer(const Duration(milliseconds: 300), _load);
-            },
-            decoration: InputDecoration(hintText: l.findProduct, prefixIcon: const Icon(Icons.search_rounded)),
+          // 2026-11-26 (владелец: «на складе поиск сканером и по виду»): рядом с поиском по названию — сканер штрихкода и поиск по фото
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _q,
+                  onChanged: (_) {
+                    _debounce?.cancel();
+                    _debounce = Timer(const Duration(milliseconds: 300), _load);
+                  },
+                  decoration: InputDecoration(hintText: l.findProduct, prefixIcon: const Icon(Icons.search_rounded)),
+                ),
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                key: const Key('stockScanBtn'),
+                tooltip: l.stockScanBtn,
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                icon: const Icon(Icons.qr_code_scanner_rounded, color: T.accent),
+                onPressed: _scan,
+              ),
+              IconButton(
+                key: const Key('stockPhotoBtn'),
+                tooltip: l.stockPhotoBtn,
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                icon: const Icon(Icons.image_search_rounded, color: T.accent),
+                onPressed: _photoSearch,
+              ),
+            ],
           ),
         ),
         if (const {'sizes', 'weight', 'units', 'expiry'}.contains(_filter))
@@ -487,15 +604,7 @@ class _StockScreenState extends ConsumerState<StockScreen> {
                     // 13.10, владелец: «кнопку удалить товар добавь» — нажатие на товар: действия с ним
                     // 2026-10-22 (мобилка, админ): владелец — «нельзя редактировать товары на складе». С правом «Склад» —
                     // сразу карточка товара (правка, остаток документом, обучение камеры и удаление — в её меню).
-                    onTap: () async {
-                      final s = ref.read(sessionProvider);
-                      if (s != null && s.canRoute('/admin/product')) {
-                        await openProductEditor(context, ref, p);
-                        await _load(keepWindow: true);
-                      } else {
-                        await _productActions(p);
-                      }
-                    },
+                    onTap: () => _openProduct(p),
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     child: Row(
                       children: [
@@ -1343,6 +1452,76 @@ class _AuditScreenState extends ConsumerState<AuditScreen> {
 }
 
 /// Кнопка действия склада: значок и подпись в две строки.
+/// 2026-11-26: окно «Похожие товары на складе» после поиска по фото: название, остаток, цена; нажатие выбирает товар.
+/// Закупочной цены здесь нет — только то, что и так видно в списке склада.
+class _PhotoResults extends StatelessWidget {
+  final List<Product> items;
+  final String Function(Product p) stockText;
+  const _PhotoResults(this.items, {required this.stockText});
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l;
+    final pal = context.pal;
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.7),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+              child: Text(l.stockPhotoTitle, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text(l.stockPhotoHint, style: TextStyle(fontSize: 12.5, color: pal.textSoft)),
+            ),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: items.length,
+                itemBuilder: (c, i) {
+                  final p = items[i];
+                  final color = p.quantity <= 0 ? T.danger : (isLowStock(p.quantity, p.minQuantity) ? T.warn : null);
+                  return InkWell(
+                    key: ValueKey('photoHit-${p.id}'),
+                    onTap: () => Navigator.pop(context, p),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 56),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        child: Row(
+                          children: [
+                            ProductThumb(name: p.name, url: p.imageUrl, size: 40),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(p.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
+                            ),
+                            const SizedBox(width: 8),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(stockText(p), style: TextStyle(fontWeight: FontWeight.w800, color: color)),
+                                Text('${money(p.price)} ${l.som}', style: TextStyle(fontSize: 12, color: pal.textSoft)),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _StockAction extends StatelessWidget {
   final IconData icon;
   final String text;

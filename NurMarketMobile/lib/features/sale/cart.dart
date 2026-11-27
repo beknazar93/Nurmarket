@@ -5,6 +5,8 @@ library;
 
 import 'dart:convert';
 
+import '../../core/units.dart';
+
 /// 2026-11-01 (аудит 10 из 10, М-01): HALF_UP до 0,01 (как ROUND_HALF_UP сервера). Поправка 1e-7 убирает ошибку double на границе
 /// («1,005 × 100 = 100,4999…» округлялось вниз).
 double roundMoney(double v) => v.isFinite ? (v * 100 + (v >= 0 ? 1e-7 : -1e-7)).roundToDouble() / 100 : 0;
@@ -208,6 +210,13 @@ class CartLine {
        _manualDiscount = discount;
 
   bool get hasPromo => promo.isNotEmpty;
+
+  /// 2026-11-26 (проверка в эмуляторе, деньги): количество вводится дробным — весовой товар и товар в дробной единице (м, л, мл, г: 2,5 м × 50 = 125).
+  /// Штуки, упаковки и штука из упаковки — только целое.
+  bool get fractionalQty => isWeight || (salePackageId == null && unitIsFractional(unitOrPcs(unit)));
+
+  /// Введённое вручную количество: дробное — как есть, иначе до целого (раньше округлялось всё, кроме весового: 2,5 м становилось 3 м).
+  double enteredQty(double v) => fractionalQty ? v : v.roundToDouble();
 
   /// Ключ слияния строк в одну позицию чека — тот же, что в SalesRepository.buildBody; null — строка не сливается («Доп. услуга»).
   String? get mergeKey =>

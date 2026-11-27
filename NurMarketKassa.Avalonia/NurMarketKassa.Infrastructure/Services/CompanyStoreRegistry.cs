@@ -57,7 +57,9 @@ public static class CompanyStoreRegistry
         // 2026-11-06: В3 Л4-03 — "debt-payments" УБРАНО отсюда: журнал неподтверждённых оплат долга общий для кассы и программы владельца, у каждой записи есть
         // компания (см. SharedByCompanyItems). Раньше касса уносила папку целиком — вместе с записями и замком владельца (замок мог не дать сменить компанию,
         // а унесённая запись «исход неизвестен» после возврата в ту компанию не защищала от второго списания).
-        "pending_debt_prepayments.json", "promotion_rules.json", "purchases", "revision", "supplier-debts",
+        "pending_debt_prepayments.json", "promotion_rules.json",
+        "promotions-v2.json", "promo-products.json",             // 2026-11-27: акции v2 (набор для кассы, справочники) и категория/бренд/закупка товаров — данные компании
+        "purchases", "revision", "supplier-debts",
         "rental-receipts.json", "upsell-sync.json", "client-docs", "funnel.json", "label-scales.json", "receiving-markup.json",
         "shtrikhpc-pictures.json",                             // 2026-11-06: что уже записано в папки весов РС-200 (картинки товаров компании)
         "scale-config-backups",                                // 2026-11-06: копии Config.txt весов РС-200 перед записью настроек (ShtrikhPcConfigBackup) — настройки весов этой компании
@@ -94,6 +96,14 @@ public static class CompanyStoreRegistry
         "telegram-reminders.json", "telegram-chat-lang.json", // напоминания и язык чатов бота прежней компании
         // старое место общих файлов (до переноса в %LOCALAPPDATA%): если остались после обновления, тоже уносим
         "shop-alerts-state.json", "shop-automation.json",
+        // 2026-11-26 (отчёт «Проверка сфер», Д2): хранилища сфер и приёмки, которых не было в реестре (check-store-registry.ps1) — данные компании, иначе новая компания на этом ПК увидит чужие.
+        "autopart-meta.json",                                 // «Автозапчасти»: ячейка, аналоги, атрибуты товаров (PartMetaStore)
+        "volume-prices.json", "currency-rates.json",          // «Базар»: цены за объём и курсы валют (BazaarVolumePrices, BazaarCurrencies)
+        "receiving-pack-sizes.json",                          // память фасовки при приёмке (ReceivingPacks) — товары компании
+        "receiving-carcass-yield.json",                       // «Выход мяса» (CarcassYield) — товары и закупка компании
+        "phone-print-journal.json",                           // журнал печати чеков с телефона (PhoneSalePrintJournal) — продажи компании
+        "product-merge",                                      // журнал объединения товаров (MergeStore) — товары компании
+        "Rongta",                                             // рабочий products.txp для весов Rongta — товары компании
     ];
 
     /// <summary>Шаблоны имён в папке данных (флаги «бонусы импортированы» по компаниям, резервные копии настроек с ключами).</summary>
@@ -134,6 +144,8 @@ public static class CompanyStoreRegistry
         "VoiceModel", "WebView2", "global-products.sqlite",          // модель голоса, профиль WebView2, общий справочник товаров
         "accounts", "local_accounts",                                // прежний каталог accounts\{ключ} и автономные аккаунты этого ПК
         "Logs", "device-key.txt", "owner-shortcut.created", "server-capabilities.json", "server-capabilities.json.bak", // %LOCALAPPDATA%\NurMarketKassa
+        // 2026-11-26 (Д2): служебные файлы этого компьютера, которых не было в реестре: вид окна приёмки, офлайн-вход, журнал обращений в поддержку, отчёты о сбоях.
+        "receiving-view.json", "offline_auth_session.dat", "offline_auth_session.json", "support-requests.json", "CrashReports", "perf-summary-day.txt", "android-no-nested-loop",
         PreviousFolderName,                                          // сам карантин
     ];
 

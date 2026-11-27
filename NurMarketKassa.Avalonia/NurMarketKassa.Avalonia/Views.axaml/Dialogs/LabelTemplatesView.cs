@@ -94,7 +94,7 @@ public sealed class LabelTemplatesView : UserControl
         }
         var title = new TextBlock { Text = name, FontWeight = FontWeight.SemiBold, FontSize = 13.5, TextTrimming = TextTrimming.CharacterEllipsis };
         Bind(title, TextBlock.ForegroundProperty, "BrushText");
-        var size = new TextBlock { Text = $"{template.WidthMm:0.#}×{template.HeightMm:0.#} " + T("мм", "мм", "mm", "mm", "mm"), FontSize = 12 };
+        var size = new TextBlock { Text = $"{MoneyText.Weight(template.WidthMm, "0.#")}×{MoneyText.Weight(template.HeightMm, "0.#")} " /* 2026-11-27: NumberFormatRatchet */ + T("мм", "мм", "mm", "mm", "mm"), FontSize = 12 };
         Bind(size, TextBlock.ForegroundProperty, "BrushTextSoft");
 
         var buttons = new WrapPanel { Orientation = Orientation.Horizontal };

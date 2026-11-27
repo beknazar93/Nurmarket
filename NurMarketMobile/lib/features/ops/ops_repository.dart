@@ -231,7 +231,21 @@ class OpsRepository {
 
   /// Возврат: весь чек (lines пусто) или строки {sale_item_id, quantity} — тот же запрос, что кнопка «Возврат» сайта.
   /// 2026-10-22 (мобилка, деньги): ключ повтора живёт до успеха (раньше новый при каждой попытке — двойной возврат).
-  Future<Map<String, dynamic>> returnSale(String saleId, List<(String itemId, double qty)> lines) {
+  /// 2026-11-26 (проверка сфер, autoparts; как ReturnPinRetry кассы): сервер может ответить 403 pin_required («Подтверждать PIN» у компании) — тогда
+  /// [askPin] (окно PIN → users/auth/pin/verify/ → токен) и повтор с X-Confirm-Token. Отмена PIN (null) — исходная ошибка. Второй раз PIN не спрашиваем.
+  /// Отказ 403 ничего не проводит, поэтому повтор — запрос с тем же телом; ключ повтора после 4xx забывается, как у любого отказа.
+  Future<Map<String, dynamic>> returnSale(String saleId, List<(String itemId, double qty)> lines, {Future<String?> Function()? askPin}) async {
+    try {
+      return await _returnOnce(saleId, lines);
+    } on ApiException catch (e) {
+      if (!e.isPinRequired || askPin == null) rethrow;
+      final token = await askPin();
+      if (token == null || token.isEmpty) rethrow;
+      return _returnOnce(saleId, lines, confirmToken: token);
+    }
+  }
+
+  Future<Map<String, dynamic>> _returnOnce(String saleId, List<(String itemId, double qty)> lines, {String? confirmToken}) {
     String q(double v) => v == v.roundToDouble() ? v.toInt().toString() : v.toStringAsFixed(3);
     final sig = '$saleId|${lines.map((l) => '${l.$1}:${q(l.$2)}').join(',')}';
     return _returnWithFreshness(saleId, sig).then((_) => _withKey('return', sig, (key) async {
@@ -245,6 +259,7 @@ class OpsRepository {
               for (final (id, v) in lines) {'sale_item_id': id, 'quantity': q(v)},
             ],
         },
+        headers: confirmToken == null ? null : {'X-Confirm-Token': confirmToken},
       );
       return resp is Map<String, dynamic> ? resp : <String, dynamic>{};
     }));

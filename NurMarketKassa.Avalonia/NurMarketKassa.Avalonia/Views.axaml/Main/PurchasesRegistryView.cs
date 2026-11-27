@@ -1030,7 +1030,9 @@ internal sealed class PurchasesRegistryView : UserControl
             {
                 "numdate" => Two(d.Number, Date(d.At), bold: true),
                 "supplier" => Txt(d.SupplierName.Length > 0 ? d.SupplierName : "—", "BrushText", 13.5, FontWeight.SemiBold, lines: 2),
-                "supdoc" => d.SupplierDoc.Length > 0 ? Two(d.SupplierDoc, d.SupplierDocDate?.ToString("dd.MM.yyyy") ?? "") : Txt("—", "BrushTextSoft"),
+                "supdoc" => d.SupplierDoc.Length > 0 || d.Esf.Length > 0
+                    ? Two(d.SupplierDoc.Length > 0 ? d.SupplierDoc : "—", string.Join(" · ", new[] { d.SupplierDocDate?.ToString("dd.MM.yyyy") ?? "", d.Esf.Length > 0 ? "ЭСФ " + d.Esf : "" }.Where(x => x.Length > 0))) // 2026-11-26: + ЭСФ
+                    : Txt("—", "BrushTextSoft"),
                 "wh" => Txt(d.Warehouse, "BrushTextSoft", 12.5),
                 "by" => Txt(d.CreatedBy, "BrushTextSoft", 12.5),
                 "items" => Txt(d.Items.ToString("N0", Ru), "BrushText", 13, right: true),

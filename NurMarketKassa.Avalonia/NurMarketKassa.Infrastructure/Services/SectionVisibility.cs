@@ -81,6 +81,7 @@ public static class SectionVisibility
         ("crm", "NurCRM"),
         ("whatsapp", "WhatsApp"),
         ("funnel", Tr.T("Воронка", "Воронка", "Sales funnel", "Satış hunisi", "Savdo voronkasi")),
+        ("mailing", Tr.T("Рассылка", "Жөнөтмө", "Mailing", "Toplu mesaj", "Xabarnoma")), // 2026-11-26
         ("marketplace", Tr.T("Маркетплейс", "Маркетплейс", "Marketplace", "Pazar yeri", "Marketpleys")),
         ("kb", Tr.T("База знаний", "Билим базасы", "Knowledge base", "Bilgi bankası", "Bilimlar bazasi")),
         ("support", Tr.T("Тех. поддержка", "Тех колдоо", "Support", "Destek", "Texnik yordam")),

@@ -14,6 +14,7 @@ using Avalonia.Platform;
 using Avalonia.Threading;
 using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.Services;
+using NurMarketKassa.Services.Api;
 
 namespace NurMarketKassa.AvaloniaHost.Views.Settings;
 
@@ -41,7 +42,7 @@ public sealed partial class MarketplaceStoreView
     private bool _tileShowsGroup;
 
     private double TileWidth => _narrow ? 160 : 188;
-    private double TileHeight => _narrow ? 176 : 184;
+    private double TileHeight => _narrow ? 224 : 232; // 2026-11-26: +48 px — под названием короткая фраза «что делает» (до трёх строк), раньше было только «Функция» и цена
     private double TileIconSize => _narrow ? 48 : 56;
 
     // ------------------------------------------------------------------ витрина
@@ -97,9 +98,9 @@ public sealed partial class MarketplaceStoreView
         Grid.SetColumn(chipScroll, 1);
         top.Children.Add(chipScroll);
 
-        var shell = new Grid { RowDefinitions = new RowDefinitions("Auto,*") };
+        var shell = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*") }; // 2026-11-26: средняя строка — полоса «Ваш тариф» (TariffStrip), только у владельца
         shell.Children.Add(top);
-        Grid.SetRow(_list, 1);
+        Grid.SetRow(_list, 2);
         shell.Children.Add(_list);
         _storefront = shell;
 
@@ -126,9 +127,49 @@ public sealed partial class MarketplaceStoreView
     private static string SearchWatermarkShort() => Tr.T("Поиск функций и тем", "Функция, тема издөө",
         "Search features", "Özellik ara", "Funksiya qidirish");
 
+    /// <summary>2026-11-26: откуда полоса «Ваш тариф» берёт расчёт у сервера; по умолчанию — TariffApi программы, нет сервисов (проверки без хоста) — полосы нет. Для проверок подменяется.</summary>
+    public Func<ITariffApi?> TariffApiProvider { get; set; } = () =>
+    {
+        try { return App.GetRequiredService<TariffApi>(); }
+        catch (Exception ex) when (ex is not OutOfMemoryException) { return null; }
+    };
+
+    private TariffStrip? _tariffStrip;
+    private ITariffApi? _stripApi;
+
+    /// <summary>Полоса «Ваш тариф · Собрать тариф «Своё»» над витриной — владельцу; остальным (кассир, админ) её нет.</summary>
+    public TariffStrip? TariffStripForTest => _tariffStrip;
+
+    private void EnsureTariffStrip()
+    {
+        if (_storefront is null)
+            return;
+        var api = TariffDraft.CanBuild ? TariffApiProvider() : null;
+        if (api is null)
+        {
+            if (_tariffStrip is not null)
+            {
+                _storefront.Children.Remove(_tariffStrip);
+                _tariffStrip = null;
+                _stripApi = null;
+            }
+            return;
+        }
+        if (_tariffStrip is not null && ReferenceEquals(_stripApi, api))
+            return;
+        if (_tariffStrip is not null)
+            _storefront.Children.Remove(_tariffStrip); // источник расчёта сменили (проверки, другой клиент API) — полоса пересоздаётся
+        _stripApi = api;
+        _tariffStrip = new TariffStrip(api);
+        Grid.SetRow(_tariffStrip, 1);
+        _storefront.Children.Add(_tariffStrip);
+    }
+
     private void ShowStorefront()
     {
         _openId = null;
+        _tariffModeShown = TariffDraft.Active;
+        EnsureTariffStrip();
         // Внешний SetFilter(Features/Layouts/Themes) сбрасывает выбор группы: группа действует только при фильтре «Все».
         if (_filter != MarketplaceFilter.All)
             _groupChip = null;
@@ -459,7 +500,7 @@ public sealed partial class MarketplaceStoreView
 
     // ------------------------------------------------------------------ плитка
 
-    /// <summary>Плитка 188×184 (узкая 160×168): значок, название в две строки, вид и группа, цена или состояние. Короткое описание — в подсказке.</summary>
+    /// <summary>Плитка 188×232 (узкая 160×224): значок, название в две строки, вид и группа, короткая фраза «что делает» (2026-11-26), цена или состояние. Полное описание — в подсказке.</summary>
     private Button BuildTile(MarketplaceItem item)
     {
         var icon = BuildIcon(item, TileIconSize);
@@ -473,6 +514,16 @@ public sealed partial class MarketplaceStoreView
             badge.VerticalAlignment = VerticalAlignment.Top;
             Grid.SetColumn(badge, 1);
             top.Children.Add(badge);
+        }
+
+        // 2026-11-26 («Своё» собирается из Маркетплейса): на плитке пакета или функции — кружок «+» / «✓» «Добавить в тариф / Убрать из тарифа»; владельцу, выбор общий с диалогом «Своё».
+        if (TariffDraft.Active && TariffDraft.TargetOf(item.Id) is { } tariffTarget) // 2026-11-26: «+» — только в режиме сборки тарифа «Своё»
+        {
+            if (item.IsNew && top.Children.Count > 1)
+                ((Control)top.Children[1]).Margin = new Thickness(0, 0, 38, 0); // метка «НОВОЕ» уступает место кружку
+            var toggle = BuildTariffToggle(tariffTarget);
+            Grid.SetColumn(toggle, 1);
+            top.Children.Add(toggle);
         }
 
         var title = new TextBlock
@@ -508,6 +559,24 @@ public sealed partial class MarketplaceStoreView
         body.Children.Add(title);
         Grid.SetRow(kind, 2);
         body.Children.Add(kind);
+        // 2026-11-26 (замечание владельца: «описание новым функциям что он делает ты не добавил»): под названием и видом — короткая фраза «что делает» до трёх строк (полностью — в подсказке).
+        if (!string.IsNullOrWhiteSpace(item.BlurbText) && !item.IsComingSoon)
+        {
+            var blurb = new TextBlock
+            {
+                Text = item.BlurbText,
+                FontSize = 12,
+                LineHeight = 15,
+                TextWrapping = TextWrapping.Wrap,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                MaxLines = 3,
+                Margin = new Thickness(0, 2, 0, 2),
+                VerticalAlignment = VerticalAlignment.Top,
+            };
+            Fg(blurb, "BrushTextSoft");
+            Grid.SetRow(blurb, 3);
+            body.Children.Add(blurb);
+        }
         Grid.SetRow(status, 4);
         body.Children.Add(status);
 
@@ -524,11 +593,64 @@ public sealed partial class MarketplaceStoreView
             Tag = item.Id,
         };
         tile.Classes.Add("mp-tile");
-        var hint = string.IsNullOrWhiteSpace(item.ShortDescription) ? item.Tagline : item.ShortDescription;
+        var hint = !string.IsNullOrWhiteSpace(item.Line) ? item.Line : string.IsNullOrWhiteSpace(item.ShortDescription) ? item.Tagline : item.ShortDescription; // 2026-11-26: у функций полная строка «что делает» — в подсказке
         ToolTip.SetTip(tile, string.IsNullOrWhiteSpace(hint) ? item.Title : hint);
         Avalonia.Automation.AutomationProperties.SetName(tile, item.Title);
         tile.Click += (_, _) => OpenFromTile(item.Id);
         return tile;
+    }
+
+    /// <summary>Кружок 32×32 в углу плитки: «+» — добавить в тариф «Своё», «✓» — уже в тарифе (нажатие убирает). Не кнопка: плитка — сама кнопка, вложенную не делаем; нажатие забирает кружок и плитку не открывает.
+    /// Вид сам обновляется, когда набор меняют в другом месте (страница «подробно», диалог «Своё»).</summary>
+    internal static Control BuildTariffToggle(TariffTarget target)
+    {
+        var chip = new Border
+        {
+            Width = 32,
+            Height = 32,
+            CornerRadius = new CornerRadius(16),
+            BorderThickness = new Thickness(1),
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Top,
+            Cursor = new Cursor(StandardCursorType.Hand),
+            Tag = "tariff-toggle",
+        };
+        void Apply()
+        {
+            var selected = TariffDraft.IsSelected(target);
+            var icon = MarketplaceIcons.Icon(selected ? "check" : "plus", 18);
+            if (selected)
+                icon.Foreground = Brushes.White;
+            else
+                icon.Bind(TemplatedControl.ForegroundProperty, icon.GetResourceObservable("BrushText"));
+            chip.Child = icon;
+            chip.Bind(Border.BackgroundProperty, chip.GetResourceObservable(selected ? "BrushSuccess" : "BrushPanelSoft"));
+            chip.Bind(Border.BorderBrushProperty, chip.GetResourceObservable(selected ? "BrushSuccess" : "BrushBorderStrong"));
+            var label = TariffDraft.ActionLabel(selected);
+            ToolTip.SetTip(chip, label);
+            Avalonia.Automation.AutomationProperties.SetName(chip, label);
+        }
+        Apply();
+        chip.PointerPressed += (_, e) => e.Handled = true; // плитка не «нажимается» и не открывает страницу
+        chip.PointerReleased += (_, e) =>
+        {
+            e.Handled = true;
+            TariffDraft.Toggle(target);
+        };
+        void OnChanged()
+        {
+            if (Dispatcher.UIThread.CheckAccess())
+                Apply();
+            else
+                Dispatcher.UIThread.Post(Apply);
+        }
+        chip.AttachedToVisualTree += (_, _) =>
+        {
+            TariffDraft.Changed += OnChanged;
+            Apply();
+        };
+        chip.DetachedFromVisualTree += (_, _) => TariffDraft.Changed -= OnChanged;
+        return chip;
     }
 
     /// <summary>«Функция» (в сетке фильтра/поиска — «Функция · Склад и печать»): вид элемента и (для функций и услуг) короткое имя группы.</summary>

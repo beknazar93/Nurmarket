@@ -92,6 +92,7 @@ public sealed class JobLine
     public Dictionary<string, string>? VariantLabels { get; set; }
     /// <summary>2026-11-20: доп. штрихкоды строки (уходят в создание НОВОГО товара). Нет — в файл не пишется.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public List<NurMarketKassa.Models.Pos.AlternateBarcodeVariant>? ExtraBarcodes { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? CarcassNote { get; set; } // 2026-11-26: «Брутто 300 кг, выход 75 %, отходы 75 кг» — в примечание прихода
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? VariantNote { get; set; } // 2026-11-20: разбивка по вкусам объединённого товара
     public string Outcome { get; set; } = ReceivingLineOutcome.Pending;
     public bool StockApplied { get; set; }
@@ -131,6 +132,7 @@ public sealed class JobLine
         VariantLabels = l.VariantLabels is { Count: > 0 } vl ? new Dictionary<string, string>(vl) : null,
         ExtraBarcodes = l.ExtraBarcodes.Count > 0 ? l.ExtraBarcodes.ToList() : null, // 2026-11-20
         VariantNote = l.VariantNote.Length > 0 ? l.VariantNote : null, // 2026-11-20
+        CarcassNote = l.CarcassNote.Length > 0 ? l.CarcassNote : null, // 2026-11-26
     };
 
     public ReceivingLineVm ToVm()
@@ -166,6 +168,7 @@ public sealed class JobLine
         if (ExtraBarcodes is { Count: > 0 })
             vm.ExtraBarcodes = ExtraBarcodes.Where(v => !string.IsNullOrWhiteSpace(v.Barcode)).ToList(); // 2026-11-20
         vm.VariantNote = VariantNote ?? ""; // 2026-11-20
+        vm.CarcassNote = CarcassNote ?? ""; // 2026-11-26
         return vm;
     }
 }
@@ -360,7 +363,9 @@ public sealed record ReceivingJobRequest(
     IReadOnlyList<int?>? FileRows = null,
     // 2026-10-30 (нумерация закупок): номер и дата накладной поставщика («Номер накладной поставщика» в шапке приёмки / из импорта накладной).
     string? SupplierDocNumber = null,
-    DateTime? SupplierDocDate = null);
+    DateTime? SupplierDocDate = null,
+    // 2026-11-26 (ТОП-15 п. 4): номер ЭСФ поставщика (поле «№ ЭСФ» в шапке приёма товара).
+    string? EsfNumber = null);
 
 /// <summary>Итог шага после прихода, который выполняет окно-источник (пакет Q4: деньги закупки). Done=false — повторить позже.</summary>
 public sealed record FinisherResult(bool Done, string? Text = null, IReadOnlyList<string>? Errors = null);

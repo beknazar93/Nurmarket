@@ -59,6 +59,7 @@ public sealed class ReceivingRepeatQtyDialog : Window
             Name = "RepeatQtyBox", Text = start, FontSize = 22, FontWeight = FontWeight.Bold, Height = 52, MinWidth = 120, MaxLength = 12,
             HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center,
         };
+        _box.Classes.Add(NurMarketKassa.AvaloniaHost.Services.NumericFocus.FieldClass); // 2026-11-26: число выделено при фокусе — набор заменяет его
         Avalonia.Automation.AutomationProperties.SetName(_box, T("Сколько штук", "Канча даана", "How many", "Kaç adet", "Nechta dona"));
         _prevText = _stableText = start;
         _box.TextChanged += (_, _) => OnTextChanged();

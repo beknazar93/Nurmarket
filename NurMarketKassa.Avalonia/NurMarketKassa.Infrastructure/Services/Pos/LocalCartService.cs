@@ -383,9 +383,12 @@ public static class LocalCartService
         var unitPrice = JsonNumericReader.ToDouble(line["unit_price"]);
         // 2026-11-01 (ответ Умара, округление): сумма строки — без округления, процент скидки от неё, округляется один раз —
         // это показываемая сумма строки (в итог чека идёт неокруглённая, см. CartTotalsCalculator).
-        var gross = QuantityRules.GrossExact(qty, unitPrice);
+        var gross = WeighedAmount.Gross(line, qty, unitPrice); // 2026-11-26: «По сумме» — точная сумма строки
         decimal discount = 0;
-        if (line.TryGetPropertyValue("discount_total", out var dt) && dt != null)
+        // 2026-11-27 (акции v2): у строки с меткой акции (PromoV2Cart) скидка = по акциям + ручная, которую примет сервер.
+        if (line[PromoV2Cart.LineField] is JsonObject v2)
+            discount = QuantityRules.ToMoneyDecimal(JsonNumericReader.ToDouble(v2["discount"]) + JsonNumericReader.ToDouble(v2["manual"]));
+        else if (line.TryGetPropertyValue("discount_total", out var dt) && dt != null)
             discount = QuantityRules.ToMoneyDecimal(JsonNumericReader.ToDouble(dt));
         else if (line.TryGetPropertyValue("discount_percent", out var dp) && dp != null)
             discount = gross * QuantityRules.ToMoneyDecimal(JsonNumericReader.ToDouble(dp)) / 100m;
@@ -396,6 +399,11 @@ public static class LocalCartService
 
     private static void RecalcCartTotals(JsonObject root)
     {
+        // 2026-11-27 (акции v2): акции считаются по всему чеку — после правки пересчитать метки всех строк и их суммы (без признака — снять метки).
+        if (PromoV2Cart.Apply(root) && root["items"] is JsonArray v2Items)
+            foreach (var node in v2Items)
+                if (node is JsonObject v2Line)
+                    RecalcLine(v2Line);
         using var doc = JsonDocument.Parse(root.ToJsonString());
         var totals = CartTotalsCalculator.Calculate(doc.RootElement);
         root["subtotal"] = totals.Subtotal;

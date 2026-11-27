@@ -1391,11 +1391,12 @@ class _CartRow extends ConsumerWidget {
     }
 
     Future<void> editQty() async {
-      final v = await askNumber(context, title: line.name, hint: line.isWeight ? line.unit : l.packQty, initial: line.qty, kind: line.isWeight ? NumKind.weight : NumKind.qty, sureAbove: line.isWeight && line.unit != l.kg ? 50000 : null);
+      final v = await askNumber(context, title: line.name, hint: line.fractionalQty ? line.unit : l.packQty, initial: line.qty, kind: line.isWeight ? NumKind.weight : NumKind.qty, sureAbove: line.isWeight && line.unit != l.kg ? 50000 : null);
       if (v == null) return;
       // 14.10, проверка логики: штучный товар — только целое (сервер принимает штуки целыми; 1,5 уходило как 2 и сумма
       // на телефоне расходилась с NurCRM).
-      var q = line.isWeight ? v : v.roundToDouble();
+      // 2026-11-26: дробные единицы (м, л, мл) тоже не округляются — 2,5 м × 50 = 125, а не 150
+      var q = line.enteredQty(v);
       if (q > 0) {
         final cap = await variantCap();
         if (cap != null && q > cap) {

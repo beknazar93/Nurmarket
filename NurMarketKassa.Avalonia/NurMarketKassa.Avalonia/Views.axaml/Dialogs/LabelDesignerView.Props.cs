@@ -221,7 +221,7 @@ public sealed partial class LabelDesignerView
             }
             _props.Children.Add(Cap(T("Выровнять по этикетке", "Этикетка боюнча түздөө", "Align to label", "Etikete göre hizala", "Yorliqqa tekislash"), alignRow));
 
-            var isText = el.Key is not "barcode" && el.Extra?.Kind is not (LabelExtraKind.Line or LabelExtraKind.Logo);
+            var isText = el.Key is not "barcode" && el.Extra?.Kind is not (LabelExtraKind.Line or LabelExtraKind.Logo or LabelExtraKind.ShopQr);
             if (isText)
                 BuildTextProps(el);
             if (el.Key == "barcode")
@@ -419,6 +419,13 @@ public sealed partial class LabelDesignerView
                 break;
             case LabelExtraKind.Cell:
                 _props.Children.Add(Hint(T("Ячейка из карточки товара («Автозапчасти»).", "Товар карточкасындагы уяча («Автозапчасти»).", "Cell from the product card (“Auto parts”).", "Ürün kartındaki hücre («Oto yedek parça»).", "Mahsulot kartasidagi katak («Avtoehtiyot qismlar»).")));
+                break;
+            case LabelExtraKind.ShopQr:
+                _props.Children.Add(Hint(T("QR на витрину магазина (market.nurcrm.kg) с подписью «Заказать онлайн». Адрес берётся у магазина; нет витрины — QR не печатается. Нужен блок не меньше 14×14 мм.",
+                    "Дүкөндүн витринасына (market.nurcrm.kg) QR, астында «Онлайн буйрутма берүү» жазуусу. Дарек дүкөндөн алынат; витрина жок болсо QR басылбайт. Блок 14×14 ммден кем эмес болушу керек.",
+                    "A QR to the shop's storefront (market.nurcrm.kg) with the caption “Order online”. The address comes from the shop; no storefront — no QR is printed. The block should be at least 14×14 mm.",
+                    "Mağaza vitrinine (market.nurcrm.kg) «Online sipariş» yazılı QR. Adres mağazadan alınır; vitrin yoksa QR basılmaz. Blok en az 14×14 mm olmalı.",
+                    "Do'kon vitrinasiga (market.nurcrm.kg) «Onlayn buyurtma» yozuvli QR. Manzil do'kondan olinadi; vitrina yo'q bo'lsa QR chop etilmaydi. Blok kamida 14×14 mm bo'lishi kerak.")));
                 break;
             case LabelExtraKind.Logo:
                 var path = new TextBlock { Text = string.IsNullOrWhiteSpace(x.ImagePath) ? T("Файл не выбран", "Файл тандалган жок", "No file chosen", "Dosya seçilmedi", "Fayl tanlanmagan") : System.IO.Path.GetFileName(x.ImagePath), FontSize = 12.5, TextTrimming = TextTrimming.CharacterEllipsis };

@@ -559,7 +559,7 @@ public partial class BarcodePrintView
                 Text = choices.Count == 1 ? choices[0].Code : "—", FontFamily = new FontFamily("Consolas, Cascadia Mono, monospace"), FontSize = 15, FontWeight = FontWeight.SemiBold,
                 MinHeight = 30, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis,
             };
-            Use(codeText, TextBlock.ForegroundProperty, choices.Count == 1 ? "BrushAccentStrong" : "BrushTextSoft");
+            Use(codeText, TextBlock.ForegroundProperty, choices.Count == 1 ? "BrushAccentText" : "BrushTextSoft");
             codeControl = codeText;
         }
 

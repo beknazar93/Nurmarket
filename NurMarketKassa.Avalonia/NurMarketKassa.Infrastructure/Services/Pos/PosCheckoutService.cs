@@ -2514,6 +2514,22 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
                     FiscalServerReceipt.RaiseNotSent(false);
                 }
             }
+            // 2026-11-26 (красивый чек по QR): обычному (не фискальному) чеку — QR со ссылкой на страницу чека (share_url из ответа продажи или
+            // POST share-link; нет ссылки/связи — чек без QR). Фискальный чек несёт свой QR от eKassa и не трогается.
+            if (checkoutResponse.HasValue && UserPreferences.Instance.PrintReceiptLinkQr
+                && receiptText?.StartsWith(FiscalServerReceipt.Marker, StringComparison.Ordinal) != true)
+            {
+                try
+                {
+                    using var linkCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                    var shareUrl = await ReceiptShareLink.EnsureAsync(_salesApi, CheckoutResponseHelper.TrySaleId(checkoutResponse.Value), checkoutResponse, linkCts.Token).ConfigureAwait(false);
+                    receiptText = ReceiptShareLink.Attach(receiptText ?? "", shareUrl);
+                }
+                catch (Exception lx)
+                {
+                    PosLogger.Log($"Ссылка на чек не приложена: {lx.Message}", "PRINTER");
+                }
+            }
             var printed = await _receiptPrinter.PrintReceiptAsync(new CartSnapshot
             {
                 CartJson = cartJson,

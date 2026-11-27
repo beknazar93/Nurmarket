@@ -753,9 +753,11 @@
                                                 <Grid RowDefinitions="Auto,*,Auto">
                                                     <Panel Grid.Row="0" Classes="tile-media">
                                                         <Border Background="{Binding ., Converter={x:Static conv:TileTintConverter.Instance}}"/>
+                                                        <!-- 2026-11-26 (дизайн и удобство, DesignAuditUiTests): буквы были цветом самой подложки (1,2–3:1: «МС» зелёное на зелёном, в тёмной теме почти не видно).
+                                                             Теперь — цвет текста темы (DynamicResource, меняется вместе с темой) с прозрачностью 0,78: оттенок даёт подложка, читаемость ≥ 7:1. Так же и буквы в строке списка. -->
                                                         <TextBlock Classes="tile-mono"
                                                                    Text="{Binding Title, Converter={x:Static conv:MonogramConverter.Instance}}"
-                                                                   Foreground="{Binding ., Converter={x:Static conv:TileTintConverter.Instance}, ConverterParameter=fg}"
+                                                                   Foreground="{DynamicResource BrushText}" Opacity="0.78"
                                                                    FontWeight="Bold"
                                                                    HorizontalAlignment="Center"
                                                                    VerticalAlignment="Center"/>
@@ -959,7 +961,7 @@
                                                         VerticalAlignment="Center" Margin="0,0,10,0"
                                                         Background="{Binding ., Converter={x:Static conv:TileTintConverter.Instance}}">
                                                     <TextBlock Text="{Binding Title, Converter={x:Static conv:MonogramConverter.Instance}}"
-                                                               Foreground="{Binding ., Converter={x:Static conv:TileTintConverter.Instance}, ConverterParameter=fg}"
+                                                               Foreground="{DynamicResource BrushText}" Opacity="0.78"
                                                                FontSize="{DynamicResource NurFontBody}" FontWeight="Bold"
                                                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                 </Border>
@@ -1013,10 +1015,11 @@
                                                                    Foreground="{DynamicResource BrushTextSoft}"
                                                                    TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
                                                                    Margin="4,0,12,0"/>
-                                                        <!-- 2026-11-21 (владелец: «наименование и цена не на одном уровне»): остаток и цена — по центру строки, как название (раньше цена липла к верху строки). -->
+                                                        <!-- 2026-11-21 (владелец: «наименование и цена не на одном уровне»): остаток и цена — по центру строки, как название (раньше цена липла к верху строки).
+                                                             2026-11-26 (Д7, «Проверка сфер»): выравнивание — только в стилях (tbl-stock / tbl-price: по центру; в узком списке — цена сверху, остаток снизу). Локальный
+                                                             VerticalAlignment="Center" перебивал стиль «узкого» вида, и на 1024×600 мелкий остаток печатался поверх цены. -->
                                                         <TextBlock Classes="tbl-stock" Text="{Binding StockInfo}" FontSize="13"
                                                                    TextTrimming="CharacterEllipsis"
-                                                                   VerticalAlignment="Center"
                                                                    IsVisible="{Binding !IsService}"
                                                                    Classes.stock-low="{Binding IsLowStock}"
                                                                    Classes.stock-out="{Binding Quantity, Converter={x:Static mainViews:WarehouseWindow.IsOutOfStock}}"
@@ -1024,7 +1027,6 @@
                                                                    Foreground="{DynamicResource BrushCatalogStock}"/>
                                                         <StackPanel Grid.Column="4" Classes="tbl-price" Orientation="Horizontal"
                                                                     HorizontalAlignment="Right"
-                                                                    VerticalAlignment="Center"
                                                                     Spacing="4">
                                                             <TextBlock Classes="tbl-price-amount" Text="{Binding PriceLine, Converter={StaticResource PriceAmountConverter}}"
                                                                        FontSize="18" FontWeight="Bold"

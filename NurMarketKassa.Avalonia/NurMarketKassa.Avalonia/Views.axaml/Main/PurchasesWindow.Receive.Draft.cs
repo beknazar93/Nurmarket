@@ -72,6 +72,7 @@ public sealed partial class PurchasesWindow
             };
             s.Picker.Changed += _ => session.Touch();
             s.DocNumber.TextChanged += (_, _) => session.Touch();
+            s.Esf.TextChanged += (_, _) => session.Touch(); // 2026-11-26
 
             if (!_receiveDraftDeactivatedWired)
             {
@@ -114,6 +115,7 @@ public sealed partial class PurchasesWindow
         {
             Lines = ReceivingDraftRestore.Capture(s.Lines),
             DocNumber = string.IsNullOrWhiteSpace(s.DocNumber.Text) ? null : s.DocNumber.Text!.Trim(),
+            EsfNumber = string.IsNullOrWhiteSpace(s.Esf.Text) ? null : s.Esf.Text!.Trim(), // 2026-11-26
             OrderId = s.OrderId,
             OrderNumber = s.OrderNumber,
             LandedTotal = s.LandedTotal,
@@ -199,6 +201,8 @@ public sealed partial class PurchasesWindow
             }
             if (!string.IsNullOrWhiteSpace(file.DocNumber) && string.IsNullOrWhiteSpace(s.DocNumber.Text))
                 s.DocNumber.Text = file.DocNumber;
+            if (!string.IsNullOrWhiteSpace(file.EsfNumber) && string.IsNullOrWhiteSpace(s.Esf.Text))
+                s.Esf.Text = file.EsfNumber; // 2026-11-26
             if (s.OrderId is null && !string.IsNullOrEmpty(file.OrderId))
             {
                 s.OrderId = file.OrderId;

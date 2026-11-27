@@ -64,13 +64,13 @@ public static class EscPosTextReceiptPrinter
     private static bool NoEscPct() =>
         Environment.GetEnvironmentVariable("DESKTOP_MARKET_RECEIPT_NO_ESC_PCT")?.Trim().ToLowerInvariant() is "1" or "true" or "yes" or "on";
 
-    public static void Print(ReceiptPrinterSettings cfg, string text, int? charWidth = null)
+    public static void Print(ReceiptPrinterSettings cfg, string text, int? charWidth = null, string? qrUrl = null, string? shopQrUrl = null)
     {
         ArgumentNullException.ThrowIfNull(cfg);
         ValidateSettings(cfg);
 
         var port = NormalizeDevicePath(HardwarePortHelper.NormalizeLptPort(cfg.DevicePath));
-        var payload = BuildEscPosPayload(cfg, text, charWidth);
+        var payload = BuildEscPosPayload(cfg, text, charWidth, qrUrl, shopQrUrl);
 
         PosLogger.Log($"EscPos Print: port={port}, encoding={cfg.TextEncoding}, bytes={payload.Length}", "PRINTER");
         PrinterPortService.SendRawBytes(port, payload, cfg.RetryCount);
@@ -133,7 +133,9 @@ public static class EscPosTextReceiptPrinter
         s.Write(new byte[] { 0x1B, 0x61, 0x00 });
     }
 
-    public static byte[] BuildEscPosPayload(ReceiptPrinterSettings cfg, string text, int? charWidth = null)
+    /// <summary>2026-11-26 (красивый чек по QR): <paramref name="qrUrl"/> — ссылка на страницу чека; печатается родным QR принтера в конце чека, перед отрезом.</summary>
+    /// <param name="shopQrUrl">2026-11-26: адрес витрины магазина — второй QR с подписью «Заказать онлайн» после QR чека; null — не печатается.</param>
+    public static byte[] BuildEscPosPayload(ReceiptPrinterSettings cfg, string text, int? charWidth = null, string? qrUrl = null, string? shopQrUrl = null)
     {
         ArgumentNullException.ThrowIfNull(cfg);
         var w = charWidth ?? ReceiptLayout.CharWidth;
@@ -146,7 +148,7 @@ public static class EscPosTextReceiptPrinter
         // принтер Sunmi (виртуальный Bluetooth «InnerPrinter») из кириллицы знает только CP866 — без кыргызских
         // ң ө ү. Зато умеет UTF-8 (документация SUNMI Inbuilt Printer: FS & + FS C 0xFF): весь текст как есть.
         if (IsUtf8Pos(cfg.TextEncoding))
-            return BuildUtf8PosReceipt(raw);
+            return BuildUtf8PosReceipt(raw, qrUrl, shopQrUrl);
 
         var encName = MapToDotNetEncoding(cfg.TextEncoding);
         Encoding encoding;
@@ -160,7 +162,7 @@ public static class EscPosTextReceiptPrinter
         }
 
         var table = cfg.EscPosTableByte ?? DefaultEscPosTableByte(encName);
-        return BuildReceiptBytes(encoding, raw, table, cfg.EscRByte, NoEscPct());
+        return BuildReceiptBytes(encoding, raw, table, cfg.EscRByte, NoEscPct(), qrUrl, shopQrUrl);
     }
 
     public static void ValidateSettings(ReceiptPrinterSettings cfg)
@@ -172,14 +174,14 @@ public static class EscPosTextReceiptPrinter
             throw new InvalidOperationException("Количество повторов печати должно быть не меньше 1.");
     }
 
-    private static byte[] BuildReceiptBytes(Encoding encoding, string text, int tableByte, int? escRByte, bool noEscPct)
+    private static byte[] BuildReceiptBytes(Encoding encoding, string text, int tableByte, int? escRByte, bool noEscPct, string? qrUrl = null, string? shopQrUrl = null)
     {
         using var ms = new MemoryStream(capacity: Math.Max(512, text.Length * 2));
-        WriteReceipt(ms, encoding, text, tableByte, escRByte, noEscPct);
+        WriteReceipt(ms, encoding, text, tableByte, escRByte, noEscPct, qrUrl, shopQrUrl);
         return ms.ToArray();
     }
 
-    private static void WriteReceipt(Stream s, Encoding encoding, string text, int tableByte, int? escRByte, bool noEscPct)
+    private static void WriteReceipt(Stream s, Encoding encoding, string text, int tableByte, int? escRByte, bool noEscPct, string? qrUrl = null, string? shopQrUrl = null)
     {
         var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
 
@@ -216,8 +218,34 @@ public static class EscPosTextReceiptPrinter
         }
 
         EscPosCommands.WriteCharacterSize(s, widthMultiplier: 1, heightMultiplier: 1);
+        WriteLinkQr(s, encoding, qrUrl);
+        WriteShopQr(s, encoding, shopQrUrl);
         EscPosCommands.WriteLineFeed(s);
         EscPosCommands.WriteFeedAndCut(s);
+    }
+
+    /// <summary>2026-11-26 (отчёт «Конкуренты», п. 3): подпись «Заказать онлайн» и родной QR принтера с адресом витрины магазина, по центру; нет адреса — ничего.</summary>
+    private static void WriteShopQr(Stream s, Encoding encoding, string? url)
+    {
+        if (!ReceiptShareLink.IsPrintable(url))
+            return;
+        EscPosCommands.WriteLineFeed(s);
+        s.Write(new byte[] { 0x1B, 0x61, 0x01 });
+        WriteTextLine(s, encoding, StorefrontLink.Caption.ToUpperInvariant());
+        s.Write(new byte[] { 0x1B, 0x61, 0x00 });
+        WriteQr(s, url!.Trim());
+    }
+
+    /// <summary>2026-11-26 (красивый чек по QR): подпись и родной QR принтера со ссылкой на страницу чека, по центру; нет ссылки — ничего.</summary>
+    private static void WriteLinkQr(Stream s, Encoding encoding, string? url)
+    {
+        if (!ReceiptShareLink.IsPrintable(url))
+            return;
+        EscPosCommands.WriteLineFeed(s);
+        s.Write(new byte[] { 0x1B, 0x61, 0x01 });
+        WriteTextLine(s, encoding, Tr.T("Электронный чек", "Электрондук чек", "E-receipt", "E-fiş", "Elektron chek").ToUpperInvariant());
+        s.Write(new byte[] { 0x1B, 0x61, 0x00 });
+        WriteQr(s, url!.Trim());
     }
 
     /// <summary>Множитель высоты символов из общей настройки "Размер шрифта (px)" — той же,
@@ -262,7 +290,7 @@ public static class EscPosTextReceiptPrinter
     private static bool IsUtf8Pos(string? userEnc) =>
         string.Equals((userEnc ?? "").Trim(), Utf8PosEncoding, StringComparison.OrdinalIgnoreCase);
 
-    private static byte[] BuildUtf8PosReceipt(string text)
+    private static byte[] BuildUtf8PosReceipt(string text, string? qrUrl = null, string? shopQrUrl = null)
     {
         using var s = new MemoryStream(capacity: Math.Max(512, text.Length * 3));
         var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
@@ -293,6 +321,8 @@ public static class EscPosTextReceiptPrinter
             WriteTextLine(s, utf8, line);
         }
         EscPosCommands.WriteCharacterSize(s, widthMultiplier: 1, heightMultiplier: 1);
+        WriteLinkQr(s, utf8, qrUrl);
+        WriteShopQr(s, utf8, shopQrUrl);
         EscPosCommands.WriteLineFeed(s);
         EscPosCommands.WriteFeedAndCut(s);
         return s.ToArray();

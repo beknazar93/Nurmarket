@@ -14,6 +14,13 @@ public static class ModuleIds
         Serials = "serials", Warranty = "warranty", PartNumbers = "part_numbers", CrossAnalogs = "cross_analogs", CustomerOrders = "customer_orders",
         ScalesLabels = "scales_labels", ExpiryBatches = "expiry_batches", QuickItems = "quick_items", Consultant = "consultant", Exchange = "exchange";
 
+    /// <summary>2026-11-26 («Выход мяса при приходе», просьба владельца для мясных магазинов): сервер этот модуль пока не знает — касса включает его локально (UserPreferences.CarcassYieldEnabled), см. CarcassYieldFeature.</summary>
+    public const string CarcassYield = "carcass_yield";
+
+    /// <summary>2026-11-26: «Статус ремонта на витрине» — клиент проверяет ремонт по коду квитанции на онлайн-витрине. Отдельного модуля у сервера нет (Умар: «привязано к Ремонту»): признак repair_status_public
+    /// приходит в capabilities.features при включённом модуле «Ремонт»; карточка Маркетплейса — «Включено» по признаку, «Нужен Ремонт» при выключенном «Ремонте», «Скоро» — пока сервер признак не прислал.</summary>
+    public const string RepairStatusSite = "repair_status_site";
+
     /// <summary>Модули, у которых в кассе своя карточка Маркетплейса и своё окно (остальные получают общую карточку «Модуль»).</summary>
     public static readonly string[] WithOwnCard = { Estimate, Rental, Repair, TradeIn };
 }

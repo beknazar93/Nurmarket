@@ -1,0 +1,81 @@
+# 2026-11-26 (дизайн и удобство): известные нарушения DesignAuditUiTests / DesignAuditDataUiTests (окно|правило|элементы). Чинить — удалять строку. Новые нарушения валят тест.
+# Что здесь осталось и почему (подробно — docs/Отчеты/Дизайн и удобство 26.11.2026.md):
+#  • marketplace (c-/x-): стрелки «Назад/Вперёд» 28 px, «Все N ›» 24 px, кнопка героя 36 px и «срезанные» плитки (8 px) — файлы MarketplaceStoreView/MarketplaceHero ведёт другой исполнитель (витрина Маркетплейса в работе).
+#  • kassa-pro: вкладки категорий вида «Профи» — 30 px высотой намеренно (плотный вид для мыши); 40 px раздули бы шапку каталога.
+#  • c-warehouse «Настройка» — значок-шестерёнка 36 px в углу плитки «Срок годности» (отрицательные поля, не раздувает строку).
+#  • c-purchases-receive «Сразу к скану» — файл PurchasesWindow.Receive.cs в работе у другого исполнителя; checkout «Рассрочка» — флажок 32 px в строке 44 (клик по всей строке).
+c-marketplace|цель-мала|Button«Egasi uchun Telegram-bot»
+c-marketplace|цель-мала|Button«Hammasi # ›»
+c-marketplace|цель-мала|Button«Kartochkalar»
+c-marketplace|цель-мала|Button«Klassik»
+c-marketplace|цель-мала|Button«Oldinga»
+c-marketplace|цель-мала|Button«Ombor analitikasi»
+c-marketplace|цель-мала|Button«Orqaga»
+c-marketplace|цель-мала|Button«Sodiqlik dasturi»
+c-marketplace|цель-мала|Button«Алдыга»
+c-marketplace|цель-мала|Button«Аналитика склада»
+c-marketplace|цель-мала|Button«Артка»
+c-marketplace|цель-мала|Button«Баары # ›»
+c-marketplace|цель-мала|Button«Вперёд»
+c-marketplace|цель-мала|Button«Все # ›»
+c-marketplace|цель-мала|Button«Карточкалар»
+c-marketplace|цель-мала|Button«Карточки»
+c-marketplace|цель-мала|Button«Классикалык»
+c-marketplace|цель-мала|Button«Классическая»
+c-marketplace|цель-мала|Button«Лоялдуулук программасы»
+c-marketplace|цель-мала|Button«Назад»
+c-marketplace|цель-мала|Button«Программа лояльности»
+c-marketplace|цель-мала|Button«Складдын аналитикасы»
+c-marketplace|цель-мала|Button«Телеграм-бот владельца»
+c-marketplace|цель-мала|Button«Ээсинин телеграм-боту»
+c-purchases-receive|цель-мала|CheckBox«Darhol skanerga»
+c-purchases-receive|цель-мала|CheckBox«Дароо сканерге»
+c-purchases-receive|цель-мала|CheckBox«Сразу к скану»
+c-warehouse|цель-мала|Button«Sozlama»
+c-warehouse|цель-мала|Button«Жөндөө»
+c-warehouse|цель-мала|Button«Настройка»
+checkout-docked-debt|цель-мала|CheckBox«Bo'lib to'lash (bir nechta t…»
+checkout-docked-debt|цель-мала|CheckBox«Бөлүп төлөө (бир нече төлөм)»
+checkout-docked-debt|цель-мала|CheckBox«Рассрочка (несколько платеже…»
+kassa-pro|цель-мала|Button«Barchasi»
+kassa-pro|цель-мала|Button«Donalab»
+kassa-pro|цель-мала|Button«Donali»
+kassa-pro|цель-мала|Button«To'plamlar»
+kassa-pro|цель-мала|Button«Vaznli»
+kassa-pro|цель-мала|Button«Xizmatlar»
+kassa-pro|цель-мала|Button«Бардыгы»
+kassa-pro|цель-мала|Button«Весовые»
+kassa-pro|цель-мала|Button«Все товары»
+kassa-pro|цель-мала|Button«Даана»
+kassa-pro|цель-мала|Button«Даналап»
+kassa-pro|цель-мала|Button«Комплекттер»
+kassa-pro|цель-мала|Button«Комплекты»
+kassa-pro|цель-мала|Button«Кызматтар»
+kassa-pro|цель-мала|Button«Поштучно»
+kassa-pro|цель-мала|Button«Салмактуу»
+kassa-pro|цель-мала|Button«Услуги»
+kassa-pro|цель-мала|Button«Штучные»
+x-marketplace|цель-мала|Button«Egasi uchun Telegram-bot»
+x-marketplace|цель-мала|Button«Hammasi # ›»
+x-marketplace|цель-мала|Button«Kartochkalar»
+x-marketplace|цель-мала|Button«Klassik»
+x-marketplace|цель-мала|Button«Oldinga»
+x-marketplace|цель-мала|Button«Ombor analitikasi»
+x-marketplace|цель-мала|Button«Orqaga»
+x-marketplace|цель-мала|Button«Sodiqlik dasturi»
+x-marketplace|цель-мала|Button«Алдыга»
+x-marketplace|цель-мала|Button«Аналитика склада»
+x-marketplace|цель-мала|Button«Артка»
+x-marketplace|цель-мала|Button«Баары # ›»
+x-marketplace|цель-мала|Button«Вперёд»
+x-marketplace|цель-мала|Button«Все # ›»
+x-marketplace|цель-мала|Button«Карточкалар»
+x-marketplace|цель-мала|Button«Карточки»
+x-marketplace|цель-мала|Button«Классикалык»
+x-marketplace|цель-мала|Button«Классическая»
+x-marketplace|цель-мала|Button«Лоялдуулук программасы»
+x-marketplace|цель-мала|Button«Назад»
+x-marketplace|цель-мала|Button«Программа лояльности»
+x-marketplace|цель-мала|Button«Складдын аналитикасы»
+x-marketplace|цель-мала|Button«Телеграм-бот владельца»
+x-marketplace|цель-мала|Button«Ээсинин телеграм-боту»

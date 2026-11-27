@@ -11,11 +11,13 @@ import 'core/mode/mode_provider.dart';
 import 'core/sync/outbox_meta.dart';
 import 'core/tester/tester_mode.dart' show AppBuild;
 import 'core/util/audit.dart';
+import 'core/util/numeric_focus.dart';
 import 'core/util/photo_cache.dart';
 
 /// NurMarket на телефоне (Flutter). ТЗ: docs/ТЗ для мобильного приложения (Flutter).md.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  NumericFocus.install(); // 2026-11-26: «0» в числовом поле выделяется при фокусе, пустое поле → «0»
   // 2026-10-29 (аудит мобилки, п. 3.9): падения нигде не собирались — владелец о них не знал. Теперь ошибка Flutter и
   // необработанная ошибка Dart пишутся в журнал приложения («Журнал действий», вид «Сбой»); приложение продолжает работать.
   final defaultOnError = FlutterError.onError;

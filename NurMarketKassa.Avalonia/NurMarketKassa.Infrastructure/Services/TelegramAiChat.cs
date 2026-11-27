@@ -121,15 +121,20 @@ public static class TelegramAiChat
     /// Окно советника ставит 12 с и при превышении показывает «ИИ долго отвечает — повторить?».</summary>
     private static readonly AsyncLocal<TimeSpan?> QuestionBudget = new();
 
+    /// <summary>2026-11-27 (Нур-советник: доступ к разделам): инструменты советника для этого вопроса (function calling Gemini). null — без инструментов
+    /// (фото накладной, бот владельца, запасной ИИ). Ставит окно советника; живёт только на время вопроса.</summary>
+    private static readonly AsyncLocal<AdvisorToolDispatcher?> QuestionTools = new();
+
     public static async Task<OwnerAskResult> AskOwnerAppAsync(string question, IReadOnlyList<AiSection> shop, AiAccess access, CancellationToken ct,
         IReadOnlyList<(byte[] Data, string Mime)>? attachments = null, Action<int>? stage = null, bool useHistory = true, ISet<string>? forceFull = null,
-        TimeSpan? budget = null)
+        TimeSpan? budget = null, AdvisorToolDispatcher? tools = null)
     {
         // 2026-10-30: Нур Советник выключен владельцем (Настройки → Операции → Нур Советник) — ничего не собираем и никуда не отправляем.
         if (!AdvisorCapabilities.MasterOn)
             return new OwnerAskResult(null, "disabled", Array.Empty<WebSource>(), Array.Empty<AiSection>(), "", null, false);
         var total = System.Diagnostics.Stopwatch.StartNew();
         QuestionBudget.Value = attachments is { Count: > 0 } ? null : budget;
+        QuestionTools.Value = attachments is { Count: > 0 } ? null : tools;
         var timings = new StringBuilder();
         stage?.Invoke(StageCollect);
         QuestionImage.Value = attachments is { Count: > 0 } ? (attachments[0].Data, attachments[0].Mime) : null;
@@ -216,6 +221,7 @@ public static class TelegramAiChat
             QuestionImage.Value = null;
             QuestionExtraImages.Value = null;
             QuestionBudget.Value = null;
+            QuestionTools.Value = null;
         }
     }
 
@@ -1240,11 +1246,17 @@ public static class TelegramAiChat
                 userParts.Add(new JsonObject { ["inline_data"] = new JsonObject { ["mime_type"] = page.Mime, ["data"] = Convert.ToBase64String(page.Data) } });
         contents.Add(new JsonObject { ["role"] = "user", ["parts"] = userParts });
 
+        // 2026-11-27 (Нур-советник: доступ к разделам): инструменты советника — до MaxRounds кругов «модель вызвала → программа ответила»; последний круг — без инструментов (модель обязана ответить текстом).
+        var tools = image is null ? QuestionTools.Value : null;
+        var toolRounds = 0;
+        var toolBudgetAdded = false;
+
         string Body(bool search)
         {
+            var withTools = tools is not null && !search && toolRounds < AdvisorToolDispatcher.MaxRounds;
             var b = new JsonObject
             {
-                ["systemInstruction"] = new JsonObject { ["parts"] = new JsonArray(new JsonObject { ["text"] = system }) },
+                ["systemInstruction"] = new JsonObject { ["parts"] = new JsonArray(new JsonObject { ["text"] = withTools ? system + ToolsHint : system }) },
                 ["contents"] = contents.DeepClone(),
                 // 2026-10-09: длинные накладные должны помещать все строки таблицы и действия без обрыва на прежнем лимите.
                 // 2026-10-21, живая проверка: лимит ответа включает «размышления» модели (1148 размышлений + 48 токенов ответа — обрезанный
@@ -1253,6 +1265,8 @@ public static class TelegramAiChat
             };
             if (search)
                 b["tools"] = new JsonArray(new JsonObject { ["google_search"] = new JsonObject() });
+            else if (withTools)
+                b["tools"] = new JsonArray(new JsonObject { ["functionDeclarations"] = tools!.Declarations() });
             // 2026-10-21 (О3): кириллица — как есть, без \uXXXX (запрос был 78 тыс. символов вместо ~30).
             return b.ToJsonString(RelaxedJson);
         }
@@ -1298,6 +1312,20 @@ public static class TelegramAiChat
             var attemptWatch = System.Diagnostics.Stopwatch.StartNew();
             try
             {
+                // 2026-11-27: подставной Gemini для тестов диспетчера инструментов (в программе всегда null) — без сети и без ключа.
+                if (_standGemini is { } standGemini)
+                {
+                    var standJson = standGemini(body);
+                    if (tools is not null && toolRounds < AdvisorToolDispatcher.MaxRounds && await RunToolRoundAsync(standJson, contents, tools, ct).ConfigureAwait(false))
+                    {
+                        toolRounds++;
+                        body = Body(webSearch);
+                        mi--;
+                        continue;
+                    }
+                    var standText = ReadText(standJson);
+                    return string.IsNullOrWhiteSpace(standText) ? (null, "нейросеть вернула пустой ответ", none) : (standText, null, none);
+                }
                 using var request = new HttpRequestMessage(HttpMethod.Post,
                     $"{GeminiKeyPool.BaseUrl}/v1beta/models/{model}:generateContent");
                 request.Headers.Add("x-goog-api-key", usedKey);
@@ -1338,6 +1366,19 @@ public static class TelegramAiChat
 
                 if (response.IsSuccessStatusCode)
                 {
+                    // 2026-11-27 (Нур-советник: доступ к разделам): модель вызвала инструменты — программа отвечает (только чтение/переход) и спрашивает ту же модель снова.
+                    if (tools is not null && toolRounds < AdvisorToolDispatcher.MaxRounds && await RunToolRoundAsync(json, contents, tools, ct).ConfigureAwait(false))
+                    {
+                        toolRounds++;
+                        if (!toolBudgetAdded)
+                        {
+                            toolBudgetAdded = true;
+                            overall += AdvisorToolDispatcher.ExtraBudget;
+                        }
+                        body = Body(webSearch);
+                        mi--;
+                        continue;
+                    }
                     var text = ReadText(json);
                     if (!string.IsNullOrWhiteSpace(text))
                     {
@@ -1443,6 +1484,83 @@ public static class TelegramAiChat
             // без источников
         }
         return list.DistinctBy(x => x.Uri).Take(8).ToList();
+    }
+
+    // ── 2026-11-27 (Нур-советник: доступ к разделам): инструменты советника в чате (function calling generateContent) ─────────────────
+
+    private const string ToolsHint = "\n\nИНСТРУМЕНТЫ ПРОГРАММЫ: если в сводке нет нужных цифр или просят раздел/функцию — вызови инструмент (get_section_data, describe_section, "
+                                     + "open_section, list_sections, whats_new). Инструменты только читают и открывают разделы; изменить ничего нельзя. Не вызывай их без нужды: "
+                                     + "если ответ уже есть в сводке — отвечай сразу. Цифры бери только из ответа инструмента, ничего не придумывай.";
+
+    /// <summary>Подставной Gemini для тестов (тело запроса → ответ JSON). В программе всегда null.</summary>
+    internal static Func<string, string>? _standGemini;
+
+    /// <summary>Вызовы функций в ответе модели: candidates[0].content.parts[].functionCall {name, args, id?}.</summary>
+    internal static List<(string Name, string Args, string? Id)> ReadFunctionCalls(string json)
+    {
+        var list = new List<(string, string, string?)>();
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty("candidates", out var candidates) || candidates.ValueKind != JsonValueKind.Array || candidates.GetArrayLength() == 0
+                || !candidates[0].TryGetProperty("content", out var content) || !content.TryGetProperty("parts", out var parts) || parts.ValueKind != JsonValueKind.Array)
+                return list;
+            foreach (var part in parts.EnumerateArray())
+                if (part.TryGetProperty("functionCall", out var call) && call.TryGetProperty("name", out var name) && name.GetString() is { Length: > 0 } n)
+                    list.Add((n, call.TryGetProperty("args", out var a) ? a.GetRawText() : "{}", call.TryGetProperty("id", out var id) ? id.GetString() : null));
+        }
+        catch (JsonException)
+        {
+        }
+        return list;
+    }
+
+    /// <summary>Один круг инструментов: ответ модели с вызовами функций кладётся в разговор как есть (с подписями мыслей Gemini 3), затем ответы программы
+    /// (functionResponse). false — вызовов нет. Содержимое ответов в журнал не пишется (только имя и время — AdvisorToolDispatcher.CallAsync).</summary>
+    private static async Task<bool> RunToolRoundAsync(string json, JsonArray contents, AdvisorToolDispatcher tools, CancellationToken ct)
+    {
+        var calls = ReadFunctionCalls(json);
+        if (calls.Count == 0)
+            return false;
+        JsonNode? modelContent;
+        try
+        {
+            modelContent = JsonNode.Parse(json)?["candidates"]?[0]?["content"]?.DeepClone();
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+        if (modelContent is not JsonObject modelObj)
+            return false;
+        modelObj["role"] = "model";
+        contents.Add(modelObj);
+        var responses = new JsonArray();
+        foreach (var (name, args, id) in calls)
+        {
+            var result = await tools.CallAsync(name, args, ct).ConfigureAwait(false);
+            var fr = new JsonObject { ["name"] = name, ["response"] = new JsonObject { ["result"] = result } };
+            if (id is not null)
+                fr["id"] = id;
+            responses.Add(new JsonObject { ["functionResponse"] = fr });
+        }
+        contents.Add(new JsonObject { ["role"] = "user", ["parts"] = responses });
+        return true;
+    }
+
+    /// <summary>Для тестов: один вопрос через подставной Gemini (<see cref="_standGemini"/>) с инструментами советника.</summary>
+    internal static async Task<(string? Answer, string? Error)> AskWithToolsForTestsAsync(string question, AdvisorToolDispatcher tools, CancellationToken ct)
+    {
+        QuestionTools.Value = tools;
+        try
+        {
+            var (answer, error, _) = await GenerateGeminiAsync("stand-key", "Ты советник.", new List<(string, string)>(), question, ct, webSearch: false, rotate: false).ConfigureAwait(false);
+            return (answer, error);
+        }
+        finally
+        {
+            QuestionTools.Value = null;
+        }
     }
 
     private static string? ReadText(string json)

@@ -35,6 +35,9 @@ public sealed class ServerSalesSummary
     public decimal? Revenue { get; private init; }
     public int? Transactions { get; private init; }
 
+    /// <summary>2026-11-27: cards.credit_sales_total — «продано в долг целиком» (в выручку не входит; null — сервер не прислал).</summary>
+    public decimal? CreditSalesTotal { get; private init; }
+
     /// <summary>Сумма оплаченных чеков по способу оплаты (charts.payment_methods сайта: cash,
     /// transfer, mixed, mbank…); ключ — в нижнем регистре.</summary>
     public IReadOnlyDictionary<string, decimal> PaymentTotals { get; private init; } = new Dictionary<string, decimal>();
@@ -68,7 +71,7 @@ public sealed class ServerSalesSummary
                 }
             }
 
-            decimal? profit = null, margin = null, revenue = null;
+            decimal? profit = null, margin = null, revenue = null, creditSales = null;
             int? transactions = null;
             if (data.TryGetProperty("cards", out var cards) && cards.ValueKind == JsonValueKind.Object)
             {
@@ -80,6 +83,8 @@ public sealed class ServerSalesSummary
                     revenue = Parse(rv);
                 if (cards.TryGetProperty("transactions", out var tx) && Parse(tx) is { } txCount)
                     transactions = (int)Math.Round(txCount);
+                if (cards.TryGetProperty("credit_sales_total", out var cs))
+                    creditSales = Parse(cs);
             }
 
             var payments = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
@@ -123,6 +128,7 @@ public sealed class ServerSalesSummary
                 MarginPercent = margin,
                 Revenue = revenue,
                 Transactions = transactions,
+                CreditSalesTotal = creditSales,
                 PaymentTotals = payments,
                 ByDay = byDay,
             };
@@ -155,7 +161,9 @@ public sealed class ServerSalesSummary
 
         // 2026-10-31 (живой обход, В-5): cards.revenue — «без долга» (наличные + безнал = выручка, проверено на неделе: 4 411 + 1 566,60 = 5 977,60,
         // долг 45,00 лежит отдельно в payment_methods). Раньше долг вычитался из выручки второй раз, и безнал был занижен на сумму долга.
-        return (cash, mixed, debt, (Revenue ?? 0m) - cash - mixed);
+        // 2026-11-27 (живой проход): долговой чек, погашенный потом наличными, входит в выручку и строкой «debt» — его не в безнал
+        // (было: наличные 263 + карта 85 + погашенный долг 65 → «Безнал 150»). Расчёт — PaymentMethodRows.NonCash.
+        return (cash, mixed, debt, PaymentMethodRows.NonCash(Revenue ?? 0m, cash, mixed, debt, CreditSalesTotal));
     }
 
     private static decimal? Parse(JsonElement value)

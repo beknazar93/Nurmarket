@@ -1427,7 +1427,11 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
 
         // Задача принята и записана на диск — список готов к следующему приходу сразу (убираем ровно отправленные строки).
         foreach (var packed in lines)
+        {
             ReceivingPackSizes.Remember(packed); // 2026-11-07: «штук в упаковке» запоминается локально (как в «Закупки → Приём товара»)
+            if (packed.CarcassYieldPercent is { } carcassYield)
+                CarcassYieldMemory.Remember(packed.ProductId, packed.Barcode, carcassYield); // 2026-11-26: «Выход мяса» — следующий приход этого товара предложит прошлый %
+        }
         if (!duplicate)
             _myReceivingJobs.Add(jobId);
         // 2026-10-27 (ревью Ск-2): накладные этой приёмки считаются проведёнными (повторная загрузка того же файла предупредит). Ids берём до опустошения списка.

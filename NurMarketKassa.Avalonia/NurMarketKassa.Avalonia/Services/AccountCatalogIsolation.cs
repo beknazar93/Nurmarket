@@ -79,8 +79,12 @@ public static class PosRefundService
         string? cashboxId,
         bool isDefect = false,
         CancellationToken ct = default,
-        string? idempotencyKey = null)
+        string? idempotencyKey = null,
+        string? confirmToken = null)
     {
+        // 2026-11-26 (Д1): confirmToken — токен PIN владельца/админа после 403 pin_required (ReturnPinRetry); тот же ключ идемпотентности, что у первой отправки.
+        if (!string.IsNullOrWhiteSpace(confirmToken) && api is Api.IPosReturnConfirmApi confirm)
+            return await confirm.PosReturnConfirmedAsync(saleId, null, reason, isDefect, idempotencyKey ?? Guid.NewGuid().ToString(), confirmToken, ct).ConfigureAwait(false);
         // 2026-10-15, ревью: idempotencyKey — тот же при повторе того же возврата (ReturnSaleDialog), null — новый.
         // 2026-10-06, владелец: «главное не трогай продуктовый» — в «Продуктах» прежний запрос возврата.
         // 2026-11-01 (аудит «10 из 10», Ж-03): причина есть — тоже запрос с деталями: в «Продуктах» прежний запрос причину терял, и у владельца в «Возвратах» стояло «—».
@@ -100,7 +104,8 @@ public static class PosRefundService
         string? cashboxId,
         bool isDefect = false,
         CancellationToken ct = default,
-        string? idempotencyKey = null)
+        string? idempotencyKey = null,
+        string? confirmToken = null)
     {
         // Один запрос на весь возврат — тот же, что делает сайт: POST pos/sales/{id}/return/
         // с массивом items. Раньше здесь был цикл по позициям, и каждая уходила в
@@ -110,6 +115,9 @@ public static class PosRefundService
         // 2026-10-29 (ревью офлайн-операций, Б-1): возврат по строкам без строк не отправляем — запрос без items сервер понимает как «вернуть весь чек».
         if (lines.Count == 0)
             throw new ArgumentException("Нет строк для возврата.", nameof(lines));
+        // 2026-11-26 (Д1): повтор с токеном PIN — см. RefundWholeSaleAsync.
+        if (!string.IsNullOrWhiteSpace(confirmToken) && api is Api.IPosReturnConfirmApi confirm)
+            return await confirm.PosReturnConfirmedAsync(saleId, lines, reason, isDefect, idempotencyKey ?? Guid.NewGuid().ToString(), confirmToken, ct).ConfigureAwait(false);
         // 2026-10-06, владелец: «главное не трогай продуктовый» — в «Продуктах» прежний запрос возврата.
         // 2026-11-01 (Ж-03): см. выше — причина должна дойти до документа возврата и в «Продуктах».
         if ((MarketSpheres.IsClothing || isDefect || !string.IsNullOrWhiteSpace(reason)) && api is Api.IPosExchangeApi details)

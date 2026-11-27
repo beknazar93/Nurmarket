@@ -77,6 +77,12 @@ public sealed partial class AiAdvisorWindow
         _root.Children.Add(_liveBar);
     }
 
+    /// <summary>2026-11-26: сколько звонок ждёт сводку магазина и сведения о сотрудниках перед началом (общий срок; было 6 + 1,5 с).</summary>
+    private static readonly TimeSpan LiveStartWait = TimeSpan.FromSeconds(3);
+
+    /// <summary>2026-11-26: идёт живой разговор — фоновые обновления «Сводки» программы владельца не бегут к серверу (не конкурируют с данными для разговора).</summary>
+    internal static volatile bool LiveCallActive;
+
     /// <summary>«Разговор»: сводка магазина → живой сеанс Gemini; дальше владелец просто говорит.</summary>
     private async Task StartLiveAsync()
     {
@@ -93,6 +99,7 @@ public sealed partial class AiAdvisorWindow
         if (_composer is not null)
             _composer.IsVisible = false;
         _liveBar.IsVisible = true;
+        LiveCallActive = true;
         _liveState.Text = T("Подключаюсь…", "Туташып жатам…", "Connecting…", "Bağlanıyor…", "Ulanmoqda…");
         _liveHint.Text = T("Готовлю данные магазина для разговора", "Маек үчүн дүкөндүн маалыматын даярдап жатам", "Preparing your shop's data for the conversation",
             "Sohbet için mağaza verileri hazırlanıyor", "Suhbat uchun do'kon ma'lumotlari tayyorlanmoqda");
@@ -113,16 +120,21 @@ public sealed partial class AiAdvisorWindow
         // не дольше 6 с; не успела — звонок начинается без неё, сводка уходит в разговор, как только соберётся.
         var summaryTask = GetSummaryAsync();
         var summaryLate = false;
+        // 2026-11-26, жалоба «скорость интернета ИИ при звонке очень тормозит»: замер — Google отвечает за 81 мс (TCP) / 170 мс (TLS), а сервер NurCRM
+        // отдаёт запросы сводки за 5–24 с; звонок ждал сводку до 6 с, потом сотрудников ещё до 1,5 с (итого до 7,5 с «Подключаюсь…»).
+        // Теперь на сводку и сотрудников — ОДИН общий срок 3 с (LiveStartWait); не успели — звонок начинается, данные приходят в разговор
+        // следом (SendSummaryWhenReadyAsync / SendStaffWhenReadyAsync). Горячий кэш (60 с) отдаёт сводку мгновенно.
+        var startWait = Task.Delay(LiveStartWait);
         try
         {
-            if (await Task.WhenAny(summaryTask, Task.Delay(6000)).ConfigureAwait(true) != summaryTask)
+            if (await Task.WhenAny(summaryTask, startWait).ConfigureAwait(true) != summaryTask)
             {
                 summaryLate = true;
-                throw new TimeoutException("сводка не готова за 6 с — дошлю в разговор");
+                throw new TimeoutException($"сводка не готова за {MoneyText.Weight(LiveStartWait.TotalSeconds, "0.#")} с — дошлю в разговор");
             }
             var (sections, debtorNames) = await summaryTask.ConfigureAwait(true);
             names = debtorNames;
-            await Task.WhenAny(staffTask, Task.Delay(1500)).ConfigureAwait(true);
+            await Task.WhenAny(staffTask, startWait).ConfigureAwait(true);
             staffNow = staffTask.IsCompletedSuccessfully ? staffTask.Result : null;
             instruction = TelegramAiChat.BuildOwnerVoiceInstruction(sections, CurrentLines().Select(l => (l.Owner, l.Text)), staffNow, liveAccess);
         }
@@ -140,7 +152,11 @@ public sealed partial class AiAdvisorWindow
         WireLiveLanguage(live); // 2026-11-05: команды «кыргызча жооп бер» / «говори по-русски» голосом
         // 2026-10-27: инструмент open_section — переход по словарю программы с проверкой; модель говорит только результат.
         if (ProductActionPlan.OpenNavTarget is not null)
+        {
             live.ToolHandler = (toolName, toolArgs) => LiveToolAsync(live, toolName, toolArgs);
+            // 2026-11-27 (Нур-советник: доступ к разделам): в разговоре — те же инструменты, что в чате (описать, данные раздела, что нового; только чтение).
+            live.Declarations = () => CreateToolDispatcher().Declarations();
+        }
         live.UserText += text => Dispatcher.UIThread.Post(() =>
         {
             if (_live != live)
@@ -172,7 +188,12 @@ public sealed partial class AiAdvisorWindow
         live.TurnDone += () => Dispatcher.UIThread.Post(() =>
         {
             if (_live == live)
+            {
+                // 2026-11-27: «Использовано: …» под ответом голосом; лимит вызовов — на один ответ.
+                if (Interlocked.Exchange(ref _liveTools, null) is { Used.Count: > 0 } used && _liveAi is { } liveBody)
+                    AddToolsUsedLine(liveBody, used.Used);
                 FinishLiveTurn(interrupted: false);
+            }
         });
         live.Ended += reason => Dispatcher.UIThread.Post(() =>
         {
@@ -217,7 +238,8 @@ public sealed partial class AiAdvisorWindow
                     ? T("Слышу вас…", "Угуп жатам…", "I'm hearing you…", "Sizi duyuyorum…", "Sizni eshityapman…")
                     : T("Слушаю — говорите", "Угуп жатам — сүйлөңүз", "Listening — go ahead", "Dinliyorum — konuşun", "Tinglayapman — gapiring");
                 _liveHint.Text = T("Спросите что угодно о магазине. Закончили — «Завершить».", "Дүкөн жөнүндө каалаганды сураңыз. Бүттүңүзбү — «Бүтүрүү».",
-                    "Ask anything about your shop. Done — “End”.", "Mağazanız hakkında her şeyi sorun. Bitince — «Bitir».", "Do'kon haqida istalgan narsani so'rang. Tugatsangiz — «Tugatish».");
+                    "Ask anything about your shop. Done — “End”.", "Mağazanız hakkında her şeyi sorun. Bitince — «Bitir».", "Do'kon haqida istalgan narsani so'rang. Tugatsangiz — «Tugatish».")
+                    + LiveSpeedNote(live);
                 scale = 1 + Math.Min(0.35, live.MicLevel * 0.45);
                 _orbScale.ScaleX += (scale - _orbScale.ScaleX) * 0.5;
                 _orbScale.ScaleY = _orbScale.ScaleX;
@@ -245,6 +267,29 @@ public sealed partial class AiAdvisorWindow
         if (live is not null && state == GeminiLiveVoice.LiveState.Listening && DateTime.UtcNow - live.LastActivityUtc > TimeSpan.FromMinutes(3))
             EndLive(T("Разговор завершён: три минуты тишины.", "Маек бүттү: үч мүнөт тынчтык.", "Conversation ended: three minutes of silence.",
                 "Sohbet bitti: üç dakika sessizlik.", "Suhbat tugadi: uch daqiqa jimlik."));
+    }
+
+    /// <summary>2026-11-26, жалоба «ИИ при звонке тормозит»: строка о скорости связи под подсказкой звонка — «ответ был через N с»; медленный ответ
+    /// (3,5 с и дольше; после следующего быстрого ответа предупреждение уходит) или долгое подключение — совет проверить интернет (замер до Google: 81 мс, поэтому чаще виноват перегруженный сервис или Wi-Fi).</summary>
+    private static string LiveSpeedNote(GeminiLiveVoice live)
+    {
+        var answerMs = live.LastAnswerDelayMs;
+        var s = MoneyText.Weight(answerMs / 1000.0, "0.0") /* 2026-11-27: NumberFormatRatchet */;
+        if (live.SlowAnswersInRow >= 1)
+            return "\n⚠ " + T($"Ответ идёт медленно ({s} с). Проверьте интернет; если с ним всё хорошо — Google сейчас перегружен, подождите.",
+                $"Жооп жай келип жатат ({s} с). Интернетти текшериңиз; анда көйгөй жок болсо — Google азыр ашыкча жүктөлгөн, күтө туруңуз.",
+                $"Replies are slow ({s} s). Check your internet; if it is fine, Google is busy right now — please wait.",
+                $"Yanıt yavaş geliyor ({s} sn). İnternetinizi kontrol edin; sorun yoksa Google şu an yoğun — lütfen bekleyin.",
+                $"Javob sekin kelyapti ({s} s). Internetni tekshiring; u yaxshi bo'lsa — Google hozir band, kuting.");
+        if (answerMs == 0 && live.ConnectMs >= GeminiLiveVoice.SlowConnectMs)
+        {
+            var c = MoneyText.Weight(live.ConnectMs / 1000.0, "0.0");
+            return "\n⚠ " + T($"Подключение заняло {c} с — связь медленная.", $"Туташуу {c} с алды — байланыш жай.", $"Connecting took {c} s — the connection is slow.",
+                $"Bağlantı {c} sn sürdü — bağlantı yavaş.", $"Ulanish {c} s oldi — aloqa sekin.");
+        }
+        if (answerMs > 0)
+            return "  ·  " + T($"ответ был через {s} с", $"жооп {s} с ичинде келди", $"last reply took {s} s", $"son yanıt {s} sn sürdü", $"oxirgi javob {s} s da keldi");
+        return "";
     }
 
     /// <summary>Ответ договорён (или перебит): текст ответа — начисто, должники — по именам; реплики — в историю и в память чата.</summary>
@@ -361,6 +406,7 @@ public sealed partial class AiAdvisorWindow
     /// <summary>Закончить живой разговор (кнопкой, «Новый разговор», закрытие окна или обрыв) и вернуть поле ввода.</summary>
     private void EndLive(string? note)
     {
+        LiveCallActive = false; // 2026-11-26: звонок кончился — «Сводка» владельца снова обновляется по таймеру
         if (!_liveBar.IsVisible && _live is null)
             return;
         _liveGen++;
@@ -925,8 +971,14 @@ public sealed partial class AiAdvisorWindow
     /// модель говорит только его. Вызывается из фонового потока.</summary>
     private async Task<string> LiveToolAsync(GeminiLiveVoice live, string name, string argsJson)
     {
+        // 2026-11-27: остальные инструменты (описать, данные раздела, что нового, список) — общий диспетчер: права, тумблеры, очистка секретов, лимиты.
         if (name != "open_section")
-            return "НЕ ВЫПОЛНЕНО: такого инструмента нет.";
+        {
+            if (_live != live)
+                return "НЕ ВЫПОЛНЕНО: разговор уже завершён.";
+            var tools = _liveTools ?? Interlocked.CompareExchange(ref _liveTools, CreateToolDispatcher(), null) ?? _liveTools!;
+            return await tools.CallAsync(name, argsJson, CancellationToken.None).ConfigureAwait(false);
+        }
         if (!Cap("nav.open"))
             return "НЕ ВЫПОЛНЕНО: открывать разделы выключено владельцем (Настройки → Операции → Нур Советник). Скажи владельцу ровно это одной фразой.";
         string target = "", words = "";
@@ -963,6 +1015,9 @@ public sealed partial class AiAdvisorWindow
 
     /// <summary>Инструмент живого разговора уже открыл раздел в этом ответе — запасной разбор распознанной фразы не нужен.</summary>
     private volatile bool _liveToolNav;
+
+    /// <summary>2026-11-27: диспетчер инструментов текущего ответа голосом (сбрасывается, когда советник договорил).</summary>
+    private AdvisorToolDispatcher? _liveTools;
 
     /// <summary>Товар для «открой …»: слова фразы (кроме команд) совпадают с началом слов названия; лучший по числу совпадений.</summary>
     private static (NurMarketKassa.Models.Pos.CatalogProductTileVm? Product, int Score) QuickOpenProduct(List<string> words)

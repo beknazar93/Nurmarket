@@ -183,6 +183,20 @@ public sealed class ServerShiftReport
     /// <summary>Смена с цифрами этого отчёта: выручка, чеки, наличные/безнал (со смешанной),
     /// долг, приход/расход, ожидаемый и пересчитанный остаток. Номер, кассир, статус и время
     /// остаются от <paramref name="shift"/> — их касса уже знает и показывает по-своему.</summary>
+    /// <param name="keepShiftExpected">2026-11-27 (живой проход, A): отчёт сервера, полученный ДО закрытия (окно «Закрыть смену»), — его цифры продаж полные,
+    /// а «в ящике должно быть» берётся то, с которым кассир сверял пересчёт (в shift.ExpectedCash), пока сервер не пришлёт отчёт закрытой смены.</param>
+    public ShiftModel ApplyTo(ShiftModel shift, bool keepShiftExpected) => keepShiftExpected && shift.ExpectedCash is { } kept
+        ? WithExpected(ApplyTo(shift), kept, shift.CashDiff)
+        : ApplyTo(shift);
+
+    private static ShiftModel WithExpected(ShiftModel s, decimal expected, decimal? diff) => new()
+    {
+        Id = s.Id, ShiftNumber = s.ShiftNumber, OpenedAt = s.OpenedAt, ClosedAt = s.ClosedAt, Cashier = s.Cashier, Status = s.Status,
+        Revenue = s.Revenue, ClosingCash = s.ClosingCash, OpeningCash = s.OpeningCash, CashSales = s.CashSales, NonCashSales = s.NonCashSales,
+        DebtSales = s.DebtSales, SalesCount = s.SalesCount, ExpenseTotal = s.ExpenseTotal, IncomeTotal = s.IncomeTotal,
+        ExpectedCash = expected, CashDiff = diff,
+    };
+
     public ShiftModel ApplyTo(ShiftModel shift) => new()
     {
         Id = shift.Id,

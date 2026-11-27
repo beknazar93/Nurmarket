@@ -74,7 +74,7 @@ public sealed partial class InvoiceDocumentWindow : Window
         _supplier = supplier;
         _context = context;
         _docNumber = DocumentNumbering.ReceiptText(r); // 2026-11-01: number_display сервера, если есть
-        _pay = ReceiptEditPlanner.ParsePayKind(note?.PayKind) is var pk && pk != ReceiptPayKind.Unknown ? pk : debtRecorded ? ReceiptPayKind.Debt : ReceiptPayKind.Unknown;
+        _pay = ReceiptEditPlanner.ParsePayKind(note?.PayKind) is var pk && pk != ReceiptPayKind.Unknown ? pk : debtRecorded ? ReceiptPayKind.Debt : ReceiptEditPlanner.ParsePayKind(r.PaymentType); // 2026-11-26: приход с другого ПК/сайта — способ оплаты из ответа сервера (payment_type), иначе возмещение по умолчанию «без возмещения» и долг не уменьшался
         _showMoney = WarehouseWindow.RevisionShowPurchase;
         _baseFingerprint = InvoiceMath.Fingerprint(r);
         _baseVersion = _store.Version(r.Id);
@@ -319,6 +319,8 @@ public sealed partial class InvoiceDocumentWindow : Window
         if (PurchaseNumberUi.SupplierDocText(_r.SupplierDocNumber, _r.SupplierDocDate).Length > 0)
             Item(T("№ накладной поставщика", "Жеткирүүчүнүн накладной №", "Supplier invoice no.", "Tedarikçi irsaliye no.", "Yetkazuvchi yuk xati №"),
                 _r.SupplierDocNumber + (_r.SupplierDocDate is { } sd ? " · " + sd.ToString("dd.MM.yyyy", Ru) : ""));
+        if (_r.EsfNumber.Length > 0) // 2026-11-26 (ТОП-15 п. 4): номер ЭСФ поставщика
+            Item(T("№ ЭСФ", "ЭСФ №", "ESF no.", "ESF no.", "ESF №"), _r.EsfNumber);
         Item(T("Принял", "Кабыл алды", "Received by", "Kabul eden", "Qabul qildi"), _r.CreatedBy.Length > 0 ? _r.CreatedBy : "—");
         Item(T("Дата", "Күнү", "Date", "Tarih", "Sana"), _r.CreatedAt?.ToString("dd.MM.yyyy HH:mm", Ru) ?? "—", _edit ? soon : null, grey: _edit); // дата проведения (created_at) сервер не меняет
         if (_showMoney)
@@ -652,7 +654,7 @@ public sealed partial class InvoiceDocumentWindow : Window
         var lines = _rows.Where(x => x.Qty > 0).Select(x => new PurchaseDocs.DocLine(x.Name + (x.HasMark ? "  " + x.MarkText : ""), x.Unit, /* 2026-11-01: отметка последней правки позиции — и в печатной копии */ x.Qty, x.Purchase,
             withMarkup && _showMoney && x.Sale > 0 ? PurchaseDocs.MarkupSuffix(new MarkupView(InvoiceMath.MarkupFromSale(x.Purchase, x.Sale), x.Sale, InvoiceMath.ProfitPerUnit(x.Purchase, x.Sale), x.SaleEstimated, false, false)) : null,
             x.Barcode)).ToList(); // 2026-11-20: штрихкод строки — для колонки «Штрихкод» (по настройке)
-        var supplierDoc = PurchaseNumberUi.SupplierDocText(_r.SupplierDocNumber, _r.SupplierDocDate);
+        var supplierDoc = PurchaseNumberUi.WithEsf(PurchaseNumberUi.SupplierDocText(_r.SupplierDocNumber, _r.SupplierDocDate), _r.EsfNumber); // 2026-11-26: ЭСФ — в примечании печатной копии
         var totals = withMarkup && _showMoney ? (MarkupTotals?)ReceiptMarkupLog.Totals(_rows.Where(x => x.Qty > 0).Select(x => (x.Qty, x.Purchase, new MarkupView(InvoiceMath.MarkupFromSale(x.Purchase, x.Sale), x.Sale, 0, x.SaleEstimated, false, false)))) : null;
         var note = PurchaseDocs.ReceiptNote(supplierDoc.Length > 0 ? char.ToUpperInvariant(supplierDoc[0]) + supplierDoc[1..] : null, totals);
         // «ИСПРАВЛЕНО · версия N от … · причина: …» — шапкой примечания у правленной накладной.

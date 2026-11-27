@@ -383,6 +383,11 @@ public sealed partial class SalesApiService : ISalesApiService
         _client.RequestAsync(HttpMethod.Get, $"api/main/pos/sales/{Uri.EscapeDataString(saleId.Trim())}/receipt/", null,
             new Dictionary<string, string> { ["wait_ekassa"] = "1", ["receipt_text"] = "1" }, ct, TimeSpan.FromSeconds(60));
 
+    /// <summary>2026-11-26 (красивый чек по QR): публичная ссылка на чек — POST pos/sales/{id}/share-link/ → {url, token, pdf_url, created}.
+    /// Повторный вызов отдаёт ту же ссылку (created=false), так что вызывать можно без оглядки. Страница открывается без входа.</summary>
+    public Task<JsonElement> PosSaleShareLinkAsync(string saleId, CancellationToken ct = default) =>
+        _client.RequestAsync(HttpMethod.Post, $"api/main/pos/sales/{Uri.EscapeDataString(saleId.Trim())}/share-link/", new Dictionary<string, object>(), null, ct, TimeSpan.FromSeconds(8));
+
     public async Task<JsonElement> PosSaleGetAsync(string saleId, CancellationToken ct = default)
     {
         var id = Uri.EscapeDataString(saleId.Trim());
@@ -1078,8 +1083,8 @@ public sealed partial class SalesApiService : ISalesApiService
     }
 
     // 2026-09-29: через общий короткий кэш и с повтором при 429 (см. SalesApiService.ReportCache.cs).
-    public Task<JsonElement> MarketSalesReportAsync(DateTime from, DateTime to, CancellationToken ct = default) =>
-        CachedReportAsync("sales", from, to, ct);
+    public Task<JsonElement> MarketSalesReportAsync(DateTime from, DateTime to, CancellationToken ct = default, bool withoutStock = false) =>
+        CachedReportAsync("sales", from, to, ct, withoutStock);
 
     private static bool _summaryMissing;
 

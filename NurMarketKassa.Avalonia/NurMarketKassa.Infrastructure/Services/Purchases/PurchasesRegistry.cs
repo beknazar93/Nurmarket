@@ -63,6 +63,8 @@ public sealed class RegistryDoc
     public string SupplierName => Receipt.SupplierName;
     public string SupplierDoc => Receipt.SupplierDocNumber;
     public DateTime? SupplierDocDate => Receipt.SupplierDocDate;
+    /// <summary>2026-11-26 (ТОП-15 п. 4): номер ЭСФ поставщика.</summary>
+    public string Esf => Receipt.EsfNumber;
     public string CreatedBy => Receipt.CreatedBy;
     public double Total => Receipt.Total;
     public double Returned => Receipt.ReturnedAmount;
@@ -210,7 +212,7 @@ public static class PurchasesRegistry
     }
 
     /// <summary>Поля документа для поиска (без строк): поставщик, принял, накладная поставщика, номер документа в трёх видах.</summary>
-    private static string HeaderKey(RegistryDoc d) => SearchMatch.Key(d.SupplierName, d.CreatedBy, d.SupplierDoc, d.Warehouse,
+    private static string HeaderKey(RegistryDoc d) => SearchMatch.Key(d.SupplierName, d.CreatedBy, d.SupplierDoc, d.Esf, d.Warehouse,
         DocumentNumbering.SearchKey(DocSeries.Receipt, d.Id), DocumentNumbering.ShortCode(d.Id), d.Number);
 
     private static string DocKey(RegistryDoc d) => d.Key ??= HeaderKey(d) + SearchMatch.FieldSeparator + SearchMatch.Key(string.Join(" ", d.Lines.Select(l => l.Name + " " + l.Barcode + " " + l.Code)));

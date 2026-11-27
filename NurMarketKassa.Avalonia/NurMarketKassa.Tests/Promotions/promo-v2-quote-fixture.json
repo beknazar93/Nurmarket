@@ -1,0 +1,3454 @@
+{
+ "generated": "2026-11-27 NBS",
+ "active": {
+  "version": "2026-11-26T19:47:36.869981Z",
+  "timezone": "Asia/Bishkek",
+  "promotions": [
+   {
+    "id": "97d97cc8-fbd5-4715-afee-3aa935aab50d",
+    "title": "ТЕСТ-Claude-2711 I −10 на строку бренд",
+    "status": "active",
+    "kind": "amount",
+    "params": {
+     "per": "line",
+     "amount": "10.00"
+    },
+    "scope": {
+     "brands": [
+      "cbebfc31-5b7e-4ac0-a70f-3afa4726be44"
+     ]
+    },
+    "starts_at": "2026-11-26T18:00:00+00:00",
+    "ends_at": "2026-11-28T17:59:00+00:00",
+    "weekdays": [],
+    "time_from": null,
+    "time_to": null,
+    "audience": "all",
+    "levels": [],
+    "priority": 50,
+    "stackable_with_manual": true,
+    "stackable_with_promos": false,
+    "allow_below_cost": false,
+    "branches": [],
+    "limit_per_receipt": null,
+    "version": 1
+   },
+   {
+    "id": "37580c76-b0e4-4f39-bf93-dda3ee49d535",
+    "title": "ТЕСТ-Claude-2711 H цена 85 лимит 2",
+    "status": "active",
+    "kind": "fixed_price",
+    "params": {
+     "price": "85.00"
+    },
+    "scope": {
+     "products": [
+      "b6698231-8086-44a8-acbd-d2bc3c8810b3"
+     ]
+    },
+    "starts_at": "2026-11-26T18:00:00+00:00",
+    "ends_at": "2026-11-28T17:59:00+00:00",
+    "weekdays": [],
+    "time_from": null,
+    "time_to": null,
+    "audience": "all",
+    "levels": [],
+    "priority": 40,
+    "stackable_with_manual": false,
+    "stackable_with_promos": false,
+    "allow_below_cost": false,
+    "branches": [],
+    "limit_per_receipt": 2,
+    "version": 1
+   },
+   {
+    "id": "732e1713-ccb2-449e-b44b-ee96f4647de2",
+    "title": "ТЕСТ-Claude-2711 G ночь пт-сб",
+    "status": "active",
+    "kind": "amount",
+    "params": {
+     "per": "unit",
+     "amount": "7.00"
+    },
+    "scope": {
+     "products": [
+      "14754df6-7e8a-4f56-9bb3-eaa33125450e"
+     ]
+    },
+    "starts_at": "2026-11-26T18:00:00+00:00",
+    "ends_at": "2026-11-28T17:59:00+00:00",
+    "weekdays": [
+     5
+    ],
+    "time_from": "22:00",
+    "time_to": "02:00",
+    "audience": "all",
+    "levels": [],
+    "priority": 30,
+    "stackable_with_manual": false,
+    "stackable_with_promos": false,
+    "allow_below_cost": false,
+    "branches": [],
+    "limit_per_receipt": null,
+    "version": 1
+   },
+   {
+    "id": "a9191244-b73b-49d5-922e-04b375761a58",
+    "title": "ТЕСТ-Claude-2711 F часы 10-14",
+    "status": "active",
+    "kind": "percent",
+    "params": {
+     "percent": 5
+    },
+    "scope": {
+     "products": [
+      "b7d280e3-ba81-4986-8a1b-ee24b4cd8539"
+     ]
+    },
+    "starts_at": "2026-11-26T18:00:00+00:00",
+    "ends_at": "2026-11-28T17:59:00+00:00",
+    "weekdays": [],
+    "time_from": "10:00",
+    "time_to": "14:00",
+    "audience": "all",
+    "levels": [],
+    "priority": 30,
+    "stackable_with_manual": false,
+    "stackable_with_promos": false,
+    "allow_below_cost": false,
+    "branches": [],
+    "limit_per_receipt": null,
+    "version": 1
+   },
+   {
+    "id": "20e6987c-8743-462b-b1c5-2c7cf3c6b7dd",
+    "title": "ТЕСТ-Claude-2711 E 20% стек",
+    "status": "active",
+    "kind": "percent",
+    "params": {
+     "percent": 20
+    },
+    "scope": {
+     "products": [
+      "f1d3c85e-aa68-4ab2-8d49-4945876c8028"
+     ]
+    },
+    "starts_at": "2026-11-26T18:00:00+00:00",
+    "ends_at": "2026-11-28T17:59:00+00:00",
+    "weekdays": [],
+    "time_from": null,
+    "time_to": null,
+    "audience": "all",
+    "levels": [],
+    "priority": 20,
+    "stackable_with_manual": true,
+    "stackable_with_promos": true,
+    "allow_below_cost": false,
+    "branches": [],
+    "limit_per_receipt": null,
+    "version": 1
+   },
+   {
+    "id": "b2a86cd2-7f23-4f30-bf4e-a11a8ed1a0e1",
+    "title": "ТЕСТ-Claude-2711 D 10% стек",
+    "status": "active",
+    "kind": "percent",
+    "params": {
+     "percent": 10
+    },
+    "scope": {
+     "products": [
+      "f1d3c85e-aa68-4ab2-8d49-4945876c8028"
+     ]
+    },
+    "starts_at": "2026-11-26T18:00:00+00:00",
+    "ends_at": "2026-11-28T17:59:00+00:00",
+    "weekdays": [],
+    "time_from": null,
+    "time_to": null,
+    "audience": "all",
+    "levels": [],
+    "priority": 20,
+    "stackable_with_manual": true,
+    "stackable_with_promos": true,
+    "allow_below_cost": false,
+    "branches": [],
+    "limit_per_receipt": null,
+    "version": 1
+   },
+   {
+    "id": "f196ec28-73ba-4e46-95b7-77a08f9efb60",
+    "title": "ТЕСТ-Claude-2711 2+1 кефир",
+    "status": "active",
+    "kind": "buy_n_get_m",
+    "params": {
+     "buy": 2,
+     "get": 1,
+     "cheapest": true,
+     "get_discount_percent": 100
+    },
+    "scope": {
+     "products": [
+      "824bce8e-4ad1-4b60-8224-d4c81ed87e3d"
+     ]
+    },
+    "starts_at": "2026-11-26T18:00:00+00:00",
+    "ends_at": "2026-11-28T17:59:00+00:00",
+    "weekdays": [],
+    "time_from": null,
+    "time_to": null,
+    "audience": "all",
+    "levels": [],
+    "priority": 10,
+    "stackable_with_manual": false,
+    "stackable_with_promos": false,
+    "allow_below_cost": false,
+    "branches": [],
+    "limit_per_receipt": null,
+    "version": 1
+   },
+   {
+    "id": "4c8ee37b-8e35-455f-9fbc-f204bb6a92c4",
+    "title": "ТЕСТ-Claude-2711 2+1 вода",
+    "status": "active",
+    "kind": "buy_n_get_m",
+    "params": {
+     "buy": 2,
+     "get": 1,
+     "cheapest": true,
+     "get_discount_percent": 100
+    },
+    "scope": {
+     "categories": [
+      "4b5c9179-3698-4211-a1dd-073d27906080"
+     ],
+     "exclude_products": [
+      "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "824bce8e-4ad1-4b60-8224-d4c81ed87e3d",
+      "3e5405a1-11c5-442a-b585-825bb1dbaec2"
+     ]
+    },
+    "starts_at": "2026-11-26T18:00:00+00:00",
+    "ends_at": "2026-11-28T17:59:00+00:00",
+    "weekdays": [],
+    "time_from": null,
+    "time_to": null,
+    "audience": "all",
+    "levels": [],
+    "priority": 10,
+    "stackable_with_manual": false,
+    "stackable_with_promos": false,
+    "allow_below_cost": false,
+    "branches": [],
+    "limit_per_receipt": null,
+    "version": 1
+   },
+   {
+    "id": "ce64eb35-f6c5-4290-afa3-43a5f2c310c6",
+    "title": "ТЕСТ-Claude-2711 -15% категория",
+    "status": "active",
+    "kind": "percent",
+    "params": {
+     "percent": 15
+    },
+    "scope": {
+     "categories": [
+      "4b5c9179-3698-4211-a1dd-073d27906080"
+     ]
+    },
+    "starts_at": "2026-11-26T18:00:00+00:00",
+    "ends_at": "2026-11-28T17:59:00+00:00",
+    "weekdays": [],
+    "time_from": null,
+    "time_to": null,
+    "audience": "all",
+    "levels": [],
+    "priority": 5,
+    "stackable_with_manual": false,
+    "stackable_with_promos": false,
+    "allow_below_cost": false,
+    "branches": [],
+    "limit_per_receipt": null,
+    "version": 1
+   }
+  ]
+ },
+ "categories": [
+  {
+   "id": "7f278f66-ba8f-4e8f-ac1b-59907e33a997",
+   "name": "123",
+   "parent": null
+  },
+  {
+   "id": "7fc317e1-a3d5-4b04-8c7b-46c162482f44",
+   "name": "аксесуары",
+   "parent": null
+  },
+  {
+   "id": "7d5789a9-873c-449a-af17-ec41a02bd1de",
+   "name": "Аренда обородование",
+   "parent": null
+  },
+  {
+   "id": "c51d55eb-70ef-450a-ae7b-f53139e0b945",
+   "name": "бакалея",
+   "parent": null
+  },
+  {
+   "id": "1451d9f3-e23a-4bf9-9be1-fe7965c8e9cf",
+   "name": "Бытовая техника",
+   "parent": null
+  },
+  {
+   "id": "ad994859-e635-4be8-9a25-5047b6299c54",
+   "name": "Бытовая химия и уход",
+   "parent": null
+  },
+  {
+   "id": "83816304-7bdb-4fce-a722-8b6890e34eb6",
+   "name": "Весовые",
+   "parent": null
+  },
+  {
+   "id": "8c5e1258-f1c2-499e-a991-d118ee4f2917",
+   "name": "Ветаптека",
+   "parent": null
+  },
+  {
+   "id": "1adfe442-0b5e-47d9-bc0d-715016813e28",
+   "name": "Вода",
+   "parent": null
+  },
+  {
+   "id": "c15db79d-de25-4045-9c53-f3a7d6662ae6",
+   "name": "жашыл  жемиш",
+   "parent": null
+  },
+  {
+   "id": "c71de8c4-3617-4cc4-b233-3126bf850c60",
+   "name": "игрушка",
+   "parent": null
+  },
+  {
+   "id": "0240ebff-81b8-47e2-8def-377b5b22a607",
+   "name": "игрушки",
+   "parent": null
+  },
+  {
+   "id": "75bf986f-7c81-41b5-9f39-bbdbdb318b1e",
+   "name": "канц",
+   "parent": null
+  },
+  {
+   "id": "dc6c7dde-0565-4b8f-945b-d2ec4b0b7c26",
+   "name": "КРЕАТИНДЕР",
+   "parent": null
+  },
+  {
+   "id": "c7fb3b54-ae9f-4813-ad9f-1be0e30fc801",
+   "name": "Курут",
+   "parent": null
+  },
+  {
+   "id": "ee5153ca-62c5-4d8a-ae2e-31414fdf0b1a",
+   "name": "молочный",
+   "parent": null
+  },
+  {
+   "id": "72604b39-710b-480b-8d6e-f5ac13ac6a00",
+   "name": "момо жемиш",
+   "parent": null
+  },
+  {
+   "id": "b4d30d7d-0a5c-40d7-b499-3794604e1ff5",
+   "name": "Напитки",
+   "parent": null
+  },
+  {
+   "id": "811f3cc7-6a74-4768-b474-75b5d4fee89c",
+   "name": "оборудование",
+   "parent": null
+  },
+  {
+   "id": "bc69b872-1d27-433a-9964-adcb1945e797",
+   "name": "Оборудование",
+   "parent": null
+  },
+  {
+   "id": "8e4cf4e1-b514-477a-a39d-0f342aacc3d9",
+   "name": "овощи",
+   "parent": null
+  },
+  {
+   "id": "15843714-15e8-4f0b-866e-2d547e927f4f",
+   "name": "Одежда",
+   "parent": null
+  },
+  {
+   "id": "dca05e26-b275-487e-aaaa-bc9f26df79a3",
+   "name": "Парфюм",
+   "parent": null
+  },
+  {
+   "id": "d930b726-94eb-48a8-8416-a5477c95e72a",
+   "name": "подшипник",
+   "parent": null
+  },
+  {
+   "id": "311c7ae4-ad57-47b1-9efc-2fec84037b24",
+   "name": "Проверечные",
+   "parent": null
+  },
+  {
+   "id": "a3ca42db-aee3-4781-adcf-8171f4edb087",
+   "name": "продукты",
+   "parent": null
+  },
+  {
+   "id": "10cb664f-664f-4b39-9431-76d377bfb057",
+   "name": "Расходники",
+   "parent": null
+  },
+  {
+   "id": "a1164ef9-26ec-4735-83d1-cc77a06f830d",
+   "name": "Сладости",
+   "parent": null
+  },
+  {
+   "id": "4c1aaf18-ba95-4108-a11d-5cb74dd3af64",
+   "name": "Смартфоны",
+   "parent": null
+  },
+  {
+   "id": "4b5c9179-3698-4211-a1dd-073d27906080",
+   "name": "ТЕСТ-Акции-2711",
+   "parent": null
+  },
+  {
+   "id": "45f31817-c242-4211-a776-fae5a4857657",
+   "name": "ТЕСТ-Акции-2711 вода",
+   "parent": "4b5c9179-3698-4211-a1dd-073d27906080"
+  },
+  {
+   "id": "b6c6d962-14ff-4977-a62b-39cbe22360fd",
+   "name": "тойота",
+   "parent": null
+  },
+  {
+   "id": "a17f831b-802c-4e31-b995-5669f6ef881c",
+   "name": "электроника",
+   "parent": null
+  }
+ ],
+ "brands": [
+  {
+   "id": "401b2a6b-8480-433b-b5c6-15bb04628073",
+   "name": "123",
+   "parent": null
+  },
+  {
+   "id": "c0b8bbe2-75dd-482a-9c69-e4f1eafab85b",
+   "name": "Aos",
+   "parent": null
+  },
+  {
+   "id": "46a53b83-936f-467b-951a-5971a9bd0f16",
+   "name": "apple",
+   "parent": null
+  },
+  {
+   "id": "3d2c998b-6acc-40dc-8566-82dc7ac5e19e",
+   "name": "Asu",
+   "parent": null
+  },
+  {
+   "id": "f6c8a6e1-0b4d-4c03-9a59-61e251eadc49",
+   "name": "Chanel",
+   "parent": null
+  },
+  {
+   "id": "ac6fa702-70cf-4392-87ec-223dd421139d",
+   "name": "Cola",
+   "parent": null
+  },
+  {
+   "id": "c927475a-9a58-42bd-b0d4-77854db96c7f",
+   "name": "gugcu",
+   "parent": null
+  },
+  {
+   "id": "69db397f-247f-47ee-8c1f-f024b251b99c",
+   "name": "HP",
+   "parent": null
+  },
+  {
+   "id": "523d9603-d0f7-410c-a128-8a821465e300",
+   "name": "Legend",
+   "parent": null
+  },
+  {
+   "id": "793587aa-7b03-4953-9782-1d74230919b7",
+   "name": "Mars",
+   "parent": null
+  },
+  {
+   "id": "73821211-a667-4fd7-876f-c9c7f68dc785",
+   "name": "nokia 3000",
+   "parent": null
+  },
+  {
+   "id": "e6af53e8-334e-4b65-86a9-9ee5fb8e9cbb",
+   "name": "NurStyle",
+   "parent": null
+  },
+  {
+   "id": "b2e308fc-e65a-4729-88ac-124a8375493f",
+   "name": "SONY",
+   "parent": null
+  },
+  {
+   "id": "13ffc352-92fe-42b8-b091-f12fbb7c0573",
+   "name": "Superzing",
+   "parent": null
+  },
+  {
+   "id": "a65f3977-4c37-48a9-bd9d-6eb5050a3581",
+   "name": "Tevise",
+   "parent": null
+  },
+  {
+   "id": "47f8b663-cae9-409c-9f40-6c6dd419cbb5",
+   "name": "VetCare",
+   "parent": null
+  },
+  {
+   "id": "f145d09a-0338-43f3-b779-0f687677e124",
+   "name": "Zenon",
+   "parent": null
+  },
+  {
+   "id": "15ee6e56-5d11-491c-8428-c844d0feae72",
+   "name": "алтын бак",
+   "parent": null
+  },
+  {
+   "id": "f9116efe-2171-4ae4-ab5e-1f2133b9108c",
+   "name": "Аудит",
+   "parent": null
+  },
+  {
+   "id": "b7166f34-ebce-475d-87b7-562c069c8a41",
+   "name": "Барс",
+   "parent": null
+  },
+  {
+   "id": "f82231f8-e172-44cf-8c02-0eda9b57d10e",
+   "name": "БУЛЧУН",
+   "parent": null
+  },
+  {
+   "id": "076ff49b-9260-4bd1-b53d-761c81737190",
+   "name": "домашный",
+   "parent": null
+  },
+  {
+   "id": "52537ad4-133d-49b9-8e0a-73fc7ac41516",
+   "name": "заватиской",
+   "parent": null
+  },
+  {
+   "id": "b39d6e1d-b544-45e6-889d-2bd8260c36d8",
+   "name": "курма",
+   "parent": null
+  },
+  {
+   "id": "cc006634-4e3f-42ae-94ff-4096f92ca21d",
+   "name": "Кымыз  жайлоо",
+   "parent": null
+  },
+  {
+   "id": "9b7c38f7-bb22-4afb-8743-07cade0d7050",
+   "name": "нитро",
+   "parent": null
+  },
+  {
+   "id": "1fe8ef10-b2e3-47a1-b07a-102424b968bc",
+   "name": "овощи",
+   "parent": null
+  },
+  {
+   "id": "cbebfc31-5b7e-4ac0-a70f-3afa4726be44",
+   "name": "ТЕСТ-Бренд-2711",
+   "parent": null
+  },
+  {
+   "id": "ac7b8e36-f6de-4ffd-922e-9b0e219ccff8",
+   "name": "тойота",
+   "parent": null
+  }
+ ],
+ "products": [
+  {
+   "id": "f1d3c85e-aa68-4ab2-8d49-4945876c8028",
+   "name": "ТЕСТ-АКЦИЯ-2711 Вода 120",
+   "price": "120.00",
+   "purchase_price": "50.00",
+   "category": "ТЕСТ-Акции-2711 вода",
+   "brand": "ТЕСТ-Бренд-2711"
+  },
+  {
+   "id": "b7d280e3-ba81-4986-8a1b-ee24b4cd8539",
+   "name": "ТЕСТ-АКЦИЯ-2711 Вода 100",
+   "price": "100.00",
+   "purchase_price": "50.00",
+   "category": "ТЕСТ-Акции-2711 вода",
+   "brand": null
+  },
+  {
+   "id": "14754df6-7e8a-4f56-9bb3-eaa33125450e",
+   "name": "ТЕСТ-АКЦИЯ-2711 Вода 80",
+   "price": "80.00",
+   "purchase_price": "50.00",
+   "category": "ТЕСТ-Акции-2711 вода",
+   "brand": null
+  },
+  {
+   "id": "824bce8e-4ad1-4b60-8224-d4c81ed87e3d",
+   "name": "ТЕСТ-АКЦИЯ-2711 Кефир 60",
+   "price": "60.00",
+   "purchase_price": "30.00",
+   "category": "ТЕСТ-Акции-2711",
+   "brand": null
+  },
+  {
+   "id": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+   "name": "ТЕСТ-АКЦИЯ-2711 Закупка 90",
+   "price": "100.00",
+   "purchase_price": "90.00",
+   "category": "ТЕСТ-Акции-2711",
+   "brand": null
+  },
+  {
+   "id": "3e5405a1-11c5-442a-b585-825bb1dbaec2",
+   "name": "ТЕСТ-АКЦИЯ-2711 Копейки 33,33",
+   "price": "33.33",
+   "purchase_price": "10.00",
+   "category": "ТЕСТ-Акции-2711",
+   "brand": "ТЕСТ-Бренд-2711"
+  },
+  {
+   "id": "7cd7ab15-c00d-4208-8238-efbaaf14819b",
+   "name": "ТЕСТ-АКЦИЯ-2711 Ступень 30",
+   "price": "30.00",
+   "purchase_price": "10.00",
+   "category": null,
+   "brand": null
+  }
+ ],
+ "cases": [
+  {
+   "request": {
+    "items": [
+     {
+      "product": "14754df6-7e8a-4f56-9bb3-eaa33125450e",
+      "qty": "3",
+      "price": "80.00",
+      "discount": "12.50"
+     },
+     {
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "qty": "2",
+      "price": "100.00",
+      "discount": "12.50"
+     },
+     {
+      "product": "824bce8e-4ad1-4b60-8224-d4c81ed87e3d",
+      "qty": "4",
+      "price": "60.00"
+     }
+    ],
+    "at": "2026-11-27T10:15:00+06:00"
+   },
+   "response": {
+    "total": "520.00",
+    "at": "2026-11-27T10:15:00+06:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "14754df6-7e8a-4f56-9bb3-eaa33125450e",
+      "variant": null,
+      "qty": "3.000",
+      "price": "80.00",
+      "subtotal": "240.00",
+      "discount": "80.00",
+      "line_total": "160.00",
+      "applied": [
+       {
+        "id": "4c8ee37b-8e35-455f-9fbc-f204bb6a92c4",
+        "qty": "1",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 2+1 вода",
+        "amount": "80.00",
+        "version": 1
+       }
+      ]
+     },
+     {
+      "index": 1,
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "variant": null,
+      "qty": "2.000",
+      "price": "100.00",
+      "subtotal": "200.00",
+      "discount": "20.00",
+      "line_total": "180.00",
+      "applied": [
+       {
+        "id": "37580c76-b0e4-4f39-bf93-dda3ee49d535",
+        "qty": "2.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 H цена 85 лимит 2",
+        "amount": "20.00",
+        "version": 1
+       }
+      ]
+     },
+     {
+      "index": 2,
+      "product": "824bce8e-4ad1-4b60-8224-d4c81ed87e3d",
+      "variant": null,
+      "qty": "4.000",
+      "price": "60.00",
+      "subtotal": "240.00",
+      "discount": "60.00",
+      "line_total": "180.00",
+      "applied": [
+       {
+        "id": "f196ec28-73ba-4e46-95b7-77a08f9efb60",
+        "qty": "1",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 2+1 кефир",
+        "amount": "60.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [],
+    "warnings": [
+     {
+      "code": "promotion_capped_by_cost",
+      "index": 1,
+      "cut": "10.00",
+      "purchase_price": "90.00"
+     }
+    ]
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "824bce8e-4ad1-4b60-8224-d4c81ed87e3d",
+      "qty": "3",
+      "price": "60.00"
+     }
+    ],
+    "at": "2026-11-27T10:15:00+06:00"
+   },
+   "response": {
+    "total": "120.00",
+    "at": "2026-11-27T10:15:00+06:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "824bce8e-4ad1-4b60-8224-d4c81ed87e3d",
+      "variant": null,
+      "qty": "3.000",
+      "price": "60.00",
+      "subtotal": "180.00",
+      "discount": "60.00",
+      "line_total": "120.00",
+      "applied": [
+       {
+        "id": "f196ec28-73ba-4e46-95b7-77a08f9efb60",
+        "qty": "1",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 2+1 кефир",
+        "amount": "60.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [],
+    "warnings": []
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "qty": "3",
+      "price": "100.00",
+      "discount": "1.00"
+     }
+    ],
+    "at": "2026-11-27T22:30:00+06:00"
+   },
+   "response": {
+    "total": "270.00",
+    "at": "2026-11-27T22:30:00+06:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "variant": null,
+      "qty": "3.000",
+      "price": "100.00",
+      "subtotal": "300.00",
+      "discount": "30.00",
+      "line_total": "270.00",
+      "applied": [
+       {
+        "id": "37580c76-b0e4-4f39-bf93-dda3ee49d535",
+        "qty": "2",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 H цена 85 лимит 2",
+        "amount": "30.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [],
+    "warnings": []
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "14754df6-7e8a-4f56-9bb3-eaa33125450e",
+      "qty": "2",
+      "price": "80.00",
+      "discount": "30.00"
+     },
+     {
+      "product": "824bce8e-4ad1-4b60-8224-d4c81ed87e3d",
+      "qty": "7",
+      "price": "60.00",
+      "discount": "30.00"
+     },
+     {
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "qty": "6",
+      "price": "100.00"
+     },
+     {
+      "product": "824bce8e-4ad1-4b60-8224-d4c81ed87e3d",
+      "qty": "2",
+      "price": "60.00"
+     }
+    ],
+    "at": "2026-11-27T10:15:00+06:00"
+   },
+   "response": {
+    "total": "1066.00",
+    "at": "2026-11-27T10:15:00+06:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "14754df6-7e8a-4f56-9bb3-eaa33125450e",
+      "variant": null,
+      "qty": "2.000",
+      "price": "80.00",
+      "subtotal": "160.00",
+      "discount": "24.00",
+      "line_total": "136.00",
+      "applied": [
+       {
+        "id": "ce64eb35-f6c5-4290-afa3-43a5f2c310c6",
+        "qty": "2.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 -15% категория",
+        "amount": "24.00",
+        "version": 1
+       }
+      ]
+     },
+     {
+      "index": 1,
+      "product": "824bce8e-4ad1-4b60-8224-d4c81ed87e3d",
+      "variant": null,
+      "qty": "9.000",
+      "price": "60.00",
+      "subtotal": "540.00",
+      "discount": "180.00",
+      "line_total": "360.00",
+      "applied": [
+       {
+        "id": "f196ec28-73ba-4e46-95b7-77a08f9efb60",
+        "qty": "3",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 2+1 кефир",
+        "amount": "180.00",
+        "version": 1
+       }
+      ]
+     },
+     {
+      "index": 2,
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "variant": null,
+      "qty": "6.000",
+      "price": "100.00",
+      "subtotal": "600.00",
+      "discount": "30.00",
+      "line_total": "570.00",
+      "applied": [
+       {
+        "id": "37580c76-b0e4-4f39-bf93-dda3ee49d535",
+        "qty": "2",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 H цена 85 лимит 2",
+        "amount": "30.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [
+     {
+      "promotion": "4c8ee37b-8e35-455f-9fbc-f204bb6a92c4",
+      "need_qty": 1,
+      "text": "Добавьте ещё 1 — будет бесплатно"
+     }
+    ],
+    "warnings": [
+     {
+      "code": "lines_merged",
+      "index": 3,
+      "into": 1
+     }
+    ]
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "f1d3c85e-aa68-4ab2-8d49-4945876c8028",
+      "qty": "1",
+      "price": "120.00"
+     }
+    ],
+    "at": "2026-11-27T13:59:00+06:00"
+   },
+   "response": {
+    "total": "110.00",
+    "at": "2026-11-27T13:59:00+06:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "f1d3c85e-aa68-4ab2-8d49-4945876c8028",
+      "variant": null,
+      "qty": "1.000",
+      "price": "120.00",
+      "subtotal": "120.00",
+      "discount": "10.00",
+      "line_total": "110.00",
+      "applied": [
+       {
+        "id": "97d97cc8-fbd5-4715-afee-3aa935aab50d",
+        "qty": "1.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 I −10 на строку бренд",
+        "amount": "10.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [],
+    "warnings": []
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "824bce8e-4ad1-4b60-8224-d4c81ed87e3d",
+      "qty": "7",
+      "price": "60.00",
+      "discount": "30.00"
+     },
+     {
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "qty": "2",
+      "price": "100.00"
+     }
+    ],
+    "at": "2026-11-27T10:15:00+06:00"
+   },
+   "response": {
+    "total": "480.00",
+    "at": "2026-11-27T10:15:00+06:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "824bce8e-4ad1-4b60-8224-d4c81ed87e3d",
+      "variant": null,
+      "qty": "7.000",
+      "price": "60.00",
+      "subtotal": "420.00",
+      "discount": "120.00",
+      "line_total": "300.00",
+      "applied": [
+       {
+        "id": "f196ec28-73ba-4e46-95b7-77a08f9efb60",
+        "qty": "2",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 2+1 кефир",
+        "amount": "120.00",
+        "version": 1
+       }
+      ]
+     },
+     {
+      "index": 1,
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "variant": null,
+      "qty": "2.000",
+      "price": "100.00",
+      "subtotal": "200.00",
+      "discount": "20.00",
+      "line_total": "180.00",
+      "applied": [
+       {
+        "id": "37580c76-b0e4-4f39-bf93-dda3ee49d535",
+        "qty": "2.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 H цена 85 лимит 2",
+        "amount": "20.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [],
+    "warnings": [
+     {
+      "code": "promotion_capped_by_cost",
+      "index": 1,
+      "cut": "10.00",
+      "purchase_price": "90.00"
+     }
+    ]
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "824bce8e-4ad1-4b60-8224-d4c81ed87e3d",
+      "qty": "1",
+      "price": "60.00",
+      "discount": "30.00"
+     },
+     {
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "qty": "4",
+      "price": "100.00",
+      "discount": "12.50"
+     },
+     {
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "qty": "6",
+      "price": "100.00"
+     }
+    ],
+    "at": "2026-11-27T22:30:00+06:00"
+   },
+   "response": {
+    "total": "1021.00",
+    "at": "2026-11-27T22:30:00+06:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "824bce8e-4ad1-4b60-8224-d4c81ed87e3d",
+      "variant": null,
+      "qty": "1.000",
+      "price": "60.00",
+      "subtotal": "60.00",
+      "discount": "9.00",
+      "line_total": "51.00",
+      "applied": [
+       {
+        "id": "ce64eb35-f6c5-4290-afa3-43a5f2c310c6",
+        "qty": "1.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 -15% категория",
+        "amount": "9.00",
+        "version": 1
+       }
+      ]
+     },
+     {
+      "index": 1,
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "variant": null,
+      "qty": "10.000",
+      "price": "100.00",
+      "subtotal": "1000.00",
+      "discount": "30.00",
+      "line_total": "970.00",
+      "applied": [
+       {
+        "id": "37580c76-b0e4-4f39-bf93-dda3ee49d535",
+        "qty": "2",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 H цена 85 лимит 2",
+        "amount": "30.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [],
+    "warnings": [
+     {
+      "code": "lines_merged",
+      "index": 2,
+      "into": 1
+     }
+    ]
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "qty": "4",
+      "price": "100.00"
+     }
+    ],
+    "at": "2026-11-27T13:59:00+06:00"
+   },
+   "response": {
+    "total": "370.00",
+    "at": "2026-11-27T13:59:00+06:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "variant": null,
+      "qty": "4.000",
+      "price": "100.00",
+      "subtotal": "400.00",
+      "discount": "30.00",
+      "line_total": "370.00",
+      "applied": [
+       {
+        "id": "37580c76-b0e4-4f39-bf93-dda3ee49d535",
+        "qty": "2",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 H цена 85 лимит 2",
+        "amount": "30.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [],
+    "warnings": []
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "7cd7ab15-c00d-4208-8238-efbaaf14819b",
+      "qty": "7",
+      "price": "30.00"
+     },
+     {
+      "product": "f1d3c85e-aa68-4ab2-8d49-4945876c8028",
+      "qty": "5",
+      "price": "120.00"
+     },
+     {
+      "product": "7cd7ab15-c00d-4208-8238-efbaaf14819b",
+      "qty": "6",
+      "price": "30.00"
+     }
+    ],
+    "at": "2026-11-27T22:30:00+06:00"
+   },
+   "response": {
+    "total": "980.00",
+    "at": "2026-11-27T22:30:00+06:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "7cd7ab15-c00d-4208-8238-efbaaf14819b",
+      "variant": null,
+      "qty": "13.000",
+      "price": "30.00",
+      "subtotal": "390.00",
+      "discount": "0.00",
+      "line_total": "390.00",
+      "applied": []
+     },
+     {
+      "index": 1,
+      "product": "f1d3c85e-aa68-4ab2-8d49-4945876c8028",
+      "variant": null,
+      "qty": "5.000",
+      "price": "120.00",
+      "subtotal": "600.00",
+      "discount": "10.00",
+      "line_total": "590.00",
+      "applied": [
+       {
+        "id": "97d97cc8-fbd5-4715-afee-3aa935aab50d",
+        "qty": "5.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 I −10 на строку бренд",
+        "amount": "10.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [
+     {
+      "promotion": "4c8ee37b-8e35-455f-9fbc-f204bb6a92c4",
+      "need_qty": 1,
+      "text": "Добавьте ещё 1 — будет бесплатно"
+     }
+    ],
+    "warnings": [
+     {
+      "code": "lines_merged",
+      "index": 2,
+      "into": 0
+     }
+    ]
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "7cd7ab15-c00d-4208-8238-efbaaf14819b",
+      "qty": "1",
+      "price": "30.00",
+      "discount": "30.00"
+     },
+     {
+      "product": "b7d280e3-ba81-4986-8a1b-ee24b4cd8539",
+      "qty": "1",
+      "price": "100.00"
+     },
+     {
+      "product": "824bce8e-4ad1-4b60-8224-d4c81ed87e3d",
+      "qty": "1",
+      "price": "60.00"
+     }
+    ],
+    "at": "2026-11-27T13:59:00+06:00"
+   },
+   "response": {
+    "total": "146.00",
+    "at": "2026-11-27T13:59:00+06:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "7cd7ab15-c00d-4208-8238-efbaaf14819b",
+      "variant": null,
+      "qty": "1.000",
+      "price": "30.00",
+      "subtotal": "30.00",
+      "discount": "30.00",
+      "line_total": "0.00",
+      "applied": [
+       {
+        "kind": "manual",
+        "id": null,
+        "title": "Скидка кассира",
+        "qty": "1.000",
+        "amount": "30.00"
+       }
+      ]
+     },
+     {
+      "index": 1,
+      "product": "b7d280e3-ba81-4986-8a1b-ee24b4cd8539",
+      "variant": null,
+      "qty": "1.000",
+      "price": "100.00",
+      "subtotal": "100.00",
+      "discount": "5.00",
+      "line_total": "95.00",
+      "applied": [
+       {
+        "id": "a9191244-b73b-49d5-922e-04b375761a58",
+        "qty": "1.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 F часы 10-14",
+        "amount": "5.00",
+        "version": 1
+       }
+      ]
+     },
+     {
+      "index": 2,
+      "product": "824bce8e-4ad1-4b60-8224-d4c81ed87e3d",
+      "variant": null,
+      "qty": "1.000",
+      "price": "60.00",
+      "subtotal": "60.00",
+      "discount": "9.00",
+      "line_total": "51.00",
+      "applied": [
+       {
+        "id": "ce64eb35-f6c5-4290-afa3-43a5f2c310c6",
+        "qty": "1.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 -15% категория",
+        "amount": "9.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [],
+    "warnings": [
+     {
+      "code": "below_cost",
+      "index": 0,
+      "product_id": "7cd7ab15-c00d-4208-8238-efbaaf14819b",
+      "price": "0.00",
+      "purchase_price": "10.00"
+     }
+    ]
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "824bce8e-4ad1-4b60-8224-d4c81ed87e3d",
+      "qty": "7",
+      "price": "60.00"
+     },
+     {
+      "product": "3e5405a1-11c5-442a-b585-825bb1dbaec2",
+      "qty": "7",
+      "price": "33.33"
+     },
+     {
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "qty": "2",
+      "price": "100.00",
+      "discount": "30.00"
+     },
+     {
+      "product": "3e5405a1-11c5-442a-b585-825bb1dbaec2",
+      "qty": "2",
+      "price": "33.33",
+      "discount": "12.50"
+     }
+    ],
+    "at": "2026-11-27T10:15:00+06:00"
+   },
+   "response": {
+    "total": "757.47",
+    "at": "2026-11-27T10:15:00+06:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "824bce8e-4ad1-4b60-8224-d4c81ed87e3d",
+      "variant": null,
+      "qty": "7.000",
+      "price": "60.00",
+      "subtotal": "420.00",
+      "discount": "120.00",
+      "line_total": "300.00",
+      "applied": [
+       {
+        "id": "f196ec28-73ba-4e46-95b7-77a08f9efb60",
+        "qty": "2",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 2+1 кефир",
+        "amount": "120.00",
+        "version": 1
+       }
+      ]
+     },
+     {
+      "index": 1,
+      "product": "3e5405a1-11c5-442a-b585-825bb1dbaec2",
+      "variant": null,
+      "qty": "9.000",
+      "price": "33.33",
+      "subtotal": "299.97",
+      "discount": "22.50",
+      "line_total": "277.47",
+      "applied": [
+       {
+        "id": "97d97cc8-fbd5-4715-afee-3aa935aab50d",
+        "qty": "9.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 I −10 на строку бренд",
+        "amount": "10.00",
+        "version": 1
+       },
+       {
+        "id": null,
+        "qty": "9.000",
+        "kind": "manual",
+        "title": "Скидка кассира",
+        "amount": "12.50"
+       }
+      ]
+     },
+     {
+      "index": 2,
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "variant": null,
+      "qty": "2.000",
+      "price": "100.00",
+      "subtotal": "200.00",
+      "discount": "20.00",
+      "line_total": "180.00",
+      "applied": [
+       {
+        "id": "37580c76-b0e4-4f39-bf93-dda3ee49d535",
+        "qty": "2.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 H цена 85 лимит 2",
+        "amount": "20.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [],
+    "warnings": [
+     {
+      "code": "below_cost",
+      "index": 2,
+      "product_id": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "price": "85.00",
+      "purchase_price": "90.00"
+     },
+     {
+      "code": "lines_merged",
+      "index": 3,
+      "into": 1
+     },
+     {
+      "code": "promotion_capped_by_cost",
+      "index": 2,
+      "cut": "10.00",
+      "purchase_price": "90.00"
+     }
+    ]
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "qty": "7",
+      "price": "100.00"
+     }
+    ],
+    "at": "2026-11-27T10:15:00+06:00"
+   },
+   "response": {
+    "total": "670.00",
+    "at": "2026-11-27T10:15:00+06:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "variant": null,
+      "qty": "7.000",
+      "price": "100.00",
+      "subtotal": "700.00",
+      "discount": "30.00",
+      "line_total": "670.00",
+      "applied": [
+       {
+        "id": "37580c76-b0e4-4f39-bf93-dda3ee49d535",
+        "qty": "2",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 H цена 85 лимит 2",
+        "amount": "30.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [],
+    "warnings": []
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "qty": "5",
+      "price": "100.00",
+      "discount": "5.00"
+     }
+    ],
+    "at": "2026-11-27T22:30:00+06:00"
+   },
+   "response": {
+    "total": "470.00",
+    "at": "2026-11-27T22:30:00+06:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "variant": null,
+      "qty": "5.000",
+      "price": "100.00",
+      "subtotal": "500.00",
+      "discount": "30.00",
+      "line_total": "470.00",
+      "applied": [
+       {
+        "id": "37580c76-b0e4-4f39-bf93-dda3ee49d535",
+        "qty": "2",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 H цена 85 лимит 2",
+        "amount": "30.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [],
+    "warnings": []
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "14754df6-7e8a-4f56-9bb3-eaa33125450e",
+      "qty": "7",
+      "price": "80.00"
+     }
+    ]
+   },
+   "response": {
+    "total": "511.00",
+    "at": "2026-11-26T19:48:06.179367+00:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "14754df6-7e8a-4f56-9bb3-eaa33125450e",
+      "variant": null,
+      "qty": "7.000",
+      "price": "80.00",
+      "subtotal": "560.00",
+      "discount": "49.00",
+      "line_total": "511.00",
+      "applied": [
+       {
+        "id": "732e1713-ccb2-449e-b44b-ee96f4647de2",
+        "qty": "7.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 G ночь пт-сб",
+        "amount": "49.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [],
+    "warnings": []
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "824bce8e-4ad1-4b60-8224-d4c81ed87e3d",
+      "qty": "2",
+      "price": "60.00"
+     },
+     {
+      "product": "824bce8e-4ad1-4b60-8224-d4c81ed87e3d",
+      "qty": "3",
+      "price": "60.00",
+      "discount": "30.00"
+     }
+    ],
+    "at": "2026-11-27T13:59:00+06:00"
+   },
+   "response": {
+    "total": "240.00",
+    "at": "2026-11-27T13:59:00+06:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "824bce8e-4ad1-4b60-8224-d4c81ed87e3d",
+      "variant": null,
+      "qty": "5.000",
+      "price": "60.00",
+      "subtotal": "300.00",
+      "discount": "60.00",
+      "line_total": "240.00",
+      "applied": [
+       {
+        "id": "f196ec28-73ba-4e46-95b7-77a08f9efb60",
+        "qty": "1",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 2+1 кефир",
+        "amount": "60.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [
+     {
+      "promotion": "f196ec28-73ba-4e46-95b7-77a08f9efb60",
+      "need_qty": 1,
+      "text": "Добавьте ещё 1 — будет бесплатно"
+     }
+    ],
+    "warnings": [
+     {
+      "code": "lines_merged",
+      "index": 1,
+      "into": 0
+     }
+    ]
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "3e5405a1-11c5-442a-b585-825bb1dbaec2",
+      "qty": "4",
+      "price": "33.33"
+     }
+    ],
+    "at": "2026-11-27T13:59:00+06:00"
+   },
+   "response": {
+    "total": "123.32",
+    "at": "2026-11-27T13:59:00+06:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "3e5405a1-11c5-442a-b585-825bb1dbaec2",
+      "variant": null,
+      "qty": "4.000",
+      "price": "33.33",
+      "subtotal": "133.32",
+      "discount": "10.00",
+      "line_total": "123.32",
+      "applied": [
+       {
+        "id": "97d97cc8-fbd5-4715-afee-3aa935aab50d",
+        "qty": "4.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 I −10 на строку бренд",
+        "amount": "10.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [],
+    "warnings": []
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "3e5405a1-11c5-442a-b585-825bb1dbaec2",
+      "qty": "2",
+      "price": "33.33"
+     },
+     {
+      "product": "f1d3c85e-aa68-4ab2-8d49-4945876c8028",
+      "qty": "6",
+      "price": "120.00"
+     }
+    ]
+   },
+   "response": {
+    "total": "766.66",
+    "at": "2026-11-26T19:48:07.485262+00:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "3e5405a1-11c5-442a-b585-825bb1dbaec2",
+      "variant": null,
+      "qty": "2.000",
+      "price": "33.33",
+      "subtotal": "66.66",
+      "discount": "10.00",
+      "line_total": "56.66",
+      "applied": [
+       {
+        "id": "97d97cc8-fbd5-4715-afee-3aa935aab50d",
+        "qty": "2.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 I −10 на строку бренд",
+        "amount": "10.00",
+        "version": 1
+       }
+      ]
+     },
+     {
+      "index": 1,
+      "product": "f1d3c85e-aa68-4ab2-8d49-4945876c8028",
+      "variant": null,
+      "qty": "6.000",
+      "price": "120.00",
+      "subtotal": "720.00",
+      "discount": "10.00",
+      "line_total": "710.00",
+      "applied": [
+       {
+        "id": "97d97cc8-fbd5-4715-afee-3aa935aab50d",
+        "qty": "6.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 I −10 на строку бренд",
+        "amount": "10.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [],
+    "warnings": []
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "b7d280e3-ba81-4986-8a1b-ee24b4cd8539",
+      "qty": "1",
+      "price": "100.00"
+     }
+    ],
+    "at": "2026-11-27T14:00:00+06:00"
+   },
+   "response": {
+    "total": "85.00",
+    "at": "2026-11-27T14:00:00+06:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "b7d280e3-ba81-4986-8a1b-ee24b4cd8539",
+      "variant": null,
+      "qty": "1.000",
+      "price": "100.00",
+      "subtotal": "100.00",
+      "discount": "15.00",
+      "line_total": "85.00",
+      "applied": [
+       {
+        "id": "ce64eb35-f6c5-4290-afa3-43a5f2c310c6",
+        "qty": "1.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 -15% категория",
+        "amount": "15.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [],
+    "warnings": []
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "f1d3c85e-aa68-4ab2-8d49-4945876c8028",
+      "qty": "6",
+      "price": "120.00",
+      "discount": "5.00"
+     },
+     {
+      "product": "f1d3c85e-aa68-4ab2-8d49-4945876c8028",
+      "qty": "1",
+      "price": "120.00"
+     }
+    ],
+    "at": "2026-11-28T01:00:00+06:00"
+   },
+   "response": {
+    "total": "825.00",
+    "at": "2026-11-28T01:00:00+06:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "f1d3c85e-aa68-4ab2-8d49-4945876c8028",
+      "variant": null,
+      "qty": "7.000",
+      "price": "120.00",
+      "subtotal": "840.00",
+      "discount": "15.00",
+      "line_total": "825.00",
+      "applied": [
+       {
+        "id": "97d97cc8-fbd5-4715-afee-3aa935aab50d",
+        "qty": "7.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 I −10 на строку бренд",
+        "amount": "10.00",
+        "version": 1
+       },
+       {
+        "id": null,
+        "qty": "7.000",
+        "kind": "manual",
+        "title": "Скидка кассира",
+        "amount": "5.00"
+       }
+      ]
+     }
+    ],
+    "hints": [],
+    "warnings": [
+     {
+      "code": "lines_merged",
+      "index": 1,
+      "into": 0
+     }
+    ]
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "qty": "5",
+      "price": "100.00"
+     },
+     {
+      "product": "14754df6-7e8a-4f56-9bb3-eaa33125450e",
+      "qty": "2",
+      "price": "80.00"
+     },
+     {
+      "product": "b7d280e3-ba81-4986-8a1b-ee24b4cd8539",
+      "qty": "2",
+      "price": "100.00"
+     },
+     {
+      "product": "7cd7ab15-c00d-4208-8238-efbaaf14819b",
+      "qty": "6",
+      "price": "30.00",
+      "discount": "1.00"
+     }
+    ],
+    "at": "2026-11-28T01:00:00+06:00"
+   },
+   "response": {
+    "total": "919.00",
+    "at": "2026-11-28T01:00:00+06:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "variant": null,
+      "qty": "5.000",
+      "price": "100.00",
+      "subtotal": "500.00",
+      "discount": "30.00",
+      "line_total": "470.00",
+      "applied": [
+       {
+        "id": "37580c76-b0e4-4f39-bf93-dda3ee49d535",
+        "qty": "2",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 H цена 85 лимит 2",
+        "amount": "30.00",
+        "version": 1
+       }
+      ]
+     },
+     {
+      "index": 1,
+      "product": "14754df6-7e8a-4f56-9bb3-eaa33125450e",
+      "variant": null,
+      "qty": "2.000",
+      "price": "80.00",
+      "subtotal": "160.00",
+      "discount": "60.00",
+      "line_total": "100.00",
+      "applied": [
+       {
+        "id": "4c8ee37b-8e35-455f-9fbc-f204bb6a92c4",
+        "qty": "1",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 2+1 вода",
+        "amount": "60.00",
+        "version": 1
+       }
+      ]
+     },
+     {
+      "index": 2,
+      "product": "b7d280e3-ba81-4986-8a1b-ee24b4cd8539",
+      "variant": null,
+      "qty": "2.000",
+      "price": "100.00",
+      "subtotal": "200.00",
+      "discount": "30.00",
+      "line_total": "170.00",
+      "applied": [
+       {
+        "id": "ce64eb35-f6c5-4290-afa3-43a5f2c310c6",
+        "qty": "2.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 -15% категория",
+        "amount": "30.00",
+        "version": 1
+       }
+      ]
+     },
+     {
+      "index": 3,
+      "product": "7cd7ab15-c00d-4208-8238-efbaaf14819b",
+      "variant": null,
+      "qty": "6.000",
+      "price": "30.00",
+      "subtotal": "180.00",
+      "discount": "1.00",
+      "line_total": "179.00",
+      "applied": [
+       {
+        "kind": "manual",
+        "id": null,
+        "title": "Скидка кассира",
+        "qty": "6.000",
+        "amount": "1.00"
+       }
+      ]
+     }
+    ],
+    "hints": [],
+    "warnings": [
+     {
+      "code": "promotion_capped_by_cost",
+      "index": 1,
+      "cut": "20.00",
+      "purchase_price": "50.00"
+     }
+    ]
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "b7d280e3-ba81-4986-8a1b-ee24b4cd8539",
+      "qty": "3",
+      "price": "100.00",
+      "discount": "12.50"
+     },
+     {
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "qty": "6",
+      "price": "100.00"
+     }
+    ],
+    "at": "2026-11-27T10:15:00+06:00"
+   },
+   "response": {
+    "total": "855.00",
+    "at": "2026-11-27T10:15:00+06:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "b7d280e3-ba81-4986-8a1b-ee24b4cd8539",
+      "variant": null,
+      "qty": "3.000",
+      "price": "100.00",
+      "subtotal": "300.00",
+      "discount": "15.00",
+      "line_total": "285.00",
+      "applied": [
+       {
+        "id": "a9191244-b73b-49d5-922e-04b375761a58",
+        "qty": "3.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 F часы 10-14",
+        "amount": "15.00",
+        "version": 1
+       }
+      ]
+     },
+     {
+      "index": 1,
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "variant": null,
+      "qty": "6.000",
+      "price": "100.00",
+      "subtotal": "600.00",
+      "discount": "30.00",
+      "line_total": "570.00",
+      "applied": [
+       {
+        "id": "37580c76-b0e4-4f39-bf93-dda3ee49d535",
+        "qty": "2",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 H цена 85 лимит 2",
+        "amount": "30.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [],
+    "warnings": []
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "qty": "6",
+      "price": "100.00"
+     },
+     {
+      "product": "824bce8e-4ad1-4b60-8224-d4c81ed87e3d",
+      "qty": "3",
+      "price": "60.00"
+     }
+    ],
+    "at": "2026-11-27T22:30:00+06:00"
+   },
+   "response": {
+    "total": "690.00",
+    "at": "2026-11-27T22:30:00+06:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "variant": null,
+      "qty": "6.000",
+      "price": "100.00",
+      "subtotal": "600.00",
+      "discount": "30.00",
+      "line_total": "570.00",
+      "applied": [
+       {
+        "id": "37580c76-b0e4-4f39-bf93-dda3ee49d535",
+        "qty": "2",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 H цена 85 лимит 2",
+        "amount": "30.00",
+        "version": 1
+       }
+      ]
+     },
+     {
+      "index": 1,
+      "product": "824bce8e-4ad1-4b60-8224-d4c81ed87e3d",
+      "variant": null,
+      "qty": "3.000",
+      "price": "60.00",
+      "subtotal": "180.00",
+      "discount": "60.00",
+      "line_total": "120.00",
+      "applied": [
+       {
+        "id": "f196ec28-73ba-4e46-95b7-77a08f9efb60",
+        "qty": "1",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 2+1 кефир",
+        "amount": "60.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [],
+    "warnings": []
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "b7d280e3-ba81-4986-8a1b-ee24b4cd8539",
+      "qty": "5",
+      "price": "100.00",
+      "discount": "5.00"
+     },
+     {
+      "product": "3e5405a1-11c5-442a-b585-825bb1dbaec2",
+      "qty": "2",
+      "price": "33.33"
+     },
+     {
+      "product": "b7d280e3-ba81-4986-8a1b-ee24b4cd8539",
+      "qty": "2",
+      "price": "100.00",
+      "discount": "5.00"
+     },
+     {
+      "product": "f1d3c85e-aa68-4ab2-8d49-4945876c8028",
+      "qty": "3",
+      "price": "120.00"
+     }
+    ]
+   },
+   "response": {
+    "total": "906.66",
+    "at": "2026-11-26T19:48:09.785311+00:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "b7d280e3-ba81-4986-8a1b-ee24b4cd8539",
+      "variant": null,
+      "qty": "7.000",
+      "price": "100.00",
+      "subtotal": "700.00",
+      "discount": "200.00",
+      "line_total": "500.00",
+      "applied": [
+       {
+        "id": "4c8ee37b-8e35-455f-9fbc-f204bb6a92c4",
+        "qty": "2",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 2+1 вода",
+        "amount": "200.00",
+        "version": 1
+       }
+      ]
+     },
+     {
+      "index": 1,
+      "product": "3e5405a1-11c5-442a-b585-825bb1dbaec2",
+      "variant": null,
+      "qty": "2.000",
+      "price": "33.33",
+      "subtotal": "66.66",
+      "discount": "10.00",
+      "line_total": "56.66",
+      "applied": [
+       {
+        "id": "97d97cc8-fbd5-4715-afee-3aa935aab50d",
+        "qty": "2.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 I −10 на строку бренд",
+        "amount": "10.00",
+        "version": 1
+       }
+      ]
+     },
+     {
+      "index": 3,
+      "product": "f1d3c85e-aa68-4ab2-8d49-4945876c8028",
+      "variant": null,
+      "qty": "3.000",
+      "price": "120.00",
+      "subtotal": "360.00",
+      "discount": "10.00",
+      "line_total": "350.00",
+      "applied": [
+       {
+        "id": "97d97cc8-fbd5-4715-afee-3aa935aab50d",
+        "qty": "3.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 I −10 на строку бренд",
+        "amount": "10.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [],
+    "warnings": [
+     {
+      "code": "lines_merged",
+      "index": 2,
+      "into": 0
+     }
+    ]
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "qty": "3",
+      "price": "100.00"
+     }
+    ],
+    "at": "2026-11-27T22:30:00+06:00"
+   },
+   "response": {
+    "total": "270.00",
+    "at": "2026-11-27T22:30:00+06:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "variant": null,
+      "qty": "3.000",
+      "price": "100.00",
+      "subtotal": "300.00",
+      "discount": "30.00",
+      "line_total": "270.00",
+      "applied": [
+       {
+        "id": "37580c76-b0e4-4f39-bf93-dda3ee49d535",
+        "qty": "2",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 H цена 85 лимит 2",
+        "amount": "30.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [],
+    "warnings": []
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "f1d3c85e-aa68-4ab2-8d49-4945876c8028",
+      "qty": "4",
+      "price": "120.00"
+     }
+    ],
+    "at": "2026-11-27T14:00:00+06:00"
+   },
+   "response": {
+    "total": "470.00",
+    "at": "2026-11-27T14:00:00+06:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "f1d3c85e-aa68-4ab2-8d49-4945876c8028",
+      "variant": null,
+      "qty": "4.000",
+      "price": "120.00",
+      "subtotal": "480.00",
+      "discount": "10.00",
+      "line_total": "470.00",
+      "applied": [
+       {
+        "id": "97d97cc8-fbd5-4715-afee-3aa935aab50d",
+        "qty": "4.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 I −10 на строку бренд",
+        "amount": "10.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [],
+    "warnings": []
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "824bce8e-4ad1-4b60-8224-d4c81ed87e3d",
+      "qty": "3",
+      "price": "60.00"
+     }
+    ],
+    "at": "2026-11-27T14:00:00+06:00"
+   },
+   "response": {
+    "total": "120.00",
+    "at": "2026-11-27T14:00:00+06:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "824bce8e-4ad1-4b60-8224-d4c81ed87e3d",
+      "variant": null,
+      "qty": "3.000",
+      "price": "60.00",
+      "subtotal": "180.00",
+      "discount": "60.00",
+      "line_total": "120.00",
+      "applied": [
+       {
+        "id": "f196ec28-73ba-4e46-95b7-77a08f9efb60",
+        "qty": "1",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 2+1 кефир",
+        "amount": "60.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [],
+    "warnings": []
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "qty": "2",
+      "price": "100.00"
+     },
+     {
+      "product": "14754df6-7e8a-4f56-9bb3-eaa33125450e",
+      "qty": "7",
+      "price": "80.00"
+     },
+     {
+      "product": "b7d280e3-ba81-4986-8a1b-ee24b4cd8539",
+      "qty": "4",
+      "price": "100.00"
+     },
+     {
+      "product": "14754df6-7e8a-4f56-9bb3-eaa33125450e",
+      "qty": "3",
+      "price": "80.00"
+     }
+    ],
+    "at": "2026-11-27T10:15:00+06:00"
+   },
+   "response": {
+    "total": "1120.00",
+    "at": "2026-11-27T10:15:00+06:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "variant": null,
+      "qty": "2.000",
+      "price": "100.00",
+      "subtotal": "200.00",
+      "discount": "20.00",
+      "line_total": "180.00",
+      "applied": [
+       {
+        "id": "37580c76-b0e4-4f39-bf93-dda3ee49d535",
+        "qty": "2.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 H цена 85 лимит 2",
+        "amount": "20.00",
+        "version": 1
+       }
+      ]
+     },
+     {
+      "index": 1,
+      "product": "14754df6-7e8a-4f56-9bb3-eaa33125450e",
+      "variant": null,
+      "qty": "10.000",
+      "price": "80.00",
+      "subtotal": "800.00",
+      "discount": "240.00",
+      "line_total": "560.00",
+      "applied": [
+       {
+        "id": "4c8ee37b-8e35-455f-9fbc-f204bb6a92c4",
+        "qty": "3",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 2+1 вода",
+        "amount": "240.00",
+        "version": 1
+       }
+      ]
+     },
+     {
+      "index": 2,
+      "product": "b7d280e3-ba81-4986-8a1b-ee24b4cd8539",
+      "variant": null,
+      "qty": "4.000",
+      "price": "100.00",
+      "subtotal": "400.00",
+      "discount": "20.00",
+      "line_total": "380.00",
+      "applied": [
+       {
+        "id": "a9191244-b73b-49d5-922e-04b375761a58",
+        "qty": "4.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 F часы 10-14",
+        "amount": "20.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [
+     {
+      "promotion": "4c8ee37b-8e35-455f-9fbc-f204bb6a92c4",
+      "need_qty": 1,
+      "text": "Добавьте ещё 1 — будет бесплатно"
+     }
+    ],
+    "warnings": [
+     {
+      "code": "lines_merged",
+      "index": 3,
+      "into": 1
+     },
+     {
+      "code": "promotion_capped_by_cost",
+      "index": 0,
+      "cut": "10.00",
+      "purchase_price": "90.00"
+     }
+    ]
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "3e5405a1-11c5-442a-b585-825bb1dbaec2",
+      "qty": "4",
+      "price": "33.33",
+      "discount": "1.00"
+     },
+     {
+      "product": "b7d280e3-ba81-4986-8a1b-ee24b4cd8539",
+      "qty": "2",
+      "price": "100.00",
+      "discount": "5.00"
+     },
+     {
+      "product": "14754df6-7e8a-4f56-9bb3-eaa33125450e",
+      "qty": "6",
+      "price": "80.00"
+     },
+     {
+      "product": "824bce8e-4ad1-4b60-8224-d4c81ed87e3d",
+      "qty": "3",
+      "price": "60.00"
+     }
+    ],
+    "at": "2026-11-27T10:15:00+06:00"
+   },
+   "response": {
+    "total": "752.32",
+    "at": "2026-11-27T10:15:00+06:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "3e5405a1-11c5-442a-b585-825bb1dbaec2",
+      "variant": null,
+      "qty": "4.000",
+      "price": "33.33",
+      "subtotal": "133.32",
+      "discount": "11.00",
+      "line_total": "122.32",
+      "applied": [
+       {
+        "id": "97d97cc8-fbd5-4715-afee-3aa935aab50d",
+        "qty": "4.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 I −10 на строку бренд",
+        "amount": "10.00",
+        "version": 1
+       },
+       {
+        "id": null,
+        "qty": "4.000",
+        "kind": "manual",
+        "title": "Скидка кассира",
+        "amount": "1.00"
+       }
+      ]
+     },
+     {
+      "index": 1,
+      "product": "b7d280e3-ba81-4986-8a1b-ee24b4cd8539",
+      "variant": null,
+      "qty": "2.000",
+      "price": "100.00",
+      "subtotal": "200.00",
+      "discount": "10.00",
+      "line_total": "190.00",
+      "applied": [
+       {
+        "id": "a9191244-b73b-49d5-922e-04b375761a58",
+        "qty": "2.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 F часы 10-14",
+        "amount": "10.00",
+        "version": 1
+       }
+      ]
+     },
+     {
+      "index": 2,
+      "product": "14754df6-7e8a-4f56-9bb3-eaa33125450e",
+      "variant": null,
+      "qty": "6.000",
+      "price": "80.00",
+      "subtotal": "480.00",
+      "discount": "160.00",
+      "line_total": "320.00",
+      "applied": [
+       {
+        "id": "4c8ee37b-8e35-455f-9fbc-f204bb6a92c4",
+        "qty": "2",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 2+1 вода",
+        "amount": "160.00",
+        "version": 1
+       }
+      ]
+     },
+     {
+      "index": 3,
+      "product": "824bce8e-4ad1-4b60-8224-d4c81ed87e3d",
+      "variant": null,
+      "qty": "3.000",
+      "price": "60.00",
+      "subtotal": "180.00",
+      "discount": "60.00",
+      "line_total": "120.00",
+      "applied": [
+       {
+        "id": "f196ec28-73ba-4e46-95b7-77a08f9efb60",
+        "qty": "1",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 2+1 кефир",
+        "amount": "60.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [
+     {
+      "promotion": "4c8ee37b-8e35-455f-9fbc-f204bb6a92c4",
+      "need_qty": 1,
+      "text": "Добавьте ещё 1 — будет бесплатно"
+     }
+    ],
+    "warnings": []
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "qty": "4",
+      "price": "100.00"
+     },
+     {
+      "product": "14754df6-7e8a-4f56-9bb3-eaa33125450e",
+      "qty": "2",
+      "price": "80.00"
+     },
+     {
+      "product": "3e5405a1-11c5-442a-b585-825bb1dbaec2",
+      "qty": "5",
+      "price": "33.33"
+     },
+     {
+      "product": "3e5405a1-11c5-442a-b585-825bb1dbaec2",
+      "qty": "4",
+      "price": "33.33"
+     }
+    ]
+   },
+   "response": {
+    "total": "805.97",
+    "at": "2026-11-26T19:48:12.172139+00:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "variant": null,
+      "qty": "4.000",
+      "price": "100.00",
+      "subtotal": "400.00",
+      "discount": "30.00",
+      "line_total": "370.00",
+      "applied": [
+       {
+        "id": "37580c76-b0e4-4f39-bf93-dda3ee49d535",
+        "qty": "2",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 H цена 85 лимит 2",
+        "amount": "30.00",
+        "version": 1
+       }
+      ]
+     },
+     {
+      "index": 1,
+      "product": "14754df6-7e8a-4f56-9bb3-eaa33125450e",
+      "variant": null,
+      "qty": "2.000",
+      "price": "80.00",
+      "subtotal": "160.00",
+      "discount": "14.00",
+      "line_total": "146.00",
+      "applied": [
+       {
+        "id": "732e1713-ccb2-449e-b44b-ee96f4647de2",
+        "qty": "2.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 G ночь пт-сб",
+        "amount": "14.00",
+        "version": 1
+       }
+      ]
+     },
+     {
+      "index": 2,
+      "product": "3e5405a1-11c5-442a-b585-825bb1dbaec2",
+      "variant": null,
+      "qty": "9.000",
+      "price": "33.33",
+      "subtotal": "299.97",
+      "discount": "10.00",
+      "line_total": "289.97",
+      "applied": [
+       {
+        "id": "97d97cc8-fbd5-4715-afee-3aa935aab50d",
+        "qty": "9.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 I −10 на строку бренд",
+        "amount": "10.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [
+     {
+      "promotion": "4c8ee37b-8e35-455f-9fbc-f204bb6a92c4",
+      "need_qty": 1,
+      "text": "Добавьте ещё 1 — будет бесплатно"
+     }
+    ],
+    "warnings": [
+     {
+      "code": "lines_merged",
+      "index": 3,
+      "into": 2
+     }
+    ]
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "3e5405a1-11c5-442a-b585-825bb1dbaec2",
+      "qty": "6",
+      "price": "33.33"
+     },
+     {
+      "product": "14754df6-7e8a-4f56-9bb3-eaa33125450e",
+      "qty": "4",
+      "price": "80.00",
+      "discount": "5.00"
+     },
+     {
+      "product": "f1d3c85e-aa68-4ab2-8d49-4945876c8028",
+      "qty": "1",
+      "price": "120.00"
+     }
+    ],
+    "at": "2026-11-27T10:15:00+06:00"
+   },
+   "response": {
+    "total": "539.98",
+    "at": "2026-11-27T10:15:00+06:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "3e5405a1-11c5-442a-b585-825bb1dbaec2",
+      "variant": null,
+      "qty": "6.000",
+      "price": "33.33",
+      "subtotal": "199.98",
+      "discount": "10.00",
+      "line_total": "189.98",
+      "applied": [
+       {
+        "id": "97d97cc8-fbd5-4715-afee-3aa935aab50d",
+        "qty": "6.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 I −10 на строку бренд",
+        "amount": "10.00",
+        "version": 1
+       }
+      ]
+     },
+     {
+      "index": 1,
+      "product": "14754df6-7e8a-4f56-9bb3-eaa33125450e",
+      "variant": null,
+      "qty": "4.000",
+      "price": "80.00",
+      "subtotal": "320.00",
+      "discount": "80.00",
+      "line_total": "240.00",
+      "applied": [
+       {
+        "id": "4c8ee37b-8e35-455f-9fbc-f204bb6a92c4",
+        "qty": "1",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 2+1 вода",
+        "amount": "80.00",
+        "version": 1
+       }
+      ]
+     },
+     {
+      "index": 2,
+      "product": "f1d3c85e-aa68-4ab2-8d49-4945876c8028",
+      "variant": null,
+      "qty": "1.000",
+      "price": "120.00",
+      "subtotal": "120.00",
+      "discount": "10.00",
+      "line_total": "110.00",
+      "applied": [
+       {
+        "id": "97d97cc8-fbd5-4715-afee-3aa935aab50d",
+        "qty": "1.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 I −10 на строку бренд",
+        "amount": "10.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [
+     {
+      "promotion": "4c8ee37b-8e35-455f-9fbc-f204bb6a92c4",
+      "need_qty": 1,
+      "text": "Добавьте ещё 1 — будет бесплатно"
+     }
+    ],
+    "warnings": []
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "b7d280e3-ba81-4986-8a1b-ee24b4cd8539",
+      "qty": "5",
+      "price": "100.00"
+     },
+     {
+      "product": "3e5405a1-11c5-442a-b585-825bb1dbaec2",
+      "qty": "1",
+      "price": "33.33"
+     }
+    ],
+    "at": "2026-11-27T10:15:00+06:00"
+   },
+   "response": {
+    "total": "498.33",
+    "at": "2026-11-27T10:15:00+06:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "b7d280e3-ba81-4986-8a1b-ee24b4cd8539",
+      "variant": null,
+      "qty": "5.000",
+      "price": "100.00",
+      "subtotal": "500.00",
+      "discount": "25.00",
+      "line_total": "475.00",
+      "applied": [
+       {
+        "id": "a9191244-b73b-49d5-922e-04b375761a58",
+        "qty": "5.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 F часы 10-14",
+        "amount": "25.00",
+        "version": 1
+       }
+      ]
+     },
+     {
+      "index": 1,
+      "product": "3e5405a1-11c5-442a-b585-825bb1dbaec2",
+      "variant": null,
+      "qty": "1.000",
+      "price": "33.33",
+      "subtotal": "33.33",
+      "discount": "10.00",
+      "line_total": "23.33",
+      "applied": [
+       {
+        "id": "97d97cc8-fbd5-4715-afee-3aa935aab50d",
+        "qty": "1.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 I −10 на строку бренд",
+        "amount": "10.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [
+     {
+      "promotion": "4c8ee37b-8e35-455f-9fbc-f204bb6a92c4",
+      "need_qty": 1,
+      "text": "Добавьте ещё 1 — будет бесплатно"
+     }
+    ],
+    "warnings": []
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "14754df6-7e8a-4f56-9bb3-eaa33125450e",
+      "qty": "1",
+      "price": "80.00"
+     },
+     {
+      "product": "7cd7ab15-c00d-4208-8238-efbaaf14819b",
+      "qty": "7",
+      "price": "30.00"
+     },
+     {
+      "product": "7cd7ab15-c00d-4208-8238-efbaaf14819b",
+      "qty": "5",
+      "price": "30.00"
+     },
+     {
+      "product": "b7d280e3-ba81-4986-8a1b-ee24b4cd8539",
+      "qty": "3",
+      "price": "100.00"
+     }
+    ]
+   },
+   "response": {
+    "total": "633.00",
+    "at": "2026-11-26T19:48:14.119999+00:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "14754df6-7e8a-4f56-9bb3-eaa33125450e",
+      "variant": null,
+      "qty": "1.000",
+      "price": "80.00",
+      "subtotal": "80.00",
+      "discount": "7.00",
+      "line_total": "73.00",
+      "applied": [
+       {
+        "id": "732e1713-ccb2-449e-b44b-ee96f4647de2",
+        "qty": "1.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 G ночь пт-сб",
+        "amount": "7.00",
+        "version": 1
+       }
+      ]
+     },
+     {
+      "index": 1,
+      "product": "7cd7ab15-c00d-4208-8238-efbaaf14819b",
+      "variant": null,
+      "qty": "12.000",
+      "price": "30.00",
+      "subtotal": "360.00",
+      "discount": "0.00",
+      "line_total": "360.00",
+      "applied": []
+     },
+     {
+      "index": 3,
+      "product": "b7d280e3-ba81-4986-8a1b-ee24b4cd8539",
+      "variant": null,
+      "qty": "3.000",
+      "price": "100.00",
+      "subtotal": "300.00",
+      "discount": "100.00",
+      "line_total": "200.00",
+      "applied": [
+       {
+        "id": "4c8ee37b-8e35-455f-9fbc-f204bb6a92c4",
+        "qty": "1",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 2+1 вода",
+        "amount": "100.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [],
+    "warnings": [
+     {
+      "code": "lines_merged",
+      "index": 2,
+      "into": 1
+     }
+    ]
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "14754df6-7e8a-4f56-9bb3-eaa33125450e",
+      "qty": "7",
+      "price": "80.00",
+      "discount": "5.00"
+     },
+     {
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "qty": "1",
+      "price": "100.00"
+     }
+    ],
+    "at": "2026-11-27T14:00:00+06:00"
+   },
+   "response": {
+    "total": "490.00",
+    "at": "2026-11-27T14:00:00+06:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "14754df6-7e8a-4f56-9bb3-eaa33125450e",
+      "variant": null,
+      "qty": "7.000",
+      "price": "80.00",
+      "subtotal": "560.00",
+      "discount": "160.00",
+      "line_total": "400.00",
+      "applied": [
+       {
+        "id": "4c8ee37b-8e35-455f-9fbc-f204bb6a92c4",
+        "qty": "2",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 2+1 вода",
+        "amount": "160.00",
+        "version": 1
+       }
+      ]
+     },
+     {
+      "index": 1,
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "variant": null,
+      "qty": "1.000",
+      "price": "100.00",
+      "subtotal": "100.00",
+      "discount": "10.00",
+      "line_total": "90.00",
+      "applied": [
+       {
+        "id": "37580c76-b0e4-4f39-bf93-dda3ee49d535",
+        "qty": "1.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 H цена 85 лимит 2",
+        "amount": "10.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [],
+    "warnings": [
+     {
+      "code": "promotion_capped_by_cost",
+      "index": 1,
+      "cut": "5.00",
+      "purchase_price": "90.00"
+     }
+    ]
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "3e5405a1-11c5-442a-b585-825bb1dbaec2",
+      "qty": "7",
+      "price": "33.33",
+      "discount": "1.00"
+     },
+     {
+      "product": "824bce8e-4ad1-4b60-8224-d4c81ed87e3d",
+      "qty": "7",
+      "price": "60.00",
+      "discount": "5.00"
+     },
+     {
+      "product": "824bce8e-4ad1-4b60-8224-d4c81ed87e3d",
+      "qty": "1",
+      "price": "60.00",
+      "discount": "30.00"
+     },
+     {
+      "product": "f1d3c85e-aa68-4ab2-8d49-4945876c8028",
+      "qty": "7",
+      "price": "120.00"
+     }
+    ],
+    "at": "2026-11-27T14:00:00+06:00"
+   },
+   "response": {
+    "total": "1412.31",
+    "at": "2026-11-27T14:00:00+06:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "3e5405a1-11c5-442a-b585-825bb1dbaec2",
+      "variant": null,
+      "qty": "7.000",
+      "price": "33.33",
+      "subtotal": "233.31",
+      "discount": "11.00",
+      "line_total": "222.31",
+      "applied": [
+       {
+        "id": "97d97cc8-fbd5-4715-afee-3aa935aab50d",
+        "qty": "7.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 I −10 на строку бренд",
+        "amount": "10.00",
+        "version": 1
+       },
+       {
+        "id": null,
+        "qty": "7.000",
+        "kind": "manual",
+        "title": "Скидка кассира",
+        "amount": "1.00"
+       }
+      ]
+     },
+     {
+      "index": 1,
+      "product": "824bce8e-4ad1-4b60-8224-d4c81ed87e3d",
+      "variant": null,
+      "qty": "8.000",
+      "price": "60.00",
+      "subtotal": "480.00",
+      "discount": "120.00",
+      "line_total": "360.00",
+      "applied": [
+       {
+        "id": "f196ec28-73ba-4e46-95b7-77a08f9efb60",
+        "qty": "2",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 2+1 кефир",
+        "amount": "120.00",
+        "version": 1
+       }
+      ]
+     },
+     {
+      "index": 3,
+      "product": "f1d3c85e-aa68-4ab2-8d49-4945876c8028",
+      "variant": null,
+      "qty": "7.000",
+      "price": "120.00",
+      "subtotal": "840.00",
+      "discount": "10.00",
+      "line_total": "830.00",
+      "applied": [
+       {
+        "id": "97d97cc8-fbd5-4715-afee-3aa935aab50d",
+        "qty": "7.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 I −10 на строку бренд",
+        "amount": "10.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [
+     {
+      "promotion": "f196ec28-73ba-4e46-95b7-77a08f9efb60",
+      "need_qty": 1,
+      "text": "Добавьте ещё 1 — будет бесплатно"
+     }
+    ],
+    "warnings": [
+     {
+      "code": "lines_merged",
+      "index": 2,
+      "into": 1
+     }
+    ]
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "14754df6-7e8a-4f56-9bb3-eaa33125450e",
+      "qty": "6",
+      "price": "80.00"
+     }
+    ],
+    "at": "2026-11-27T13:59:00+06:00"
+   },
+   "response": {
+    "total": "320.00",
+    "at": "2026-11-27T13:59:00+06:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "14754df6-7e8a-4f56-9bb3-eaa33125450e",
+      "variant": null,
+      "qty": "6.000",
+      "price": "80.00",
+      "subtotal": "480.00",
+      "discount": "160.00",
+      "line_total": "320.00",
+      "applied": [
+       {
+        "id": "4c8ee37b-8e35-455f-9fbc-f204bb6a92c4",
+        "qty": "2",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 2+1 вода",
+        "amount": "160.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [],
+    "warnings": []
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "14754df6-7e8a-4f56-9bb3-eaa33125450e",
+      "qty": "7",
+      "price": "80.00",
+      "discount": "1.00"
+     },
+     {
+      "product": "f1d3c85e-aa68-4ab2-8d49-4945876c8028",
+      "qty": "5",
+      "price": "120.00",
+      "discount": "1.00"
+     }
+    ],
+    "at": "2026-11-27T14:00:00+06:00"
+   },
+   "response": {
+    "total": "939.00",
+    "at": "2026-11-27T14:00:00+06:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "14754df6-7e8a-4f56-9bb3-eaa33125450e",
+      "variant": null,
+      "qty": "7.000",
+      "price": "80.00",
+      "subtotal": "560.00",
+      "discount": "210.00",
+      "line_total": "350.00",
+      "applied": [
+       {
+        "id": "4c8ee37b-8e35-455f-9fbc-f204bb6a92c4",
+        "qty": "3",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 2+1 вода",
+        "amount": "210.00",
+        "version": 1
+       }
+      ]
+     },
+     {
+      "index": 1,
+      "product": "f1d3c85e-aa68-4ab2-8d49-4945876c8028",
+      "variant": null,
+      "qty": "5.000",
+      "price": "120.00",
+      "subtotal": "600.00",
+      "discount": "11.00",
+      "line_total": "589.00",
+      "applied": [
+       {
+        "id": "97d97cc8-fbd5-4715-afee-3aa935aab50d",
+        "qty": "5.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 I −10 на строку бренд",
+        "amount": "10.00",
+        "version": 1
+       },
+       {
+        "id": null,
+        "qty": "5.000",
+        "kind": "manual",
+        "title": "Скидка кассира",
+        "amount": "1.00"
+       }
+      ]
+     }
+    ],
+    "hints": [],
+    "warnings": [
+     {
+      "code": "promotion_capped_by_cost",
+      "index": 0,
+      "cut": "30.00",
+      "purchase_price": "50.00"
+     }
+    ]
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "qty": "4",
+      "price": "100.00"
+     },
+     {
+      "product": "14754df6-7e8a-4f56-9bb3-eaa33125450e",
+      "qty": "3",
+      "price": "80.00"
+     },
+     {
+      "product": "824bce8e-4ad1-4b60-8224-d4c81ed87e3d",
+      "qty": "2",
+      "price": "60.00"
+     }
+    ],
+    "at": "2026-11-27T10:15:00+06:00"
+   },
+   "response": {
+    "total": "632.00",
+    "at": "2026-11-27T10:15:00+06:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "b6698231-8086-44a8-acbd-d2bc3c8810b3",
+      "variant": null,
+      "qty": "4.000",
+      "price": "100.00",
+      "subtotal": "400.00",
+      "discount": "30.00",
+      "line_total": "370.00",
+      "applied": [
+       {
+        "id": "37580c76-b0e4-4f39-bf93-dda3ee49d535",
+        "qty": "2",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 H цена 85 лимит 2",
+        "amount": "30.00",
+        "version": 1
+       }
+      ]
+     },
+     {
+      "index": 1,
+      "product": "14754df6-7e8a-4f56-9bb3-eaa33125450e",
+      "variant": null,
+      "qty": "3.000",
+      "price": "80.00",
+      "subtotal": "240.00",
+      "discount": "80.00",
+      "line_total": "160.00",
+      "applied": [
+       {
+        "id": "4c8ee37b-8e35-455f-9fbc-f204bb6a92c4",
+        "qty": "1",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 2+1 вода",
+        "amount": "80.00",
+        "version": 1
+       }
+      ]
+     },
+     {
+      "index": 2,
+      "product": "824bce8e-4ad1-4b60-8224-d4c81ed87e3d",
+      "variant": null,
+      "qty": "2.000",
+      "price": "60.00",
+      "subtotal": "120.00",
+      "discount": "18.00",
+      "line_total": "102.00",
+      "applied": [
+       {
+        "id": "ce64eb35-f6c5-4290-afa3-43a5f2c310c6",
+        "qty": "2.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 -15% категория",
+        "amount": "18.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [
+     {
+      "promotion": "f196ec28-73ba-4e46-95b7-77a08f9efb60",
+      "need_qty": 1,
+      "text": "Добавьте ещё 1 — будет бесплатно"
+     }
+    ],
+    "warnings": []
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "14754df6-7e8a-4f56-9bb3-eaa33125450e",
+      "qty": "1",
+      "price": "80.00",
+      "discount": "1.00"
+     }
+    ]
+   },
+   "response": {
+    "total": "73.00",
+    "at": "2026-11-26T19:48:16.384384+00:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "14754df6-7e8a-4f56-9bb3-eaa33125450e",
+      "variant": null,
+      "qty": "1.000",
+      "price": "80.00",
+      "subtotal": "80.00",
+      "discount": "7.00",
+      "line_total": "73.00",
+      "applied": [
+       {
+        "id": "732e1713-ccb2-449e-b44b-ee96f4647de2",
+        "qty": "1.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 G ночь пт-сб",
+        "amount": "7.00",
+        "version": 1
+       }
+      ]
+     }
+    ],
+    "hints": [],
+    "warnings": []
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "7cd7ab15-c00d-4208-8238-efbaaf14819b",
+      "qty": "3",
+      "price": "30.00"
+     }
+    ],
+    "at": "2026-11-27T13:59:00+06:00"
+   },
+   "response": {
+    "total": "90.00",
+    "at": "2026-11-27T13:59:00+06:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "7cd7ab15-c00d-4208-8238-efbaaf14819b",
+      "variant": null,
+      "qty": "3.000",
+      "price": "30.00",
+      "subtotal": "90.00",
+      "discount": "0.00",
+      "line_total": "90.00",
+      "applied": []
+     }
+    ],
+    "hints": [],
+    "warnings": []
+   }
+  },
+  {
+   "request": {
+    "items": [
+     {
+      "product": "3e5405a1-11c5-442a-b585-825bb1dbaec2",
+      "qty": "4",
+      "price": "33.33",
+      "discount": "12.50"
+     }
+    ],
+    "at": "2026-11-27T13:59:00+06:00"
+   },
+   "response": {
+    "total": "110.82",
+    "at": "2026-11-27T13:59:00+06:00",
+    "lines": [
+     {
+      "index": 0,
+      "product": "3e5405a1-11c5-442a-b585-825bb1dbaec2",
+      "variant": null,
+      "qty": "4.000",
+      "price": "33.33",
+      "subtotal": "133.32",
+      "discount": "22.50",
+      "line_total": "110.82",
+      "applied": [
+       {
+        "id": "97d97cc8-fbd5-4715-afee-3aa935aab50d",
+        "qty": "4.000",
+        "kind": "promotion",
+        "title": "ТЕСТ-Claude-2711 I −10 на строку бренд",
+        "amount": "10.00",
+        "version": 1
+       },
+       {
+        "id": null,
+        "qty": "4.000",
+        "kind": "manual",
+        "title": "Скидка кассира",
+        "amount": "12.50"
+       }
+      ]
+     }
+    ],
+    "hints": [],
+    "warnings": []
+   }
+  }
+ ]
+}

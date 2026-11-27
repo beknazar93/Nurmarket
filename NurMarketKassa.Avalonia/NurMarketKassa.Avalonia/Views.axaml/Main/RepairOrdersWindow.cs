@@ -20,6 +20,20 @@ public sealed class RepairOrdersDeps
     public Func<string, string, Task<bool>> Confirm { get; init; } = null!;
     public Func<string> Cashier { get; init; } = () => NurMarketKassa.PosApp.CurrentUserDisplayName ?? "";
     public Func<DateTime> Today { get; init; } = () => DateTime.Today;
+    /// <summary>2026-11-26: можно ли написать клиенту «готово» в Telegram (номер привязан к боту магазина) и сама отправка; тест подставляет свои.</summary>
+    public Func<RepairOrder, bool> CanTelegram { get; init; } = RepairTelegramNotify.CanSend;
+    public Func<RepairOrder, Task<TelegramReceiptSendResult>> TelegramReady { get; init; } = o => RepairTelegramNotify.SendReadyAsync(o);
+    /// <summary>2026-11-26: адрес страницы статуса на витрине для квитанции (null — сервер не умеет); тест подставляет свой.</summary>
+    public Func<RepairOrderStore, RepairOrder, Task<string?>> StatusUrl { get; init; } = (store, o) => RepairStatusPublic.UrlForReceiptAsync(store, o);
+    /// <summary>2026-11-26 (Умар, этап 2): прочитать с сервера изменения квитанций (чужие кассы, программа владельца, мобилка); возвращает, сколько квитанций добавлено/обновлено. Без признака сервера — 0; тест подставляет свой.</summary>
+    public Func<RepairOrderStore, Task<int>> Pull { get; init; } = store => RepairServerSync.PullAsync(store);
+    /// <summary>2026-11-27 (ответ Умара 27.11, п. 3): id смены, в которую сервер проведёт предоплату серверной квитанции (POST …/prepay/); тест подставляет свой.</summary>
+    public Func<string?> ShiftId { get; init; } = () => NurMarketKassa.PosApp.ActiveShiftId;
+    /// <summary>2026-11-27: предоплата серверной квитанции (заказ, сумма, смена, ключ повтора) → итог и строка квитанции из ответа; без входа — «нет связи». Тест подставляет свою.</summary>
+    public Func<RepairOrder, decimal, string?, string, Task<(RepairSyncResult Result, RepairServerRow? Row)>> Prepay { get; init; } =
+        (o, amount, shift, key) => RepairStatusPublic.Api() is { } api
+            ? RepairStatusPublic.PrepayServerAsync(api, o, amount, shift, key)
+            : Task.FromResult<(RepairSyncResult, RepairServerRow?)>((new RepairSyncResult(RepairSyncKind.Retry), null));
 }
 
 /// <summary>2026-11-13 (решение владельца: «Ремонт и trade-in — доп. услуги в маркетплейсе»): «Ремонт и сервис» — журнал квитанций приёма в ремонт: приём (клиент, устройство,
@@ -36,7 +50,11 @@ public sealed class RepairOrdersWindow : Window, IOwnerSection
     private readonly StackPanel _detail = new();
     private readonly TextBlock _status = new();
     private string? _selectedId;
+    private Avalonia.Threading.DispatcherTimer? _syncTimer;
     private bool _ownerSection;
+
+    /// <summary>2026-11-26 (стресс-тест): сколько квитанций рисовать в списке слева (остальные — поиском).</summary>
+    public const int MaxRows = 150;
 
     public RepairOrdersWindow() : this(null) { }
 
@@ -52,12 +70,125 @@ public sealed class RepairOrdersWindow : Window, IOwnerSection
         SystemDecorations = SystemDecorations.None;
         this[!BackgroundProperty] = this.GetResourceObservable("DialogWindowBackground").ToBinding();
         this[!TransparencyLevelHintProperty] = this.GetResourceObservable("DialogTransparencyHint").ToBinding();
-        Opened += (_, _) => { if (!_ownerSection) this.FitToKassaScreen(); };
+        Opened += (_, _) => { if (!_ownerSection) this.FitToKassaScreen(); StartSyncTimer(); };
+        Closed += (_, _) => _syncTimer?.Stop();
         BuildUi();
         Reload();
     }
 
     private readonly Func<string, string, Task<bool>> _confirm;
+
+    /// <summary>2026-11-26: при открытии окна и раз в 90 секунд досылаем серверу заказы, которые не ушли (нет сети, 429); без признака сервера ничего не делает.</summary>
+    private void StartSyncTimer()
+    {
+        Publish();
+        Pull();
+        if (_syncTimer is not null) // 2026-11-26 (стресс-тест): повторный Opened не заводит второй таймер (утечка, двойной опрос)
+            return;
+        _syncTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(90) };
+        _syncTimer.Tick += (_, _) => { Publish(); Pull(); };
+        _syncTimer.Start();
+    }
+
+    // 2026-11-26 (Умар, этап 2): при открытии окна и раз в 90 секунд, пока оно открыто, читаем изменения с сервера (курсор next_since хранится в файле компании); окно обновляется «на лету».
+    private void Pull() => _ = Task.Run(async () =>
+    {
+        try
+        {
+            var n = await _deps.Pull(_deps.Store).ConfigureAwait(false);
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => AfterSync(n > 0));
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            PosLogger.Log($"Ремонт: чтение изменений с сервера не удалось ({ex.GetType().Name}).", "WARNING");
+        }
+    });
+
+    /// <summary>Прочитать изменения с сервера сейчас и обновить окно (для проверок и кнопки обновления; по таймеру то же самое делает <see cref="Pull"/> в фоне).</summary>
+    public async Task<int> PullNowAsync()
+    {
+        var n = await _deps.Pull(_deps.Store).ConfigureAwait(true);
+        AfterSync(n > 0);
+        return n;
+    }
+
+    private readonly HashSet<string> _conflictAsked = new();
+
+    /// <summary>После обмена с сервером: перечитать список, если что-то изменилось, и спросить кассира про квитанции с конфликтом версий (каждый конфликт — один раз за сеанс окна; потом кнопки в карточке).</summary>
+    private void AfterSync(bool changed)
+    {
+        if (!IsVisible)
+            return;
+        var all = _deps.Store.All();
+        var conflict = all.FirstOrDefault(o => o.HasConflict && !_conflictAsked.Contains(o.Id + ":" + o.ConflictJson.GetHashCode()));
+        // 2026-11-27: сервер отказал по серверной квитанции (bad_transition, payment_missing…) и касса привела её к серверному виду — кассиру говорим причину (один раз на отказ)
+        var rejected = all.Select(o => (Order: o, Last: o.Log.LastOrDefault()))
+            .FirstOrDefault(x => x.Last is { } l && l.Action.StartsWith("server-rejected:", StringComparison.Ordinal) && !_conflictAsked.Contains(x.Order.Id + ":rej:" + l.At.Ticks));
+        if (rejected.Last is { } rejectedEntry)
+        {
+            _conflictAsked.Add(rejected.Order.Id + ":rej:" + rejectedEntry.At.Ticks);
+            var code = rejectedEntry.Action["server-rejected:".Length..];
+            Say(RepairStatusPublic.RejectionText(code) ?? Tr.T($"Сервер не принял изменение квитанции {RepairRules.Code(rejected.Order)} ({code}). Квитанция приведена к состоянию на сервере.",
+                $"Сервер {RepairRules.Code(rejected.Order)} квитанциясынын өзгөрүшүн кабыл алган жок ({code}). Квитанция сервердеги абалга келтирилди.",
+                $"The server did not accept the change of receipt {RepairRules.Code(rejected.Order)} ({code}). The receipt was restored to the server state.",
+                $"Sunucu {RepairRules.Code(rejected.Order)} makbuzundaki değişikliği kabul etmedi ({code}). Makbuz sunucudaki duruma getirildi.",
+                $"Server {RepairRules.Code(rejected.Order)} kvitansiyasidagi o'zgarishni qabul qilmadi ({code}). Kvitansiya serverdagi holatga keltirildi."));
+            changed = true;
+        }
+        if (changed || conflict is not null)
+            Reload();
+        if (conflict is not null)
+        {
+            _conflictAsked.Add(conflict.Id + ":" + conflict.ConflictJson.GetHashCode());
+            _ = ResolveConflictAsync(conflict.Id);
+        }
+    }
+
+    /// <summary>Спросить кассира, что делать с конфликтом версий; «Решить позже» оставляет пометку и кнопки в карточке.</summary>
+    public async Task<RepairConflictChoice> ResolveConflictAsync(string id)
+    {
+        var o = _deps.Store.Find(id);
+        if (o is null || !o.HasConflict)
+            return RepairConflictChoice.Later;
+        var dlg = new RepairConflictDialog(o);
+        await dlg.ShowDialog(this).ConfigureAwait(true);
+        if (dlg.Choice == RepairConflictChoice.Mine)
+            KeepMine(id);
+        else if (dlg.Choice == RepairConflictChoice.Server)
+            TakeServer(id);
+        return dlg.Choice;
+    }
+
+    public void KeepMine(string id)
+    {
+        if (_deps.Store.KeepMineOverServer(id, By))
+        {
+            Say(Tr.T("Ваши правки применены поверх: отправляем на сервер.", "Оңдоолоруңуз үстүнөн колдонулду: серверге жөнөтүлүүдө.", "Your edits were applied on top: sending to the server.", "Değişiklikleriniz üstüne uygulandı: sunucuya gönderiliyor.", "O'zgarishlaringiz ustiga qo'llandi: serverga yuborilmoqda."));
+            Publish();
+        }
+        Reload();
+    }
+
+    public void TakeServer(string id)
+    {
+        if (_deps.Store.TakeServerVersion(id, By))
+            Say(Tr.T("Взято с сервера: ваши неотправленные правки отброшены.", "Серверден алынды: жөнөтүлө элек оңдоолоруңуз четке кагылды.", "Taken from the server: your unsent edits were discarded.", "Sunucudan alındı: gönderilmemiş değişiklikleriniz atıldı.", "Serverdan olindi: yuborilmagan o'zgarishlaringiz bekor qilindi."));
+        Reload();
+    }
+
+    /// <summary>2026-11-26 (стресс-тест): «Взять с сервера» с плашки карточки отбрасывает неотправленные правки — только после подтверждения (в окне конфликта выбор уже сам по себе подтверждение).</summary>
+    public async Task<bool> TakeServerAskAsync(string id)
+    {
+        if (!await _confirm(Tr.T("Взять версию с сервера? Ваши неотправленные правки этой квитанции будут отброшены (деньги кассы — предоплата, возвраты — не меняются).",
+                    "Сервердеги версияны алалыбы? Бул квитанциянын жөнөтүлө элек оңдоолоруңуз четке кагылат (кассанын акчасы — алдын ала төлөм, кайтаруулар — өзгөрбөйт).",
+                    "Take the server version? Your unsent edits of this receipt will be discarded (till money — prepayment, refunds — does not change).",
+                    "Sunucudaki sürüm alınsın mı? Bu makbuzdaki gönderilmemiş değişiklikleriniz atılacak (kasa parası — ön ödeme, iadeler — değişmez).",
+                    "Serverdagi versiya olinsinmi? Bu kvitansiyaning yuborilmagan o'zgarishlari bekor qilinadi (kassa puli — oldindan to'lov, qaytarishlar — o'zgarmaydi)."),
+                Tr.T("Взять с сервера", "Серверден алуу", "Take the server version", "Sunucudakini al", "Serverdagini olish")).ConfigureAwait(true))
+            return false;
+        TakeServer(id);
+        return true;
+    }
 
     public static void Open(Window? owner)
     {
@@ -161,8 +292,12 @@ public sealed class RepairOrdersWindow : Window, IOwnerSection
             _list.Children.Add(ServiceDeskUi.Text(all.Count == 0
                 ? Tr.T("Квитанций пока нет. Нажмите «＋ Новый приём».", "Азырынча квитанция жок. «＋ Жаңы кабыл алуу» басыңыз.", "No receipts yet. Press “＋ New intake”.", "Henüz makbuz yok. «＋ Yeni kabul»a basın.", "Hozircha kvitansiya yo'q. «＋ Yangi qabul» ni bosing.")
                 : Tr.T("Ничего не найдено.", "Эч нерсе табылган жок.", "Nothing found.", "Hiçbir şey bulunamadı.", "Hech narsa topilmadi."), 13, brush: "BrushTextSoft"));
-        foreach (var o in rows)
+        // 2026-11-26 (стресс-тест, 1 000+ квитанций): список перестраивается на каждую букву поиска — рисуем первые MaxRows (новые сверху), остальное находит поиск.
+        foreach (var o in rows.Take(MaxRows))
             _list.Children.Add(BuildRow(o));
+        if (rows.Count > MaxRows)
+            _list.Children.Add(ServiceDeskUi.Text(Tr.T($"Показаны последние {MaxRows} из {rows.Count}. Остальные — через поиск или фильтр.", $"Акыркы {MaxRows} / {rows.Count} көрсөтүлдү. Калгандары — издөө же чыпка аркылуу.",
+                $"Showing the latest {MaxRows} of {rows.Count}. Use search or the filter for the rest.", $"{rows.Count} içinden son {MaxRows} gösteriliyor. Diğerleri için arama veya filtre.", $"{rows.Count} tadan oxirgi {MaxRows} tasi ko'rsatildi. Qolganlari — qidiruv yoki filtr orqali."), 12, brush: "BrushTextSoft"));
         ShowDetail(all.FirstOrDefault(o => o.Id == _selectedId));
     }
 
@@ -180,6 +315,10 @@ public sealed class RepairOrdersWindow : Window, IOwnerSection
         chipRow.Children.Add(ServiceDeskUi.Chip(RepairRules.StatusName(o.Status), o.Status is RepairStatus.Ready));
         if (overdue)
             chipRow.Children.Add(ServiceDeskUi.Chip(Tr.T("Срок прошёл", "Мөөнөт өттү", "Overdue", "Süre geçti", "Muddat o'tdi"), true));
+        if (o.HasConflict)
+            chipRow.Children.Add(ServiceDeskUi.Chip(Tr.T("Конфликт", "Келишпестик", "Conflict", "Çakışma", "Ziddiyat"), true));
+        if (o.ServerOnly)
+            chipRow.Children.Add(ServiceDeskUi.Chip(Tr.T("С сервера", "Серверден", "From server", "Sunucudan", "Serverdan"), false));
         panel.Children.Add(chipRow);
         var b = new Button { Name = "Row_" + o.Number, Content = panel, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Left, Padding = new Thickness(10, 8), Margin = new Thickness(0, 0, 0, 6), CornerRadius = new CornerRadius(10) };
         ServiceDeskUi.Use(b, BackgroundProperty, o.Id == _selectedId ? "BrushAccentSoft" : "BrushPanelSoft");
@@ -211,7 +350,12 @@ public sealed class RepairOrdersWindow : Window, IOwnerSection
         var head = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Margin = new Thickness(0, 0, 0, 10) };
         head.Children.Add(ServiceDeskUi.Text($"{Tr.T("Квитанция", "Квитанция", "Receipt", "Makbuz", "Kvitansiya")} {RepairRules.Code(o)}", 18, true, wrap: false));
         head.Children.Add(ServiceDeskUi.Chip(RepairRules.StatusName(o.Status), o.Status == RepairStatus.Ready));
+        // 2026-11-26 (этап 2): номер ещё временный — настоящий выдаст сервер, когда будет связь.
+        if (o.TempNumber)
+            head.Children.Add(ServiceDeskUi.Chip(Tr.T("Номер временный", "Номер убактылуу", "Temporary number", "Geçici numara", "Vaqtincha raqam"), true));
         _detail.Children.Add(head);
+        if (o.HasConflict)
+            _detail.Children.Add(ConflictBanner(o));
 
         var facts = new WrapPanel { Orientation = Orientation.Horizontal };
         void Fact(string label, string? value)
@@ -222,7 +366,11 @@ public sealed class RepairOrdersWindow : Window, IOwnerSection
                 facts.Children.Add(host);
         }
         Fact(Tr.T("Клиент", "Кардар", "Customer", "Müşteri", "Mijoz"), $"{o.ClientName}, {o.ClientPhone}");
-        Fact(Tr.T("Принято", "Кабыл алынды", "Accepted", "Kabul", "Qabul"), $"{o.AcceptedAt:dd.MM.yyyy HH:mm} · {o.AcceptedBy}");
+        Fact(Tr.T("Принято", "Кабыл алынды", "Accepted", "Kabul", "Qabul"), $"{o.AcceptedAt:dd.MM.yyyy HH:mm}" + (string.IsNullOrWhiteSpace(o.AcceptedBy) ? "" : " · " + o.AcceptedBy));
+        // 2026-11-26 (этап 2): квитанцию напечатали с одним номером, потом сервер выдал другой — на бумаге у клиента старый, показываем оба.
+        if (!string.IsNullOrEmpty(o.PrintedCode) && o.PrintedCode != RepairRules.Code(o))
+            Fact(Tr.T("На напечатанной квитанции", "Басылган квитанцияда", "On the printed receipt", "Basılı makbuzda", "Chop etilgan kvitansiyada"),
+                Tr.T($"{o.PrintedCode} (итоговый номер — {RepairRules.Code(o)})", $"{o.PrintedCode} (акыркы номер — {RepairRules.Code(o)})", $"{o.PrintedCode} (final number — {RepairRules.Code(o)})", $"{o.PrintedCode} (son numara — {RepairRules.Code(o)})", $"{o.PrintedCode} (yakuniy raqam — {RepairRules.Code(o)})"));
         Fact(Tr.T("Устройство", "Түзмөк", "Device", "Cihaz", "Qurilma"), o.Device);
         Fact(string.IsNullOrEmpty(o.Serial) ? "S/N / IMEI" : ImeiValidator.LabelFor(o.Serial), o.Serial);
         Fact(Tr.T("Неисправность", "Бузулуу", "Fault", "Arıza", "Nosozlik"), o.Fault);
@@ -238,11 +386,20 @@ public sealed class RepairOrdersWindow : Window, IOwnerSection
         }
         if (o.PaymentInCart > 0)
             Fact(Tr.T("В чеке", "Чекте", "In the receipt", "Fişte", "Chekda"), Tr.T($"оплата работ {ServiceDeskUi.Som(o.PaymentInCart)} — ждёт оплаты чека", $"иштин төлөмү {ServiceDeskUi.Som(o.PaymentInCart)} — чектин төлөнүшүн күтөт", $"payment for work {ServiceDeskUi.Som(o.PaymentInCart)} — waiting for the receipt to be paid", $"iş ödemesi {ServiceDeskUi.Som(o.PaymentInCart)} — fiş ödemesi bekleniyor", $"ish to'lovi {ServiceDeskUi.Som(o.PaymentInCart)} — chek to'lanishini kutmoqda"));
-        if (o.NotifiedAt is { } n)
+        if (RepairStatusPublic.ServerNotifiedClient(o)) // 2026-11-26 (Умар 16:20): «Ремонт готов» клиенту ушёл через Telegram-бота магазина с сервера
+            Fact(Tr.T("Клиенту написали", "Кардарга жазылды", "Customer notified", "Müşteriye yazıldı", "Mijozga yozildi"),
+                Tr.T("Клиенту отправлено в Telegram", "Кардарга Telegram аркылуу жөнөтүлдү", "Sent to the customer in Telegram", "Müşteriye Telegram'dan gönderildi", "Mijozga Telegram orqali yuborildi") + (o.NotifiedAt is { } sentAt ? " · " + sentAt.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture) : ""));
+        else if (o.NotifiedAt is { } n)
             Fact(Tr.T("Клиенту написали", "Кардарга жазылды", "Customer notified", "Müşteriye yazıldı", "Mijozga yozildi"), n.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture));
+        if (o.Status == RepairStatus.Ready && RepairStatusPublic.ServerNotifyHint(o) is { } serverHint)
+            Fact(Tr.T("Telegram", "Telegram", "Telegram", "Telegram", "Telegram"), serverHint);
 
         var actions = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 8) };
         var id = o.Id;
+        // 2026-11-27 (ответ Умара 27.11, п. 3): серверная квитанция (создана в программе владельца или мобилке, external_id нет) больше не «только просмотр» — смена статуса, выдача и правка полей идут
+        // обычными адресами repair-orders/<uuid>/ (PATCH, status, issue; RepairStatusPublic.SendServerOrderAsync), предоплата — кнопкой «Принять предоплату…» (…/prepay/, сервер сам проводит внесение в смену).
+        if (o.ServerOnly && _deps.Till is not null && o.Status is RepairStatus.Accepted or RepairStatus.InWork or RepairStatus.Ready)
+            actions.Children.Add(ServiceDeskUi.Action("RepairServerPrepay", Tr.T("Принять предоплату…", "Алдын ала төлөм алуу…", "Take a prepayment…", "Ön ödeme al…", "Oldindan to'lov olish…"), () => _ = AddServerPrepayAsync(id)));
         if (o.Status == RepairStatus.Accepted)
             actions.Children.Add(ServiceDeskUi.Action("RepairToWork", Tr.T("Взять в работу", "Ишке алуу", "Start work", "İşleme al", "Ishga olish"), () => StartWork(id), primary: true));
         if (o.Status is RepairStatus.Accepted or RepairStatus.InWork)
@@ -262,6 +419,10 @@ public sealed class RepairOrdersWindow : Window, IOwnerSection
             if (o.PaymentInCart == 0)
                 actions.Children.Add(ServiceDeskUi.Action("RepairFixPrice", Tr.T("Изменить стоимость…", "Баасын өзгөртүү…", "Change the price…", "Ücreti değiştir…", "Narxni o'zgartirish…"), () => _ = AskReadyAsync(id)));
             actions.Children.Add(ServiceDeskUi.Action("RepairNotify", Tr.T("Написать клиенту (WhatsApp)", "Кардарга жазуу (WhatsApp)", "Message the customer (WhatsApp)", "Müşteriye yaz (WhatsApp)", "Mijozga yozish (WhatsApp)"), () => Notify(id)));
+            // 2026-11-26: «готово» в Telegram — только если клиент сам привязал номер к боту магазина (как электронный чек).
+            // 2026-11-26 (Умар 16:20): сервер уже написал клиенту в Telegram (sent) — кнопка не нужна; no_chat / deferred / failed — кнопки как раньше + подсказка выше
+            if (!RepairStatusPublic.ServerNotifiedClient(o) && _deps.CanTelegram(o))
+                actions.Children.Add(ServiceDeskUi.Action("RepairNotifyTelegram", Tr.T("Написать клиенту (Telegram)", "Кардарга жазуу (Telegram)", "Message the customer (Telegram)", "Müşteriye yaz (Telegram)", "Mijozga yozish (Telegram)"), () => _ = NotifyTelegramAsync(id)));
         }
         if (o.Status == RepairStatus.InWork)
             actions.Children.Add(ServiceDeskUi.Action("RepairNotifyEarly", Tr.T("Написать клиенту (WhatsApp)", "Кардарга жазуу (WhatsApp)", "Message the customer (WhatsApp)", "Müşteriye yaz (WhatsApp)", "Mijozga yozish (WhatsApp)"), () => Notify(id)));
@@ -277,6 +438,22 @@ public sealed class RepairOrdersWindow : Window, IOwnerSection
         _detail.Children.Add(facts);
     }
 
+    /// <summary>2026-11-26 (этап 2): плашка конфликта версий над карточкой: что случилось и две кнопки (подпись над кнопками, кнопки переносятся на узком окне).</summary>
+    private Control ConflictBanner(RepairOrder o)
+    {
+        var id = o.Id;
+        var box = new StackPanel { Name = "RepairConflictBanner", Margin = new Thickness(0, 0, 0, 10), Spacing = 4 };
+        box.Children.Add(ServiceDeskUi.Text(Tr.T("Квитанцию изменили на другом устройстве", "Квитанцияны башка түзмөктө өзгөртүштү", "The receipt was changed on another device", "Makbuz başka bir cihazda değiştirildi", "Kvitansiya boshqa qurilmada o'zgartirildi"), 14, true, "BrushDanger"));
+        box.Children.Add(ServiceDeskUi.Text(Tr.T("Ваши правки не отправлены, пока вы не решите.", "Оңдоолоруңуз сиз чечмейинче жөнөтүлбөйт.", "Your edits are not sent until you decide.", "Siz karar verene kadar değişiklikleriniz gönderilmez.", "Siz hal qilmaguningizcha o'zgarishlaringiz yuborilmaydi."), 12.5, brush: "BrushTextSoft"));
+        foreach (var (label, mine, server) in RepairConflictDialog.Differences(o).Take(6))
+            box.Children.Add(ServiceDeskUi.Text($"{label}: " + Tr.T("у вас ", "сизде ", "yours ", "sizde ", "sizda ") + mine + " · " + Tr.T("на сервере ", "серверде ", "server ", "sunucuda ", "serverda ") + server, 12.5));
+        var buttons = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 0) };
+        buttons.Children.Add(ServiceDeskUi.Action("RepairKeepMine", Tr.T("Применить мои правки поверх", "Менин оңдоолорумду үстүнөн колдонуу", "Apply my edits on top", "Değişikliklerimi üstüne uygula", "Mening o'zgarishlarimni ustiga qo'llash"), () => KeepMine(id), primary: true));
+        buttons.Children.Add(ServiceDeskUi.Action("RepairTakeServer", Tr.T("Взять с сервера", "Серверден алуу", "Take the server version", "Sunucudakini al", "Serverdagini olish"), () => _ = TakeServerAskAsync(id)));
+        box.Children.Add(buttons);
+        return box;
+    }
+
     // ───────────────────────── действия ─────────────────────────
 
     private string By => _deps.Cashier();
@@ -286,6 +463,50 @@ public sealed class RepairOrdersWindow : Window, IOwnerSection
         "Money is handled only at the till. Open this section in the till (menu → “Repair and service”).",
         "Para yalnızca kasada işlenir. Bu bölümü kasada açın (menü → «Tamir ve servis»).",
         "Pul faqat kassada o'tkaziladi. Bu bo'limni kassada oching (menyu → «Ta'mirlash va servis»).");
+
+    private string ServerRefundBlocked => Tr.T("Эта квитанция создана на сервере: возврат её предоплаты проводится в программе владельца (касса его не проводит). После возврата выдача и отмена станут доступны.",
+        "Бул квитанция серверде түзүлгөн: анын алдын ала төлөмүн кайтаруу ээсинин программасында өткөрүлөт (касса өткөрбөйт). Кайтаргандан кийин берүү жана жокко чыгаруу жеткиликтүү болот.",
+        "This receipt was created on the server: its prepayment is refunded in the owner program (the till does not do it). After the refund, hand-over and cancelling become available.",
+        "Bu makbuz sunucuda oluşturuldu: ön ödemesi sahip programında iade edilir (kasa yapmaz). İadeden sonra teslim ve iptal kullanılabilir olur.",
+        "Bu kvitansiya serverda yaratilgan: uning oldindan to'lovi egasi dasturida qaytariladi (kassa o'tkazmaydi). Qaytarilgandan keyin topshirish va bekor qilish mumkin bo'ladi.");
+
+    /// <summary>2026-11-27 (ответ Умара 27.11, п. 3): предоплата серверной квитанции — POST repair-orders/&lt;uuid&gt;/prepay/ {amount, shift}: сервер сам проводит внесение в смену и пишет предоплату в квитанцию одной
+    /// транзакцией. Сначала сервер, потом запись в кассе: нет ответа — ничего не записано (проверьте карточку после обновления). НЕ ПРОВЕРЕНО ВЖИВУЮ.</summary>
+    public async Task<bool> AddServerPrepayAsync(string id)
+    {
+        var o = _deps.Store.Find(id);
+        if (o is null || !o.ServerOnly || RepairRules.IsFinal(o.Status))
+            return false;
+        if (_deps.Till is null)
+        {
+            Say(NoTill);
+            return false;
+        }
+        var dlg = new ServiceDeskFormDialog(Tr.T("Предоплата", "Алдын ала төлөм", "Prepayment", "Ön ödeme", "Oldindan to'lov"),
+            Tr.T("Сервер сам внесёт сумму в открытую смену и запишет её в квитанцию.", "Сервер сумманы ачык сменага салып, квитанцияга жазат.", "The server will put the amount into the open shift and record it in the receipt.", "Sunucu tutarı açık vardiyaya girecek ve makbuza yazacak.", "Server summani ochiq smenaga kiritadi va kvitansiyaga yozadi."),
+            new List<FormField> { new("amount", Tr.T("Сумма, сом", "Сумма, сом", "Amount, som", "Tutar, som", "Summa, so'm"), "", MaxLength: 12, Width: 300) },
+            v => RepairRules.TryParseMoney(v["amount"]) is not > 0m
+                ? new List<string> { Tr.T("Впишите сумму больше нуля — только цифры.", "Нөлдөн чоң сумманы жазыңыз — сандар гана.", "Enter an amount above zero — digits only.", "Sıfırdan büyük bir tutar girin — yalnızca rakam.", "Noldan katta summa kiriting — faqat raqamlar.") }
+                : new List<string>(),
+            Tr.T("Принять", "Кабыл алуу", "Take", "Al", "Qabul qilish"));
+        await dlg.ShowDialog<bool>(this).ConfigureAwait(true);
+        if (dlg.Values.Count == 0 || RepairRules.TryParseMoney(dlg.Values["amount"]) is not { } amount || amount <= 0m)
+            return false;
+        var (result, row) = await _deps.Prepay(o, amount, _deps.ShiftId(), "repair-prepay-" + o.ServerId + "-" + Guid.NewGuid().ToString("N")).ConfigureAwait(true);
+        if (result.Kind != RepairSyncKind.Ok)
+        {
+            Say(Tr.T($"Предоплата не принята сервером ({RepairStatusPublic.RejectionText(result.ErrorCode) ?? result.ErrorCode ?? result.Kind.ToString()}). Ничего не записано — проверьте карточку после обновления.",
+                $"Алдын ала төлөм серверге кабыл алынган жок ({result.ErrorCode ?? result.Kind.ToString()}). Эч нерсе жазылган жок — жаңыртылгандан кийин карточканы текшериңиз.",
+                $"The server did not accept the prepayment ({result.ErrorCode ?? result.Kind.ToString()}). Nothing was recorded — check the card after refreshing.",
+                $"Sunucu ön ödemeyi kabul etmedi ({result.ErrorCode ?? result.Kind.ToString()}). Hiçbir şey kaydedilmedi — yenilendikten sonra kartı kontrol edin.",
+                $"Server oldindan to'lovni qabul qilmadi ({result.ErrorCode ?? result.Kind.ToString()}). Hech narsa yozilmadi — yangilangandan keyin kartani tekshiring."));
+            return false;
+        }
+        _deps.Store.RecordServerPrepay(id, amount, row, By);
+        Say(Tr.T($"Предоплата {ServiceDeskUi.Som(amount)} принята: сервер внёс её в смену.", $"Алдын ала төлөм {ServiceDeskUi.Som(amount)} кабыл алынды: сервер аны сменага салды.", $"Prepayment {ServiceDeskUi.Som(amount)} taken: the server put it into the shift.", $"Ön ödeme {ServiceDeskUi.Som(amount)} alındı: sunucu vardiyaya girdi.", $"Oldindan to'lov {ServiceDeskUi.Som(amount)} qabul qilindi: server uni smenaga kiritdi."));
+        Reload();
+        return true;
+    }
 
     public async Task NewOrderAsync()
     {
@@ -348,6 +569,10 @@ public sealed class RepairOrdersWindow : Window, IOwnerSection
         var prepay = draft.Prepay;
         draft.Prepay = 0m; // предоплата записывается только после того, как касса её приняла
         var order = _deps.Store.Create(draft, By);
+        // 2026-11-26 (Умар, этап 2): номер квитанции выдаёт сервер — просим его сразу (до 5 секунд), чтобы запись в кассе, предоплата и печать шли с итоговым кодом;
+        // нет связи — остаётся временный номер, после синхронизации он заменится (на экране и в карточке будет видно оба).
+        var statusUrl = await _deps.StatusUrl(_deps.Store, order).ConfigureAwait(true);
+        order = _deps.Store.Find(order.Id) ?? order;
         var message = Tr.T($"Квитанция {RepairRules.Code(order)} оформлена.", $"{RepairRules.Code(order)} квитанциясы түзүлдү.", $"Receipt {RepairRules.Code(order)} created.", $"{RepairRules.Code(order)} makbuzu oluşturuldu.", $"{RepairRules.Code(order)} kvitansiyasi rasmiylashtirildi.");
         if (prepay > 0)
         {
@@ -362,15 +587,34 @@ public sealed class RepairOrdersWindow : Window, IOwnerSection
         }
         _selectedId = order.Id;
         Reload();
-        var printError = await _deps.Print(RepairRules.BuildReceipt(_deps.Store.Find(order.Id) ?? order)).ConfigureAwait(true);
+        var saved = _deps.Store.Find(order.Id) ?? order;
+        var printError = await _deps.Print(RepairRules.BuildReceiptWithStatus(saved, statusUrl)).ConfigureAwait(true);
+        if (printError is null)
+            _deps.Store.MarkPrinted(saved.Id, RepairRules.Code(saved));
+        Publish();
+        if (saved.TempNumber)
+            message += " " + Tr.T($"Нет связи с сервером: номер {RepairRules.Code(saved)} временный, итоговый выдаст сервер — он появится в карточке.", $"Сервер менен байланыш жок: {RepairRules.Code(saved)} номери убактылуу, акыркысын сервер берет — ал карточкада чыгат.", $"No connection to the server: number {RepairRules.Code(saved)} is temporary, the server will issue the final one — it will appear in the card.", $"Sunucuyla bağlantı yok: {RepairRules.Code(saved)} numarası geçici, kesin numarayı sunucu verecek — kartta görünecek.", $"Server bilan aloqa yo'q: {RepairRules.Code(saved)} raqami vaqtincha, yakuniysini server beradi — kartada ko'rinadi.");
+        // 2026-11-26: сервер пока не показывает статус на сайте — кассир честно говорит клиенту, как узнать (код + телефон магазина).
+        if (statusUrl is null)
+            message += " " + Tr.T($"На сайте статус ремонта пока недоступен — скажите клиенту код {RepairRules.Code(order)} и телефон магазина.", $"Сайтта оңдоонун абалы азырынча жок — кардарга {RepairRules.Code(order)} кодун жана дүкөндүн телефонун айтыңыз.", $"The repair status is not on the website yet — give the customer the code {RepairRules.Code(order)} and the shop phone.", $"Tamir durumu henüz sitede yok — müşteriye {RepairRules.Code(order)} kodunu ve mağaza telefonunu söyleyin.", $"Ta'mir holati saytda hali yo'q — mijozga {RepairRules.Code(order)} kodini va do'kon telefonini ayting.");
         Say(message + (printError is null ? "" : " " + printError));
         return _deps.Store.Find(order.Id);
     }
 
+    /// <summary>2026-11-26: отправить серверу заказы, которые ждут (статус для витрины) — только при признаке сервера repair_status_public, в фоне; что не ушло без сети, уйдёт позже.</summary>
+    // 2026-11-26 (Умар 16:20): сервер принял заказ и мог ответить notified (сам написал клиенту «Ремонт готов» в Telegram) — окно перечитывается, чтобы пометка появилась сразу.
+    // 2026-11-26 (этап 2): после отправки проверяем и конфликты версий (stale_version), а не только «что-то принято».
+    private void Publish() => RepairStatusPublic.FlushInBackground(_deps.Store, sent =>
+        Avalonia.Threading.Dispatcher.UIThread.Post(() => AfterSync(sent > 0)));
+
+
     public void StartWork(string id)
     {
         if (_deps.Store.Move(id, RepairStatus.InWork, By))
+        {
             Say(Tr.T("Взято в работу.", "Ишке алынды.", "Work started.", "İşleme alındı.", "Ishga olindi."));
+            Publish();
+        }
         Reload();
     }
 
@@ -381,7 +625,8 @@ public sealed class RepairOrdersWindow : Window, IOwnerSection
             Say(Tr.T("Сначала уберите строку оплаты из чека.", "Алгач төлөм сабын чектен алып салыңыз.", "Remove the payment line from the receipt first.", "Önce ödeme satırını fişten çıkarın.", "Avval to'lov qatorini chekdan olib tashlang."));
             return;
         }
-        _deps.Store.Move(id, RepairStatus.InWork, By);
+        if (_deps.Store.Move(id, RepairStatus.InWork, By))
+            Publish();
         Reload();
     }
 
@@ -412,6 +657,8 @@ public sealed class RepairOrdersWindow : Window, IOwnerSection
         var ok = o.Status == RepairStatus.Ready ? _deps.Store.SetFinalPrice(id, finalPrice, By) : _deps.Store.Move(id, RepairStatus.Ready, By, finalPrice);
         Say(ok ? Tr.T("Отмечено «Готов». Можно написать клиенту.", "«Даяр» деп белгиленди. Кардарга жазса болот.", "Marked “Ready”. You can message the customer.", "«Hazır» işaretlendi. Müşteriye yazabilirsiniz.", "«Tayyor» deb belgilandi. Mijozga yozish mumkin.")
                   : Tr.T("Не удалось изменить: строка оплаты уже в чеке.", "Өзгөртүү мүмкүн болгон жок: төлөм сабы чекте.", "Could not change: the payment line is already in the receipt.", "Değiştirilemedi: ödeme satırı fişte.", "O'zgartirib bo'lmadi: to'lov qatori chekda."));
+        if (ok)
+            Publish();
         Reload();
     }
 
@@ -456,6 +703,12 @@ public sealed class RepairOrdersWindow : Window, IOwnerSection
         if (o is null || o.Status != RepairStatus.Ready)
             return false;
         var over = RepairRules.Overpaid(o.FinalPrice, o.Prepay) - o.Refunded;
+        // 2026-11-27: у серверной квитанции возврат предоплаты ведёт сервер (в ТЗ Умара 27.11 адреса возврата нет) — кассой не возвращаем, чтобы деньги из ящика не ушли мимо квитанции
+        if (over > 0 && o.ServerOnly)
+        {
+            Say(ServerRefundBlocked);
+            return false;
+        }
         if (over > 0)
         {
             if (_deps.Till is not { } till)
@@ -480,6 +733,7 @@ public sealed class RepairOrdersWindow : Window, IOwnerSection
             return false;
         }
         var issued = _deps.Store.Find(id)!;
+        Publish();
         var printError = await _deps.Print(RepairRules.BuildIssueAct(issued)).ConfigureAwait(true);
         Say(Tr.T("Выдано клиенту.", "Кардарга берилди.", "Handed over.", "Müşteriye teslim edildi.", "Mijozga topshirildi.") + (printError is null ? "" : " " + printError));
         Reload();
@@ -495,6 +749,11 @@ public sealed class RepairOrdersWindow : Window, IOwnerSection
         if (o.PaymentInCart > 0)
         {
             Say(Tr.T("Сначала уберите строку оплаты из чека.", "Алгач төлөм сабын чектен алып салыңыз.", "Remove the payment line from the receipt first.", "Önce ödeme satırını fişten çıkarın.", "Avval to'lov qatorini chekdan olib tashlang."));
+            return false;
+        }
+        if (o.ServerOnly && RepairRules.PrepayToRefund(o) > 0) // 2026-11-27: см. IssueAsync — возврат предоплаты серверной квитанции ведёт сервер
+        {
+            Say(ServerRefundBlocked);
             return false;
         }
         if (!await _confirm(Tr.T($"Отменить приём {RepairRules.Code(o)}?{(RepairRules.PrepayToRefund(o) > 0 ? " Предоплата " + ServiceDeskUi.Som(RepairRules.PrepayToRefund(o)) + " будет возвращена из кассы." : "")}", $"{RepairRules.Code(o)} кабыл алууну жокко чыгарасызбы?{(RepairRules.PrepayToRefund(o) > 0 ? " Алдын ала төлөм " + ServiceDeskUi.Som(RepairRules.PrepayToRefund(o)) + " кассадан кайтарылат." : "")}", $"Cancel intake {RepairRules.Code(o)}?{(RepairRules.PrepayToRefund(o) > 0 ? " The prepayment " + ServiceDeskUi.Som(RepairRules.PrepayToRefund(o)) + " will be refunded from the till." : "")}", $"{RepairRules.Code(o)} kabulü iptal edilsin mi?{(RepairRules.PrepayToRefund(o) > 0 ? " Ön ödeme " + ServiceDeskUi.Som(RepairRules.PrepayToRefund(o)) + " kasadan iade edilecek." : "")}", $"{RepairRules.Code(o)} qabulini bekor qilamizmi?{(RepairRules.PrepayToRefund(o) > 0 ? " Oldindan to'lov " + ServiceDeskUi.Som(RepairRules.PrepayToRefund(o)) + " kassadan qaytariladi." : "")}"),
@@ -516,6 +775,8 @@ public sealed class RepairOrdersWindow : Window, IOwnerSection
             _deps.Store.RecordRefund(id, refund, By);
         }
         var ok = _deps.Store.Cancel(id, By);
+        if (ok)
+            Publish();
         Say(ok ? Tr.T("Приём отменён.", "Кабыл алуу жокко чыгарылды.", "Intake cancelled.", "Kabul iptal edildi.", "Qabul bekor qilindi.") : Tr.T("Отменить не удалось.", "Жокко чыгаруу мүмкүн болгон жок.", "Could not cancel.", "İptal edilemedi.", "Bekor qilib bo'lmadi."));
         Reload();
         return ok;
@@ -544,12 +805,36 @@ public sealed class RepairOrdersWindow : Window, IOwnerSection
         return true;
     }
 
+    /// <summary>2026-11-26: «готово» в Telegram тому, кто сам привязал номер к боту магазина; клиент не привязан или бот выключен — кассир видит причину и может написать в WhatsApp.</summary>
+    public async Task<bool> NotifyTelegramAsync(string id)
+    {
+        var o = _deps.Store.Find(id);
+        if (o is null)
+            return false;
+        var result = await _deps.TelegramReady(o).ConfigureAwait(true);
+        if (result == TelegramReceiptSendResult.Sent)
+            _deps.Store.MarkNotified(id, By);
+        Say(result switch
+        {
+            TelegramReceiptSendResult.Sent => Tr.T("Клиенту отправлено в Telegram.", "Кардарга Telegram аркылуу жөнөтүлдү.", "Sent to the customer in Telegram.", "Müşteriye Telegram'dan gönderildi.", "Mijozga Telegram orqali yuborildi."),
+            TelegramReceiptSendResult.NotLinked => Tr.T("Клиент не привязал номер к боту магазина — напишите ему в WhatsApp.", "Кардар номерин дүкөндүн ботуна байлаган жок — WhatsApp'ка жазыңыз.", "The customer has not linked the number to the shop bot — write in WhatsApp.", "Müşteri numarasını mağaza botuna bağlamadı — WhatsApp'tan yazın.", "Mijoz raqamini do'kon botiga ulamagan — WhatsApp'da yozing."),
+            TelegramReceiptSendResult.Off => Tr.T("Telegram-бот магазина выключен — напишите в WhatsApp.", "Дүкөндүн Telegram-боту өчүк — WhatsApp'ка жазыңыз.", "The shop's Telegram bot is off — write in WhatsApp.", "Mağazanın Telegram botu kapalı — WhatsApp'tan yazın.", "Do'konning Telegram boti o'chiq — WhatsApp'da yozing."),
+            _ => Tr.T("Telegram не принял сообщение — напишите в WhatsApp.", "Telegram билдирүүнү кабыл алган жок — WhatsApp'ка жазыңыз.", "Telegram did not accept the message — write in WhatsApp.", "Telegram mesajı kabul etmedi — WhatsApp'tan yazın.", "Telegram xabarni qabul qilmadi — WhatsApp'da yozing."),
+        });
+        Reload();
+        return result == TelegramReceiptSendResult.Sent;
+    }
+
     public async Task PrintAsync(string id, bool act)
     {
         var o = _deps.Store.Find(id);
         if (o is null)
             return;
-        var error = await _deps.Print(act ? RepairRules.BuildIssueAct(o) : RepairRules.BuildReceipt(o)).ConfigureAwait(true);
+        var url = act ? null : await _deps.StatusUrl(_deps.Store, o).ConfigureAwait(true);
+        o = _deps.Store.Find(id) ?? o; // 2026-11-26 (этап 2): номер мог смениться на серверный при отправке
+        var error = await _deps.Print(act ? RepairRules.BuildIssueAct(o) : RepairRules.BuildReceiptWithStatus(o, url)).ConfigureAwait(true);
+        if (!act && error is null)
+            _deps.Store.MarkPrinted(id, RepairRules.Code(o));
         Say(error ?? Tr.T("Напечатано.", "Басылып чыкты.", "Printed.", "Yazdırıldı.", "Chop etildi."));
     }
 }

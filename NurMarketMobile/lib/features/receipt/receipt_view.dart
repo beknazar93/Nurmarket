@@ -263,7 +263,7 @@ class ReceiptActionBar extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: _ReceiptAction(icon: Icons.picture_as_pdf_outlined, label: 'PDF', tooltip: l.sendPdf, filled: true, onTap: () => shareReceiptPdf(receipt)),
+          child: _ReceiptAction(icon: Icons.picture_as_pdf_outlined, label: 'PDF', tooltip: l.sendPdf, filled: true, onTap: () async => shareReceiptPdf(await receiptWithLink(context, receipt))),
         ),
       ],
     );

@@ -296,6 +296,17 @@ public sealed partial class MarketplaceStoreView
 
     private static string InTariffWord() => Tr.T("Входит в тариф", "Тарифке кирет", "Included in the plan", "Tarifeye dahil", "Tarifga kiradi");
 
+    /// <summary>2026-11-26 («Своё» собирается из Маркетплейса): вторые действия карточки + «Добавить в тариф «Своё»» / «Убрать из тарифа «Своё»» — для пакетов и функций, которые сервер знает
+    /// (владелец; выбор общий с диалогом «Своё» — TariffDraft).</summary>
+    private static IReadOnlyList<MarketplaceAction> SecondaryActions(MarketplaceItem item)
+    {
+        if (!TariffDraft.Active || TariffDraft.TargetOf(item.Id) is not { } target) // 2026-11-26: кнопка «Добавить в тариф» — только в режиме сборки
+            return item.Secondary;
+        var list = item.Secondary.ToList();
+        list.Add(new MarketplaceAction(TariffDraft.ActionLabel(TariffDraft.IsSelected(target)), () => TariffDraft.Toggle(target)));
+        return list;
+    }
+
     /// <summary>Главная кнопка + цена/состояние + второстепенные кнопки. bar=true — вариант для липкой панели (в строку).</summary>
     private Panel BuildActionBlock(MarketplaceItem item, DetailMode mode, bool bar, out Control anchor)
     {
@@ -361,7 +372,7 @@ public sealed partial class MarketplaceStoreView
         {
             var text = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
             AddPriceLines(text, headline, period, sub, item.Title);
-            foreach (var action in item.Secondary)
+            foreach (var action in SecondaryActions(item))
                 panel.Children.Add(ActionButton(action, "btn-secondary"));
             if (main != null)
                 panel.Children.Add(main);
@@ -374,7 +385,7 @@ public sealed partial class MarketplaceStoreView
         AddPriceLines(priceLine, headline, period, sub, null);
         if (priceLine.Children.Count > 0)
             panel.Children.Add(priceLine);
-        foreach (var action in item.Secondary)
+        foreach (var action in SecondaryActions(item))
             panel.Children.Add(ActionButton(action, "btn-secondary"));
         // 2026-10-31 (ТЗ Умара): под кнопками — «Оплата пока через поддержку: оставьте заявку…».
         if (!string.IsNullOrWhiteSpace(item.ActionHint))
@@ -459,7 +470,7 @@ public sealed partial class MarketplaceStoreView
     private Control? BuildStickyBar(MarketplaceItem item, DetailMode mode)
     {
         // Панель нужна, только когда есть что нажать: включённое главное действие или второстепенные кнопки.
-        if (item.IsComingSoon || (item.Primary is not { IsEnabled: true } && item.Secondary.Count == 0))
+        if (item.IsComingSoon || (item.Primary is not { IsEnabled: true } && SecondaryActions(item).Count == 0))
             return null;
         var block = BuildActionBlock(item, mode, bar: true, out _);
         var bar = new Border
@@ -492,6 +503,9 @@ public sealed partial class MarketplaceStoreView
         var useHeroAsCover = item.HeroVisual != null && (item.Kind == MarketplaceKind.Layout || item.Id == "customerdisplay");
         if (slides.Count == 0)
         {
+            // 2026-11-26: у функции есть демонстрация, нарисованная кодом (MarketplaceDemos) — она вместо пустого баннера-обложки (цвет функции остаётся фоном).
+            if (item.MockDemo.Count > 0 && !useHeroAsCover)
+                return new MarketplaceMockDemoPlayer(item.MockDemo, item.IconColor);
             var cover = BuildCover(item, height, useHeroAsCover);
             // Источник по сети (на будущее): слайды объявлены, а в кэше их ещё нет.
             if (item.Slides.Count > 0 && MarketplaceMedia.Source is not LocalMarketplaceMediaSource)
@@ -601,7 +615,7 @@ public sealed partial class MarketplaceStoreView
 
         if (!string.IsNullOrWhiteSpace(item.LongDescription))
             // 2026-11-22: у общих карточек модулей этот раздел — «Что делает» (MarketplaceModuleContent), у остальных прежнее «Описание».
-            left.Children.Add(DetailSection(item.Id.StartsWith("module:", StringComparison.Ordinal)
+            left.Children.Add(DetailSection(item.Id.StartsWith("module:", StringComparison.Ordinal) || item.Id.StartsWith("pack:", StringComparison.Ordinal)
                 ? Tr.T("Что делает", "Эмне кылат", "What it does", "Ne yapar", "Nima qiladi")
                 : Tr.T("Описание", "Сүрөттөмө", "Description", "Açıklama", "Tavsif"), BodyText(item.LongDescription)));
 

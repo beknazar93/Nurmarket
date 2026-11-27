@@ -331,7 +331,7 @@ public static class OfflineOperationsService
         }
 
         PosLogger.Log($"OFFLINE: возврат без связи {op.Id} по чеку {sale.SaleRef} ({(sale.IsLocal ? "в очереди" : "на сервере")}): {plan.Amount:0.00} " +
-                      $"(наличными {plan.Cash:0.00}, безнал {plan.NonCash:0.00}, долг −{plan.DebtReduced:0.00}), строк {plan.Lines.Count}.", "SALES");
+                      $"(наличными {plan.Cash:0.00}, безнал {plan.NonCash:0.00}, долг {RefundSplit.DebtMinus(plan.DebtReduced)}), строк {plan.Lines.Count}.", "SALES");
         return op;
     }
 

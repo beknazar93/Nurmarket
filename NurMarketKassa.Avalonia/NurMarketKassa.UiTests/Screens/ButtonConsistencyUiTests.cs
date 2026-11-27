@@ -56,6 +56,27 @@ public sealed class ButtonConsistencyUiTests
         }
     }
 
+    // 2026-11-27 (живой проход): «Итоги» в «Табеле» (ToggleButton.nur-ghost) — Button.nur-ghost его не ловил: включённая кнопка
+    // была бирюзовой (акцент Fluent) с текстом у верхнего края. Теперь как ghost: прозрачная, текст по центру, фон включённой — не акцент.
+    [AvaloniaFact]
+    public async Task Timesheet_SummaryToggle_IsGhostStyled()
+    {
+        await TestHost.WarmAsync();
+        UiShot.Setup(UiTheme.Light, AppLanguage.Russian);
+        var window = new StaffTimesheetWindow();
+        try
+        {
+            using var _ = UiShot.Render(window, UiSize.Small);
+            var toggle = window.FindControl<Avalonia.Controls.Primitives.ToggleButton>("SummaryToggle")!;
+            Assert.Equal(Avalonia.Layout.VerticalAlignment.Center, toggle.VerticalContentAlignment);
+            var presenter = toggle.GetVisualDescendants().OfType<Avalonia.Controls.Presenters.ContentPresenter>().First();
+            Assert.True(window.TryFindResource("BrushPanelSoft", window.ActualThemeVariant, out var soft));
+            if (toggle.IsChecked == true)
+                Assert.Equal((soft as Avalonia.Media.ISolidColorBrush)?.Color, (presenter.Background as Avalonia.Media.ISolidColorBrush)?.Color);
+        }
+        finally { window.Close(); UiShot.Pump(); }
+    }
+
     [AvaloniaTheory]
     [MemberData(nameof(Matrix))]
     public async Task Buttons_OneRadius_OneHeight_OneBorder(string name, UiTheme theme, AppLanguage lang)

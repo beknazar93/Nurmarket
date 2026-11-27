@@ -308,7 +308,7 @@
                                        Foreground="{DynamicResource BrushDanger}"/>
                             <StackPanel x:Name="BarcodeSuggestPanel" Spacing="6" IsVisible="False"/>
                             <!-- 2026-11-21: отметка «Без заводского штрихкода» (хлеб, выпечка…) — такие товары стоят в начале каталога кассы; подпись — в коде (ProductEditDialog.NoFactory.cs). -->
-                            <CheckBox x:Name="NoFactoryBarcodeCheck" HorizontalAlignment="Stretch"/>
+                            <CheckBox x:Name="NoFactoryBarcodeCheck" HorizontalAlignment="Stretch" MinHeight="40"/> <!-- 2026-11-26: цель касания не ниже 40 px (DesignAuditUiTests) -->
 
                             <!-- 2026-10-04, клиент: «включил весовой — поле PLU выталкивает цену вниз, полстроки не видно».
                                  PLU теперь в той же строке, что и тумблер «Весовой»: высота вкладки не меняется. -->
@@ -331,7 +331,7 @@
                                 </StackPanel>
                                 <StackPanel Grid.Column="5" Spacing="6">
                                     <TextBlock x:Name="QuantityFieldLabel" Classes="FieldLabel" Text="{DynamicResource csh.catalog.colStock}"/>
-                                    <TextBox Text="{Binding Quantity}"/>
+                                    <TextBox Classes="numField numZero" Text="{Binding Quantity}"/>
                                 </StackPanel>
                             </Grid>
                             <!-- 2026-10-29: подсказка под единицей и количеством — когда можно дробное (0,5 кг, 2,25 л), а когда только целое (шт). -->
@@ -345,17 +345,17 @@
                                 <!-- 2026-10-30 (приёмка 1.17.65): закупка и наценка скрыты у ролей без права видеть закупку (ShowPurchase). -->
                                 <StackPanel x:Name="PurchaseStack" Grid.Column="0" Spacing="8" IsVisible="{Binding ShowPurchase}">
                                     <TextBlock Classes="FieldLabel" Text="{DynamicResource product.purchasePriceLabel}"/>
-                                    <TextBox Text="{Binding PurchasePrice}"/>
+                                    <TextBox Classes="numField" Text="{Binding PurchasePrice}"/>
                                     <!-- 2026-11-19 (склад К-4): при признаке сервера costing_fifo — «Себестоимость: FIFO» (текст и видимость — в коде, ProductEditDialog.axaml.cs). -->
                                     <TextBlock x:Name="CostingFifoNote" FontSize="12" TextWrapping="Wrap" IsVisible="False" Foreground="{DynamicResource BrushTextSoft}"/>
                                 </StackPanel>
                                 <StackPanel x:Name="MarkupStack" Grid.Column="2" Spacing="8" IsVisible="{Binding ShowPurchase}">
                                     <TextBlock Classes="FieldLabel" Text="{DynamicResource product.markupLabel}"/>
-                                    <TextBox Text="{Binding MarkupPercent}"/>
+                                    <TextBox Classes="numField" Text="{Binding MarkupPercent}"/>
                                 </StackPanel>
                                 <StackPanel x:Name="SalePriceStack" Grid.Column="4" Spacing="8">
                                     <TextBlock x:Name="SalePriceFieldLabel" Classes="FieldLabel" Text="{DynamicResource product.salePriceLabel}"/>
-                                    <TextBox Text="{Binding Price}"/>
+                                    <TextBox Classes="numField" Text="{Binding Price}"/>
                                 </StackPanel>
                             </Grid>
                             <!-- 2026-10-29: «Наценка 25 % · прибыль с единицы 20 сом, с остатка 480 сом» — сразу видно, сколько магазин зарабатывает. -->
@@ -366,11 +366,11 @@
                                 <Grid ColumnDefinitions="*,18,*">
                                     <StackPanel Grid.Column="0" Spacing="8">
                                         <TextBlock Classes="FieldLabel" Text="{DynamicResource product.wholesalePriceLabel}"/>
-                                        <TextBox Text="{Binding WholesalePrice}"/>
+                                        <TextBox Classes="numField" Text="{Binding WholesalePrice}"/>
                                     </StackPanel>
                                     <StackPanel Grid.Column="2" Spacing="8">
                                         <TextBlock Classes="FieldLabel" Text="{DynamicResource product.discountLabel}"/>
-                                        <TextBox Text="{Binding DiscountPercent}"/>
+                                        <TextBox Classes="numField" Text="{Binding DiscountPercent}"/>
                                     </StackPanel>
                                 </Grid>
                             </StackPanel>
@@ -378,7 +378,7 @@
                                  2026-10-20, аудит программы владельца: перенесён с «Упаковки» на «Основное» (там его было не найти). -->
                             <StackPanel Spacing="8" Width="220" HorizontalAlignment="Left" IsVisible="{Binding !IsQuickAddMode}">
                                 <TextBlock Classes="FieldLabel" x:Name="MinimumQuantityLabel"/>
-                                <TextBox Text="{Binding MinimumQuantity}"/>
+                                <TextBox Classes="numField" Text="{Binding MinimumQuantity}"/>
                             </StackPanel>
                             <!-- 2026-11-13 (сервер sn1311): сфера «Электроника» — «Продаётся с серийными номерами» и гарантия в месяцах (видно только в этой сфере, ProductEditDialog.Serials.cs). -->
                             <StackPanel x:Name="SerialsBlock" Spacing="8" Width="260" HorizontalAlignment="Left" IsVisible="False">
@@ -456,7 +456,7 @@
                                         <!-- 2026-11-20: было Width="90" — подпись «Таңгактагы саны» (ky) и «Qadoqdagi soni» (uz) не влезала; теперь колонка растёт под подпись -->
                                         <StackPanel Grid.Column="4" Spacing="4" MinWidth="90">
                                             <TextBlock Classes="FieldLabel" FontSize="12" Text="{DynamicResource product.variantQuantityLabel}"/>
-                                            <TextBox Text="{Binding VariantQuantity}"/>
+                                            <TextBox Classes="numField" Text="{Binding VariantQuantity}"/>
                                         </StackPanel>
                                     </Grid>
 
@@ -487,7 +487,7 @@
                                                             <Grid Grid.Column="0" ColumnDefinitions="*,8,*,8,80" IsVisible="{Binding IsEditing}">
                                                                 <TextBox Grid.Column="0" Classes="scan-direct" Text="{Binding EditBarcode}" Watermark="{DynamicResource product.variantBarcodeWatermark}"/>
                                                                 <TextBox Grid.Column="2" Text="{Binding EditName}" Watermark="{DynamicResource product.variantNameWatermark}"/>
-                                                                <TextBox Grid.Column="4" Text="{Binding EditQuantity}"/>
+                                                                <TextBox Grid.Column="4" Classes="numField" Text="{Binding EditQuantity}"/>
                                                             </Grid>
                                                             <TextBlock Grid.Column="1" Text="{Binding Quantity}" Margin="10,0" IsVisible="{Binding !IsEditing}"
                                                                        Foreground="{DynamicResource BrushTextSoft}" VerticalAlignment="Center"/>
@@ -573,13 +573,13 @@
                                     <Grid x:Name="NarrowRowPackage" ColumnDefinitions="*,16,*">
                                         <StackPanel Grid.Column="0" Spacing="6">
                                             <TextBlock x:Name="PackQtyLabel" Classes="FieldLabel" Text="{DynamicResource product.packageQtyLabel}"/>
-                                            <TextBox Text="{Binding PackageQuantity}" MinHeight="48" FontSize="18" FontWeight="Bold"/>
+                                            <TextBox Classes="numField" Text="{Binding PackageQuantity}" MinHeight="48" FontSize="18" FontWeight="Bold"/>
                                             <TextBlock x:Name="PackQtyHint" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
                                         </StackPanel>
                                         <StackPanel Grid.Column="2" Spacing="6">
                                             <TextBlock x:Name="PackPieceLabel" Classes="FieldLabel" Text="{DynamicResource product.packagePriceLabel}"/>
                                             <Panel>
-                                                <TextBox x:Name="PackPieceBox" Classes="packPiece" Classes.manual="{Binding PackIsManual}" Text="{Binding PackagePiecePrice}"
+                                                <TextBox x:Name="PackPieceBox" Classes="packPiece numField" Classes.manual="{Binding PackIsManual}" Text="{Binding PackagePiecePrice}"
                                                          MinHeight="48" FontSize="18" FontWeight="Bold" Padding="12,0,84,0" VerticalContentAlignment="Center"/>
                                                 <Button x:Name="PackAutoButton" Classes="packAuto" Classes.manual="{Binding PackIsManual}" HorizontalAlignment="Right" VerticalAlignment="Center"
                                                         Height="36" MinHeight="36" Margin="0,0,6,0" Click="PackAuto_Click"/>

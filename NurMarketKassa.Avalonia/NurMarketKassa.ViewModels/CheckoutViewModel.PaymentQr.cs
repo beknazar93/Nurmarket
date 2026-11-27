@@ -72,7 +72,9 @@ namespace NurMarketKassa.ViewModels
             var staticPath = QrCodePath;
             string? path = staticPath;
             var failed = false;
-            var amount = Math.Round(QrAmountValue, 2);
+            // 2026-11-26 (стресс-тест QR): округление как у экрана покупателя и суммы на экране (половина — вверх). Было банковское (к чётному):
+            // сумма 100,125 давала в QR кассы 100,12, а на экране покупателя и в «К оплате» — 100,13.
+            var amount = Math.Round(QrAmountValue, 2, MidpointRounding.AwayFromZero);
             if (staticPath is not null && UserPreferences.Instance.DynamicPaymentQrEnabled && amount > 0.004)
             {
                 var key = staticPath + "|" + amount.ToString("0.00", CultureInfo.InvariantCulture);

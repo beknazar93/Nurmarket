@@ -27,6 +27,8 @@ public sealed class AnalyticsReportData
     public double Returns { get; init; }
     public double WriteOffs { get; init; }
     public double Expenses { get; init; }
+    /// <summary>2026-11-26: внесения в ящик за период по журналу этой кассы (сервер не ответил — других данных нет). Не выручка и не расход.</summary>
+    public double CashDeposits { get; init; }
     public double DebtPayments { get; init; }
     public int ReceiptCount { get; init; }
 
@@ -477,6 +479,7 @@ public sealed class AnalyticsReportData
             Returns = server?.Returns ?? Event(ShiftEventsStore.KindReturn),
             WriteOffs = Event(ShiftEventsStore.KindWriteOff),
             Expenses = Event(ShiftEventsStore.KindExpense),
+            CashDeposits = Event(ShiftEventsStore.KindDeposit),
             // 2026-10-18: «Оплата долгов» в аналитике — все погашения (наличные и безнал), это не остаток ящика.
             DebtPayments = Event(ShiftEventsStore.KindDebtPayment) + Event(ShiftEventsStore.KindDebtPaymentNonCash),
             // Чек — это одна отметка времени: все строки одной продажи пишутся одним моментом.

@@ -160,13 +160,14 @@
                             <TextBlock x:Name="WeightLabel" Text="{DynamicResource weigh.weightKgLabel}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSoft}"/>
                             <TextBox x:Name="WeightBox"
                                      Text="0,00"
-                                     Classes="WeightInput"
+                                     Classes="WeightInput numField"
                                      KeyDown="WeightBox_KeyDown"
                                      TextChanged="WeightBox_TextChanged"/>
                             <TextBlock x:Name="ComputedPreviewText"
                                        IsVisible="False"
                                        FontSize="14"
                                        FontWeight="SemiBold"
+                                       TextWrapping="Wrap"
                                        Foreground="{DynamicResource BrushMoney}"/>
                             <!-- 2026-10-17: расчёт цветом денег — жёлтый акцент по белому у «NurMarket» не читался. -->
                             <!-- 2026-10-22 (модалки, пакет 1): ошибка ввода — под полем (было 6 всплывающих окон поверх). -->
@@ -229,7 +230,7 @@
                             <Button Grid.Row="3" Grid.Column="1" Classes="NumBtn" Content="0" Tag="0" Click="OnNumKey_Click"/>
 
                             <!-- Кнопка стереть (Backspace) -->
-                            <Button Grid.Row="3" Grid.Column="2" Classes="NumBtn"
+                            <Button x:Name="BackspaceButton" Grid.Row="3" Grid.Column="2" Classes="NumBtn"
                                     Background="{DynamicResource BrushDangerSoft}"
                                     BorderBrush="{DynamicResource BrushDanger}"
                                     Click="OnBackspace_Click">

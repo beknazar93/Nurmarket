@@ -151,6 +151,9 @@
   <x:String x:Key="printSettings.lptNotFound">Bu adreste yazıcı bulunamadı</x:String>
   <x:String x:Key="printSettings.previewTextReceipt">Metin fişi önizlemesi</x:String>
   <x:String x:Key="printSettings.qrHeader">QR kodu</x:String>
+  <x:String x:Key="printSettings.linkQr">E-fiş bağlantılı QR</x:String>
+  <x:String x:Key="printSettings.shopQr">Mağaza QR'ı «Online sipariş»</x:String>
+  <x:String x:Key="printSettings.shopQrHint">Fişin altındaki ikinci QR müşteriyi mağazanızın vitrinine (market.nurcrm.kg) götürür; orada online sipariş verebilir. Yalnızca mağazanın vitrini varsa basılır. Fiyat etiketinde — etiket düzenleyicisindeki «Mağaza QR'ı» öğesi.</x:String>
   <x:String x:Key="printSettings.uploadQr">QR yükle</x:String>
   <x:String x:Key="printSettings.deleteQr">Sil</x:String>
   <x:String x:Key="printSettings.qrNotLoaded">QR kodu yüklenmedi</x:String>
@@ -1389,7 +1392,7 @@
     <x:String x:Key="loc.settings.telegram.routerHint">Gemini'nin günlük limiti biterse ücretsiz bir OpenRouter modeli yanıtlar (günde 50 istek). «Ücretsiz anahtar al»a basın → Google ile giriş yapın → «Create API Key», anahtarı (sk-or-…) kopyalayıp buraya yapıştırın. Soru ve mağaza özeti o zaman OpenRouter'a gider. Boş alan — kapalı.</x:String>
     <x:String x:Key="loc.settings.dynamicQr.toggle">Müşteriye fiş tutarını içeren QR kodu göster</x:String>
     <x:String x:Key="loc.settings.dynamicQr.desc">Müşteri ekranında bankanın normal QR kodu yerine fiş tutarının zaten girildiği bir kod gösterilir — tutarı elle girmeye gerek yoktur. Hesap bilgileri yukarıda yüklenen QR kodundan alınır.</x:String>
-    <x:String x:Key="loc.settings.dynamicQr.warning">Açmadan önce deneme fişini iki üç bankanın uygulamasıyla okutun: format MBank QR koduyla doğrulandı, diğer bankalarda test edilmedi. Ödemeyi kasiyer yine elle onaylar — kasa ödemeyi kendisi algılamaz.</x:String>
+    <x:String x:Key="loc.settings.dynamicQr.warning">Tutarlı QR yalnızca QR'ı öz denetimi geçen bankalar için oluşturulur: kasa QR'ınızın sağlama toplamını kendi formülüyle karşılaştırır, uyuşursa banka uygulaması bu kodu kabul eder. Diğer bankalarda normal QR gösterilir. Ödemeyi kasiyer yine elle (Enter) onaylar — kasa ödemeyi kendisi algılamaz.</x:String>
     <x:String x:Key="loc.settings.bank.showAtCheckout">Ödemede göster</x:String>
     <x:String x:Key="loc.settings.lanScale.title">Ağ tartısı (ürün gönderme)</x:String>
     <x:String x:Key="loc.settings.lanScale.desc">Adres, port ve şifre tartının kendi sistem menüsünden alınır. «Tartılar» penceresi de ürün listesini gönderirken aynı değerleri kullanır.</x:String>

@@ -171,7 +171,10 @@ public static class VariantBarcodeIndex
     }
 
     /// <summary>Свежий список размеров товара — заменяет его прежние штрихкоды в справочнике.</summary>
-    public static void Update(string productId, IReadOnlyList<ProductVariantDto>? variants)
+    /// <param name="deferSave">2026-11-26 (быстродействие): true — фоновый обход каталога: файл пишется не после каждого товара, а не чаще раза в <see cref="SaveEvery"/> и в конце обхода
+    /// (<see cref="Flush"/>). Раньше КАЖДЫЙ проверенный товар перезаписывал весь файл (до 15 000 отметок «проверено», сотни КБ JSON) под общим замком справочника — на 15 000 товаров
+    /// это 15 000 перезаписей за обход и ожидание сканера штрихкода (Find) за этим замком. Остальные вызовы (правка размеров кассиром) пишут сразу, как раньше.</param>
+    public static void Update(string productId, IReadOnlyList<ProductVariantDto>? variants, bool deferSave = false)
     {
         if (string.IsNullOrWhiteSpace(productId) || variants is null)
             return;
@@ -197,7 +200,26 @@ public static class VariantBarcodeIndex
                     .Where(v => !string.IsNullOrWhiteSpace(v.Id))
                     .Select(v => new Stored { P = pid, V = v.Id!.Trim(), S = v.Size ?? "", C = v.Color ?? "", Price = v.Price, Q = v.Quantity, A = v.IsActive })
                     .ToList();
-            Save(data);
+            if (deferSave && DateTime.UtcNow - _lastSaveUtc < SaveEvery)
+                _pendingSave = true;
+            else
+                Save(data);
+        }
+    }
+
+    /// <summary>2026-11-26: не чаще раза в это время пишется файл при отложенных обновлениях обхода.</summary>
+    internal static TimeSpan SaveEvery { get; set; } = TimeSpan.FromSeconds(20);
+
+    private static bool _pendingSave;
+    private static DateTime _lastSaveUtc = DateTime.MinValue;
+
+    /// <summary>2026-11-26: дописать на диск отложенные обновления обхода (конец обхода, остановка).</summary>
+    public static void Flush()
+    {
+        lock (Lock)
+        {
+            if (_pendingSave && _data != null)
+                Save(_data);
         }
     }
 
@@ -267,6 +289,8 @@ public static class VariantBarcodeIndex
     {
         lock (Lock)
         {
+            if (_pendingSave && _data != null)
+                Save(_data); // 2026-11-26: отложенные записи обхода уходят в файл ПРЕЖНЕЙ компании, пока путь не сменился
             _data = null;
             _loadedPath = null;
         }
@@ -283,6 +307,8 @@ public static class VariantBarcodeIndex
             File.WriteAllText(tmp, JsonSerializer.Serialize(data));
             File.Move(tmp, path, overwrite: true);
             _loadedStamp = Stamp(path);
+            _pendingSave = false;
+            _lastSaveUtc = DateTime.UtcNow;
         }
         catch (Exception ex)
         {
@@ -341,7 +367,7 @@ public static class VariantBarcodeIndex
                             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
                             cts.CancelAfter(TimeSpan.FromSeconds(10));
                             var list = await loader(id, cts.Token).ConfigureAwait(false) ?? new List<ProductVariantDto>();
-                            ProductVariantCache.Put(id, list);
+                            ProductVariantCache.Put(id, list, deferIndexSave: true); // 2026-11-26: файл не после каждого товара (см. Update)
                             done++;
                         }
                         catch (ApiException ex) when (ex.StatusCode == 429)
@@ -359,6 +385,7 @@ public static class VariantBarcodeIndex
                         }
                         await Task.Delay(SweepItemDelay, ct).ConfigureAwait(false);
                     }
+                    Flush(); // 2026-11-26: конец прохода — отложенные записи на диск (см. Update)
                     if (done > 0)
                         PosLogger.Log($"Штрихкоды размеров: проверено товаров {done}, в справочнике штрихкодов {Count}.", "CATALOG");
                 }
@@ -371,6 +398,10 @@ public static class VariantBarcodeIndex
         catch (Exception ex)
         {
             PosLogger.Log($"Штрихкоды размеров: фоновый обход остановлен ({ex.Message}).", "WARNING");
+        }
+        finally
+        {
+            Flush(); // 2026-11-26: остановка обхода (выход из кассы, смена компании) — отложенные записи не теряются
         }
     }
 }

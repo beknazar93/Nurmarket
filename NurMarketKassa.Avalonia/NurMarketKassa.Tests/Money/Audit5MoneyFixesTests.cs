@@ -358,11 +358,58 @@ public sealed class Audit5MoneyFixesTests : IDisposable
         ExchangeCashCorrections.RecordServerUnderRecordedDebtRefund(shift + "x", "k2", 100m, 98m, 2m, 2m).Should().BeFalse();
         // сервер не вычел ничего — это не Ж-01, не пишем
         ExchangeCashCorrections.RecordServerUnderRecordedDebtRefund(shift + "y", "k3", 100m, 100m, 2m, 1m).Should().BeFalse();
-        // запись сервера неизвестна
+        // 2026-11-27 (ответ Умара, dret2711): цифры движений денег сервера нет совсем (serverCashOut = null, расходы не прочитаны) — поправку «по предположению» НЕ пишем (могла бы двоить учёт)
         ExchangeCashCorrections.RecordServerUnderRecordedDebtRefund(shift + "z", "k4", 100m, 99m, 2m, null).Should().BeFalse();
+        // цифра движений есть (расход 1 при выдаче 2, остаток упал на 1) — поправка по факту
+        ExchangeCashCorrections.RecordServerUnderRecordedDebtRefund(shift + "w", "k5", 100m, 99m, 2m, null, drawerFlowsOut: 1m).Should().BeTrue();
         ExchangeCashCorrections.ForShift(shift + "x").Should().Be(0m);
         ExchangeCashCorrections.ForShift(shift + "y").Should().Be(0m);
         ExchangeCashCorrections.ForShift(shift + "z").Should().Be(0m);
+        ExchangeCashCorrections.ForShift(shift + "w").Should().Be(-1m);
+    }
+
+    /// <summary>2026-11-26 (живая сверка NBS): возврат долгового чека №2139 — итог 88, предоплата 20 нал, оплаты долга 10 нал + 15 безнал, долг 43.
+    /// Касса и документ сервера выдают 45,00 наличными, а expected_cash смены уменьшился только на 20,00 (cashflow «Возврат … 20.00»). Поправка −25,00 — ящик сходится.</summary>
+    [Fact]
+    public void LiveNbs2139_DebtReturn_OldServer_ExpenseOnlyPrepayment_CorrectionIsTheGap()
+    {
+        ExchangeCashCorrections.ResetForTests();
+        var shift = DrawerShift + "-2139";
+        ExchangeCashCorrections.ServerSubtractsDebtRefund = () => true;
+        // старое поведение сервера: расход по чеку записан только на предоплату 20, остаток смены упал на 20 — поправка −25 (ящик сходится)
+        ExchangeCashCorrections.RecordServerUnderRecordedDebtRefund(shift, "2139", expectedBefore: 434.04m, expectedAfter: 414.04m, cashOut: 45m, serverCashOut: null, drawerFlowsOut: 20m).Should().BeTrue();
+        ExchangeCashCorrections.ForShift(shift).Should().Be(-25m);
+        // 2026-11-27: сервер исправлен (dret2711) — расход = выдача 45, остаток упал на 45: поправки нет, ящик не искажается
+        ExchangeCashCorrections.RecordServerUnderRecordedDebtRefund(shift + "a", "a", 434.04m, 389.04m, 45m, null, drawerFlowsOut: 45m).Should().BeFalse();
+        ExchangeCashCorrections.ForShift(shift + "a").Should().Be(0m);
+        // исправленный сервер и чужая продажа +25 в эти же секунды: остаток упал только на 20, но расход 45 — поправка НЕ пишется (раньше двоила бы учёт)
+        ExchangeCashCorrections.RecordServerUnderRecordedDebtRefund(shift + "c", "c", 434.04m, 414.04m, 45m, null, drawerFlowsOut: 45m).Should().BeFalse();
+        ExchangeCashCorrections.ForShift(shift + "c").Should().Be(0m);
+        // старый сервер (расход 20) и чужая продажа +25: остаток вырос на 5, не упал на 20 — это не ошибка сервера, поправку не пишем
+        ExchangeCashCorrections.RecordServerUnderRecordedDebtRefund(shift + "d", "d", 434.04m, 439.04m, 45m, null, drawerFlowsOut: 20m).Should().BeFalse();
+        // сервер не снял ничего — не Ж-01; расход не прочитан — поправка не пишется
+        ExchangeCashCorrections.RecordServerUnderRecordedDebtRefund(shift + "b", "b", 434.04m, 434.04m, 45m, null, drawerFlowsOut: 20m).Should().BeFalse();
+        ExchangeCashCorrections.RecordServerUnderRecordedDebtRefund(shift + "e", "e", 434.04m, 414.04m, 45m, null).Should().BeFalse();
+        ExchangeCashCorrections.ForShift(shift + "e").Should().Be(0m);
+    }
+
+    /// <summary>2026-11-27 (dret2711): расходы ящика по возврату долгового чека читаются из движений денег сервера (предоплата + «гашения долга»), чужие смены, приходы и старые записи не считаются.</summary>
+    [Fact]
+    public void ReturnDrawerExpenses_SumsOnlyThisSaleThisShiftExpensesAfterSend()
+    {
+        var sent = DateTimeOffset.Now;
+        string Row(string type, string amount, string shift, DateTimeOffset at, string sale = "sale-1", string status = "approved") =>
+            "{\"source_id\":\"" + sale + "\",\"type\":\"" + type + "\",\"amount\":\"" + amount + "\",\"shift\":\"" + shift + "\",\"status\":\"" + status + "\",\"created_at\":\"" + at.ToString("O") + "\"}";
+        var json = "[" + string.Join(",",
+            Row("expense", "20.00", "S1", sent.AddSeconds(1)),                       // предоплата вместе с чеком
+            Row("expense", "25.00", "S1", sent.AddSeconds(1)),                       // «Возврат по чеку … (гашения долга)»
+            Row("income", "88.00", "S1", sent.AddHours(-1)),                         // сама продажа
+            Row("expense", "10.00", "S1", sent.AddHours(-3)),                        // старая запись
+            Row("expense", "7.00", "S2", sent.AddSeconds(1)),                        // другая смена
+            Row("expense", "9.00", "S1", sent.AddSeconds(1), sale: "other"),         // другой чек
+            Row("expense", "5.00", "S1", sent.AddSeconds(1), status: "cancelled")) + "]";
+        var rows = System.Text.Json.JsonDocument.Parse(json).RootElement.Clone().EnumerateArray().ToList();
+        NurMarketKassa.Services.Api.NurCrmReportsApi.SumReturnDrawerExpenses(rows, "sale-1", "S1", sent).Should().Be(45m);
     }
 
     // ───────────── Л5-12: предохранитель считает пути без id ─────────────

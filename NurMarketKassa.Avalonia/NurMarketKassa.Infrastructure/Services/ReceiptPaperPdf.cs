@@ -100,6 +100,12 @@ public static class ReceiptPaperPdf
                         col.Item().PaddingTop(3).AlignCenter().Text(d.OfflineNote).FontSize(7).FontColor(Warn);
                     if (d.QrUrl != null)
                         col.Item().PaddingTop(3).AlignCenter().Text(d.QrUrl).FontSize(6.5f).FontColor(Soft);
+                    // 2026-11-26 (отчёт «Конкуренты», п. 3): витрина магазина — подпись и адрес (в PDF, как и ссылка на чек, текстом).
+                    if (d.ShowShopQr)
+                    {
+                        col.Item().PaddingTop(4).AlignCenter().Text(StorefrontLink.Caption).FontSize(7.5f).Bold();
+                        col.Item().AlignCenter().Text(d.ShopQrUrl).FontSize(6.5f).FontColor(Soft);
+                    }
 
                     col.Item().PaddingTop(6).AlignCenter().Text(Tr.T("Спасибо за покупку!", "Сатып алганыңыз үчүн рахмат!", "Thank you for your purchase!", "Alışveriş için teşekkürler!", "Xaridingiz uchun rahmat!")).Bold();
                     col.Item().AlignCenter().Text("NurCRM").FontSize(7).FontColor(Soft);

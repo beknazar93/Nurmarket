@@ -23,6 +23,9 @@ public enum LabelExtraKind
     Line = 6,
     /// <summary>Логотип — чёрно-белая картинка из файла.</summary>
     Logo = 7,
+    /// <summary>2026-11-26 (отчёт «Конкуренты», п. 3): QR на витрину магазина (market.nurcrm.kg/catalog/{slug}) с подписью «Заказать онлайн».
+    /// Адрес берётся у магазина; витрины нет — элемент на этикетке не рисуется. ДОБАВЛЕН В КОНЕЦ: числа прежних видов в сохранённых шаблонах не меняются.</summary>
+    ShopQr = 8,
 }
 
 /// <summary>Свой элемент этикетки: раскладка и оформление (как у встроенных) + вид, текст, файл картинки.</summary>
@@ -46,7 +49,7 @@ public sealed class LabelCustomElement : LabelElementLayout
 }
 
 /// <summary>Данные текущего товара для своих элементов. В шаблон не сохраняются.</summary>
-public sealed record LabelItemData(string? Brand = null, string? OldPriceText = null, double DiscountPercent = 0, string? Cell = null);
+public sealed record LabelItemData(string? Brand = null, string? OldPriceText = null, double DiscountPercent = 0, string? Cell = null, string? ShopUrl = null);
 
 /// <summary>Общие правила своих элементов: текст, значения по умолчанию, образец данных для редактора. Рисуют их GDI+ (BarcodeLabelService),
 /// сцена (BuildLabelScene → Avalonia и Skia) — по одним и тем же функциям отсюда, поэтому вид везде одинаков.</summary>
@@ -55,11 +58,25 @@ public static class LabelExtras
     public static readonly LabelExtraKind[] AllKinds =
     {
         LabelExtraKind.FreeText, LabelExtraKind.OldPrice, LabelExtraKind.Discount, LabelExtraKind.Brand,
-        LabelExtraKind.Date, LabelExtraKind.Cell, LabelExtraKind.Line, LabelExtraKind.Logo,
+        LabelExtraKind.Date, LabelExtraKind.Cell, LabelExtraKind.Line, LabelExtraKind.Logo, LabelExtraKind.ShopQr,
     };
 
     /// <summary>Образец данных товара для предпросмотра, пока товар не выбран.</summary>
-    public static LabelItemData Sample => new("Nur", "350 сом", 18, "A-12");
+    public static LabelItemData Sample => new("Nur", "350 сом", 18, "A-12", StorefrontLink.SampleUrl);
+
+    /// <summary>2026-11-26: адрес для QR витрины на этикетке: образец предпросмотра, иначе адрес магазина; null — витрины нет (QR не рисуется).</summary>
+    public static string? ShopQrUrl(LabelTemplate t) => t.Item?.ShopUrl ?? StorefrontLink.PrintableUrl();
+
+    /// <summary>2026-11-26: раскладка QR витрины в миллиметрах: сам QR и (если блок достаточно высокий) строка подписи «Заказать онлайн» под ним.
+    /// Одна на GDI+ (BarcodeLabelService) и сцену (Avalonia/Skia) — вид везде одинаков.</summary>
+    public static (LabelElementLayout Qr, LabelElementLayout? Caption) ShopQrLayout(LabelCustomElement e)
+    {
+        if (e.HeightMm < 8 || e.WidthMm < 7)
+            return (new LabelElementLayout { XMm = e.XMm, YMm = e.YMm, WidthMm = e.WidthMm, HeightMm = e.HeightMm }, null);
+        var cap = Math.Clamp(e.HeightMm * 0.2, 1.5, 2.2);
+        return (new LabelElementLayout { XMm = e.XMm, YMm = e.YMm, WidthMm = e.WidthMm, HeightMm = e.HeightMm - cap },
+            new LabelElementLayout { XMm = e.XMm, YMm = e.YMm + e.HeightMm - cap, WidthMm = e.WidthMm, HeightMm = cap, FontFamily = e.FontFamily, FontSizePx = 0, Align = 1 }); // FontSizePx = 0 — подпись подбирает размер сама, ручной размер шаблона её не раздувает
+    }
 
     /// <summary>Текст элемента для рисования; null/пусто — элемент не рисуется (нет данных у товара).</summary>
     public static string? TextFor(LabelCustomElement e, LabelTemplate t)
@@ -105,6 +122,7 @@ public static class LabelExtras
             LabelExtraKind.Discount => new LabelCustomElement { WidthMm = Math.Min(14, w), HeightMm = 5 },
             LabelExtraKind.Line => new LabelCustomElement { WidthMm = w, HeightMm = 0.4 },
             LabelExtraKind.Logo => new LabelCustomElement { WidthMm = Math.Min(10, w), HeightMm = Math.Min(10, Math.Max(t.HeightMm - 2, 3)) },
+            LabelExtraKind.ShopQr => new LabelCustomElement { WidthMm = Math.Min(14, w), HeightMm = Math.Min(14, Math.Max(t.HeightMm - 2, 4)) },
             LabelExtraKind.Date or LabelExtraKind.Cell => new LabelCustomElement { WidthMm = Math.Min(16, w), HeightMm = 3.5 },
             _ => new LabelCustomElement { WidthMm = Math.Min(20, w), HeightMm = 4.5 },
         };

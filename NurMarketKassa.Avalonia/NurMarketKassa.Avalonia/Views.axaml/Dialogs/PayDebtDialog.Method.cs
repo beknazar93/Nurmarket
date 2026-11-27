@@ -17,6 +17,8 @@ namespace NurMarketKassa.AvaloniaHost.Views.Dialogs;
 public partial class PayDebtDialog
 {
     private string _method = DebtPaymentSettings.MethodCash;
+    /// <summary>2026-11-26: способ выбрал кассир (или он взят из неоконченной оплаты) — свежие настройки с сервера его уже не заменяют запомненным.</summary>
+    private bool _methodTouched;
     /// <summary>Идёт оплата — оповещение «долг изменился» список не перезагружает (оплата перезагрузит сама).</summary>
     private bool _paying;
 
@@ -32,46 +34,127 @@ public partial class PayDebtDialog
     /// <summary>Выбранный способ: "cash" или "transfer" (только из разрешённых настройкой).</summary>
     private string SelectedMethod => DebtPaymentSettings.MethodsHere().Contains(_method) ? _method : DebtPaymentSettings.MethodsHere()[0];
 
-    public bool ShowMethodChoice => HasSelectedClient && DebtSales.Count > 0 && DebtPaymentSettings.MethodsHere().Count > 1;
+    /// <summary>2026-11-26, владелец: «при оплате долга должно быть видно — наличными или безналичными». Выбор показан всегда (раньше — только когда
+    /// в настройках «Оплата долга» были разрешены оба способа, а безнал был выключен по умолчанию — кассир выбора не видел). Способ, который
+    /// выключен в настройках, остаётся на экране недоступным с пояснением, кто его включает.</summary>
+    public bool ShowMethodChoice => HasSelectedClient && DebtSales.Count > 0;
 
     public string MethodLabel => Tr.T("Способ оплаты:", "Төлөө ыкмасы:", "Payment method:", "Ödeme yöntemi:", "To'lov usuli:");
     public string CashMethodLabel => DebtPaymentFlow.MethodTitle(DebtPaymentSettings.MethodCash);
     public string TransferMethodLabel => DebtPaymentFlow.MethodTitle(DebtPaymentSettings.MethodTransfer);
 
+    public bool CashMethodAllowed => DebtPaymentSettings.MethodsHere().Contains(DebtPaymentSettings.MethodCash);
+    public bool TransferMethodAllowed => DebtPaymentSettings.MethodsHere().Contains(DebtPaymentSettings.MethodTransfer);
+
+    /// <summary>2026-11-26: один из способов выключен в настройках — под кнопками сказано какой и кто включает.</summary>
+    public bool ShowMethodOffHint => ShowMethodChoice && !(CashMethodAllowed && TransferMethodAllowed);
+
+    public string MethodOffHint => !TransferMethodAllowed
+        ? Tr.T("Безнал выключен в настройках «Оплата долга» — включает владелец или администратор.",
+            "Накталай эмес төлөм «Карыз төлөө» жөндөөлөрүндө өчүрүлгөн — ээси же администратор күйгүзөт.",
+            "Non-cash is switched off in the “Debt payment” settings — the owner or an administrator can turn it on.",
+            "Nakitsiz ödeme «Borç ödemesi» ayarlarında kapalı — sahip veya yönetici açabilir.",
+            "Naqd emas to'lov «Qarzni to'lash» sozlamalarida o'chirilgan — egasi yoki administrator yoqadi.")
+        : Tr.T("Наличные выключены в настройках «Оплата долга» — включает владелец или администратор.",
+            "Накталай төлөм «Карыз төлөө» жөндөөлөрүндө өчүрүлгөн — ээси же администратор күйгүзөт.",
+            "Cash is switched off in the “Debt payment” settings — the owner or an administrator can turn it on.",
+            "Nakit ödeme «Borç ödemesi» ayarlarında kapalı — sahip veya yönetici açabilir.",
+            "Naqd to'lov «Qarzni to'lash» sozlamalarida o'chirilgan — egasi yoki administrator yoqadi.");
+
     public bool IsCashMethod
     {
-        get => SelectedMethod == DebtPaymentSettings.MethodCash;
+        get => !IsMixedMethod && SelectedMethod == DebtPaymentSettings.MethodCash;
         set
         {
             if (!value)
                 return;
+            _mixed = false;
             _method = DebtPaymentSettings.MethodCash;
+            _methodTouched = true;
+            DebtPaymentSettings.RememberMethod(_method); // 2026-11-26: следующий раз окно откроется с этим способом
             OnMethodChanged();
         }
     }
 
     public bool IsTransferMethod
     {
-        get => SelectedMethod == DebtPaymentSettings.MethodTransfer;
+        get => !IsMixedMethod && SelectedMethod == DebtPaymentSettings.MethodTransfer;
         set
         {
             if (!value)
                 return;
+            _mixed = false;
             _method = DebtPaymentSettings.MethodTransfer;
+            _methodTouched = true;
+            DebtPaymentSettings.RememberMethod(_method); // 2026-11-26: см. выше
             OnMethodChanged();
         }
     }
 
-    /// <summary>Под способом — пояснение для безнала (и при единственном разрешённом безнале — что оплата пойдёт безналом).</summary>
+    // ── 2026-11-26, владелец: «показывать: наличными, безналом или смешанно» — оплата 40 наличными + 60 безналом за один раз ──────────────
+    /// <summary>Выбрано «Смешанно»: сумма делится на наличную и безналичную часть, сервер получает два взноса (наличный и безналичный) подряд — каждый со своим ключом
+    /// и записью в смену (в журнале и списках смены они сливаются в одну строку «Смешанно»). Только при включённых обоих способах; «Оплатить» у строки — одним способом.</summary>
+    private bool _mixed;
+
+    private string _mixedNonCashText = "";
+
+    /// <summary>Последняя оплата Runner прошла успешно (для смешанной: первая часть принята — шлём вторую).</summary>
+    private bool _lastPaySucceeded;
+
+    public bool MixedMethodAllowed => CashMethodAllowed && TransferMethodAllowed;
+
+    public string MixedMethodLabel => ShiftEventText.MixedLabel;
+
+    public bool IsMixedMethod
+    {
+        get => _mixed && MixedMethodAllowed;
+        set
+        {
+            if (!value)
+                return;
+            _mixed = true;
+            _methodTouched = true;
+            OnMethodChanged();
+        }
+    }
+
+    public bool ShowMixedInput => HasSelectedClient && DebtSales.Count > 0 && IsMixedMethod;
+
+    public string MixedNonCashLabel => Tr.T("Из них безналом:", "Анын ичинен накталай эмес:", "Of which non-cash:", "Bunun nakitsiz kısmı:", "Shundan naqd emas:");
+
+    /// <summary>Сумма безналичной части («Погасить одной суммой» — общая сумма, из неё эта часть безналом, остальное наличными).</summary>
+    public string MixedNonCashText
+    {
+        get => _mixedNonCashText;
+        set
+        {
+            if (_mixedNonCashText == value)
+                return;
+            _mixedNonCashText = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(MixedHint));
+        }
+    }
+
+    /// <summary>«Наличными 40,00 + безналом 60,00» по текущей сумме и безналичной части; пока части не введены — подсказка, что делать.</summary>
+    public string MixedHint
+    {
+        get
+        {
+            if (CashAmountInput.TryParse(PayAllAmountText, out var total) && CashAmountInput.TryParse(MixedNonCashText, out var non) && non > 0m && non < total)
+                return ShiftEventText.DebtMixed((double)(total - non), (double)non);
+            return Tr.T("Укажите сумму безналом — остальное будет наличными. Безнал в ящик не входит.",
+                "Накталай эмес сумманы жазыңыз — калганы накталай болот. Накталай эмес кутуга кирбейт.",
+                "Enter the non-cash part — the rest will be cash. Non-cash does not go into the drawer.",
+                "Nakitsiz kısmı yazın — kalanı nakit olur. Nakitsiz çekmeceye girmez.",
+                "Naqd emas qismini kiriting — qolgani naqd bo'ladi. Naqd emas tortmaga kirmaydi.");
+        }
+    }
+
+    /// <summary>Под способом — пояснение для безнала: в смене он безналом, в ящик не входит.</summary>
     public bool ShowTransferHint => HasSelectedClient && DebtSales.Count > 0 && IsTransferMethod;
 
-    public string TransferHint => (DebtPaymentSettings.MethodsHere().Count > 1 ? "" : Tr.T(
-            "Оплата долга принимается безналом (так задано в настройках «Оплата долга»). ",
-            "Карыз накталай эмес кабыл алынат («Карыз төлөө» жөндөөсүндө ушундай коюлган). ",
-            "Debt payments are taken as non-cash (set in the “Debt payment” settings). ",
-            "Borç ödemesi nakitsiz alınır («Borç ödemesi» ayarlarında böyle belirlendi). ",
-            "Qarz to'lovi naqd emas qabul qilinadi («Qarzni to'lash» sozlamalarida shunday belgilangan). "))
-        + Tr.T(
+    public string TransferHint => Tr.T(
             "Безнал попадёт в смену безналичными — в ожидаемую сумму ящика не входит.",
             "Накталай эмес төлөм сменага накталай эмес болуп кирет — кутулган кассанын суммасына кошулбайт.",
             "Non-cash goes to the shift as non-cash — it is not part of the expected drawer amount.",
@@ -82,6 +165,14 @@ public partial class PayDebtDialog
     {
         OnPropertyChanged(nameof(IsCashMethod));
         OnPropertyChanged(nameof(IsTransferMethod));
+        OnPropertyChanged(nameof(IsMixedMethod));
+        OnPropertyChanged(nameof(MixedMethodAllowed));
+        OnPropertyChanged(nameof(ShowMixedInput));
+        OnPropertyChanged(nameof(MixedHint));
+        OnPropertyChanged(nameof(CashMethodAllowed));
+        OnPropertyChanged(nameof(TransferMethodAllowed));
+        OnPropertyChanged(nameof(ShowMethodOffHint));
+        OnPropertyChanged(nameof(MethodOffHint));
         OnPropertyChanged(nameof(ShowTransferHint));
         OnPropertyChanged(nameof(TransferHint));
     }
@@ -89,6 +180,7 @@ public partial class PayDebtDialog
     private void RefreshMethodChoice()
     {
         OnPropertyChanged(nameof(ShowMethodChoice));
+        OnPropertyChanged(nameof(ShowMethodOffHint));
         OnMethodChanged();
     }
 
@@ -106,6 +198,7 @@ public partial class PayDebtDialog
 
     private void InitMethodChoice()
     {
+        _method = DebtPaymentSettings.DefaultMethodHere(); // 2026-11-26: последний выбор кассира (по умолчанию наличные)
         DebtSales.CollectionChanged += (_, _) => RefreshMethodChoice();
         PropertyChanged += (_, e) =>
         {
@@ -113,7 +206,10 @@ public partial class PayDebtDialog
             {
                 // У клиента висит оплата без ответа — показать её способ и закрыть изменения.
                 if (DebtPaymentRunner.UnknownFor(_selectedClient?.Id) is { } unknown)
+                {
                     _method = unknown.Method;
+                    _methodTouched = true; // 2026-11-26
+                }
                 // 2026-10-18, седьмой круг: другой клиент — замок прошлого клиента не «сменившееся состояние».
                 _shownUnknownKey = null;
                 RefreshMethodChoice();
@@ -161,6 +257,8 @@ public partial class PayDebtDialog
             DebtPaymentRunner.Refresh();
             OnUnknownChanged();
             await DebtPaymentSettings.RefreshAsync(force: true).ConfigureAwait(true);
+            if (!_methodTouched)
+                _method = DebtPaymentSettings.DefaultMethodHere(); // 2026-11-26: настройки обновились — запомненный способ мог стать разрешённым
             RefreshMethodChoice();
         };
     }
@@ -282,6 +380,7 @@ public partial class PayDebtDialog
         if (shown is not null && shown.Key != _shownUnknownKey)
         {
             _method = shown.Method;
+            _methodTouched = true; // 2026-11-26
             OnMethodChanged();
         }
         _shownUnknownKey = shown?.Key;
@@ -357,7 +456,7 @@ public partial class PayDebtDialog
 
     /// <summary>Новая оплата через сервер (DebtPaymentRunner.PayNewAsync: очередь, запись заранее, решение по ответу). row null —
     /// «одной суммой». true — проведено; false — сервер адреса не знает; отказ, обрыв, «не отправлено» — исключением.</summary>
-    private async Task<bool> PayViaServerAsync(DebtSaleRow? row, double amount, string method)
+    private async Task<bool> PayViaServerAsync(DebtSaleRow? row, double amount, string method, string? mixId = null)
     {
         var api = App.AppHost?.Services.GetService<ClientDebtsApiService>();
         if (api == null || _selectedClient is not { } client)
@@ -376,7 +475,7 @@ public partial class PayDebtDialog
         {
             // 2026-11-03 (Д3-01/С-08): ждём сервер не дольше 8 с; запрос НЕ отменяется (ключ тот же, запись заранее на диске), ответ дожидается; через 8 с окно можно закрыть.
             attempt = await SlowMoneyCall.RunAsync("debt/pay", "debt|" + client.Id, _ => DebtPaymentRunner.PayNewAsync(api, key, client.Id, client.DisplayName, row?.Id,
-                row?.Number is { Length: > 0 } number ? "№" + number : null, amount, method, PosApp.ActiveShiftId), () => _slowReleased = true).ConfigureAwait(true);
+                row?.Number is { Length: > 0 } number ? "№" + number : null, amount, method, PosApp.ActiveShiftId, mixId), () => _slowReleased = true).ConfigureAwait(true);
         }
         finally
         {
@@ -384,7 +483,7 @@ public partial class PayDebtDialog
             OnUnknownChanged();
         }
         AnnounceLateDebtResult(attempt, row is not null);
-        return await ApplyAttemptAsync(client, attempt, bySale: row is not null).ConfigureAwait(true);
+        return await ApplyAttemptAsync(client, attempt, bySale: row is not null, method).ConfigureAwait(true);
     }
 
     /// <summary>2026-11-03 (Д3-01): ответ пришёл, когда окно уже закрыли (кассир не стал ждать медленный сервер) — итог показываем плашкой.</summary>
@@ -400,7 +499,7 @@ public partial class PayDebtDialog
     /// <summary>Итог операции Runner в окне: сервер не знает адреса — false (старый путь); остальное — текст общим
     /// сопоставлением DebtPaymentRunner.OutcomeText (как у владельца), при замке — уточнение под панелью.</summary>
     /// <remarks>2026-10-18, седьмой круг (п.10): исход — enum DebtPayOutcome, исключения больше не бросаются.</remarks>
-    private async Task<bool> ApplyAttemptAsync(ClientOption client, DebtPayAttempt attempt, bool bySale)
+    private async Task<bool> ApplyAttemptAsync(ClientOption client, DebtPayAttempt attempt, bool bySale, string? method = null)
     {
         if (attempt.Outcome == DebtPayOutcome.EndpointMissing)
         {
@@ -414,8 +513,9 @@ public partial class PayDebtDialog
         var text = DebtPaymentRunner.OutcomeText(attempt, bySale, owner: false) ?? "";
         if (DebtPaymentRunner.NeedsReload(attempt))
             await LoadDebtSalesAsync(client.Id, keepInput: attempt.Outcome != DebtPayOutcome.Success).ConfigureAwait(true);
+        _lastPaySucceeded = attempt.Outcome == DebtPayOutcome.Success; // 2026-11-26: смешанная оплата — вторая часть уходит только после успеха первой
         if (attempt.Outcome == DebtPayOutcome.Success)
-            SuccessMessage = text;
+            SuccessMessage = method is null ? text : text + " " + DebtPaymentFlow.MethodNote(method); // 2026-11-26: + способ оплаты
         else
             ErrorMessage = text;
         // 2026-10-18, девятый круг (п.7): предупреждение к успеху — отдельной плашкой.
@@ -491,7 +591,7 @@ public partial class PayDebtDialog
             var attempt = await SlowMoneyCall.RunAsync("debt/retry", "debt|" + client.Id, _ => DebtPaymentRunner.RetryAsync(api, p.Key), () => _slowReleased = true).ConfigureAwait(true);
             AnnounceLateDebtResult(attempt, p.SaleId is not null);
             // Тексты (повтор не отправлен, закрытая смена, «повтор не удался — блокировка остаётся») — OutcomeText.
-            await ApplyAttemptAsync(client, attempt, bySale: p.SaleId is not null).ConfigureAwait(true);
+            await ApplyAttemptAsync(client, attempt, bySale: p.SaleId is not null, p.Method).ConfigureAwait(true);
         }
         catch (Exception ex)
         {
@@ -598,6 +698,77 @@ public partial class PayDebtDialog
     }
 
     /// <summary>Безнал по старому пути (сервер без pay-debt) провести нельзя — тот гасит взносы только наличными в кассу.</summary>
+    /// <summary>2026-11-26: смешанная оплата — наличная часть, затем безналичная (два взноса сервера, у каждого свой ключ и запись в смену). Вторая часть не уходит, если первая
+    /// не принята; если не принята вторая — кассиру прямо сказано, что наличная часть уже принята (её не нужно брать повторно).</summary>
+    private async Task PayMixedAsync(double cash, double nonCash)
+    {
+        if (!MixedMethodAllowed)
+        {
+            RefreshMethodChoice();
+            ErrorMessage = DebtPaymentFlow.MethodChangedMessage;
+            return;
+        }
+        _lastPaySucceeded = false;
+        // 2026-11-26 (живая проверка): общий идентификатор обеих частей — только по нему список смены сливает их в «Смешанно» (две отдельные оплаты подряд не сливаются).
+        var mixId = Guid.NewGuid().ToString("N");
+        var sentFirst = !_serverPayDebtMissing && await PayViaServerAsync(null, cash, DebtPaymentSettings.MethodCash, mixId).ConfigureAwait(true);
+        if (!sentFirst)
+        {
+            ErrorMessage = Tr.T("Сервер пока не принимает смешанную оплату долга. Примите одним способом.",
+                "Сервер азырынча карызды аралаш төлөөнү кабыл албайт. Бир ыкма менен кабыл алыңыз.",
+                "The server does not accept mixed debt payments yet. Take one method.",
+                "Sunucu henüz karışık borç ödemesi kabul etmiyor. Tek yöntemle alın.",
+                "Server hozircha qarzni aralash qabul qilmaydi. Bitta usulda qabul qiling.");
+            return;
+        }
+        if (!_lastPaySucceeded)
+            return; // ошибка первой части уже на экране, безнал не отправляем
+        _lastPaySucceeded = false;
+        await PayViaServerAsync(null, nonCash, DebtPaymentSettings.MethodTransfer, mixId).ConfigureAwait(true);
+        if (_lastPaySucceeded)
+        {
+            MixedNonCashText = "";
+            var parts = ShiftEventText.DebtMixed(cash, nonCash).Replace(ShiftEventText.MixedLabel + ": ", "");
+            SuccessMessage = Tr.T($"Принято смешанной оплатой: {parts}.", $"Аралаш төлөм кабыл алынды: {parts}.", $"Accepted as a mixed payment: {parts}.",
+                $"Karışık ödeme alındı: {parts}.", $"Aralash to'lov qabul qilindi: {parts}.");
+            return;
+        }
+        var cashText = DebtPaymentFlow.Money(cash);
+        SuccessMessage = "";
+        ErrorMessage = Tr.T($"Наличная часть ({cashText}) принята, безналичная — НЕ принята. Повторно наличные не берите. ",
+            $"Накталай бөлүгү ({cashText}) кабыл алынды, накталай эмес бөлүгү — КАБЫЛ АЛЫНГАН ЖОК. Накталайды кайра албаңыз. ",
+            $"The cash part ({cashText}) was accepted, the non-cash part was NOT. Do not take the cash again. ",
+            $"Nakit kısım ({cashText}) alındı, nakitsiz kısım ALINMADI. Nakdi tekrar almayın. ",
+            $"Naqd qism ({cashText}) qabul qilindi, naqd emas qism QABUL QILINMADI. Naqdni qayta olmang. ") + ErrorMessage;
+    }
+
+    /// <summary>2026-11-26 (владелец, 13:55 и 13:56: две оплаты по 50 сом подряд — повторное нажатие или два взноса?): защита от двойного нажатия уже есть (одна оплата за раз,
+    /// запись заранее, замок клиента), но вторая оплата ТАКОЙ ЖЕ суммы после ответа сервера — это новая операция. Если в смене от этого клиента такая же сумма принята
+    /// меньше 5 минут назад — в вопросе «Принять?» добавляется предупреждение со временем прошлой оплаты. Пусто — повторов нет.</summary>
+    private string DuplicatePaymentWarning(ClientOption client, double amount)
+    {
+        try
+        {
+            var shiftId = PosApp.ActiveShiftId;
+            var events = ShiftEventsStore.ListForShift(shiftId, ShiftEventsStore.KindDebtPayment).Select(e => (e.CreatedAt, e.Amount, e.Note, NonCash: false))
+                .Concat(ShiftEventsStore.ListForShift(shiftId, ShiftEventsStore.KindDebtPaymentNonCash).Select(e => (e.CreatedAt, e.Amount, e.Note, NonCash: true)));
+            if (ShiftEventText.FindRecentSamePayment(events, client.DisplayName, amount, DateTime.UtcNow, TimeSpan.FromMinutes(5)) is not { } prev)
+                return "";
+            var at = prev.ToLocalTime().ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture);
+            var money = DebtPaymentFlow.Money(amount);
+            return Tr.T($"Внимание: такая же оплата {money} от этого клиента уже принята в {at}. Если это повторное нажатие — отмените.",
+                $"Көңүл буруңуз: бул кардардан {money} ушундай төлөм саат {at} кабыл алынган. Кайра басылган болсо — жокко чыгарыңыз.",
+                $"Warning: the same payment of {money} from this client was already accepted at {at}. If it is a double press — cancel.",
+                $"Dikkat: bu müşteriden aynı {money} ödeme saat {at}'te zaten alındı. Yanlışlıkla tekrar bastıysanız — iptal edin.",
+                $"Diqqat: bu mijozdan xuddi shunday {money} to'lov soat {at} da allaqachon qabul qilingan. Takror bosilgan bo'lsa — bekor qiling.");
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Проверка повторной оплаты долга не выполнена: {ex.Message}", "WARNING");
+            return "";
+        }
+    }
+
     private bool RefuseLegacyForNonCash(string method)
     {
         if (method == DebtPaymentSettings.MethodCash)

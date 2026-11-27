@@ -151,6 +151,9 @@
   <x:String x:Key="printSettings.lptNotFound">Bu manzilda printer topilmadi</x:String>
   <x:String x:Key="printSettings.previewTextReceipt">Matnli chekni oldindan ko'rish</x:String>
   <x:String x:Key="printSettings.qrHeader">QR-kod</x:String>
+  <x:String x:Key="printSettings.linkQr">Elektron chekka havolali QR</x:String>
+  <x:String x:Key="printSettings.shopQr">Do'kon QR'i «Onlayn buyurtma»</x:String>
+  <x:String x:Key="printSettings.shopQrHint">Chek pastidagi ikkinchi QR xaridorni do'koningiz vitrinasiga (market.nurcrm.kg) olib boradi, u yerda onlayn buyurtma berishi mumkin. Faqat do'konda vitrina bo'lsa chop etiladi. Narx yorlig'ida — yorliq muharriridagi «Do'kon QR'i» elementi.</x:String>
   <x:String x:Key="printSettings.uploadQr">QR yuklash</x:String>
   <x:String x:Key="printSettings.deleteQr">O'chirish</x:String>
   <x:String x:Key="printSettings.qrNotLoaded">QR-kod yuklanmagan</x:String>
@@ -1389,7 +1392,7 @@
     <x:String x:Key="loc.settings.telegram.routerHint">Gemini kunlik limiti tugasa, OpenRouter bepul modeli javob beradi (kuniga 50 so'rov). «Bepul kalit olish» ni bosing → Google orqali kiring → «Create API Key», kalitni (sk-or-…) nusxalab shu yerga joylang. Savol va do'kon xulosasi shunda OpenRouter'ga ketadi. Bo'sh maydon — o'chiq.</x:String>
     <x:String x:Key="loc.settings.dynamicQr.toggle">Xaridorga chek summasi kiritilgan QR-kodni ko'rsatish</x:String>
     <x:String x:Key="loc.settings.dynamicQr.desc">Xaridor ekranida bankning oddiy QR-kodi o'rniga chek summasi allaqachon kiritilgan kod ko'rsatiladi — summani qo'lda terish shart emas. Rekvizitlar yuqorida yuklangan QR-koddan olinadi.</x:String>
-    <x:String x:Key="loc.settings.dynamicQr.warning">Yoqishdan oldin sinov chekini ikki-uch bankning ilovasi bilan skanerlab ko'ring: format MBank QR-kodi bilan solishtirilgan, boshqa banklarda tekshirilmagan. To'lovni kassir avvalgidek qo'lda tasdiqlaydi — kassa to'lov haqida o'zi bilmaydi.</x:String>
+    <x:String x:Key="loc.settings.dynamicQr.warning">Summali QR faqat o'z-o'zini tekshiruvdan o'tgan banklar uchun yaratiladi: kassa QR'ingizning nazorat summasini o'z formulasi bilan solishtiradi, mos kelsa — bank ilovasi bunday kodni qabul qiladi. Boshqa banklarga oddiy QR ko'rsatiladi. To'lovni kassir avvalgidek qo'lda (Enter) tasdiqlaydi — kassa to'lov haqida o'zi bilmaydi.</x:String>
     <x:String x:Key="loc.settings.bank.showAtCheckout">To'lovda ko'rsatish</x:String>
     <x:String x:Key="loc.settings.lanScale.title">Tarmoq tarozisi (mahsulotlarni yuklash)</x:String>
     <x:String x:Key="loc.settings.lanScale.desc">Manzil, port va parol tarozining o'z tizim menyusidan olinadi. «Tarozi» oynasi ham mahsulotlar ro'yxatini yuklashda aynan shu qiymatlardan foydalanadi.</x:String>

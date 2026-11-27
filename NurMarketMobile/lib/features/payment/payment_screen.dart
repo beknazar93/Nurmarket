@@ -917,7 +917,9 @@ class _PaidScreenState extends State<PaidScreen> {
     if (_printing) return;
     _printing = true;
     try {
-      await service.printReceipt(info.receipt, config: c, afterSale: true);
+      // 2026-11-26: ссылка на красивый чек — из ответа checkout; нет её — запрос share-link (до 6 с, без связи печатаем без QR)
+      final r = await receiptWithLink(context, info.receipt);
+      await service.printReceipt(r, config: c, afterSale: true);
       if (!mounted) return;
       if (_printError != null) setState(() => _printError = null);
       toast(context, context.l.prnSent);

@@ -131,6 +131,18 @@ public static partial class BarcodeLabelService
                 case LabelExtraKind.Line:
                     g.FillRectangle(Brushes.Black, rect.X, rect.Y, Math.Max(rect.Width, 1f), Math.Max(rect.Height, 1f));
                     break;
+                case LabelExtraKind.ShopQr:
+                {
+                    // 2026-11-26 (отчёт «Конкуренты», п. 3): QR витрины и подпись «Заказать онлайн»; адреса нет — не рисуем.
+                    var shopUrl = LabelExtras.ShopQrUrl(template);
+                    if (shopUrl is null)
+                        break;
+                    var (qrBox, captionBox) = LabelExtras.ShopQrLayout(e);
+                    DrawQrBlock(g, ToPxRect(qrBox), shopUrl, 1);
+                    if (captionBox is not null)
+                        DrawTextElement(g, captionBox, StorefrontLink.Caption, FontStyle.Regular, ResolveFontFamily(captionBox, template), ResolveFontSizePx(captionBox, template));
+                    break;
+                }
                 case LabelExtraKind.Logo:
                 {
                     var cells = LabelLogo.Cells(e.ImagePath, (int)rect.Width, (int)rect.Height, out var ox, out var oy);

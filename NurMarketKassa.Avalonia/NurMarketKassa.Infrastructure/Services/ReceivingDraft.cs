@@ -69,6 +69,15 @@ public sealed class ReceivingDraftLine
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public List<NurMarketKassa.Models.Pos.AlternateBarcodeVariant>? ExtraBarcodes { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? ScanPackNote { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? VariantNote { get; set; } // 2026-11-20: разбивка по вкусам объединённого товара
+
+    // 2026-11-26 («Выход мяса при приходе»): состояние блока — куплено, цена за кг или сумма, выход % или вес в продажу; в старых черновиках нет — null.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public bool? CarcassOn { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public decimal? CarcassGross { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public decimal? CarcassPrice { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public decimal? CarcassTotal { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public decimal? CarcassYield { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public decimal? CarcassNet { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? CarcassNote { get; set; }
 }
 
 /// <summary>Файл черновика: шапка приёмки и строки.</summary>
@@ -94,6 +103,8 @@ public sealed class ReceivingDraftFile
     public int DebtDays { get; set; } = 30;
     public string? DocNumber { get; set; }
     public DateTime? DocDate { get; set; }
+    /// <summary>2026-11-26 (ТОП-15 п. 4): номер ЭСФ поставщика из шапки приёма товара.</summary>
+    public string? EsfNumber { get; set; }
     // «Закупки → Приём товара»: по заказу и доп. расходы
     public string? OrderId { get; set; }
     public string? OrderNumber { get; set; }

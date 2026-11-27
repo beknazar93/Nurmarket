@@ -60,6 +60,71 @@ public static class LargeExcelWriter
         MiniExcel.SaveAs(path, sheets, printHeader: true, excelType: ExcelType.XLSX, configuration: config, overwriteFile: true);
     }
 
+    /// <summary>2026-11-26 (выгрузка в 1С, OneCExport): книга из нескольких листов — таблица с шапкой в 1-й строке, без заголовка отчёта и итогов
+    /// (так «Загрузка данных из табличного документа» 1С находит столбцы). Ключи колонок разные у каждого листа.</summary>
+    /// <summary>Строк данных на листе Excel не больше 1 048 576 − 1 (шапка).</summary>
+    public const int MaxSheetDataRows = 1_048_575;
+
+    /// <param name="maxRowsPerSheet">2026-11-26 (стресс-тест): лист длиннее предела Excel делится на «Лист», «Лист (2)»… с той же шапкой — иначе Excel не откроет
+    /// книгу. Делится список (IReadOnlyList); параметр — для тестов (миллион строк в тесте не пишем).</param>
+    public static void WriteSheets(string path, IReadOnlyList<(string Name, IReadOnlyList<XlColumn> Columns, IEnumerable<object?[]> Rows)> sheets, CancellationToken ct = default,
+        int maxRowsPerSheet = MaxSheetDataRows)
+    {
+        sheets = SplitLongSheets(sheets, Math.Max(1, maxRowsPerSheet));
+        var dynamic = new List<DynamicExcelColumn>();
+        var book = new Dictionary<string, object>();
+        var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (var s = 0; s < sheets.Count; s++)
+        {
+            var (name, columns, rows) = sheets[s];
+            var keys = new string[columns.Count];
+            for (var c = 0; c < columns.Count; c++)
+            {
+                keys[c] = "s" + s.ToString(CultureInfo.InvariantCulture) + "c" + c.ToString(CultureInfo.InvariantCulture);
+                dynamic.Add(new DynamicExcelColumn(keys[c]) { Name = columns[c].Title, Index = c, Width = WidthOf(columns[c]), Format = FormatOf(columns[c].Kind) });
+            }
+            var baseName = SafeSheetName(name);
+            var sheetName = baseName;
+            for (var n = 2; !used.Add(sheetName); n++)
+                sheetName = baseName[..Math.Min(baseName.Length, 27)] + " " + n.ToString(CultureInfo.InvariantCulture);
+            book[sheetName] = TableRows(columns, keys, rows, ct);
+        }
+        MiniExcel.SaveAs(path, book, printHeader: true, excelType: ExcelType.XLSX,
+            configuration: new OpenXmlConfiguration { DynamicColumns = dynamic.ToArray(), AutoFilter = true }, overwriteFile: true);
+    }
+
+    private static IReadOnlyList<(string Name, IReadOnlyList<XlColumn> Columns, IEnumerable<object?[]> Rows)> SplitLongSheets(
+        IReadOnlyList<(string Name, IReadOnlyList<XlColumn> Columns, IEnumerable<object?[]> Rows)> sheets, int max)
+    {
+        if (!sheets.Any(s => s.Rows is IReadOnlyList<object?[]> list && list.Count > max))
+            return sheets;
+        var result = new List<(string, IReadOnlyList<XlColumn>, IEnumerable<object?[]>)>();
+        foreach (var (name, columns, rows) in sheets)
+        {
+            if (rows is not IReadOnlyList<object?[]> list || list.Count <= max)
+            {
+                result.Add((name, columns, rows));
+                continue;
+            }
+            var baseName = SafeSheetName(name);
+            for (int start = 0, part = 1; start < list.Count; start += max, part++)
+            {
+                var from = start;
+                var count = Math.Min(max, list.Count - start);
+                var suffix = " (" + part.ToString(CultureInfo.InvariantCulture) + ")";
+                var sheetName = part == 1 ? baseName : baseName[..Math.Min(baseName.Length, 31 - suffix.Length)] + suffix;
+                result.Add((sheetName, columns, Slice(list, from, count)));
+            }
+        }
+        return result;
+    }
+
+    private static IEnumerable<object?[]> Slice(IReadOnlyList<object?[]> list, int from, int count)
+    {
+        for (var i = from; i < from + count; i++)
+            yield return list[i];
+    }
+
     private static IEnumerable<Dictionary<string, object>> TableRows(IReadOnlyList<XlColumn> columns, string[] keys, IEnumerable<object?[]> rows, CancellationToken ct)
     {
         var n = 0;

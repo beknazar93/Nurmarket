@@ -287,6 +287,9 @@
                     <!-- Сообщение корзины -->
                     <!-- 2026-10-01: подсказка допродажи «С этим часто берут» (UpsellBannerView) под сообщением чека. -->
                     <StackPanel Grid.Row="3">
+                        <!-- 2026-11-27 (акции v2): подсказки акций и итог сервера (pos/quote/). -->
+                        <TextBlock Text="{Binding Basket.PromoNoticeText}" IsVisible="{Binding Basket.HasPromoNotice}"
+                               FontSize="12.5" FontWeight="SemiBold" TextWrapping="Wrap" Margin="12,8,12,0" Foreground="{DynamicResource BrushAccent}"/>
                         <TextBlock Text="{Binding Basket.CartMessage}" IsVisible="{Binding Basket.HasCartMessage}"
                                FontSize="12" TextWrapping="Wrap" Margin="12,8,12,0"
                                Foreground="{DynamicResource BrushUiStatusOk}"/>
@@ -456,10 +459,9 @@
                             Command="{Binding Basket.PayCommand}">
                         <Grid ColumnDefinitions="Auto,*,Auto" HorizontalAlignment="Stretch" MinWidth="240">
                             <PathIcon Data="{StaticResource IconCashMultiple}" Width="22" Height="22" VerticalAlignment="Center"/>
+                            <!-- 2026-11-26 (дизайн и удобство): сумма печаталась дважды — PayButtonText с 05.11 уже содержит сумму; лишний блок справа убран. -->
                             <TextBlock Grid.Column="1" Text="{Binding Basket.PayButtonText}" FontSize="18" Margin="10,0"
                                        VerticalAlignment="Center"/>
-                            <TextBlock Classes="num" Grid.Column="2" Text="{Binding Basket.Total, Converter={x:Static conv:MoneyConverter.Instance}}"
-                                       FontSize="18" VerticalAlignment="Center"/>
                         </Grid>
                     </Button>
                 </Grid>

@@ -4,6 +4,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
 using NurMarketKassa.AvaloniaHost.Services;
+using NurMarketKassa.AvaloniaHost.Views.Settings;
 using NurMarketKassa.Services;
 using NurMarketKassa.Services.Api;
 
@@ -23,6 +24,21 @@ public sealed class TariffCustomWindow : Window
         public required TextBlock Once { get; init; }
         public required Border Active { get; init; }
         public required TextBlock ActiveText { get; init; } // 2026-11-20: «уже подключено» или «Входит в ваш тариф»
+    }
+
+    /// <summary>2026-11-26: строка функции-модуля (та же раскладка, что у пакета: значок, название, «что делает», цена, переключатель). Baseline — включён ли модуль в компании сейчас.</summary>
+    private sealed class ModuleRow
+    {
+        public required string Id { get; init; }
+        public required string Name { get; init; }
+        public required decimal? Price { get; init; }
+        public required bool Baseline { get; init; }
+        public required bool InSphere { get; init; }
+        public required CheckBox Box { get; init; }
+        public required TextBlock Monthly { get; init; }
+        public required Border Active { get; init; }
+        public required TextBlock ActiveText { get; init; }
+        public string? Line { get; init; }
     }
 
     private static string T(string ru, string ky, string en, string tr, string uz) => Tr.T(ru, ky, en, tr, uz);
@@ -55,6 +71,14 @@ public sealed class TariffCustomWindow : Window
     private readonly WrapPanel _periodRow = new() { Orientation = Orientation.Horizontal, IsVisible = false };
     private readonly Dictionary<string, Button> _periodButtons = new();
     private readonly TextBlock _removeHint = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap, IsVisible = false };
+    // 2026-11-26 («Своё» собирается из Маркетплейса): набор выбора — общий (TariffDraft); здесь галочки только отражают его. Модули — вторая часть списка, с теми же строками.
+    private readonly StackPanel _moduleRowsHost = new() { Spacing = 2 };
+    private readonly Dictionary<string, ModuleRow> _moduleRows = new(StringComparer.OrdinalIgnoreCase);
+    private readonly TextBlock _packsHeader = new() { FontSize = 15, FontWeight = FontWeight.SemiBold, IsVisible = false, Margin = new Thickness(0, 6, 0, 0) };
+    private readonly TextBlock _modulesHeader = new() { FontSize = 15, FontWeight = FontWeight.SemiBold, IsVisible = false, Margin = new Thickness(0, 12, 0, 0) };
+    private readonly TextBlock _modulesCaption = new() { FontSize = 12, TextWrapping = TextWrapping.Wrap, IsVisible = false };
+    private readonly TextBlock _changes = new() { FontSize = 13, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, IsVisible = false };
+    private bool _applyingDraft;
     private bool _suppress; // MarkActive ставит галочку из кода — это не выбор владельца
     private CancellationTokenSource? _quoteCts;
     private string? _attemptKey;
@@ -77,6 +101,15 @@ public sealed class TariffCustomWindow : Window
     public void SetPeriodForTest(string period) => SetPeriod(period);
     public string PackStatusText(string code) => _packRows.TryGetValue(code, out var r) && r.Active.IsVisible ? r.ActiveText.Text ?? "" : "";
 
+    // 2026-11-26: функции-модули в списке «Своё» — для проверок (то же, что для пакетов выше).
+    public IReadOnlyList<string> ModuleIdsShown => _moduleRows.Keys.ToList();
+    public bool IsModuleChecked(string id) => _moduleRows.TryGetValue(id, out var r) && r.Box.IsChecked == true;
+    public void SetModuleChecked(string id, bool value) => _moduleRows[id].Box.IsChecked = value;
+    public string? ModuleLineText(string id) => _moduleRows.TryGetValue(id, out var r) ? r.Line : null;
+    public string ModuleStatusText(string id) => _moduleRows.TryGetValue(id, out var r) && r.Active.IsVisible ? r.ActiveText.Text ?? "" : "";
+    public string ChangesLineText => _changes.IsVisible ? _changes.Text ?? "" : "";
+    public void RebuildModulesForTest() => BuildModuleRows();
+
     /// <summary>Открыть чат менеджера (общий путь поддержки — номер из RemoteSupportHost.SupportPhone); для проверок подменяется.</summary>
     public Func<string, bool> OpenChat { get; set; } = url => PlatformLauncher.OpenUrl(url);
     public void ManagerClickForTest() => _manager.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
@@ -92,20 +125,32 @@ public sealed class TariffCustomWindow : Window
         SectionCards.AsModal(this, 672);
 
         // 2026-11-20: «поверх вашего тарифа» (было «поверх Старта») — конструктор нужен и на «Стандарте»; доступность решает сервер.
-        _intro.Text = T("Соберите свой набор функций поверх вашего тарифа. Отметьте нужные пакеты — цены считает сервер. Заявку обработает менеджер и свяжется с вами; платить сейчас ничего не нужно.",
-            "Тарифиңиздин үстүнө өз функциялар топтомун чогултуңуз. Керектүү пакеттерди белгилеңиз — баасын сервер эсептейт. Өтүнүчтү менеджер иштетип, сиз менен байланышат; азыр эч нерсе төлөбөйсүз.",
-            "Build your own set of features on top of your plan. Tick the packs you need — the server calculates the prices. A manager will process the request and contact you; nothing to pay now.",
-            "Tarifenizin üzerine kendi özellik setinizi oluşturun. İhtiyacınız olan paketleri işaretleyin — fiyatları sunucu hesaplar. Talebi bir yönetici işleyip sizinle iletişime geçer; şimdi ödeme yapmanız gerekmez.",
-            "Tarifingiz ustiga o'z funksiyalar to'plamingizni yig'ing. Kerakli paketlarni belgilang — narxni server hisoblaydi. Arizani menejer ko'rib chiqib, siz bilan bog'lanadi; hozir hech narsa to'lash shart emas.");
+        // 2026-11-26: «пакеты и функции» — список теперь собран из Маркетплейса (выбор общий с кнопкой «+» на его карточках).
+        _intro.Text = T("Соберите свой набор функций поверх вашего тарифа. Отметьте нужные пакеты и функции — те же, что в Маркетплейсе, выбор общий; цены считает сервер. Заявку обработает менеджер и свяжется с вами; платить сейчас ничего не нужно.",
+            "Тарифиңиздин үстүнө өз функциялар топтомун чогултуңуз. Керектүү пакеттерди жана функцияларды белгилеңиз — Маркетплейстегидей эле, тандоо жалпы; баасын сервер эсептейт. Өтүнүчтү менеджер иштетип, сиз менен байланышат; азыр эч нерсе төлөбөйсүз.",
+            "Build your own set of features on top of your plan. Tick the packs and features you need — the same as in the Marketplace, the selection is shared; the server calculates the prices. A manager will process the request and contact you; nothing to pay now.",
+            "Tarifenizin üzerine kendi özellik setinizi oluşturun. İhtiyacınız olan paketleri ve özellikleri işaretleyin — Marketplace'tekilerle aynı, seçim ortaktır; fiyatları sunucu hesaplar. Talebi bir yönetici işleyip sizinle iletişime geçer; şimdi ödeme yapmanız gerekmez.",
+            "Tarifingiz ustiga o'z funksiyalar to'plamingizni yig'ing. Kerakli paketlar va funksiyalarni belgilang — Marketpleysdagi bilan bir xil, tanlov umumiy; narxni server hisoblaydi. Arizani menejer ko'rib chiqib, siz bilan bog'lanadi; hozir hech narsa to'lash shart emas.");
         Soft(_intro);
         Soft(_info);
         Soft(_removeHint);
+        Soft(_modulesCaption);
+        _packsHeader.Bind(TextBlock.ForegroundProperty, _packsHeader.GetResourceObservable("BrushText"));
+        _modulesHeader.Bind(TextBlock.ForegroundProperty, _modulesHeader.GetResourceObservable("BrushText"));
+        _changes.Bind(TextBlock.ForegroundProperty, _changes.GetResourceObservable("BrushText"));
+        _packsHeader.Text = T("Пакеты", "Пакеттер", "Packs", "Paketler", "Paketlar");
+        _modulesHeader.Text = T("Функции магазина", "Дүкөндүн функциялары", "Shop features", "Mağaza özellikleri", "Do'kon funksiyalari");
+        _modulesCaption.Text = T("Те же функции, что в Маркетплейсе. Отметка — функция в тарифе; цена в месяц с сервера, итог считает сервер. Функции вашей сферы входят в тариф.",
+            "Маркетплейстегидей эле функциялар. Белги — функция тарифте; айлык баасы серверден, жыйынтыкты сервер эсептейт. Чөйрөңүздүн функциялары тарифке кирет.",
+            "The same features as in the Marketplace. A tick means the feature is in the plan; the monthly price comes from the server, which also calculates the total. Features of your sphere are included.",
+            "Marketplace'tekiyle aynı özellikler. İşaret, özelliğin tarifede olduğu anlamına gelir; aylık fiyat sunucudan gelir, toplamı da sunucu hesaplar. Alanınızın özellikleri tarife dahildir.",
+            "Marketpleysdagi bilan bir xil funksiyalar. Belgi — funksiya tarifda; oylik narx serverdan, jami summani server hisoblaydi. Sohangiz funksiyalari tarifga kiradi.");
         _summary.Bind(TextBlock.ForegroundProperty, _summary.GetResourceObservable("BrushText"));
         _standardHint.Bind(TextBlock.ForegroundProperty, _standardHint.GetResourceObservable("BrushSuccess"));
         _done.Bind(TextBlock.ForegroundProperty, _done.GetResourceObservable("BrushSuccess"));
         _info.Text = T("Загрузка…", "Жүктөлүүдө…", "Loading…", "Yükleniyor…", "Yuklanmoqda…");
 
-        var summaryBox = new Border { CornerRadius = new CornerRadius(10), Padding = new Thickness(14, 10), Child = new StackPanel { Spacing = 4, Children = { _summary, _standardHint } } };
+        var summaryBox = new Border { CornerRadius = new CornerRadius(10), Padding = new Thickness(14, 10), Child = new StackPanel { Spacing = 4, Children = { _changes, _summary, _standardHint } } };
         summaryBox.Bind(Border.BackgroundProperty, summaryBox.GetResourceObservable("BrushPanelSoft"));
 
         _close = SectionCards.Cancel(T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"));
@@ -121,7 +166,7 @@ public sealed class TariffCustomWindow : Window
 
         Content = SectionCards.Shell(Title, null,
             // 2026-11-08: итог и результат — над списком: на 1024×600 список прокручивается, итог должен быть виден без прокрутки.
-            new StackPanel { Spacing = 10, Children = { _intro, _info, SectionCards.ErrorBox(this, _error), _manager, _done, _periodRow, summaryBox, _removeHint, _rows } },
+            new StackPanel { Spacing = 10, Children = { _intro, _info, SectionCards.ErrorBox(this, _error), _manager, _done, _periodRow, summaryBox, _removeHint, _packsHeader, _rows, _modulesHeader, _modulesCaption, _moduleRowsHost } },
             SectionCards.Buttons(_close, _submit));
 
         _debounce.Tick += (_, _) =>
@@ -130,10 +175,18 @@ public sealed class TariffCustomWindow : Window
             _ = RequestQuoteAsync();
         };
         Opened += async (_, _) => await LoadAsync().ConfigureAwait(true);
+        // 2026-11-26: общий набор (Маркетплейс ↔ диалог) и обновление списка модулей (цены и реестр пришли позже окна).
+        TariffDraft.Changed += OnDraftChanged;
+        PublicModules.Changed += OnModulesChanged;
+        CompanyModules.Changed += OnModulesChanged;
+        PublicModules.RefreshInBackground();
         Closed += (_, _) =>
         {
             _debounce.Stop();
             _quoteCts?.Cancel();
+            TariffDraft.Changed -= OnDraftChanged;
+            PublicModules.Changed -= OnModulesChanged;
+            CompanyModules.Changed -= OnModulesChanged;
         };
         RenderSummary();
     }
@@ -171,6 +224,7 @@ public sealed class TariffCustomWindow : Window
 
             BuildRows(_catalog);
             BuildPeriodRow();
+            BuildModuleRows(); // 2026-11-26: функции-модули — вторая часть списка (из Маркетплейса: public/modules + реестр компании)
             // 2026-11-20: пакеты, что уже входят в текущий тариф (например, в «Стандарт»), — «Входит в ваш тариф».
             // 2026-11-21 (ответ Умара 21.11): на Стандарте их снова можно СНИМАТЬ — отметка = пакет остаётся; снятые уходят в remove[], сервер считает «Своё» (Старт + оставшиеся пакеты).
             _planCode = TariffCustomRules.ResolvePlanCode(_catalog, _currentPlan);
@@ -210,6 +264,9 @@ public sealed class TariffCustomWindow : Window
                     Lock(ex is ApiException { StatusCode: 409 });
             }
 
+            // 2026-11-26: что входит в тариф — Маркетплейсу (его плитки показывают то же), а выбор, сделанный там раньше, — в галочки этого окна.
+            PublishBaselines();
+            ApplyDraft();
             RenderSummary();
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -241,6 +298,8 @@ public sealed class TariffCustomWindow : Window
         _locked = true;
         foreach (var row in _packRows.Values)
             row.Box.IsEnabled = false;
+        foreach (var row in _moduleRows.Values)
+            row.Box.IsEnabled = false;
         _submit.IsEnabled = false;
     }
 
@@ -248,17 +307,12 @@ public sealed class TariffCustomWindow : Window
     {
         _rows.Children.Clear();
         _packRows.Clear();
+        _packsHeader.IsVisible = catalog.Packs.Count > 0;
         foreach (var pack in catalog.Packs)
         {
-            var name = new TextBlock { Text = pack.Name, FontSize = 14, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap };
-            name.Bind(TextBlock.ForegroundProperty, name.GetResourceObservable("BrushText"));
-            var content = new StackPanel { Spacing = 1, Children = { name } };
-            if (!string.IsNullOrWhiteSpace(pack.Description))
-            {
-                var desc = new TextBlock { Text = pack.Description, FontSize = 12, TextWrapping = TextWrapping.Wrap };
-                Soft(desc);
-                content.Children.Add(desc);
-            }
+            // 2026-11-26: значок и «что делает» — как у карточки пакета в Маркетплейсе (описание пакета — с сервера, значок — TariffRowVisuals).
+            var (packIcon, packColor) = TariffRowVisuals.Pack(pack.Code);
+            var content = RowContent(packIcon, packColor, pack.Name, pack.Description);
 
             var box = new CheckBox { Content = content, HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Center, MinHeight = 44 };
             Avalonia.Automation.AutomationProperties.SetName(box, pack.Name);
@@ -281,8 +335,40 @@ public sealed class TariffCustomWindow : Window
             var row = new PackRow { Pack = pack, Box = box, Monthly = monthly, Once = once, Active = active, ActiveText = activeText };
             _packRows[pack.Code] = row;
             ShowListPrice(row);
-            box.IsCheckedChanged += (_, _) => OnSelectionChanged();
+            box.IsCheckedChanged += (_, _) =>
+            {
+                if (_suppress)
+                    return;
+                // 2026-11-26: выбор владельца уходит в общий набор (его видят плитки Маркетплейса); база — уже входит в тариф или подключён.
+                TariffDraft.SetPack(pack.Code, box.IsChecked == true, PackBaseline(pack.Code));
+                OnSelectionChanged();
+            };
         }
+    }
+
+    private bool PackBaseline(string code) => _included.Contains(code) || _active.Contains(code);
+
+    /// <summary>2026-11-26: общая раскладка строки (пакет и функция): значок 40 px слева, справа название и ОДНА строка «что делает». Пустое описание строку не создаёт.</summary>
+    private static Control RowContent(string iconKey, string iconColor, string title, string? description)
+    {
+        var name = new TextBlock { Text = title, FontSize = 14, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap };
+        name.Bind(TextBlock.ForegroundProperty, name.GetResourceObservable("BrushText"));
+        var texts = new StackPanel { Spacing = 1, VerticalAlignment = VerticalAlignment.Center, Children = { name } };
+        if (!string.IsNullOrWhiteSpace(description))
+        {
+            var desc = new TextBlock { Text = description, FontSize = 12, TextWrapping = TextWrapping.Wrap };
+            desc.Bind(TextBlock.ForegroundProperty, desc.GetResourceObservable("BrushTextSoft"));
+            texts.Children.Add(desc);
+        }
+
+        var icon = MarketplaceStoreView.BuildIcon(new MarketplaceItem { Id = "tariff-row", Title = title, IconKey = iconKey, IconColor = iconColor }, 40);
+        icon.VerticalAlignment = VerticalAlignment.Center;
+        icon.Margin = new Thickness(0, 0, 12, 0);
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
+        Grid.SetColumn(texts, 1);
+        grid.Children.Add(icon);
+        grid.Children.Add(texts);
+        return grid;
     }
 
     /// <summary>Цена из каталога: «400 сом / мес» и «+ 1 500 сом разово».</summary>
@@ -349,19 +435,199 @@ public sealed class TariffCustomWindow : Window
         row.Monthly.IsVisible = false;
         row.Once.IsVisible = false;
         row.Active.IsVisible = true;
+        TariffDraft.SetPack(code, true, true); // 2026-11-26: пакет уже подключён — «добавить» в общем наборе больше не нужно
     }
 
     /// <summary>Пакеты, которые владелец добавляет (отмечены, ещё не подключены и не входят в тариф).</summary>
     private List<string> Selected() =>
         _packRows.Values.Where(r => r.Box.IsChecked == true && !_active.Contains(r.Pack.Code) && !_included.Contains(r.Pack.Code)).Select(r => r.Pack.Code).ToList();
 
+    /// <summary>2026-11-26: функции, которые владелец добавляет (отмечены, а в компании не включены) и снимает (включены, а отметка снята).</summary>
+    private List<string> SelectedModules() => _moduleRows.Values.Where(r => r.Box.IsChecked == true && !r.Baseline).Select(r => r.Id).ToList();
+
+    private List<string> RemovedModules() => _moduleRows.Values.Where(r => r.Box.IsChecked != true && r.Baseline).Select(r => r.Id).ToList();
+
+    /// <summary>Набор модулей для расчёта выбора и заявки: включённые в компании + добавленные − снятые (единое правило — TariffDraft.EffectiveModules).</summary>
+    private static List<string>? SelectionModules() => TariffDraft.EffectiveModules();
+
     /// <summary>2026-11-21: пакеты тарифа «Стандарт», с которых владелец снял галочку — уходят в remove[].</summary>
     private List<string> Removed() =>
         _included.Where(c => _packRows.TryGetValue(c, out var r) && r.Box.IsChecked != true).ToList();
 
-    private bool HasChanges() => Selected().Count > 0 || Removed().Count > 0;
+    private bool HasChanges() => Selected().Count > 0 || Removed().Count > 0 || SelectedModules().Count > 0 || RemovedModules().Count > 0;
 
     private string PackName(string code) => _packRows.TryGetValue(code, out var r) ? r.Pack.Name : code;
+
+    private string ModuleName(string id) => _moduleRows.TryGetValue(id, out var r) ? r.Name : id;
+
+    /// <summary>2026-11-26: «Что изменится: +Ремонт, −ИИ-помощник» над итогом — из общего набора.</summary>
+    private void RenderChanges()
+    {
+        var any = TariffDraft.HasChanges;
+        _changes.IsVisible = any;
+        _changes.Text = any ? T("Что изменится: ", "Эмне өзгөрөт: ", "What changes: ", "Neler değişecek: ", "Nima o'zgaradi: ") + TariffDraft.ChangesText(6) : "";
+    }
+
+    /// <summary>2026-11-26: что входит в тариф — в общий набор (для плиток Маркетплейса).</summary>
+    private void PublishBaselines() => TariffDraft.PublishPackBaselines(_packRows.Keys.Select(c => (c, PackBaseline(c))));
+
+    private void OnDraftChanged()
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+            ApplyDraft();
+        else
+            Dispatcher.UIThread.Post(ApplyDraft);
+    }
+
+    private void OnModulesChanged()
+    {
+        if (!CatalogLoaded)
+            return;
+        void Rebuild()
+        {
+            if (!_locked)
+                BuildModuleRows();
+        }
+        if (Dispatcher.UIThread.CheckAccess())
+            Rebuild();
+        else
+            Dispatcher.UIThread.Post(Rebuild);
+    }
+
+    private bool CatalogLoaded => _catalog is { Packs.Count: > 0 };
+
+    /// <summary>2026-11-26: общий набор (его правят плитки Маркетплейса и сам диалог) → галочки окна. Выбор в самом окне уже в наборе, поэтому здесь ничего не меняется и расчёт не дёргается.</summary>
+    private void ApplyDraft()
+    {
+        if (_applyingDraft || _locked || _catalog is null)
+            return;
+        _applyingDraft = true;
+        try
+        {
+            var any = false;
+            foreach (var row in _packRows.Values)
+            {
+                if (!row.Box.IsEnabled)
+                    continue; // уже подключён отдельно — снять нельзя
+                var want = TariffDraft.IsPackSelected(row.Pack.Code, PackBaseline(row.Pack.Code));
+                if (row.Box.IsChecked == want)
+                    continue;
+                _suppress = true;
+                row.Box.IsChecked = want;
+                _suppress = false;
+                any = true;
+            }
+
+            foreach (var row in _moduleRows.Values)
+            {
+                var want = TariffDraft.IsModuleSelected(row.Id, row.Baseline);
+                if (row.Box.IsChecked == want)
+                    continue;
+                _suppress = true;
+                row.Box.IsChecked = want;
+                _suppress = false;
+                RefreshModuleRow(row);
+                any = true;
+            }
+
+            if (any)
+                OnSelectionChanged();
+            else
+                RenderChanges();
+        }
+        finally
+        {
+            _applyingDraft = false;
+        }
+    }
+
+    /// <summary>2026-11-26: функции магазина — те же, что в Маркетплейсе (GET public/modules/ с ценами; нет цен — реестр компании). Сначала те, что уже в тарифе; у каждой — значок и ОДНА строка «что делает»
+    /// (MarketplaceModuleContent.LineOf; нет записи — строка не показывается, а тест красный). Цена в месяц — с сервера, как на плитке; итог считает сервер.</summary>
+    private void BuildModuleRows()
+    {
+        _moduleRowsHost.Children.Clear();
+        _moduleRows.Clear();
+        var snap = CompanyModules.Snapshot;
+        var list = new List<(string Id, string Name, string Group, decimal? Price)>();
+        if (PublicModules.Cached is { Count: > 0 } pub)
+            list.AddRange(pub.Select(m => (m.Id, m.Name, m.Group, (decimal?)m.Monthly)));
+        else if (snap is not null)
+            list.AddRange(snap.Catalog.Select(i => (i.Id, i.Name, i.Group, (decimal?)null))); // цен пока нет — «ничего не придумываем»: строка без суммы
+        _modulesHeader.IsVisible = list.Count > 0;
+        _modulesCaption.IsVisible = list.Count > 0;
+        if (list.Count == 0)
+            return;
+
+        // В тарифе (включены в компании) — выше, дальше по группам (сферам) и названию.
+        var sorted = list.Select(m => (m, on: TariffDraft.ModuleBaseline(m.Id), sphere: TariffDraft.ModuleInSphere(m.Id)))
+            .OrderByDescending(x => x.on && x.sphere).ThenByDescending(x => x.on).ThenBy(x => x.m.Group, StringComparer.Ordinal).ThenBy(x => x.m.Name, StringComparer.CurrentCultureIgnoreCase);
+        foreach (var (m, on, sphere) in sorted)
+        {
+            var line = MarketplaceModuleContent.LineOf(m.Id);
+            if (line is null)
+                PosLogger.Log($"Тариф «Своё»: у модуля «{m.Id}» нет строки «что делает» (MarketplaceModuleContent.Lines)", "WARNING");
+            var content = RowContent(MarketplaceModuleContent.ListIconKey(m.Id), MarketplaceModuleContent.ListColor(m.Id), m.Name, line);
+            var box = new CheckBox { Content = content, HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Center, MinHeight = 44, IsEnabled = !_locked };
+            Avalonia.Automation.AutomationProperties.SetName(box, m.Name);
+            var monthly = new TextBlock { FontSize = 13, FontWeight = FontWeight.SemiBold, HorizontalAlignment = HorizontalAlignment.Right, TextAlignment = TextAlignment.Right };
+            monthly.Bind(TextBlock.ForegroundProperty, monthly.GetResourceObservable("BrushText"));
+            var activeText = new TextBlock { FontSize = 12, FontWeight = FontWeight.SemiBold };
+            activeText.Bind(TextBlock.ForegroundProperty, activeText.GetResourceObservable("BrushSuccess"));
+            var active = new Border { Child = activeText, IsVisible = false, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 2, 0, 0) };
+            var price = new StackPanel { Spacing = 1, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0), Children = { monthly, active } };
+            var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 2) };
+            Grid.SetColumn(box, 0);
+            Grid.SetColumn(price, 1);
+            grid.Children.Add(box);
+            grid.Children.Add(price);
+            _moduleRowsHost.Children.Add(grid);
+
+            var row = new ModuleRow { Id = m.Id, Name = m.Name, Price = m.Price, Baseline = on, InSphere = sphere, Box = box, Monthly = monthly, Active = active, ActiveText = activeText, Line = line };
+            _moduleRows[m.Id] = row;
+            _suppress = true;
+            box.IsChecked = TariffDraft.IsModuleSelected(m.Id, on);
+            _suppress = false;
+            RefreshModuleRow(row);
+            box.IsCheckedChanged += (_, _) =>
+            {
+                if (_suppress)
+                    return;
+                TariffDraft.SetModule(row.Id, box.IsChecked == true, row.Baseline);
+                RefreshModuleRow(row);
+                OnSelectionChanged();
+            };
+        }
+    }
+
+    /// <summary>Цена и состояние строки функции: «Входит в вашу сферу» / «Включено» + цена; «Будет добавлено» / «Будет снято» — пока заявка не отправлена.</summary>
+    private void RefreshModuleRow(ModuleRow row)
+    {
+        var selected = row.Box.IsChecked == true;
+        var priceText = row.Price is { } p ? M(p) + " " + T("/ мес", "/ ай", "/ mo", "/ ay", "/ oy") : "";
+        string? status = null;
+        var warn = false;
+        if (selected && row.Baseline)
+            status = row.InSphere
+                ? T("Входит в ваш тариф", "Тарифиңизге кирет", "Included in your plan", "Tarifinize dahil", "Tarifingizga kiradi")
+                : T("Включено", "Күйгүзүлгөн", "Enabled", "Etkin", "Yoqilgan");
+        else if (selected)
+        {
+            status = T("Будет добавлено", "Кошулат", "Will be added", "Eklenecek", "Qo'shiladi");
+            warn = true;
+        }
+        else if (row.Baseline)
+        {
+            status = T("Будет снято", "Алынып салынат", "Will be removed", "Kaldırılacak", "Olib tashlanadi");
+            warn = true;
+        }
+
+        // Цена видна, пока функция платная и не «входит в сферу»: чтобы было видно, сколько она стоит в месяц.
+        row.Monthly.Text = priceText;
+        row.Monthly.IsVisible = priceText.Length > 0 && !(row.InSphere && selected && row.Baseline) && !(row.InSphere && !selected);
+        row.ActiveText.Text = status ?? "";
+        row.ActiveText.Bind(TextBlock.ForegroundProperty, row.ActiveText.GetResourceObservable(warn ? "BrushWarning" : "BrushSuccess"));
+        row.Active.IsVisible = status is not null;
+    }
 
     private void BuildPeriodRow()
     {
@@ -433,6 +699,7 @@ public sealed class TariffCustomWindow : Window
         if (!HasChanges() && _baseQuote is not null)
             _quote = _baseQuote; // всё вернули как было — снова текущая стоимость тарифа
         RefreshIncludedRows();
+        RenderChanges();
         RenderSummary();
         if (HasChanges())
             _debounce.Start();
@@ -442,7 +709,7 @@ public sealed class TariffCustomWindow : Window
     {
         var codes = Selected();
         var removed = Removed();
-        if (codes.Count == 0 && removed.Count == 0)
+        if (!HasChanges())
             return;
         var version = _version;
         _quoteCts?.Cancel();
@@ -450,7 +717,7 @@ public sealed class TariffCustomWindow : Window
         _summary.Text = T("Считаю…", "Эсептеп жатам…", "Calculating…", "Hesaplanıyor…", "Hisoblanmoqda…");
         try
         {
-            var quote = await _api.QuoteAsync(codes, QuoteModules(), QuoteSphere(), removed, _period, cts.Token).ConfigureAwait(true);
+            var quote = await _api.QuoteAsync(codes, SelectionModules(), QuoteSphere(), removed, _period, cts.Token).ConfigureAwait(true);
             if (version != _version)
                 return; // пока считали, отметки поменялись — ответ устарел
             _quote = quote;
@@ -467,6 +734,7 @@ public sealed class TariffCustomWindow : Window
                 }
             }
 
+            PublishBaselines();
             RefreshIncludedRows();
             RenderSummary();
             _submit.IsEnabled = !_locked && !_submitting && HasChanges();
@@ -522,17 +790,18 @@ public sealed class TariffCustomWindow : Window
         if (q.HasModules)
         {
             // 2026-11-21: модули профиля входят бесплатно (included), модули других сфер — extra с ценой в месяц; total_month считает сервер.
+            // 2026-11-26: имена функций не перечисляем сплошным абзацем — они в списке ниже (значок, название, «что делает», цена); здесь только число и сумма от сервера.
             var extraLines = new List<string>();
             if (q.Included is { Count: > 0 })
             {
-                var n = string.Join(", ", q.Included.Select(m => m.Name));
-                extraLines.Add(T($"Модули вашей сферы (входят в тариф): {n}", $"Чөйрөңүздүн модулдары (тарифке кирет): {n}", $"Modules of your sphere (included): {n}", $"Alanınızın modülleri (dahil): {n}", $"Sohangiz modullari (tarifga kiradi): {n}"));
+                var n = q.Included.Count;
+                extraLines.Add(T($"Функции вашей сферы (входят в тариф): {n}", $"Чөйрөңүздүн функциялары (тарифке кирет): {n}", $"Features of your sphere (included): {n}", $"Alanınızın özellikleri (dahil): {n}", $"Sohangiz funksiyalari (tarifga kiradi): {n}"));
             }
             if (q.Extra is { Count: > 0 })
             {
-                var n = string.Join(", ", q.Extra.Select(m => $"{m.Name} ({M(m.Monthly)})"));
+                var n = q.Extra.Count;
                 var extraSum = M(q.ExtraMonth ?? q.Extra.Sum(x => x.Monthly));
-                extraLines.Add(T($"Модули других сфер: {n} — {extraSum} в месяц", $"Башка чөйрөлөрдүн модулдары: {n} — айына {extraSum}", $"Modules from other spheres: {n} — {extraSum} a month", $"Diğer alanların modülleri: {n} — ayda {extraSum}", $"Boshqa sohalar modullari: {n} — oyiga {extraSum}"));
+                extraLines.Add(T($"Функции других сфер: {n} — {extraSum} в месяц", $"Башка чөйрөлөрдүн функциялары: {n} — айына {extraSum}", $"Features from other spheres: {n} — {extraSum} a month", $"Diğer alanların özellikleri: {n} — ayda {extraSum}", $"Boshqa sohalar funksiyalari: {n} — oyiga {extraSum}"));
             }
             lines.InsertRange(Math.Min(2, lines.Count), extraLines);
         }
@@ -572,7 +841,7 @@ public sealed class TariffCustomWindow : Window
     {
         var codes = Selected();
         var removed = Removed();
-        if (_submitting || _locked || (codes.Count == 0 && removed.Count == 0) || _quote is null)
+        if (_submitting || _locked || !HasChanges() || _quote is null)
             return;
         var q = _quote;
         var names = codes.Count == 0 ? "—" : string.Join(", ", codes.Select(PackName));
@@ -587,6 +856,19 @@ public sealed class TariffCustomWindow : Window
             var removedNames = string.Join(", ", removed.Select(PackName));
             ask += "\n\n" + T($"Снять пакеты: {removedNames}. Тариф станет «Своё»: {PlanName("start", "Старт")} + оставшиеся пакеты.", $"Пакеттер алынат: {removedNames}. Тариф «Өзүмдүкү» болот: {PlanName("start", "Старт")} + калган пакеттер.",
                 $"Packs removed: {removedNames}. The plan becomes “Custom”: {PlanName("start", "Start")} + the remaining packs.", $"Kaldırılacak paketler: {removedNames}. Tarife «Özel» olur: {PlanName("start", "Start")} + kalan paketler.", $"Olib tashlanadigan paketlar: {removedNames}. Tarif «O'zimniki» bo'ladi: {PlanName("start", "Start")} + qolgan paketlar.");
+        }
+        // 2026-11-26: функции магазина (модули) — добавить / снять; цифры по ним уже в итоге сервера (total_month).
+        var addedModules = SelectedModules();
+        var removedModules = RemovedModules();
+        if (addedModules.Count > 0)
+        {
+            var addNames = string.Join(", ", addedModules.Select(ModuleName));
+            ask += "\n\n" + T($"Добавить функции: {addNames}.", $"Функцияларды кошуу: {addNames}.", $"Add features: {addNames}.", $"Eklenecek özellikler: {addNames}.", $"Qo'shiladigan funksiyalar: {addNames}.");
+        }
+        if (removedModules.Count > 0)
+        {
+            var delNames = string.Join(", ", removedModules.Select(ModuleName));
+            ask += "\n" + T($"Снять функции: {delNames}.", $"Функцияларды алып салуу: {delNames}.", $"Remove features: {delNames}.", $"Kaldırılacak özellikler: {delNames}.", $"Olib tashlanadigan funksiyalar: {delNames}.");
         }
         if (string.Equals(_period, "year", StringComparison.OrdinalIgnoreCase) && q.TotalYear is { } totalYear)
             ask += "\n" + T($"Период: год (платите за 10 мес. из 12) — {M(totalYear)}.", $"Мөөнөт: жыл (12 айдан 10 ай үчүн төлөйсүз) — {M(totalYear)}.", $"Period: year (you pay for 10 of 12 months) — {M(totalYear)}.",
@@ -606,7 +888,7 @@ public sealed class TariffCustomWindow : Window
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
-            var order = await _api.SubmitCustomAsync(codes, QuoteModules(), removed, _period, key, cts.Token).ConfigureAwait(true);
+            var order = await _api.SubmitCustomAsync(codes, SelectionModules(), removed, _period, key, cts.Token).ConfigureAwait(true);
             _attemptKey = null;
             // 2026-11-21 (живая проверка на ТЕСТ Своё): сервер отдаёт номер заявки GUID-ом (36 знаков) — в тексте это некрасиво; длинный номер показываем первыми 8 знаками.
             var shownId = order.OrderId.Length > 12 ? order.OrderId[..8].ToUpperInvariant() : order.OrderId;
@@ -618,8 +900,12 @@ public sealed class TariffCustomWindow : Window
             _done.IsVisible = true;
             foreach (var row in _packRows.Values)
                 row.Box.IsEnabled = false;
+            foreach (var row in _moduleRows.Values)
+                row.Box.IsEnabled = false;
             _locked = true;
             _close.Content = T("Готово", "Даяр", "Done", "Tamam", "Tayyor");
+            TariffDraft.Finish(); // 2026-11-26: заявка отправлена (режим сборки тоже выключается) — общий набор (полоса и плитки Маркетплейса) очищается; галочки этого окна остаются как были отправлены
+            _changes.IsVisible = false;
         }
         catch (Exception ex)
         {

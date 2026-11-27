@@ -151,6 +151,9 @@
   <x:String x:Key="printSettings.lptNotFound">No printer found at this address</x:String>
   <x:String x:Key="printSettings.previewTextReceipt">Preview text receipt</x:String>
   <x:String x:Key="printSettings.qrHeader">QR code</x:String>
+  <x:String x:Key="printSettings.linkQr">QR with a link to the e-receipt</x:String>
+  <x:String x:Key="printSettings.shopQr">Shop QR “Order online”</x:String>
+  <x:String x:Key="printSettings.shopQrHint">A second QR at the bottom of the receipt takes the customer to your shop's storefront (market.nurcrm.kg), where they can order online. Printed only if the shop has a storefront. On a price tag, use the “Shop QR” element in the price tag editor.</x:String>
   <x:String x:Key="printSettings.uploadQr">Upload QR</x:String>
   <x:String x:Key="printSettings.deleteQr">Delete</x:String>
   <x:String x:Key="printSettings.qrNotLoaded">QR code not uploaded</x:String>
@@ -1389,7 +1392,7 @@
     <x:String x:Key="loc.settings.telegram.routerHint">If Gemini's daily limit runs out, a free OpenRouter model answers (50 requests a day). Press “Get a free key” → sign in with Google → “Create API Key”, copy the key (sk-or-…) and paste it here. The question and the shop summary then go to OpenRouter. Empty field — off.</x:String>
     <x:String x:Key="loc.settings.dynamicQr.toggle">Show the customer a QR code with the receipt amount</x:String>
     <x:String x:Key="loc.settings.dynamicQr.desc">Instead of the bank's regular QR code, the customer display shows a code with the receipt amount already filled in — no need to type it manually. Payment details are taken from the QR code uploaded above.</x:String>
-    <x:String x:Key="loc.settings.dynamicQr.warning">Before turning this on, scan a test receipt with the apps of two or three banks: the format has been checked against MBank's QR code but not tested with other banks. The cashier still confirms the payment manually — the till doesn't detect the payment on its own.</x:String>
+    <x:String x:Key="loc.settings.dynamicQr.warning">A QR with the amount is built only for banks whose QR passes the self-check: the till compares the checksum of your QR with its own formula, and if they match, the bank app will accept the code. Other banks show the regular QR. The cashier still confirms the payment manually (Enter) — the till doesn't detect the payment on its own.</x:String>
     <x:String x:Key="loc.settings.bank.showAtCheckout">Show at checkout</x:String>
     <x:String x:Key="loc.settings.lanScale.title">Network scale (product upload)</x:String>
     <x:String x:Key="loc.settings.lanScale.desc">The address, port and password are found in the scale's own system menu. The “Scales” window uses the same values when uploading the product list.</x:String>

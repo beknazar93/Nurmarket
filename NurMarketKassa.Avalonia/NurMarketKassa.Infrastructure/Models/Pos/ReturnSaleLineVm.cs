@@ -42,6 +42,9 @@ public sealed class ReturnSaleLineVm : INotifyPropertyChanged
     /// 0 — не задана, тогда берётся RefundSum / Quantity.</summary>
     public decimal RefundPerUnit { get; init; }
 
+    /// <summary>2026-11-27 (ответ Умара, п. 2): сумма возврата части строки по шагам сервера (RefundMath.LineRefund, каждый шаг HALF_UP); null — считается по RefundPerUnit.</summary>
+    public Func<double, decimal>? ExactRefund { get; init; }
+
     /// <summary>Весовой или дробный товар: количество к возврату — дробное (шаг 0,1); у штучного — целое (шаг 1).</summary>
     public bool AllowFractionalQuantity { get; init; }
 
@@ -89,6 +92,8 @@ public sealed class ReturnSaleLineVm : INotifyPropertyChanged
         {
             if (!IsPartialReturn)
                 return RefundSum;
+            if (ExactRefund is { } exact)
+                return Math.Min(RefundSum, exact(ReturnQuantity));
             var perUnit = RefundPerUnit > 0m ? RefundPerUnit : Quantity > 0 ? RefundSum / (decimal)Quantity : 0m;
             return Math.Min(RefundSum, Math.Round(perUnit * (decimal)ReturnQuantity, 2, MidpointRounding.AwayFromZero));
         }

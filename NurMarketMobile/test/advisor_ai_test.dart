@@ -1,5 +1,6 @@
 // 2026-10-22 (советник мобилки): Нур Советник на телефоне — разбор ответа Gemini и запасные модели, на фейках (без сети):
 // части «thought» не показываются, пустой ответ, 404 модели → следующая, неподходящий ключ, нет ключа → понятное сообщение.
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -40,6 +41,36 @@ Map<String, dynamic> _answer(List<Map<String, dynamic>> parts, {String finish = 
     {
       'content': {'role': 'model', 'parts': parts},
       'finishReason': finish,
+    },
+  ],
+};
+
+
+/// 2026-11-26: потоковый ответ Gemini (SSE): по строке `data: {...}` на кусок; [breakAfter] — оборвать соединение после кусков.
+ResponseBody _sse(List<Map<String, dynamic>> events, {bool breakAfter = false}) {
+  Stream<Uint8List> gen() async* {
+    for (final e in events) {
+      yield Uint8List.fromList(utf8.encode('data: ${jsonEncode(e)}\r\n\r\n'));
+      await Future<void>.delayed(Duration.zero);
+    }
+    if (breakAfter) throw const FormatException('обрыв соединения');
+  }
+
+  return ResponseBody(gen(), 200, headers: {
+    Headers.contentTypeHeader: ['text/event-stream'],
+  });
+}
+
+Map<String, dynamic> _chunk(String text, {String? finish, bool thought = false}) => {
+  'candidates': [
+    {
+      'content': {
+        'role': 'model',
+        'parts': [
+          {'text': text, if (thought) 'thought': true},
+        ],
+      },
+      'finishReason': ?finish,
     },
   ],
 };
@@ -215,6 +246,58 @@ void main() {
     expect(contents.length, 1);
     expect(contents.single['role'], 'user');
     expect(((contents.single['parts'] as List).single as Map)['text'], 'вопрос 1\n\nвопрос 2');
+  });
+
+  test('потоковый ответ (2026-11-26): текст виден по мере прихода, размышления не показываются, итог целый', () async {
+    final seen = <String>[];
+    final (vision, fake) = make('test-key', (o, n) => _sse([
+      _chunk('Думаю…', thought: true),
+      _chunk('Выручка '),
+      _chunk('сегодня 12 500'),
+      _chunk(' сом.', finish: 'STOP'),
+    ]));
+    vision.onChatPartial = seen.add;
+    expect(await vision.chat('система', history), 'Выручка сегодня 12 500 сом.');
+    expect(seen, ['Выручка ', 'Выручка сегодня 12 500', 'Выручка сегодня 12 500 сом.']);
+    expect(fake.calls.single.uri.path, contains('gemini-3.5-flash-lite:streamGenerateContent'));
+    expect(fake.calls.single.uri.queryParameters['alt'], 'sse');
+    expect(fake.calls.single.headers['x-goog-api-key'], 'test-key');
+    expect(vision.onChatPartial, isNull); // флаг сбрасывается самим chat
+  });
+
+  test('потоковый запрос: ошибка до первого куска (404) — следующая модель, как без потока', () async {
+    final seen = <String>[];
+    final (vision, fake) = make('test-key', (o, n) {
+      if (n == 1) return _json(404, {'error': {'code': 404, 'message': 'models/x is not found', 'status': 'NOT_FOUND'}});
+      return _sse([_chunk('ок', finish: 'STOP')]);
+    });
+    vision.onChatPartial = seen.add;
+    expect(await vision.chat('система', history), 'ок');
+    expect(fake.calls.length, 2);
+    expect(fake.calls[1].uri.path, contains('gemini-flash-lite-latest:streamGenerateContent'));
+    expect(seen, ['ок']);
+  });
+
+  test('потоковый запрос: обрыв посреди ответа — пришедший текст остаётся (с «…»), другая модель не зовётся', () async {
+    final (vision, fake) = make('test-key', (o, n) => _sse([_chunk('Выручка 12 500')], breakAfter: true));
+    vision.onChatPartial = (_) {};
+    expect(await vision.chat('система', history), 'Выручка 12 500\n\n…');
+    expect(fake.calls.length, 1);
+  });
+
+  test('потоковый запрос: модель молчит до первого куска — не ждём весь срок, берём следующую модель', () async {
+    final old = VisionService.chatFirstChunk;
+    VisionService.chatFirstChunk = const Duration(milliseconds: 150);
+    addTearDown(() => VisionService.chatFirstChunk = old);
+    final (vision, fake) = make('test-key', (o, n) {
+      if (n == 1) return ResponseBody(StreamController<Uint8List>().stream, 200); // соединение открыто, кусков нет
+      return _sse([_chunk('ответ', finish: 'STOP')]);
+    });
+    vision.onChatPartial = (_) {};
+    final sw = Stopwatch()..start();
+    expect(await vision.chat('система', history), 'ответ');
+    expect(sw.elapsed, lessThan(const Duration(seconds: 3)));
+    expect(fake.calls.length, 2);
   });
 
   test('коды должников [Д1] → имя и телефон только на телефоне; «витамин Д3» не трогается', () {

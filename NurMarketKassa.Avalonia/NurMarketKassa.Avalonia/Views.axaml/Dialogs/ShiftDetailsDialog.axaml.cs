@@ -29,6 +29,25 @@ public partial class ShiftDetailsDialog : Window
     /// «Смены» → эта смена, после отправки очереди и закрытия смены на сервере.</summary>
     public bool LocalReport { get; init; }
 
+    /// <summary>2026-11-27 (живой проход, A — деньги): Z сразу после закрытия, а сервер на само закрытие не ответил — цифры предварительные (итоги сервера до закрытия
+    /// или данные кассы). Окно пишет «данные уточняются после синхронизации», само повторяет запрос отчёта смены и, когда сервер отдаст отчёт ЗАКРЫТОЙ смены,
+    /// перерисовывается по нему (тот же отчёт видит владелец); «Печать» после этого печатает уже серверные цифры.</summary>
+    public bool Provisional { get; init; }
+
+    /// <summary>2026-11-27 (A): отчёт смены сервера, полученный окном «Закрыть смену» до закрытия, — его цифры продаж, возвратов, долгов и внесений полнее журнала кассы.
+    /// «В ящике должно быть» при этом остаётся из окна закрытия (с ним кассир сверял пересчёт), пока не придёт отчёт закрытой смены.</summary>
+    public ServerShiftReport? PreCloseReport { get; init; }
+
+    /// <summary>Отчёт всё ещё предварительный (для тестов и журнала).</summary>
+    public bool IsProvisional => _provisional;
+
+    /// <summary>2026-11-27 (A): пауза между повторами запроса отчёта закрытой смены и число повторов (~5 мин); тесты ставят короче.</summary>
+    public static TimeSpan ProvisionalRetryDelay { get; set; } = TimeSpan.FromSeconds(15);
+    public static int ProvisionalRetryAttempts { get; set; } = 20;
+
+    private bool _provisional;
+    private bool _localMode;
+
     private readonly CancellationTokenSource _cts = new();
     private Task<List<ShiftReportData.ShiftSale>>? _saleRows;
     private Task? _pendingDebt;
@@ -78,18 +97,37 @@ public partial class ShiftDetailsDialog : Window
 
     private void OnOpened()
     {
+        _provisional = Provisional;
+        _localMode = LocalReport;
+        // 2026-11-27 (A): итоги сервера до закрытия — сразу в окно (выручка, долг, возвраты, внесения — как у владельца), не журнал кассы.
+        if (PreCloseReport is { } preClose && _report is null && _shift is not null)
+        {
+            _report = preClose;
+            BindShift(_shift);
+        }
+        if (_provisional)
+            ShowProvisionalNote();
+
         if (LocalReport)
         {
             // 2026-10-30: цифры — из данных кассы, с сервера ничего не подгружаем; «Товары за смену» — по локальной истории кассы.
             _serverProductsFailed = true;
-            LocalDataNote.Text = Tr.T("Данные по кассе без связи; сверка с сервером после отправки.",
-                "Байланышсыз касса маалыматтары боюнча; серверге жөнөткөндөн кийин салыштырылат.",
-                "Till data without a connection; reconciled with the server after sending.",
-                "Bağlantısız kasa verileri; gönderimden sonra sunucuyla karşılaştırılır.",
-                "Aloqasiz kassa ma'lumotlari; yuborilgandan keyin server bilan solishtiriladi.");
-            LocalDataNote.IsVisible = true;
+            if (!_provisional)
+            {
+                LocalDataNote.Text = Tr.T("Данные по кассе без связи; сверка с сервером после отправки.",
+                    "Байланышсыз касса маалыматтары боюнча; серверге жөнөткөндөн кийин салыштырылат.",
+                    "Till data without a connection; reconciled with the server after sending.",
+                    "Bağlantısız kasa verileri; gönderimden sonra sunucuyla karşılaştırılır.",
+                    "Aloqasiz kassa ma'lumotlari; yuborilgandan keyin server bilan solishtiriladi.");
+                LocalDataNote.IsVisible = true;
+            }
             if (_shift is { } local)
+            {
                 BindShiftProducts(local);
+                // 2026-11-27 (A): серверная смена — ждём отчёт закрытой смены и заменяем им данные кассы.
+                if (_provisional && IsServerShift(local.Id))
+                    _ = RefreshProvisionalAsync(local.Id, null);
+            }
             return;
         }
 
@@ -108,7 +146,71 @@ public partial class ShiftDetailsDialog : Window
         _rentalsTask = LoadRentalsAsync(shift);
         if (RefreshFromServer)
             _ = RefreshFromServerAsync(shift.Id);
+        if (_provisional)
+            _ = RefreshProvisionalAsync(shift.Id, _reportTask);
     }
+
+    /// <summary>2026-11-27 (A): пометка «предварительно» над цифрами Z.</summary>
+    private void ShowProvisionalNote()
+    {
+        LocalDataNote.Text = Tr.T("Предварительно: сервер ещё не подтвердил закрытие смены. Данные уточняются после синхронизации — отчёт обновится сам.",
+            "Алдын ала: сервер сменанын жабылышын азырынча ырастай элек. Маалыматтар синхрондоштуруудан кийин такталат — отчёт өзү жаңырат.",
+            "Preliminary: the server has not confirmed the shift close yet. The figures are refined after syncing — the report will update itself.",
+            "Ön bilgi: sunucu vardiya kapanışını henüz onaylamadı. Veriler senkronizasyondan sonra netleşir — rapor kendiliğinden güncellenir.",
+            "Dastlabki: server smena yopilishini hali tasdiqlamadi. Ma'lumotlar sinxronlashdan keyin aniqlanadi — hisobot o'zi yangilanadi.");
+        LocalDataNote.IsVisible = true;
+    }
+
+    /// <summary>2026-11-27 (A): повторяет запрос отчёта смены, пока сервер не отдаст отчёт закрытой смены (или окно не закроют / не кончатся повторы).</summary>
+    private async Task RefreshProvisionalAsync(string shiftId, Task<ServerShiftReport?>? first)
+    {
+        try
+        {
+            if (first is not null)
+                await first.ConfigureAwait(true);
+            for (var i = 0; i < ProvisionalRetryAttempts && _provisional && !_cts.IsCancellationRequested; i++)
+            {
+                await Task.Delay(ProvisionalRetryDelay, _cts.Token).ConfigureAwait(true);
+                var next = LoadServerReportAsync(shiftId);
+                _reportTask = next;
+                await next.ConfigureAwait(true);
+            }
+            if (_provisional && !_cts.IsCancellationRequested)
+                PosLogger.Log($"Z смены {shiftId}: сервер так и не отдал отчёт закрытой смены — в окне остались предварительные цифры (полный Z — «Смены» → эта смена).", "SHIFTS");
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Z смены {shiftId}: обновление предварительного отчёта прервано: {ex.Message}", "SHIFTS");
+        }
+    }
+
+    /// <summary>2026-11-27 (A): сервер отдал отчёт закрытой смены — отчёт окончательный (цифры те же, что у владельца).</summary>
+    private void FinishProvisional()
+    {
+        _provisional = false;
+        var wasLocal = _localMode;
+        _localMode = false;
+        LocalDataNote.Text = Tr.T("Цифры обновлены по данным сервера.", "Сандар сервердин маалыматы боюнча жаңыртылды.", "Figures updated from the server data.",
+            "Rakamlar sunucu verilerine göre güncellendi.", "Raqamlar server ma'lumotlari bo'yicha yangilandi.");
+        LocalDataNote.IsVisible = true;
+        PosLogger.Log($"Z смены {_shift?.Id}: пришёл отчёт закрытой смены с сервера — предварительные цифры заменены.", "SHIFTS");
+        if (wasLocal)
+        {
+            _serverProductsFailed = false;
+            SaleRows();
+            _ = LoadServerProductsAsync();
+            _ = ShowServerDiscountsAsync();
+            if (_shift is { } closed)
+                _rentalsTask = LoadRentalsAsync(closed);
+        }
+    }
+
+    /// <summary>2026-11-27 (A, code-review): отчёт окончательный только при явном «закрыта» (или есть время закрытия/пересчёт) — пустой статус старого сервера закрытой сменой не считается.</summary>
+    private static bool IsClosedOnServer(ServerShiftReport report) =>
+        string.Equals(report.Status, "closed", StringComparison.OrdinalIgnoreCase) || report.ClosedAt is not null || report.CountedCash is not null;
 
     private Task<RentalShiftSummary?>? _rentalsTask;
 
@@ -148,8 +250,13 @@ public partial class ShiftDetailsDialog : Window
             var report = await ServerAnswerWait.ForegroundAsync("reports/shift", t => NurCrmReportsApi.GetShiftReportAsync(shiftId, t), _cts.Token).ConfigureAwait(true);
             if (report is null || _cts.IsCancellationRequested || _shift is null)
                 return report;
+            // 2026-11-27 (A): Z из данных кассы — отчёт ОТКРЫТОЙ ещё на сервере смены не подставляем (чеки могут быть в очереди, цифры сервера были бы занижены).
+            if (_localMode && !IsClosedOnServer(report))
+                return report;
 
             _report = report;
+            if (_provisional && IsClosedOnServer(report))
+                FinishProvisional();
             BindShift(_shift);
 
             // Возвраты смены: пока сервер не пишет смену возврата, returns_total в отчёте 0 —
@@ -343,7 +450,7 @@ public partial class ShiftDetailsDialog : Window
         // 2026-09-28: цифры — из отчёта смены сервера, если он уже пришёл (см. _report); смена,
         // пришедшая позже (RefreshFromServerAsync), тоже показывается с его цифрами.
         if (_report is { } report)
-            shift = report.ApplyTo(shift);
+            shift = report.ApplyTo(shift, keepShiftExpected: _provisional); // 2026-11-27 (A): пока отчёт предварительный — «в ящике должно быть» из окна закрытия
         _shift = shift;
         BindShiftProducts(shift);
         // 2026-09-15, по просьбе пользователя ("номер смены исправь") — сырой GUID нечитаем на
@@ -415,8 +522,9 @@ public partial class ShiftDetailsDialog : Window
             ? (fromServer.Deposits, fromServer.Withdrawals)
             : ShiftCashOperationsStore.SumsForShift(shift.Id);
         CashOpsPanel.IsVisible = deposits > 0m || withdrawals > 0m;
-        DepositsText.Text = $"+{deposits:N2} {Som}";
-        WithdrawalsText.Text = $"-{withdrawals:N2} {Som}";
+        // 2026-11-27 (живой проход): общий форматтер и знак «−» как в строках ниже (было «-30,00» дефисом рядом с «−30,00»).
+        DepositsText.Text = $"+{MoneyText.Amount(deposits)} {Som}";
+        WithdrawalsText.Text = $"−{MoneyText.Amount(withdrawals)} {Som}";
 
         // 2026-10-23 (аудит Б-8): «в ящике должно быть / факт / расхождение» — формула та же, что в печатном Z-отчёте ниже.
         // Фактическая сумма известна только у закрытой смены; у открытой (X-отчёт) показываем ожидаемую и «ещё не пересчитано».
@@ -478,14 +586,27 @@ public partial class ShiftDetailsDialog : Window
 
     /// <summary>2026-10-27 (аудит кассы, С-7): наличная часть возвратов смены для «в ящике должно быть» без ответа сервера.
     /// Журнал кассы знает, чем вернули (cash=… в примечании); нет записей — возвраты сервера целиком.</summary>
-    private static decimal ReturnsForExpected(ShiftModel shift, ServerShiftReport? server, (int Count, decimal Sum)? serverReturns)
+    public static decimal ReturnsForExpected(ShiftModel shift, ServerShiftReport? server, (int Count, decimal Sum)? serverReturns)
     {
         var local = ShiftEventsStore.ListForShift(shift.Id, ShiftEventsStore.KindReturn);
-        if (local.Count > 0)
-            return local.Sum(e => (decimal)(CloseShiftDialog.ParseNote(e.Note, "cash") ?? e.Amount));
-        if (server is { ReturnsTotal: > 0m } fromServer)
-            return fromServer.ReturnsTotal;
-        return serverReturns?.Sum ?? 0m;
+        var localCash = local.Sum(e => (decimal)(CloseShiftDialog.ParseNote(e.Note, "cash") ?? e.Amount));
+        var serverTotal = server is { ReturnsTotal: > 0m } fromServer ? fromServer.ReturnsTotal : serverReturns?.Sum;
+        if (serverTotal is not { } total || total <= 0m)
+            return localCash;
+        if (local.Count == 0)
+            return total;
+        // Возврат без связи (offline=1) мог ещё не дойти до сервера — тогда, как раньше, только журнал кассы (code-review 27.11).
+        if (local.Any(e => CloseShiftDialog.ParseNote(e.Note, "offline") is > 0))
+            return localCash;
+        // 2026-11-27 (живой проход, B): раньше при ЛЮБОЙ записи в журнале кассы бралась только она — возвраты смены, сделанные раньше (другой кассой, у владельца,
+        // до переустановки), пропадали, и раскладка «в ящике должно быть» менялась после возврата на кассе (было «продажи 1 573,88 / возвраты −759,90», стало
+        // «1 126,98 / −50»). Теперь — возвраты сервера целиком минус то, что по журналу кассы ушло не наличными (карта, счёт долга) и что сервер записал сверх
+        // выданного (server_over), но не меньше наличных возвратов журнала.
+        // Не наличными = сумма записи − наличная часть (карта, счёт долга, товар при обмене) + записанное сервером сверх выданного.
+        var localNotCash = local.Sum(e => (decimal)(e.Amount - (CloseShiftDialog.ParseNote(e.Note, "cash") ?? e.Amount)
+                                                    + (CloseShiftDialog.ParseNote(e.Note, "server_over") ?? 0)));
+        var cashFromServer = total - Math.Max(0m, localNotCash);
+        return Math.Max(localCash, cashFromServer);
     }
 
     /// <summary>2026-10-27 (С-7): запасная ожидаемая сумма в ящике — общая формула ShiftDrawerMath с оплатами долгов наличными из
@@ -818,7 +939,7 @@ public partial class ShiftDetailsDialog : Window
             _drillDownOpen = true;
             try
             {
-                PosDialogHost.Show(new ShiftDrillDownDialog(_shift, kind, IsServerShift(_shift.Id) && !LocalReport ? SaleRows() : null), this); // 2026-10-30: отчёт из данных кассы — чеков смены на сервере нет
+                PosDialogHost.Show(new ShiftDrillDownDialog(_shift, kind, IsServerShift(_shift.Id) && !_localMode ? SaleRows() : null), this); // 2026-10-30: отчёт из данных кассы — чеков смены на сервере нет
             }
             finally
             {
@@ -875,7 +996,7 @@ public partial class ShiftDetailsDialog : Window
             // 2026-11-03 (ревью С-4): что-то из данных сервера не успело загрузиться за 3 с — печатаем по данным кассы и ЧЕСТНО пишем об этом на бумаге
             // (иначе отчёт без долгов смены/проката/ожидаемой суммы сервера уйдёт в кассовую папку как полный).
             var missing = new List<string>();
-            if (_reportTask is { } rt0 && (!rt0.IsCompleted || _report is null))
+            if (!_provisional && _reportTask is { } rt0 && (!rt0.IsCompleted || _report is null)) // 2026-11-27 (A): у предварительного отчёта своя пометка ниже
                 missing.Add(Tr.T("отчёт и ожидаемая сумма сервера", "сервердин отчёту жана күтүлгөн сумма", "server report and expected amount", "sunucu raporu ve beklenen tutar", "server hisoboti va kutilgan summa"));
             if (_pendingDebt is { IsCompleted: false })
                 missing.Add(Tr.T("долги смены", "сменанын карыздары", "shift debts", "vardiya borçları", "smena qarzlari"));
@@ -888,6 +1009,11 @@ public partial class ShiftDetailsDialog : Window
                     + string.Join(", ", missing) + Environment.NewLine;
                 PosLogger.Log($"Печать X/Z: сервер не успел ответить за 3 с — на бумаге пометка «без: {string.Join(", ", missing)}».", "SHIFT");
             }
+            // 2026-11-27 (A): отчёт закрытой смены сервер ещё не отдал — на бумаге честная пометка; после обновления окна «Печать» печатает серверные цифры.
+            if (_provisional)
+                report += Environment.NewLine + Tr.T("! Предварительно: данные уточняются после синхронизации с сервером", "! Алдын ала: маалыматтар сервер менен синхрондоштуруудан кийин такталат",
+                    "! Preliminary: figures are refined after syncing with the server", "! Ön bilgi: veriler sunucuyla senkronizasyondan sonra netleşir",
+                    "! Dastlabki: ma'lumotlar server bilan sinxronlashdan keyin aniqlanadi") + Environment.NewLine;
             var ok = await App.GetRequiredService<ICashShiftService>().PrintReportAsync(report).ConfigureAwait(true);
             if (!ok)
                 PosMessageBox.Show(this,
@@ -989,6 +1115,11 @@ public partial class ShiftDetailsDialog : Window
         // и оплата долгов наличными — отдельными строками; обе входят в ожидаемую наличность сервера.
         var debtPrepaidCash = server?.DebtPrepaymentsCash ?? 0m;
         var debtPaidCash = server?.DebtPaymentsCash ?? 0m;
+        // 2026-11-26 (владелец: «при оплате долга — наличными или безналичными»): оплата долгов безналом — отдельной строкой Z/X-отчёта, в «в ящике должно быть»
+        // не входит. Сервер в отчёте смены безнал по долгам не присылает — берём журнал этой кассы (способ — видом события debt_payment_noncash).
+        var debtPaidNonCash = (decimal)ShiftEventsStore.TotalsForShift(shift.Id).GetValueOrDefault(ShiftEventsStore.KindDebtPaymentNonCash);
+        if (server is null)
+            debtPaidCash = (decimal)ShiftEventsStore.TotalsForShift(shift.Id).GetValueOrDefault(ShiftEventsStore.KindDebtPayment); // 2026-11-26: без отчёта сервера — наличные из журнала кассы (как «в ящике должно быть» ниже)
         if (server is not null)
         {
             deposits = server.Deposits;
@@ -1001,12 +1132,17 @@ public partial class ShiftDetailsDialog : Window
         // 2026-10-04 (К4): предоплата долга наличными уже в «наличных» выше (строкой «в т.ч.») — здесь её
         // больше не печатаем, иначе читатель сложил бы её второй раз. Из «Прочих приходов» она по-прежнему
         // вычитается.
-        if (deposits > 0m || withdrawals > 0m || otherIncome > 0m || debtPaidCash > 0m)
+        if (deposits > 0m || withdrawals > 0m || otherIncome > 0m || debtPaidCash > 0m || debtPaidNonCash > 0m)
         {
             if (deposits > 0m)
                 sb.AppendLine($"{Tr.T("Внесения", "Киргизүүлөр", "Deposits", "Para girişleri", "Kiritishlar")}: +{deposits.ToString("0.00", CultureInfo.InvariantCulture)} {Som}");
             if (debtPaidCash > 0m)
                 sb.AppendLine($"{Tr.T("Оплата долгов наличными", "Карыздарды накталай төлөө", "Debt payments in cash", "Nakit borç ödemeleri", "Qarz to'lovlari naqd")}: +{debtPaidCash.ToString("0.00", CultureInfo.InvariantCulture)} {Som}");
+            if (debtPaidNonCash > 0m)
+            {
+                sb.AppendLine($"{Tr.T("Оплата долгов безналом", "Карыздарды накталай эмес төлөө", "Debt payments non-cash", "Nakitsiz borç ödemeleri", "Qarz to'lovlari naqd emas")}: +{debtPaidNonCash.ToString("0.00", CultureInfo.InvariantCulture)} {Som}");
+                sb.AppendLine($"  ({Tr.T("в ящик не входит", "кутуга кирбейт", "not in the drawer", "çekmeceye girmez", "tortmaga kirmaydi")})");
+            }
             if (otherIncome > 0m)
                 // Погашения долгов сервер сам пишет в смену (debt_repayment) — они здесь, одной строкой
                 // сервера; локальный счётчик «Оплата долгов» к ней не прибавляется.

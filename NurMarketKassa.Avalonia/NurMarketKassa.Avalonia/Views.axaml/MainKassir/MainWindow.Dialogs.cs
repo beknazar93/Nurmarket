@@ -101,6 +101,7 @@ public partial class MainWindow
 
         var cart = ResolveCartService();
         double qtyToAdd;
+        decimal? weighAmount = null; // 2026-11-26: «По сумме» в окне «Взвесить» — точная сумма строки (line_total сервера)
         var mustWeigh = ProductUnitNormalizer.RequiresWeighing(vm);
 
         // 2026-10-06, исследование «Кассы для одежды» (О-01): отсканирован штрихкод размера — этот размер сразу,
@@ -223,6 +224,7 @@ public partial class MainWindow
 
             if (!double.TryParse(dlg.QuantityNormalized, NumberStyles.Any, CultureInfo.InvariantCulture, out qtyToAdd) || qtyToAdd <= 0)
                 return;
+            weighAmount = dlg.AmountTotal;
         }
         else
         {
@@ -285,7 +287,10 @@ public partial class MainWindow
 
         NoteSellingIntoMinus(vm, qtyToAdd, cart, reservedInOtherOpenReceipts);
         var flashBefore = _viewModel.Basket.AddFlashVersion;
-        _viewModel.Basket.AddProductFromCatalog(vm, lineNameOverride);
+        if (weighAmount is { } exactAmount && lineNameOverride == null)
+            _viewModel.Basket.AddWeighedByAmount(vm, qtyToAdd, exactAmount);
+        else
+            _viewModel.Basket.AddProductFromCatalog(vm, lineNameOverride);
 
         if (serials is { Count: > 0 } && _viewModel.Basket.AddFlashVersion != flashBefore
             && _viewModel.Basket.LastAddedItemId is { } addedLineId
@@ -551,15 +556,13 @@ public partial class MainWindow
         // 2026-09-23. Изъятие, сделанное отсюда, не попадало в строку «Расход» Z-отчёта: событие
         // смены писал только путь через «Историю смен». Одна и та же операция давала в отчёте
         // разные цифры в зависимости от того, какой кнопкой её сделали.
-        if (isWithdrawal)
-        {
-            ShiftEventsStore.Record(
-                ShiftEventsStore.KindExpense,
-                PosApp.ActiveShiftId,
-                ShiftEventsStore.OperationKey(op.Id),
-                (double)op.Amount,
-                op.Note);
-        }
+        // 2026-11-26: внесение тоже пишется в журнал событий смены (своим видом) — аналитика считает по нему, и раньше внесение в ней исчезало.
+        ShiftEventsStore.RecordDrawerOperation(
+            isWithdrawal,
+            PosApp.ActiveShiftId,
+            ShiftEventsStore.OperationKey(op.Id),
+            (double)op.Amount,
+            op.Note);
 
         UpdateShiftBalanceUi();
         // На сервер — в движения денег смены (ShiftCashFlowSync), затем свежий остаток смены.
@@ -829,7 +832,9 @@ public partial class MainWindow
             quantity <= 0)
             return;
 
-        ResolveCartService().UpdateQuantity(line.ItemId, quantity);
+        // 2026-11-26: «По сумме» — строка получает точную сумму (line_total сервера); нельзя (нет признака, скидка в строке) — вес × цена, как раньше.
+        if (dialog.AmountTotal is not { } reweighAmount || !ReceiptSnapshotCartEditor.SetLineWeighedAmount(ResolveCartService(), line.ItemId, quantity, reweighAmount))
+            ResolveCartService().UpdateQuantity(line.ItemId, quantity);
         _viewModel.Basket.RefreshFromCart();
         _viewModel.Basket.CartMessage = Tr.T($"Вес «{line.Title}» обновлён: {quantity:0.###} кг.", $"«{line.Title}» салмагы жаңыртылды: {quantity:0.###} кг.", $"Weight of “{line.Title}” updated: {quantity:0.###} kg.", $"«{line.Title}» ağırlığı güncellendi: {quantity:0.###} kg.", $"«{line.Title}» og'irligi yangilandi: {quantity:0.###} kg.");
     }

@@ -1602,11 +1602,27 @@ class AppLocalizationsRu extends AppLocalizations {
   String get qrPointCamera => 'Покупатель наводит камеру телефона';
 
   @override
-  String get qrDownloadHint => 'Камера покупателя сразу скачает чек PDF-файлом';
+  String get qrDownloadHint =>
+      'Покупатель увидит красивый чек в браузере: можно сохранить PDF или картинку';
 
   @override
   String get qrTextHint =>
-      'Пока сервер не выдаёт ссылку на чек, камера покажет его текстом. PDF-файл клиенту — кнопкой ниже.';
+      'Ссылка на красивый чек пока недоступна. Проверьте связь и нажмите «Повторить» — или отправьте PDF кнопкой ниже.';
+
+  @override
+  String get qrOfflineHint =>
+      'Чек ещё не отправлен на сервер. QR-код появится после синхронизации — откройте чек в «Чеках», когда появится связь.';
+
+  @override
+  String get openReceiptLink => 'Открыть чек';
+
+  @override
+  String get shareReceiptLink => 'Поделиться ссылкой';
+
+  @override
+  String shareReceiptText(String number) {
+    return 'Ваш чек №$number';
+  }
 
   @override
   String get cashInOut => 'Внесение / изъятие';
@@ -7015,6 +7031,35 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String get stockScanBtn => 'Сканер штрихкода';
+
+  @override
+  String get stockPhotoBtn => 'Поиск по фото';
+
+  @override
+  String get stockScanHint =>
+      'Наведите на штрихкод или QR-код товара — он подставится в поиск';
+
+  @override
+  String stockScanFound(String code, String name) {
+    return 'Найдено по коду $code: $name';
+  }
+
+  @override
+  String get stockPhotoTitle => 'Похожие товары на складе';
+
+  @override
+  String get stockPhotoHint => 'Выберите товар — он появится в списке склада';
+
+  @override
+  String get stockPhotoNone =>
+      'По фото ничего похожего на складе не нашлось. Сфотографируйте ближе или найдите товар по названию.';
+
+  @override
+  String get stockPhotoOffline =>
+      'Нет связи — поиск по фото работает только с интернетом. Найдите товар по названию или штрихкоду.';
+
+  @override
   String stockCountShown(int shown, int total) {
     return 'Показано $shown из $total';
   }
@@ -7582,4 +7627,50 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get recvModeAutoparts =>
       'Автозапчасти: находите товар по каталожному номеру; количество — в штуках, комплектах и парах.';
+
+  @override
+  String get loginDeviceKeyRequired =>
+      'Не удалось определить это устройство. Обновите приложение NurCRM и повторите вход.';
+
+  @override
+  String get deviceSlotTitle => 'Вход уже есть на другом устройстве';
+
+  @override
+  String get deviceSlotBody =>
+      'Вы уже входили на другом устройстве. Выйти там и войти здесь?\n\nНа том устройстве вход закроется.';
+
+  @override
+  String get deviceSlotConfirm => 'Выйти там и войти здесь';
+
+  @override
+  String get pinTitle => 'PIN владельца или администратора';
+
+  @override
+  String get pinReturnInfo =>
+      'Для возврата этого чека сервер просит подтверждение: введите PIN владельца или администратора (не пароль от входа).';
+
+  @override
+  String get pinFieldLabel => 'PIN';
+
+  @override
+  String get pinConfirm => 'Подтвердить';
+
+  @override
+  String get pinInvalid => 'PIN неверный.';
+
+  @override
+  String pinInvalidLeft(int n) {
+    return 'PIN неверный. Осталось попыток: $n.';
+  }
+
+  @override
+  String get pinLocked =>
+      'PIN заблокирован после неверных попыток. Повторите позже.';
+
+  @override
+  String get pinNotSet => 'PIN не задан — задайте в Настройки → Сотрудники.';
+
+  @override
+  String get pinRequiredText =>
+      'Это действие нужно подтвердить PIN-кодом владельца или администратора. Повторите и введите PIN.';
 }

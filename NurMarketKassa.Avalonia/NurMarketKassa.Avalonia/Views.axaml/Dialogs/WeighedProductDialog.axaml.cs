@@ -22,6 +22,9 @@ public partial class WeighedProductDialog : Window
 
     public string QuantityNormalized { get; private set; } = "";
 
+    /// <summary>2026-11-26: «По сумме» и сервер принимает точную сумму строки (line_total) — введённая сумма; иначе null (в чек идёт вес, сумма = вес × цена).</summary>
+    public decimal? AmountTotal { get; private set; }
+
     private bool _narrowLayout;
 
     /// <summary>2026-10-05: узкое окно (телефон) — сверху поле веса, ниже быстрые веса и цифры, внизу
@@ -69,6 +72,10 @@ public partial class WeighedProductDialog : Window
     {
         InitializeComponent();
         this.ClampToScreenHeight();
+        // 2026-11-27 (живой проход): кнопка «стереть» — только значок, диктор/UIA читали «Avalonia.Controls.PathIcon».
+        var eraseName = Tr.T("Стереть", "Өчүрүү", "Backspace", "Sil", "O'chirish");
+        Avalonia.Automation.AutomationProperties.SetName(BackspaceButton, eraseName);
+        ToolTip.SetTip(BackspaceButton, eraseName);
         // 2026-10-27, аудит С-19: сканер следующего товара печатал штрихкод прямо в поле веса («1234 кг»), а его Enter мог
         // подтвердить такой вес. Enter сканера окно не получает (серия быстрых символов + Enter), набранное сканером поле очищаем.
         ScannerEnterGuard.Attach(this, () =>
@@ -328,16 +335,17 @@ public partial class WeighedProductDialog : Window
             return;
         }
 
-        var weightKg = amount / _pricePerKg;
-        // 2026-11-02 (аудит №2, С3-11): в чек идёт вес до грамма, поэтому сумма строки может отличаться от введённой на копейки (100 сом при 120 сом/кг → 0,833 кг → 99,96).
-        // Показываем её до «В чек», чтобы кассир и покупатель видели итог заранее.
-        var roundedKg = Math.Round(weightKg, 3, MidpointRounding.AwayFromZero);
-        var lineTotal = Math.Round(roundedKg * _pricePerKg, 2, MidpointRounding.AwayFromZero);
-        ComputedPreviewText.Text = "≈ " + MoneyText.Weight(roundedKg) + " " +
+        // 2026-11-26 (владелец, фото клиента 24.11: «ввожу 1000, в чеке 999,90»): вес до грамма и сумма в чеке — всегда. Сервер принимает точную сумму строки (line_total) — в чеке ровно введённая сумма;
+        // нет признака сервера — честно «в чеке: 999,90» (вес × цена, вниз до шага весов).
+        if (WeighedAmount.Plan((decimal)amount, (decimal)_pricePerKg) is not { } plan)
+        {
+            ComputedPreviewText.IsVisible = false;
+            return;
+        }
+
+        ComputedPreviewText.Text = "≈ " + MoneyText.Weight((double)plan.Kg) + " " +
             Tr.T("кг", "кг", "kg", "kg", "kg")
-            + (Math.Abs(lineTotal - amount) >= 0.005
-                ? " · " + Tr.T("в чеке: ", "чекте: ", "on the receipt: ", "fişte: ", "chekda: ") + MoneyText.Som(lineTotal)
-                : "");
+            + " · " + Tr.T("в чеке: ", "чекте: ", "on the receipt: ", "fişte: ", "chekda: ") + MoneyText.Som((double)plan.LineTotal);
         ComputedPreviewText.IsVisible = true;
     }
 
@@ -447,6 +455,14 @@ public partial class WeighedProductDialog : Window
                 ? Tr.T("Сумма слишком маленькая — вес выходит меньше 1 грамма. Введите сумму побольше.", "Сумма өтө кичине — салмак 1 граммдан аз чыгат. Чоңураак сумма киргизиңиз.", "The amount is too small — the weight would be under 1 gram. Enter a larger amount.", "Tutar çok küçük — ağırlık 1 gramdan az çıkar. Daha büyük bir tutar girin.", "Summa juda kichik — og'irlik 1 grammdan kam chiqadi. Kattaroq summa kiriting.")
                 : Tr.T("Вес слишком маленький — меньше 1 грамма. Введите вес побольше.", "Салмак өтө кичине — 1 граммдан аз. Чоңураак салмак киргизиңиз.", "The weight is too small — under 1 gram. Enter a larger weight.", "Ağırlık çok küçük — 1 gramdan az. Daha büyük bir ağırlık girin.", "Og'irlik juda kichik — 1 grammdan kam. Kattaroq og'irlik kiriting."));
             return;
+        }
+
+        AmountTotal = null;
+        if (_isAmountMode && _pricePerKg > 0 && WeighedAmount.Plan(enteredValue, (decimal)_pricePerKg) is { } plan)
+        {
+            kg = plan.Kg;
+            if (plan.ExactLine)
+                AmountTotal = plan.LineTotal;
         }
 
         QuantityNormalized = JsonNumericReader.FormatWeightForApi((double)kg) ?? "0";

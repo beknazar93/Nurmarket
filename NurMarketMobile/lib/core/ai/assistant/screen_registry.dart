@@ -679,6 +679,17 @@ final List<ScreenDef> _screens = [
     'esf|e invoice|electronic invoice',
     'esf|e fatura',
   ]),
+  // 2026-11-27 (Маркетплейс мобилки): функции и тарифы компании (владелец и администратор — право берётся у Session.canRoute)
+  _def('marketplace', '/admin/marketplace', ['Маркетплейс', 'Маркетплейс', 'Marketplace', 'Marketplace', 'Marketplace'], [
+    'маркетплейс|магазин функций|функции и тарифы|тарифы|подключить функцию',
+    'маркетплейс|функциялар|тарифтер',
+    'marketplace|funksiyalar|tariflar',
+    'marketplace|features|plans|tariffs',
+    'marketplace|ozellikler|tarifeler',
+  ], params: [
+    // 2026-11-27 (доступы советника): «открой Маркетплейс → бот-продавец» — страница функции открывается сразу (?module=ключ или название)
+    ParamDef('query', 'module', live: true),
+  ]),
   _def('new_product', '/admin/new-product', ['Новый товар', 'Жаңы товар', 'Yangi tovar', 'New product', 'Yeni ürün'], [
     'новый товар|добавить товар|создать товар|новая позиция',
     'жаны товар|товар кошуу',

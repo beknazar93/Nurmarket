@@ -1409,6 +1409,30 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         }
     }
 
+    /// <summary>2026-11-26 («По сумме» в окне «Взвесить»): весовой товар на введённую сумму — вес до грамма и точная сумма строки (на сервер уйдёт line_total, чек ровно на сумму).
+    /// Нельзя (нет признака сервера, акция, скидка в строке) — вес добавляется обычным способом, вес × цена.</summary>
+    public void AddWeighedByAmount(CatalogProductTileVm product, double kg, decimal amount)
+    {
+        if (product is null || kg <= 0)
+            return;
+
+        try
+        {
+            EnsureCartInitialized();
+            var before = SnapshotQuantities();
+            if (!ReceiptSnapshotCartEditor.AddWeighedAmount(_cart, product, kg, amount))
+                _cart.AddItem(product, kg);
+            SyncLinesAndTotals();
+            ManualQuantity = "1";
+            AfterProductAdded(before);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"CART add (by amount) failed: {ex}", "CART");
+            _prompts.ShowError(Tr.T("Не удалось добавить товар в чек.", "Товарды чекке кошуу мүмкүн болгон жок.", "Could not add the product to the receipt.", "Ürün fişe eklenemedi.", "Mahsulotni chekka qo'shib bo'lmadi."));
+        }
+    }
+
     /// <summary>Поштучная продажа из упаковки: количество и цена строки заданы явно вызывающим
     /// кодом (диалог выбора "Целая пачка / Поштучно"), а не полем ManualQuantity. salePackageId —
     /// ID упаковки на сервере (ProductPackageOption.Id): при оформлении уходит как
@@ -2912,6 +2936,13 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
                 // (из ответа сервера или карточек товаров), обновляем чек и после сообщения возвращаем кассира в окно оплаты с новым итогом.
                 // Новая оплата — новое тело, значит новый ключ идемпотентности (PosCheckoutService.Quick), второго списания нет: сервер ничего не создал.
                 IReadOnlyList<ReceiptSnapshotCartEditor.LinePriceChange>? rejectedChanges = null;
+                // 2026-11-27 (expected_total): 409 total_mismatch — продажа НЕ проведена; строки сервера ложатся на чек (корзина не теряется), кассир снова в окне оплаты с новым итогом.
+                var totalMismatchRecalculated = false;
+                if (result.TotalMismatchRejected)
+                {
+                    var payload = result.TotalMismatchPayload;
+                    await RunOnUiThreadAsync(() => totalMismatchRecalculated = ApplyTotalMismatch(payload)).ConfigureAwait(false);
+                }
                 if (result.PriceChanged)
                 {
                     rejectedChanges = await ApplyServerRejectedPricesAsync(result.PriceChanges).ConfigureAwait(false);
@@ -2960,7 +2991,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
                         _prompts.ShowError(error);
                 }).ConfigureAwait(false);
                 // 2026-10-27: цены обновлены — назад в окно оплаты (не больше двух раз подряд: дальше ошибка, чтобы не крутиться вхолостую).
-                if (rejectedChanges is { Count: > 0 } && priceRetry < 2)
+                if ((rejectedChanges is { Count: > 0 } || totalMismatchRecalculated) && priceRetry < 2)
                 {
                     PosLogger.Log($"PRICE_SYNC: цены чека обновлены после отказа сервера — окно оплаты открыто снова (повтор {priceRetry + 1}).", "PRICE_SYNC");
                     PreferredPaymentMethod = preferredMethod;
@@ -4715,6 +4746,9 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
             // 2026-10-03: строки по оптовой цене (is_wholesale в строке чека).
             var wholesaleIds = new HashSet<string>(StringComparer.Ordinal);
             var volumeNotes = BazaarVolumeNotes(); // 2026-11-21 («Базар»): подпись «Опт от N — цена» под строкой
+            // 2026-11-27 (акции v2): «Акция «2+1»: −123,00» под строкой — в той же подписи (после «Опт от N», если есть).
+            foreach (var (noteId, promoNote) in PromoLineNotes())
+                volumeNotes[noteId] = volumeNotes.TryGetValue(noteId, out var vn) && !string.IsNullOrWhiteSpace(vn) ? vn + " · " + promoNote : promoNote;
             var showHaggle = ShowHaggle;
             if (_cart.HasCart && _cart.Root.ValueKind == JsonValueKind.Object)
                 foreach (var it in CartDisplayHelper.EnumerateItems(_cart.Root))
@@ -4824,6 +4858,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
             PersistActiveSessionSnapshot();
             RebuildReceiptTabs();
             PushCustomerDisplay();
+            RefreshPromotionsUi(); // 2026-11-27: пустой чек — подсказки акций убрать
             return;
         }
 
@@ -4840,6 +4875,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         PersistActiveSessionSnapshot();
         RebuildReceiptTabs();
         PushCustomerDisplay();
+        RefreshPromotionsUi(); // 2026-11-27 (акции v2): подсказки над чеком и сверка итога с сервером (pos/quote/)
     }
 
     private void SyncOrderDiscountFromCart()

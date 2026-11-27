@@ -70,7 +70,7 @@ public static class CartTotalsCalculator
             var qty = CartDisplayHelper.LineQuantity(it);
             var unitPrice = CartDisplayHelper.UnitPrice(it);
             // 2026-11-01 (опыты на сервере NBS): весовые строки (is_weight товара) и остальные суммируются раздельно, без округления строк.
-            var exact = QuantityRules.GrossExact(qty, unitPrice);
+            var exact = WeighedAmount.Gross(it, qty, unitPrice); // 2026-11-26: «По сумме» — точная сумма строки (line_total сервера), иначе количество × цена
             if (CartDisplayHelper.LineIsWeightProduct(it))
             {
                 weighedLines.Add(exact);

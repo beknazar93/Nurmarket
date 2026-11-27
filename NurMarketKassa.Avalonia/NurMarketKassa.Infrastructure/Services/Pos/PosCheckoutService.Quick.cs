@@ -223,6 +223,15 @@ public sealed partial class PosCheckoutService
                         "Mahsulot narxi chekka qo'shilganidan beri o'zgardi. Sotuv O'TKAZILMADI — chek joriy narxlar bo'yicha yangilanmoqda."),
                     changes);
             }
+            catch (ApiException ex) when (priceRefusalIsFinal && PosQuoteService.IsTotalMismatch(ex))
+            {
+                // 2026-11-27 (expected_total, ответ Умара «pos/quote/»): 409 total_mismatch — продажа НЕ создана (итог сервера другой: акции/цены изменились).
+                // Это не «ключ ещё выполняется» (409 ниже повторяет тем же ключом): верим только первой отправке ключа. Ключ забываем — после пересчёта тело другое.
+                ForgetQuickKey();
+                ClearInFlight(key);
+                PosLogger.Log($"PROMO_V2: сервер отклонил чек (409 total_mismatch) за {sw.ElapsedMilliseconds} мс — продажа не проведена. {ex.Payload?.GetRawText()}", "WARNING");
+                return PosCheckoutResult.TotalMismatchFailure(PosQuoteService.MismatchText(ex.Payload!.Value, cartJson), ex.Payload?.Clone());
+            }
             catch (ApiException ex) when (BelowCostGuard.IsServerDenial(ex))
             {
                 // 2026-11-13 (сервер bc1112): скидка ниже закупки без права can_sell_below_cost — отказ ДО записи продажи (даже на повтор ключа: проведённая продажа вернулась бы 200).

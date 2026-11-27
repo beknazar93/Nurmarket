@@ -110,7 +110,7 @@ public partial class ReturnSaleDialog
     /// <summary>Сверка после возврата: наличные ушли из ящика на <paramref name="cashOut"/>, а сервер остаток не уменьшил — поправка.</summary>
     /// <param name="serverCashOut">2026-11-01 (приёмка, Ж-01): сколько наличных выдачи записал сервер, если меньше выданного кассой (касса выдала по оплатам клиента, сервер
     /// — по движениям денег: чек 001967, касса 2, сервер 1). Остаток смены на сервере тогда завышен на разницу — поправка пишется на неё, ящик сходится.</param>
-    private static void CheckDrawerAfterRefund(decimal? before, decimal cashOut, string key, string? saleId = null, decimal nonCash = 0m, decimal? serverCashOut = null, bool debtSale = false)
+    private static void CheckDrawerAfterRefund(decimal? before, decimal cashOut, string key, string? saleId = null, decimal nonCash = 0m, decimal? serverCashOut = null, bool debtSale = false, DateTimeOffset? sentAt = null)
     {
         var shiftId = PosApp.ActiveShiftId;
         // 2026-10-23 (живой аудит, Б-1): долговой чек с безналичной предоплатой — наличные не уходят (cashOut 0), но сервер
@@ -140,7 +140,21 @@ public partial class ReturnSaleDialog
                 {
                     ExchangeCashCorrections.NoteServerFeatureDebtRefund(shiftId, cashOut);
                     // 2026-11-06 (аудит №5, Л5-05, Ж-01): сервер снимает свою запись выдачи; если касса выдала больше (чек 001967: 2 против 1), ящик расходится на разницу — поправка как раньше.
-                    ExchangeCashCorrections.RecordServerUnderRecordedDebtRefund(shiftId, key, before.Value, a, cashOut, serverCashOut);
+                    // 2026-11-27 (ответ Умара, dret2711): поправка — только по ФАКТИЧЕСКИМ расходам сервера по чеку (движения денег), а не по предположению; сервер исправлен — расход = выдача, поправки нет.
+                    decimal? flowsOut = null;
+                    if (!string.IsNullOrWhiteSpace(saleId))
+                    {
+                        try
+                        {
+                            using var flowsCts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(8));
+                            flowsOut = await NurCrmReportsApi.ReturnDrawerExpensesAsync(saleId, shiftId, sentAt, flowsCts.Token).ConfigureAwait(false);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            flowsOut = null;
+                        }
+                    }
+                    ExchangeCashCorrections.RecordServerUnderRecordedDebtRefund(shiftId, key, before.Value, a, cashOut, serverCashOut, flowsOut);
                     return;
                 }
                 var overstated = (a - before.Value) + cashOut;
@@ -330,7 +344,7 @@ public partial class ReturnSaleDialog
             else
             {
                 rejectedServerMoney = srvCash + srvNon + srvBalance;
-                PosLogger.Log($"Возврат по чеку {number} ({saleId}): ответ сервера не сходится с суммой возврата {amount:0.00} (наличными {srvCash:0.00}, безнал {srvNon:0.00}, на баланс {srvBalance:0.00}, долг −{srvDebt:0.00}) — "
+                PosLogger.Log($"Возврат по чеку {number} ({saleId}): ответ сервера не сходится с суммой возврата {amount:0.00} (наличными {srvCash:0.00}, безнал {srvNon:0.00}, на баланс {srvBalance:0.00}, долг {RefundSplit.DebtMinus(srvDebt)}) — "
                               + $"используется расчёт кассы {cash + nonCash:0.00}, проверить возврат.", "WARNING");
             }
         }
@@ -339,10 +353,10 @@ public partial class ReturnSaleDialog
         if (serverCashOut is { } serverGave)
             PosLogger.Log($"Возврат по чеку {number} ({saleId}): по оплатам клиента положено выдать {cash + nonCash:0.00} (долг сейчас {serverDebtLeft ?? 0m:0.00}, долг уменьшен на {debtReduced:0.00}), сервер записал выдачу {serverGave:0.00} — кассиру показана сумма по оплатам.", "WARNING");
         if (debtUnknown && debtReduced > 0.005m)
-            PosLogger.Log($"Возврат по чеку {number}: остаток долга с сервера неизвестен — кассиру показано предупреждение проверить долг клиента (по кассе долг −{debtReduced:0.00}).", "WARNING");
+            PosLogger.Log($"Возврат по чеку {number}: остаток долга с сервера неизвестен — кассиру показано предупреждение проверить долг клиента (по кассе долг {RefundSplit.DebtMinus(debtReduced)}).", "WARNING");
 
         if (cashOut is { } flows && Math.Abs(flows - (cash + nonCash)) > 0.009m)
-            PosLogger.Log($"Возврат по чеку {number}: по движениям денег сервера выдано {flows:0.00}, по кассе к выдаче {cash + nonCash:0.00} (наличными {cash:0.00}, безнал {nonCash:0.00}, долг −{debtReduced:0.00}).", "WARNING");
+            PosLogger.Log($"Возврат по чеку {number}: по движениям денег сервера выдано {flows:0.00}, по кассе к выдаче {cash + nonCash:0.00} (наличными {cash:0.00}, безнал {nonCash:0.00}, долг {RefundSplit.DebtMinus(debtReduced)}).", "WARNING");
 
         if (ledger is not null)
         {
@@ -363,7 +377,7 @@ public partial class ReturnSaleDialog
                 _ledger = SaleReturnLedger.Get(saleId);
         }
 
-        PosLogger.Log($"Возврат по чеку {number}: {amount:0.00} (наличными {cash:0.00}, безнал {nonCash:0.00}, долг −{debtReduced:0.00}); документ сервера {(doc is { } d ? d.ToString("0.00", CultureInfo.InvariantCulture) : "—")}.", "SALES");
+        PosLogger.Log($"Возврат по чеку {number}: {amount:0.00} (наличными {cash:0.00}, безнал {nonCash:0.00}, долг {RefundSplit.DebtMinus(debtReduced)}); документ сервера {(doc is { } d ? d.ToString("0.00", CultureInfo.InvariantCulture) : "—")}.", "SALES");
         return new RefundOutcome(amount, cash, nonCash, debtReduced, splitKnown, debtUnknown, serverOver, serverCashOut, calcOverServer, debtRemaining, balancePart, rejectedServerMoney, serverDiffersCalc);
     }
 

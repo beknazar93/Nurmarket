@@ -20,11 +20,11 @@ public static class ReceiptPrintService
     /// закрытым навсегда — по истечении импульс уходит всё равно).</summary>
     private static readonly TimeSpan DrawerGateTimeout = TimeSpan.FromSeconds(20);
 
-    public static void PrintText(ReceiptPrinterSettings cfg, string text, int? charWidth = null)
+    public static void PrintText(ReceiptPrinterSettings cfg, string text, int? charWidth = null, string? qrUrl = null, string? shopQrUrl = null)
     {
         ArgumentNullException.ThrowIfNull(cfg);
         EscPosTextReceiptPrinter.ValidateSettings(cfg);
-        EscPosTextReceiptPrinter.Print(cfg, text, charWidth);
+        EscPosTextReceiptPrinter.Print(cfg, text, charWidth, qrUrl, shopQrUrl);
     }
 
     public static void PrintGraphic(GraphicReceiptSettings settings, string text)
@@ -190,6 +190,9 @@ public static class ReceiptPrintService
             return;
         }
 
+        // 2026-11-26 (красивый чек по QR): ссылка на страницу чека едет первой служебной строкой текста — вынимаем её до любой обработки.
+        receiptText = ReceiptShareLink.Split(receiptText ?? "", out var linkQrUrl);
+
         var text = !string.IsNullOrWhiteSpace(receiptText)
             ? receiptText
             : CartReceiptTextBuilder.BuildSimpleReceipt(cartJson, offlineNote, paymentMethodKey, cashReceived);
@@ -210,6 +213,9 @@ public static class ReceiptPrintService
             }
         }
 
+        // 2026-11-26 (отчёт «Конкуренты», п. 3): адрес витрины магазина для второго QR («Заказать онлайн»); выключено или витрины нет — null.
+        var shopQrUrl = prefs.PrintShopQr ? StorefrontLink.PrintableUrl() : null;
+
         // 2026-10-05: графический чек рисовался через System.Drawing — его нет на Android и Linux; там печатали текстом.
         // 2026-11-06 (В18, АЛ-3): теперь на Linux и Android графический чек рисует Skia — режим работает везде.
         if (prefs.SelectedPrintMode == PrintMode.Graphic)
@@ -217,11 +223,58 @@ public static class ReceiptPrintService
             if (!prefs.GraphicReceiptEnabled)
                 throw new InvalidOperationException("Графический чек выключен в настройках кассы.");
 
-            PrintGraphic(prefs.ToGraphicReceiptSettings(), text);
+            var graphic = prefs.ToGraphicReceiptSettings();
+            // 2026-11-26 (красивый чек по QR): в графическом режиме QR со ссылкой — картинкой в то же место, что и свой QR (оплаты); если свой QR включён, он важнее.
+            string? linkPng = null;
+            if (prefs.PrintReceiptLinkQr && linkQrUrl != null && !(graphic.ShowQrCode && !string.IsNullOrEmpty(graphic.QrCodePath) && File.Exists(graphic.QrCodePath)))
+            {
+                try
+                {
+                    linkPng = Path.Combine(Path.GetTempPath(), "nurmarket-receipt-link-qr-" + Guid.NewGuid().ToString("N") + ".png");
+                    QrPngWriter.Write(linkQrUrl, 240, linkPng);
+                    graphic.ShowQrCode = true;
+                    graphic.QrCodePath = linkPng;
+                }
+                catch (Exception ex)
+                {
+                    PosLogger.Log($"QR со ссылкой на чек (графический режим) не создан: {ex.Message}", "PRINTER");
+                    linkPng = null;
+                }
+            }
+            // 2026-11-26 (отчёт «Конкуренты», п. 3): QR витрины. В графическом режиме у чека одно место под QR — оно важнее занято своим QR или QR чека;
+            // тогда QR витрины не печатается (в текстовом режиме печатаются оба).
+            string? shopPng = null;
+            if (shopQrUrl != null && !(graphic.ShowQrCode && !string.IsNullOrEmpty(graphic.QrCodePath) && File.Exists(graphic.QrCodePath)))
+            {
+                try
+                {
+                    shopPng = Path.Combine(Path.GetTempPath(), "nurmarket-receipt-shop-qr-" + Guid.NewGuid().ToString("N") + ".png");
+                    QrPngWriter.Write(shopQrUrl, 240, shopPng);
+                    graphic.ShowQrCode = true;
+                    graphic.QrCodePath = shopPng;
+                    text = text.TrimEnd() + "\n" + StorefrontLink.Caption;
+                }
+                catch (Exception ex)
+                {
+                    PosLogger.Log($"QR витрины на чеке (графический режим) не создан: {ex.Message}", "PRINTER");
+                    shopPng = null;
+                }
+            }
+            try
+            {
+                PrintGraphic(graphic, text);
+            }
+            finally
+            {
+                if (linkPng != null)
+                    try { File.Delete(linkPng); } catch (IOException) { }
+                if (shopPng != null)
+                    try { File.Delete(shopPng); } catch (IOException) { }
+            }
         }
         else
         {
-            PrintText(prefs.ToReceiptPrinterSettings(), text);
+            PrintText(prefs.ToReceiptPrinterSettings(), text, null, prefs.PrintReceiptLinkQr ? linkQrUrl : null, shopQrUrl);
         }
     }
 

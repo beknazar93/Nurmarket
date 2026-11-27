@@ -204,6 +204,15 @@ public sealed partial class UserPreferences
                 p.ShowTotal = fromFile.ShowTotal.Value;
             if (fromFile.ShowQrCode.HasValue)
                 p.ShowQrCode = fromFile.ShowQrCode.Value;
+            if (fromFile.PrintReceiptLinkQr.HasValue)
+                p.PrintReceiptLinkQr = fromFile.PrintReceiptLinkQr.Value;
+            if (fromFile.PrintShopQr.HasValue)
+                p.PrintShopQr = fromFile.PrintShopQr.Value;
+            if (!string.IsNullOrWhiteSpace(fromFile.StorefrontSlug))
+            {
+                p.StorefrontSlug = fromFile.StorefrontSlug;
+                p.StorefrontSlugCompany = fromFile.StorefrontSlugCompany;
+            }
 
             // Остальные настройки
             if (fromFile.Fullscreen is not null)
@@ -247,6 +256,8 @@ public sealed partial class UserPreferences
                 p.EstimateEnabled = fromFile.EstimateEnabled.Value;
             if (fromFile.RentalEnabled is not null) // 2026-11-20: модуль «Прокат (аренда)» из Маркетплейса
                 p.RentalEnabled = fromFile.RentalEnabled.Value;
+            if (fromFile.CarcassYieldEnabled is not null) // 2026-11-26: модуль «Выход мяса при приходе» из Маркетплейса
+                p.CarcassYieldEnabled = fromFile.CarcassYieldEnabled.Value;
             if (fromFile.ScalesUnlocked is not null)
                 p.ScalesUnlocked = fromFile.ScalesUnlocked.Value;
             else if (fromFile.ScaleEnabled == true)
@@ -488,6 +499,7 @@ public sealed partial class UserPreferences
             // 2026-10-18: общие настройки «Оплата долга» (последние с сервера).
             p.DebtPaymentOptions = fromFile.DebtPaymentOptions;
             p.DebtPaymentOptionsCompanyId = fromFile.DebtPaymentOptionsCompanyId;
+            p.LastDebtPaymentMethod = fromFile.LastDebtPaymentMethod is "cash" or "transfer" ? fromFile.LastDebtPaymentMethod : null; // 2026-11-26
             if (fromFile.LoyaltyEnabled is not null)
                 p.LoyaltyEnabled = fromFile.LoyaltyEnabled.Value;
             if (fromFile.ShowQuickProducts is not null)

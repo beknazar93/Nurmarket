@@ -49,6 +49,7 @@ public partial class PayDebtDialog
                 return;
             _payAllAmountText = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(MixedHint)); // 2026-11-26: «Смешанно» — подсказка «наличными X + безналом Y» зависит от общей суммы
         }
     }
 
@@ -131,6 +132,23 @@ public partial class PayDebtDialog
         }
         var amount = (double)Math.Round(amountDec, 2);
 
+        // 2026-11-26 (владелец: «наличными, безналом или смешанно»): «Смешанно» — общая сумма делится на безналичную часть (поле «Из них безналом») и наличную (остальное).
+        var mixed = IsMixedMethod;
+        var mixedNonCash = 0.0;
+        if (mixed)
+        {
+            if (!CashAmountInput.TryParse(MixedNonCashText, out var nonDec) || !ShiftEventText.TrySplitMixed(amountDec, nonDec, out _, out var nonCashPart))
+            {
+                ErrorMessage = Tr.T("Смешанно: укажите сумму безналом — больше нуля и меньше общей суммы (остальное будет наличными).",
+                    "Аралаш: накталай эмес сумманы жазыңыз — нөлдөн чоң жана жалпы сумманан кичине (калганы накталай болот).",
+                    "Mixed: enter the non-cash amount — more than zero and less than the total (the rest will be cash).",
+                    "Karışık: nakitsiz tutarı yazın — sıfırdan büyük ve toplamdan küçük (kalanı nakit olur).",
+                    "Aralash: naqd emas summani kiriting — noldan katta va umumiy summadan kichik (qolgani naqd bo'ladi).");
+                return;
+            }
+            mixedNonCash = (double)nonCashPart;
+        }
+
         // Не больше суммы ТОЧНЫХ остатков (неуточнённые — новее, их «одной суммой» не трогаем).
         var totalOwed = oneSum.Limit;
         if (amount > totalOwed + 0.005)
@@ -150,7 +168,7 @@ public partial class PayDebtDialog
         // 2026-10-24 (приёмка, ПР-1): «похоже на двойную запись» не оплачивается, но остаётся в долге клиента (сервер его считает) — «Останется долг» с ним.
         var suspects = DebtSales.Where(r => r.IsSuspectedDuplicate && !r.RemainingUnknown).ToList();
         var leftAfter = Math.Max(0, totalOwed - amount) + suspects.Sum(r => r.Amount);
-        var methodTitle = DebtPaymentFlow.MethodTitle(SelectedMethod);
+        var methodTitle = mixed ? ShiftEventText.DebtMixed(amount - mixedNonCash, mixedNonCash) : DebtPaymentFlow.MethodTitle(SelectedMethod);
         var amountText = DebtPaymentFlow.Money(amount);
         var leftText = DebtPaymentFlow.Money(leftAfter);
         var confirm = Tr.T($"Принять от «{client.Name}» {amountText} в счёт долга ({methodTitle})?\nОстанется долг: {leftText}",
@@ -162,6 +180,8 @@ public partial class PayDebtDialog
         var noSaleTotal = DebtSales.Where(r => r.IsNoSale && !r.IsSuspectedDuplicate).Sum(r => r.Amount);
         if (noSaleTotal > 0.005)
             confirm += "\n\n" + DebtPaymentFlow.NoSalePlanNote(noSaleTotal);
+        if (DuplicatePaymentWarning(client, amount) is { Length: > 0 } sameAgain)
+            confirm += "\n\n" + sameAgain; // 2026-11-26: такая же оплата только что уже принята — возможно, повторное нажатие
         // 2026-10-24 (приёмка, ПР-1): по строке на каждую «двойную запись» — в сумму оплаты не входит.
         foreach (var suspect in suspects)
         {
@@ -195,6 +215,11 @@ public partial class PayDebtDialog
         // 2026-10-18, пятый круг (п.10): защита, замок, код, способ, ошибки — общая обёртка RunPaymentAsync.
         await RunPaymentAsync(async method =>
         {
+            if (mixed)
+            {
+                await PayMixedAsync(amount - mixedNonCash, mixedNonCash).ConfigureAwait(true);
+                return;
+            }
             if (await TryPayViaServerAsync(amount, method).ConfigureAwait(true))
                 return;
             if (RefuseLegacyForNonCash(method))

@@ -80,6 +80,16 @@ public sealed class TariffApi : ITariffApi
         get { lock (CacheSync) return _cached; }
     }
 
+    /// <summary>2026-11-26: только для проверок — подложить каталог тарифов в кэш (Маркетплейс берёт из него названия пакетов и цену тарифа в полосе «Ваш тариф»).</summary>
+    internal static void SetCatalogForTests(TariffCatalog? catalog)
+    {
+        lock (CacheSync)
+        {
+            _cached = catalog;
+            _cachedAtUtc = catalog is null ? DateTime.MinValue : DateTime.UtcNow;
+        }
+    }
+
     internal static void ResetCacheForTests()
     {
         lock (CacheSync)

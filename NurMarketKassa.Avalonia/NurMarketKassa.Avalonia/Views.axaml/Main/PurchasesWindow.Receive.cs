@@ -45,6 +45,7 @@ public sealed partial class PurchasesWindow
         public PurchasesSupplierPicker Picker = null!;
         /// <summary>2026-10-30 (нумерация закупок): «Номер накладной поставщика» в шапке приёмки.</summary>
         public TextBox DocNumber = null!;
+        public TextBox Esf = null!; // 2026-11-26 (ТОП-15 п. 4): № ЭСФ поставщика
         public readonly ObservableCollection<ReceivingLineVm> Lines = new();
         public readonly StackPanel Rows = new();
         public readonly StackPanel Steps = new() { Orientation = Orientation.Horizontal, Spacing = 6 };
@@ -165,7 +166,7 @@ public sealed partial class PurchasesWindow
             ReceiveReapplyPurchases(s); // 2026-11-06: цены закупки подтягиваются заново по истории нового поставщика (ручной ввод не трогаем)
             ReceiveRefresh();
         };
-        var supplierRow = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,190"), Margin = new Thickness(0, 0, 0, 10) };
+        var supplierRow = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,190"), RowDefinitions = new RowDefinitions("Auto,Auto"), Margin = new Thickness(0, 0, 0, 10) };
         var supplierLabel = UiKit.Label(this, T("Поставщик", "Жеткирүүчү", "Supplier", "Tedarikçi", "Yetkazib beruvchi"));
         supplierLabel.VerticalAlignment = VerticalAlignment.Center;
         supplierLabel.Margin = new Thickness(0, 0, 12, 0);
@@ -188,6 +189,26 @@ public sealed partial class PurchasesWindow
             "Yetkazib beruvchi bergan yuk xati raqami. U kirim bilan birga hujjat raqami (ПР-…) yonida saqlanadi."));
         Grid.SetColumn(s.DocNumber, 3);
         supplierRow.Children.Add(s.DocNumber);
+        // 2026-11-26 (ТОП-15 п. 4 отчёта о конкурентах): «№ ЭСФ» — номер электронной счёт-фактуры поставщика, второй строкой под номером накладной (та же сетка: подпись слева, поле 190).
+        // Сохраняется с приходом (комментарий документа «ЭСФ №: …»), виден в списке, карточке и печати прихода, по нему работает поиск. Ничего не отправляет в ГНС.
+        var esfLabel = UiKit.Label(this, T("№ ЭСФ поставщика", "Жеткирүүчүнүн ЭСФ №", "Supplier ESF №", "Tedarikçi ESF №", "Yetkazib beruvchi ESF №"));
+        esfLabel.VerticalAlignment = VerticalAlignment.Center;
+        esfLabel.Margin = new Thickness(16, 8, 8, 0);
+        Grid.SetRow(esfLabel, 1);
+        Grid.SetColumn(esfLabel, 2);
+        supplierRow.Children.Add(esfLabel);
+        s.Esf = UiKit.Input(this, T("не обязательно", "милдеттүү эмес", "optional", "isteğe bağlı", "ixtiyoriy"), 44);
+        s.Esf.MaxLength = 40;
+        s.Esf.Margin = new Thickness(0, 8, 0, 0);
+        Avalonia.Automation.AutomationProperties.SetName(s.Esf, esfLabel.Text);
+        ToolTip.SetTip(s.Esf, T("Номер электронной счёт-фактуры (ЭСФ), которую выписал поставщик. Сохранится вместе с приходом; по нему можно найти приход. В налоговую ничего не отправляется.",
+            "Жеткирүүчү чыгарган электрондук эсеп-фактуранын (ЭСФ) номери. Кирүү менен бирге сакталат; ал боюнча кирүүнү табууга болот. Салык кызматына эч нерсе жөнөтүлбөйт.",
+            "The number of the electronic invoice (ESF) issued by the supplier. It is saved with the delivery, and you can find the delivery by it. Nothing is sent to the tax service.",
+            "Tedarikçinin düzenlediği e-faturanın (ESF) numarası. Girişle birlikte kaydedilir; girişi bununla bulabilirsiniz. Vergi dairesine hiçbir şey gönderilmez.",
+            "Yetkazib beruvchi chiqargan elektron hisob-faktura (ESF) raqami. Kirim bilan birga saqlanadi; kirimni shu bo'yicha topish mumkin. Soliq xizmatiga hech narsa yuborilmaydi."));
+        Grid.SetRow(s.Esf, 1);
+        Grid.SetColumn(s.Esf, 3);
+        supplierRow.Children.Add(s.Esf);
         Grid.SetRow(supplierRow, 1);
         page.Children.Add(supplierRow);
         s.Tiles.Margin = new Thickness(0, 0, 0, 10);

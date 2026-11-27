@@ -14,9 +14,10 @@ namespace NurMarketKassa.AvaloniaHost.Services;
 /// <param name="Program">2026-10-18, седьмой круг: программа, начавшая оплату ("kassa" / "owner"). Журнал общий для кассы и
 /// владельца на этом ПК; повтор и решение — только в своей программе (смена кассы — в базе кассы). Нет поля — касса (раньше
 /// журнал был в папке кассы) или владелец (старый файл в папке владельца).</param>
+/// <param name="MixId">2026-11-26: общий идентификатор двух частей смешанной оплаты («Смешанно» в окне): по нему список «Оплата долгов» смены сливает наличную и безналичную часть в одну строку. Нет — обычная оплата.</param>
 internal sealed record UnknownDebtPayment(
     string CompanyId, string ClientId, string? ClientName, string? SaleId, double Amount, string Method, string Key, string? ShiftId, DateTime AtUtc,
-    string? SaleLabel = null, string? Program = null);
+    string? SaleLabel = null, string? Program = null, string? MixId = null);
 
 /// <summary>2026-10-18: запрос оплаты не отправлен (нет связи, компания не определена, по клиенту есть незавершённая оплата,
 /// журнал незавершённых оплат недоступен) — окна различают по исходу (DebtPayOutcome), текст — в Message.</summary>
@@ -536,7 +537,7 @@ internal static class DebtPaymentRunner
     /// отказ, не повтор; в т. ч. начатой другой программой), связь; затем запись «в пути» на диск и только потом запрос.
     /// Исключений не бросает.</summary>
     public static async Task<DebtPayAttempt> PayNewAsync(ClientDebtsApiService api, string key, string clientId, string? clientName,
-        string? saleId, string? saleLabel, double amount, string method, string? shiftId)
+        string? saleId, string? saleLabel, double amount, string method, string? shiftId, string? mixId = null)
     {
         // 2026-11-06 (Б2-1): компания с сервера не загружена (касса начата без связи) — пробуем загрузить её сами ДО очереди (один запрос, срок 12 с, не чаще раза в 2 с);
         // не вышло и сохранённой компании нет — понятный отказ «нет связи», а не «не удалось определить компанию».
@@ -567,7 +568,7 @@ internal static class DebtPaymentRunner
                 if (OfflineModeHelper.IsServerOutage)
                     return NotSent(NotSentText, false);
                 record = new UnknownDebtPayment(company, clientId, clientName, saleId, amount, method, key, shiftId, DateTime.UtcNow,
-                    string.IsNullOrWhiteSpace(saleLabel) ? null : saleLabel, CurrentProgram);
+                    string.IsNullOrWhiteSpace(saleLabel) ? null : saleLabel, CurrentProgram, mixId);
                 _store[storeKey] = record;
                 // Запись заранее обязательна: без неё падение программы во время запроса оставило бы оплату без следа.
                 if (!SaveStore())
@@ -830,7 +831,7 @@ internal static class DebtPaymentRunner
         {
             var shiftId = string.IsNullOrWhiteSpace(record.ShiftId) ? null : record.ShiftId;
             shiftWritten = ShiftEventsStore.TryRecord(DebtPaymentFlow.ShiftKind(record.Method), shiftId,
-                (record.SaleId is null ? "pay-debt:" : "pay-debt-sale:") + record.Key, amount, record.ClientName);
+                ShiftEventText.DebtSourceId((record.SaleId is null ? "pay-debt:" : "pay-debt-sale:") + record.Key, record.MixId), amount, record.ClientName); // 2026-11-26: MixId — признак смешанной оплаты для списка смены
             if (!shiftWritten)
             {
                 shiftFailed = true;

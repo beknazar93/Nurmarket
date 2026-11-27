@@ -34,6 +34,7 @@ import 'features/home/search_screen.dart';
 import 'core/api/server_capabilities.dart';
 import 'core/mode/mode_provider.dart';
 import 'core/mode/plan_limit.dart';
+import 'features/marketplace/marketplace_screen.dart';
 import 'features/simple/simple_routes.dart';
 import 'features/simple/simple_shell.dart';
 import 'features/ops/ops_screens.dart';
@@ -185,6 +186,8 @@ GoRouter buildRouter(Reader read, {required bool signedIn, Listenable? refresh})
     GoRoute(path: '/admin/summary', builder: (_, _) => const SummaryScreen()),
     GoRoute(path: '/admin/abc', builder: (_, _) => const AbcScreen()),
     GoRoute(path: '/admin/esf', builder: (_, _) => const EsfScreen()),
+    // 2026-11-27 (просьба владельца «И в мобилку тоже Маркетплейс добавь!»): Маркетплейс функций и тарифов — владельцу и администратору
+    GoRoute(path: '/admin/marketplace', builder: (_, s) => MarketplaceScreen(openModule: s.uri.queryParameters['module'])),
     // 13.10, макеты Н3, Н7, Н8: новая позиция — товар, одежда, услуга (?kind=clothes|service).
     GoRoute(
       path: '/admin/new-product',
@@ -249,6 +252,8 @@ class _NurMarketAppState extends ConsumerState<NurMarketApp> {
     // 2026-11-20 (тариф «Мини»): план и признаки обновляются при возврате в приложение (не чаще раза в 6 часов)
     final s = ref.read(sessionProvider);
     if (s != null) unawaited(ServerCapabilities.refreshIfStale(ref.read(apiProvider), ref.read(databaseProvider), OutboxMeta.ownerOf(s)));
+    // 2026-11-26 («при смене сферы сфера не меняется»): владелец мог сменить сферу магазина — при возврате в приложение (не чаще раза в 5 минут)
+    unawaited(ref.read(prefsProvider.notifier).syncShopFromServer(force: false));
   }
 
   /// Связь появилась (первый ответ сервера после обрыва) — очередь уходит сразу, не дожидаясь таймера.
@@ -291,6 +296,8 @@ class _NurMarketAppState extends ConsumerState<NurMarketApp> {
     if (widget.signedIn) {
       ref.read(syncProvider).start();
       unawaited(ref.read(syncProvider).planBackground()); // 2026-10-30 (оптимизация, п. 14): фоновая отправка — разовой задачей, если очередь не пуста
+      // 2026-11-26: запуск с сохранённым входом — сфера магазина с сервера (раньше читалась только при вводе пароля)
+      unawaited(ref.read(prefsProvider.notifier).syncShopFromServer());
     }
   }
 

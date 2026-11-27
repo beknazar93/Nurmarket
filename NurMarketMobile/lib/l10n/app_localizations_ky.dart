@@ -1557,11 +1557,26 @@ class AppLocalizationsKy extends AppLocalizations {
 
   @override
   String get qrDownloadHint =>
-      'Сатып алуучунун камерасы чекти дароо PDF файл кылып жүктөп алат';
+      'Сатып алуучу кооз чекти браузерден көрөт: PDF же сүрөт кылып сактай алат';
 
   @override
   String get qrTextHint =>
-      'Сервер чекке шилтеме бере электе камера аны текст катары көрсөтөт. PDF файлды кардарга — төмөнкү баскыч менен.';
+      'Кооз чекке шилтеме азырынча жеткиликсиз. Байланышты текшерип, «Кайталоо» баскычын басыңыз — же PDF файлды төмөнкү баскыч менен жөнөтүңүз.';
+
+  @override
+  String get qrOfflineHint =>
+      'Чек серверге али жөнөтүлө элек. QR-код синхрондоштуруудан кийин пайда болот — байланыш чыкканда чекти «Чектер» бөлүмүнөн ачыңыз.';
+
+  @override
+  String get openReceiptLink => 'Чекти ачуу';
+
+  @override
+  String get shareReceiptLink => 'Шилтемени бөлүшүү';
+
+  @override
+  String shareReceiptText(String number) {
+    return 'Сиздин чегиңиз №$number';
+  }
 
   @override
   String get cashInOut => 'Салуу / алуу';
@@ -6884,6 +6899,35 @@ class AppLocalizationsKy extends AppLocalizations {
   }
 
   @override
+  String get stockScanBtn => 'Штрихкод сканери';
+
+  @override
+  String get stockPhotoBtn => 'Сүрөт боюнча издөө';
+
+  @override
+  String get stockScanHint =>
+      'Товардын штрихкодуна же QR-кодуна багыттаңыз — ал издөөгө коюлат';
+
+  @override
+  String stockScanFound(String code, String name) {
+    return '$code коду боюнча табылды: $name';
+  }
+
+  @override
+  String get stockPhotoTitle => 'Кампадагы окшош товарлар';
+
+  @override
+  String get stockPhotoHint => 'Товарды тандаңыз — ал кампа тизмесинде көрүнөт';
+
+  @override
+  String get stockPhotoNone =>
+      'Сүрөт боюнча кампада окшош товар табылган жок. Жакыныраак тартыңыз же товарды аталышы боюнча издеңиз.';
+
+  @override
+  String get stockPhotoOffline =>
+      'Байланыш жок — сүрөт боюнча издөө интернет менен гана иштейт. Товарды аталышы же штрихкоду боюнча издеңиз.';
+
+  @override
   String stockCountShown(int shown, int total) {
     return '$total ичинен $shown көрсөтүлдү';
   }
@@ -7453,4 +7497,51 @@ class AppLocalizationsKy extends AppLocalizations {
   @override
   String get recvModeAutoparts =>
       'Автозапчасттар: товарды каталог номери боюнча табыңыз; саны — даана, топтом жана жуп.';
+
+  @override
+  String get loginDeviceKeyRequired =>
+      'Бул түзмөк аныкталган жок. NurCRM колдонмосун жаңыртып, кайра кириңиз.';
+
+  @override
+  String get deviceSlotTitle => 'Башка түзмөктө кирүү бар';
+
+  @override
+  String get deviceSlotBody =>
+      'Сиз башка түзмөктө кирген элеңиз. Ал жактан чыгып, бул жерден киребизби?\n\nАл түзмөктө кирүү жабылат.';
+
+  @override
+  String get deviceSlotConfirm => 'Ал жактан чыгып, бул жерден кирүү';
+
+  @override
+  String get pinTitle => 'Ээсинин же администратордун PIN коду';
+
+  @override
+  String get pinReturnInfo =>
+      'Бул чекти кайтаруу үчүн сервер ырастоону суранат: ээсинин же администратордун PIN кодун киргизиңиз (кирүү сырсөзү эмес).';
+
+  @override
+  String get pinFieldLabel => 'PIN';
+
+  @override
+  String get pinConfirm => 'Ырастоо';
+
+  @override
+  String get pinInvalid => 'PIN туура эмес.';
+
+  @override
+  String pinInvalidLeft(int n) {
+    return 'PIN туура эмес. Калган аракеттер: $n.';
+  }
+
+  @override
+  String get pinLocked =>
+      'PIN туура эмес аракеттерден кийин бөгөттөлдү. Кийинчерээк кайталаңыз.';
+
+  @override
+  String get pinNotSet =>
+      'PIN коюлган эмес — Жөндөөлөр → Кызматкерлер бөлүмүндө коюңуз.';
+
+  @override
+  String get pinRequiredText =>
+      'Бул аракетти ээсинин же администратордун PIN коду менен ырастоо керек. Кайталап, PIN киргизиңиз.';
 }

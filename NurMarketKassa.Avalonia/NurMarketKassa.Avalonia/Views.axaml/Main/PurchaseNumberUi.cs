@@ -41,4 +41,12 @@ internal static class PurchaseNumberUi
     public static string SupplierDocText(string? number, DateTime? date) =>
         string.IsNullOrWhiteSpace(number) ? "" : T("накладная поставщика № ", "жеткирүүчүнүн накладнойу № ", "supplier invoice № ", "tedarikçi faturası № ", "yetkazib beruvchi yuk xati № ")
             + number!.Trim() + (date is { } d ? " " + T("от ", "", "of ", "", "") + d.ToString("dd.MM.yyyy") : "");
+
+    /// <summary>2026-11-26 (ТОП-15 п. 4): «ЭСФ № 0123456789» — номер электронной счёт-фактуры поставщика; пусто, если не указан.</summary>
+    public static string EsfText(string? esf) =>
+        string.IsNullOrWhiteSpace(esf) ? "" : T("ЭСФ № ", "ЭСФ № ", "e-invoice (ESF) № ", "e-Fatura (ESF) № ", "ESF № ") + esf!.Trim();
+
+    /// <summary>Накладная поставщика и ЭСФ одной строкой через запятую (для примечания печатной копии): любая часть может отсутствовать.</summary>
+    public static string WithEsf(string supplierDocText, string? esf) =>
+        string.Join(", ", new[] { supplierDocText, EsfText(esf) }.Where(x => x.Length > 0));
 }

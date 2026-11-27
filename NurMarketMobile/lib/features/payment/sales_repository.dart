@@ -8,6 +8,7 @@ import '../../core/api/checkout_device.dart';
 import '../../core/db/database.dart';
 import '../../core/sync/outbox_meta.dart';
 import '../../core/util/audit.dart';
+import '../receipt/receipt.dart';
 import '../sale/cart.dart';
 import '../sale/variant_service.dart';
 import 'receipt_qr.dart';
@@ -856,6 +857,31 @@ class SalesRepository {
   Future<List<Map<String, dynamic>>> sales({int page = 1}) async => asList(await api.get('api/main/pos/sales/', query: {'page': page}));
 
   Future<Map<String, dynamic>> sale(String id) async => ((await api.get('api/main/pos/sales/$id/')) as Map).cast<String, dynamic>();
+
+  /// 2026-11-26: сервер ответил 404/405 на share-link (старый сервер без красивого чека) — до перезапуска больше не спрашиваем, как касса.
+  static bool serverLacksShareLink = false;
+
+  /// 2026-11-26: ссылка на страницу чека (https://app.nurcrm.kg/r/{token}): POST pos/sales/{id}/share-link/ создаёт или возвращает ту же
+  /// (повтор безопасен). Любой сбой (нет связи, 404/405, ответ без url) — null: чек остаётся без QR, продажа не страдает.
+  Future<String?> shareLink(String saleId, {Duration timeout = const Duration(seconds: 6)}) async {
+    if (serverLacksShareLink || saleId.isEmpty) return null;
+    try {
+      final data = await api.post('api/main/pos/sales/$saleId/share-link/', body: const <String, dynamic>{}, timeout: timeout);
+      return data is Map ? shareUrlOk(str(data.cast<String, dynamic>(), 'url') ?? str(data.cast<String, dynamic>(), 'share_url')) : null;
+    } on ApiException catch (e) {
+      if (e.status == 404 || e.status == 405) serverLacksShareLink = true;
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Чек с ссылкой: берёт из чека, иначе запрашивает у сервера ([shareLink]); офлайн-чек и чек без id продажи — как есть.
+  Future<Receipt> withShareLink(Receipt r) async {
+    if (r.eReceiptUrl != null || r.offline || (r.saleId ?? '').isEmpty) return r;
+    final url = await shareLink(r.saleId!);
+    return url == null ? r : r.withEReceiptUrl(url);
+  }
 
   /// Текст чека для отправки покупателю: GET pos/sales/{id}/receipt/.
   Future<String?> receiptText(String id) async {

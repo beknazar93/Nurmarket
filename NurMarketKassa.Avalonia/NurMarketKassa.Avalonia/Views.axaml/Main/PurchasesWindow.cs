@@ -657,7 +657,8 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
         // 2026-10-30: плюс номер документа (ПР-2026-123, 123, 000123) и номер накладной поставщика.
         var byText = SearchMatch.Filter(_receipts, Query, r => SearchMatch.Key(r.SupplierName, r.CreatedBy, string.Join(" ", r.Lines.Select(l => l.ProductName + " " + l.Code)),
             DocumentNumbering.SearchKey(DocSeries.Receipt, r.Id), DocumentNumbering.ShortCode(r.Id), r.SupplierDocNumber, r.NumberDisplay)).ToHashSet(); // 2026-11-06: + серверный номер
-        return _receipts.Where(r => byText.Contains(r) || (Query.Length > 0 && DocumentNumbering.MatchesQuery(DocSeries.Receipt, r.Id, Query)));
+        // 2026-11-26 (ТОП-15 п. 4): плюс номер ЭСФ поставщика (целиком или от трёх знаков).
+        return _receipts.Where(r => byText.Contains(r) || (Query.Length > 0 && (DocumentNumbering.MatchesQuery(DocSeries.Receipt, r.Id, Query) || DocumentNumberingCore.EsfMatches(r.EsfNumber, Query))));
     }
 
     private IEnumerable<PurchaseOrder> ShownOrders()
@@ -912,7 +913,8 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
         Put(g, 0, Two(number, (r.CreatedAt?.ToString("dd.MM.yyyy HH:mm", Ru) ?? "—")));
         Put(g, 1, Two(r.SupplierName.Length > 0 ? r.SupplierName : "—",
             T("принял: ", "кабыл алды: ", "by: ", "kabul: ", "qabul qildi: ") + (r.CreatedBy.Length > 0 ? r.CreatedBy : "—")
-            + (r.SupplierDocNumber.Length > 0 ? " · " + PurchaseNumberUi.SupplierDocText(r.SupplierDocNumber, r.SupplierDocDate) : ""), bold: true));
+            + (r.SupplierDocNumber.Length > 0 ? " · " + PurchaseNumberUi.SupplierDocText(r.SupplierDocNumber, r.SupplierDocDate) : "")
+            + (r.EsfNumber.Length > 0 ? " · " + PurchaseNumberUi.EsfText(r.EsfNumber) : ""), bold: true)); // 2026-11-26: + ЭСФ
         var items = Cell((r.ItemsCount > 0 ? r.ItemsCount : r.Lines.Count).ToString(CultureInfo.InvariantCulture), "BrushText", 13.5);
         items.TextAlignment = TextAlignment.Right;
         items.IsVisible = !_narrow;

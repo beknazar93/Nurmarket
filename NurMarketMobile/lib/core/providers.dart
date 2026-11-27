@@ -203,8 +203,10 @@ class SessionController extends Notifier<Session?> {
   }
 
   /// Вход: токены → профиль (имя, роль) → компания. Тот же логин, что на кассе и в вебе.
-  Future<void> login(String email, String password) async {
-    await _api.login(email, password);
+  /// 2026-11-26 (слоты устройств): вход всегда с device_key установки (тот же, что в чеке) — на тарифе «Мини» без него сервер отвечает 400;
+  /// [replaceDevice] — кассир согласился отключить другой телефон (409 device_slot_taken).
+  Future<void> login(String email, String password, {bool replaceDevice = false}) async {
+    await _api.login(email, password, deviceKey: await CheckoutDevice.key(ref.read(databaseProvider)), deviceName: CheckoutDevice.deviceName, replaceDevice: replaceDevice);
     var s = _api.session!;
     _profileLoaded = false;
     _companyLoaded = false;
@@ -804,6 +806,7 @@ class PrefsController extends Notifier<Prefs> {
     final db = ref.read(databaseProvider);
     final dark = await db.getSetting('ui.dark');
     final shop = await ShopModeSync.read(db);
+    _shopSyncAt = null; // 2026-11-26: настройки перечитаны (вход/выход/смена аккаунта) — сфера с сервера спрашивается заново
     // 2026-11-05 (языковой пакет, как EnforceOnStartup кассы): сохранённый en/tr/uz без пакета «Язык» сбрасывается на русский.
     await LanguagePackGate.loadCached(db, null);
     await AiLanguage.load(db); // 2026-11-05: сохранённый язык ИИ (если пользователь командой выбрал другой, чем интерфейс)
@@ -848,12 +851,34 @@ class PrefsController extends Notifier<Prefs> {
   }
 
   /// Прочитать сферу компании с сервера и применить (правила — ShopModeSync.applyServer). true — режим сменился.
-  Future<bool> syncShopFromServer() async {
-    final m = await ShopModeSync.syncFromServer(ref.read(databaseProvider), ref.read(apiProvider));
-    if (m == null) return false;
-    state = state.copyWith(shop: m, shopChosen: true);
-    return true;
+  /// 2026-11-26 («при смене сферы сфера не меняется»): вызывается при входе, запуске с сохранённым входом, по «потянуть для обновления» на главной и при
+  /// возврате в приложение; на возврате [force] = false — не чаще раза в [shopSyncEvery]. Режим применяется сразу (Prefs → экраны перестраиваются).
+  /// Ответ прошлого аккаунта (вышли или вошли другим, пока шёл запрос) выбрасывается — сфера не переходит между аккаунтами.
+  Future<bool> syncShopFromServer({bool force = true}) async {
+    final s0 = ref.read(sessionProvider);
+    if (s0 == null) return false;
+    final owner = OutboxMeta.ownerOf(s0);
+    if (_shopSyncingOwner == owner) return false; // тот же аккаунт уже спрашивает сервер
+    if (!force && _shopSyncAt != null && DateTime.now().difference(_shopSyncAt!) < shopSyncEvery) return false;
+    _shopSyncingOwner = owner;
+    try {
+      final r = await ShopModeSync.fetchServer(ref.read(apiProvider));
+      final s1 = ref.read(sessionProvider);
+      if (r == null || s1 == null || OutboxMeta.ownerOf(s1) != owner) return false;
+      _shopSyncAt = DateTime.now();
+      final m = await ShopModeSync.applyServer(ref.read(databaseProvider), base: r.base, detail: r.detail);
+      if (m == null) return false;
+      state = state.copyWith(shop: m, shopChosen: true);
+      return true;
+    } finally {
+      if (_shopSyncingOwner == owner) _shopSyncingOwner = null;
+    }
   }
+
+  /// Как часто можно перечитывать сферу при возврате в приложение.
+  static const shopSyncEvery = Duration(minutes: 5);
+  DateTime? _shopSyncAt;
+  String? _shopSyncingOwner;
 
   /// light / dark / system / auto.
   Future<void> setMode(String mode) async {

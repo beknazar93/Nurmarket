@@ -2009,7 +2009,8 @@ public partial class MainWindow : Window
         if (await PosDialogHost.ShowAsync(dlg, this).ConfigureAwait(true) != true)
             return;
 
-        await ApplyShiftClosedAsync(dlg.ClosingCash, allowWithoutShiftsRight).ConfigureAwait(true);
+        // 2026-11-27 (живой проход, A): итоги сервера, которые окно закрытия уже получило, — для Z, если сервер не ответит на само закрытие.
+        await ApplyShiftClosedAsync(dlg.ClosingCash, allowWithoutShiftsRight, dlg.ServerReport, dlg.Totals).ConfigureAwait(true);
     }
 
     /// <summary>2026-11-13 (проверка денег, п. 2/п. 3): при закрытии смены один раз сверить возвраты кассы с сервером (фоном, не задерживая окно, до 8 с): возврат, изменённый или аннулированный
@@ -3994,7 +3995,8 @@ public partial class MainWindow : Window
     // Раньше всё это время касса принимала товары и оплату (набранный чек потом стирался молча), а второй «Закрыть» делал второй Z.
     private int _shiftClosing;
 
-    private async Task ApplyShiftClosedAsync(decimal? closingCash, bool allowWithoutShiftsRight = false)
+    private async Task ApplyShiftClosedAsync(decimal? closingCash, bool allowWithoutShiftsRight = false,
+        ServerShiftReport? reportBeforeClose = null, ShiftBalanceHelper.ShiftTotals? totalsFromCloseDialog = null)
     {
         if (!_session.IsShiftOpen || (!allowWithoutShiftsRight && !AuthorizeShifts()))
             return;
@@ -4005,12 +4007,21 @@ public partial class MainWindow : Window
         }
 
         _viewModel.Basket.SetShiftClosing(true);
+        // 2026-11-27 (живой проход, A): ответ сервера на закрытие ждём до 10 с — кассир видит, что касса не зависла.
+        var statusBeforeClose = _viewModel.Catalog.StatusText;
+        var closingStatus = Tr.T("Закрываю смену, жду ответ сервера…", "Сменаны жабуудамын, сервердин жообун күтөм…", "Closing the shift, waiting for the server…",
+            "Vardiya kapatılıyor, sunucu yanıtı bekleniyor…", "Smenani yopyapman, server javobini kutyapman…");
+        _viewModel.Catalog.StatusText = closingStatus;
         try
         {
-            await ApplyShiftClosedCoreAsync(closingCash, allowWithoutShiftsRight).ConfigureAwait(true);
+            await ApplyShiftClosedCoreAsync(closingCash, allowWithoutShiftsRight, reportBeforeClose, totalsFromCloseDialog).ConfigureAwait(true);
         }
         finally
         {
+            // Закрытие отменено/не удалось — прежняя строка; смену закрыли в другом месте, пока досылали очередь, — «Смена закрыта.».
+            if (_viewModel.Catalog.StatusText == closingStatus)
+                _viewModel.Catalog.StatusText = _session.IsShiftOpen ? statusBeforeClose
+                    : Tr.T("Смена закрыта.", "Смена жабылды.", "Shift closed.", "Vardiya kapatıldı.", "Smena yopildi.");
             _viewModel.Basket.SetShiftClosing(false);
             Interlocked.Exchange(ref _shiftClosing, 0);
         }
@@ -4098,16 +4109,25 @@ public partial class MainWindow : Window
     private static int QueuedSalesOfShift(string shiftId) =>
         OfflinePendingSalesStore.LoadPendingForSync().Count(e => string.Equals(e.ShiftId, shiftId, StringComparison.OrdinalIgnoreCase));
 
-    private async Task ApplyShiftClosedCoreAsync(decimal? closingCash, bool allowWithoutShiftsRight)
+    private async Task ApplyShiftClosedCoreAsync(decimal? closingCash, bool allowWithoutShiftsRight,
+        ServerShiftReport? reportBeforeClose = null, ShiftBalanceHelper.ShiftTotals? totalsFromCloseDialog = null)
     {
         NurMarketKassa.App.SyncFromSession(_session);
         // Захватываем ДО закрытия — CloseShiftAsync при успехе обнуляет ActiveShiftId, а
         // _shiftTotals понадобится ниже для отчёта (см. ShowShiftClosedReport).
         var shiftIdBeforeClose = NurMarketKassa.PosApp.ActiveShiftId;
-        var totalsBeforeClose = _shiftTotals;
+        var totalsBeforeClose = totalsFromCloseDialog ?? _shiftTotals; // 2026-11-27 (A): то, что видел кассир в окне закрытия
         // 2026-10-27 (С-7): «в ящике должно быть» из окна закрытия (то, с чем кассир сверял пересчёт) — запасное ожидаемое для Z,
         // если отчёт сервера не придёт (нет связи): формула Z без внесений, оплат долгов и возвратов расходилась с окном.
         var expectedBeforeClose = EffectiveShiftCashBalance;
+        // 2026-11-27 (A, code-review): отчёт сервера окно закрытия получило ДО досылки очереди — если досылать было что (чеки, внесения/изъятия),
+        // он неполный, и для Z без ответа сервера он не годится (тогда данные кассы, как раньше).
+        if (reportBeforeClose is not null && !string.IsNullOrEmpty(shiftIdBeforeClose))
+        {
+            var (pendingIn, pendingOut) = ShiftCashOperationsStore.PendingSumsForShift(shiftIdBeforeClose);
+            if (QueuedSalesOfShift(shiftIdBeforeClose) > 0 || pendingIn != 0m || pendingOut != 0m)
+                reportBeforeClose = null;
+        }
         if (!await FlushBeforeShiftCloseAsync(shiftIdBeforeClose).ConfigureAwait(true))
             return;
         if (!_session.IsShiftOpen || !string.Equals(_session.ActiveShiftId, shiftIdBeforeClose, StringComparison.OrdinalIgnoreCase))
@@ -4179,7 +4199,7 @@ public partial class MainWindow : Window
         _viewModel.Catalog.StatusText = Tr.T("Смена закрыта.", "Смена жабылды.", "Shift closed.", "Vardiya kapatıldı.", "Smena yopildi.");
         _customerDisplay.CloseForSession();
 
-        ShowShiftClosedReport(shiftIdBeforeClose, totalsBeforeClose, result.Totals, _shiftCashBalance ?? 0m, expectedBeforeClose);
+        ShowShiftClosedReport(shiftIdBeforeClose, totalsBeforeClose, result.Totals, _shiftCashBalance ?? 0m, expectedBeforeClose, reportBeforeClose);
     }
 
     /// <summary>2026-09-14, по просьбе пользователя ("нужен подробный отчёт при закрытии
@@ -4195,14 +4215,21 @@ public partial class MainWindow : Window
     /// откатываемся на снимок "до закрытия" — так отчёт не покажет пустоту, если сервер в ответе
     /// на закрытие разбивку не прислал.</summary>
     private void ShowShiftClosedReport(
-        string? shiftId, ShiftBalanceHelper.ShiftTotals? before, CashShiftClosingTotals? fresh, decimal actualClosingCash, decimal? expectedBeforeClose = null)
+        string? shiftId, ShiftBalanceHelper.ShiftTotals? before, CashShiftClosingTotals? fresh, decimal actualClosingCash, decimal? expectedBeforeClose = null,
+        ServerShiftReport? reportBeforeClose = null)
     {
         try
         {
             // 2026-10-30 (приёмка кассы 1.17.65, «Важно» 1): смена закрыта без связи — ответа сервера на закрытие нет, а снимок «до закрытия» пуст или стар,
             // и Z показывал выручку 0 и пустые продажи. Тогда итоги — по данным кассы (журнал оплат и очередь без связи, LocalShiftTotals), с пометкой в окне.
+            // 2026-11-27 (живой проход, A): но если итоги сервера ДО закрытия есть (окно «Закрыть смену» их получило), они полнее журнала кассы — берём их
+            // (ShiftClosedReportBuilder), а журнал кассы — только когда с сервера нет ничего.
             var openedAtKnown = before?.OpenedAt ?? ShiftAgeWarning.Get(shiftId);
-            var local = fresh is null ? LocalShiftTotals.Compute(shiftId, openedAtKnown) : null;
+            // code-review 27.11: только отчёт сервера ЭТОЙ смены (снимок списка смен мог устареть, пока не было связи — тогда данные кассы).
+            if (reportBeforeClose is { ShiftId.Length: > 0 } && !string.Equals(reportBeforeClose.ShiftId, shiftId, StringComparison.OrdinalIgnoreCase))
+                reportBeforeClose = null;
+            var serverBefore = ShiftClosedReportBuilder.IsServerShift(shiftId) && reportBeforeClose is not null;
+            var local = fresh is null && !serverBefore ? LocalShiftTotals.Compute(shiftId, openedAtKnown) : null;
             decimal? localOpening = null;
             if (local is not null && fresh?.OpeningCash is null && before?.OpeningCash is null && expectedBeforeClose is { } expectedLocal && !string.IsNullOrEmpty(shiftId))
             {
@@ -4215,38 +4242,24 @@ public partial class MainWindow : Window
                 if (derived >= 0m)
                     localOpening = derived;
             }
-            var shift = new ShiftModel
-            {
-                Id = shiftId ?? "",
-                ShiftNumber = shiftId ?? "",
-                // Раньше не заполнялось — в отчёте закрытия стояло «Открыта: —» (стресс-тест 2026-09-26).
-                OpenedAt = openedAtKnown,
-                ClosedAt = DateTime.Now,
-                Cashier = NurMarketKassa.PosApp.CurrentUserDisplayName ?? "—",
-                Status = "Закрыта",
-                Revenue = fresh?.TotalSales ?? local?.TotalSales ?? before?.TotalSales ?? 0m,
-                ClosingCash = actualClosingCash,
-                OpeningCash = fresh?.OpeningCash ?? before?.OpeningCash ?? localOpening,
-                CashSales = fresh?.CashSales ?? local?.CashSales ?? before?.CashSales,
-                NonCashSales = fresh?.NonCashSales ?? local?.NonCashSales ?? before?.NonCashSales,
-                DebtSales = fresh?.DebtSales ?? local?.DebtSales ?? before?.DebtSales,
-                SalesCount = fresh?.SalesCount ?? local?.SalesCount ?? before?.SalesCount,
-                // Расход и приход — с сервера. Без них отчёт считал изъятия по локальному
-                // файлу и печатал меньше настоящего (живой случай: расход 1 940, в чеке 490).
-                ExpenseTotal = before?.ExpenseTotal,
-                IncomeTotal = before?.IncomeTotal,
-                // Ожидаемый остаток и расхождение НЕ берём из снимка «до закрытия»: они
-                // посчитаны до того, как кассир ввёл фактическую сумму. Здесь их считает
-                // сам отчёт по опорным цифрам, которые уже серверные.
-                // 2026-10-27 (С-7): но сама ожидаемая сумма (она от пересчёта кассира не зависит) — та, что показало окно закрытия:
-                // без ответа сервера Z раньше считал её запасной формулой без внесений, оплат долга и возвратов. Отчёт сервера, когда
-                // придёт, заменит её своей (ServerShiftReport.ApplyTo).
-                // 2026-11-01 (Д-1): сумма окна закрытия уже включает поправки на ошибки сервера (NetForShift), а отчёт (ShiftDetailsDialog.ServerExpectedWithFix) прибавляет их сам —
-                // чтобы не посчитать дважды, здесь они вычитаются.
-                ExpectedCash = expectedBeforeClose is { } expectedWithFix ? expectedWithFix - ExchangeCashCorrections.ForShift(shiftId) : null,
-            };
+            var localDebtPaid = local is null || string.IsNullOrEmpty(shiftId) ? 0m
+                : (decimal)(ShiftEventsStore.TotalsForShift(shiftId).GetValueOrDefault(ShiftEventsStore.KindDebtPayment)
+                            + ShiftEventsStore.TotalsForShift(shiftId).GetValueOrDefault(ShiftEventsStore.KindDebtPaymentNonCash));
+            // Ожидаемый остаток и расхождение НЕ берём из снимка «до закрытия»: они посчитаны до того, как кассир ввёл фактическую сумму.
+            // 2026-10-27 (С-7): но сама ожидаемая сумма (от пересчёта не зависит) — та, что показало окно закрытия; отчёт сервера закрытой смены заменит её своей.
+            // 2026-11-01 (Д-1): сумма окна закрытия уже с поправками (NetForShift), а ShiftDetailsDialog.ServerExpectedWithFix прибавляет их сам — здесь они вычитаются.
+            var built = ShiftClosedReportBuilder.Build(shiftId, before, fresh, reportBeforeClose, local, openedAtKnown, DateTime.Now,
+                NurMarketKassa.PosApp.CurrentUserDisplayName ?? "—", actualClosingCash,
+                expectedBeforeClose is { } expectedWithFix ? expectedWithFix - ExchangeCashCorrections.ForShift(shiftId) : null,
+                localOpening, localDebtPaid);
+            var shift = built.Shift;
+            if (built.Provisional)
+                PosLogger.Log($"Z после закрытия смены {shiftId}: ответа сервера на закрытие нет — отчёт предварительный ({(built.PreCloseReport is not null ? "по отчёту сервера до закрытия" : built.LocalReport ? "по данным кассы" : "по итогам сервера до закрытия")}), обновится по серверу.", "SHIFT");
             // Отчёт собран из ответа самого закрытия — сверять его с сервером незачем.
-            var dialog = new ShiftDetailsDialog(shift) { RefreshFromServer = false, LocalReport = local is not null };
+            var dialog = new ShiftDetailsDialog(shift)
+            {
+                RefreshFromServer = false, LocalReport = built.LocalReport, Provisional = built.Provisional, PreCloseReport = built.PreCloseReport,
+            };
             if (fresh?.PendingDebtSales is { } pendingDebt)
             {
                 // 2026-09-27: отчёт больше не ждёт расчёта долга — открывается сразу, долг

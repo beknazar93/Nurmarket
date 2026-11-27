@@ -71,6 +71,10 @@ public sealed class GeminiLiveVoice
     /// null — инструментов нет (разговор без них, переходы делает программа по распознанной фразе).</summary>
     public Func<string, string, Task<string>>? ToolHandler { get; set; }
 
+    /// <summary>2026-11-27 (Нур-советник: доступ к разделам): объявления всех инструментов советника (AdvisorToolDispatcher.Declarations — открыть, описать,
+    /// данные раздела, что нового). null — только open_section, как раньше.</summary>
+    public Func<JsonArray>? Declarations { get; set; }
+
     private bool _toolsOff;
     private volatile bool _languageFixSent; // 2026-11-05: поправка языка отправлена (один раз за сеанс)
     private string _saidBuffer = ""; // 2026-11-05: расшифровка речи владельца с начала фразы (по кускам) — для распознавателя команд смены языка
@@ -115,6 +119,28 @@ public sealed class GeminiLiveVoice
     }
 
     public string? Model { get; private set; }
+
+    // 2026-11-26, жалоба «скорость интернета ИИ при звонке очень тормозит»: замеры для панели разговора (владелец видит, где тормозит —
+    // связь с Google или медленный сервер NurCRM). Замер сети до Google: TCP 81 мс, TLS 170 мс — сеть не узкое место, поэтому цифры нужны в программе.
+    private long _connectMs;
+    private long _answerDelayMs;
+    private int _slowAnswers;
+    private int _voiceSinceAnswer; // 1 — после прошлого ответа владелец говорил (задержку считаем только от его фразы, а не от служебной реплики программы)
+
+    /// <summary>Сколько мс прошло от начала соединения до «setupComplete» (рукопожатие + инструкция); 0 — ещё не открыто.</summary>
+    public long ConnectMs => Interlocked.Read(ref _connectMs);
+
+    /// <summary>Сколько мс от конца фразы владельца до первого звука последнего ответа; 0 — ответов ещё не было.</summary>
+    public long LastAnswerDelayMs => Interlocked.Read(ref _answerDelayMs);
+
+    /// <summary>Сколько ответов подряд пришло медленно (<see cref="SlowAnswerMs"/> и больше); хороший ответ обнуляет счётчик.</summary>
+    public int SlowAnswersInRow => Volatile.Read(ref _slowAnswers);
+
+    /// <summary>Ответ дольше этого — «медленно» (замер 05.10 на ключе владельца: первый звук через 0,6 с + пауза конца фразы, обычно 1–2 с).</summary>
+    public const long SlowAnswerMs = 3500;
+
+    /// <summary>Подключение дольше этого — «медленно» (замер 05.10: 1,0 с).</summary>
+    public const long SlowConnectMs = 4000;
 
     /// <summary>Громкость микрофона 0…1 — для анимации круга «слушаю».</summary>
     public double MicLevel { get; private set; }
@@ -359,7 +385,7 @@ public sealed class GeminiLiveVoice
             ["sessionResumption"] = _resumeHandle is null ? new JsonObject() : new JsonObject { ["handle"] = _resumeHandle },
         };
         if (ToolHandler is not null && !_toolsOff)
-            setup["tools"] = new JsonArray(new JsonObject { ["functionDeclarations"] = new JsonArray(OpenSectionDeclaration()) });
+            setup["tools"] = new JsonArray(new JsonObject { ["functionDeclarations"] = Declarations?.Invoke() ?? new JsonArray(OpenSectionDeclaration()) });
         return new JsonObject { ["setup"] = setup };
     }
 
@@ -455,6 +481,7 @@ public sealed class GeminiLiveVoice
                     opened = true;
                     Model = model;
                     _workingModel = model;
+                    Interlocked.Exchange(ref _connectMs, watch.ElapsedMilliseconds);
                     PosLogger.Log($"Живой разговор ИИ: {model} открыт за {watch.ElapsedMilliseconds} мс (инструкция {_instruction.Length} симв.).", "INFO");
                     StartMicrophone();
                     State = LiveState.Listening;
@@ -510,7 +537,21 @@ public sealed class GeminiLiveVoice
                     var pcm = Convert.FromBase64String(data);
                     var sinceVoice = TimeSpan.FromTicks(DateTime.UtcNow.Ticks - Interlocked.Read(ref _lastVoiceTicks));
                     if (!_modelTurn && sinceVoice < TimeSpan.FromSeconds(30))
+                    {
                         PosLogger.Log($"Живой разговор ИИ: первый звук ответа через {sinceVoice.TotalMilliseconds:0} мс после конца фразы.", "INFO");
+                        // 2026-11-26: запоминаем задержку для панели («ответ через N с») — только если перед ответом владелец действительно говорил.
+                        if (Interlocked.Exchange(ref _voiceSinceAnswer, 0) == 1)
+                        {
+                            Interlocked.Exchange(ref _answerDelayMs, (long)sinceVoice.TotalMilliseconds);
+                            if (sinceVoice.TotalMilliseconds >= SlowAnswerMs)
+                            {
+                                Interlocked.Increment(ref _slowAnswers);
+                                PosLogger.Log($"Живой разговор ИИ: медленный ответ ({sinceVoice.TotalMilliseconds:0} мс), подряд: {SlowAnswersInRow}.", "WARNING");
+                            }
+                            else
+                                Volatile.Write(ref _slowAnswers, 0);
+                        }
+                    }
                     _modelTurn = true;
                     State = LiveState.Speaking;
                     LastActivityUtc = DateTime.UtcNow;
@@ -598,7 +639,10 @@ public sealed class GeminiLiveVoice
         }
         MicLevel = Math.Min(1, Math.Sqrt(sum / Math.Max(1, count / 2)) * 6);
         if (MicLevel > 0.06)
+        {
             Interlocked.Exchange(ref _lastVoiceTicks, now);
+            Volatile.Write(ref _voiceSinceAnswer, 1);
+        }
         var copy = new byte[count];
         Buffer.BlockCopy(buffer, 0, copy, 0, count);
         _outgoing.Writer.TryWrite(copy);

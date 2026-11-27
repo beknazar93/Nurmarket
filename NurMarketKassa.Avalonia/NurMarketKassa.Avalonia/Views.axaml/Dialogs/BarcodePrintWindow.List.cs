@@ -140,7 +140,7 @@ public partial class BarcodePrintView
     {
         if (width <= 0)
             return;
-        var level = width >= 840 ? 0 : width >= 640 ? 1 : 2;
+        var level = width >= 910 ? 0 : width >= 700 ? 1 : 2; // 2026-11-27: пороги +70/+60 px — колонка штрихкода 200 → 246 px
         if (level == _listLevel)
             return;
         _listLevel = level;
@@ -151,10 +151,11 @@ public partial class BarcodePrintView
     }
 
     // колонки: 0 галочка · 1 название · 2 штрихкод · 3 артикул · 4 цена · 5 остаток · 6 копии · 7 печать
+    // 2026-11-27: штрихкод 200 → 246 px — «4600000000028  (основной)» в списке выбора не влезал (нужно 206–220 px, было 180; TextNotClipped «barcode-print»).
     private static ColumnDefinitions ListColumns(int level)
     {
         var cols = new ColumnDefinitions();
-        double[] w = level switch { 0 => new double[] { 44, -1, 200, 100, 96, 72, 126, 52 }, 1 => new double[] { 44, -1, 200, 0, 96, 0, 126, 52 }, _ => new double[] { 44, -1, 150, 0, 80, 0, 118, 52 } };
+        double[] w = level switch { 0 => new double[] { 44, -1, 246, 100, 96, 72, 126, 52 }, 1 => new double[] { 44, -1, 246, 0, 96, 0, 126, 52 }, _ => new double[] { 44, -1, 150, 0, 80, 0, 118, 52 } };
         foreach (var x in w)
             cols.Add(x < 0 ? new ColumnDefinition(1, GridUnitType.Star) { MinWidth = 120 } : new ColumnDefinition(x, GridUnitType.Pixel));
         return cols;
@@ -215,7 +216,7 @@ public partial class BarcodePrintView
     /// <summary>Подвал в списке: страниц нет — сколько товаров в списке.</summary>
     private void ShowListPager()
     {
-        var n = _found.Count.ToString("N0").Replace(',', ' ');
+        var n = MoneyText.Weight((decimal)_found.Count, "N0").Replace(',', ' '); // 2026-11-27: число через общий форматтер (NumberFormatRatchetTests)
         _pagerText.Text = T($"В списке: {n}", $"Тизмеде: {n}", $"In list: {n}", $"Listede: {n}", $"Ro'yxatda: {n}");
         _prevButton.IsEnabled = _nextButton.IsEnabled = false;
     }
@@ -390,7 +391,7 @@ public partial class BarcodePrintView
                     foreach (var c in choices)
                         combo.Items.Add(c.Code + "  " + (c.IsMain ? T("(основной)", "(негизги)", "(main)", "(ana)", "(asosiy)")
                             : c.IsSize ? T("(размер)", "(өлчөм)", "(size)", "(beden)", "(o'lcham)") + " " + c.VariantName
-                            : c.Quantity > 1 ? T($"(упаковка ×{c.Quantity:0.##})", $"(таңгак ×{c.Quantity:0.##})", $"(pack ×{c.Quantity:0.##})", $"(paket ×{c.Quantity:0.##})", $"(qadoq ×{c.Quantity:0.##})") + (c.VariantName != null ? " " + c.VariantName : "")
+                            : c.Quantity > 1 ? T($"(упаковка ×{MoneyText.Qty(c.Quantity)})", $"(таңгак ×{MoneyText.Qty(c.Quantity)})", $"(pack ×{MoneyText.Qty(c.Quantity)})", $"(paket ×{MoneyText.Qty(c.Quantity)})", $"(qadoq ×{MoneyText.Qty(c.Quantity)})") + (c.VariantName != null ? " " + c.VariantName : "")
                             : T("(доп.)", "(кошумча)", "(extra)", "(ek)", "(qo'sh.)") + (c.VariantName != null ? " " + c.VariantName : "")));
                     combo.SelectedIndex = st.BarcodeIndex;
                     combo.IsEnabled = printable;
@@ -403,7 +404,7 @@ public partial class BarcodePrintView
                         _codeCombo.IsVisible = false;
                     _codeText.IsVisible = true;
                     _codeText.Text = choices.Count == 1 ? choices[0].Code : "—";
-                    _v.Use(_codeText, TextBlock.ForegroundProperty, choices.Count == 1 ? "BrushAccentStrong" : "BrushTextSoft");
+                    _v.Use(_codeText, TextBlock.ForegroundProperty, choices.Count == 1 ? "BrushAccentText" : "BrushTextSoft");
                 }
                 var create = choices.Count == 0 && _v._template.Barcode.Enabled;
                 _createBtn.IsVisible = create;

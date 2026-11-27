@@ -509,6 +509,7 @@ public sealed partial class NurMarketApiClient : IDisposable
             var company = ParseCompanyDto(doc.RootElement);
             // 2026-09-28: вид магазина компании (market_sphere, BE-18) — см. MarketSphereSync.
             MarketSphereSync.RememberFromCompanyJson(company?.Id, doc.RootElement);
+            StorefrontLink.RememberFromJson(doc.RootElement); // 2026-11-26: адрес витрины для QR на чеке (если сервер отдаёт slug в компании)
             PosLogger.Log(
                 $"Company loaded. CompanyId={MaskIdentifier(company?.Id)}, " +
                 $"INNConfigured={!string.IsNullOrWhiteSpace(company?.Inn)}, " +
@@ -534,6 +535,7 @@ public sealed partial class NurMarketApiClient : IDisposable
         var root = data;
         if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("data", out var inner) && inner.ValueKind == JsonValueKind.Object)
             root = inner;
+        StorefrontLink.RememberFromJson(root); // 2026-11-26: тот же ответ несёт slug витрины — запоминаем для QR на чеке и ценнике
 
         string? layout = root.ValueKind == JsonValueKind.Object
             && root.TryGetProperty("scale_barcode_layout", out var l) && l.ValueKind == JsonValueKind.String

@@ -1594,11 +1594,26 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get qrDownloadHint =>
-      'The customer\'s camera downloads the receipt as a PDF right away';
+      'The customer sees a neat receipt in the browser: they can save it as PDF or an image';
 
   @override
   String get qrTextHint =>
-      'Until the server issues a receipt link, the camera shows it as text. Send the PDF with the button below.';
+      'The receipt link is not available yet. Check the connection and tap Retry, or send the PDF with the button below.';
+
+  @override
+  String get qrOfflineHint =>
+      'This receipt has not reached the server yet. The QR code will appear after sync: open the receipt in Checks once you are online.';
+
+  @override
+  String get openReceiptLink => 'Open receipt';
+
+  @override
+  String get shareReceiptLink => 'Share link';
+
+  @override
+  String shareReceiptText(String number) {
+    return 'Your receipt No. $number';
+  }
 
   @override
   String get cashInOut => 'Cash in / out';
@@ -6997,6 +7012,36 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get stockScanBtn => 'Barcode scanner';
+
+  @override
+  String get stockPhotoBtn => 'Search by photo';
+
+  @override
+  String get stockScanHint =>
+      'Point at the product\'s barcode or QR code — it goes into the search';
+
+  @override
+  String stockScanFound(String code, String name) {
+    return 'Found by code $code: $name';
+  }
+
+  @override
+  String get stockPhotoTitle => 'Similar products in stock';
+
+  @override
+  String get stockPhotoHint =>
+      'Pick a product — it will show in the stock list';
+
+  @override
+  String get stockPhotoNone =>
+      'Nothing similar to the photo was found in stock. Take the photo closer or search by name.';
+
+  @override
+  String get stockPhotoOffline =>
+      'No connection — photo search needs the internet. Search by name or barcode.';
+
+  @override
   String stockCountShown(int shown, int total) {
     return 'Showing $shown of $total';
   }
@@ -7564,4 +7609,51 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get recvModeAutoparts =>
       'Auto parts: find items by part number; quantity in pieces, sets and pairs.';
+
+  @override
+  String get loginDeviceKeyRequired =>
+      'Could not identify this device. Update the NurCRM app and sign in again.';
+
+  @override
+  String get deviceSlotTitle => 'Already signed in on another device';
+
+  @override
+  String get deviceSlotBody =>
+      'You have already signed in on another device. Sign out there and sign in here?\n\nThe sign-in on that device will be closed.';
+
+  @override
+  String get deviceSlotConfirm => 'Sign out there, sign in here';
+
+  @override
+  String get pinTitle => 'Owner or administrator PIN';
+
+  @override
+  String get pinReturnInfo =>
+      'The server asks for confirmation to return this receipt: enter the owner\'s or administrator\'s PIN (not the login password).';
+
+  @override
+  String get pinFieldLabel => 'PIN';
+
+  @override
+  String get pinConfirm => 'Confirm';
+
+  @override
+  String get pinInvalid => 'Wrong PIN.';
+
+  @override
+  String pinInvalidLeft(int n) {
+    return 'Wrong PIN. Attempts left: $n.';
+  }
+
+  @override
+  String get pinLocked =>
+      'The PIN is locked after wrong attempts. Try again later.';
+
+  @override
+  String get pinNotSet =>
+      'The PIN is not set — set it in Settings → Employees.';
+
+  @override
+  String get pinRequiredText =>
+      'This action must be confirmed with the owner\'s or administrator\'s PIN. Try again and enter the PIN.';
 }

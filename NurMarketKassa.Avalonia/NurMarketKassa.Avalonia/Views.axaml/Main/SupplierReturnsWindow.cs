@@ -496,6 +496,14 @@ public sealed class SupplierReturnDialog : Window
     private string _reason = "defect";
     private readonly PendingIdempotencyKey _pendingKey = new(); // 2026-10-30: ключ повтора возврата
     private string _compensation = "cash";
+    // 2026-11-26 (владелец: «после возврата поставщику долг не минусуется»): сервер уменьшает долг только при «зачесть в долг» (debt_offset), а по умолчанию стояли «деньги в кассу».
+    // Теперь после выбора поставщика читаем его долг (kpis): есть долг — зачёт по умолчанию (пока кассир сам не выбрал вид), под выбором — подсказка по долгу, после оформления — «было → стало».
+    private double? _supplierDebt;
+    private bool _compPicked;
+    private int _debtToken;
+    private string? _debtNoteBrush;
+    private readonly TextBlock _debtNote = new() { FontSize = 12.5, TextWrapping = TextWrapping.Wrap, IsVisible = false };
+    private readonly TextBlock _debtResult = new() { FontSize = 14, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, IsVisible = false };
     private Panel? _cashboxPanel;
     // 2026-10-22 (закупки как в вебе): «Вернуть» в строке «Истории закупок» — окно сразу с этим поставщиком и приходом.
     private string? _preSupplierId;
@@ -519,8 +527,12 @@ public sealed class SupplierReturnDialog : Window
         var panel = new StackPanel { Spacing = 8 };
         _form = panel;
 
+        // 2026-11-26: итог «Долг перед поставщиком: было … → стало …» — самая верхняя строка окна после оформления (виден без прокрутки)
+        Use(_debtResult, TextBlock.ForegroundProperty, "BrushText");
+        panel.Children.Add(_debtResult);
         panel.Children.Add(Label(T("Поставщик", "Жеткирүүчү", "Supplier", "Tedarikçi", "Yetkazib beruvchi")));
         _supplier.SelectionChanged += async (_, _) => await OnSupplierChangedAsync().ConfigureAwait(true);
+        _supplier.SelectionChanged += async (_, _) => await LoadSupplierDebtAsync().ConfigureAwait(true); // 2026-11-26: долг выбранного поставщика → вид компенсации по умолчанию и подсказка
         panel.Children.Add(_supplier);
 
         panel.Children.Add(Label(T("Что возвращаем", "Эмнени кайтарабыз", "What is returned", "Ne iade ediliyor", "Nima qaytariladi")));
@@ -553,6 +565,7 @@ public sealed class SupplierReturnDialog : Window
         panel.Children.Add(_reasonChips);
         panel.Children.Add(Label(T("Деньги", "Акча", "Money", "Para", "Pul")));
         panel.Children.Add(_compChips);
+        panel.Children.Add(_debtNote); // 2026-11-26: долг перед поставщиком и что будет с ним при выбранном виде денег
         var cashboxPanel = new StackPanel { Spacing = 4 };
         cashboxPanel.Children.Add(Label(T("Касса, куда придут деньги", "Акча келе турган касса", "Till that receives the money", "Paranın gireceği kasa", "Pul tushadigan kassa")));
         cashboxPanel.Children.Add(_cashbox);
@@ -685,7 +698,8 @@ public sealed class SupplierReturnDialog : Window
                          T("Остаток уменьшится, в кассу придёт сумма возврата по закупочной цене.", "Калдык азаят, кассага сатып алуу баасы боюнча сумма келет.",
                              "Stock goes down, the till receives the return amount at the purchase price.", "Stok azalır, kasaya alış fiyatından iade tutarı girer.",
                              "Qoldiq kamayadi, kassaga xarid narxi bo'yicha qaytarish summasi tushadi.")),
-                     ("debt_offset", T("Уменьшить долг поставщику", "Жеткирүүчүгө карызды азайтуу", "Reduce the debt to the supplier", "Tedarikçiye borcu azalt", "Yetkazib beruvchiga qarzni kamaytirish"),
+                     // 2026-11-26: подпись как в просьбе владельца — «Зачесть в долг перед поставщиком» (раньше «Уменьшить долг поставщику»)
+                     ("debt_offset", T("Зачесть в долг перед поставщиком", "Жеткирүүчүнүн алдындагы карызга эсептөө", "Offset against the supplier debt", "Tedarikçi borcuna mahsup et", "Yetkazib beruvchi oldidagi qarzga hisobga olish"),
                          T("Остаток уменьшится, долг перед поставщиком снизится на сумму возврата.", "Калдык азаят, жеткирүүчүгө карыз кайтаруу суммасына азаят.",
                              "Stock goes down, the debt to the supplier drops by the return amount.", "Stok azalır, tedarikçiye borç iade tutarı kadar düşer.",
                              "Qoldiq kamayadi, yetkazib beruvchiga qarz qaytarish summasiga kamayadi.")),
@@ -704,6 +718,7 @@ public sealed class SupplierReturnDialog : Window
             chip.Click += (_, _) =>
             {
                 _compensation = comp;
+                _compPicked = true; // 2026-11-26: вид выбрал кассир — автовыбор по долгу его больше не меняет
                 BuildChips();
             };
             _compChips.Children.Add(chip);
@@ -717,6 +732,136 @@ public sealed class SupplierReturnDialog : Window
         if (_cashboxPanel is not null)
             _cashboxPanel.IsVisible = _compensation == "cash" && _cashboxes.Count > 0;
         _receipt.IsVisible = _byReceipt;
+        ApplyDebtNote();
+    }
+
+    private double CurrentTotal() => SupplierReturnMath.Total(_rows.Select(r => (ParseQty(r.Qty.Text), r.Price)));
+
+    /// <summary>2026-11-26: текст под выбором «что с деньгами» — долг перед поставщиком и что с ним будет (правила — SupplierReturnOffset). Долг неизвестен или поставщик не выбран — строка скрыта.</summary>
+    private void ApplyDebtNote()
+    {
+        if (_supplierDebt is not { } debt || _saved)
+        {
+            _debtNote.IsVisible = false;
+            return;
+        }
+        var total = CurrentTotal();
+        var parts = new List<string>
+        {
+            debt > 0.005
+                ? T($"Долг перед поставщиком: {SupplierReturnsWindow.Money(debt)}.", $"Жеткирүүчүнүн алдындагы карыз: {SupplierReturnsWindow.Money(debt)}.", $"Debt to the supplier: {SupplierReturnsWindow.Money(debt)}.",
+                    $"Tedarikçiye borç: {SupplierReturnsWindow.Money(debt)}.", $"Yetkazib beruvchi oldidagi qarz: {SupplierReturnsWindow.Money(debt)}.")
+                : T("Долга перед этим поставщиком нет.", "Бул жеткирүүчүнүн алдында карыз жок.", "There is no debt to this supplier.", "Bu tedarikçiye borç yok.", "Bu yetkazib beruvchi oldida qarz yo'q."),
+        };
+        var advice = SupplierReturnOffset.Judge(debt, total, _compensation);
+        // «Долг уменьшится на 0,00» без строк возврата ни к чему — подсказка «станет …» появляется, когда есть сумма возврата
+        var more = advice == SupplierReturnOffset.Advice.Fits && total <= 0.004 ? "" : AdviceText(advice, debt, total);
+        if (more.Length > 0)
+            parts.Add(more);
+        _debtNote.Text = string.Join(" ", parts);
+        var brush = advice is SupplierReturnOffset.Advice.NoDebt or SupplierReturnOffset.Advice.ExceedsDebt ? "BrushDanger" : "BrushTextSoft";
+        if (_debtNoteBrush != brush) // перепривязка кисти — только при смене цвета (UpdateTotal зовётся на каждую цифру количества)
+        {
+            _debtNoteBrush = brush;
+            Use(_debtNote, TextBlock.ForegroundProperty, brush);
+        }
+        _debtNote.IsVisible = true;
+    }
+
+    private static string AdviceText(SupplierReturnOffset.Advice advice, double debt, double total) => advice switch
+    {
+        SupplierReturnOffset.Advice.CashWhileDebt => T("Выбрано «Вернуть деньги в кассу»: долг поставщику не изменится. Чтобы уменьшить долг — выберите «Зачесть в долг перед поставщиком».",
+            "«Акчаны кассага кайтаруу» тандалды: жеткирүүчүгө карыз өзгөрбөйт. Карызды азайтуу үчүн «Жеткирүүчүнүн алдындагы карызга эсептөө» тандаңыз.",
+            "“Return money to the till” is chosen: the debt to the supplier will not change. To reduce the debt, choose “Offset against the supplier debt”.",
+            "«Parayı kasaya iade et» seçili: tedarikçiye borç değişmez. Borcu azaltmak için «Tedarikçi borcuna mahsup et»i seçin.",
+            "«Pulni kassaga qaytarish» tanlangan: yetkazib beruvchiga qarz o'zgarmaydi. Qarzni kamaytirish uchun «Yetkazib beruvchi oldidagi qarzga hisobga olish»ni tanlang."),
+        SupplierReturnOffset.Advice.NoDebt => T("Зачесть не в чем — выберите «Вернуть деньги в кассу».", "Эсептей турган эч нерсе жок — «Акчаны кассага кайтаруу» тандаңыз.",
+            "There is nothing to offset — choose “Return money to the till”.", "Mahsup edilecek borç yok — «Parayı kasaya iade et»i seçin.", "Hisobga olinadigan qarz yo'q — «Pulni kassaga qaytarish»ni tanlang."),
+        SupplierReturnOffset.Advice.ExceedsDebt => T($"Возврат ({SupplierReturnsWindow.Money(total)}) больше долга: в долг зачтётся не больше {SupplierReturnsWindow.Money(debt)}, переплаты у поставщика не бывает. Остаток верните деньгами отдельным возвратом.",
+            $"Кайтаруу ({SupplierReturnsWindow.Money(total)}) карыздан көп: карызга {SupplierReturnsWindow.Money(debt)} ашпаган сумма эсептелет, жеткирүүчүдө ашыкча төлөм болбойт. Калганын акча менен өзүнчө кайтарууда кайтарыңыз.",
+            $"The return ({SupplierReturnsWindow.Money(total)}) is larger than the debt: no more than {SupplierReturnsWindow.Money(debt)} is offset, the supplier cannot be overpaid. Return the rest as money in a separate return.",
+            $"İade ({SupplierReturnsWindow.Money(total)}) borçtan büyük: borca en fazla {SupplierReturnsWindow.Money(debt)} mahsup edilir, tedarikçide fazla ödeme olmaz. Kalanı ayrı bir iadeyle para olarak alın.",
+            $"Qaytarish ({SupplierReturnsWindow.Money(total)}) qarzdan ko'p: qarzga {SupplierReturnsWindow.Money(debt)} dan ko'p hisobga olinmaydi, yetkazib beruvchida ortiqcha to'lov bo'lmaydi. Qolganini alohida qaytarish bilan pul sifatida oling."),
+        SupplierReturnOffset.Advice.Fits => T($"Долг уменьшится на {SupplierReturnsWindow.Money(total)}: станет {SupplierReturnsWindow.Money(SupplierReturnOffset.ExpectedAfter(debt, total, SupplierReturnOffset.DebtOffset) ?? debt)}.",
+            $"Карыз {SupplierReturnsWindow.Money(total)} азаят: {SupplierReturnsWindow.Money(SupplierReturnOffset.ExpectedAfter(debt, total, SupplierReturnOffset.DebtOffset) ?? debt)} болот.",
+            $"The debt will go down by {SupplierReturnsWindow.Money(total)}: it will be {SupplierReturnsWindow.Money(SupplierReturnOffset.ExpectedAfter(debt, total, SupplierReturnOffset.DebtOffset) ?? debt)}.",
+            $"Borç {SupplierReturnsWindow.Money(total)} azalacak: {SupplierReturnsWindow.Money(SupplierReturnOffset.ExpectedAfter(debt, total, SupplierReturnOffset.DebtOffset) ?? debt)} olacak.",
+            $"Qarz {SupplierReturnsWindow.Money(total)} ga kamayadi: {SupplierReturnsWindow.Money(SupplierReturnOffset.ExpectedAfter(debt, total, SupplierReturnOffset.DebtOffset) ?? debt)} bo'ladi."),
+        _ => "",
+    };
+
+    /// <summary>2026-11-26: долг выбранного поставщика (GET clients/{id}/kpis/ — «наш долг ему»). Есть долг и кассир сам вид не выбирал — ставим «зачесть в долг»; нет долга — «деньги в кассу» (как раньше).
+    /// Ответ устаревшего запроса (поставщика уже сменили) отбрасывается; ошибка чтения — долг неизвестен, подсказки нет, вид не меняется.</summary>
+    private async Task LoadSupplierDebtAsync()
+    {
+        var token = ++_debtToken;
+        _supplierDebt = null;
+        ApplyDebtNote();
+        if (SupplierId is not { } supplierId || _saved)
+            return;
+        double? debt = null;
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            debt = (await new SupplierApiService(_api).GetKpisAsync(supplierId, cts.Token).ConfigureAwait(true))?.Debt;
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            PosLogger.Log($"Возврат поставщику: долг поставщика {supplierId} не прочитан ({ex.GetType().Name}: {ex.Message}) — подсказки по долгу не будет.", "INFO");
+        }
+        if (token != _debtToken || _saved)
+            return;
+        ApplySupplierDebt(debt);
+    }
+
+    /// <summary>2026-11-26: принять долг поставщика — вид компенсации по умолчанию (если кассир не выбирал сам) и подсказка. Отдельно от чтения — для тестов.</summary>
+    private void ApplySupplierDebt(double? debt)
+    {
+        _supplierDebt = debt;
+        if (debt is not null && !_compPicked)
+            _compensation = SupplierReturnOffset.DefaultCompensation(debt);
+        BuildChips();
+    }
+
+    /// <summary>2026-11-26: для тестов — подставить долг выбранного поставщика, как будто он прочитан с сервера.</summary>
+    public void SetSupplierDebtForTests(double? debt) => ApplySupplierDebt(debt);
+
+    /// <summary>2026-11-26: для тестов — выбранный вид компенсации (cash / debt_offset / none).</summary>
+    public string CompensationForTests => _compensation;
+
+    /// <summary>2026-11-26: для тестов — текст подсказки по долгу под выбором «что с деньгами» (пусто, если скрыта).</summary>
+    public string DebtNoteForTests => _debtNote.IsVisible ? _debtNote.Text ?? "" : "";
+
+    /// <summary>2026-11-26: для тестов — строка «Долг перед поставщиком: было … → стало …» после оформления (пусто, если не показана).</summary>
+    public string DebtResultForTests => _debtResult.IsVisible ? _debtResult.Text ?? "" : "";
+
+    /// <summary>2026-11-26: для тестов — показать итог по долгу так, как после оформления возврата.</summary>
+    public void ShowDebtResultForTests(double? before, double? after, string compensation) => ShowDebtResult(before, after, compensation);
+
+    /// <summary>2026-11-26: итог «Долг перед поставщиком: было X → стало Y» вверху окна после оформления; зачёт не уменьшил долг — красным с пояснением.</summary>
+    private void ShowDebtResult(double? before, double? after, string compensation)
+    {
+        var outcome = SupplierReturnOffset.Classify(before, after, compensation);
+        if (outcome == SupplierReturnOffset.Outcome.Unknown || before is not { } b || after is not { } a)
+            return;
+        var text = T($"Долг перед поставщиком: было {SupplierReturnsWindow.Money(b)} → стало {SupplierReturnsWindow.Money(a)}.", $"Жеткирүүчүнүн алдындагы карыз: {SupplierReturnsWindow.Money(b)} болчу → {SupplierReturnsWindow.Money(a)} болду.",
+            $"Debt to the supplier: was {SupplierReturnsWindow.Money(b)} → now {SupplierReturnsWindow.Money(a)}.", $"Tedarikçiye borç: önce {SupplierReturnsWindow.Money(b)} → şimdi {SupplierReturnsWindow.Money(a)}.",
+            $"Yetkazib beruvchi oldidagi qarz: {SupplierReturnsWindow.Money(b)} edi → {SupplierReturnsWindow.Money(a)} bo'ldi.");
+        if (outcome == SupplierReturnOffset.Outcome.Unchanged)
+            text += " " + (string.Equals(compensation, SupplierReturnOffset.DebtOffset, StringComparison.OrdinalIgnoreCase)
+                ? T("Долга не было — зачесть было не в чем.", "Карыз жок эле — эсептей турган эч нерсе болгон жок.", "There was no debt — nothing to offset.", "Borç yoktu — mahsup edilecek bir şey yoktu.", "Qarz yo'q edi — hisobga olinadigan narsa yo'q edi.")
+                : T("Деньги пришли в кассу — долг не менялся.", "Акча кассага келди — карыз өзгөргөн жок.", "The money went to the till — the debt did not change.", "Para kasaya girdi — borç değişmedi.", "Pul kassaga tushdi — qarz o'zgarmadi."));
+        else if (outcome == SupplierReturnOffset.Outcome.NotReduced)
+            text += " " + T("Долг не уменьшился: сервер не зачёл возврат. Откройте карточку поставщика и обновите её; если долг прежний — сообщите в поддержку.",
+                "Карыз азайган жок: сервер кайтарууну эсептеген жок. Жеткирүүчүнүн карточкасын ачып, жаңыртыңыз; карыз мурдагыдай болсо — колдоого билдириңиз.",
+                "The debt did not go down: the server did not offset the return. Open the supplier card and refresh it; if the debt is the same, tell support.",
+                "Borç azalmadı: sunucu iadeyi mahsup etmedi. Tedarikçi kartını açıp yenileyin; borç aynıysa destekle iletişime geçin.",
+                "Qarz kamaymadi: server qaytarishni hisobga olmadi. Yetkazib beruvchi kartasini ochib yangilang; qarz o'sha-o'sha bo'lsa — yordamga xabar bering.");
+        _debtResult.Text = text;
+        Use(_debtResult, TextBlock.ForegroundProperty, outcome == SupplierReturnOffset.Outcome.NotReduced ? "BrushDanger" : "BrushText");
+        _debtResult.IsVisible = true;
+        _debtNote.IsVisible = false;
+        _debtResult.BringIntoView();
     }
 
     private static List<JsonElement> Rows(JsonElement data) =>
@@ -931,6 +1076,7 @@ public sealed class SupplierReturnDialog : Window
                 " · the amount has a fraction of a tyiyn: the server may round it differently — check the supplier debt after the return",
                 " · tutarda kuruşun kesri var: sunucu farklı yuvarlayabilir — iadeden sonra tedarikçi borcunu kontrol edin",
                 " · summada tiyinning bo'lagi bor: server boshqacha yaxlitlashi mumkin — qaytarishdan keyin yetkazib beruvchi qarzini tekshiring");
+        ApplyDebtNote(); // 2026-11-26: сумма возврата изменилась — «долг станет …» / «возврат больше долга» пересчитываются
     }
 
     private async Task SaveAsync()
@@ -973,6 +1119,13 @@ public sealed class SupplierReturnDialog : Window
             ShowError(T("Укажите количество хотя бы у одного товара.", "Жок дегенде бир товардын санын жазыңыз.", "Enter a quantity for at least one product.", "En az bir ürün için adet girin.", "Kamida bitta mahsulot uchun miqdor kiriting."));
             return;
         }
+        // 2026-11-26 (ответ Умара 26.11): при причине «Другое» комментарий обязателен — иначе сервер вернёт 400; говорим об этом до отправки
+        if (_reason == "other" && string.IsNullOrWhiteSpace(_comment.Text))
+        {
+            ShowError(T("Причина «Другое» — напишите комментарий: что случилось.", "Себеби «Башка» — комментарий жазыңыз: эмне болду.", "Reason “Other” — write a comment: what happened.",
+                "Neden «Diğer» — bir yorum yazın: ne oldu.", "Sabab «Boshqa» — izoh yozing: nima bo'ldi."));
+            return;
+        }
         var body = new Dictionary<string, object?>
         {
             ["reason"] = _reason,
@@ -984,21 +1137,33 @@ public sealed class SupplierReturnDialog : Window
             body["receipt_id"] = _receipts[_receipt.SelectedIndex].Id;
         if (_compensation == "cash" && _cashbox.SelectedIndex >= 0 && _cashbox.SelectedIndex < _cashboxes.Count)
             body["cashbox_id"] = _cashboxes[_cashbox.SelectedIndex].Id;
+        // 2026-11-26: «зачесть в долг», а долга нет или возврат больше долга — переспросить до отправки (иначе кассир не поймёт, куда делась разница)
+        if (_supplierDebt is { } knownDebt && SupplierReturnOffset.Judge(knownDebt, CurrentTotal(), _compensation) is var advice && SupplierReturnOffset.NeedsConfirm(advice))
+        {
+            var ask = AdviceText(advice, knownDebt, CurrentTotal()) + "\n\n" + T("Оформить возврат так?", "Кайтарууну ушундай тариздейсизби?", "Register the return like this?", "İade böyle kaydedilsin mi?", "Qaytarish shunday rasmiylashtirilsinmi?");
+            if (await PosMessageBox.ShowModalAsync(this, ask, Title ?? "", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning,
+                    confirmText: T("Оформить", "Тариздөө", "Register", "Kaydet", "Rasmiylashtirish"), cancelText: T("Проверить", "Текшерүү", "Check", "Kontrol et", "Tekshirish")).ConfigureAwait(true) != System.Windows.MessageBoxResult.Yes)
+                return;
+        }
         if (!_shell.TryBeginBusy())
             return;
         _save.IsEnabled = false;
         try
         {
+            // 2026-11-26: долг «до» — свежий (пока открыто окно, его могли оплатить); не прочитался — берём показанный
+            var debtBefore = await ReadSupplierDebtAsync(supplierId, 8).ConfigureAwait(true) ?? _supplierDebt;
             // 2026-10-30 (ТЗ 3.3-6): возврат уходит с ключом повтора (Idempotency-Key). Тот же состав при повторе после обрыва — тот же ключ,
             // сервер не проведёт возврат второй раз; новый состав — новый ключ.
             var signature = supplierId + "|" + string.Join(";", items.Select(i => i["product_id"] + ":" + i["qty"] + ":" + i["purchase_price"]).OrderBy(x => x, StringComparer.Ordinal))
                 + "|" + body["reason"] + "|" + body["compensation"] + "|" + (body.TryGetValue("receipt_id", out var rid) ? rid : "");
             var key = _pendingKey.Get(signature);
-            var newId = await new SupplierApiService(_api).PostReturnAsync(supplierId, body, key, CancellationToken.None).ConfigureAwait(true);
+            var posted = await new SupplierApiService(_api).PostReturnDetailedAsync(supplierId, body, key, CancellationToken.None).ConfigureAwait(true);
+            var newId = posted.Id;
             _pendingKey.OnSuccess();
             PosLogger.Log($"Возврат поставщику оформлен: {items.Count} строк(и), {_reason}, {_compensation}.", "INFO");
             _shell.EndBusy();
             ShowSaved(supplierId, newId, items.Count);
+            _ = ShowDebtAfterAsync(supplierId, debtBefore, _compensation, posted.SupplierDebt); // 2026-11-26: долг «после» с сервера — «было → стало» вверху окна; 2026-11-26 (Умар 16:20): берётся из ответа возврата (supplier_debt)
         }
         catch (Exception ex)
         {
@@ -1008,6 +1173,42 @@ public sealed class SupplierReturnDialog : Window
             ShowError(T("Не оформлено: ", "Тариздөлгөн жок: ", "Not saved: ", "Kaydedilmedi: ", "Rasmiylashtirilmadi: ") + ServerTelegramBotApi.DescribeFields(ex));
             PosLogger.Log($"Возврат поставщику: не оформлен ({ex.Message}).", "WARNING");
         }
+    }
+
+    /// <summary>2026-11-26: долг перед поставщиком с сервера (kpis); null — не прочитался за <paramref name="seconds"/> с (связь, отказ).</summary>
+    private async Task<double?> ReadSupplierDebtAsync(string supplierId, int seconds)
+    {
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(seconds));
+            return (await new SupplierApiService(_api).GetKpisAsync(supplierId, cts.Token).ConfigureAwait(true))?.Debt;
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            PosLogger.Log($"Возврат поставщику: долг поставщика {supplierId} не прочитан ({ex.GetType().Name}: {ex.Message}).", "INFO");
+            return null;
+        }
+    }
+
+    /// <summary>2026-11-26: после оформления перечитать долг поставщика и показать «было → стало». Зачёт, а долг не изменился, — один повтор через 1,5 с (сервер мог не успеть), потом красное предупреждение.</summary>
+    private async Task ShowDebtAfterAsync(string supplierId, double? before, string compensation, double? serverAfter = null)
+    {
+        if (before is null)
+            return;
+        if (serverAfter is { } answered) // 2026-11-26 (Умар 16:20): ответ возврата уже несёт долг после возврата — повторного чтения и ожидания не нужно
+        {
+            ShowDebtResult(before, answered, compensation);
+            return;
+        }
+        double? after = null;
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            after = await ReadSupplierDebtAsync(supplierId, 10).ConfigureAwait(true);
+            if (after is null || SupplierReturnOffset.Classify(before, after, compensation) != SupplierReturnOffset.Outcome.NotReduced)
+                break;
+            await Task.Delay(1500).ConfigureAwait(true);
+        }
+        ShowDebtResult(before, after, compensation);
     }
 
     /// <summary>2026-11-05, жалоба владельца: возврат оформлен — окно не закрывается, а предлагает «Распечатать накладную возврата» (без лишних окон).

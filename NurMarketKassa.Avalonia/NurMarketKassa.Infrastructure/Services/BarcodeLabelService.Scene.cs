@@ -106,6 +106,18 @@ public static partial class BarcodeLabelService
                 case LabelExtraKind.Line:
                     items.Add(new LabelSceneRect(rect.X, rect.Y, Math.Max(rect.W, 1f), Math.Max(rect.H, 1f), Black));
                     break;
+                case LabelExtraKind.ShopQr:
+                {
+                    // 2026-11-26 (отчёт «Конкуренты», п. 3): как в GDI+ (DrawExtras) — QR витрины и подпись; адреса нет — не рисуем.
+                    var shopUrl = LabelExtras.ShopQrUrl(template);
+                    if (shopUrl is null)
+                        break;
+                    var (qrBox, captionBox) = LabelExtras.ShopQrLayout(e);
+                    AddQrScene(items, MmToPx(qrBox.XMm), MmToPx(qrBox.YMm), MmToPx(qrBox.WidthMm), MmToPx(qrBox.HeightMm), shopUrl, 1);
+                    if (captionBox is not null)
+                        AddTextScene(items, captionBox, StorefrontLink.Caption, false, template);
+                    break;
+                }
                 case LabelExtraKind.Logo:
                 {
                     var cells = LabelLogo.Cells(e.ImagePath, (int)rect.W, (int)rect.H, out var ox, out var oy);

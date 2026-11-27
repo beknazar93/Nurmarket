@@ -115,6 +115,31 @@ public static class DocumentNumberingCore
         return (m.Groups["n"].Value.Trim(), date);
     }
 
+    // 2026-11-26 (стресс-тест): метка — только в начале части комментария и только с «№» или «:» («ЭСФ №: …», «ЭСФ № …», «ЭСФ: …»). Раньше «ЭСФ выпишут завтра»
+    // в комментарии или «ЭСФ 12» внутри номера накладной читались как номер ЭСФ «выпишут завтра» / «12».
+    private static readonly Regex EsfMarker = new(@"(?:^|;)\s*ЭСФ\s*(?:№\s*:?|:)\s*(?<n>[^;]+?)\s*(?:;|$)", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+
+    /// <summary>2026-11-26 (ТОП-15 п. 4 отчёта о конкурентах): номер ЭСФ (электронной счёт-фактуры) поставщика из служебного комментария прихода («…; ЭСФ №: 0123456789»).
+    /// Нет — пусто. Пока сервер не хранит отдельное поле (ТЗ Умару), номер живёт в комментарии документа — он виден на всех устройствах и в печати.</summary>
+    public static string EsfFromText(string? text) =>
+        string.IsNullOrEmpty(text) || EsfMarker.Match(text) is not { Success: true } m ? "" : NormalizeEsf(m.Groups["n"].Value);
+
+    /// <summary>Номер ЭСФ как его вводят: пробелы по краям и двойные убираются, служебные «;» заменяются (иначе обрезали бы комментарий), не длиннее 40 знаков.</summary>
+    public static string NormalizeEsf(string? text)
+    {
+        var t = Regex.Replace((text ?? "").Replace(';', ',').Trim(), @"\s+", " ");
+        return t.Length > 40 ? t[..40].TrimEnd() : t;
+    }
+
+    /// <summary>Подходит ли номер ЭСФ под набранный запрос: без учёта регистра, пробелов, дефисов и «№»; запрос из 3+ знаков находит и по части номера.</summary>
+    public static bool EsfMatches(string? esf, string? query)
+    {
+        static string Key(string? s) => new string((s ?? "").Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
+        var e = Key(esf);
+        var q = Key(query);
+        return e.Length > 0 && q.Length >= 3 && e.Contains(q, StringComparison.Ordinal);
+    }
+
     /// <summary>Разобрать номер, набранный человеком: «ПР-2026-123», «пр 2026 000123», «2026-123», «123», «000123». year = 0 — год не указан,
     /// series = null — серия не указана. Ничего похожего — null.</summary>
     public static (DocSeries? Series, int Year, int Seq)? ParseQuery(DocNumberingSettings st, string? query)

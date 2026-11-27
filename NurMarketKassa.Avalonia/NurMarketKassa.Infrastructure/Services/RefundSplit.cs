@@ -7,6 +7,10 @@ namespace NurMarketKassa.Services;
 /// (вызывающий сам решает, помечать ли это «способ неизвестен»). Чистая арифметика: без файлов, окон и сети.</summary>
 public static class RefundSplit
 {
+    /// <summary>2026-11-26 (живая проверка): «−0,00» в журнале («долг −0,00») — минус перед нулём. Уменьшение долга для журнала: «−N,NN» или просто «0,00», если по модулю меньше полукопейки.</summary>
+    public static string DebtMinus(decimal debtReduced) =>
+        Math.Abs(debtReduced) < 0.005m ? 0m.ToString("0.00") : "−" + Math.Abs(debtReduced).ToString("0.00");
+
     /// <summary>Разделить <paramref name="amount"/> по остаткам <paramref name="cashLeft"/> / <paramref name="nonCashLeft"/>. Отрицательные остатки считаются нулём.</summary>
     public static (decimal Cash, decimal NonCash) Split(decimal amount, decimal cashLeft, decimal nonCashLeft)
     {

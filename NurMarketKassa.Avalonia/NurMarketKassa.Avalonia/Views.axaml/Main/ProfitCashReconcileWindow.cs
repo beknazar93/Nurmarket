@@ -248,6 +248,8 @@ public sealed class ProfitCashReconcileWindow : Window, IOwnerSectionRefresh, IO
             // 2026-10-22 (статьи изъятия): изъятия из кассы смен по статьям — отчёт pnl делит расходы только на зарплату,
             // аренду, налоги, коммунальные и «прочие»; остальные статьи (транспорт, хознужды, инкассация…) группируем сами.
             var articlesTask = CashArticles.WithdrawalsByArticleAsync(api, from, to, ct);
+            // 2026-11-26 («при внесении и изъятии на аналитике покажется только изъятие, а внесение исчезает»): внесения в кассу по статьям — второй половиной рядом.
+            var depositsTask = CashArticles.DepositsByArticleAsync(api, from, to, ct);
             // 2026-10-22 (зарплата: источник, статьи): веб считает «Зарплата / Аренда / Налоги» по системной статье (slug) — выплаты и
             // изъятия со статьёй по названию там дают 0,00. Берём расходы периода и группируем по названию статьи сами.
             var namedTask = CashArticles.ExpensesByNamedCategoryAsync(api, from, to, ct);
@@ -269,7 +271,7 @@ public sealed class ProfitCashReconcileWindow : Window, IOwnerSectionRefresh, IO
                 return;
             }
             RenderPnl(pnl, await prevPnlTask.ConfigureAwait(true), from, to);
-            RenderArticles(await articlesTask.ConfigureAwait(true));
+            RenderArticles(await articlesTask.ConfigureAwait(true), await depositsTask.ConfigureAwait(true));
             RenderCash(cash);
             RenderFinance(finance);
             try
@@ -407,10 +409,43 @@ public sealed class ProfitCashReconcileWindow : Window, IOwnerSectionRefresh, IO
 
     /// <summary>2026-10-22 (статьи изъятия): под «Прибылью» — изъятия из кассы смен по статьям за период; инкассация —
     /// отдельной строкой с пометкой «не расход» и пояснением. Нет изъятий или сервер не ответил — блока нет.</summary>
-    private void RenderArticles(IReadOnlyList<CashArticles.ArticleTotal>? rows)
+    private void RenderArticles(IReadOnlyList<CashArticles.ArticleTotal>? rows, IReadOnlyList<CashArticles.ArticleTotal>? deposits = null)
     {
-        if (rows is not { Count: > 0 })
+        if (rows is { Count: > 0 })
+            RenderWithdrawals(rows);
+        RenderDeposits(deposits, rows);
+    }
+
+    /// <summary>2026-11-26 («при внесении и изъятии на аналитике покажется только изъятие, а внесение исчезает»): под изъятиями — внесения в кассу по статьям
+    /// (shift_drawer_inflow) и, когда есть и то и другое, «внесено минус изъято». Внесение — не выручка и не доход магазина: в прибыль не идёт, но владелец должен
+    /// видеть обе половины денег ящика. Нет внесений или сервер не ответил — блока нет.</summary>
+    private void RenderDeposits(IReadOnlyList<CashArticles.ArticleTotal>? deposits, IReadOnlyList<CashArticles.ArticleTotal>? withdrawals)
+    {
+        if (deposits is not { Count: > 0 })
             return;
+        var som = " " + Tr.T("сом", "сом", "som", "som", "so'm");
+        _pnl.Children.Add(Head(Tr.T("Внесения в кассу по статьям", "Кассага салынган акча беренелер боюнча", "Cash put into the till by category",
+            "Kalemlere göre kasaya konan para", "Kassaga kiritilgan pul moddalar bo'yicha")));
+        foreach (var r in deposits)
+            _pnl.Children.Add(Row($"   {r.Title} ({r.Count})", "+ " + r.Amount.ToString("N2", Ru) + som, false));
+        var put = deposits.Sum(r => r.Amount);
+        _pnl.Children.Add(Row(Tr.T("Внесено в кассу", "Кассага салынды", "Put into the till", "Kasaya konan", "Kassaga kiritildi"),
+            "+ " + put.ToString("N2", Ru) + som, true));
+        if (withdrawals is { Count: > 0 })
+        {
+            var net = put - withdrawals.Sum(r => r.Amount);
+            _pnl.Children.Add(Row(Tr.T("Внесено минус изъято", "Салынганы минус алынганы", "Put in minus taken out", "Konan eksi çıkan", "Kiritilgan minus olingan"),
+                (net < 0 ? "− " : net > 0 ? "+ " : "") + Math.Abs(net).ToString("N2", Ru) + som, false));
+        }
+        _pnl.Children.Add(Soft(Tr.T("Внесение — не выручка и не доход магазина: в прибыль не входит, меняет только деньги в ящике.",
+            "Кассага салуу — түшүм да, дүкөндүн кирешеси да эмес: пайдага кирбейт, кассадагы акчаны гана өзгөртөт.",
+            "A deposit is not revenue or shop income: it does not enter profit, it only changes the cash in the till.",
+            "Kasaya para koymak ciro ya da mağaza geliri değildir: kâra girmez, yalnızca kasadaki parayı değiştirir.",
+            "Kassaga pul kiritish tushum ham, do'kon daromadi ham emas: foydaga kirmaydi, faqat kassadagi pulni o'zgartiradi.")));
+    }
+
+    private void RenderWithdrawals(IReadOnlyList<CashArticles.ArticleTotal> rows)
+    {
         _pnl.Children.Add(Head(Tr.T("Изъятия из кассы по статьям", "Кассадан алынган акча беренелер боюнча", "Cash taken from the till by category",
             "Kalemlere göre kasadan çıkan para", "Kassadan olingan pul moddalar bo'yicha")));
         foreach (var r in rows)

@@ -5,14 +5,15 @@ using System.Text.Json.Nodes;
 namespace NurMarketKassa.Services;
 
 /// <summary>2026-10-18, владелец: общие настройки «Оплата долга» — одинаковые для всех касс и программы владельца.
-/// Значения по умолчанию — поведение до этой настройки: касса принимает только наличные, у владельца разрешено всё,
-/// код сотрудника не нужен.</summary>
+/// Значения по умолчанию: касса принимает наличные и безнал (2026-11-26, владелец: «при оплате долга должно быть видно — наличными
+/// или безналичными»; раньше безнал был выключен, и выбора в окне не было), у владельца разрешено всё, код сотрудника не нужен.
+/// Выключить безнал в кассе можно в «Настройки → Оплата долга» (владелец и администратор).</summary>
 public sealed class DebtPaymentOptions
 {
     /// <summary>Касса: наличные (в ящик, в смену кассира).</summary>
     public bool KassaCash { get; set; } = true;
     /// <summary>Касса: безнал (карта, перевод) — в смене кассира безналом, не в ящике.</summary>
-    public bool KassaTransfer { get; set; }
+    public bool KassaTransfer { get; set; } = true; // 2026-11-26: было false — кассир не видел выбора способа
     /// <summary>Программа владельца: наличные «в руки владельцу» — без смены, касса не меняется.</summary>
     public bool OwnerCash { get; set; } = true;
     /// <summary>Программа владельца: безнал — тоже без смены.</summary>
@@ -116,6 +117,26 @@ public static class DebtPaymentSettings
         if (AppMode.IsOwner ? o.OwnerTransfer : o.KassaTransfer)
             list.Add(MethodTransfer);
         return list;
+    }
+
+    /// <summary>2026-11-26: последний способ, который кассир выбрал в окне оплаты долга на этом ПК; не выбирал или способ сейчас выключен
+    /// в настройках — первый разрешённый (по умолчанию наличные). Чистая функция: тесты подают разрешённые способы и сохранённое значение.</summary>
+    public static string DefaultMethod(IReadOnlyList<string> allowed, string? remembered) =>
+        remembered is not null && allowed.Contains(remembered) ? remembered : allowed.Count > 0 ? allowed[0] : MethodCash;
+
+    /// <summary>Способ по умолчанию в этой программе: запомненный последний выбор или наличные.</summary>
+    public static string DefaultMethodHere() => DefaultMethod(MethodsHere(), UserPreferences.Instance.LastDebtPaymentMethod);
+
+    /// <summary>Запомнить выбор кассира (только "cash" или "transfer"); пишет файл настроек, вызывать на UI-потоке, как остальные настройки.</summary>
+    public static void RememberMethod(string method)
+    {
+        if (method is not (MethodCash or MethodTransfer))
+            return;
+        var prefs = UserPreferences.Instance;
+        if (prefs.LastDebtPaymentMethod == method)
+            return;
+        prefs.LastDebtPaymentMethod = method;
+        prefs.SaveToDisk();
     }
 
     /// <summary>Перечитать с сервера. force = false — не чаще раза в 30 с. true — значения получены (или свежие).

@@ -37,8 +37,9 @@
         <Style Selector="Button.WindowControlButton">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
-            <Setter Property="Width" Value="36"/>
-            <Setter Property="Height" Value="32"/>
+            <!-- 2026-11-26 (дизайн и удобство): 36×32 → 44×40 — цель касания не ниже 40 px (DesignAuditUiTests). -->
+            <Setter Property="Width" Value="44"/>
+            <Setter Property="Height" Value="40"/>
             <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>

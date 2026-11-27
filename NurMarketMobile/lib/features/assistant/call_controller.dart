@@ -23,6 +23,8 @@ import '../../core/ai/assistant/ai_journal.dart';
 import '../../core/ai/assistant/call_focus.dart';
 import '../../core/ai/assistant/call_product_search.dart' show searchForCall;
 import '../../core/ai/assistant/call_table.dart';
+import '../../core/ai/assistant/knowledge_tools.dart';
+import '../../core/ai/assistant/section_guide.dart' show kToolLabels;
 import '../../core/ai/ai_language.dart';
 import '../../core/language_pack.dart';
 import '../../core/ai/assistant/ai_perf.dart';
@@ -270,6 +272,9 @@ class AssistantCallController extends ChangeNotifier with WidgetsBindingObserver
 
   // --- ожидание инструмента: «Ищу…», «Сервер отвечает медленно…»
   int _toolsInFlight = 0;
+
+  /// 2026-11-27: инструменты, вызванные с прошлого ответа, — уходят в реплику ответа (CallTurn.used).
+  final _usedTools = <String>[];
   bool toolSearching = false;
   bool toolSlow = false;
   Timer? _slowTimer;
@@ -632,6 +637,7 @@ class AssistantCallController extends ChangeNotifier with WidgetsBindingObserver
     moneyPrompt = null;
     toolSearching = toolSlow = toolPending = false;
     _toolsInFlight = 0;
+    _usedTools.clear();
     _everListening = false;
     _noLinkSecs = null;
     _endedByNoLink = false;
@@ -653,6 +659,8 @@ class AssistantCallController extends ChangeNotifier with WidgetsBindingObserver
     final navHost = nav ?? _FallbackNav();
     registerNavTools(reg, navHost);
     registerReadTools(reg, ReadContext(deps.reads ?? RepoReadSource.fromReader(_read), tables, focus: focus));
+    // 2026-11-27 (доступы советника): объяснение разделов, Маркетплейс, тариф, настройки без секретов, поставщики, «что нового» — только чтение
+    registerKnowledgeTools(reg, RepoKnowledgeSource.fromReader(_read));
     final opener = _openerHost == null ? null : buildScreenOpener(host: _openerHost!, read: _read);
     final host = deps.actions ??
         RepoActionHost.fromReader(
@@ -758,6 +766,8 @@ class AssistantCallController extends ChangeNotifier with WidgetsBindingObserver
     try {
       final r = await inner(tc);
       _afterTool(tc, r);
+      // 2026-11-27: для строки «Использовано: …» запоминаем инструменты чтения и навигации (у действий и служебных названия в таблице нет)
+      if (kToolLabels.containsKey(tc.name) && !_usedTools.contains(tc.name)) _usedTools.add(tc.name);
       return r;
     } finally {
       _toolsInFlight--;
@@ -1066,7 +1076,10 @@ class AssistantCallController extends ChangeNotifier with WidgetsBindingObserver
       return;
     }
     if (said.isNotEmpty) turns.add(CallTurn(true, said));
-    if (answer.isNotEmpty) turns.add(CallTurn(false, interrupted ? '$answer …' : answer));
+    if (answer.isNotEmpty) {
+      turns.add(CallTurn(false, interrupted ? '$answer …' : answer, used: List.of(_usedTools)));
+      _usedTools.clear();
+    }
     final c = call;
     if (!interrupted && said.isNotEmpty && c != null && !c.ended) {
       final ask = hasCamera && video?.cameraOn == true ? videoIntent(said) : null;

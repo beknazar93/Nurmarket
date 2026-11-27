@@ -465,8 +465,19 @@
   "receiptQr": "QR-kod",
   "showQr": "Xaridorga QR ko'rsatish",
   "qrPointCamera": "Xaridor telefon kamerasini qaratadi",
-  "qrDownloadHint": "Xaridor kamerasi chekni darhol PDF fayl qilib yuklab oladi",
-  "qrTextHint": "Server chekka havola bermaguncha kamera uni matn sifatida ko'rsatadi. PDF faylni mijozga — pastdagi tugma bilan.",
+  "qrDownloadHint": "Xaridor chiroyli chekni brauzerda ko'radi: PDF yoki rasm qilib saqlashi mumkin",
+  "qrTextHint": "Chekka havola hozircha mavjud emas. Aloqani tekshirib, «Qayta urinish»ni bosing yoki PDF faylni pastdagi tugma bilan yuboring.",
+  "qrOfflineHint": "Bu chek serverga hali yuborilmagan. QR-kod sinxronlashdan keyin paydo bo'ladi: aloqa tiklangach, chekni «Cheklar» bo'limidan oching.",
+  "openReceiptLink": "Chekni ochish",
+  "shareReceiptLink": "Havolani ulashish",
+  "shareReceiptText": "Sizning chekingiz №{number}",
+  "@shareReceiptText": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
   "cashInOut": "Kiritish / olish",
   "cashIn": "Kiritish",
   "cashOut": "Olish",
@@ -1955,7 +1966,15 @@
   "catalogIncompleteNoTotal": "Katalog to'liq yuklanmadi. Yuklash o'zi davom etadi; «Katalogni yangilash» tugmasini bosishingiz mumkin.",
   "catalogRefresh": "Katalogni yangilash",
   "catalogRefreshed": "Katalog yangilandi: {n} ta mahsulot",
-  "stockCountShown": "{total} tadan {shown} tasi ko'rsatilmoqda",
+  "stockScanBtn": "Shtrix-kod skaneri",
+  "stockPhotoBtn": "Rasm bo'yicha qidirish",
+  "stockScanHint": "Mahsulotning shtrix-kodi yoki QR-kodiga qarating — u qidiruvga qo'yiladi",
+  "stockScanFound": "{code} kodi bo'yicha topildi: {name}",
+  "stockPhotoTitle": "Ombordagi o'xshash mahsulotlar",
+  "stockPhotoHint": "Mahsulotni tanlang — u ombor ro'yxatida ko'rinadi",
+  "stockPhotoNone": "Rasm bo'yicha omborda o'xshash mahsulot topilmadi. Yaqinroqdan suratga oling yoki mahsulotni nomi bo'yicha qidiring.",
+  "stockPhotoOffline": "Aloqa yo'q — rasm bo'yicha qidirish faqat internet bilan ishlaydi. Mahsulotni nomi yoki shtrix-kodi bo'yicha qidiring.",
+  "stockCountShown":"{total} tadan {shown} tasi ko'rsatilmoqda",
   "stockCountAll": "Mahsulotlar: {total}",
   "shopModeNotChosen": "Tanlanmagan",
   "shopModeChoose": "Do'kon rejimini tanlash",
@@ -2109,5 +2128,18 @@
   "shopSearchAutoparts": "Nomi, katalog raqami, OEM",
   "shopEmptyAutoparts": "Hech narsa topilmadi. Nomi, katalog raqami (OEM, kross-raqam) yoki shtrix-kod bo'yicha qidiring.",
   "recvModeBazaar": "Bozor: nomi va shtrix-kod bo'yicha kirim; miqdor — dona yoki vazn.",
-  "recvModeAutoparts": "Avtoehtiyot: tovarni katalog raqami bo'yicha toping; miqdor — dona, to'plam va juft."
+  "recvModeAutoparts": "Avtoehtiyot: tovarni katalog raqami bo'yicha toping; miqdor — dona, to'plam va juft.",
+  "loginDeviceKeyRequired": "Bu qurilma aniqlanmadi. NurCRM ilovasini yangilab, qayta kiring.",
+  "deviceSlotTitle": "Boshqa qurilmada allaqachon kirilgan",
+  "deviceSlotBody": "Siz boshqa qurilmada kirgan edingiz. U yerdan chiqib, shu yerda kiraylikmi?\n\nU qurilmadagi kirish yopiladi.",
+  "deviceSlotConfirm": "U yerdan chiqish, shu yerda kirish",
+  "pinTitle": "Egasi yoki administrator PIN kodi",
+  "pinReturnInfo": "Bu chekni qaytarish uchun server tasdiq so'raydi: egasi yoki administrator PIN kodini kiriting (kirish paroli emas).",
+  "pinFieldLabel": "PIN",
+  "pinConfirm": "Tasdiqlash",
+  "pinInvalid": "PIN noto'g'ri.",
+  "pinInvalidLeft": "PIN noto'g'ri. Qolgan urinishlar: {n}.",
+  "pinLocked": "PIN noto'g'ri urinishlardan keyin bloklandi. Keyinroq takrorlang.",
+  "pinNotSet": "PIN o'rnatilmagan — Sozlamalar → Xodimlar bo'limida o'rnating.",
+  "pinRequiredText": "Bu amalni egasi yoki administrator PIN kodi bilan tasdiqlash kerak. Qayta urinib, PIN kiriting."
 }

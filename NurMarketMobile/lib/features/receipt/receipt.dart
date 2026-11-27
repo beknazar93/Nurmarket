@@ -83,6 +83,10 @@ class Receipt {
   final double change;
   final ReceiptFiscal? fiscal;
   final String? eReceiptUrl;
+
+  /// 2026-11-26: id продажи на сервере — по нему просим ссылку на красивый чек (POST pos/sales/{id}/share-link/), если её нет в ответе.
+  /// null — офлайн-чек (ссылка появится после синхронизации) или сервер ссылку отозвал (share_url: null) — новую молча не создаём.
+  final String? saleId;
   final bool offline;
 
   /// 2026-10-22 (мобилка, деньги): продажа в долг — срок «Вернуть до» (как в чеке кассы; у сервера в продаже его нет).
@@ -114,6 +118,7 @@ class Receipt {
     this.change = 0,
     this.fiscal,
     this.eReceiptUrl,
+    this.saleId,
     this.offline = false,
     this.debtDue,
     this.subtotalOverride,
@@ -122,6 +127,33 @@ class Receipt {
 
   /// 2026-10-22 (мобилка, деньги): строки оплаты для экрана, PDF, текста и печати. В долг — «Внесено / Долг / Вернуть до»
   /// (раньше «В долг: 300» при чеке 1000 и предоплате 300 — будто весь чек 300).
+  /// 2026-11-26: тот же чек со ссылкой на страницу чека (получена позже запросом share-link).
+  Receipt withEReceiptUrl(String? url) => Receipt(
+    shop: shop,
+    inn: inn,
+    address: address,
+    isReturn: isReturn,
+    number: number,
+    shift: shift,
+    at: at,
+    cashier: cashier,
+    cashbox: cashbox,
+    client: client,
+    lines: lines,
+    discount: discount,
+    total: total,
+    payment: payment,
+    received: received,
+    change: change,
+    fiscal: fiscal,
+    eReceiptUrl: url,
+    saleId: saleId,
+    offline: offline,
+    debtDue: debtDue,
+    subtotalOverride: subtotalOverride,
+    weightRounding: weightRounding,
+  );
+
   List<(String, String)> get paymentLines {
     if (payment == 'debt') {
       final paid = received ?? 0;
@@ -195,6 +227,8 @@ class Receipt {
       change: payment == 'cash' && received != null && received > total ? roundMoney(received - total) : 0,
       fiscal: ReceiptFiscal.parse(response),
       eReceiptUrl: qr.eReceiptUrl(response),
+      // 2026-11-26: ссылки в ответе нет и ключа share_url тоже нет — можно запросить; share_url: null — отозвана, не создаём
+      saleId: qr.hasShareUrlKey(response) ? null : str(response, 'id'),
       offline: offline,
       debtDue: debtDue,
       subtotalOverride: cart.printedSubtotal, // 2026-11-05 (аудит №4, М6-06): подытог = сумма напечатанных строк
@@ -271,6 +305,7 @@ class Receipt {
       change: num0(sale, 'change') > 0 ? num0(sale, 'change') : (received != null && received > total ? roundMoney(received - total) : 0),
       fiscal: ReceiptFiscal.parse(sale),
       eReceiptUrl: qr.eReceiptUrl(sale),
+      saleId: str(sale, 'id'),
     );
   }
 

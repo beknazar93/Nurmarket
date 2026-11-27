@@ -85,6 +85,10 @@ public static class ProductActionPlan
     /// фильтр) и ВЕРНУТЬ ФАКТ — что реально стало активным (задаёт программа владельца). null — это не программа владельца.</summary>
     public static Func<string, Task<NavOutcome>>? OpenNavTarget { get; set; }
 
+    /// <summary>2026-11-27 (Нур-советник: доступ к разделам): пункт меню владельца виден сейчас (тариф, модуль, признак сервера, «Разделы меню», права) —
+    /// из того же построенного меню. null — не программа владельца.</summary>
+    public static Func<string, bool>? MenuKeyVisible { get; set; }
+
     /// <summary>Показать на складе изменённые товары (id) с пометкой — после «Выполнить».</summary>
     public static Action<IReadOnlyList<string>, string>? ShowChangedProducts { get; set; }
 

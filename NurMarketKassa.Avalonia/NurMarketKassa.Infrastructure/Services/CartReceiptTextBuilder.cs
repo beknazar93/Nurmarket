@@ -161,7 +161,12 @@ public static class CartReceiptTextBuilder
                     Blank();
 
                     var disc = TryLineDiscount(it);
-                    if (disc > 1e-6)
+                    // 2026-11-27 (акции v2): разбор скидки строки — «АКЦИЯ «2+1»: -123.00», «СКИДКА КАССИРА: -5.00» (источник скидки виден на чеке).
+                    var promoParts = PromoReceiptParts(it);
+                    if (promoParts.Count > 0)
+                        foreach (var (label, amount) in promoParts)
+                            AppendStackedAmountLine(sb, label, "-" + FormatMoney((double)amount));
+                    else if (disc > 1e-6)
                         AppendStackedAmountLine(sb, "СКИДКА:", "-" + FormatMoney(disc));
                 }
 
@@ -498,6 +503,26 @@ public static class CartReceiptTextBuilder
         }
 
         return null;
+    }
+
+    /// <summary>2026-11-27 (акции v2): строки разбора скидки из метки строки (PromoV2Cart, поле promo_v2.applied) — для печатного чека (по-русски, как весь чек).</summary>
+    private static List<(string Label, decimal Amount)> PromoReceiptParts(JsonElement it)
+    {
+        var parts = new List<(string, decimal)>();
+        if (it.ValueKind != JsonValueKind.Object || !it.TryGetProperty(PromoV2Cart.LineField, out var s) || s.ValueKind != JsonValueKind.Object
+            || !s.TryGetProperty("applied", out var arr) || arr.ValueKind != JsonValueKind.Array)
+            return parts;
+        foreach (var a in arr.EnumerateArray())
+        {
+            var amount = a.TryGetProperty("amount", out var am) && decimal.TryParse(am.ValueKind == JsonValueKind.String ? am.GetString() : am.GetRawText(),
+                System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : 0m;
+            if (amount <= 0)
+                continue;
+            var kind = a.TryGetProperty("kind", out var k) ? k.GetString() : null;
+            var title = a.TryGetProperty("title", out var tt) && tt.ValueKind == JsonValueKind.String ? tt.GetString() : null;
+            parts.Add((kind == "manual" ? "СКИДКА КАССИРА:" : string.IsNullOrWhiteSpace(title) ? "АКЦИЯ:" : $"АКЦИЯ «{title}»:", amount));
+        }
+        return parts;
     }
 
     private static double TryLineDiscount(JsonElement it)

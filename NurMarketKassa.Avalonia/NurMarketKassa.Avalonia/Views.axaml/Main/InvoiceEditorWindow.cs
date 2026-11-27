@@ -632,7 +632,16 @@ public sealed class InvoiceEditorWindow : Window
             Res(merged, TextBlock.ForegroundProperty, "BrushWarning");
             rowsPanel.Children.Add(merged);
         }
-        var scroll = new ScrollViewer { Content = rowsPanel, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
+        // 2026-11-26: таблица накладной шире 800 px (колонки 32+96+130+130+152+70+88+88+94+48 = 928, плюс отступ справа 14) — на экране кассы 800×600 «Продажа», «Сумма» и ✕ строки уходили за правый край без прокрутки.
+        // Боковая прокрутка Auto, а ширина таблицы = max(ширина видимой области − отступ 14, 928): ScrollViewer с Auto измеряет содержимое «бесконечной» шириной, и резиновые колонки наименований
+        // схлопнулись бы до минимума даже на 1366; так на 1024 и шире прокрутки вбок нет и колонки тянутся как раньше, а на 800 таблицу можно прокрутить.
+        const double TableMinWidth = 928;
+        var scroll = new ScrollViewer { Content = rowsPanel, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto };
+        scroll.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == ScrollViewer.ViewportProperty && e.NewValue is Size viewport && viewport.Width > 0)
+                rowsPanel.Width = Math.Max(TableMinWidth, viewport.Width - rowsPanel.Margin.Right);
+        };
 
         // ── низ ──
         Res(_error, TextBlock.ForegroundProperty, "BrushDanger");

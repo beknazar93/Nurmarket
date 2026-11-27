@@ -340,6 +340,9 @@ public partial class MarketplaceView : UserControl
             case "telegram":
                 _ = new NurMarketKassa.AvaloniaHost.Views.TelegramBotSetupWindow().ShowDialog(owner);
                 break;
+            default:
+                OpenLocalFeature(id, owner); // 2026-11-26: бот-продавец, торг, ЭСФ, онлайн-ККМ, рассылки, 1С и др. — «Где найти» или само окно
+                break;
             case "shiftstats":
                 PosAlertDialog.Show(owner,
                     Tr.T("Где смотреть", "Кайдан көрсө болот", "Where to look", "Nereye bakmalı", "Qayerda ko'rish mumkin"),

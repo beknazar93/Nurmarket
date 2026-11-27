@@ -201,9 +201,10 @@
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
       <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="CornerRadius" Value="18"/>
+      <Setter Property="CornerRadius" Value="20"/>
       <Setter Property="Padding" Value="16,0"/>
-      <Setter Property="MinHeight" Value="36"/>
+      <!-- 2026-11-26 (дизайн и удобство): 36 → 40 px — фильтры Маркетплейса нажимаются пальцем (DesignAuditUiTests). -->
+      <Setter Property="MinHeight" Value="40"/>
       <Setter Property="FontSize" Value="13"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Cursor" Value="Hand"/>

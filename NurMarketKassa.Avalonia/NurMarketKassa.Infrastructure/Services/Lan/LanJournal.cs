@@ -164,6 +164,18 @@ public static class LanJournal
         return result;
     }
 
+    /// <summary>2026-11-26 (быстродействие): ТОЛЬКО ЧТЕНИЕ журнала без замка записи класса. Раньше ReadOwnAfter/PeerLastSeq/ReadPeerSales/ReadStockAdjust/ReadMeta брали замок ЗАПИСИ
+    /// (With): ответ соседу, обновление остатков каталога и обновление «Сводки» владельца выстраивались в очередь за каждой записью продажи (synchronous=FULL) — в журнале кассы
+    /// «SQLITE SLOW LanJournal.With» до 1176 мс. База в WAL: читатель видит целый снимок и писателю не мешает. Первое обращение (схема ещё не создана) — как раньше, под замком записи.</summary>
+    private static T WithRead<T>(Func<SqliteConnection, T> action)
+    {
+        if (!_schemaReady)
+            return With(action);
+        T result = default!;
+        DatabaseService.Instance.WithReadConnection(c => result = action(c));
+        return result;
+    }
+
     private static string Iso(DateTime utc) => utc.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture);
 
     private static DateTime ParseIso(string s) =>
@@ -256,7 +268,7 @@ public static class LanJournal
     /// <summary>Свои события после номера — для соседа, который их забирает.</summary>
     public static (List<LanEvent> Events, long Last) ReadOwnAfter(long after, int limit)
     {
-        return With(c =>
+        return WithRead(c =>
         {
             var list = new List<LanEvent>();
             using (var cmd = c.CreateCommand())
@@ -278,7 +290,7 @@ public static class LanJournal
     // ------------------------------------------------------------------ события соседей
 
     public static long PeerLastSeq(string device) =>
-        With(c =>
+        WithRead(c =>
         {
             using var cmd = c.CreateCommand();
             cmd.CommandText = "SELECT last_seq FROM LanPeers WHERE device = $d";
@@ -342,7 +354,7 @@ public static class LanJournal
     /// <summary>Продажи соседей начиная с момента, с отметками о выгрузке.</summary>
     public static List<LanPeerSale> ReadPeerSales(DateTime sinceUtc)
     {
-        return With(c =>
+        return WithRead(c =>
         {
             var names = new Dictionary<string, string>(StringComparer.Ordinal);
             using (var n = c.CreateCommand())
@@ -406,7 +418,7 @@ public static class LanJournal
     // ------------------------------------------------------------------ поправки остатка и служебное
 
     public static Dictionary<string, double> ReadStockAdjust() =>
-        With(c =>
+        WithRead(c =>
         {
             var map = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
             using var cmd = c.CreateCommand();
@@ -445,7 +457,7 @@ public static class LanJournal
         });
 
     public static string? ReadMeta(string key) =>
-        With(c =>
+        WithRead(c =>
         {
             using var cmd = c.CreateCommand();
             cmd.CommandText = "SELECT value FROM LanMeta WHERE key = $k";

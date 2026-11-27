@@ -52,7 +52,7 @@ class _Server extends ApiClient {
   Map<String, String> get _me => _users[session!.email.toLowerCase()]!;
 
   @override
-  Future<Map<String, dynamic>> login(String email, String password) async {
+  Future<Map<String, dynamic>> login(String email, String password, {String? deviceKey, String? deviceName, bool replaceDevice = false}) async {
     if (offline) throw ApiException('Нет связи', status: null);
     attach(Session(email: email.trim(), access: 'tok-$email', refresh: 'r'));
     return {};
@@ -168,11 +168,12 @@ void main() {
     await secure.write(key: 'something.else', value: 'tail');
   }
 
-  /// Следов A нет: ни очереди, ни товаров, ни настроек (кроме метки миграции поиска), ни секретов, ни файлов.
+  /// Следов A нет: ни очереди, ни товаров, ни настроек (кроме метки миграции поиска и случайного номера установки), ни секретов, ни файлов.
   Future<void> expectNoTraceOfA({File? allowedFile}) async {
     expect(await db.select(db.outbox).get(), isEmpty, reason: 'очередь');
     expect(await db.productCount(), 0);
-    final left = (await db.select(db.settings).get()).where((s) => s.key != 'search.keyV').toList();
+    // 2026-11-26: `device.key` — случайный номер установки (слоты устройств при входе), личных данных нет и стирается он не должен: иначе свой же повторный вход считался бы «другим телефоном»
+    final left = (await db.select(db.settings).get()).where((s) => s.key != 'search.keyV' && s.key != 'device.key').toList();
     expect(left, isEmpty, reason: 'настройки: ${left.map((e) => e.key)}');
     expect(await const FlutterSecureStorage().readAll(), isEmpty, reason: 'защищённое хранилище');
     final files = [for (final e in dir.listSync(recursive: true)) if (e is File && e.path != allowedFile?.path) e.path];

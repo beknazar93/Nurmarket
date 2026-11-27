@@ -62,8 +62,16 @@ public static class PromotionRules
     }
 
     /// <summary>Сохранить на диск после загрузки каталога (если что-то поменялось).</summary>
+    /// <summary>2026-11-27 (Нур-советник: доступ к разделам): товары под акцией — id товара → JSON-массив правил (только чтение, копия).</summary>
+    public static IReadOnlyDictionary<string, string> ActiveRules()
+    {
+        EnsureLoaded();
+        return Known.Where(p => p.Value != "[]").ToDictionary(p => p.Key, p => p.Value, StringComparer.OrdinalIgnoreCase);
+    }
+
     public static void SaveIfDirty()
     {
+        PromoProductInfo.SaveIfDirty(); // 2026-11-27 (акции v2): данные товаров для акций сохраняются там же, где и правила
         if (!_dirty)
             return;
         try

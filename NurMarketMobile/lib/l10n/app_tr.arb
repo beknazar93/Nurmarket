@@ -465,8 +465,19 @@
   "receiptQr": "QR kod",
   "showQr": "Müşteriye QR göster",
   "qrPointCamera": "Müşteri telefon kamerasını tutar",
-  "qrDownloadHint": "Müşterinin kamerası fişi hemen PDF olarak indirir",
-  "qrTextHint": "Sunucu fiş bağlantısı verene kadar kamera metin gösterir. PDF'i aşağıdaki düğmeyle gönderin.",
+  "qrDownloadHint": "Müşteri fişi tarayıcıda düzgün bir sayfa olarak görür: PDF veya resim olarak kaydedebilir",
+  "qrTextHint": "Fiş bağlantısı henüz hazır değil. Bağlantıyı kontrol edip «Tekrar dene»ye basın veya aşağıdaki düğmeyle PDF gönderin.",
+  "qrOfflineHint": "Bu fiş henüz sunucuya gönderilmedi. QR kod eşitlemeden sonra görünür: bağlantı gelince fişi «Fişler» bölümünden açın.",
+  "openReceiptLink": "Fişi aç",
+  "shareReceiptLink": "Bağlantıyı paylaş",
+  "shareReceiptText": "Fişiniz No. {number}",
+  "@shareReceiptText": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
   "cashInOut": "Para girişi / çıkışı",
   "cashIn": "Para girişi",
   "cashOut": "Para çıkışı",
@@ -1955,7 +1966,15 @@
   "catalogIncompleteNoTotal": "Katalog tam yüklenmedi. Yükleme kendiliğinden devam eder; “Kataloğu yenile”ye dokunabilirsiniz.",
   "catalogRefresh": "Kataloğu yenile",
   "catalogRefreshed": "Katalog güncellendi: {n} ürün",
-  "stockCountShown": "{total} üründen {shown} gösteriliyor",
+  "stockScanBtn": "Barkod tarayıcı",
+  "stockPhotoBtn": "Fotoğrafla ara",
+  "stockScanHint": "Ürünün barkoduna veya QR koduna doğrultun — aramaya yazılır",
+  "stockScanFound": "{code} koduyla bulundu: {name}",
+  "stockPhotoTitle": "Depodaki benzer ürünler",
+  "stockPhotoHint": "Bir ürün seçin — depo listesinde görünür",
+  "stockPhotoNone": "Fotoğrafa benzer bir ürün depoda bulunamadı. Daha yakından çekin veya ürünü adıyla arayın.",
+  "stockPhotoOffline": "Bağlantı yok — fotoğrafla arama internet gerektirir. Ürünü adı veya barkoduyla arayın.",
+  "stockCountShown":"{total} üründen {shown} gösteriliyor",
   "stockCountAll": "Ürünler: {total}",
   "shopModeNotChosen": "Seçilmedi",
   "shopModeChoose": "Mağaza modunu seç",
@@ -2109,5 +2128,18 @@
   "shopSearchAutoparts": "Ad, katalog numarası, OEM",
   "shopEmptyAutoparts": "Bulunamadı. Ad, katalog numarası (OEM, çapraz numara) veya barkodla arayın.",
   "recvModeBazaar": "Pazar: ad ve barkodla giriş; miktar adet veya ağırlık.",
-  "recvModeAutoparts": "Oto yedek parça: ürünü katalog numarasıyla bulun; miktar adet, takım ve çift."
+  "recvModeAutoparts": "Oto yedek parça: ürünü katalog numarasıyla bulun; miktar adet, takım ve çift.",
+  "loginDeviceKeyRequired": "Bu cihaz tanımlanamadı. NurCRM uygulamasını güncelleyin ve tekrar giriş yapın.",
+  "deviceSlotTitle": "Başka bir cihazda zaten giriş var",
+  "deviceSlotBody": "Başka bir cihazda zaten giriş yapmıştınız. Orada çıkış yapıp burada giriş yapılsın mı?\n\nO cihazdaki oturum kapatılacak.",
+  "deviceSlotConfirm": "Orada çık, burada giriş yap",
+  "pinTitle": "Sahip veya yönetici PIN'i",
+  "pinReturnInfo": "Bu fişin iadesi için sunucu onay istiyor: sahibin veya yöneticinin PIN'ini girin (giriş şifresi değil).",
+  "pinFieldLabel": "PIN",
+  "pinConfirm": "Onayla",
+  "pinInvalid": "PIN yanlış.",
+  "pinInvalidLeft": "PIN yanlış. Kalan deneme: {n}.",
+  "pinLocked": "PIN yanlış denemelerden sonra kilitlendi. Daha sonra tekrar deneyin.",
+  "pinNotSet": "PIN belirlenmemiş — Ayarlar → Çalışanlar bölümünde belirleyin.",
+  "pinRequiredText": "Bu işlem sahibin veya yöneticinin PIN'i ile onaylanmalı. Tekrar deneyin ve PIN'i girin."
 }

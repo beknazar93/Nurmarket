@@ -142,16 +142,29 @@ public static class ExchangeCashCorrections
     /// <summary>2026-11-06 (аудит №5, Л5-05, Ж-01): при признаке debt_return_drawer_cash сервер снимает с ожидаемой наличности ровно свою запись выдачи (<paramref name="serverCashOut"/>). Если касса выдала БОЛЬШЕ
     /// (чек 001967: по оплатам клиента 2, сервер записал 1), ящик расходится с сервером на разницу — поправка пишется, как до признака. Случай «сервер не вычел ничего» пропускается (это не Ж-01).
     /// Возвращает true, если поправка записана.</summary>
-    public static bool RecordServerUnderRecordedDebtRefund(string? shiftId, string key, decimal expectedBefore, decimal expectedAfter, decimal cashOut, decimal? serverCashOut)
+    /// <param name="drawerFlowsOut">2026-11-27: сколько расходов по этому чеку сервер ФАКТИЧЕСКИ записал в движения денег смены (GET cashflows?source_id=чек, <see cref="NurCrmReportsApi.SumReturnDrawerExpenses"/>);
+    /// null — не прочитано. Без цифры движений (и без <paramref name="serverCashOut"/>) поправка НЕ пишется.</param>
+    public static bool RecordServerUnderRecordedDebtRefund(string? shiftId, string key, decimal expectedBefore, decimal expectedAfter, decimal cashOut, decimal? serverCashOut, decimal? drawerFlowsOut = null)
     {
         if (string.IsNullOrWhiteSpace(shiftId) || string.IsNullOrWhiteSpace(key) || cashOut <= 0.005m)
             return false;
-        if (serverCashOut is not { } serverGave || serverGave >= cashOut - 0.009m)
+        // 2026-11-26 (жёсткий тест точности, живая сверка NBS, чек №2139): сервер в документе возврата писал «наличными 45,00» (как касса), а движение денег (cashflow) — только 20,00
+        // (предоплату): expected_cash смены завышен на 25,00. Вчера поправка считалась по одному остатку смены.
+        // 2026-11-27 (ответ Умара, dret2711, в бою 27.11): сервер исправлен — предоплата уходит вместе с чеком, на гашения долга пишется отдельный расход, расход = выдача. Поправка «по остатку»
+        // теперь могла бы ДВОИТЬ учёт (и ловила чужие продажи, пришедшие в эти секунды). Поэтому поправка считается по фактическим движениям денег сервера: расход ≥ выдача → поправки нет;
+        // расход меньше (старое поведение сервера) → поправка на разницу, но только если остаток смены упал ровно на записанный расход (иначе в смене были чужие операции — не трогаем).
+        var recorded = drawerFlowsOut ?? serverCashOut;
+        if (recorded is not { } serverGave)
+        {
+            PosLogger.Log($"Возврат долгового чека (наличные): движения денег сервера по чеку не прочитаны — поправка не пишется (выдано {cashOut:0.00}); сверьте «Касса:» и ящик при закрытии смены.", "WARNING");
+            return false;
+        }
+        if (serverGave >= cashOut - 0.009m)
             return false;
         var overstated = (expectedAfter - expectedBefore) + cashOut;
-        if (overstated <= 0.009m || overstated >= cashOut - 0.009m)
+        if (Math.Abs((expectedBefore - expectedAfter) - serverGave) > 0.01m || overstated <= 0.009m || overstated >= cashOut - 0.009m)
         {
-            PosLogger.Log($"Возврат долгового чека (наличные): остаток смены изменился так, что поправка Ж-01 не нужна или не ясна (завышение {overstated:0.00}, выдано {cashOut:0.00}, сервер записал {serverGave:0.00}) — не пишем.", "WARNING");
+            PosLogger.Log($"Возврат долгового чека (наличные): остаток смены изменился {expectedAfter - expectedBefore:0.00}, а сервер записал расход {serverGave:0.00} при выдаче {cashOut:0.00} — поправка не пишется (чужие операции в смене или расход изменён сервером), сверить ящик вручную.", "WARNING");
             return false;
         }
         var gap = cashOut - serverGave;

@@ -182,6 +182,11 @@ public static class ReceiptSkiaPdf
             Center(d.OfflineNote, T(7f, false, Warn), 3);
         if (d.QrUrl != null)
             Center(d.QrUrl, T(6.5f, false, Soft), 3);
+        if (d.ShowShopQr) // 2026-11-26 (отчёт «Конкуренты», п. 3): витрина магазина — подпись и адрес
+        {
+            Center(StorefrontLink.Caption, T(7.5f, true), 4);
+            Center(d.ShopQrUrl!, T(6.5f, false, Soft));
+        }
 
         Center(Tr.T("Спасибо за покупку!", "Сатып алганыңыз үчүн рахмат!", "Thank you for your purchase!", "Alışveriş için teşekkürler!", "Xaridingiz uchun rahmat!"), T(8.5f, true), 6);
         Center("NurCRM", T(7f, false, Soft));

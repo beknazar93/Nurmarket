@@ -104,12 +104,70 @@ public partial class OperationsSettingsView : UserControl
         var panel = new StackPanel { Spacing = 8 };
         panel.Children.Add(title);
         panel.Children.Add(hint);
-        panel.Children.Add(button);
+        // 2026-11-26 («Заполним вашу базу»): рядом с загрузкой из файла — услуга «под ключ»: поддержка переносит базу сама (форма и готовое сообщение в WhatsApp).
+        var turnkey = new Button
+        {
+            Content = Tr.T("Загрузим вашу базу под ключ", "Базаңызды ачкычка даяр жүктөйбүз", "We will load your database for you", "Veritabanınızı sizin için yükleyelim", "Bazangizni kalitga tayyor yuklaymiz"),
+            MinHeight = 40, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
+        };
+        turnkey.Classes.Add("btn-secondary");
+        Avalonia.Automation.AutomationProperties.SetAutomationId(turnkey, "FillBaseServiceButton");
+        turnkey.Click += (_, _) => FillBaseRequestWindow.Open(TopLevel.GetTopLevel(this) as Window);
+        var buttons = new WrapPanel { Orientation = Avalonia.Layout.Orientation.Horizontal };
+        button.Margin = new Avalonia.Thickness(0, 0, 8, 8);
+        turnkey.Margin = new Avalonia.Thickness(0, 0, 8, 8);
+        buttons.Children.Add(button);
+        buttons.Children.Add(turnkey);
+        panel.Children.Add(buttons);
         var card = new Border { Padding = new Avalonia.Thickness(16), Child = panel, Name = "TransferDataCard" };
         card.Classes.Add("SettingsCard");
         card.IsVisible = BulkImportWizardWindow.CanOpenTransfer();
         AttachedToVisualTree += (_, _) => card.IsVisible = BulkImportWizardWindow.CanOpenTransfer();
         return card;
+    }
+
+    /// <summary>2026-11-26 («создай то, чего у нас нет»): карточка «Экспорт в 1С» — открывает окно выгрузки номенклатуры, остатков, продаж, возвратов, приходов и контрагентов
+    /// (Excel / CSV / CommerceML). Видна в программе владельца и в кассе тем, у кого есть право «Аналитика» (выгрузка отчётов); тариф проверяет само окно.</summary>
+    internal Border BuildOneCExportCard()
+    {
+        var title = new TextBlock { Text = Tr.T("Экспорт в 1С", "1С'ке экспорт", "Export to 1C", "1C'ye aktarım", "1C ga eksport") };
+        title.Classes.Add("SettingsCardTitle");
+        title.FontSize = 14;
+        var hint = new TextBlock
+        {
+            Text = Tr.T("Номенклатура, остатки, продажи, возвраты, приходы и контрагенты за период — в Excel, CSV или CommerceML для 1С:Розница и 1С:Бухгалтерии. Суммы совпадают с отчётами до копейки.",
+                "Номенклатура, калдыктар, сатуулар, кайтаруулар, кирешелер жана контрагенттер мезгил боюнча — 1С:Розница жана 1С:Бухгалтерия үчүн Excel, CSV же CommerceML форматында. Суммалар отчёттор менен тыйынына чейин дал келет.",
+                "Nomenclature, stock, sales, returns, receipts and counterparties for a period — to Excel, CSV or CommerceML for 1C:Retail and 1C:Accounting. Amounts match the reports to the last tyiyn.",
+                "Bir döneme ait ürün listesi, stok, satış, iade, giriş ve cariler — 1C:Perakende ve 1C:Muhasebe için Excel, CSV veya CommerceML olarak. Tutarlar raporlarla kuruşu kuruşuna eşleşir.",
+                "Davr uchun nomenklatura, qoldiqlar, sotuvlar, qaytarishlar, kirimlar va kontragentlar — 1C:Roznitsa va 1C:Buxgalteriya uchun Excel, CSV yoki CommerceML da. Summalar hisobotlar bilan tiyinigacha mos keladi."),
+            FontSize = 12, TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+        };
+        hint.Bind(TextBlock.ForegroundProperty, hint.GetResourceObservable("BrushTextSoft"));
+        var button = new Button
+        {
+            Content = Tr.T("Выгрузить для 1С…", "1С үчүн чыгаруу…", "Export for 1C…", "1C için aktar…", "1C uchun chiqarish…"),
+            MinHeight = 40, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
+        };
+        button.Classes.Add("btn-primary");
+        Avalonia.Automation.AutomationProperties.SetAutomationId(button, "OneCExportOpenButton");
+        button.Click += (_, _) => OneCExportWindow.Open(TopLevel.GetTopLevel(this) as Window);
+        var panel = new StackPanel { Spacing = 8, Children = { title, hint, button } };
+        var card = new Border { Padding = new Avalonia.Thickness(16), Child = panel, Name = "OneCExportCard" };
+        card.Classes.Add("SettingsCard");
+        card.IsVisible = CanOneCExport();
+        AttachedToVisualTree += (_, _) => card.IsVisible = CanOneCExport();
+        return card;
+    }
+
+    /// <summary>Программа владельца — всегда; касса — только при явном праве «Аналитика» (нет сервиса прав — карточки нет).</summary>
+    internal static bool CanOneCExport()
+    {
+        if (NurMarketKassa.Services.AppMode.IsOwner)
+            return true;
+        var permissions = App.AppHost?.Services is { } sp
+            ? Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetService<NurMarketKassa.Core.Contracts.IPermissionService>(sp)
+            : null;
+        return permissions is not null && permissions.HasPermission(NurMarketKassa.Core.Contracts.PosPermissions.ViewAnalytics);
     }
 
     public OperationsSettingsView()
@@ -149,6 +207,8 @@ public partial class OperationsSettingsView : UserControl
         // 2026-11-21 (владелец: «перенос данных убери у программы кассы, он только у владельца»): в кассе карточки нет совсем, только в программе владельца.
         if (NurMarketKassa.Services.ImportAccess.Allowed)
             OpsCardList.Children.Insert(System.Math.Min(2, OpsCardList.Children.Count), BuildTransferCard());
+        // 2026-11-26: «Экспорт в 1С» — следом за переносом данных (в кассе — для тех, у кого есть право «Аналитика»).
+        OpsCardList.Children.Insert(System.Math.Min(NurMarketKassa.Services.ImportAccess.Allowed ? 3 : 2, OpsCardList.Children.Count), BuildOneCExportCard());
         AiKeysCardTitle.Text = Tr.T("Ключи ИИ", "ИИ ачкычтары", "AI keys", "Yapay zeka anahtarları", "AI kalitlari");
         AttachedToVisualTree += Lan_Attached;
         DetachedFromVisualTree += Lan_Detached;
@@ -538,6 +598,42 @@ public partial class OperationsSettingsView : UserControl
             AddBankRow(bank, isCustom: true);
 
         BankQrItemsControl.ItemsSource = _bankSettings;
+        RefreshDynamicQrStatus();
+    }
+
+    /// <summary>2026-11-26 (отчёт «Конкуренты», п. 1): подсказка под переключателем «QR с суммой» — какие из загруженных QR банков прошли самопроверку
+    /// (контрольная сумма QR сходится с формулой ELQR) и получат QR с суммой, а каким останется обычный QR. Распознавание картинок — в фоне.</summary>
+    private void RefreshDynamicQrStatus()
+    {
+        var items = _bankSettings.Where(b => !string.IsNullOrEmpty(b.QrCodePath)).Select(b => (b.BankName, Path: b.QrCodePath!)).ToList();
+        if (items.Count == 0)
+        {
+            DynamicQrStatusText.Text = Tr.T("Загрузите QR банка ниже — тогда проверим, подходит ли он для QR с суммой.",
+                "Төмөндө банктын QR'ын жүктөңүз — суммасы бар QR үчүн ылайыктуубу, текшеребиз.",
+                "Upload a bank QR below — we will check whether it suits a QR with the amount.",
+                "Aşağıya bankanın QR'ını yükleyin — tutarlı QR için uygun olup olmadığını kontrol ederiz.",
+                "Quyida bank QR'ini yuklang — summali QR uchun mosligini tekshiramiz.");
+            return;
+        }
+        DynamicQrStatusText.Text = Tr.T("Проверяем QR банков…", "Банктардын QR'ын текшерүүдөбүз…", "Checking the bank QR codes…", "Banka QR'ları kontrol ediliyor…", "Bank QR'lari tekshirilmoqda…");
+        _ = Task.Run(() =>
+        {
+            var ok = new List<string>();
+            var no = new List<string>();
+            foreach (var (name, path) in items)
+                (DynamicPaymentQrService.Inspect(path) == DynamicPaymentQrService.QrSupport.Ok ? ok : no).Add(name);
+            var text = new System.Text.StringBuilder();
+            if (ok.Count > 0)
+                text.Append(Tr.T("QR с суммой будет у банков: ", "Суммасы бар QR төмөнкү банктарда болот: ", "A QR with the amount will work for: ", "Tutarlı QR şu bankalarda çalışır: ", "Summali QR quyidagi banklarda ishlaydi: ")).Append(string.Join(", ", ok)).Append('.');
+            if (no.Count > 0)
+            {
+                if (text.Length > 0)
+                    text.Append(' ');
+                text.Append(Tr.T("Обычный QR (без суммы, покупатель вводит её сам): ", "Кадимки QR (суммасыз, сатып алуучу сумманы өзү жазат): ", "Regular QR (no amount, the customer types it): ", "Normal QR (tutarsız, müşteri kendisi girer): ", "Oddiy QR (summasiz, xaridor o'zi kiritadi): "))
+                    .Append(string.Join(", ", no)).Append('.');
+            }
+            Dispatcher.UIThread.Post(() => DynamicQrStatusText.Text = text.ToString());
+        });
     }
 
     private void UpdateTelegramStatus()
@@ -1228,6 +1324,7 @@ public partial class OperationsSettingsView : UserControl
         }
 
         prefs.SaveToDisk();
+        RefreshDynamicQrStatus(); // 2026-11-26: загрузили/убрали QR банка — подсказка «подходит ли для QR с суммой» обновляется
 
         // Экран покупателя кеширует InformationImagePath до следующего события
         // (продажа/статус оплаты). Без явного пинка новый QR не появится там,

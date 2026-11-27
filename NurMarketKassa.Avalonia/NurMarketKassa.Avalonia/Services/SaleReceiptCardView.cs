@@ -107,7 +107,17 @@ public static class SaleReceiptCardView
         {
             var qr = new ReceiptQrView { Data = d.QrUrl, Size = 132, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 14, 0, 0) };
             body.Children.Add(qr);
-            body.Children.Add(Text(Tr.T("Электронный чек (PDF)", "Электрондук чек (PDF)", "E-receipt (PDF)", "E-fiş (PDF)", "Elektron chek (PDF)"), 11, "BrushTextSoft", center: true));
+            // 2026-11-26: ссылка теперь ведёт на страницу чека (share_url), PDF — только у старых ссылок e_receipt.
+            body.Children.Add(Text(d.QrUrl.EndsWith(".pdf", System.StringComparison.OrdinalIgnoreCase)
+                ? Tr.T("Электронный чек (PDF)", "Электрондук чек (PDF)", "E-receipt (PDF)", "E-fiş (PDF)", "Elektron chek (PDF)")
+                : Tr.T("Электронный чек", "Электрондук чек", "E-receipt", "E-fiş", "Elektron chek"), 11, "BrushTextSoft", center: true));
+        }
+
+        // 2026-11-26 (отчёт «Конкуренты», п. 3): второй QR — на витрину магазина, с подписью «Заказать онлайн».
+        if (d.ShowShopQr)
+        {
+            body.Children.Add(new ReceiptQrView { Name = "ShopQr", Data = d.ShopQrUrl!, Size = 110, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 14, 0, 0) });
+            body.Children.Add(Text(StorefrontLink.Caption, 11, "BrushTextSoft", center: true));
         }
 
         body.Children.Add(Text(Tr.T("Спасибо за покупку!", "Сатып алганыңыз үчүн рахмат!", "Thank you for your purchase!", "Alışveriş için teşekkürler!", "Xaridingiz uchun rahmat!"),

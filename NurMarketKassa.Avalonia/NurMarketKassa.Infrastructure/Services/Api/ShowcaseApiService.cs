@@ -20,11 +20,14 @@ public sealed record ShowcaseSettings(string CompanyName, string Slug, string Sh
 /// 2026-10-22 (витрина одежды): + вариант строки — `variant` (uuid), `variant_size`, `variant_color` (схема ShowcaseOrderItem
 /// сервера; проверено на NBS: заказ №10 из бота пришёл с вариантом «L, Белый»).</summary>
 public sealed record SiteOrderItem(string ProductId, string? Name, double Quantity, double Price, double Total,
-    string? VariantId = null, string? Size = null, string? Color = null)
+    string? VariantId = null, string? Size = null, string? Color = null, SiteOrderBargain? Bargain = null)
 {
     /// <summary>«L, Белый» — размер и цвет строки; пусто, если вариант не выбран.</summary>
     public string VariantText => string.Join(", ", new[] { Size, Color }.Where(v => !string.IsNullOrWhiteSpace(v)));
 }
+
+/// <summary>2026-11-26 (торг бота-продавца, Ф2): items[].bargain заказа — цена по торгу (agreed_price), цена в списке (list_price) и скидка в процентах. У обычной строки null.</summary>
+public sealed record SiteOrderBargain(double ListPrice, double AgreedPrice, double DiscountPercent);
 
 /// <summary>Заказ NurCRM (GET /api/main/orders/). Поля — по схеме сервера (Order); доставка, адрес
 /// и комментарий в схеме сейчас НЕТ — читаются, только если сервер когда-нибудь начнёт их отдавать.</summary>
@@ -462,8 +465,11 @@ public sealed class ShowcaseApiService
 
     // ── Разбор ответов ──────────────────────────────────────────────────────────────
 
-    private static ShowcaseSettings ParseSettings(JsonElement data) =>
-        new(Str(data, "name") ?? "", Str(data, "slug") ?? "", Str(data, "phones_howcase") ?? "");
+    private static ShowcaseSettings ParseSettings(JsonElement data)
+    {
+        StorefrontLink.RememberFromJson(data); // 2026-11-26: владелец сменил адрес витрины — QR на чеке и ценнике берёт новый
+        return new(Str(data, "name") ?? "", Str(data, "slug") ?? "", Str(data, "phones_howcase") ?? "");
+    }
 
     internal static SiteOrder ParseOrder(JsonElement row)
     {
@@ -497,7 +503,10 @@ public sealed class ShowcaseApiService
                     Num(it, "total") ?? qty * price,
                     variantId,
                     size,
-                    color));
+                    color,
+                    it.ValueKind == JsonValueKind.Object && it.TryGetProperty("bargain", out var bg) && bg.ValueKind == JsonValueKind.Object && Num(bg, "agreed_price") is { } agreed
+                        ? new SiteOrderBargain(Num(bg, "list_price") ?? price, agreed, Num(bg, "discount_percent") ?? 0)
+                        : null));
             }
         }
 

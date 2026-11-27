@@ -60,6 +60,7 @@ namespace NurMarketKassa.Services
             // 2026-09-28, продажа №1136: акции товара (promotion_rules) сервер применяет к строке
             // чека сам — касса запоминает их, чтобы считать итог так же (см. PromotionRules).
             PromotionRules.Remember(id, p);
+            PromoProductInfo.Remember(id, p); // 2026-11-27 (акции v2): категория, бренд, закупка — для scope акций и «не ниже закупки»
             // 2026-11-13 (сервер sn1311): track_serials и warranty_months карточки — по id товара в product-serials.json (колонок в базе кассы нет). Старый сервер полей не шлёт — ничего не меняется.
             ProductSerialRules.Remember(id, p);
             PartMetaStore.Remember(id, p); // 2026-11-20 (ТЗ «Автозапчасти», АЗ4): attributes / storage_location / related — для плиток и поиска по номеру

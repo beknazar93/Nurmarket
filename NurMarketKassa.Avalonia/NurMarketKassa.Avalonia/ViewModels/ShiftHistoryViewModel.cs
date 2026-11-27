@@ -442,13 +442,10 @@ public sealed class ShiftHistoryViewModel : INotifyPropertyChanged
                 return;
             }
 
-            // Изъятие — это расход смены. Внесение расходом не считается, поэтому пишем только
-            // отрицательные операции (см. ShiftEventsStore).
-            if (op.Amount < 0m)
-            {
-                ShiftEventsStore.Record(
-                    ShiftEventsStore.KindExpense, PosApp.ActiveShiftId, op.Id, (double)Math.Abs(op.Amount), op.Comment);
-            }
+            // 2026-11-26: изъятие — расход смены, внесение — своё событие (см. ShiftEventsStore.RecordDrawerOperation). Раньше стояло «Amount < 0», а сумма операции
+            // всегда положительная (вид — в Type), поэтому не писалось ничего, ни изъятие, ни внесение.
+            ShiftEventsStore.RecordDrawerOperation(
+                op.Kind == CashOperationKind.Withdrawal, PosApp.ActiveShiftId, op.Id, (double)op.Amount, op.Comment);
             ReloadOperations();
             RecalculateSummary();
             ApplySummaryFilters();
@@ -570,13 +567,9 @@ public sealed class ShiftHistoryViewModel : INotifyPropertyChanged
                 return;
             }
 
-            // Изъятие — это расход смены. Внесение расходом не считается, поэтому пишем только
-            // отрицательные операции (см. ShiftEventsStore).
-            if (op.Amount < 0m)
-            {
-                ShiftEventsStore.Record(
-                    ShiftEventsStore.KindExpense, PosApp.ActiveShiftId, op.Id, (double)Math.Abs(op.Amount), op.Comment);
-            }
+            // 2026-11-26: см. комментарий в OpenNewOperation — вид операции, а не знак суммы.
+            ShiftEventsStore.RecordDrawerOperation(
+                op.Kind == CashOperationKind.Withdrawal, PosApp.ActiveShiftId, op.Id, (double)op.Amount, op.Comment);
             ReloadOperations();
             RecalculateSummary();
             ApplySummaryFilters();

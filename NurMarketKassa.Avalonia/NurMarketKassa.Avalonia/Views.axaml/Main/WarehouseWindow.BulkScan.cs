@@ -848,8 +848,9 @@ public partial class WarehouseWindow
         batchBtn.Tag = "rcv-batch";
         batchBtn.IsVisible = BatchFieldsOn;
         batchBtn.Click += ReceivingBatch_Click;
-        var extraHost = Labeled(" ", new WrapPanel { Orientation = Orientation.Horizontal, Children = { genBtn, netBtn, sizesBtn, batchBtn } });
-        foreach (var extra in new Control[] { genBtn, netBtn, sizesBtn, batchBtn })
+        var (carcassToggle, carcassBlock) = BuildCarcassParts(row); // 2026-11-26: «Выход мяса при приходе» — кнопка в этом ряду, блок ввода под рядом полей (WarehouseWindow.ReceivingCarcass.cs)
+        var extraHost = Labeled(" ", new WrapPanel { Orientation = Orientation.Horizontal, Children = { genBtn, netBtn, sizesBtn, batchBtn, carcassToggle } });
+        foreach (var extra in new Control[] { genBtn, netBtn, sizesBtn, batchBtn, carcassToggle })
             extra.Margin = new Thickness(0, 0, 8, 0);
         // Строка итогов карточки: размеры, изменение закупки, сумма и прибыль по строке — компактно, одной подписью.
         var info = new TextBlock { FontSize = 12.5, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(44, 0, 52, 4) };
@@ -998,6 +999,7 @@ public partial class WarehouseWindow
         var stack = new StackPanel();
         stack.Children.Add(line1);
         stack.Children.Add(line2);
+        stack.Children.Add(carcassBlock); // 2026-11-26: блок «Выход мяса» (скрыт, пока не включён)
         stack.Children.Add(info);
         stack.Children.Add(error);
 

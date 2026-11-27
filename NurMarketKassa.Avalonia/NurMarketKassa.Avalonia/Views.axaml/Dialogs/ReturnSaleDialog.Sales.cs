@@ -727,6 +727,8 @@ public partial class ReturnSaleDialog
             var refundSum = lineTotal;
             decimal.TryParse(lineTotal, NumberStyles.Any, CultureInfo.InvariantCulture, out var refundSumValue);
             var refundPerUnit = 0m; // 2026-10-27 (Д-5): сумма возврата за единицу строки без округления — для частичного возврата по количеству
+            Func<double, decimal>? exactRefund = null; // 2026-11-27 (ответ Умара, п. 2): сумма части строки по шагам сервера (RefundMath.LineRefund), каждый шаг HALF_UP
+            var unitPriceForRefund = (decimal)CartDisplayHelper.UnitPrice(lineItem);
             // 2026-10-20 (К1): строка — как в продаже до возвратов (снимок), и её доля скидки на весь чек.
             if (ledgerLines is not null
                 && (ledgerLines.TryGetValue(lineId, out var was) || (legacyLineId is not null && ledgerLines.TryGetValue(legacyLineId, out was)))
@@ -734,11 +736,16 @@ public partial class ReturnSaleDialog
             {
                 originalQty = was.Quantity;
                 lineTotal = CartDisplayHelper.FormatMoney((double)was.Total);
+                unitPriceForRefund = was.UnitPrice; // цена из снимка (0 — неизвестна, тогда пропорция суммы строки)
             }
             if (originalQty > 0 &&
                 decimal.TryParse(lineTotal, NumberStyles.Any, CultureInfo.InvariantCulture, out var lineTotalValue))
             {
-                refundSumValue = Math.Round(lineTotalValue * (decimal)qty / (decimal)originalQty * factor, 2, MidpointRounding.AwayFromZero);
+                var exactQty = originalQty;
+                var exactTotal = lineTotalValue;
+                var exactUnit = unitPriceForRefund;
+                exactRefund = q => RefundMath.LineRefund(exactUnit, exactQty, exactTotal, q, factor);
+                refundSumValue = exactRefund(qty);
                 refundPerUnit = lineTotalValue / (decimal)originalQty * factor;
                 refundSum = CartDisplayHelper.FormatMoney((double)refundSumValue);
                 if (_ledger is null && qty < originalQty - 1e-6)
@@ -776,6 +783,7 @@ public partial class ReturnSaleDialog
                 Quantity = qty,
                 OriginalQuantity = originalQty,
                 RefundPerUnit = refundPerUnit,
+                ExactRefund = exactRefund,
                 // 2026-10-27 (Д-5): весовой/дробный товар — количество к возврату дробное; штучный — целое.
                 AllowFractionalQuantity = tile is { IsWeighted: true } || tile is { MustWeigh: true }
                     || Math.Abs(qty - Math.Round(qty)) > 1e-6 || Math.Abs(originalQty - Math.Round(originalQty)) > 1e-6,

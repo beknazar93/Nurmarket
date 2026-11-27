@@ -26,6 +26,11 @@ public static class ShiftEventsStore
     /// <summary>Расход: изъятие из кассы или строка «Доп. услуга» с отрицательной ценой.</summary>
     public const string KindExpense = "expense";
 
+    /// <summary>2026-11-26 («при внесении и изъятии на аналитике покажется только изъятие, а внесение исчезает»): внесение денег в ящик. Раньше его не писали
+    /// в журнал событий вовсе (только изъятие → <see cref="KindExpense"/>), и аналитика, считающая по событиям, внесения не знала. Не выручка и не расход:
+    /// Z-отчёт и окно закрытия смены суммируют внесения по-прежнему из журнала операций (ShiftCashOperationsStore), этот вид им не мешает.</summary>
+    public const string KindDeposit = "cash_deposit";
+
     /// <summary>Погашение долга клиентом наличными (в ящик). Записи до 2026-10-18 — все этого вида (касса принимала только наличные).</summary>
     public const string KindDebtPayment = "debt_payment";
 
@@ -49,6 +54,12 @@ public static class ShiftEventsStore
 
     public static void Record(string kind, string? shiftId, string? sourceId, double amount, string? note = null) =>
         TryRecord(kind, shiftId, sourceId, amount, note);
+
+    /// <summary>2026-11-26: событие смены для внесения/изъятия ящика — изъятие пишется расходом (<see cref="KindExpense"/>), внесение — своим видом
+    /// (<see cref="KindDeposit"/>); сумма всегда положительная (знак даёт вид). Одним местом для всех экранов: раньше пути «Доп. услуга», меню и
+    /// «История смен» писали по-разному, а внесение не писал никто.</summary>
+    public static bool RecordDrawerOperation(bool withdrawal, string? shiftId, string? sourceId, double amount, string? note = null) =>
+        TryRecord(withdrawal ? KindExpense : KindDeposit, shiftId, sourceId, Math.Abs(amount), note);
 
     /// <summary>2026-10-18: то же, что Record, но сообщает, записалось ли событие (оплата долга предупреждает кассира, если
     /// в смену не попало). Нулевая сумма — записывать нечего, true.</summary>
@@ -153,6 +164,12 @@ public static class ShiftEventsStore
         string.IsNullOrWhiteSpace(shiftId)
             ? new List<(DateTime, double, string?)>()
             : Db.ListShiftEvents(shiftId!, kind);
+
+    /// <summary>2026-11-26: записи одного вида за смену вместе с source_id события — окно «Возвраты» смены показывает номер чека и товары (ShiftEventText).</summary>
+    public static List<(DateTime CreatedAt, double Amount, string? Note, string? SourceId)> ListDetailedForShift(string? shiftId, string kind) =>
+        string.IsNullOrWhiteSpace(shiftId)
+            ? new List<(DateTime, double, string?, string?)>()
+            : Db.ListShiftEventsWithSource(shiftId!, kind);
 
     /// <summary>Суммы по видам событий за период (UTC) — для аналитики продаж.</summary>
     /// <summary>Возвраты за период без возвратов по отменённым на сервере чекам: такой чек целиком

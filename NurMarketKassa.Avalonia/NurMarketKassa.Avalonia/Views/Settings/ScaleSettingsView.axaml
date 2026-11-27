@@ -133,28 +133,28 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Разделы страницы -->
+                <!-- Разделы страницы. 2026-11-27 (живой проход, H): имена вкладок для диктора; клавиши ←/→ и выбор через UI Automation — в коде (IsCheckedChanged). -->
                 <Border Classes="SettingsCard" Padding="4">
                     <UniformGrid x:Name="SectionTabsGrid" Rows="1">
-                        <RadioButton x:Name="TabWeighingButton" Classes="SectionTab" GroupName="ScaleSection" Click="SectionTab_Click">
+                        <RadioButton x:Name="TabWeighingButton" Classes="SectionTab" GroupName="ScaleSection" Click="SectionTab_Click" AutomationProperties.Name="{DynamicResource scaleSetup.tab.weighing}">
                             <StackPanel>
                                 <TextBlock Classes="mdl2" Text="&#xE9D9;"/>
                                 <TextBlock Text="{DynamicResource scaleSetup.tab.weighing}"/>
                             </StackPanel>
                         </RadioButton>
-                        <RadioButton x:Name="TabLabelButton" Classes="SectionTab" GroupName="ScaleSection" Click="SectionTab_Click">
+                        <RadioButton x:Name="TabLabelButton" Classes="SectionTab" GroupName="ScaleSection" Click="SectionTab_Click" AutomationProperties.Name="{DynamicResource scaleSetup.tab.label}">
                             <StackPanel>
                                 <TextBlock Classes="mdl2" Text="&#xE8A1;"/>
                                 <TextBlock Text="{DynamicResource scaleSetup.tab.label}"/>
                             </StackPanel>
                         </RadioButton>
-                        <RadioButton x:Name="TabBarcodeButton" Classes="SectionTab" GroupName="ScaleSection" Click="SectionTab_Click">
+                        <RadioButton x:Name="TabBarcodeButton" Classes="SectionTab" GroupName="ScaleSection" Click="SectionTab_Click" AutomationProperties.Name="{DynamicResource scaleSetup.tab.barcode}">
                             <StackPanel>
                                 <TextBlock Classes="mdl2" Text="&#xEA90;"/>
                                 <TextBlock Text="{DynamicResource scaleSetup.tab.barcode}"/>
                             </StackPanel>
                         </RadioButton>
-                        <RadioButton x:Name="TabDisplayButton" Classes="SectionTab" GroupName="ScaleSection" Click="SectionTab_Click">
+                        <RadioButton x:Name="TabDisplayButton" Classes="SectionTab" GroupName="ScaleSection" Click="SectionTab_Click" AutomationProperties.Name="{DynamicResource scaleSetup.tab.display}">
                             <StackPanel>
                                 <TextBlock Classes="mdl2" Text="&#xE7F4;"/>
                                 <TextBlock Text="{DynamicResource scaleSetup.tab.display}"/>

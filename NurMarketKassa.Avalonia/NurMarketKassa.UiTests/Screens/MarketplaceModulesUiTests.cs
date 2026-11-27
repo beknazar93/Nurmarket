@@ -175,7 +175,8 @@ public sealed class MarketplaceModulesUiTests : IDisposable
         var commands = new List<string>();
         var items = new LocalMarketplaceCatalogSource(commands.Add).GetItems();
 
-        items.Any(i => i.Id.StartsWith("module:", StringComparison.Ordinal)).Should().BeFalse("общие карточки — только при ответе сервера");
+        // 2026-11-26: исключение — «Выход мяса при приходе» (carcass_yield): сервер модуль пока не знает, карточка есть всегда и включается местным признаком.
+        items.Any(i => i.Id.StartsWith("module:", StringComparison.Ordinal) && i.Id != "module:" + ModuleIds.CarcassYield && i.Id != "module:" + ModuleIds.RepairStatusSite && !MarketplaceFeatureCards.IsLocalCardId(i.Id)).Should().BeFalse("общие карточки — только при ответе сервера");
         var estimate = items.Single(i => i.Id == "estimate");
         estimate.Price.Should().BeNull("цену не придумываем: сервер её не отдал");
         estimate.TileStatusLine.Should().Be("Не включено");

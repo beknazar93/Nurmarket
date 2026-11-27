@@ -66,6 +66,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (code != null) await ref.read(prefsProvider.notifier).setLocale(code);
   }
 
+  /// 2026-11-26: «Вы уже входили на другом устройстве. Выйти там и войти здесь?» — с именем другого устройства, если сервер его прислал (device.name).
+  Future<bool> _askReplaceDevice(ApiException e) async {
+    final l = context.l;
+    final p = e.payload;
+    final device = p is Map && p['device'] is Map ? (p['device'] as Map)['name'] : null;
+    final name = device is String ? device.trim() : '';
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(l.deviceSlotTitle),
+        content: Text(name.isEmpty ? l.deviceSlotBody : '${l.deviceSlotBody}\n\n«$name»'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
+          FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(l.deviceSlotConfirm)),
+        ],
+      ),
+    );
+    return ok == true;
+  }
+
   Future<void> _submit() async {
     if (_busy) return;
     if (_login.text.trim().isEmpty || _password.text.isEmpty) {
@@ -87,10 +107,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           return;
         }
       }
-      await ref.read(sessionProvider.notifier).login(_login.text, _password.text);
+      try {
+        await ref.read(sessionProvider.notifier).login(_login.text, _password.text);
+      } on ApiException catch (e) {
+        if (!e.isDeviceSlotTaken) rethrow;
+        // 2026-11-26 (тариф «Мини»): место телефона занято другим устройством — вход не выполнен; согласие → повтор с replace_device, отказ → остаёмся на экране входа
+        if (!mounted || !await _askReplaceDevice(e)) return;
+        await ref.read(sessionProvider.notifier).login(_login.text, _password.text, replaceDevice: true);
+      }
       if (mounted) context.go('/cashbox');
     } on ApiException catch (e) {
-      setState(() => _error = e.status == 401 || e.status == 400 ? context.l.loginWrong : e.message);
+      // 2026-11-26: «Неверный логин или пароль» только для настоящего 400/401; код слота устройства — свой текст (раньше «Мини» получал «неверный пароль»)
+      setState(() => _error = e.isDeviceKeyRequired ? context.l.loginDeviceKeyRequired : (e.status == 401 || e.status == 400 ? context.l.loginWrong : e.message));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

@@ -32,6 +32,7 @@ public static class UiShot
     {
         var app = (NurMarketKassa.AvaloniaHost.App)Application.Current!;
         ResetStaticsIfNewApplication(app);
+        NurMarketKassa.AvaloniaHost.Services.TariffDraft.ResetForTests(); // 2026-11-26: общий набор «Своё» (Маркетплейс ↔ диалог) — статический; каждый сценарий начинает с пустого
         var dark = theme == UiTheme.Dark;
         UserPreferences.Instance.Language = lang;
         UserPreferences.Instance.DarkTheme = dark;

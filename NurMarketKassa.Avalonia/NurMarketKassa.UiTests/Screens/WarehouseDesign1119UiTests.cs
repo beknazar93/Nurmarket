@@ -87,8 +87,9 @@ public sealed class WarehouseDesign1119UiTests
         }
 
         // 2026-11-21 (владелец: «все редакторы — в одну вкладку»): выбора галочками и панели массовых действий больше нет — печать только на вкладке «Ценники и штрихкоды».
-        wh.FindControl<Control>("BulkBar").Should().BeNull($"{tag}: панели массовых действий нет");
-        rows.SelectMany(r => r.GetVisualDescendants().OfType<CheckBox>()).Should().BeEmpty($"{tag}: галочек «в печать» в строках нет");
+        // 2026-11-27: в 1.17.94 в «Товарах» вернулись галочки выбора и панель «Ценники и штрихкоды» (BulkBar): без отмеченных строк панель скрыта, в строках есть галочка.
+        wh.FindControl<Control>("BulkBar")?.IsVisible.Should().BeFalse($"{tag}: пока ничего не отмечено, панель массовых действий скрыта");
+        rows.Should().OnlyContain(r => r.GetVisualDescendants().OfType<CheckBox>().Any(), $"{tag}: в каждой строке есть галочка выбора");
 
         // Пустое состояние: ничего не найдено — блок с кнопкой «Сбросить поиск и фильтры».
         vm.ProductSearchText = "zzqq-нет-такого-товара";

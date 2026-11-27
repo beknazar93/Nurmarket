@@ -1,8 +1,9 @@
 import 'dart:async';
-import 'dart:io' show HttpDate;
+import 'dart:io' show HttpClient, HttpDate;
 import 'dart:math';
 
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart' show IOHttpClientAdapter;
 import 'package:flutter/foundation.dart';
 
 import '../../l10n/app_localizations.dart';
@@ -84,6 +85,26 @@ class ApiException implements Exception {
   ApiException(this.message, {this.status, this.payload});
 
   /// Сбой связи или сервера: запрос мог дойти — повтор только тем же ключом (как PosCheckoutService.Quick кассы).
+  /// 2026-11-26: код ошибки из тела ответа (`code`, иначе `error`), строчными; null — тела или кода нет (device_key_required, device_slot_taken, pin_required …).
+  String? get code {
+    final p = payload;
+    if (p is! Map) return null;
+    for (final k in const ['code', 'error']) {
+      final v = p[k];
+      if (v is String && v.trim().isNotEmpty) return v.trim().toLowerCase();
+    }
+    return null;
+  }
+
+  /// 2026-11-26: вход — место устройства занято другим телефоном (409 device_slot_taken): спрашиваем «Выйти там и войти здесь?».
+  bool get isDeviceSlotTaken => status == 409 && code == 'device_slot_taken';
+
+  /// 2026-11-26: тариф «Мини» — сервер ждёт device_key при входе (400 device_key_required).
+  bool get isDeviceKeyRequired => status == 400 && code == 'device_key_required';
+
+  /// 2026-11-26: действие нужно подтвердить PIN владельца/админа (403 pin_required, у компании включено «Подтверждать PIN»).
+  bool get isPinRequired => status == 403 && code == 'pin_required';
+
   bool get isTransient => status == null || status == 408 || status == 409 || status == 423 || status == 425 || status == 429 || (status! >= 500);
 
   @override
@@ -148,6 +169,13 @@ class ApiClient {
   /// Версию выставляют main.dart и фоновая задача (AppBuild.version).
   static String clientTag = 'mobile/0';
 
+  /// 2026-11-26: сколько клиент держит простаивающее соединение с сервером (см. конструктор).
+  static const connectionIdleTimeout = Duration(seconds: 65);
+
+  /// Только для проверок: адаптер, через который идут запросы.
+  @visibleForTesting
+  HttpClientAdapter get adapterForTest => _dio.httpClientAdapter;
+
   final Dio _dio;
   final SessionStore _store;
   Session? _session;
@@ -201,6 +229,10 @@ class ApiClient {
           responseType: ResponseType.json,
         ),
       ) {
+    // 2026-11-26 (быстродействие): dio по умолчанию закрывает простаивающее соединение через 3 секунды (io_adapter: idleTimeout = 3 с), поэтому каждый такт
+    // синхронизации (лента раз в минуту, очередь чеков, профиль) заново проходил TCP+TLS-рукопожатие (≈170–180 мс до первого байта, замер 29.10) и грел радио.
+    // Сервер за Cloudflare держит соединение дольше 70 с (замер 29.10), поэтому клиент закрывает его сам через 65 с простоя — раньше сервера, обрывов «соединение закрыто» не будет.
+    _dio.httpClientAdapter = IOHttpClientAdapter(createHttpClient: () => HttpClient()..idleTimeout = connectionIdleTimeout);
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (o, h) {
@@ -223,8 +255,20 @@ class ApiClient {
   // ------------------------------------------------------------------ вход
 
   /// POST api/users/auth/login/ {email, password} → {access, refresh, …}.
-  Future<Map<String, dynamic>> login(String email, String password) async {
-    final data = await _send('POST', 'api/users/auth/login/', body: {'email': email.trim(), 'password': password}, auth: false);
+  /// 2026-11-26 (слоты устройств, как у кассы: LoginRequest): с [deviceKey] уходят client_type=mobile, device_key и device_name — тариф «Мини»
+  /// без device_key отвечает 400 device_key_required; [replaceDevice] — после согласия «Выйти там и войти здесь» (409 device_slot_taken).
+  Future<Map<String, dynamic>> login(String email, String password, {String? deviceKey, String? deviceName, bool replaceDevice = false}) async {
+    final data = await _send(
+      'POST',
+      'api/users/auth/login/',
+      body: {
+        'email': email.trim(),
+        'password': password,
+        if (deviceKey != null && deviceKey.isNotEmpty) ...{'client_type': 'mobile', 'device_key': deviceKey, if (deviceName != null && deviceName.isNotEmpty) 'device_name': deviceName},
+        if (replaceDevice) 'replace_device': true,
+      },
+      auth: false,
+    );
     // 2026-10-29 (аудит, мелкое): ответ не JSON-объект — понятная ошибка, а не TypeError без сообщения
     if (data is! Map<String, dynamic>) throw ApiException(ApiText.badResponse);
     final map = data;
@@ -268,6 +312,11 @@ class ApiClient {
   Future<dynamic> patch(String path, {Object? body}) => _send('PATCH', path, body: body);
 
   Future<dynamic> delete(String path) => _send('DELETE', path);
+
+  /// 2026-11-27 (Маркетплейс мобилки): любой метод с заголовками (PUT модулей компании и DELETE пакета — с If-Match, как в кассе); `put`/`delete` с заголовками
+  /// отдельно не заводим, чтобы не менять подписи, которые переопределяют тестовые фейки.
+  Future<dynamic> send(String method, String path, {Object? body, Map<String, String>? headers, Duration? timeout}) =>
+      _send(method, path, body: body, headers: headers, timeout: timeout);
 
   Future<dynamic> _send(
     String method,

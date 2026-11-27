@@ -151,6 +151,9 @@
   <x:String x:Key="printSettings.lptNotFound">Бул дарек боюнча принтер табылган жок</x:String>
   <x:String x:Key="printSettings.previewTextReceipt">Тексттик чекти алдын ала көрүү</x:String>
   <x:String x:Key="printSettings.qrHeader">QR-код</x:String>
+  <x:String x:Key="printSettings.linkQr">Электрондук чекке шилтемеси бар QR</x:String>
+  <x:String x:Key="printSettings.shopQr">Дүкөндүн QR'ы «Онлайн буйрутма берүү»</x:String>
+  <x:String x:Key="printSettings.shopQrHint">Чектин ылдый жагындагы экинчи QR сатып алуучуну дүкөнүңүздүн витринасына (market.nurcrm.kg) алып барат, ал жерден онлайн буйрутма берсе болот. Дүкөндө витрина болсо гана басылат. Баа белгисинде — баа белгиси редактордогу «Дүкөндүн QR'ы» элементи.</x:String>
   <x:String x:Key="printSettings.uploadQr">QR жүктөө</x:String>
   <x:String x:Key="printSettings.deleteQr">Өчүрүү</x:String>
   <x:String x:Key="printSettings.qrNotLoaded">QR-код жүктөлгөн эмес</x:String>
@@ -1390,7 +1393,7 @@
     <x:String x:Key="loc.settings.telegram.routerHint">Gemini'нин күндүк лимити бүтсө, OpenRouter'дин акысыз модели жооп берет (күнүнө 50 суроо). «Акысыз ачкыч алуу» басыңыз → Google аркылуу кириңиз → «Create API Key», ачкычты (sk-or-…) көчүрүп, бул жерге чаптаңыз. Анда суроо жана дүкөндүн жыйынтыгы OpenRouter'ге кетет. Бош талаа — өчүк.</x:String>
     <x:String x:Key="loc.settings.dynamicQr.toggle">Сатып алуучуга чектин суммасы жазылган QR көрсөтүү</x:String>
     <x:String x:Key="loc.settings.dynamicQr.desc">Сатып алуучунун экранында банктын кадимки QR-кодунун ордуна чектин суммасы жазылган код көрсөтүлөт — сумманы кол менен терүүнүн кереги жок. Реквизиттер жогоруда жүктөлгөн QR-коддон алынат.</x:String>
-    <x:String x:Key="loc.settings.dynamicQr.warning">Күйгүзөрдөн мурун сынамык чекти эки-үч банктын тиркемеси менен скандап көрүңүз: формат MBank QR-коду менен салыштырылган, башка банктарда текшерилген эмес. Төлөмдү кассир мурдагыдай эле кол менен ырастайт — касса төлөм тууралуу өзү билбейт.</x:String>
+    <x:String x:Key="loc.settings.dynamicQr.warning">Суммасы бар QR өзүн-өзү текшерүүдөн өткөн банктар үчүн гана түзүлөт: касса QR'дун контролдук суммасын өз формуласы менен салыштырат, дал келсе — банктын тиркемеси мындай кодду кабыл алат. Калган банктарга кадимки QR көрсөтүлөт. Төлөмдү кассир мурдагыдай эле кол менен (Enter) ырастайт — касса төлөм тууралуу өзү билбейт.</x:String>
     <x:String x:Key="loc.settings.bank.showAtCheckout">Төлөө учурунда көрсөтүү</x:String>
     <x:String x:Key="loc.settings.lanScale.title">Тармактык тараза (товарларды жүктөө)</x:String>
     <x:String x:Key="loc.settings.lanScale.desc">Дарек, порт жана сырсөз таразанын өзүнүн системалык менюсунан алынат. Товарлардын тизмесин жүктөөдө «Тараза» терезеси да ушул эле маанилерди колдонот.</x:String>

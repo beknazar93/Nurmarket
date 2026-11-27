@@ -30,6 +30,15 @@ public partial class ScaleSettingsView : UserControl
     public ScaleSettingsView()
     {
         InitializeComponent();
+        // 2026-11-27 (живой проход, H): вкладки переключались только мышью (подписка на Click) — диктор/UI Automation (выбор вкладки) и клавиатура не
+        // меняли раздел. Теперь раздел следует за IsChecked, а стрелки ←/→ (и Home/End) на вкладках переходят к соседней видимой вкладке.
+        foreach (var tab in SectionTabs)
+            tab.IsCheckedChanged += (s, _) =>
+            {
+                if (s is RadioButton { IsChecked: true } rb && TabIndexOf(rb) is var i && i != _lastSection)
+                    ShowSection(i);
+            };
+        SectionTabsGrid.AddHandler(KeyDownEvent, SectionTabs_KeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
         // 2026-11-19 (живой обход «Настройки → Весы»): окно настроек прячет «Сохранить» страницы (её заменяет закреплённая внизу окна) —
         // карточка SaveBlock оставалась пустой полосой под содержимым. Видна, только если в ней есть кнопка или надпись.
         SaveButton.PropertyChanged += (_, e) => { if (e.Property == IsVisibleProperty) UpdateSaveBlockVisibility(); };
@@ -133,7 +142,33 @@ public partial class ScaleSettingsView : UserControl
             : sender == TabBarcodeButton ? 2
             : sender == TabDisplayButton ? 3
             : 0;
-        ShowSection(index);
+        if (index != _lastSection) // 2026-11-27 (H): обычно раздел уже переключил IsCheckedChanged — второй раз список весов не строим
+            ShowSection(index);
+    }
+
+    private RadioButton[] SectionTabs => new[] { TabWeighingButton, TabLabelButton, TabBarcodeButton, TabDisplayButton };
+
+    private int TabIndexOf(RadioButton tab) => Array.IndexOf(SectionTabs, tab) is var i and >= 0 ? i : 0;
+
+    /// <summary>2026-11-27 (H): ←/→/Home/End на вкладках — соседняя/крайняя видимая вкладка (фокус и раздел).</summary>
+    private void SectionTabs_KeyDown(object? sender, Avalonia.Input.KeyEventArgs e)
+    {
+        if (e.Key is not (Avalonia.Input.Key.Left or Avalonia.Input.Key.Right or Avalonia.Input.Key.Home or Avalonia.Input.Key.End))
+            return;
+        var visible = SectionTabs.Where(t => t.IsVisible).ToList();
+        if (visible.Count == 0)
+            return;
+        var current = visible.FindIndex(t => t.IsChecked == true);
+        var next = e.Key switch
+        {
+            Avalonia.Input.Key.Home => 0,
+            Avalonia.Input.Key.End => visible.Count - 1,
+            Avalonia.Input.Key.Left => Math.Max(0, current - 1),
+            _ => Math.Min(visible.Count - 1, current + 1),
+        };
+        e.Handled = true;
+        ShowSection(TabIndexOf(visible[next]));
+        visible[next].Focus(Avalonia.Input.NavigationMethod.Directional);
     }
 
     /// <summary>Показывает один раздел страницы.</summary>

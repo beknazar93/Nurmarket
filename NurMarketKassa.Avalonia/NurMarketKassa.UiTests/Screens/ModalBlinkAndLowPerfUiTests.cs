@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless.XUnit;
+using Avalonia.LogicalTree;
 using FluentAssertions;
 using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.AvaloniaHost.Views.Dialogs;
@@ -20,11 +21,12 @@ namespace NurMarketKassa.UiTests.Screens;
 [Collection("UiScenarios")]
 public sealed class ModalBlinkAndLowPerfUiTests
 {
-    private static readonly MethodInfo PrepareBeforeShow = typeof(Window).Assembly
+    // 2026-11-27: сборка приложения берётся по классу App (typeof(Window) — это Avalonia.Controls, DialogScreenFit там не находился → NullReferenceException в статическом конструкторе).
+    private static readonly MethodInfo PrepareBeforeShow = typeof(NurMarketKassa.AvaloniaHost.App).Assembly
         .GetType("NurMarketKassa.AvaloniaHost.Views.Dialogs.DialogScreenFit")!
         .GetMethod("PrepareBeforeShow", BindingFlags.NonPublic | BindingFlags.Static)!;
 
-    private static readonly MethodInfo OnWindowOpened = typeof(Window).Assembly
+    private static readonly MethodInfo OnWindowOpened = typeof(NurMarketKassa.AvaloniaHost.App).Assembly
         .GetType("NurMarketKassa.AvaloniaHost.Views.Dialogs.DialogScreenFit")!
         .GetMethod("OnWindowOpened", BindingFlags.NonPublic | BindingFlags.Static)!;
 
@@ -124,7 +126,8 @@ public sealed class ModalBlinkAndLowPerfUiTests
             hint!.Should().Equal([WindowTransparencyLevel.None]); // окна диалогов стали обычными (непрозрачными) без перезахода
 
             // Только программная отрисовка ждёт перезапуска: строка есть, лишь если программа запущена с другим режимом.
-            var note = view.FindControl<TextBlock>("GfxLowPerfNote");
+            // 2026-11-27: строка добавляется кодом (GfxText) — ищем по логическому дереву: FindControl её в области имён не находил.
+            var note = view.GetLogicalDescendants().OfType<TextBlock>().FirstOrDefault(t => t.Name == "GfxLowPerfNote");
             note.Should().NotBeNull();
             RenderModeSettings.LowPerformanceRestartNeeded(true).Should().Be(RenderModeSettings.StartedLowPerformance is false);
             note!.IsVisible.Should().Be(RenderModeSettings.StartedLowPerformance is false, "«применится после перезапуска» — только для отрисовки");

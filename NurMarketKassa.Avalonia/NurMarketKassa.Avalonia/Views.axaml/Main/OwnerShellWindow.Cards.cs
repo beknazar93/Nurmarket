@@ -206,6 +206,13 @@ public partial class OwnerShellWindow
             }
         }
 
+        // 2026-11-27 (живой проход): сервер отдаёт «debt» двумя строками — оплаченные потом долговые чеки (входят в выручку)
+        // и «продано в долг целиком» (= cards.credit_sales_total, в выручку «без долга» не входит). В «Сводке» было
+        // «В долг 65 · В долг 65», итог 478 при выручке 413. Вторую строку убираем — долги показаны в карточке «Долги клиентов».
+        var creditSales = report.ValueKind == JsonValueKind.Object && report.TryGetProperty("cards", out var cardsEl)
+            ? Num(cardsEl, "credit_sales_total") : 0;
+        methods = NurMarketKassa.Services.PaymentMethodRows.DropCreditSalesDuplicate(methods, creditSales);
+
         methods.Sort((a, b) => b.Total.CompareTo(a.Total));
         var sum = methods.Sum(m => m.Total);
         PaymentsCountText.Text = sum > 0 ? $"{Whole(sum)} {Som()}" : "";

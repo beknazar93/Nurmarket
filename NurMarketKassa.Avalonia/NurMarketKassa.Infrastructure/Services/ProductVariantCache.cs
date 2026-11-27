@@ -118,7 +118,8 @@ public static class ProductVariantCache
     }
 
     /// <summary>Записать свежий список (например, после правки вариантов в карточке товара).</summary>
-    public static void Put(string productId, List<ProductVariantDto> list)
+    /// <param name="deferIndexSave">2026-11-26: true — фоновый обход каталога: справочник штрихкодов размеров пишется на диск не после каждого товара (см. VariantBarcodeIndex.Update).</param>
+    public static void Put(string productId, List<ProductVariantDto> list, bool deferIndexSave = false)
     {
         if (!string.IsNullOrWhiteSpace(productId) && list is not null)
         {
@@ -126,7 +127,7 @@ public static class ProductVariantCache
             if (list.Count > 0)
                 ServerFlags.TryRemove(productId.Trim(), out _); // правка в карточке: признак сервера устарел
             // 2026-10-06 (О-01): штрихкоды размеров — в справочник для скана этикетки размера.
-            VariantBarcodeIndex.Update(productId, list);
+            VariantBarcodeIndex.Update(productId, list, deferIndexSave);
         }
     }
 

@@ -45,7 +45,8 @@ public partial class BulkImportWizardWindow
     private bool _notProductsForced;
     private bool _notProductsBlock;
     private readonly ScrollViewer _advCol = new() { IsVisible = false, Width = 360, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Margin = new Thickness(12, 0, 0, 0) };
-    private readonly TextBlock _bigSummary = new() { FontSize = 16, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap };
+    // 2026-11-27: шрифт итога 16 → 14 — на 1024×600 итог занимал три строки, таблица проверки была ниже 45 % окна (260 из 270 px).
+    private readonly TextBlock _bigSummary = new() { FontSize = 14, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap };
     private readonly Border _apSkippedBox = new() { IsVisible = false, CornerRadius = new CornerRadius(8), BorderThickness = new Thickness(1), Padding = new Thickness(10, 8) };
     private readonly TextBlock _filePageTitle = new() { Margin = new Thickness(0, 6, 0, 0), FontSize = 18, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _fileTitle = new() { FontSize = 16, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap };
@@ -228,12 +229,17 @@ public partial class BulkImportWizardWindow
             "Dasturni tanlang — qaysi faylni chiqarishni aytamiz va ustunlarni o'zimiz moslaymiz."), 13);
         var head = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 6, 0, 6) };
         var headText = new StackPanel { Spacing = 2, Children = { title, sub } };
+        // 2026-11-27: услуга «Загрузим под ключ» — кнопка в шапке рядом с «Посмотреть на примере», а не 13-я плитка: в «Автозапчастях» плиток 13 → 4 ряда, шаг 1 прокручивался на 1024×600.
+        var fillBtn = SectionCards.Secondary(T("Загрузим под ключ", "Ачкычка даяр жүктөйбүз", "We load it for you", "Sizin için yükleyelim", "Kalitga tayyor yuklaymiz"));
+        fillBtn.MinHeight = 36;
+        ToolTip.SetTip(fillBtn, T("Услуга: поддержка перенесёт вашу базу из Excel, фото накладных или 1С.", "Кызмат: колдоо базаңызды Excel, накладной сүрөттөрү же 1С.тен которот.", "Service: support moves your database from Excel, invoice photos or 1C.", "Hizmet: destek veritabanınızı Excel, fatura fotoğrafları veya 1C'den taşır.", "Xizmat: yordam bazangizni Excel, hisob-faktura suratlari yoki 1C dan ko'chiradi."));
+        fillBtn.Click += (_, _) => FillBaseRequestWindow.Open(this);
+        var headButtons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(12, 0, 0, 0), Children = { fillBtn, _demoBtn } };
+        Grid.SetColumn(headButtons, 1);
         _demoBtn.MinHeight = 36;
         _demoBtn.VerticalAlignment = VerticalAlignment.Top;
-        _demoBtn.Margin = new Thickness(12, 0, 0, 0);
-        Grid.SetColumn(_demoBtn, 1);
         head.Children.Add(headText);
-        head.Children.Add(_demoBtn);
+        head.Children.Add(headButtons);
 
         var what = T("Товары, цены, остатки", "Товарлар, баа, калдык", "Products, prices, stock", "Ürün, fiyat, stok", "Mahsulot, narx, qoldiq");
         var tiles = new List<Control>();
@@ -320,7 +326,7 @@ public partial class BulkImportWizardWindow
         b.VerticalAlignment = VerticalAlignment.Stretch;
         b.HorizontalContentAlignment = HorizontalAlignment.Left;
         b.VerticalContentAlignment = VerticalAlignment.Top;
-        b.Padding = new Thickness(12, 6);
+        b.Padding = new Thickness(12, 4); // 2026-11-27: было (12, 6) — на 1024×600 (uz) плитки шага 1 не помещались на 5 px, шаг прокручивался
         b.MinHeight = 72;
         b.Margin = new Thickness(2);
         b.Click += (_, _) => onClick();
@@ -506,7 +512,7 @@ public partial class BulkImportWizardWindow
         // подпись и три переключателя — одна строка (на узком окне переносится); пояснение режима (_modeNote) — в боковой полосе «Дополнительно»
         var modeCaption = Caption(T("Если товар уже есть на складе:", "Товар кампада бар болсо:", "If the product is already in stock:", "Ürün depoda zaten varsa:", "Mahsulot omborda bor bo'lsa:"));
         modeCaption.Margin = new Thickness(0, 0, 14, 0);
-        var radios = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 0, 0), Children = { modeCaption } };
+        var radios = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0), Children = { modeCaption } }; // 2026-11-27: верхний отступ 2 → 0 (таблица на 1024×600 — не ниже 45 % окна)
         foreach (var r in new[] { _modeAll, _modePrice, _modeNew })
         {
             r.Margin = new Thickness(0, 0, 14, 0);
